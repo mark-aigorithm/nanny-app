@@ -1,0 +1,22 @@
+# TODO: Deploy backend — runs on merge to main
+# Steps:
+#   - Build Docker image
+#   - Push to ECR
+#   - Trigger AWS CodePipeline → ECS Fargate deploy
+#   - Run Prisma migrations via ECS task
+#   - Post deployment status to PR
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/**'
+      - 'packages/shared/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: Add ECR login, Docker build/push, CodePipeline trigger steps

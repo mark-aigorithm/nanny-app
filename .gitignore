@@ -1,0 +1,45 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+build
+.next
+*.tsbuildinfo
+
+# Turbo
+.turbo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Testing
+coverage
+
+# Expo
+apps/mobile/.expo
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/web-build
+
+# CDK
+infra/cdk.out
+cdk.context.json
+
+# AWS
+*.pem

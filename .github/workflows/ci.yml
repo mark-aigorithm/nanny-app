@@ -1,0 +1,27 @@
+# TODO: CI — runs on every PR
+# Steps:
+#   - pnpm install
+#   - Turbo lint (parallel)
+#   - Turbo typecheck (parallel)
+#   - Turbo test:coverage
+#   - Fail if coverage < 80%
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # TODO: Add lint, typecheck, test steps with Turborepo
