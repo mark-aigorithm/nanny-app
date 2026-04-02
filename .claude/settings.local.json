@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:registry.npmjs.org)",
-      "Bash(pnpm install --network-timeout 300000)"
+      "Bash(pnpm install --network-timeout 300000)",
+      "mcp__stitch__generate_screen_from_text",
+      "mcp__stitch__list_screens"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "stitch"
+  ]
 }
