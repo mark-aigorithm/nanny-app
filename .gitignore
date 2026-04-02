@@ -43,3 +43,6 @@ cdk.context.json
 
 # AWS
 *.pem
+
+# MCP config (contains API keys)
+.mcp.json
