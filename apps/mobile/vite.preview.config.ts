@@ -11,6 +11,8 @@ export default defineConfig({
     // Redirect react-native imports to react-native-web
     alias: {
       'react-native': 'react-native-web',
+      // Stub @expo/vector-icons with a web-compatible mock (avoids JSX parse errors in .js files)
+      '@expo/vector-icons': path.resolve(__dirname, 'src/mocks/expo-vector-icons-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],
