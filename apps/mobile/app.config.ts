@@ -7,9 +7,9 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.jpg',
   splash: {
-    image: './assets/splash.jpg',
+    image: './assets/icon.jpg',
     resizeMode: 'contain',
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#fcf9f7',
   },
   ios: {
     supportsTablet: false,

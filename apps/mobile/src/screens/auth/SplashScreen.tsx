@@ -3,17 +3,9 @@ import {
   View,
   Text,
   Pressable,
-  Image,
   StyleSheet,
   StatusBar,
 } from 'react-native';
-
-// ASSUMPTION: Brand icon sourced from Figma CDN — expires in 7 days.
-// Replace with bundled local asset (e.g. require('@mobile/assets/icon-leaf.png')) before production.
-const IMG_BRAND_ICON = 'https://www.figma.com/api/mcp/asset/a4c1ecbd-a133-4ba7-95bf-02f9b3d17210';
-
-// ASSUMPTION: 'Get Started' navigates to the Onboarding flow.
-// Wire up navigation.navigate('Onboarding') once the navigation stack is configured.
 
 interface Props {
   onGetStarted?: () => void;
@@ -30,10 +22,6 @@ export default function SplashScreen({ onGetStarted }: Props) {
 
       {/* Center brand identity */}
       <View style={styles.centerContent}>
-        <View style={styles.brandIconContainer}>
-          <Image source={{ uri: IMG_BRAND_ICON }} style={styles.brandIcon} resizeMode="contain" />
-        </View>
-
         <View style={styles.typographyCluster}>
           <Text style={styles.appName}>NannyMom</Text>
           <Text style={styles.tagline}>Care you can trust</Text>
@@ -96,18 +84,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 24,
-  },
-  brandIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: '#f0edeb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandIcon: {
-    width: 34,
-    height: 34,
   },
   typographyCluster: {
     alignItems: 'center',
