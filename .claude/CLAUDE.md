@@ -404,3 +404,39 @@ Don't conflate them — apply least-privilege to each separately.
 | Email/password auth | May need to add phone number auth for markets where email adoption is low |
 | Single AWS region | If launching internationally, multi-region RDS and CloudFront geo-restriction needed |
 | FCM topics for push | Topics are broadcast; for per-user push, store FCM tokens in DB |
+
+---
+
+## Visual validation workflow
+
+When asked to validate a component visually, follow these steps in order:
+
+**Step 1 — Build**
+COMPONENT=<path/to/Component.tsx> npm run preview:web
+Wait for exit code 0. Output lands in dist/preview/.
+
+**Step 2 — Serve**
+npx serve dist/preview --listen 3100 --no-clipboard
+Run in background. Port is 3100.
+
+**Step 3 — Screenshot via Playwright MCP**
+Call these tools in sequence — do not write a script:
+1. browser_navigate → http://localhost:3100
+2. browser_wait_for → selector #root > *, timeout 10000ms
+3. browser_screenshot → save to screenshots/<ComponentName>.png
+
+**Step 4 — Tear down**
+Kill the serve process from Step 2.
+
+## Rules
+- Never use a standalone Playwright script — always call MCP tools directly
+- Never screenshot before #root > * is visible
+- Always tear down the server after capturing
+- If the build fails, stop and report — do not attempt to screenshot
+
+## Viewport
+390×844 (iPhone 14). Set in .mcp/playwright.json — do not override.
+
+## Output
+screenshots/<ComponentName>.png — this is passed to the visual diff step.
+
