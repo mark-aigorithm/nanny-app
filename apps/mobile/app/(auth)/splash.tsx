@@ -4,5 +4,5 @@ import SplashScreen from '@mobile/screens/auth/SplashScreen';
 
 export default function SplashRoute() {
   const router = useRouter();
-  return <SplashScreen onGetStarted={() => router.replace('/(parent)/home')} />;
+  return <SplashScreen onGetStarted={() => router.push('/(auth)/onboarding')} />;
 }
