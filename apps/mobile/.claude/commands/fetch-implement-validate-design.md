@@ -71,6 +71,57 @@ Produce a production-ready React Native component that matches the design intent
 - Replace any `div`/`span`/`img` with RN primitives (`View`, `Text`, `Image`)
 - Wire up real data via hooks — do not hardcode placeholder values
 
+### Step 2.5 — Wire Navigation
+
+After merging agent output, integrate the new screen into the app's Expo Router navigation so it is reachable from the rest of the app.
+
+**a) Create the route file**
+
+Add a thin route file under `apps/mobile/app/` in the correct route group:
+
+| Role / flow | Route group directory |
+|---|---|
+| Auth / onboarding | `app/(auth)/` |
+| Parent screens | `app/(parent)/` |
+| Nanny screens | `app/(nanny)/` |
+
+The route file should import and re-export the screen component:
+
+```tsx
+// app/(parent)/nanny-detail.tsx
+import NannyDetailScreen from '@mobile/screens/parent/NannyDetailScreen';
+export default NannyDetailScreen;
+```
+
+**b) Register in the group layout**
+
+Open the corresponding `_layout.tsx` (e.g. `app/(parent)/_layout.tsx`) and add a `<Stack.Screen>` or `<Tabs.Screen>` entry for the new route with appropriate options (e.g. `headerShown: false`).
+
+**c) Update BottomNav (if the screen is a new tab)**
+
+If the screen should appear as a tab in the bottom navigation, add an entry to the `TABS` array in `src/components/BottomNav.tsx` with the correct `key`, `label`, `activeIcon`, `inactiveIcon`, and `href`. Also extend the `BottomNavTab` type union to include the new tab key.
+
+**d) Link screens together**
+
+Scan the existing screens and the new screen for navigation touch-points — buttons, cards, list items, or other interactive elements that should navigate to or from the new screen. For each one:
+- Import `useRouter` from `expo-router`
+- Add `router.push('/(group)/screen-name')` to the `onPress` handler
+- If the new screen has a back button or "done" action, wire it to `router.back()` or the appropriate destination
+
+Common patterns to look for:
+- A card/list item on a parent screen that should open a detail screen (e.g. `NannyCard` → `/(parent)/nanny-detail`)
+- A CTA button on the new screen that should navigate forward in a flow (e.g. "Book Now" → `/(parent)/booking`)
+- Header back arrows that should call `router.back()`
+- Tab bar items that should link to the new screen
+
+**e) Pass route params (if needed)**
+
+If the new screen requires data from the previous screen (e.g. a nanny ID), use Expo Router's typed params:
+- In the route file, use `useLocalSearchParams<{ id: string }>()` to read params
+- In the calling screen, pass params via `router.push({ pathname: '/(parent)/nanny-detail', params: { id: nanny.id } })`
+
+Note the required route params in the final report (Step 4).
+
 ### Step 3 — Visual Validation
 
 Follow the visual validation workflow from CLAUDE.md exactly.
@@ -114,6 +165,8 @@ After the screenshot is saved, report:
 - Screenshot path: `screenshots/<ComponentName>.png`
 - Output file: `apps/mobile/src/<path>/<ComponentName>.tsx`
 - Any deviations from the Figma design (font substitutions, missing assets, etc.)
+- Navigation changes: route file path, layout registration, any BottomNav updates, and screens that were linked to/from the new screen
+- Route params required by the new screen (if any)
 - Any props or hooks that need to be wired up before the screen is production-ready
 
 ---
