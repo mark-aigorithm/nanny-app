@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:registry.npmjs.org)",
-      "Bash(pnpm install --network-timeout 300000)"
-    ]
-  }
-}

@@ -28,6 +28,9 @@ Thumbs.db
 .vscode
 .idea
 
+# Claude Code local settings
+**/settings.local.json
+
 # Testing
 coverage
 
@@ -46,3 +49,11 @@ cdk.context.json
 
 # MCP config (contains API keys)
 .mcp.json
+
+# Playwright MCP
+.playwright-mcp
+screenshots
+
+# Preview pipeline (generated/output files)
+apps/mobile/src/preview-entry-generated.tsx
+apps/mobile/screenshots/
