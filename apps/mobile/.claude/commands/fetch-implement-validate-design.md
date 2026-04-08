@@ -37,6 +37,14 @@ Call `get_design_context` with the extracted keys and **always pass `forceCode: 
 
 ### Step 2 — Implement the Component
 
+Use **multiple agents in parallel** to implement the component. Split the work as follows:
+
+- **Agent 1 — Component shell + layout**: renders the full structure (sections, scroll, fixed layers) with placeholder data and all `StyleSheet.create` styles
+- **Agent 2 — Data hooks**: creates or updates the relevant hook(s) in `@mobile/hooks/` that wire React Query + the `@mobile/lib/api.ts` Axios instance to the screen's data needs
+- **Agent 3 — Sub-components**: extracts any reusable sub-components (e.g. `NannyCard`, `FilterChip`) into separate files under `@mobile/components/`
+
+Launch all three agents concurrently. Once all return, merge their output into the final file(s) before proceeding to Step 3.
+
 Produce a production-ready React Native component that matches the design intent.
 
 **Output location:**
