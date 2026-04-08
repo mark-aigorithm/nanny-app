@@ -10,6 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import BottomNav from '@mobile/components/BottomNav';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
 // Replace with S3/CDN URLs or bundled assets before production.
@@ -145,15 +146,7 @@ export default function HomeScreen() {
         <Ionicons name="add" size={22} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* ── Fixed: Bottom nav ── */}
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map((tab) => (
-          <TouchableOpacity key={tab.label} style={styles.navTab} activeOpacity={0.7}>
-            <Ionicons name={tab.icon as any} size={20} color={tab.active ? '#97a591' : '#7a7a7a'} />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNav activeTab="home" />
     </View>
   );
 }
@@ -219,13 +212,6 @@ function NannyCard({ nanny }: { nanny: NannyData }) {
 }
 
 // ─── Nav config ──────────────────────────────────────────────────────────────
-
-const NAV_TABS = [
-  { label: 'Home', icon: 'home', active: true },
-  { label: 'Search', icon: 'search-outline', active: false },
-  { label: 'Community', icon: 'people-outline', active: false },
-  { label: 'Messages', icon: 'chatbubble-outline', active: false },
-];
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
@@ -579,33 +565,4 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  // Bottom nav
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: BOTTOM_NAV_HEIGHT,
-    backgroundColor: '#e3d5ca',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingBottom: 20,
-    paddingTop: 8,
-  },
-  navTab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    minWidth: 56,
-  },
-  navLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#7a7a7a',
-  },
-  navLabelActive: {
-    color: '#97a591',
-  },
 });
