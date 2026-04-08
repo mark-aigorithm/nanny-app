@@ -30,7 +30,7 @@ Fetch a Figma design frame, implement it as a production-ready React Native comp
 
 Parse the URL to extract `fileKey` and `nodeId` (convert `-` → `:` in nodeId).
 
-Call `get_design_context` with the extracted keys. This returns:
+Call `get_design_context` with the extracted keys and **always pass `forceCode: true`**. This returns:
 - A reference code snippet (React + Tailwind — treat as a layout/style reference only)
 - A screenshot of the frame
 - Design hints: tokens, annotations, component mappings
