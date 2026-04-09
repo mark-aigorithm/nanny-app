@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -79,10 +80,11 @@ const MOCK_CONVERSATIONS: Conversation[] = [
   },
 ];
 
-function ConversationItem({ conversation }: { conversation: Conversation }) {
+function ConversationItem({ conversation, onPress }: { conversation: Conversation; onPress: (id: string) => void }) {
   return (
     <Pressable
       style={[styles.chatItem, conversation.opacity != null && { opacity: conversation.opacity }]}
+      onPress={() => onPress(conversation.id)}
     >
       <View style={styles.chatAvatarWrapper}>
         <View style={styles.chatAvatarBg}>
@@ -131,6 +133,7 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
 }
 
 export default function MessagesScreen() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
@@ -173,7 +176,11 @@ export default function MessagesScreen() {
         {/* Conversations */}
         <View style={styles.conversationList}>
           {MOCK_CONVERSATIONS.map(conversation => (
-            <ConversationItem key={conversation.id} conversation={conversation} />
+            <ConversationItem
+              key={conversation.id}
+              conversation={conversation}
+              onPress={(id) => router.push({ pathname: '/(parent)/chat/messaging', params: { id } } as any)}
+            />
           ))}
         </View>
       </ScrollView>

@@ -13,6 +13,10 @@ export default defineConfig({
       'react-native': 'react-native-web',
       // Stub @expo/vector-icons with a web-compatible mock (avoids JSX parse errors in .js files)
       '@expo/vector-icons': path.resolve(__dirname, 'src/mocks/expo-vector-icons-web.tsx'),
+      // Stub expo-linear-gradient (ships JSX in .js files)
+      'expo-linear-gradient': path.resolve(__dirname, 'src/mocks/expo-linear-gradient-web.tsx'),
+      // Stub expo-router (ships JSX in .js files, provides no-op hooks for preview)
+      'expo-router': path.resolve(__dirname, 'src/mocks/expo-router-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],

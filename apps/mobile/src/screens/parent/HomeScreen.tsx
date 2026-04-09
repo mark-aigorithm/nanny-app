@@ -10,6 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -58,6 +59,7 @@ type FilterTab = (typeof FILTER_TABS)[number];
 // by the parent navigator once other screens are implemented. Tab buttons are non-functional stubs.
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   return (
@@ -109,7 +111,13 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           {MOCK_NANNIES.map((nanny) => (
-            <NannyCard key={nanny.id} nanny={nanny} />
+            <NannyCard
+              key={nanny.id}
+              nanny={nanny}
+              onViewProfile={(id) =>
+                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } } as any)
+              }
+            />
           ))}
         </View>
 
@@ -133,7 +141,11 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.logoText}>NannyMom</Text>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              activeOpacity={0.7}
+              onPress={() => router.push('/(parent)/notifications' as any)}
+            >
               <Ionicons name="notifications-outline" size={20} color="#1b1c1b" />
             </TouchableOpacity>
             <Image source={{ uri: IMG_USER_AVATAR }} style={styles.avatar} />
@@ -165,7 +177,7 @@ type NannyData = {
   image: string;
 };
 
-function NannyCard({ nanny }: { nanny: NannyData }) {
+function NannyCard({ nanny, onViewProfile }: { nanny: NannyData; onViewProfile: (id: string) => void }) {
   return (
     <View style={styles.card}>
       {/* Photo */}
@@ -202,7 +214,7 @@ function NannyCard({ nanny }: { nanny: NannyData }) {
             <Text style={styles.priceAmount}>${nanny.hourlyRate}</Text>
             <Text style={styles.priceUnit}>/hr</Text>
           </View>
-          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85} onPress={() => onViewProfile(nanny.id)}>
             <Text style={styles.bookBtnText}>Book Now</Text>
           </TouchableOpacity>
         </View>

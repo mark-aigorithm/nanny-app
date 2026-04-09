@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -76,7 +77,7 @@ const MOCK_NANNIES: NannyCardData[] = [
   },
 ];
 
-function NannyCard({ nanny }: { nanny: NannyCardData }) {
+function NannyCard({ nanny, onViewProfile }: { nanny: NannyCardData; onViewProfile: (id: string) => void }) {
   return (
     <View style={styles.nannyCard}>
       <View style={styles.nannyImageContainer}>
@@ -106,7 +107,7 @@ function NannyCard({ nanny }: { nanny: NannyCardData }) {
             <Text style={styles.nannyPriceAmount}>${nanny.hourlyRate}</Text>
             <Text style={styles.nannyPriceUnit}>/hr</Text>
           </Text>
-          <Pressable style={styles.viewProfileButton}>
+          <Pressable style={styles.viewProfileButton} onPress={() => onViewProfile(nanny.id)}>
             <Text style={styles.viewProfileText}>View Profile</Text>
           </Pressable>
         </View>
@@ -116,6 +117,7 @@ function NannyCard({ nanny }: { nanny: NannyCardData }) {
 }
 
 export default function SearchScreen() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterChip>('All Nannies');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -155,7 +157,12 @@ export default function SearchScreen() {
         {/* Nanny Cards */}
         {MOCK_NANNIES.map((nanny, index) => (
           <React.Fragment key={nanny.id}>
-            <NannyCard nanny={nanny} />
+            <NannyCard
+              nanny={nanny}
+              onViewProfile={(id) =>
+                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } } as any)
+              }
+            />
             {/* Featured banner after second card */}
             {index === 1 && (
               <View style={styles.featuredBanner}>
