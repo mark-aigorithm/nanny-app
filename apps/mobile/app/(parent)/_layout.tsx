@@ -4,6 +4,7 @@ export default function ParentLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
+      <Tabs.Screen name="home-dashboard" options={{ headerShown: false }} />
       <Tabs.Screen name="search" options={{ title: 'Search' }} />
       <Tabs.Screen name="community" options={{ title: 'Community' }} />
       <Tabs.Screen name="messages" options={{ title: 'Messages' }} />
@@ -15,6 +16,11 @@ export default function ParentLayout() {
       <Tabs.Screen name="book" options={{ title: 'Book' }} />
       <Tabs.Screen name="chat" options={{ title: 'Chat' }} />
       <Tabs.Screen name="nanny" options={{ title: 'Nanny' }} />
+      <Tabs.Screen name="marketplace" options={{ headerShown: false }} />
+      <Tabs.Screen name="events-meetups" options={{ headerShown: false }} />
+      <Tabs.Screen name="community-feed" options={{ headerShown: false }} />
+      <Tabs.Screen name="booking-history" options={{ headerShown: false }} />
+      <Tabs.Screen name="search-results" options={{ headerShown: false }} />
     </Tabs>
   );
 }
