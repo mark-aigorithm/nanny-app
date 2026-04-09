@@ -50,9 +50,6 @@ export default function OnboardingScreen({ onSkip, onGetStarted }: Props) {
           style={styles.heroImage}
           resizeMode="cover"
         />
-        {/* Dark top-to-transparent gradient overlay — simulated with two Views */}
-        <View style={styles.gradientOverlayTop} />
-        <View style={styles.gradientOverlayMid} />
 
         {/* Skip pill — top-right */}
         <Pressable style={styles.skipButton} onPress={handleSkip}>
@@ -83,10 +80,7 @@ export default function OnboardingScreen({ onSkip, onGetStarted }: Props) {
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
           onPress={handleGetStarted}
         >
-          {/* Gradient simulated: two-tone bg via overlapping views */}
-          <View style={styles.ctaGradientLeft} />
-          <View style={styles.ctaGradientRight} />
-          <View style={styles.ctaContent}>
+            <View style={styles.ctaContent}>
             <Text style={styles.ctaText}>Get started</Text>
             <Ionicons name="arrow-forward" size={18} color="#ffffff" />
           </View>
@@ -110,21 +104,6 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     height: '100%',
-  },
-  // Topmost dark band
-  gradientOverlayTop: {
-    ...StyleSheet.absoluteFillObject,
-    height: '45%',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  // Fade band below that transitions to transparent
-  gradientOverlayMid: {
-    position: 'absolute',
-    top: '35%',
-    left: 0,
-    right: 0,
-    height: '25%',
-    backgroundColor: 'rgba(0,0,0,0.0)',
   },
   skipButton: {
     position: 'absolute',
@@ -201,26 +180,13 @@ const styles = StyleSheet.create({
   cta: {
     height: 56,
     borderRadius: 24,
-    overflow: 'hidden',
+    backgroundColor: '#97a591',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaPressed: {
     opacity: 0.88,
-  },
-  // Gradient: left half (#97a591) blending into right half (#7a8a75)
-  ctaGradientLeft: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#97a591',
-  },
-  ctaGradientRight: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: '50%',
-    backgroundColor: '#7a8a75',
   },
   ctaContent: {
     flexDirection: 'row',
