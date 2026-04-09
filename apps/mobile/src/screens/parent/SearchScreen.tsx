@@ -173,7 +173,10 @@ export default function SearchScreen() {
                 <Text style={styles.featuredBody}>
                   {`Our Pro+ nannies have completed background checks, pediatric first aid, and professional training certifications.`}
                 </Text>
-                <Pressable style={styles.featuredButton}>
+                <Pressable
+                  style={styles.featuredButton}
+                  onPress={() => router.push('/(parent)/search-results' as never)}
+                >
                   <Text style={styles.featuredButtonText}>Explore Pro+</Text>
                 </Pressable>
                 <View style={styles.featuredImageContainer}>
@@ -210,6 +213,8 @@ export default function SearchScreen() {
                 placeholderTextColor="#7a7a7a"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                returnKeyType="search"
+                onSubmitEditing={() => router.push('/(parent)/search-results' as never)}
               />
             </View>
           </View>

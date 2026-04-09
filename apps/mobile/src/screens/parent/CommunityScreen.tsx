@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -31,6 +32,7 @@ const TAGS = {
 } as const;
 
 export default function CommunityScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('For You');
 
   return (
@@ -44,7 +46,7 @@ export default function CommunityScreen() {
         {/* Section: Trending Discussions */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Trending Discussions</Text>
-          <Pressable>
+          <Pressable onPress={() => router.push('/(parent)/community-feed' as never)}>
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
         </View>
@@ -211,7 +213,10 @@ export default function CommunityScreen() {
       </View>
 
       {/* FAB */}
-      <Pressable style={styles.fab}>
+      <Pressable
+        style={styles.fab}
+        onPress={() => router.push('/(parent)/community-feed' as never)}
+      >
         <Ionicons name="add" size={24} color="#fff" />
       </Pressable>
 

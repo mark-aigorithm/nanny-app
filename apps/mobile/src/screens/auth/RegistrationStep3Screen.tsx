@@ -61,11 +61,7 @@ export default function RegistrationStep3Screen() {
 
   function handleCompleteSetup() {
     if (otp.length < OTP_LENGTH || !termsAccepted) return;
-    if (role === 'nanny') {
-      router.push('/(nanny)/home' as any);
-    } else {
-      router.push('/(parent)/home' as any);
-    }
+    router.push('/(auth)/notification-permission' as never);
   }
 
   function handleOtpChange(value: string) {
