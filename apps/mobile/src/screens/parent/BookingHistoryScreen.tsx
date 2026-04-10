@@ -5,19 +5,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  StyleSheet,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56;
-const BOTTOM_NAV_HEIGHT = 80;
+import { colors } from '@mobile/theme';
+import { Card, Avatar } from '@mobile/components/ui';
+import { styles } from './styles/booking-history-screen.styles';
 
 // ─── Placeholder images ──────────────────────────────────────────────────────
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -147,10 +142,10 @@ export default function BookingHistoryScreen() {
           activeOpacity={0.7}
           onPress={handleBack}
         >
-          <Ionicons name="chevron-back" size={24} color="#1b1c1b" />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My bookings</Text>
-        <Image source={{ uri: IMG_PROFILE }} style={styles.headerAvatar} />
+        <Avatar uri={IMG_PROFILE} size="sm" />
       </View>
 
       {/* ── Scrollable Content ── */}
@@ -209,7 +204,7 @@ export default function BookingHistoryScreen() {
 
         {activeTab === 'cancelled' && (
           <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={48} color="#c4c8bf" />
+            <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
             <Text style={styles.emptyStateText}>No cancelled bookings</Text>
           </View>
         )}
@@ -249,11 +244,11 @@ function UpcomingBookingCard({
           <View style={styles.nannyNameRow}>
             <Text style={styles.nannyName}>{booking.nannyName}</Text>
             {booking.verified && (
-              <Ionicons name="checkmark-circle" size={16} color="#97a591" />
+              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
             )}
           </View>
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={12} color="#f5c518" />
+            <Ionicons name="star" size={12} color={colors.gold} />
             <Text style={styles.ratingText}>
               {booking.rating.toFixed(1)} ({booking.reviewCount} reviews)
             </Text>
@@ -268,11 +263,11 @@ function UpcomingBookingCard({
 
       {/* Date & Time */}
       <View style={styles.detailRow}>
-        <Ionicons name="calendar-outline" size={16} color="#7a7a7a" />
+        <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
         <Text style={styles.detailText}>{booking.date}</Text>
       </View>
       <View style={styles.detailRow}>
-        <Ionicons name="time-outline" size={16} color="#7a7a7a" />
+        <Ionicons name="time-outline" size={16} color={colors.textMuted} />
         <Text style={styles.detailText}>{booking.time}</Text>
       </View>
 
@@ -348,7 +343,7 @@ function PastBookingCard({
             activeOpacity={0.7}
             onPress={() => onLeaveReview(booking.id)}
           >
-            <Ionicons name="star" size={14} color="#f5c518" />
+            <Ionicons name="star" size={14} color={colors.gold} />
             <Text style={styles.leaveReviewText}>Leave review</Text>
           </TouchableOpacity>
         )}
@@ -364,313 +359,3 @@ function PastBookingCard({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfaf8',
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: STATUS_BAR_HEIGHT,
-    backgroundColor: '#fdfaf8',
-    zIndex: 10,
-  },
-  headerBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    color: '#1b1c1b',
-  },
-  headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0edeb',
-  },
-
-  // Scroll area
-  scrollView: {
-    flex: 1,
-    marginTop: HEADER_HEIGHT,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: BOTTOM_NAV_HEIGHT + 24,
-  },
-
-  // Tab Bar
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#e3d5ca',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  tabActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  tabText: {
-    fontFamily: 'Manrope',
-    fontWeight: '500',
-    fontSize: 14,
-    color: '#7a7a7a',
-  },
-  tabTextActive: {
-    fontWeight: '700',
-    color: '#97a591',
-  },
-
-  // Section
-  section: {
-    gap: 16,
-  },
-  sectionTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#1b1c1b',
-    marginBottom: 4,
-  },
-
-  // Empty State
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-    gap: 12,
-  },
-  emptyStateText: {
-    fontFamily: 'Manrope',
-    fontWeight: '500',
-    fontSize: 16,
-    color: '#7a7a7a',
-  },
-
-  // Upcoming Booking Card
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(196,200,191,0.1)',
-    shadowColor: '#7a7a7a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-
-  // Nanny Row (shared)
-  nannyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  nannyPhotoWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#f0edeb',
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  nannyPhoto: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  nannyInfo: {
-    flex: 1,
-  },
-  nannyNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  nannyName: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#1b1c1b',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  ratingText: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 12,
-    color: '#7a7a7a',
-  },
-
-  // Status Badges
-  statusBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#d4e8d4',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    marginBottom: 12,
-  },
-  statusBadgeText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 11,
-    color: '#3d6b3d',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-
-  // Detail Rows
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  detailText: {
-    fontFamily: 'Manrope',
-    fontWeight: '500',
-    fontSize: 14,
-    color: '#1b1c1b',
-  },
-
-  // Card Divider
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(196,200,191,0.15)',
-    marginVertical: 16,
-  },
-
-  // Card Actions
-  cardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  viewDetailsText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#97a591',
-  },
-  cancelText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#c0634a',
-  },
-  messageButton: {
-    borderWidth: 1.5,
-    borderColor: '#97a591',
-    borderRadius: 9999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  messageButtonText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#97a591',
-  },
-
-  // Past Booking Card
-  pastCard: {
-    backgroundColor: '#f6f3f1',
-    borderRadius: 16,
-    padding: 20,
-    opacity: 0.9,
-  },
-  bookedTimesText: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 13,
-    color: '#7a7a7a',
-    marginTop: 2,
-  },
-  completedBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#e3d5ca',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    marginBottom: 12,
-  },
-  completedBadgeText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 11,
-    color: '#7a7a7a',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-
-  // Past Card Actions
-  pastCardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  leaveReviewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  leaveReviewText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#97a591',
-  },
-  bookAgainButton: {
-    borderWidth: 1.5,
-    borderColor: '#97a591',
-    borderRadius: 9999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  bookAgainButtonText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#97a591',
-  },
-});

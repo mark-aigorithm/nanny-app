@@ -5,14 +5,13 @@ import {
   ScrollView,
   Pressable,
   Image,
-  StyleSheet,
-  Platform,
-  StatusBar,
   TextInput,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/nanny-care-log-screen.styles';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
 // Replace with S3/CDN URLs or bundled assets before production.
@@ -33,10 +32,10 @@ type QuickEntry = {
 };
 
 const QUICK_ENTRIES: QuickEntry[] = [
-  { label: 'Meal', icon: 'restaurant', bg: '#f5dec8' },
-  { label: 'Nap', icon: 'moon', bg: '#ddd6ec' },
-  { label: 'Diaper', icon: 'happy', bg: '#d4e8d4' },
-  { label: 'Activity', icon: 'game-controller', bg: '#f5eac8' },
+  { label: 'Meal', icon: 'restaurant', bg: colors.warmLight },
+  { label: 'Nap', icon: 'moon', bg: colors.tintPurple },
+  { label: 'Diaper', icon: 'happy', bg: colors.successLight },
+  { label: 'Activity', icon: 'game-controller', bg: colors.tintYellow },
 ];
 
 type LogEntry = {
@@ -56,7 +55,7 @@ const MOCK_LOG_ENTRIES: LogEntry[] = [
     title: 'Diaper Change',
     subtitle: 'Wet \u2022 Soft',
     time: '2:15 PM',
-    iconBg: '#d4e8d4',
+    iconBg: colors.successLight,
     icon: 'happy',
   },
   {
@@ -65,7 +64,7 @@ const MOCK_LOG_ENTRIES: LogEntry[] = [
     title: 'Meal',
     subtitle: '150ml Formula',
     time: '12:45 PM',
-    iconBg: '#f5dec8',
+    iconBg: colors.warmLight,
     icon: 'restaurant',
   },
   {
@@ -74,12 +73,10 @@ const MOCK_LOG_ENTRIES: LogEntry[] = [
     title: 'Nap',
     subtitle: '45 minutes',
     time: '11:30 AM',
-    iconBg: '#ddd6ec',
+    iconBg: colors.tintPurple,
     icon: 'moon',
   },
 ];
-
-// ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
 
 export default function NannyCareLogScreen() {
   const router = useRouter();
@@ -88,8 +85,6 @@ export default function NannyCareLogScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-
       {/* ── Scrollable main content ── */}
       <ScrollView
         style={styles.scrollView}
@@ -120,7 +115,7 @@ export default function NannyCareLogScreen() {
               }}
             >
               <View style={[styles.quickIconBox, { backgroundColor: entry.bg }]}>
-                <Ionicons name={entry.icon} size={28} color="#292524" />
+                <Ionicons name={entry.icon} size={28} color={colors.textPrimary} />
               </View>
               <Text style={styles.quickLabel}>{entry.label}</Text>
             </Pressable>
@@ -140,7 +135,7 @@ export default function NannyCareLogScreen() {
             {MOCK_LOG_ENTRIES.map((entry) => (
               <Pressable key={entry.id} style={styles.logEntry}>
                 <View style={[styles.logIconCircle, { backgroundColor: entry.iconBg }]}>
-                  <Ionicons name={entry.icon} size={20} color="#292524" />
+                  <Ionicons name={entry.icon} size={20} color={colors.textPrimary} />
                 </View>
                 <View style={styles.logEntryInfo}>
                   <Text style={styles.logEntryTitle}>{entry.title}</Text>
@@ -148,7 +143,7 @@ export default function NannyCareLogScreen() {
                 </View>
                 <View style={styles.logEntryRight}>
                   <Text style={styles.logEntryTime}>{entry.time}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#78716c" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </View>
               </Pressable>
             ))}
@@ -161,7 +156,7 @@ export default function NannyCareLogScreen() {
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <Pressable style={styles.iconBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color="#292524" />
+              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
             </Pressable>
             <View>
               <Text style={styles.headerTitle}>Care log</Text>
@@ -169,7 +164,7 @@ export default function NannyCareLogScreen() {
             </View>
           </View>
           <Pressable style={styles.iconBtn}>
-            <Ionicons name="settings-outline" size={22} color="#292524" />
+            <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
       </View>
@@ -177,7 +172,7 @@ export default function NannyCareLogScreen() {
       {/* ── Sticky Footer ── */}
       <View style={styles.footer}>
         <Pressable style={styles.sendUpdateBtn}>
-          <Ionicons name="send-outline" size={18} color="#6a9b6a" />
+          <Ionicons name="send-outline" size={18} color={colors.success} />
           <Text style={styles.sendUpdateText}>Send daily update to mom</Text>
         </Pressable>
       </View>
@@ -198,7 +193,7 @@ export default function NannyCareLogScreen() {
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Log nap</Text>
               <Pressable style={styles.iconBtn} onPress={() => setBottomSheetVisible(false)}>
-                <Ionicons name="close" size={22} color="#292524" />
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
               </Pressable>
             </View>
 
@@ -207,7 +202,7 @@ export default function NannyCareLogScreen() {
               <Text style={styles.timeSelectorLabel}>START TIME</Text>
               <View style={styles.timeSelectorRow}>
                 <Text style={styles.timeSelectorValue}>2:30 PM</Text>
-                <Ionicons name="time-outline" size={20} color="#78716c" />
+                <Ionicons name="time-outline" size={20} color={colors.textMuted} />
               </View>
             </View>
 
@@ -251,7 +246,7 @@ export default function NannyCareLogScreen() {
             <TextInput
               style={styles.notesInput}
               placeholder="Add notes..."
-              placeholderTextColor="#a8a29e"
+              placeholderTextColor={colors.textPlaceholder}
               multiline
               textAlignVertical="top"
             />
@@ -272,410 +267,3 @@ export default function NannyCareLogScreen() {
   );
 }
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 64;
-const FOOTER_HEIGHT = 88;
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfaf8',
-  },
-
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: HEADER_HEIGHT + 16,
-    paddingBottom: FOOTER_HEIGHT + 24,
-    paddingHorizontal: 24,
-    gap: 24,
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253,250,248,0.92)',
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: STATUS_BAR_HEIGHT + 8,
-    paddingBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#292524',
-  },
-  headerSubtitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '500',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#78716c',
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Child Banner Card
-  childCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  childAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0edeb',
-  },
-  childInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  childName: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#292524',
-  },
-  lastActivityBadge: {
-    backgroundColor: '#d4e8d4',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 9999,
-  },
-  lastActivityText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#3d6b3d',
-  },
-
-  // Quick Entry Grid
-  quickGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  quickEntry: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 7,
-  },
-  quickIconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quickLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#78716c',
-    textAlign: 'center',
-  },
-
-  // Today's Log
-  logSection: {
-    gap: 16,
-  },
-  logHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#292524',
-  },
-  logCountBadge: {
-    backgroundColor: '#e3d5ca',
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 9999,
-  },
-  logCountText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#6b6158',
-  },
-  logList: {
-    gap: 12,
-  },
-  logEntry: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  logIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logEntryInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  logEntryTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#292524',
-  },
-  logEntrySubtitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#78716c',
-  },
-  logEntryRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  logEntryTime: {
-    fontFamily: 'Manrope',
-    fontWeight: '500',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#78716c',
-  },
-
-  // Footer
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(252,249,247,0.9)',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    zIndex: 100,
-  },
-  sendUpdateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 56,
-    borderRadius: 9999,
-    borderWidth: 2,
-    borderColor: '#6a9b6a',
-    backgroundColor: 'transparent',
-  },
-  sendUpdateText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#6a9b6a',
-  },
-
-  // Bottom Sheet
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#e3d5ca',
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  sheetTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#292524',
-  },
-
-  // Time selector
-  timeSelector: {
-    backgroundColor: 'rgba(227,213,202,0.5)',
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-    marginBottom: 16,
-  },
-  timeSelectorLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 11,
-    lineHeight: 16,
-    letterSpacing: 0.8,
-    color: '#78716c',
-    textTransform: 'uppercase',
-  },
-  timeSelectorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  timeSelectorValue: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#292524',
-  },
-
-  // Toggle
-  toggleRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  toggleBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 9999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(227,213,202,0.3)',
-  },
-  toggleBtnActive: {
-    backgroundColor: '#6a9b6a',
-  },
-  toggleText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#78716c',
-  },
-  toggleTextActive: {
-    color: '#ffffff',
-  },
-
-  // Notes
-  notesInput: {
-    backgroundColor: 'rgba(227,213,202,0.2)',
-    borderRadius: 12,
-    padding: 16,
-    height: 88,
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#292524',
-    marginBottom: 20,
-  },
-
-  // Save / Discard
-  saveBtn: {
-    backgroundColor: '#6a9b6a',
-    height: 56,
-    borderRadius: 9999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#6a9b6a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 12,
-  },
-  saveBtnText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#ffffff',
-  },
-  discardBtn: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  discardBtnText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#78716c',
-  },
-});

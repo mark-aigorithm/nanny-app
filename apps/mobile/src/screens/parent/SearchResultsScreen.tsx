@@ -5,14 +5,15 @@ import {
   ScrollView,
   Pressable,
   Image,
-  StyleSheet,
   SafeAreaView,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import { Chip } from '@mobile/components/ui';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/search-results-screen.styles';
 
 // ASSUMPTION: Nanny avatar images will come from S3/CDN.
 // Using placeholder URLs until backend integration is ready.
@@ -98,8 +99,6 @@ const MOCK_NANNIES: NannyResult[] = [
   },
 ];
 
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-
 function NannyResultCard({
   nanny,
   onBook,
@@ -121,13 +120,13 @@ function NannyResultCard({
             {nanny.name}
           </Text>
           {nanny.verified && (
-            <Ionicons name="checkmark-circle" size={16} color="#97a591" />
+            <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
           )}
         </View>
 
         <View style={styles.statPillsRow}>
           <View style={styles.statPill}>
-            <Ionicons name="star" size={11} color="#c4a882" />
+            <Ionicons name="star" size={11} color={colors.goldWarm} />
             <Text style={styles.statPillText}>{nanny.rating.toFixed(1)}</Text>
           </View>
           {nanny.distance !== '' && (
@@ -182,17 +181,17 @@ export default function SearchResultsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fcf9f7" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       {/* Fixed Header */}
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.header}>
           <Pressable style={styles.headerButton} onPress={handleBack}>
-            <Ionicons name="chevron-back" size={24} color="#1b1c1b" />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Nannies near you</Text>
           <Pressable style={styles.headerButton}>
-            <Ionicons name="options-outline" size={22} color="#1b1c1b" />
+            <Ionicons name="options-outline" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -205,7 +204,7 @@ export default function SearchResultsScreen() {
       >
         {/* Search Bar */}
         <Pressable style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#7a7a7a" />
+          <Ionicons name="search" size={18} color={colors.textMuted} />
           <Text style={styles.searchBarText}>
             Brooklyn, NY {'\u00B7'} Tomorrow {'\u00B7'} 9AM\u20135PM
           </Text>
@@ -219,21 +218,22 @@ export default function SearchResultsScreen() {
           style={styles.filterChipsScroll}
         >
           {filters.map((chip) => (
-            <View key={chip.id} style={styles.filterChipActive}>
-              <Text style={styles.filterChipActiveText}>{chip.label}</Text>
-              {chip.dismissible && (
-                <Pressable
-                  onPress={() => handleDismissFilter(chip.id)}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.8)" />
-                </Pressable>
-              )}
-            </View>
+            <Chip
+              key={chip.id}
+              label={chip.label}
+              active
+              activeColor={colors.primary}
+              dismissible={chip.dismissible}
+              onDismiss={() => handleDismissFilter(chip.id)}
+              size="md"
+              style={styles.filterChipActive}
+            />
           ))}
-          <Pressable style={styles.addFilterChip}>
-            <Text style={styles.addFilterChipText}>+ Add filter</Text>
-          </Pressable>
+          <Chip
+            label="+ Add filter"
+            active={false}
+            inactiveColor={colors.taupe}
+          />
         </ScrollView>
 
         {/* Sort Pills */}
@@ -278,200 +278,3 @@ export default function SearchResultsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf9f7',
-  },
-
-  // Header
-  headerSafeArea: {
-    backgroundColor: '#fcf9f7',
-    zIndex: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 20,
-    color: '#1b1c1b',
-    letterSpacing: -0.5,
-  },
-
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 100,
-    gap: 16,
-  },
-
-  // Search bar
-  searchBar: {
-    backgroundColor: 'rgba(227,213,202,0.5)',
-    borderRadius: 16,
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  searchBarText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 14,
-    color: '#1b1c1b',
-    flex: 1,
-  },
-
-  // Filter chips
-  filterChipsScroll: {
-    marginHorizontal: -24,
-  },
-  filterChipsContent: {
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  filterChipActive: {
-    backgroundColor: '#97a591',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  filterChipActiveText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#fff',
-  },
-  addFilterChip: {
-    backgroundColor: '#e3d5ca',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  addFilterChipText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#7a7a7a',
-  },
-
-  // Sort pills
-  sortRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sortPill: {
-    backgroundColor: '#e3d5ca',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  sortPillActive: {
-    backgroundColor: '#97a591',
-  },
-  sortPillText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#7a7a7a',
-  },
-  sortPillTextActive: {
-    color: '#fff',
-  },
-
-  // Count
-  countText: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 13,
-    color: '#7a7a7a',
-  },
-
-  // Nanny result card
-  resultCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#f0edeb',
-  },
-  cardMiddle: {
-    flex: 1,
-    gap: 6,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  nannyName: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 15,
-    color: '#1b1c1b',
-    flexShrink: 1,
-  },
-  statPillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  statPill: {
-    backgroundColor: '#f0edeb',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  statPillText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 12,
-    color: '#7a7a7a',
-  },
-  cardRight: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  price: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 15,
-    color: '#97a591',
-  },
-  bookButton: {
-    backgroundColor: '#97a591',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  bookButtonText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 13,
-    color: '#fff',
-  },
-});

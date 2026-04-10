@@ -6,12 +6,14 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  StyleSheet,
   Platform,
-  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+
+import { colors, spacing, borderRadius } from '@mobile/theme';
+import { Card } from '@mobile/components/ui';
+import { styles } from './styles/booking-step1-screen.styles';
 
 // TODO: Replace with useBookingSummary() React Query hook
 
@@ -77,8 +79,6 @@ export default function BookingStep1Screen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-
       {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
@@ -87,11 +87,11 @@ export default function BookingStep1Screen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={22} color="#292524" />
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>NannyMom</Text>
           <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.7}>
-            <Ionicons name="settings-outline" size={22} color="#292524" />
+            <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -114,22 +114,24 @@ export default function BookingStep1Screen() {
         </View>
 
         {/* Nanny Card */}
-        <View style={styles.nannyCard}>
-          <Image source={{ uri: MOCK_NANNY.image }} style={styles.nannyPhoto} />
-          <View style={styles.nannyInfo}>
-            <View style={styles.nannyNameRow}>
-              <Text style={styles.nannyName}>{MOCK_NANNY.name}</Text>
-              <Ionicons name="star" size={13} color="#f5a623" />
-              <Text style={styles.nannyRating}>{MOCK_NANNY.rating}</Text>
-            </View>
-            <View style={styles.nannyDateRow}>
-              <Ionicons name="calendar-outline" size={14} color="#444842" />
-              <Text style={styles.nannyDateText}>
-                {dateDisplay} · {timeDisplay} · {hours} hours
-              </Text>
+        <Card shadow="sm" padding={spacing.lg} radius={borderRadius.xl}>
+          <View style={styles.nannyCardInner}>
+            <Image source={{ uri: MOCK_NANNY.image }} style={styles.nannyPhoto} />
+            <View style={styles.nannyInfo}>
+              <View style={styles.nannyNameRow}>
+                <Text style={styles.nannyName}>{MOCK_NANNY.name}</Text>
+                <Ionicons name="star" size={13} color={colors.gold} />
+                <Text style={styles.nannyRating}>{MOCK_NANNY.rating}</Text>
+              </View>
+              <View style={styles.nannyDateRow}>
+                <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                <Text style={styles.nannyDateText}>
+                  {dateDisplay} · {timeDisplay} · {hours} hours
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
+        </Card>
 
         {/* Promo Section */}
         <View style={styles.promoSection}>
@@ -137,7 +139,7 @@ export default function BookingStep1Screen() {
             <TextInput
               style={styles.promoInput}
               placeholder="Promo code"
-              placeholderTextColor="#a09890"
+              placeholderTextColor={colors.textPlaceholder}
               value={promoCode}
               onChangeText={setPromoCode}
               autoCapitalize="characters"
@@ -162,7 +164,7 @@ export default function BookingStep1Screen() {
             <View style={styles.promoChip}>
               <Text style={styles.promoChipText}>FIRST20 — 20% off</Text>
               <TouchableOpacity onPress={handleRemovePromo} activeOpacity={0.7}>
-                <Ionicons name="close" size={16} color="#3d6b3d" />
+                <Ionicons name="close" size={16} color={colors.successDark} />
               </TouchableOpacity>
             </View>
           )}
@@ -195,7 +197,7 @@ export default function BookingStep1Screen() {
 
         {/* Guarantee Card */}
         <View style={styles.guaranteeCard}>
-          <Ionicons name="shield-checkmark" size={20} color="#6a9b6a" />
+          <Ionicons name="shield-checkmark" size={20} color={colors.success} />
           <Text style={styles.guaranteeText}>
             If Elena cancels within 24hrs, we find a replacement automatically
           </Text>
@@ -218,283 +220,3 @@ export default function BookingStep1Screen() {
   );
 }
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 64;
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf9f7',
-  },
-
-  // Header
-  header: {
-    backgroundColor: '#fdfaf8',
-    paddingTop: STATUS_BAR_HEIGHT,
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    height: 64,
-  },
-  headerIconBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '800',
-    fontSize: 18,
-    letterSpacing: -0.45,
-    color: '#292524',
-  },
-
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 32,
-    paddingHorizontal: 24,
-    paddingBottom: 120,
-    gap: 24,
-  },
-
-  // Progress & Title
-  progressSection: {
-    gap: 8,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  dot: {
-    borderRadius: 9999,
-  },
-  dotActive: {
-    width: 10,
-    height: 10,
-    backgroundColor: '#97a591',
-  },
-  dotInactive: {
-    width: 8,
-    height: 8,
-    backgroundColor: '#e3d5ca',
-  },
-  stepLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '500',
-    fontSize: 13,
-    color: '#444842',
-  },
-  heading: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    letterSpacing: -0.5,
-    color: '#1b1c1b',
-  },
-
-  // Nanny Card
-  nannyCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  nannyPhoto: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#e5e2e0',
-  },
-  nannyInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  nannyNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  nannyName: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#1b1c1b',
-  },
-  nannyRating: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#715b3a',
-  },
-  nannyDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  nannyDateText: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#444842',
-  },
-
-  // Promo Section
-  promoSection: {
-    gap: 12,
-  },
-  promoInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(235,221,210,0.5)',
-    borderRadius: 16,
-    height: 44,
-    paddingHorizontal: 16,
-  },
-  promoInput: {
-    flex: 1,
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#1b1c1b',
-    height: 44,
-  },
-  promoApplyText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#97a591',
-  },
-  promoApplyTextDisabled: {
-    opacity: 0.5,
-  },
-  promoChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#d4e8d4',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  promoChipText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#3d6b3d',
-  },
-
-  // Price Card
-  priceCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#ebddd2',
-    borderRadius: 16,
-    padding: 21,
-    gap: 14,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  priceLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#444842',
-  },
-  priceValue: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#1b1c1b',
-  },
-  promoLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#6a9b6a',
-  },
-  promoValue: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#6a9b6a',
-  },
-  priceDivider: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(235,221,210,0.5)',
-  },
-  totalLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    color: '#1b1c1b',
-  },
-  totalValue: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    color: '#97a591',
-  },
-
-  // Guarantee Card
-  guaranteeCard: {
-    backgroundColor: 'rgba(235,221,210,0.5)',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  guaranteeText: {
-    flex: 1,
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#6b6158',
-  },
-
-  // Sticky Footer
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253,250,248,0.8)',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-  },
-  proceedBtn: {
-    backgroundColor: '#97a591',
-    borderRadius: 24,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  proceedBtnText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#ffffff',
-  },
-});

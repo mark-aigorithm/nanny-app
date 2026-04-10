@@ -4,11 +4,14 @@ import {
   Text,
   TouchableOpacity,
   Image,
-  StyleSheet,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+
+import { colors } from '@mobile/theme';
+import { Divider } from '@mobile/components/ui';
+import { styles } from './styles/booking-confirmation-screen.styles';
 
 // TODO: Replace with useBookingDetails(bookingId) React Query hook
 
@@ -60,7 +63,7 @@ export default function BookingConfirmationScreen() {
       {/* ── Success Indicator ── */}
       <View style={styles.successSection}>
         <View style={styles.successCircle}>
-          <Ionicons name="checkmark" size={27} color="#ffffff" />
+          <Ionicons name="checkmark" size={27} color={colors.white} />
         </View>
         <Text style={styles.heading}>You're booked.</Text>
         <Text style={styles.subtitle}>
@@ -82,7 +85,7 @@ export default function BookingConfirmationScreen() {
           <Text style={styles.nannyName}>{booking.nannyName}</Text>
           {booking.verified && (
             <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={12} color="#97a591" />
+              <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
               <Text style={styles.verifiedText}>VERIFIED</Text>
             </View>
           )}
@@ -123,7 +126,7 @@ export default function BookingConfirmationScreen() {
           activeOpacity={0.85}
           onPress={handleViewDetails}
         >
-          <Ionicons name="eye-outline" size={20} color="#ffffff" />
+          <Ionicons name="eye-outline" size={20} color={colors.white} />
           <Text style={styles.primaryButtonText}>View booking details</Text>
         </TouchableOpacity>
 
@@ -132,7 +135,7 @@ export default function BookingConfirmationScreen() {
           activeOpacity={0.85}
           onPress={handleAddToCalendar}
         >
-          <Ionicons name="calendar-outline" size={20} color="#6b6158" />
+          <Ionicons name="calendar-outline" size={20} color={colors.textTertiary} />
           <Text style={styles.secondaryButtonText}>Add to calendar</Text>
         </TouchableOpacity>
       </View>
@@ -163,7 +166,7 @@ function DetailRow({
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailLeft}>
-        <Ionicons name={iconName} size={16} color="#7a7a7a" />
+        <Ionicons name={iconName} size={16} color={colors.textMuted} />
         <Text style={styles.detailLabel}>{label}</Text>
       </View>
       <Text style={styles.detailValue}>{value}</Text>
@@ -171,194 +174,3 @@ function DetailRow({
   );
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfaf8',
-  },
-  contentContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 63,
-  },
-
-  // Success Indicator
-  successSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  successCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#d4e8d4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  heading: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 28,
-    letterSpacing: -0.7,
-    color: '#1b1c1b',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 16,
-    color: '#7a7a7a',
-    textAlign: 'center',
-  },
-
-  // Booking Card
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    shadowColor: '#7a7a7a',
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 32,
-    shadowOpacity: 0.08,
-    elevation: 4,
-  },
-
-  // Nanny Header
-  nannyHeader: {
-    alignItems: 'center',
-  },
-  photoWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 4,
-    borderColor: '#f6f3f1',
-    overflow: 'hidden',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  nannyPhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-  },
-  nannyName: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#1b1c1b',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(151,165,145,0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-  },
-  verifiedText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#97a591',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-
-  // Divider
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(229,226,224,0.5)',
-    marginVertical: 24,
-  },
-
-  // Details List
-  detailsList: {
-    gap: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  detailLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 13,
-    color: '#7a7a7a',
-  },
-  detailValue: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#1b1c1b',
-  },
-
-  // Action Buttons
-  actions: {
-    width: '100%',
-    paddingTop: 32,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#97a591',
-    borderRadius: 24,
-    height: 56,
-  },
-  primaryButtonText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#ffffff',
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#ebddd2',
-    borderRadius: 24,
-    height: 56,
-    marginTop: 12,
-  },
-  secondaryButtonText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#6b6158',
-  },
-
-  // Back Link
-  backLink: {
-    paddingTop: 40,
-    alignItems: 'center',
-  },
-  backLinkText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#7a7a7a',
-  },
-});

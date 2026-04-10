@@ -4,14 +4,13 @@ import {
   Text,
   ScrollView,
   Image,
-  StyleSheet,
-  Platform,
-  StatusBar,
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { colors } from '@mobile/theme';
 import BottomNav from '@mobile/components/BottomNav';
+import { styles } from './styles/care-activity-feed-screen.styles';
 
 // ASSUMPTION: Thumbnail sourced from Figma CDN — expires in 7 days.
 // Replace with S3/CDN URL or bundled asset before production.
@@ -41,7 +40,7 @@ const TODAY_ACTIVITIES: ActivityItem[] = [
     id: '1',
     type: 'Feeding',
     icon: 'restaurant-outline',
-    iconBg: '#f5dec8',
+    iconBg: colors.warmLight,
     time: '1:30 PM',
     description: 'Elena fed Liam 6oz. He finished the whole bottle.',
     thumbnail: IMG_MILK_BOTTLE,
@@ -51,7 +50,7 @@ const TODAY_ACTIVITIES: ActivityItem[] = [
     id: '2',
     type: 'Nap',
     icon: 'moon-outline',
-    iconBg: '#ddd6ec',
+    iconBg: colors.tintPurple,
     time: '12:15 PM',
     description: 'Liam fell asleep in his crib. He was very calm today.',
   },
@@ -59,7 +58,7 @@ const TODAY_ACTIVITIES: ActivityItem[] = [
     id: '3',
     type: 'Diaper change',
     icon: 'leaf-outline',
-    iconBg: '#d4e8d4',
+    iconBg: colors.successLight,
     time: '11:45 AM',
     description: 'Wet diaper changed. No redness observed.',
   },
@@ -70,7 +69,7 @@ const YESTERDAY_ACTIVITIES: ActivityItem[] = [
     id: '4',
     type: 'Play time',
     icon: 'game-controller-outline',
-    iconBg: '#f0edeb',
+    iconBg: colors.surfaceMuted,
     time: '3:00 PM',
     description: 'Liam enjoyed building blocks and stacking cups for 30 minutes.',
   },
@@ -82,8 +81,6 @@ export default function CareActivityFeedScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-
       {/* ── Scrollable main content ── */}
       <ScrollView
         style={styles.scrollView}
@@ -155,18 +152,18 @@ export default function CareActivityFeedScreen() {
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
           <Pressable style={styles.iconBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={22} color="#1b1c1b" />
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Liam's care feed</Text>
           <Pressable style={styles.iconBtn}>
-            <Ionicons name="settings-outline" size={22} color="#1b1c1b" />
+            <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
       </View>
 
       {/* ── Fixed: FAB ── */}
       <Pressable style={styles.fab}>
-        <Ionicons name="add" size={24} color="#ffffff" />
+        <Ionicons name="add" size={24} color={colors.white} />
       </Pressable>
 
       <BottomNav activeTab="home" />
@@ -181,7 +178,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
     <View style={styles.card}>
       {activity.unread && <View style={styles.unreadDot} />}
       <View style={[styles.iconCircle, { backgroundColor: activity.iconBg }]}>
-        <Ionicons name={activity.icon} size={22} color="#444842" />
+        <Ionicons name={activity.icon} size={22} color={colors.textSecondary} />
       </View>
       <View style={styles.cardContent}>
         <Text style={styles.cardType}>{activity.type}</Text>
@@ -199,215 +196,3 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
   );
 }
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 64;
-const BOTTOM_NAV_HEIGHT = 80;
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfaf8',
-  },
-
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: HEADER_HEIGHT + 16,
-    paddingBottom: BOTTOM_NAV_HEIGHT + 40,
-    paddingHorizontal: 24,
-    gap: 32,
-  },
-
-  // Filter pills
-  filtersScroll: {
-    marginHorizontal: -24,
-  },
-  filtersContent: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  pill: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 9999,
-  },
-  pillActive: {
-    backgroundColor: '#97a591',
-  },
-  pillInactive: {
-    backgroundColor: '#e3d5ca',
-  },
-  pillText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  pillTextActive: {
-    color: '#ffffff',
-  },
-  pillTextInactive: {
-    color: '#6b6158',
-  },
-
-  // Section
-  section: {
-    gap: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionDate: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 13,
-    letterSpacing: 0.65,
-    color: '#7a7a7a',
-    textTransform: 'uppercase',
-  },
-  sectionDateFaded: {
-    opacity: 0.6,
-  },
-  markAllRead: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#97a591',
-  },
-
-  // Activity list
-  activityList: {
-    gap: 24,
-  },
-
-  // Activity card
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  unreadDot: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#97a591',
-    zIndex: 1,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardContent: {
-    flex: 1,
-    gap: 2,
-  },
-  cardType: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#1b1c1b',
-  },
-  cardTime: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#747871',
-  },
-  cardDescription: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#444842',
-    marginTop: 4,
-  },
-  cardThumbnail: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#f0edeb',
-  },
-
-  // Yesterday overlay
-  yesterdayCardWrap: {
-    position: 'relative',
-  },
-  yesterdayOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    borderRadius: 16,
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253, 250, 248, 0.92)',
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: STATUS_BAR_HEIGHT + 8,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#1b1c1b',
-  },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    bottom: 96,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#97a591',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-});

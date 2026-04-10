@@ -5,12 +5,13 @@ import {
   ScrollView,
   Pressable,
   Image,
-  StyleSheet,
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/community-screen.styles';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
 // Replace with S3/CDN URLs or bundled assets before production.
@@ -82,16 +83,16 @@ export default function CommunityScreen() {
 
           <View style={styles.actionsRow}>
             <Pressable style={styles.actionItem}>
-              <Ionicons name="heart-outline" size={17} color="#747871" />
+              <Ionicons name="heart-outline" size={17} color={colors.textMuted} />
               <Text style={styles.actionCount}>24</Text>
             </Pressable>
             <Pressable style={styles.actionItem}>
-              <Ionicons name="chatbubble-outline" size={17} color="#747871" />
+              <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
               <Text style={styles.actionCount}>12</Text>
             </Pressable>
             <View style={styles.actionSpacer} />
             <Pressable>
-              <Ionicons name="bookmark-outline" size={17} color="#747871" />
+              <Ionicons name="bookmark-outline" size={17} color={colors.textMuted} />
             </Pressable>
           </View>
         </View>
@@ -128,11 +129,11 @@ export default function CommunityScreen() {
 
             <View style={styles.actionsRow}>
               <Pressable style={styles.actionItem}>
-                <Ionicons name="heart-outline" size={17} color="#747871" />
+                <Ionicons name="heart-outline" size={17} color={colors.textMuted} />
                 <Text style={styles.actionCount}>56</Text>
               </Pressable>
               <Pressable style={styles.actionItem}>
-                <Ionicons name="chatbubble-outline" size={17} color="#747871" />
+                <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
                 <Text style={styles.actionCount}>8</Text>
               </Pressable>
             </View>
@@ -164,11 +165,11 @@ export default function CommunityScreen() {
 
             <View style={styles.actionsRow}>
               <Pressable style={styles.actionItem}>
-                <Ionicons name="heart-outline" size={17} color="#747871" />
+                <Ionicons name="heart-outline" size={17} color={colors.textMuted} />
                 <Text style={styles.actionCount}>12</Text>
               </Pressable>
               <Pressable style={styles.actionItem}>
-                <Ionicons name="chatbubble-outline" size={17} color="#747871" />
+                <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
                 <Text style={styles.actionCount}>31</Text>
               </Pressable>
             </View>
@@ -181,7 +182,7 @@ export default function CommunityScreen() {
         <SafeAreaView>
           <View style={styles.headerInner}>
             <Pressable>
-              <Ionicons name="menu-outline" size={22} color="#97a591" />
+              <Ionicons name="menu-outline" size={22} color={colors.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>Community</Text>
             <View style={styles.headerAvatarBorder}>
@@ -217,7 +218,7 @@ export default function CommunityScreen() {
         style={styles.fab}
         onPress={() => router.push('/(parent)/community-feed' as never)}
       >
-        <Ionicons name="add" size={24} color="#fff" />
+        <Ionicons name="add" size={24} color={colors.white} />
       </Pressable>
 
       <BottomNav activeTab="community" />
@@ -225,250 +226,3 @@ export default function CommunityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf9f7',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 144,
-    paddingBottom: 96,
-    paddingHorizontal: 24,
-    gap: 24,
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(227, 213, 202, 0.92)',
-    zIndex: 10,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  headerTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 18,
-    letterSpacing: -0.45,
-    color: '#97a591',
-  },
-  headerAvatarBorder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(151, 165, 145, 0.2)',
-    overflow: 'hidden',
-    padding: 2,
-  },
-  headerAvatar: {
-    flex: 1,
-    borderRadius: 14,
-  },
-
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingBottom: 8,
-    gap: 32,
-  },
-  tabItem: {
-    paddingBottom: 8,
-    position: 'relative',
-    alignItems: 'center',
-  },
-  tabText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 14,
-    color: '#7a7a7a',
-  },
-  tabTextActive: {
-    fontFamily: 'Manrope_700Bold',
-    color: '#97a591',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    borderRadius: 9999,
-    backgroundColor: '#e3d5ca',
-  },
-
-  // Section header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 24,
-    letterSpacing: -0.6,
-    color: '#1b1c1b',
-  },
-  seeAll: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 14,
-    color: '#556251',
-  },
-
-  // Cards
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    gap: 12,
-  },
-  feedSection: {
-    gap: 24,
-  },
-
-  // Author row
-  postAuthorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#ebddd2',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-  },
-  authorInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  authorName: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 14,
-    color: '#1b1c1b',
-    lineHeight: 18,
-  },
-  authorTime: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 12,
-    color: '#747871',
-    lineHeight: 18,
-  },
-  proBadge: {
-    backgroundColor: '#c4a882',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  proBadgeText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 10,
-    color: '#fff',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-
-  // Post content
-  postBody: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 16,
-    color: '#444842',
-    lineHeight: 26,
-  },
-  postImageContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  postImage: {
-    width: '100%',
-    height: 165,
-  },
-
-  // Tags
-  tagsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  tag: {
-    backgroundColor: '#e3d5ca',
-    borderRadius: 9999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  tagText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 12,
-    color: '#7a7a7a',
-    lineHeight: 18,
-  },
-
-  // Actions
-  divider: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(240, 237, 235, 0.5)',
-    marginTop: 4,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 24,
-    paddingTop: 4,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionCount: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#747871',
-    lineHeight: 19.5,
-  },
-  actionSpacer: {
-    flex: 1,
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 96,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#556251',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 5,
-  },
-
-});

@@ -2,10 +2,11 @@ import React from 'react';
 import {
   View,
   Text,
-  Pressable,
-  StyleSheet,
   StatusBar,
 } from 'react-native';
+
+import { Button } from '@mobile/components/ui';
+import { styles } from './styles/splash-screen.styles';
 
 interface Props {
   onGetStarted?: () => void;
@@ -36,113 +37,14 @@ export default function SplashScreen({ onGetStarted }: Props) {
           <View style={styles.dot} />
         </View>
 
-        <Pressable style={styles.getStartedButton} onPress={onGetStarted}>
-          <Text style={styles.getStartedText}>Get Started</Text>
-        </Pressable>
+        <Button
+          title="Get Started"
+          onPress={onGetStarted ?? (() => {})}
+          variant="primary"
+          fullWidth
+          style={styles.getStartedButton}
+        />
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignSelf: 'stretch',
-    backgroundColor: '#fcf9f7',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    paddingHorizontal: 32,
-    paddingTop: 80,
-    paddingBottom: 48,
-  },
-
-  // Background decorative blobs
-  blobTopLeft: {
-    position: 'absolute',
-    top: -60,
-    left: -60,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: '#ebddd2',
-    opacity: 0.35,
-  },
-  blobBottomRight: {
-    position: 'absolute',
-    bottom: -60,
-    right: -60,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: '#97a591',
-    opacity: 0.2,
-  },
-
-  // Center content
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-  },
-  typographyCluster: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  appName: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 32,
-    letterSpacing: -0.8,
-    color: '#1b1c1b',
-    lineHeight: 32,
-    textAlign: 'center',
-  },
-  tagline: {
-    fontFamily: 'Manrope_500Medium',
-    fontSize: 16,
-    letterSpacing: 0.4,
-    color: '#444842',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-
-  // Footer
-  footer: {
-    alignItems: 'center',
-    gap: 0,
-  },
-  paginationDots: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 48,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ebddd2',
-  },
-  dotActive: {
-    backgroundColor: '#97a591',
-  },
-  getStartedButton: {
-    width: '100%',
-    height: 56,
-    borderRadius: 24,
-    backgroundColor: '#556251',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  getStartedText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 16,
-    color: '#fff',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-});

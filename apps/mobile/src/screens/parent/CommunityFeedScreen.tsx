@@ -5,19 +5,12 @@ import {
   ScrollView,
   Pressable,
   Image,
-  StyleSheet,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
-
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56;
-const BOTTOM_NAV_HEIGHT = 80;
+import { colors } from '@mobile/theme';
+import { styles } from './styles/community-feed-screen.styles';
 
 // ─── Placeholder images ───────────────────────────────────────────────────────
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -133,9 +126,9 @@ const POSTS: Post[] = [
 // ─── Tag style config ─────────────────────────────────────────────────────────
 
 const TAG_STYLES: Record<PostTag, { bg: string; text: string }> = {
-  'General advice': { bg: '#e3d5ca', text: '#97a591' },
-  Marketplace: { bg: '#f5eac8', text: '#8c7230' },
-  Event: { bg: '#d4e8d4', text: '#3d6b3d' },
+  'General advice': { bg: colors.taupe, text: colors.primary },
+  Marketplace: { bg: colors.tintYellow, text: colors.goldWarm },
+  Event: { bg: colors.successLight, text: colors.successDark },
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -180,11 +173,11 @@ export default function CommunityFeedScreen() {
       {renderAuthorRow(post)}
       <Text style={styles.eventTitle}>{post.title}</Text>
       <View style={styles.eventDetailRow}>
-        <Ionicons name="calendar-outline" size={16} color="#747871" />
+        <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
         <Text style={styles.eventDetailText}>{post.date}</Text>
       </View>
       <View style={styles.eventDetailRow}>
-        <Ionicons name="location-outline" size={16} color="#747871" />
+        <Ionicons name="location-outline" size={16} color={colors.textMuted} />
         <Text style={styles.eventDetailText}>{post.location}</Text>
       </View>
       <View style={styles.attendeesRow}>
@@ -236,16 +229,16 @@ export default function CommunityFeedScreen() {
   const renderActionBar = (post: Post) => (
     <View style={styles.actionBar}>
       <Pressable style={styles.actionItem}>
-        <Ionicons name="heart-outline" size={17} color="#747871" />
+        <Ionicons name="heart-outline" size={17} color={colors.textMuted} />
         <Text style={styles.actionCount}>{post.likes}</Text>
       </Pressable>
       <Pressable style={styles.actionItem}>
-        <Ionicons name="chatbubble-outline" size={17} color="#747871" />
+        <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
         <Text style={styles.actionCount}>{post.comments}</Text>
       </Pressable>
       {post.type === 'advice' && (
         <Pressable style={styles.actionItem}>
-          <Ionicons name="share-social-outline" size={17} color="#747871" />
+          <Ionicons name="share-social-outline" size={17} color={colors.textMuted} />
           <Text style={styles.actionCount}>Share</Text>
         </Pressable>
       )}
@@ -275,10 +268,10 @@ export default function CommunityFeedScreen() {
               <Text style={styles.onlineText}>42 moms online</Text>
             </View>
             <Pressable style={styles.headerIcon}>
-              <Ionicons name="search" size={20} color="#2e2e2e" />
+              <Ionicons name="search" size={20} color={colors.textDark} />
             </Pressable>
             <Pressable style={styles.headerIcon}>
-              <Ionicons name="notifications-outline" size={20} color="#2e2e2e" />
+              <Ionicons name="notifications-outline" size={20} color={colors.textDark} />
             </Pressable>
           </View>
         </View>
@@ -327,7 +320,7 @@ export default function CommunityFeedScreen() {
 
       {/* FAB */}
       <Pressable style={styles.fab}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
 
       <BottomNav activeTab="community" />
@@ -335,292 +328,3 @@ export default function CommunityFeedScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf9f7',
-  },
-
-  // Header
-  header: {
-    backgroundColor: '#fcf9f7',
-    paddingTop: STATUS_BAR_HEIGHT + 8,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0edeb',
-    zIndex: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 20,
-    color: '#2e2e2e',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  onlinePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e3d5ca',
-    borderRadius: 9999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 6,
-  },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#6a9b6a',
-  },
-  onlineText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 12,
-    color: '#675d54',
-  },
-  headerIcon: {
-    padding: 4,
-  },
-
-  // Filter pills
-  filterRow: {
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  filterPill: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  filterPillActive: {
-    backgroundColor: '#97a591',
-  },
-  filterPillInactive: {
-    backgroundColor: '#e3d5ca',
-  },
-  filterPillText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-  },
-  filterPillTextActive: {
-    color: '#ffffff',
-  },
-  filterPillTextInactive: {
-    color: '#675d54',
-  },
-
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: BOTTOM_NAV_HEIGHT + 24,
-    gap: 16,
-  },
-
-  // Card
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-    gap: 12,
-  },
-  eventCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#d4e8d4',
-  },
-
-  // Author row
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ebddd2',
-  },
-  authorInfo: {
-    flex: 1,
-    gap: 1,
-  },
-  authorName: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 14,
-    color: '#2e2e2e',
-    lineHeight: 18,
-  },
-  authorTime: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 12,
-    color: '#747871',
-    lineHeight: 16,
-  },
-  tagPill: {
-    borderRadius: 9999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  tagPillText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 11,
-  },
-
-  // Post body (advice)
-  postBody: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 14,
-    color: '#2e2e2e',
-    lineHeight: 22,
-  },
-  readMore: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#97a591',
-  },
-
-  // Action bar
-  actionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#f0edeb',
-    paddingTop: 12,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  actionCount: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#747871',
-  },
-
-  // Marketplace post
-  marketplaceImageContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  marketplaceImage: {
-    width: '100%',
-    height: 161,
-  },
-  priceBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#c4a882',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  priceBadgeText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 14,
-    color: '#ffffff',
-  },
-  marketplaceTitle: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 15,
-    color: '#2e2e2e',
-    lineHeight: 20,
-  },
-
-  // Event post
-  eventTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 18,
-    color: '#2e2e2e',
-    lineHeight: 24,
-  },
-  eventDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  eventDetailText: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 13,
-    color: '#747871',
-    lineHeight: 18,
-  },
-  attendeesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
-  },
-  stackedAvatars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  attendeeAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    backgroundColor: '#ebddd2',
-  },
-  attendeeCount: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: '#747871',
-  },
-  rsvpButton: {
-    backgroundColor: '#97a591',
-    borderRadius: 9999,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  rsvpButtonText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 14,
-    color: '#ffffff',
-    letterSpacing: 0.5,
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: BOTTOM_NAV_HEIGHT + 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#97a591',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 5,
-  },
-});

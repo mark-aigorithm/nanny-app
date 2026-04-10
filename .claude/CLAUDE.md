@@ -200,6 +200,59 @@ Circular deps are **forbidden**. `shared` and `config` must never depend on `mob
 - UI state (auth, theme) via **Zustand**.
 - No business logic in screens — delegate to hooks and services.
 
+### Mobile App Theme System (`apps/mobile/src/theme/`)
+
+All visual constants are centralized in `src/theme/` and imported via `@mobile/theme`.
+
+**Mandatory rules — enforce on every mobile file change:**
+
+- **NEVER hardcode hex colors** in StyleSheet or inline styles — use `colors.xxx` tokens
+- **NEVER hardcode font family strings** like `'Manrope_700Bold'` — use `fontFamily.xxx` or spread `...typeScale.xxx`
+- **NEVER hand-write shadow properties** — use `...shadows.sm | md | lg` spreads
+- Use `spacing.xxx` for margins, padding, and gaps where an exact token match exists
+- Use `borderRadius.xxx` for corner radii where an exact token match exists
+- The canonical background color is `colors.background` (`#fdfaf8`). Never use `#fcf9f7`.
+
+**Theme files:**
+| File | Exports |
+|---|---|
+| `colors.ts` | `colors` — semantic color tokens (`primary`, `background`, `textPrimary`, etc.) |
+| `typography.ts` | `fontFamily` — weight map; `typeScale` — pre-composed `TextStyle` presets |
+| `spacing.ts` | `spacing` — scale (xxs→4xl); `screenPadding` — standard horizontal padding (24) |
+| `borders.ts` | `borderRadius` — scale (sm→full) |
+| `shadows.ts` | `shadows` — elevation presets as `ViewStyle` |
+| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT` |
+| `index.ts` | Barrel re-export of all above |
+
+### Reusable UI Components (`apps/mobile/src/components/ui/`)
+
+Before creating any new visual pattern, check if an existing component covers it:
+
+| Component | Use for |
+|---|---|
+| `Button` | All CTA buttons (primary, secondary, outline, text, destructive) |
+| `TextInputField` | Form inputs with label, error, password toggle |
+| `Card` | White card container with shadow |
+| `Chip` | Filter pills / tag chips (active/inactive) |
+| `Header` | Screen headers with back button |
+| `SearchBar` | Search input bars |
+| `Avatar` | Circular profile images |
+| `Badge` | Notification dots / count badges |
+| `IconCircle` | Icon inside a colored circle |
+| `SectionHeader` | "Title + See all" section headers |
+| `ScreenContainer` | SafeAreaView + background + StatusBar wrapper |
+| `Divider` | Horizontal line with optional "or" text |
+
+- Screen-specific layout styles remain in per-screen `StyleSheet.create`
+- Only create new UI components if no existing one covers the use case
+- Import from `@mobile/components/ui`
+
+### Mock Data (`apps/mobile/src/mocks/`)
+
+- All placeholder/mock data lives in `src/mocks/`, not inline in screen files
+- Image URL constants live in `src/mocks/images.ts`
+- Import via `@mobile/mocks/...`
+
 ---
 
 ## Environment Variables

@@ -4,13 +4,13 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import { IconCircle } from '@mobile/components/ui';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/notifications-screen.styles';
 
 // ASSUMPTION: Notification data will come from GET /notifications.
 // TODO: Replace with useNotifications() React Query hook
@@ -78,33 +78,33 @@ type FilterPill = (typeof FILTER_PILLS)[number];
 
 // ASSUMPTION: "Mark all read" will call PATCH /notifications/mark-all-read once backend is ready.
 
-function getIconForType(type: NotificationType): { name: string; bgColor: string } {
+function getIconForType(type: NotificationType): { name: keyof typeof Ionicons.glyphMap; bgColor: string } {
   switch (type) {
     case 'booking':
-      return { name: 'calendar', bgColor: '#97a591' };
+      return { name: 'calendar', bgColor: colors.primary };
     case 'activity':
-      return { name: 'nutrition', bgColor: '#f5dec8' };
+      return { name: 'nutrition', bgColor: colors.warmLight };
     case 'social':
-      return { name: 'chatbubble', bgColor: '#e3d5ca' };
+      return { name: 'chatbubble', bgColor: colors.taupe };
     case 'promo':
-      return { name: 'pricetag', bgColor: '#f0edeb' };
+      return { name: 'pricetag', bgColor: colors.surfaceMuted };
     case 'review':
-      return { name: 'star', bgColor: '#f0edeb' };
+      return { name: 'star', bgColor: colors.surfaceMuted };
   }
 }
 
 function getIconColor(type: NotificationType): string {
   switch (type) {
     case 'booking':
-      return '#ffffff';
+      return colors.white;
     case 'activity':
-      return '#8b6914';
+      return colors.tintAmber;
     case 'social':
-      return '#675d54';
+      return colors.textTertiary;
     case 'promo':
-      return '#675d54';
+      return colors.textTertiary;
     case 'review':
-      return '#675d54';
+      return colors.textTertiary;
   }
 }
 
@@ -118,8 +118,6 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -127,7 +125,7 @@ export default function NotificationsScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={16} color="#2e2e2e" />
+          <Ionicons name="chevron-back" size={16} color={colors.textDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity activeOpacity={0.7}>
@@ -211,9 +209,14 @@ function NotificationCard({ notification }: { notification: Notification }) {
       ]}
     >
       {/* Icon circle */}
-      <View style={[styles.iconCircle, { backgroundColor: icon.bgColor }]}>
-        <Ionicons name={icon.name as any} size={18} color={iconColor} />
-      </View>
+      <IconCircle
+        icon={icon.name}
+        size="md"
+        backgroundColor={icon.bgColor}
+        iconColor={iconColor}
+        iconSize={18}
+        style={styles.iconCircle}
+      />
 
       {/* Text content */}
       <View style={styles.cardTextWrap}>
@@ -231,179 +234,3 @@ function NotificationCard({ notification }: { notification: Notification }) {
   );
 }
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = 64;
-const BOTTOM_NAV_HEIGHT = 80;
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfaf8',
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: HEADER_HEIGHT,
-    paddingHorizontal: 24,
-    paddingTop: STATUS_BAR_HEIGHT,
-    backgroundColor: '#fdfaf8',
-    zIndex: 10,
-  },
-  backBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    color: '#2e2e2e',
-    letterSpacing: -0.5,
-  },
-  markAllRead: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#97a591',
-  },
-
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: BOTTOM_NAV_HEIGHT + 24,
-    gap: 24,
-  },
-
-  // Filter pills
-  pillsScroll: {
-    paddingTop: 16,
-  },
-  pillsContent: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  pill: {
-    height: 36,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pillActive: {
-    backgroundColor: '#97a591',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  pillInactive: {
-    backgroundColor: '#e3d5ca',
-  },
-  pillText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  pillTextActive: {
-    color: '#ffffff',
-  },
-  pillTextInactive: {
-    color: '#675d54',
-  },
-
-  // Section
-  section: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  yesterdaySection: {
-    opacity: 0.7,
-  },
-  sectionHeading: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#2e2e2e',
-  },
-  cardGroup: {
-    gap: 12,
-  },
-
-  // Notification card
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  cardUnread: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#97a591',
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingVertical: 16,
-  },
-  cardRead: {
-    padding: 16,
-  },
-
-  // Icon circle
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-
-  // Card text
-  cardTextWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  cardTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#2e2e2e',
-    flex: 1,
-  },
-  cardTime: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 12,
-    color: '#7a7a7a',
-  },
-  cardSubtitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#7a7a7a',
-  },
-});

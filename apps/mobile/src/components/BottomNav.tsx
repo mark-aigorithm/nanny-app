@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { colors, fontFamily, BOTTOM_NAV_HEIGHT } from '@mobile/theme';
 
 export type BottomNavTab = 'home' | 'search' | 'community' | 'messages';
 
@@ -64,7 +65,7 @@ export default function BottomNav({ activeTab, messagesBadge }: Props) {
               <Ionicons
                 name={(isActive ? tab.activeIcon : tab.inactiveIcon) as any}
                 size={20}
-                color={isActive ? '#97a591' : '#7a7a7a'}
+                color={isActive ? colors.primary : colors.textMuted}
               />
               {tab.key === 'messages' && messagesBadge != null && messagesBadge > 0 && (
                 <View style={styles.badge} />
@@ -81,8 +82,8 @@ export default function BottomNav({ activeTab, messagesBadge }: Props) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#e3d5ca',
-    height: 80,
+    backgroundColor: colors.taupe,
+    height: BOTTOM_NAV_HEIGHT,
     alignItems: 'center',
     paddingHorizontal: 8,
   },
@@ -97,13 +98,13 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   label: {
-    fontFamily: 'Manrope_600SemiBold',
+    fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: '#7a7a7a',
+    color: colors.textMuted,
     lineHeight: 19.5,
   },
   labelActive: {
-    color: '#97a591',
+    color: colors.primary,
   },
   badge: {
     position: 'absolute',
@@ -112,6 +113,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#c0634a',
+    backgroundColor: colors.error,
   },
 });

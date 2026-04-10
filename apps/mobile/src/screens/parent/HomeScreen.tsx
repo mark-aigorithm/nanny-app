@@ -5,13 +5,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  StyleSheet,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import { Avatar, Badge } from '@mobile/components/ui';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/home-screen.styles';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
 // Replace with S3/CDN URLs or bundled assets before production.
@@ -52,7 +53,6 @@ const FILTER_TABS = ['Full-time', 'Part-time', 'Occasional', 'Emergency'] as con
 type FilterTab = (typeof FILTER_TABS)[number];
 
 // ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
-// For native builds, add useFonts({ Manrope_400Regular, Manrope_600SemiBold, Manrope_700Bold })
 // from @expo-google-fonts/manrope in the root _layout.tsx.
 
 // ASSUMPTION: Navigation to other screens (Search, Community, Messages, Booking) is handled
@@ -64,7 +64,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
 
       {/* ── Scrollable main content ── */}
       <ScrollView
@@ -131,7 +131,7 @@ export default function HomeScreen() {
           </Text>
           <TouchableOpacity style={styles.readBtn} activeOpacity={0.7}>
             <Text style={styles.readBtnText}>Read article</Text>
-            <Ionicons name="chevron-forward" size={12} color="#556251" />
+            <Ionicons name="chevron-forward" size={12} color={colors.primaryDark} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -146,16 +146,16 @@ export default function HomeScreen() {
               activeOpacity={0.7}
               onPress={() => router.push('/(parent)/notifications' as any)}
             >
-              <Ionicons name="notifications-outline" size={20} color="#1b1c1b" />
+              <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Image source={{ uri: IMG_USER_AVATAR }} style={styles.avatar} />
+            <Avatar uri={IMG_USER_AVATAR} size="sm" />
           </View>
         </View>
       </View>
 
       {/* ── Fixed: FAB ── */}
       <TouchableOpacity style={styles.fab} activeOpacity={0.85}>
-        <Ionicons name="add" size={22} color="#ffffff" />
+        <Ionicons name="add" size={22} color={colors.white} />
       </TouchableOpacity>
 
       <BottomNav activeTab="home" />
@@ -200,7 +200,7 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyData; onViewProfile: 
             </Text>
           </View>
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={13} color="#f5a623" />
+            <Ionicons name="star" size={13} color={colors.gold} />
             <Text style={styles.ratingText}>{nanny.rating.toFixed(1)}</Text>
           </View>
         </View>
@@ -223,358 +223,3 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyData; onViewProfile: 
   );
 }
 
-// ─── Nav config ──────────────────────────────────────────────────────────────
-
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56; // status bar + logo row + bottom padding
-const BOTTOM_NAV_HEIGHT = 80;
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfaf8',
-  },
-
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: HEADER_HEIGHT + 16,
-    paddingBottom: BOTTOM_NAV_HEIGHT + 40,
-    paddingHorizontal: 24,
-    gap: 40,
-  },
-
-  // Hero
-  heroSection: {
-    gap: 24,
-  },
-  heroTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 28,
-    lineHeight: 35,
-    letterSpacing: -0.7,
-    color: '#1b1c1b',
-  },
-  heroImageWrap: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#f0edeb',
-    height: 192,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-  },
-
-  // Filters
-  filtersScroll: {
-    marginHorizontal: -24,
-  },
-  filtersContent: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  chip: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 9999,
-  },
-  chipActive: {
-    backgroundColor: '#556251',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  chipInactive: {
-    backgroundColor: 'rgba(235,221,210,0.5)',
-  },
-  chipText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  chipTextActive: {
-    color: '#ffffff',
-  },
-  chipTextInactive: {
-    color: '#6b6158',
-  },
-
-  // Section
-  section: {
-    gap: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    lineHeight: 28,
-    color: '#1b1c1b',
-  },
-  viewAll: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#556251',
-  },
-
-  // Nanny card
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardPhotoWrap: {
-    height: 280,
-    backgroundColor: '#f0edeb',
-  },
-  cardPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: '#6a9b6a',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9999,
-  },
-  verifiedText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 10,
-    color: '#ffffff',
-    letterSpacing: 0.5,
-  },
-  cardBody: {
-    padding: 20,
-    gap: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  cardNameCol: {
-    flex: 1,
-    gap: 2,
-    marginRight: 12,
-  },
-  cardName: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#1b1c1b',
-  },
-  cardMeta: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#7a7a7a',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#2e2e2e',
-  },
-  cardBio: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#444842',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#f0edeb',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-  },
-  priceAmount: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#2f3b2c',
-  },
-  priceUnit: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#7a7a7a',
-  },
-  bookBtn: {
-    backgroundColor: '#556251',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  bookBtnText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#ffffff',
-  },
-
-  // Editorial
-  editorial: {
-    backgroundColor: 'rgba(235,221,210,0.3)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(196,200,191,0.1)',
-    paddingHorizontal: 25,
-    paddingTop: 28,
-    paddingBottom: 24,
-    gap: 8,
-  },
-  editorialTag: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 1.2,
-    color: '#c4a882',
-    textTransform: 'uppercase',
-  },
-  editorialTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    lineHeight: 28,
-    color: '#1b1c1b',
-  },
-  editorialBody: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#444842',
-  },
-  readBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingTop: 4,
-  },
-  readBtnText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#556251',
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(227,213,202,0.92)',
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: STATUS_BAR_HEIGHT + 8,
-    paddingBottom: 16,
-  },
-  logoText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 24,
-    lineHeight: 32,
-    letterSpacing: -1.2,
-    color: '#97a591',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0edeb',
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    bottom: BOTTOM_NAV_HEIGHT + 16,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#556251',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-
-});

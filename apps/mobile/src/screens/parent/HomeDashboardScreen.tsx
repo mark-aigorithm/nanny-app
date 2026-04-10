@@ -5,20 +5,15 @@ import {
   ScrollView,
   Pressable,
   Image,
-  StyleSheet,
-  Platform,
   StatusBar,
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
-
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56;
-const BOTTOM_NAV_HEIGHT = 80;
+import { Avatar, Badge, SectionHeader } from '@mobile/components/ui';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/home-dashboard-screen.styles';
 
 // ─── Placeholder images ───────────────────────────────────────────────────────
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
@@ -89,8 +84,8 @@ const QUICK_ACTIONS: QuickAction[] = [
     id: 'book',
     label: 'Book now',
     icon: 'calendar',
-    bgColor: 'rgba(151,165,145,0.15)',
-    iconColor: '#97a591',
+    bgColor: colors.primaryMuted,
+    iconColor: colors.primary,
     route: '/(parent)/search',
   },
   {
@@ -98,23 +93,23 @@ const QUICK_ACTIONS: QuickAction[] = [
     label: 'Emergency',
     icon: 'alert-circle',
     bgColor: 'rgba(192,99,74,0.12)',
-    iconColor: '#c0634a',
+    iconColor: colors.error,
     route: '/(parent)/search',
   },
   {
     id: 'community',
     label: 'Community',
     icon: 'people',
-    bgColor: 'rgba(227,213,202,0.5)',
-    iconColor: '#6b6158',
+    bgColor: colors.taupeLight,
+    iconColor: colors.textTertiary,
     route: '/(parent)/community',
   },
   {
     id: 'monitor',
     label: 'Live monitor',
     icon: 'videocam',
-    bgColor: 'rgba(151,165,145,0.15)',
-    iconColor: '#97a591',
+    bgColor: colors.primaryMuted,
+    iconColor: colors.primary,
     route: '/(parent)/nanny/live-video-monitor',
   },
 ];
@@ -156,7 +151,7 @@ export default function HomeDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
 
       {/* ── Fixed header ── */}
       <View style={styles.header} pointerEvents="box-none">
@@ -167,12 +162,10 @@ export default function HomeDashboardScreen() {
               style={styles.bellBtn}
               onPress={() => router.push('/(parent)/notifications' as never)}
             >
-              <Ionicons name="notifications-outline" size={22} color="#2e2e2e" />
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>3</Text>
-              </View>
+              <Ionicons name="notifications-outline" size={22} color={colors.textDark} />
+              <Badge count={3} size="sm" style={styles.bellBadge} />
             </Pressable>
-            <Image source={{ uri: IMG_USER_AVATAR }} style={styles.avatar} />
+            <Avatar uri={IMG_USER_AVATAR} size="md" borderWidth={2} borderColor={colors.white} />
           </View>
         </View>
       </View>
@@ -189,7 +182,7 @@ export default function HomeDashboardScreen() {
           onPress={() => router.push('/(parent)/search' as never)}
         >
           <View style={styles.searchLeft}>
-            <Ionicons name="search" size={18} color="#7a7a7a" />
+            <Ionicons name="search" size={18} color={colors.textMuted} />
             <Text style={styles.searchPlaceholder}>Find a nanny...</Text>
           </View>
           <View style={styles.searchPills}>
@@ -245,12 +238,11 @@ export default function HomeDashboardScreen() {
 
         {/* 4. Recommended nearby */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recommended nearby</Text>
-            <Pressable onPress={() => router.push('/(parent)/search' as never)}>
-              <Text style={styles.seeAll}>See all</Text>
-            </Pressable>
-          </View>
+          <SectionHeader
+            title="Recommended nearby"
+            actionLabel="See all"
+            onAction={() => router.push('/(parent)/search' as never)}
+          />
           <FlatList
             data={RECOMMENDED_NANNIES}
             keyExtractor={(item) => item.id}
@@ -275,7 +267,7 @@ export default function HomeDashboardScreen() {
                 <View style={styles.nannyInfo}>
                   <Text style={styles.nannyName}>{item.name}</Text>
                   <View style={styles.nannyRatingRow}>
-                    <Ionicons name="star" size={12} color="#f5a623" />
+                    <Ionicons name="star" size={12} color={colors.gold} />
                     <Text style={styles.nannyRating}>{item.rating.toFixed(1)}</Text>
                   </View>
                   <Text style={styles.nannyPrice}>${item.hourlyRate}/hr</Text>
@@ -304,7 +296,7 @@ export default function HomeDashboardScreen() {
                   } as never)
                 }
               >
-                <Image source={{ uri: fav.image }} style={styles.favouriteAvatar} />
+                <Avatar uri={fav.image} size="lg" />
                 <Text style={styles.favouriteName}>{fav.name}</Text>
               </Pressable>
             ))}
@@ -313,7 +305,7 @@ export default function HomeDashboardScreen() {
               onPress={() => router.push('/(parent)/search' as never)}
             >
               <View style={styles.addFavourite}>
-                <Ionicons name="add" size={24} color="#97a591" />
+                <Ionicons name="add" size={24} color={colors.primary} />
               </View>
               <Text style={styles.favouriteName}>Add</Text>
             </Pressable>
@@ -348,372 +340,3 @@ export default function HomeDashboardScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf9f7',
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fcf9f7',
-    zIndex: 100,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: STATUS_BAR_HEIGHT + 8,
-    paddingBottom: 12,
-  },
-  greeting: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 20,
-    color: '#2e2e2e',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  bellBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#c0634a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  bellBadgeText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 10,
-    color: '#ffffff',
-    lineHeight: 14,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    backgroundColor: '#f0edeb',
-  },
-
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: HEADER_HEIGHT + 12,
-    paddingBottom: BOTTOM_NAV_HEIGHT + 32,
-    gap: 24,
-  },
-
-  // Search bar
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 20,
-    backgroundColor: 'rgba(227,213,202,0.5)',
-    borderRadius: 9999,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  searchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  searchPlaceholder: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 15,
-    color: '#7a7a7a',
-  },
-  searchPills: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  pill: {
-    backgroundColor: '#ffffff',
-    borderRadius: 9999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  pillText: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#2e2e2e',
-  },
-
-  // Promo carousel
-  promoList: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  promoCard: {
-    width: 280,
-    height: 160,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#f0edeb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  promoImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  promoGradient: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  promoContent: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    padding: 16,
-    gap: 4,
-  },
-  promoTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#ffffff',
-  },
-  promoSubtitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-  },
-  promoCta: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 9999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  promoCtaText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 11,
-    color: '#2e2e2e',
-    letterSpacing: 0.5,
-  },
-
-  // Quick actions
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  quickCard: {
-    width: '47%',
-    height: 80,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  quickIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickLabel: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#2e2e2e',
-    flexShrink: 1,
-  },
-
-  // Sections
-  section: {
-    gap: 14,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#2e2e2e',
-  },
-  seeAll: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#97a591',
-  },
-
-  // Recommended nanny cards
-  nannyList: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  nannyCard: {
-    width: 150,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  nannyImage: {
-    width: '100%',
-    height: 120,
-    backgroundColor: '#f0edeb',
-  },
-  nannyInfo: {
-    padding: 10,
-    gap: 2,
-  },
-  nannyName: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#2e2e2e',
-  },
-  nannyRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  nannyRating: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#2e2e2e',
-  },
-  nannyPrice: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#7a7a7a',
-    marginTop: 2,
-  },
-
-  // Favourites
-  favouritesList: {
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-  favouriteItem: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  favouriteAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#f0edeb',
-  },
-  addFavourite: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1.5,
-    borderColor: '#97a591',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(151,165,145,0.08)',
-  },
-  favouriteName: {
-    fontFamily: 'Manrope',
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#7a7a7a',
-  },
-
-  // Community preview
-  communityCard: {
-    marginHorizontal: 20,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  communityImage: {
-    width: '100%',
-    height: 140,
-    backgroundColor: '#f0edeb',
-  },
-  communityBody: {
-    padding: 16,
-    gap: 6,
-  },
-  communityTitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#2e2e2e',
-  },
-  communitySubtitle: {
-    fontFamily: 'Manrope',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#7a7a7a',
-  },
-  communityLink: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  communityLinkText: {
-    fontFamily: 'Manrope',
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#97a591',
-  },
-});

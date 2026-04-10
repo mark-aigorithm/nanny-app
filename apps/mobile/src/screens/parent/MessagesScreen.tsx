@@ -5,13 +5,14 @@ import {
   ScrollView,
   Pressable,
   Image,
-  StyleSheet,
   SafeAreaView,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import { colors } from '@mobile/theme';
+import { styles } from './styles/messages-screen.styles';
 
 // ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
 // Replace with S3/CDN URLs or bundled assets before production.
@@ -98,7 +99,7 @@ function ConversationItem({ conversation, onPress }: { conversation: Conversatio
           <View style={styles.chatNameRow}>
             <Text style={styles.chatName}>{conversation.name}</Text>
             {conversation.isVerified && (
-              <Ionicons name="checkmark-circle" size={14} color="#97a591" />
+              <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
             )}
           </View>
           <Text
@@ -146,7 +147,7 @@ export default function MessagesScreen() {
         <View style={styles.headerInner}>
           <View style={styles.headerLeft}>
             <Pressable>
-              <Ionicons name="menu-outline" size={22} color="#97a591" />
+              <Ionicons name="menu-outline" size={22} color={colors.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>Messages</Text>
           </View>
@@ -163,11 +164,11 @@ export default function MessagesScreen() {
       >
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={15} color="#7a7a7a" />
+          <Ionicons name="search-outline" size={15} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search conversations..."
-            placeholderTextColor="#7a7a7a"
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -187,7 +188,7 @@ export default function MessagesScreen() {
 
       {/* FAB */}
       <Pressable style={styles.fab}>
-        <Ionicons name="create-outline" size={22} color="#fff" />
+        <Ionicons name="create-outline" size={22} color={colors.white} />
       </Pressable>
 
       <BottomNav activeTab="messages" />
@@ -195,194 +196,3 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf9f7',
-  },
-  statusBar: {
-    backgroundColor: 'rgba(227, 213, 202, 0.92)',
-  },
-
-  // Header
-  header: {
-    backgroundColor: 'rgba(227, 213, 202, 0.92)',
-    zIndex: 3,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  headerTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 18,
-    letterSpacing: -0.45,
-    color: '#97a591',
-    lineHeight: 28,
-  },
-  headerAvatarBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#f0edeb',
-  },
-  headerAvatar: {
-    width: 32,
-    height: 32,
-  },
-
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 96,
-    gap: 32,
-  },
-
-  // Search bar
-  searchBar: {
-    backgroundColor: 'rgba(227, 213, 202, 0.5)',
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 14,
-    color: '#1b1c1b',
-  },
-
-  // Conversation list
-  conversationList: {
-    gap: 24,
-  },
-  chatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  chatAvatarWrapper: {
-    position: 'relative',
-    flexShrink: 0,
-  },
-  chatAvatarBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: '#f0edeb',
-  },
-  chatAvatar: {
-    width: 56,
-    height: 56,
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#6a9b6a',
-    borderWidth: 2,
-    borderColor: '#fcf9f7',
-  },
-  chatContent: {
-    flex: 1,
-    gap: 2,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  chatNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  chatName: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 16,
-    color: '#1b1c1b',
-    lineHeight: 24,
-  },
-  chatTime: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 13,
-    color: '#7a7a7a',
-    lineHeight: 19.5,
-  },
-  chatTimeUnread: {
-    fontFamily: 'Manrope_600SemiBold',
-    color: '#97a591',
-  },
-  chatPreviewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  chatPreview: {
-    flex: 1,
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 14,
-    color: '#7a7a7a',
-    lineHeight: 21,
-    paddingRight: 8,
-  },
-  chatPreviewUnread: {
-    fontFamily: 'Manrope_600SemiBold',
-    color: '#2e2e2e',
-  },
-  unreadBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#97a591',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  unreadBadgeText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 10,
-    color: '#fff',
-    lineHeight: 15,
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 96,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#97a591',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 2,
-  },
-
-});
