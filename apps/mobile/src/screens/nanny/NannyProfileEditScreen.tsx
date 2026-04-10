@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { MOCK_NANNY_PROFILE_EDIT } from '@mobile/mocks';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
@@ -18,6 +19,7 @@ import { styles } from './styles/nanny-profile-edit-screen.styles';
 const AGE_RANGE_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
 
 export default function NannyProfileEditScreen() {
+  const router = useRouter();
   const profile = MOCK_NANNY_PROFILE_EDIT;
 
   const [name, setName] = useState(profile.name);
@@ -151,6 +153,28 @@ export default function NannyProfileEditScreen() {
         {/* Save */}
         <Pressable style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save changes</Text>
+        </Pressable>
+
+        {/* Switch to Parent View */}
+        <Pressable
+          style={[styles.saveButton, { backgroundColor: colors.taupe, marginTop: 0 }]}
+          onPress={() => router.replace('/(parent)/home')}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="swap-horizontal-outline" size={18} color={colors.primary} />
+            <Text style={[styles.saveButtonText, { color: colors.primary }]}>Switch to Parent View</Text>
+          </View>
+        </Pressable>
+
+        {/* Sign out */}
+        <Pressable
+          style={[styles.saveButton, { backgroundColor: colors.taupe, marginTop: 0 }]}
+          onPress={() => router.replace('/(auth)/splash')}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="log-out-outline" size={18} color={colors.error} />
+            <Text style={[styles.saveButtonText, { color: colors.error }]}>Sign out</Text>
+          </View>
         </Pressable>
       </ScrollView>
 

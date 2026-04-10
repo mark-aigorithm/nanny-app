@@ -5,7 +5,7 @@ import {
   Pressable,
   StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors } from '@mobile/theme';
@@ -20,15 +20,18 @@ const BENEFITS = [
 
 export default function NotificationPermissionScreen() {
   const router = useRouter();
+  const { role } = useLocalSearchParams<{ role?: string }>();
+
+  const homeRoute = role === 'nanny' ? '/(nanny)/dashboard' : '/(parent)/home';
 
   async function handleEnable() {
     // TODO: Wire up expo-notifications permission request at runtime
     // await Notifications.requestPermissionsAsync();
-    router.replace('/(parent)/home');
+    router.replace(homeRoute);
   }
 
   function handleSkip() {
-    router.replace('/(parent)/home');
+    router.replace(homeRoute);
   }
 
   return (

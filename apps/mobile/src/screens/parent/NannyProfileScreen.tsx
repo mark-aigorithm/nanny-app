@@ -113,7 +113,9 @@ export default function NannyProfileScreen() {
 
           {/* Quick action buttons */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}
+              onPress={() => router.push('/(parent)/chat/messaging')}
+            >
               <Ionicons name="chatbubble-outline" size={18} color={colors.primaryDark} />
               <Text style={styles.actionBtnText}>Message</Text>
             </TouchableOpacity>
@@ -129,6 +131,28 @@ export default function NannyProfileScreen() {
             >
               <Ionicons name="calendar-outline" size={18} color={colors.primaryDark} />
               <Text style={styles.actionBtnText}>Availability</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* More actions */}
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}
+              onPress={() => router.push('/(parent)/nanny/nanny-care-log' as never)}
+            >
+              <Ionicons name="document-text-outline" size={18} color={colors.primaryDark} />
+              <Text style={styles.actionBtnText}>Care Log</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}
+              onPress={() => router.push('/(parent)/nanny/care-activity-feed' as never)}
+            >
+              <Ionicons name="pulse-outline" size={18} color={colors.primaryDark} />
+              <Text style={styles.actionBtnText}>Activity</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}
+              onPress={() => router.push('/(parent)/nanny/live-video-monitor' as never)}
+            >
+              <Ionicons name="videocam-outline" size={18} color={colors.primaryDark} />
+              <Text style={styles.actionBtnText}>Live View</Text>
             </TouchableOpacity>
           </View>
         </View>

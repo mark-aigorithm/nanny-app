@@ -148,13 +148,15 @@ export default function SearchScreen() {
       <View style={styles.header} pointerEvents="box-none">
         <SafeAreaView>
           <View style={styles.headerInner}>
-            <Pressable>
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
               <Ionicons name="menu-outline" size={22} color={colors.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>Explore</Text>
-            <View style={styles.headerAvatarBorder}>
-              <Image source={{ uri: IMG_USER_PROFILE_SEARCH }} style={styles.headerAvatar} />
-            </View>
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+              <View style={styles.headerAvatarBorder}>
+                <Image source={{ uri: IMG_USER_PROFILE_SEARCH }} style={styles.headerAvatar} />
+              </View>
+            </Pressable>
           </View>
           <View style={styles.searchBarContainer}>
             <View style={styles.searchBar}>

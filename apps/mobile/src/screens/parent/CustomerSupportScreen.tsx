@@ -8,12 +8,14 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { IMG_SUPPORT_AVATAR } from '@mobile/mocks/images';
 import { MOCK_FAQS } from '@mobile/mocks';
 import { styles } from './styles/customer-support-screen.styles';
 
 export default function CustomerSupportScreen() {
+  const router = useRouter();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(1);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -142,11 +144,13 @@ export default function CustomerSupportScreen() {
       {/* ── Fixed: Header ── */}
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Pressable style={styles.iconBtn}>
+          <Pressable style={styles.iconBtn} onPress={() => router.push('/(parent)/mother-profile' as never)}>
             <Ionicons name="menu-outline" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.logoText}>NannyMom</Text>
-          <Image source={{ uri: IMG_SUPPORT_AVATAR }} style={styles.avatar} />
+          <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+            <Image source={{ uri: IMG_SUPPORT_AVATAR }} style={styles.avatar} />
+          </Pressable>
         </View>
       </View>
     </View>

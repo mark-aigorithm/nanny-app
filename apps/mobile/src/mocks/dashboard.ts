@@ -45,12 +45,12 @@ export const QUICK_ACTIONS: QuickAction[] = [
     route: '/(parent)/community',
   },
   {
-    id: 'monitor',
-    label: 'Live monitor',
-    icon: 'videocam',
-    bgColor: colors.primaryMuted,
-    iconColor: colors.primary,
-    route: '/(parent)/nanny/live-video-monitor',
+    id: 'bookings',
+    label: 'Bookings',
+    icon: 'time',
+    bgColor: colors.warmLight,
+    iconColor: colors.goldWarm,
+    route: '/(parent)/booking-history',
   },
 ];
 

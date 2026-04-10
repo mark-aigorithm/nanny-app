@@ -38,9 +38,11 @@ export default function EventsMeetupsScreen() {
                 <Ionicons name="location" size={14} color={colors.textTertiary} />
                 <Text style={styles.locationText}>Brooklyn, NY</Text>
               </View>
-              <View style={styles.headerAvatarBorder}>
-                <Image source={{ uri: IMG_USER_PROFILE_COMMUNITY }} style={styles.headerAvatar} />
-              </View>
+              <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+                <View style={styles.headerAvatarBorder}>
+                  <Image source={{ uri: IMG_USER_PROFILE_COMMUNITY }} style={styles.headerAvatar} />
+                </View>
+              </Pressable>
             </View>
           </View>
         </SafeAreaView>

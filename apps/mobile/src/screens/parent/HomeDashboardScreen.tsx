@@ -38,7 +38,9 @@ export default function HomeDashboardScreen() {
               <Ionicons name="notifications-outline" size={22} color={colors.textDark} />
               <Badge count={3} size="sm" style={styles.bellBadge} />
             </Pressable>
-            <Avatar uri={IMG_USER_AVATAR} size="md" borderWidth={2} borderColor={colors.white} />
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+              <Avatar uri={IMG_USER_AVATAR} size="md" borderWidth={2} borderColor={colors.white} />
+            </Pressable>
           </View>
         </View>
       </View>
@@ -99,7 +101,7 @@ export default function HomeDashboardScreen() {
             <Pressable
               key={action.id}
               style={styles.quickCard}
-              onPress={() => router.push(action.route)}
+              onPress={() => router.push(action.route as never)}
             >
               <View style={[styles.quickIconBg, { backgroundColor: action.bgColor }]}>
                 <Ionicons name={action.icon} size={22} color={action.iconColor} />

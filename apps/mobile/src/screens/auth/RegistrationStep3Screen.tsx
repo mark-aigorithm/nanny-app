@@ -60,7 +60,7 @@ export default function RegistrationStep3Screen() {
 
   function handleCompleteSetup() {
     if (otp.length < OTP_LENGTH || !termsAccepted) return;
-    router.push('/(auth)/notification-permission');
+    router.push({ pathname: '/(auth)/notification-permission', params: { role: params.role } });
   }
 
   function handleOtpChange(value: string) {

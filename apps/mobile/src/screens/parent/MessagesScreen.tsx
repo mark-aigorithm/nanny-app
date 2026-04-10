@@ -82,14 +82,16 @@ export default function MessagesScreen() {
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <View style={styles.headerLeft}>
-            <Pressable>
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
               <Ionicons name="menu-outline" size={22} color={colors.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>Messages</Text>
           </View>
-          <View style={styles.headerAvatarBg}>
-            <Image source={{ uri: IMG_USER_PROFILE_MESSAGES }} style={styles.headerAvatar} />
-          </View>
+          <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+            <View style={styles.headerAvatarBg}>
+              <Image source={{ uri: IMG_USER_PROFILE_MESSAGES }} style={styles.headerAvatar} />
+            </View>
+          </Pressable>
         </View>
       </View>
 

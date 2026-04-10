@@ -24,14 +24,8 @@ export default function SignInScreen() {
 
   function handleSignIn() {
     setPasswordError(null);
-    signIn.mutate(email, password, {
-      onSuccess: () => {
-        router.push('/(parent)/home');
-      },
-      onError: () => {
-        setPasswordError('Incorrect password');
-      },
-    });
+    // TODO: Replace with real Firebase auth once backend is ready
+    router.replace('/(parent)/home');
   }
 
   function handleForgotPassword() {

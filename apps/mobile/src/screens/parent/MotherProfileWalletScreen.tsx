@@ -31,8 +31,11 @@ export default function MotherProfileWalletScreen() {
       case 'help':
         router.push('/(parent)/customer-support' as never);
         break;
+      case 'nannies':
+        router.push('/(parent)/search');
+        break;
       case 'logout':
-        // TODO: Call auth sign-out via useAuth hook
+        router.replace('/(auth)/splash');
         break;
       default:
         break;
@@ -76,7 +79,7 @@ export default function MotherProfileWalletScreen() {
           </View>
 
           {/* Edit profile button */}
-          <Pressable style={styles.editProfileBtn}>
+          <Pressable style={styles.editProfileBtn} onPress={() => router.push('/(parent)/account-details' as never)}>
             <Text style={styles.editProfileText}>Edit profile</Text>
           </Pressable>
         </View>
@@ -143,17 +146,33 @@ export default function MotherProfileWalletScreen() {
               </View>
             </Pressable>
           ))}
+
+          {/* Switch to Nanny View */}
+          <Pressable
+            style={styles.settingsItem}
+            onPress={() => router.replace('/(nanny)/dashboard')}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="swap-horizontal-outline" size={20} color={colors.primary} />
+              <Text style={[styles.settingsItemLabel, { color: colors.primary }]}>
+                Switch to Nanny View
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </Pressable>
         </View>
       </ScrollView>
 
       {/* ── Fixed: Header ── */}
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Pressable style={styles.headerIconBtn}>
+          <Pressable style={styles.headerIconBtn} onPress={() => router.back()}>
             <Ionicons name="menu" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Profile</Text>
-          <Image source={{ uri: IMG_HEADER_AVATAR }} style={styles.headerAvatar} />
+          <Pressable onPress={() => router.push('/(parent)/account-details' as never)}>
+            <Image source={{ uri: IMG_HEADER_AVATAR }} style={styles.headerAvatar} />
+          </Pressable>
         </View>
       </View>
     </View>

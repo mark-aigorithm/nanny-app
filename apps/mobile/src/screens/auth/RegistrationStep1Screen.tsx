@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
@@ -19,6 +19,7 @@ import { styles } from './styles/registration-step1-screen.styles';
 
 export default function RegistrationStep1Screen() {
   const router = useRouter();
+  const { role } = useLocalSearchParams<{ role?: string }>();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -32,7 +33,7 @@ export default function RegistrationStep1Screen() {
   }
 
   function handleContinue() {
-    router.push('/(auth)/register-step-2');
+    router.push({ pathname: '/(auth)/register-step-2', params: { role } });
   }
 
   return (

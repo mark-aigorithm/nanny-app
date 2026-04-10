@@ -22,7 +22,8 @@
     "src/**/*",
     "app/**/*",
     "app.config.ts",
-    ".expo/types/**/*.ts"
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
   ],
   "exclude": [
     "node_modules"

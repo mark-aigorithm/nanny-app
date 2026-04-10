@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Image,
   StatusBar,
 } from 'react-native';
@@ -39,14 +40,14 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
-        <View style={styles.heroSection}>
+        {/* Hero — tap to view dashboard */}
+        <Pressable style={styles.heroSection} onPress={() => router.push('/(parent)/home-dashboard' as never)}>
           <Text style={styles.heroTitle}>{'Find the perfect nanny\ntoday'}</Text>
           <View style={styles.heroImageWrap}>
             <Image source={{ uri: IMG_HERO }} style={styles.heroImage} resizeMode="cover" />
             <View style={styles.heroOverlay} />
           </View>
-        </View>
+        </Pressable>
 
         {/* Quick filters */}
         <ScrollView
@@ -73,7 +74,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recommended nannies</Text>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(parent)/search')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -115,13 +116,15 @@ export default function HomeScreen() {
             >
               <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Avatar uri={IMG_USER_AVATAR} size="sm" />
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+              <Avatar uri={IMG_USER_AVATAR} size="sm" />
+            </Pressable>
           </View>
         </View>
       </View>
 
       {/* ── Fixed: FAB ── */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => router.push('/(parent)/search')}>
         <Ionicons name="add" size={22} color={colors.white} />
       </TouchableOpacity>
 

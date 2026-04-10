@@ -37,7 +37,7 @@ export default function CommunityScreen() {
         </View>
 
         {/* Featured Post */}
-        <View style={styles.card}>
+        <Pressable style={styles.card} onPress={() => router.push({ pathname: '/(parent)/post-detail', params: { postId: '1' } })}>
           <View style={styles.postAuthorRow}>
             <View style={styles.avatarContainer}>
               <Image source={{ uri: IMG_AVATAR_SARAH_COMMUNITY }} style={styles.avatar} />
@@ -79,12 +79,20 @@ export default function CommunityScreen() {
               <Ionicons name="bookmark-outline" size={17} color={colors.textMuted} />
             </Pressable>
           </View>
+        </Pressable>
+
+        {/* Events & Meetups link */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Events & Meetups</Text>
+          <Pressable onPress={() => router.push('/(parent)/events-meetups' as never)}>
+            <Text style={styles.seeAll}>Browse events</Text>
+          </Pressable>
         </View>
 
         {/* Feed Items */}
         <View style={styles.feedSection}>
           {/* Feed Item 2 */}
-          <View style={styles.card}>
+          <Pressable style={styles.card} onPress={() => router.push({ pathname: '/(parent)/post-detail', params: { postId: '2' } })}>
             <View style={styles.postAuthorRow}>
               <View style={styles.avatarContainer}>
                 <Image source={{ uri: IMG_AVATAR_ELENA_COMMUNITY }} style={styles.avatar} />
@@ -121,10 +129,10 @@ export default function CommunityScreen() {
                 <Text style={styles.actionCount}>8</Text>
               </Pressable>
             </View>
-          </View>
+          </Pressable>
 
           {/* Feed Item 3 */}
-          <View style={styles.card}>
+          <Pressable style={styles.card} onPress={() => router.push({ pathname: '/(parent)/post-detail', params: { postId: '3' } })}>
             <View style={styles.postAuthorRow}>
               <View style={styles.avatarContainer}>
                 <Image source={{ uri: IMG_AVATAR_DAVID_COMMUNITY }} style={styles.avatar} />
@@ -157,7 +165,7 @@ export default function CommunityScreen() {
                 <Text style={styles.actionCount}>31</Text>
               </Pressable>
             </View>
-          </View>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -165,13 +173,15 @@ export default function CommunityScreen() {
       <View style={styles.header} pointerEvents="box-none">
         <SafeAreaView>
           <View style={styles.headerInner}>
-            <Pressable>
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
               <Ionicons name="menu-outline" size={22} color={colors.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>Community</Text>
-            <View style={styles.headerAvatarBorder}>
-              <Image source={{ uri: IMG_USER_PROFILE_COMMUNITY }} style={styles.headerAvatar} />
-            </View>
+            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+              <View style={styles.headerAvatarBorder}>
+                <Image source={{ uri: IMG_USER_PROFILE_COMMUNITY }} style={styles.headerAvatar} />
+              </View>
+            </Pressable>
           </View>
 
           <View style={styles.tabBar}>
