@@ -1,0 +1,516 @@
+
+NANNYMOM
+Mobile Application
+Product Requirements Document (PRD)
+
+
+
+1. Executive Summary
+NannyMom is a dual-sided mobile application designed to connect mothers with vetted childcare professionals (nannies) and with a peer community of nearby mothers. The platform combines on-demand nanny booking, real-time care monitoring, a social community feed, event planning, and a peer-to-peer marketplace — all within a single, cohesive mobile experience.
+The application addresses three core user needs: (1) safe, convenient access to verified childcare professionals; (2) transparent, real-time visibility into child care activities while parents are away; and (3) a trusted social network of local mothers for advice, events, and peer-to-peer commerce.
+
+
+
+2. Table of Contents
+1. Executive Summary
+2. Table of Contents
+3. Application Overview
+4. User Roles & Personas
+5. User Data Access & Permissions
+6. Feature Modules — Functional Requirements
+   6.1  Home & Booking Dashboard
+   6.2  Nanny Discovery & Profiles
+   6.3  Booking Flow (Summary, Checkout, Payment)
+   6.4  Live Care Monitoring (Video & Activity Log)
+   6.5  Care Log Entry (Nanny-side)
+   6.6  In-App Care Activity Feed (Parent-side)
+   6.7  Mother's Community Feed
+   6.8  Community Events & Meetup Planner
+   6.9  Integrated Community Hub
+   6.10 Moms' Marketplace
+   6.11 Mother Profile & Wallet
+   6.12 Customer Support Center
+7. System Constraints & Non-Functional Requirements
+8. Configuration & Settings
+9. Notifications & Alerts
+10. Proposed New Features
+
+3. Application Overview
+3.1 Platform
+
+3.2 Module Map
+
+
+4. User Roles & Personas
+4.1 Role Definitions
+
+4.2 Persona Summaries
+Persona A — Sarah (Mother, 31, New York)
+Works full-time; needs reliable evening and weekend childcare. Values transparent care logs and real-time video monitoring while at work. Active in the local mom community for advice and playdates.
+Persona B — Elena (Nanny, 29, New York)
+Former preschool teacher offering professional childcare services. Needs a reliable platform to find bookings, communicate with parents, and build a verified reputation through reviews.
+
+5. User Data Access & Permissions
+
+
+
+6. Feature Modules — Functional Requirements
+6.1 Home & Booking Dashboard (M-01 / M-15)
+6.1.1 UI Components Identified
+Personalized greeting header with user avatar and notification bell
+Quick-search bar with date/time pickers for nanny availability
+Horizontal promotional carousel (swipeable promo cards with CTA buttons)
+Quick-action grid (Book, Emergency, Forum, Tracker icons)
+'Recommended Nearby' and 'Favorite Nannies' horizontal scroll lists
+Community preview section (latest post snippet with CTA)
+Persistent bottom navigation bar (Home, Bookings/Search, Community, Messages)
+
+6.1.2 Functional Requirements
+
+
+6.2 Nanny Discovery & Profiles (M-02)
+6.2.1 UI Components Identified
+Full-bleed hero profile photo with overlaid navigation (back, favourite, share)
+Overlapping profile summary card: name, verification badge, hourly rate, star rating, review count
+Stats row: years of experience, age, age groups served
+Quick action buttons: Message and View Availability
+About Me bio section (expandable 'Read more')
+Horizontally scrollable certification cards (First Aid, CPR, BG Check, ECE Degree)
+Social proof 'Common Connections' trust bar
+User reviews list with avatar, name, date, booking type, star rating, and review text
+Sticky footer CTA: 'Book This Nanny'
+
+6.2.2 Functional Requirements
+
+
+6.3 Booking Flow — Summary, Promotions & Checkout (M-03)
+6.3.1 UI Components Identified
+Step progress indicator (Step 1 of 3)
+Nanny summary card with photo, name, rating, date, and time/duration
+Promotional code input field with 'Apply' button and applied-promo badge
+Itemized price breakdown: subtotal, discount, service fee, total
+Reliability Guarantee info card
+Payment method selector (Apple Pay, credit card, add new)
+Discount/promo applied chip (green, dismissible)
+'Proceed to Payment' / 'Confirm & Pay' primary CTA with total amount
+Security trust badge (SSL encrypted)
+
+6.3.2 Functional Requirements
+
+6.4 Live Care Video Monitor (M-04)
+6.4.1 UI Components Identified
+Full-width video player (4:3 aspect ratio) with rounded corners
+Overlaid 'LIVE' badge and room/camera label
+Nanny name overlay identifying the caregiver on screen
+Video quality indicator (e.g., 1080p HD)
+In-video action controls: Fullscreen toggle
+Three action buttons below video: Speak (two-way audio), Take Photo, Record
+Session timer with stop-feed and history buttons
+Recent activity feed below player (motion detected, activity started, audio clip events)
+
+6.4.2 Functional Requirements
+
+
+6.5 Nanny Care Log Entry (M-06)
+6.5.1 UI Components Identified
+Child profile banner: photo, name, last activity timestamp, current status chip
+2×2 quick-entry grid: Meal, Nap, Diaper, Activity buttons (color-coded pastel)
+Today's Log list with type icon, label, timestamp, and detail chevron
+Bottom modal sheet for log entry: time selector, toggle options (e.g., Falling Asleep / Woke Up), freetext notes, Save/Discard actions
+'Send Daily Update' sticky footer CTA button
+
+6.5.2 Functional Requirements
+
+
+6.6 In-App Care Activity Feed (M-05)
+6.6.1 UI Components Identified
+Sticky header with back navigation and filter/sort control
+Horizontal filter pill bar: All Activities, Health, Play, Meals
+Chronological activity cards grouped by Today / Yesterday
+Activity cards: icon (color-coded), title, timestamp, narrative description, optional photo thumbnails
+'Mark all as read' and 'Add Note' inline actions
+Floating Action Button ('+') to add a parent-side note
+Bottom navigation bar
+
+6.6.2 Functional Requirements
+
+
+6.7 Mother's Community Feed (M-08)
+6.7.1 UI Components Identified
+Header with online-members count badge and search/notification icons
+Horizontal category filter bar: All Posts, General Advice, Local Playgroups, Marketplace
+Post cards: author avatar, name, category, time ago, post text (with 'Read more' expansion)
+Marketplace posts with product photo, price chip overlay
+Event posts with date chip, venue, RSVP button, and attendee avatar stack
+Post reactions: Like count, Comment count, Share button
+Floating Action Button for creating a new post
+Feed/Map view toggle in community hub header
+
+6.7.2 Functional Requirements
+
+
+6.8 Community Events & Meetup Planner (M-09)
+6.8.1 UI Components Identified
+Event search bar (venue/location search)
+Category filter chips: All Events, Playdates, Educational, Workshops
+Event cards: cover image, date badge, event title, age-range tag, location tag, attendee count with avatar stack, bookmark icon
+Create Event form: cover photo picker, event title, description textarea, date/time pickers, location search + map preview, age-range tag selection, privacy options (Public vs. Invite Only), attendee limit counter
+Floating Action Button to create new event
+
+6.8.2 Functional Requirements
+
+
+6.9 Moms' Marketplace (M-11)
+6.9.1 UI Components Identified
+Header with marketplace title and 'Sell' CTA button
+Search bar with item keyword search
+Category filter chips: All Items, Toys, Clothes, Gear, Nursery, Strollers
+2-column product grid: product photo, favorite/heart button, item title, price, seller location
+Bottom navigation bar
+
+6.9.2 Functional Requirements
+
+
+6.10 Mother Profile & Wallet (M-12)
+6.10.1 UI Components Identified
+Profile photo with edit capability and verified badge overlay
+Name and membership tier (Pro Member) with location
+Two-card wallet section: My Wallet (balance) and Bonus Points
+Settings list: Account Details, My Nannies, Payment Methods, Logout
+Bottom tab bar
+
+6.10.2 Functional Requirements
+
+
+6.11 Customer Support Center (M-13)
+6.11.1 UI Components Identified
+'Available Now' Live Chat hero card with wait-time estimate
+FAQ search bar
+Accordion-style FAQ list (nanny vetting, cancellations, billing)
+Contact options grid: Email Support, Mother's Forum
+Emergency assistance footer with 24/7 hotline call button
+Community highlight image with 'Local Mom Mentors' promotional banner
+
+6.11.2 Functional Requirements
+
+
+7. System Constraints & Non-Functional Requirements
+
+
+8. Configuration & Settings
+8.1 Platform-Level (Admin-Configurable)
+
+8.2 User-Level (Mother-Configurable)
+
+
+9. Notifications & Alerts
+
+
+10. Proposed New Features
+10.1 AI-Powered Nanny Matching Engine
+Instead of static distance + rating sort, implement an ML-based recommendation engine that scores nannies against a mother's booking history, stated preferences (age group of child, activities preferred), scheduling patterns, and language requirements. The engine learns from post-booking ratings to improve future matches.
+
+10.2 Child Development Milestone Tracker
+An integrated milestone tracker (powered by WHO/AAP developmental guidelines) that logs a child's developmental milestones and correlates them with care log activities entered by nannies. Parents receive personalized activity suggestions for upcoming milestones.
+
+10.3 Multi-Camera Home Monitor with Zones
+Extend the single-room live video monitor to support multiple camera feeds per home, organized into named zones (Living Room, Nursery, Garden). Parents switch between zones via a tab interface; motion alerts are zone-specific.
+
+10.4 In-App Group Messaging for Events
+When a mother RSVPs to a community event, automatically add her to a private group chat for that event. The group chat enables logistics coordination (directions, what to bring), survives beyond the event for follow-up, and can be converted into a standing playgroup chat.
+
+10.5 Nanny Background Check Integration
+Integrate with a third-party identity and background check provider (e.g., Checkr, Sterling) to automate the nanny verification workflow in-app. Nannies complete the check at onboarding; results are auto-applied to their profile badge. Annual re-checks are prompted automatically.
+
+10.6 Recurring Booking & Nanny Subscription
+Allow mothers to schedule recurring bookings (weekly, bi-weekly) with a preferred nanny at a negotiated subscription rate. The nanny commits to a recurring schedule; both parties receive automated reminders and the booking is auto-confirmed each cycle.
+
+10.7 Marketplace In-App Payment & Escrow
+In v1.0, marketplace transactions are peer-to-peer without platform payment processing. Proposed: add escrow-based in-app payment where the buyer pays via the app, funds are held in escrow, and released to the seller upon buyer confirmation of item receipt. Dispute resolution handled by support.
+
+
+---TABLE 0---
+Document Version | 1.0
+Status | Draft — For Review
+Document Date | March 2026
+Prepared By | Product Requirements Team
+Audience | Engineering, Design, QA, Business Stakeholders
+Classification | Confidential
+
+---TABLE 1---
+Core Value Proposition: NannyMom is the all-in-one platform where mothers find trusted nannies, monitor care in real time, connect with their local mom community, and buy/sell pre-loved children's items — safely and conveniently.
+
+---TABLE 2---
+Attribute | Detail
+Platform Targets | iOS · Android (Primary) – WebApp (Secondary)
+Primary Font Families | Manrope · Plus Jakarta Sans · Lexend · Public Sans · Inter
+Primary Accent Color | Blue (#137FEC) · Pink (#EA57A1) · Mint Green (#A8E6CF) — varies by module
+Dark Mode Support | Yes — all screens implement light/dark variants
+Authentication | Account-based; role assigned at registration
+
+---TABLE 3---
+Module ID | Module Name | Primary Role
+M-01 | Home & Booking Dashboard | Mother
+M-02 | Nanny Discovery & Profiles | Mother
+M-03 | Booking Flow (Summary + Checkout) | Mother
+M-04 | Live Care Video Monitor | Mother
+M-05 | In-App Care Activity Feed | Mother
+M-06 | Nanny Care Log Entry | Nanny
+M-07 | Live Care Log (Timeline View) | Mother / Nanny
+M-08 | Mother's Community Feed | Mother
+M-09 | Community Events & Meetup Planner | Mother
+M-10 | Integrated Community Hub | Mother
+M-11 | Moms' Marketplace | Mother
+M-12 | Mother Profile & Wallet | Mother
+M-13 | Customer Support Center | Mother / Nanny
+M-14 | Find Nearby Moms | Mother
+M-15 | Home Dashboard | Mother
+
+---TABLE 4---
+Role | Description | Key Capabilities
+Mother (Parent) | A verified mother who books nannies and participates in the community. | Book nannies, monitor care live, view activity feed, post in community, buy/sell in marketplace, RSVP events, manage wallet.
+Nanny (Caregiver) | A background-checked childcare professional listed on the platform. | Receive/manage bookings, log care activities (meals, naps, diapers, play), send daily updates to parents, maintain profile & reviews.
+Platform Admin | Anthropic/NannyMom operations team. | Review flagged content, approve nanny verifications, manage promotions, handle support escalations, view analytics.
+Guest / Prospective User | Unauthenticated visitor browsing the app. | View limited public profiles; cannot book or post.
+
+---TABLE 5---
+Data Category | Mother | Nanny | Admin | Guest
+Own profile & settings | Read / Write | Read / Write | Read / Write | None
+Nanny public profile | Read | Read (own: Write) | Read / Write | Read (limited)
+Booking records | Own bookings only | Own bookings only | All bookings | None
+Care log entries | Read (linked child) | Write (during active booking) | Read | None
+Live video feed | Own home camera only | Notified when active | None | None
+Community posts | Read / Write (own) | Read only | Read / Moderate | Read (limited)
+Marketplace listings | Read / Write (own) | Read only | Read / Moderate | Read (limited)
+Event listings | Read / RSVP / Create | Read only | Read / Moderate | Read (limited)
+Wallet balance | Own wallet only | Own earnings only | All (aggregate) | None
+Reviews | Write (after booking) | Read own reviews | Read / Moderate | Read
+Payment methods | Own cards only | Own payout details | None (PCI compliance) | None
+User locations | Own location only | None | Aggregated/anonymized | None
+Push notification prefs | Own settings | Own settings | Read | None
+Support tickets | Own tickets | Own tickets | All tickets | None
+
+---TABLE 6---
+Privacy Note: Location data is used solely for proximity matching (finding nearby nannies and moms). Precise coordinates are never exposed to other users; only distance/neighborhood approximations are shared.
+
+---TABLE 7---
+ID | Requirement | Priority
+FR-01-01 | Display personalized greeting using the logged-in user's first name and time-of-day context (morning/afternoon/evening). | High
+FR-01-02 | Allow mothers to initiate a nanny search by selecting a date and time range; surface available nannies matching criteria. | High
+FR-01-03 | Display a minimum of 2 promotional cards in a horizontal carousel; each card must include a title, sub-title, badge label, and a CTA button linking to the relevant offer. | Medium
+FR-01-04 | Display up to 8 'Recommended Nearby' nanny cards, sorted by rating descending, filtered by distance ≤ 5 miles from the mother's saved home address. | High
+FR-01-05 | Display 'Favorite Nannies' (nannies the user has bookmarked) in a horizontal scroll section; show a minimum of 3 cards. | Medium
+FR-01-06 | Show a community feed preview (latest 1–2 posts) with a 'Join Conversation' CTA that navigates to the Community Feed. | Low
+FR-01-07 | The notification bell badge must display an unread count; tapping it navigates to the notifications screen. | High
+FR-01-08 | The bottom navigation bar must persist across all main screens and highlight the active tab. | High
+FR-01-09 | Display an 'Emergency' quick action that initiates an urgent nanny request flow with elevated priority matching. | High
+
+---TABLE 8---
+ID | Requirement | Priority
+FR-02-01 | Each nanny profile must display: full name, profile photo, verification status, hourly rate, average star rating, total review count, location (neighborhood), experience years, and age groups served. | High
+FR-02-02 | Certifications (First Aid, CPR, Background Check, Education Degree) must be individually verified and time-stamped; display expiry date where applicable. | High
+FR-02-03 | Display shared social connections ('You and [Name] both hired [Nanny]') when a trust connection exists, to increase booking confidence. | Medium
+FR-02-04 | Reviews must be sorted by most recent by default; each review must show reviewer name, date, booking type, star rating, and comment. | High
+FR-02-05 | Only users who have completed a booking with a nanny may submit a review; the system must enforce this server-side. | High
+FR-02-06 | The 'Book This Nanny' CTA must be always visible in a sticky footer bar and navigate directly to the booking flow pre-populated with the nanny's ID. | High
+FR-02-07 | Mothers may bookmark a nanny using the heart icon; bookmarked nannies appear in 'Favorite Nannies' on the dashboard. | Medium
+FR-02-08 | A nanny's availability calendar must be accessible via the 'Availability' quick action, showing blocked/available slots in a calendar view. | High
+
+---TABLE 9---
+ID | Requirement | Priority
+FR-03-01 | The booking flow must consist of exactly 3 steps: (1) Review Booking + Promotions, (2) Payment, (3) Confirmation. A step indicator must always be visible. | High
+FR-03-02 | The booking summary must display nanny name, photo, date, start/end time, and computed duration before any payment is taken. | High
+FR-03-03 | The system must validate promotional codes server-side; invalid codes must display an inline error; valid codes must visually apply as a dismissible chip and recalculate totals. | High
+FR-03-04 | Price breakdown must display: base rate × hours, promotion discount (if any), platform service fee, and grand total. All values must be computed in real time. | High
+FR-03-05 | Service fee must be disclosed as a percentage of the subtotal (configurable by Admin; default 6%). | High
+FR-03-06 | Payment methods must include: Apple Pay / Google Pay (native wallet), saved credit/debit cards, and in-app wallet balance. Users may add new payment methods from this screen. | High
+FR-03-07 | Upon successful payment, the booking status must transition to 'Confirmed'; the mother and nanny must each receive a push notification and in-app confirmation. | High
+FR-03-08 | The Reliability Guarantee must be disclosed on the summary screen: if a nanny cancels within 24 hours of a booking, the platform must find a replacement automatically. | Medium
+FR-03-09 | All payment data must be handled via a PCI-DSS compliant payment gateway (e.g., Stripe); raw card numbers must never touch application servers. | High
+
+---TABLE 10---
+ID | Requirement | Priority
+FR-04-01 | Live video streams must use a secure, encrypted protocol (WebRTC or HLS over TLS). Streams must not be accessible without valid session authentication. | High
+FR-04-02 | The mother must be able to activate a two-way audio channel (speak to the nanny/child) directly from the monitor screen. | High
+FR-04-03 | The mother may take a still photograph from the live feed; photos are saved to a private in-app gallery associated with the booking. | Medium
+FR-04-04 | The mother may start/stop a clip recording from the live feed; recordings are saved securely and retained for 7 days by default (configurable). | Medium
+FR-04-05 | The system must display a real-time session duration timer that resets when the feed starts. | Medium
+FR-04-06 | An automated activity log must display timestamped events: motion detected, nanny entered room, activity started, audio events. These events must be persisted in the booking's care log. | High
+FR-04-07 | The nanny must receive a visible in-app notification when the live feed is activated by the mother, for transparency. | High
+FR-04-08 | If the live stream drops due to connectivity, the app must attempt auto-reconnect with a visual status indicator; after 3 failed attempts, display an error with retry option. | High
+FR-04-09 | Live feed access must be gated to the mother of the active booking only; sharing or exporting the feed URL must be prohibited. | High
+
+---TABLE 11---
+ID | Requirement | Priority
+FR-06-01 | Nannies may log four activity types during an active booking: Meal, Nap, Diaper Change, and Play Activity. Each type has a unique icon and color. | High
+FR-06-02 | Each log entry must capture: activity type, timestamp (auto-populated with current time, editable), optional notes (freetext up to 500 characters), and type-specific fields (e.g., ounces for feeding, wet/dirty for diaper). | High
+FR-06-03 | Log entries are visible to the mother in real time via the Care Activity Feed (M-05) as soon as they are saved. | High
+FR-06-04 | The 'Send Daily Update' action compiles all log entries for the current booking day into a formatted summary push notification sent to the mother. | Medium
+FR-06-05 | Nannies may only log entries for bookings that are currently active (check-in time has passed and check-out has not occurred). | High
+FR-06-06 | A status indicator on the child's profile card must always reflect the most recently logged activity type. | Medium
+FR-06-07 | Log entries must be immutable once the booking ends; the nanny may edit entries only during the active booking window. | High
+
+---TABLE 12---
+ID | Requirement | Priority
+FR-05-01 | Display all care log entries for the current and most recent bookings in reverse chronological order, grouped by date. | High
+FR-05-02 | Filter controls must allow the mother to filter entries by type: All, Health (diaper), Play, Meals/Feeding, Sleep. Filters may be combined. | Medium
+FR-05-03 | New entries logged by the nanny must appear in the feed without requiring a manual refresh (real-time push or WebSocket update). | High
+FR-05-04 | Photo thumbnails attached by the nanny must be viewable in a full-screen lightbox viewer with pinch-to-zoom. | Medium
+FR-05-05 | Mothers may add their own notes/annotations to any feed entry; parent annotations are visually distinguished from nanny entries. | Low
+FR-05-06 | Unread entries (since last app open) must be visually highlighted with a dot badge on the icon; 'Mark all as read' clears all badges for the current session. | Medium
+
+---TABLE 13---
+ID | Requirement | Priority
+FR-08-01 | The community feed must display posts from verified mothers within a configurable radius (default: 10 miles) of the user's location. | High
+FR-08-02 | Posts must support the following types: General Discussion, Marketplace Listing, Event/Playgroup Announcement, and Question/Advice Request. | High
+FR-08-03 | Each post must support: like/heart reactions (with count), comment thread, and share action. | High
+FR-08-04 | Mothers may filter the feed by category using the horizontal pill filter; the active category filter must persist within the session. | Medium
+FR-08-05 | A real-time 'X moms online nearby' indicator must display in the feed header, updating every 5 minutes. | Low
+FR-08-06 | Posts flagged as URGENT (e.g., advice requests marked urgent) must be visually highlighted and surfaced above organic feed order. | Medium
+FR-08-07 | The platform must implement content moderation: auto-flagging for prohibited keywords and a user-level report function on all posts. | High
+FR-08-08 | The community hub must support a Map View mode showing event pins and nearby mothers on an interactive map. | Medium
+FR-08-09 | Users may create new posts using the floating action button; post composer must support text, image upload (up to 4 images), and post type selection. | High
+
+---TABLE 14---
+ID | Requirement | Priority
+FR-09-01 | Any verified mother may create a community event. Events require: title, date/time, location (geocoded address), and at least one age-range tag. | High
+FR-09-02 | Events must support two privacy modes: Public (visible to community members within 5-mile radius) and Invite-Only (link-share access only). | High
+FR-09-03 | Organizers may set a maximum attendee capacity; the platform must prevent RSVPs beyond this limit and display remaining spots. | Medium
+FR-09-04 | All public events must undergo a lightweight safety review before publication (automated keyword check + admin approval queue for events hosted at private addresses). | High
+FR-09-05 | Mothers may RSVP to events; the attendee avatar stack on the event card must reflect confirmed attendees in real time (up to 3 avatars shown + overflow count). | High
+FR-09-06 | Event creators receive push notifications when a new attendee RSVPs and 24 hours before the event as a reminder. | Medium
+FR-09-07 | Events must be searchable by location/venue name and filterable by category and age range. | Medium
+FR-09-08 | Past events must be automatically archived and removed from the public feed 48 hours after the event end time. | Low
+
+---TABLE 15---
+ID | Requirement | Priority
+FR-11-01 | Any verified mother may list items for sale. A listing requires: at least 1 photo (max 6), item title, price, category, and seller's neighborhood (auto-populated from profile). | High
+FR-11-02 | Listings must be displayed in a 2-column masonry grid, sorted by listing date (newest first) by default. | Medium
+FR-11-03 | Buyers may filter by category and search by keyword across title and description fields. | High
+FR-11-04 | Buyers may favorite/heart items; favorited items appear in the buyer's 'Saved Items' list in their profile. | Medium
+FR-11-05 | Transactions are facilitated peer-to-peer; the platform provides in-app messaging for buyer/seller negotiation but does not process payments for marketplace items in v1.0. | Medium
+FR-11-06 | Listings must be marked as 'Sold' by the seller; sold items are hidden from the feed but remain visible in the seller's history. | Medium
+FR-11-07 | Prohibited items list (e.g., unsafe/recalled products, non-child-related items) must be enforced via content moderation. Sellers must agree to marketplace guidelines at first listing. | High
+
+---TABLE 16---
+ID | Requirement | Priority
+FR-12-01 | Each mother has an in-app wallet that holds promotional credits and refunded amounts. Wallet balance is displayed in real time and can be applied during checkout. | High
+FR-12-02 | A loyalty points system tracks earned points (awarded for referrals, completed bookings, reviews). Points are redeemable for booking credits at a configurable exchange rate. | Medium
+FR-12-03 | The 'My Nannies' section lists all nannies with whom the mother has completed at least one booking, with a quick re-book CTA. | Medium
+FR-12-04 | Mothers may add, edit, and delete saved payment methods (credit/debit cards). The primary payment method is highlighted. | High
+FR-12-05 | Profile photo and personal details (name, phone, address) must be editable. Changes to phone number or email require re-verification. | High
+FR-12-06 | Account deletion must be available in settings; the process must inform the user of data retention implications and require explicit confirmation. | Medium
+
+---TABLE 17---
+ID | Requirement | Priority
+FR-13-01 | Live chat must be staffed during platform operating hours; an agent availability indicator must reflect real-time availability. | High
+FR-13-02 | The FAQ must be searchable by keyword; search results must highlight matching terms within FAQ answers. | Medium
+FR-13-03 | An emergency hotline call action must be immediately accessible from the support screen footer; tapping 'Call Now' must initiate a native phone call. | High
+FR-13-04 | Email support tickets must be created in-app; the user receives a confirmation email with a ticket number and expected response time (within 24 hours). | Medium
+FR-13-05 | The system must surface contextual FAQ suggestions based on the user's recent in-app actions (e.g., if they recently cancelled a booking, show cancellation FAQs). | Low
+
+---TABLE 18---
+Category | Requirement
+Performance | App launch to interactive state: ≤ 3 seconds on a mid-range device with 4G connection.
+Performance | Live video feed must achieve < 2-second latency from camera to viewer under standard network conditions.
+Performance | Feed and search screens must render initial content within 1.5 seconds; pagination loads must complete within 1 second.
+Scalability | Backend must support horizontal scaling to handle peak concurrent users (target: 50,000 concurrent sessions at launch).
+Availability | Platform SLA: 99.9% uptime. Scheduled maintenance windows must be communicated 48 hours in advance with in-app banners.
+Security | All API communication over HTTPS/TLS 1.3 minimum. JWTs expire after 15 minutes; refresh tokens after 30 days.
+Security | Payment data must be processed by a PCI-DSS Level 1 compliant third-party (e.g., Stripe). No raw card data stored on NannyMom servers.
+Security | Live video streams are end-to-end encrypted; stream URLs are single-session tokens that expire on disconnect.
+Privacy | GDPR and CCPA compliance: right to access, right to deletion, consent management for location data.
+Privacy | Location data used only for proximity matching; precise coordinates are never stored beyond the active session.
+Accessibility | WCAG 2.1 AA compliance: minimum 4.5:1 contrast ratio, all interactive elements have accessible labels, screen reader support.
+Device Support | iOS 16+ and Android 12+. Minimum screen size: 375px width.
+Offline Behavior | Care log entry (nanny-side) must queue log entries locally and sync when connectivity is restored.
+Data Retention | Booking records: 7 years. Care log entries: 2 years. Video clips: 7 days (default). Community posts: until deleted by author or moderated.
+
+---TABLE 19---
+Setting | Default Value | Description
+Service fee percentage | 6% | Applied to booking subtotal; adjustable per market.
+Search radius (nannies) | 5 miles | Default proximity filter for nanny search results.
+Community feed radius | 10 miles | Posts visible to community members within this radius.
+Video clip retention | 7 days | Automatically deletes saved video clips after this period.
+Session JWT expiry | 15 minutes | Access token TTL; refresh token TTL = 30 days.
+Emergency booking SLA | 30 minutes | Target time to match an emergency booking request.
+Promo code max uses | Configurable per code | Hard usage cap per promotional code campaign.
+Review submission window | 7 days post-booking | Mothers may submit a review within this window.
+
+---TABLE 20---
+Setting | Default | Description
+Location sharing | On (app use only) | Used for nanny proximity and community feed.
+Push notifications | All on | Granular toggles per notification category.
+Video feed auto-start | Manual | Whether the video feed auto-starts when a booking begins.
+Community feed radius | 10 miles | User may reduce; cannot exceed platform maximum.
+Dark mode | System default | Follows device setting; can be overridden in app.
+Language | English (en-US) | UI language; multi-language support planned for v1.1.
+
+---TABLE 21---
+Trigger Event | Recipient | Channel | Priority
+Booking confirmed | Mother + Nanny | Push + In-app + Email | High
+Booking cancelled (by either party) | Both parties | Push + In-app + Email | High
+Nanny check-in (booking started) | Mother | Push + In-app | High
+New care log entry added | Mother | In-app (real-time) | High
+Live video feed activated | Nanny | In-app | High
+Booking reminder (24 hours before) | Mother + Nanny | Push + Email | Medium
+Event reminder (24 hours before) | RSVP attendees | Push | Medium
+New community reply to own post | Author | Push + In-app | Medium
+Promotional code about to expire | Mother | Push + Email | Low
+New marketplace message (buyer inquiry) | Seller | Push + In-app | Medium
+Emergency assistance requested | On-call support agent | SMS + Internal alert | Critical
+Review submission window opening | Mother (7 days post-booking) | Push | Low
+Wallet credit added | Mother | Push + In-app | Medium
+
+---TABLE 22---
+Attribute | Detail
+User Value | Surfaces the most compatible nannies first, reducing search time and improving satisfaction.
+Data Required | Booking history, rating breakdowns, child age/profile, preference quiz (onboarding).
+Complexity | High — requires ML pipeline and sufficient booking data volume (~10K bookings).
+Suggested Release | v2.0
+
+---TABLE 23---
+Attribute | Detail
+User Value | Adds pediatric health value beyond booking logistics; increases app stickiness and daily active use.
+Integration | Connects to care log data; new 'Milestone' entry type for nannies.
+Complexity | Medium — content (milestone database) + UI; no external API dependencies.
+Suggested Release | v1.2
+
+---TABLE 24---
+Attribute | Detail
+User Value | Higher-end families (key revenue segment) often have multiple caregiving zones; this addresses a key feature gap vs. standalone baby monitor products.
+Technical Req | WebRTC multi-stream management; camera pairing via QR code setup flow.
+Complexity | High — multi-stream infrastructure and hardware integration.
+Suggested Release | v2.0 (Premium tier only)
+
+---TABLE 25---
+Attribute | Detail
+User Value | Closes the loop between event discovery and community building; reduces dependency on WhatsApp for event coordination.
+Technical Req | Real-time group messaging infrastructure (e.g., Stream Chat, SendBird); deep link from event card to group chat.
+Complexity | Medium
+Suggested Release | v1.2
+
+---TABLE 26---
+Attribute | Detail
+User Value | Increases mother trust and reduces manual Admin overhead for verification.
+Technical Req | Webhook-based integration with background check API; secure ID document upload flow.
+Regulatory Req | FCRA compliance (US); GDPR for EU expansion.
+Complexity | Medium — vendor integration + legal review.
+Suggested Release | v1.1
+
+---TABLE 27---
+Attribute | Detail
+User Value | Reduces booking friction for regular users; increases revenue predictability; locks in preferred nannies.
+Billing | Recurring charge via saved payment method at start of each booking cycle.
+Cancellation Policy | Configurable by Admin; default: 72-hour notice required to cancel a recurring cycle.
+Complexity | Medium — booking engine + billing recurrence logic.
+Suggested Release | v1.1
+
+---TABLE 28---
+Attribute | Detail
+User Value | Increases buyer trust; reduces cash/Venmo friction; enables platform to earn a small transaction fee.
+Revenue Model | 2–3% marketplace transaction fee (configurable).
+Technical Req | Stripe Connect for seller payouts; escrow logic in backend.
+Complexity | High — payments compliance and escrow logic.
+Suggested Release | v2.0
+
