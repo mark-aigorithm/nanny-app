@@ -10,12 +10,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@mobile/theme';
+import { IMG_ONBOARDING_HERO } from '@mobile/mocks/images';
 import { styles } from './styles/onboarding-screen.styles';
-
-// ASSUMPTION: Image sourced from Figma CDN — expires in 7 days.
-// Replace with a bundled local asset or stable S3/CDN URL before production.
-const IMG_EDITORIAL =
-  'https://www.figma.com/api/mcp/asset/703c73b4-05ef-44cc-b830-9db4211cad35';
 
 interface Props {
   onSkip?: () => void;
@@ -48,7 +44,7 @@ export default function OnboardingScreen({ onSkip, onGetStarted }: Props) {
       {/* ── Top 55%: editorial photo ── */}
       <View style={styles.imageSection}>
         <Image
-          source={{ uri: IMG_EDITORIAL }}
+          source={{ uri: IMG_ONBOARDING_HERO }}
           style={styles.heroImage}
           resizeMode="cover"
         />

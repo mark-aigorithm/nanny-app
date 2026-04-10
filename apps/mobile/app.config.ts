@@ -27,6 +27,9 @@ const config: ExpoConfig = {
     'expo-router',
     ['expo-location', { locationAlwaysAndWhenInUsePermission: 'NannyApp needs your location to find nearby nannies.' }],
   ],
+  experiments: {
+    typedRoutes: true,
+  },
   extra: {
     // TODO: Pull from env vars via expo-constants
     apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://localhost:3000',

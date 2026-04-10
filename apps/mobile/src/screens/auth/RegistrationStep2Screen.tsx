@@ -13,23 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
+import type { Child } from '@mobile/types';
+import { PREFERENCE_OPTIONS } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
 import { styles } from './styles/registration-step2-screen.styles';
-
-type Child = {
-  name: string;
-  age: string;
-};
-
-const AGE_OPTIONS = ['<1', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12+'];
-
-const PREFERENCE_OPTIONS = [
-  'Background checked',
-  'CPR certified',
-  'Bilingual',
-  'Overnight care',
-] as const;
 
 export default function RegistrationStep2Screen() {
   const router = useRouter();
@@ -47,7 +35,7 @@ export default function RegistrationStep2Screen() {
   }
 
   function handleContinue() {
-    router.push('/(auth)/register-step-3' as any);
+    router.push('/(auth)/register-step-3');
   }
 
   function handleAddChild() {
@@ -57,12 +45,6 @@ export default function RegistrationStep2Screen() {
   function handleChildName(index: number, value: string) {
     setChildren((prev) =>
       prev.map((child, i) => (i === index ? { ...child, name: value } : child))
-    );
-  }
-
-  function handleChildAge(index: number, value: string) {
-    setChildren((prev) =>
-      prev.map((child, i) => (i === index ? { ...child, age: value } : child))
     );
   }
 

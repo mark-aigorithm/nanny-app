@@ -14,40 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
+import { IMG_ELENA_CHAT } from '@mobile/mocks/images';
+import { MOCK_MESSAGES } from '@mobile/mocks';
 import { styles } from './styles/messaging-elena-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_ELENA = 'https://www.figma.com/api/mcp/asset/1c0c1853-abde-4a2d-b6d0-142693871519';
-
-// ASSUMPTION: Messages will come from GET /bookings/:id/messages or a Firestore realtime listener.
-// Using hardcoded mock data until the backend service is ready.
-const MOCK_MESSAGES = [
-  {
-    id: '1',
-    type: 'received' as const,
-    text: 'Hi Sarah! I\'ll be there on time. Does Liam have any specific lunch preferences today?',
-    time: '10:42 AM',
-  },
-  {
-    id: '2',
-    type: 'sent' as const,
-    text: 'Hi Elena, that\'s great. He loves the mashed sweet potatoes I\'ve prepared.',
-    time: '10:45 AM',
-  },
-  {
-    id: '3',
-    type: 'received' as const,
-    text: 'Perfect, I\'ll make sure he enjoys that. See you soon!',
-    time: '10:48 AM',
-  },
-  {
-    id: '4',
-    type: 'sent' as const,
-    text: 'See you tomorrow!',
-    time: '10:50 AM',
-  },
-];
 
 // ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
 
@@ -154,7 +123,7 @@ export default function MessagingElenaScreen() {
             >
               <Ionicons name="arrow-back" size={24} color={colors.textDark} />
             </Pressable>
-            <Image source={{ uri: IMG_ELENA }} style={styles.headerAvatar} />
+            <Image source={{ uri: IMG_ELENA_CHAT }} style={styles.headerAvatar} />
             <View style={styles.headerNameCol}>
               <View style={styles.headerNameRow}>
                 <Text style={styles.headerName}>Elena Martinez</Text>

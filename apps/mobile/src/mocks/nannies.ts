@@ -1,0 +1,122 @@
+import type { NannyData, NannyCardData, NannyResult, NannyBookingSummary } from '@mobile/types';
+import {
+  IMG_ELENA_HOME,
+  IMG_SARAH_HOME,
+  IMG_NANNY_CLARA,
+  IMG_NANNY_ELENA_SEARCH,
+  IMG_NANNY_MARCUS,
+  IMG_SARAH_PRAVATAR,
+  IMG_ELENA_PRAVATAR,
+  IMG_MARYANNE_PRAVATAR,
+  IMG_JAMIE_PRAVATAR,
+  IMG_ELENA_BOOKING,
+} from './images';
+
+export const MOCK_NANNIES_HOME: NannyData[] = [
+  {
+    id: '1',
+    name: 'Elena Rodriguez',
+    experience: '8 years experience',
+    distance: '2.4 miles',
+    rating: 4.9,
+    bio: 'Expert in Montessori education and newborn care. Certified in infant CPR and first aid...',
+    hourlyRate: 28,
+    verified: true,
+    image: IMG_ELENA_HOME,
+  },
+  {
+    id: '2',
+    name: 'Sarah Johnson',
+    experience: '5 years experience',
+    distance: '0.8 miles',
+    rating: 5.0,
+    bio: 'Former preschool teacher specializing in early childhood development and creative play...',
+    hourlyRate: 32,
+    verified: true,
+    image: IMG_SARAH_HOME,
+  },
+];
+
+export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
+  {
+    id: '1',
+    name: 'Clara Henderson',
+    experience: '8 years experience',
+    type: 'Full-time',
+    rating: 4.9,
+    hourlyRate: 25,
+    image: IMG_NANNY_CLARA,
+    verified: true,
+  },
+  {
+    id: '2',
+    name: 'Elena Rodriguez',
+    experience: '15 years experience',
+    type: 'Part-time',
+    rating: 5.0,
+    hourlyRate: 32,
+    image: IMG_NANNY_ELENA_SEARCH,
+    verified: true,
+  },
+  {
+    id: '3',
+    name: 'Marcus Thorne',
+    experience: '5 years experience',
+    type: 'Activity Specialist',
+    rating: 4.8,
+    hourlyRate: 28,
+    image: IMG_NANNY_MARCUS,
+    verified: true,
+  },
+];
+
+export const MOCK_NANNIES_RESULTS: NannyResult[] = [
+  {
+    id: '1',
+    name: 'Sarah Jenkins',
+    avatar: IMG_SARAH_PRAVATAR,
+    rating: 4.9,
+    distance: '1.2 mi',
+    experience: '6y',
+    hourlyRate: 28,
+    verified: false,
+  },
+  {
+    id: '2',
+    name: 'Elena Rodriguez',
+    avatar: IMG_ELENA_PRAVATAR,
+    rating: 4.8,
+    distance: '0.8 mi',
+    experience: '4y',
+    hourlyRate: 30,
+    verified: true,
+  },
+  {
+    id: '3',
+    name: "Mary-Anne O'Neil",
+    avatar: IMG_MARYANNE_PRAVATAR,
+    rating: 5.0,
+    distance: '2.1 mi',
+    experience: '15y',
+    hourlyRate: 35,
+    verified: true,
+  },
+  {
+    id: '4',
+    name: 'Jamie Chen',
+    avatar: IMG_JAMIE_PRAVATAR,
+    rating: 4.7,
+    distance: '',
+    experience: '',
+    hourlyRate: 26,
+    verified: false,
+    opacity: 0.6,
+  },
+];
+
+export const MOCK_NANNY_BOOKING: NannyBookingSummary = {
+  name: 'Elena Martinez',
+  rating: 4.9,
+  hourlyRate: 28,
+  image: IMG_ELENA_BOOKING,
+};

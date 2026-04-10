@@ -11,86 +11,15 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 
 import { colors } from '@mobile/theme';
-import { Card, Avatar } from '@mobile/components/ui';
+import { Avatar } from '@mobile/components/ui';
+import { IMG_PROFILE_BOOKING } from '@mobile/mocks/images';
+import type { BookingTabKey, UpcomingBooking, PastBooking } from '@mobile/types';
+import { MOCK_UPCOMING_BOOKINGS, MOCK_PAST_BOOKINGS } from '@mobile/mocks';
 import { styles } from './styles/booking-history-screen.styles';
-
-// ─── Placeholder images ──────────────────────────────────────────────────────
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-
-const IMG_ELENA = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-const IMG_SARAH = 'https://www.figma.com/api/mcp/asset/b89dbd06-ef11-4609-8517-36912efbc57e';
-const IMG_MARIA = 'https://www.figma.com/api/mcp/asset/1f5ca631-9125-4e5b-8903-7ba2fec58cf5';
-const IMG_PROFILE = 'https://www.figma.com/api/mcp/asset/375d31c8-8abc-45b9-9273-4db36fa6b36c';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type TabKey = 'upcoming' | 'past' | 'cancelled';
-
-interface UpcomingBooking {
-  id: string;
-  nannyName: string;
-  nannyPhoto: string;
-  verified: boolean;
-  rating: number;
-  reviewCount: number;
-  status: 'CONFIRMED' | 'PENDING';
-  date: string;
-  time: string;
-}
-
-interface PastBooking {
-  id: string;
-  nannyName: string;
-  nannyPhoto: string;
-  bookedTimes: number;
-  status: 'COMPLETED';
-  hasReview: boolean;
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-// ASSUMPTION: Booking data will come from GET /bookings?status=upcoming|past|cancelled.
-// Using hardcoded mock data until the React Query hook is wired up.
-
-const UPCOMING_BOOKINGS: UpcomingBooking[] = [
-  {
-    id: 'b1',
-    nannyName: 'Elena Martinez',
-    nannyPhoto: IMG_ELENA,
-    verified: true,
-    rating: 5.0,
-    reviewCount: 42,
-    status: 'CONFIRMED',
-    date: 'Monday, Oct 24, 2023',
-    time: '09:00 AM - 04:00 PM',
-  },
-  {
-    id: 'b2',
-    nannyName: 'Sarah Jenkins',
-    nannyPhoto: IMG_SARAH,
-    verified: true,
-    rating: 4.9,
-    reviewCount: 118,
-    status: 'CONFIRMED',
-    date: 'Friday, Oct 28, 2023',
-    time: '05:00 PM - 10:00 PM',
-  },
-];
-
-const PAST_BOOKINGS: PastBooking[] = [
-  {
-    id: 'b3',
-    nannyName: 'Maria Rodriguez',
-    nannyPhoto: IMG_MARIA,
-    bookedTimes: 3,
-    status: 'COMPLETED',
-    hasReview: false,
-  },
-];
 
 // ─── Tab configuration ────────────────────────────────────────────────────────
 
-const TABS: { key: TabKey; label: string }[] = [
+const TABS: { key: BookingTabKey; label: string }[] = [
   { key: 'upcoming', label: 'Upcoming' },
   { key: 'past', label: 'Past' },
   { key: 'cancelled', label: 'Cancelled' },
@@ -100,7 +29,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function BookingHistoryScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
+  const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -121,7 +50,7 @@ export default function BookingHistoryScreen() {
   };
 
   const handleMessage = (_bookingId: string) => {
-    router.push('/(parent)/chat/messaging' as never);
+    router.push('/(parent)/chat/messaging');
   };
 
   const handleLeaveReview = (bookingId: string) => {
@@ -130,7 +59,7 @@ export default function BookingHistoryScreen() {
   };
 
   const handleBookAgain = (_bookingId: string) => {
-    router.push('/(parent)/book/booking-step-1' as never);
+    router.push('/(parent)/book/booking-step-1');
   };
 
   return (
@@ -145,7 +74,7 @@ export default function BookingHistoryScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My bookings</Text>
-        <Avatar uri={IMG_PROFILE} size="sm" />
+        <Avatar uri={IMG_PROFILE_BOOKING} size="sm" />
       </View>
 
       {/* ── Scrollable Content ── */}
@@ -176,7 +105,7 @@ export default function BookingHistoryScreen() {
         {/* ── Tab Content ── */}
         {activeTab === 'upcoming' && (
           <View style={styles.section}>
-            {UPCOMING_BOOKINGS.map((booking) => (
+            {MOCK_UPCOMING_BOOKINGS.map((booking) => (
               <UpcomingBookingCard
                 key={booking.id}
                 booking={booking}
@@ -191,7 +120,7 @@ export default function BookingHistoryScreen() {
         {activeTab === 'past' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Past bookings</Text>
-            {PAST_BOOKINGS.map((booking) => (
+            {MOCK_PAST_BOOKINGS.map((booking) => (
               <PastBookingCard
                 key={booking.id}
                 booking={booking}

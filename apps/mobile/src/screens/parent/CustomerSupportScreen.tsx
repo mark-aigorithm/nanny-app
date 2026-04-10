@@ -8,39 +8,12 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
+import { IMG_SUPPORT_AVATAR } from '@mobile/mocks/images';
+import { MOCK_FAQS } from '@mobile/mocks';
 import { styles } from './styles/customer-support-screen.styles';
 
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_USER_AVATAR = 'https://www.figma.com/api/mcp/asset/3ef9c426-2c0a-4e14-a4d8-a42060d0e5ae';
-
-// ASSUMPTION: FAQ data will come from a CMS or backend endpoint.
-// Using hardcoded mock data until the content management system is ready.
-const MOCK_FAQS = [
-  {
-    id: 1,
-    question: 'How are nannies vetted?',
-    answer:
-      'All nannies complete a comprehensive background check including identity verification, reference checks and CPR certification.',
-  },
-  {
-    id: 2,
-    question: 'What is the cancellation policy?',
-    answer:
-      'You can cancel a booking up to 24 hours before the scheduled start time for a full refund. Cancellations within 24 hours may incur a fee.',
-  },
-  {
-    id: 3,
-    question: 'How do refunds work?',
-    answer:
-      'Refunds are processed within 5-7 business days and returned to your original payment method.',
-  },
-];
-
 export default function CustomerSupportScreen() {
-  const router = useRouter();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(1);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -173,7 +146,7 @@ export default function CustomerSupportScreen() {
             <Ionicons name="menu-outline" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.logoText}>NannyMom</Text>
-          <Image source={{ uri: IMG_USER_AVATAR }} style={styles.avatar} />
+          <Image source={{ uri: IMG_SUPPORT_AVATAR }} style={styles.avatar} />
         </View>
       </View>
     </View>

@@ -13,91 +13,10 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { Chip } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
+import type { FilterChipData, SortOption, NannyResult } from '@mobile/types';
+import { SORT_OPTIONS, INITIAL_SEARCH_FILTERS } from '@mobile/constants';
+import { MOCK_NANNIES_RESULTS } from '@mobile/mocks';
 import { styles } from './styles/search-results-screen.styles';
-
-// ASSUMPTION: Nanny avatar images will come from S3/CDN.
-// Using placeholder URLs until backend integration is ready.
-const IMG_SARAH = 'https://i.pravatar.cc/128?u=sarah-jenkins';
-const IMG_ELENA = 'https://i.pravatar.cc/128?u=elena-rodriguez';
-const IMG_MARYANNE = 'https://i.pravatar.cc/128?u=maryanne-oneil';
-const IMG_JAMIE = 'https://i.pravatar.cc/128?u=jamie-chen';
-
-interface FilterChipData {
-  id: string;
-  label: string;
-  dismissible: boolean;
-}
-
-type SortOption = 'Recommended' | 'Price' | 'Distance';
-
-interface NannyResult {
-  id: string;
-  name: string;
-  avatar: string;
-  rating: number;
-  distance: string;
-  experience: string;
-  hourlyRate: number;
-  verified: boolean;
-  /** 0-1 opacity; defaults to 1 */
-  opacity?: number;
-}
-
-// ASSUMPTION: Filter chips will be driven by search/filter state from a parent screen or URL params.
-// Using hardcoded mock data until the filter service is ready.
-const INITIAL_FILTERS: FilterChipData[] = [
-  { id: 'rating', label: 'Rating 4.5+', dismissible: true },
-  { id: 'cpr', label: 'CPR certified', dismissible: true },
-  { id: 'ages', label: 'Ages 0\u20133', dismissible: true },
-];
-
-const SORT_OPTIONS: SortOption[] = ['Recommended', 'Price', 'Distance'];
-
-// ASSUMPTION: Nanny results will come from GET /nannies?filter=...
-// Using hardcoded mock data until the backend and geolocation service are ready.
-const MOCK_NANNIES: NannyResult[] = [
-  {
-    id: '1',
-    name: 'Sarah Jenkins',
-    avatar: IMG_SARAH,
-    rating: 4.9,
-    distance: '1.2 mi',
-    experience: '6y',
-    hourlyRate: 28,
-    verified: false,
-  },
-  {
-    id: '2',
-    name: 'Elena Rodriguez',
-    avatar: IMG_ELENA,
-    rating: 4.8,
-    distance: '0.8 mi',
-    experience: '4y',
-    hourlyRate: 30,
-    verified: true,
-  },
-  {
-    id: '3',
-    name: "Mary-Anne O'Neil",
-    avatar: IMG_MARYANNE,
-    rating: 5.0,
-    distance: '2.1 mi',
-    experience: '15y',
-    hourlyRate: 35,
-    verified: true,
-  },
-  {
-    id: '4',
-    name: 'Jamie Chen',
-    avatar: IMG_JAMIE,
-    rating: 4.7,
-    distance: '',
-    experience: '',
-    hourlyRate: 26,
-    verified: false,
-    opacity: 0.6,
-  },
-];
 
 function NannyResultCard({
   nanny,
@@ -154,7 +73,7 @@ function NannyResultCard({
 
 export default function SearchResultsScreen() {
   const router = useRouter();
-  const [filters, setFilters] = useState<FilterChipData[]>(INITIAL_FILTERS);
+  const [filters, setFilters] = useState<FilterChipData[]>(INITIAL_SEARCH_FILTERS);
   const [activeSort, setActiveSort] = useState<SortOption>('Recommended');
 
   const handleBack = () => {
@@ -169,14 +88,14 @@ export default function SearchResultsScreen() {
     router.push({
       pathname: '/(parent)/book/booking-step-1',
       params: { nannyId },
-    } as any);
+    });
   };
 
   const handleNannyPress = (nannyId: string) => {
     router.push({
       pathname: '/(parent)/nanny/nanny-profile',
       params: { id: nannyId },
-    } as any);
+    });
   };
 
   return (
@@ -263,7 +182,7 @@ export default function SearchResultsScreen() {
         <Text style={styles.countText}>24 nannies available</Text>
 
         {/* Nanny Result Cards */}
-        {MOCK_NANNIES.map((nanny) => (
+        {MOCK_NANNIES_RESULTS.map((nanny) => (
           <NannyResultCard
             key={nanny.id}
             nanny={nanny}

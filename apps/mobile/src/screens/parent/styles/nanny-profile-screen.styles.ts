@@ -13,7 +13,6 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 397;
-const FOOTER_HEIGHT = 100;
 
 export const styles = StyleSheet.create({
   container: {

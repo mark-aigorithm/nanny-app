@@ -11,30 +11,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
+import { IMG_AVATAR_SARAH_COMMUNITY, IMG_AVATAR_ELENA_COMMUNITY, IMG_AVATAR_DAVID_COMMUNITY, IMG_POST_ROOM, IMG_USER_PROFILE_COMMUNITY } from '@mobile/mocks/images';
+import type { CommunityTab } from '@mobile/types';
+import { TAGS } from '@mobile/constants';
 import { styles } from './styles/community-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_AVATAR_SARAH = 'https://www.figma.com/api/mcp/asset/b7f91406-93dc-4d30-860a-dc6e88a9fc5a';
-const IMG_AVATAR_ELENA = 'https://www.figma.com/api/mcp/asset/6ba72ba9-1c3f-4232-a5a2-33333bc60cbc';
-const IMG_AVATAR_DAVID = 'https://www.figma.com/api/mcp/asset/d79b72d7-50fc-40da-9658-91cf8aa579f8';
-const IMG_POST_ROOM = 'https://www.figma.com/api/mcp/asset/e5e2492a-ec18-4a84-b3ca-85fde8330bf9';
-const IMG_USER_PROFILE = 'https://www.figma.com/api/mcp/asset/17cd0eca-d5d2-4d82-8b50-1e3a50ebc144';
-
-// ASSUMPTION: Post data will come from GET /community/posts?feed=for-you.
-// Using hardcoded mock data until the backend service is ready.
-
-type Tab = 'For You' | 'Local Groups';
-
-const TAGS = {
-  post1: ['#SleepTraining', '#Motherhood'],
-  post2: ['#NannyReview', '#LocalGroups'],
-  post3: ['#Preschool', '#Education'],
-} as const;
 
 export default function CommunityScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('For You');
+  const [activeTab, setActiveTab] = useState<CommunityTab>('For You');
 
   return (
     <View style={styles.container}>
@@ -47,7 +31,7 @@ export default function CommunityScreen() {
         {/* Section: Trending Discussions */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Trending Discussions</Text>
-          <Pressable onPress={() => router.push('/(parent)/community-feed' as never)}>
+          <Pressable onPress={() => router.push('/(parent)/community-feed')}>
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
         </View>
@@ -56,7 +40,7 @@ export default function CommunityScreen() {
         <View style={styles.card}>
           <View style={styles.postAuthorRow}>
             <View style={styles.avatarContainer}>
-              <Image source={{ uri: IMG_AVATAR_SARAH }} style={styles.avatar} />
+              <Image source={{ uri: IMG_AVATAR_SARAH_COMMUNITY }} style={styles.avatar} />
             </View>
             <View style={styles.authorInfo}>
               <Text style={styles.authorName}>Sarah Jenkins</Text>
@@ -103,7 +87,7 @@ export default function CommunityScreen() {
           <View style={styles.card}>
             <View style={styles.postAuthorRow}>
               <View style={styles.avatarContainer}>
-                <Image source={{ uri: IMG_AVATAR_ELENA }} style={styles.avatar} />
+                <Image source={{ uri: IMG_AVATAR_ELENA_COMMUNITY }} style={styles.avatar} />
               </View>
               <View style={styles.authorInfo}>
                 <Text style={styles.authorName}>Elena Rodriguez</Text>
@@ -143,7 +127,7 @@ export default function CommunityScreen() {
           <View style={styles.card}>
             <View style={styles.postAuthorRow}>
               <View style={styles.avatarContainer}>
-                <Image source={{ uri: IMG_AVATAR_DAVID }} style={styles.avatar} />
+                <Image source={{ uri: IMG_AVATAR_DAVID_COMMUNITY }} style={styles.avatar} />
               </View>
               <View style={styles.authorInfo}>
                 <Text style={styles.authorName}>David Chen</Text>
@@ -186,7 +170,7 @@ export default function CommunityScreen() {
             </Pressable>
             <Text style={styles.headerTitle}>Community</Text>
             <View style={styles.headerAvatarBorder}>
-              <Image source={{ uri: IMG_USER_PROFILE }} style={styles.headerAvatar} />
+              <Image source={{ uri: IMG_USER_PROFILE_COMMUNITY }} style={styles.headerAvatar} />
             </View>
           </View>
 
@@ -216,7 +200,7 @@ export default function CommunityScreen() {
       {/* FAB */}
       <Pressable
         style={styles.fab}
-        onPress={() => router.push('/(parent)/community-feed' as never)}
+        onPress={() => router.push('/(parent)/community-feed')}
       >
         <Ionicons name="add" size={24} color={colors.white} />
       </Pressable>

@@ -14,135 +14,8 @@ import BottomNav from '@mobile/components/BottomNav';
 import { Avatar, Badge, SectionHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-dashboard-screen.styles';
-
-// ─── Placeholder images ───────────────────────────────────────────────────────
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-
-const IMG_USER_AVATAR = 'https://www.figma.com/api/mcp/asset/375d31c8-8abc-45b9-9273-4db36fa6b36c';
-const IMG_PROMO_1 = 'https://www.figma.com/api/mcp/asset/8a071716-147b-4521-91d8-f02ffc431d69';
-const IMG_PROMO_2 = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-const IMG_ELENA = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-const IMG_SARAH = 'https://www.figma.com/api/mcp/asset/b89dbd06-ef11-4609-8517-36912efbc57e';
-const IMG_COMMUNITY = 'https://www.figma.com/api/mcp/asset/8a071716-147b-4521-91d8-f02ffc431d69';
-
-// ─── Mock data interfaces ─────────────────────────────────────────────────────
-
-interface PromoCard {
-  id: string;
-  title: string;
-  subtitle: string;
-  cta: string;
-  image: string;
-}
-
-interface QuickAction {
-  id: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  bgColor: string;
-  iconColor: string;
-  route: string;
-}
-
-interface NannyPreview {
-  id: string;
-  name: string;
-  rating: number;
-  hourlyRate: number;
-  image: string;
-}
-
-interface FavouriteNanny {
-  id: string;
-  name: string;
-  image: string;
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-// ASSUMPTION: All data will come from backend API calls once services are ready.
-
-const PROMO_CARDS: PromoCard[] = [
-  {
-    id: '1',
-    title: 'Weekend Special',
-    subtitle: '20% off first booking',
-    cta: 'EXPLORE',
-    image: IMG_PROMO_1,
-  },
-  {
-    id: '2',
-    title: 'Pro Nannies',
-    subtitle: 'Certified & background checked',
-    cta: 'BOOK PRO',
-    image: IMG_PROMO_2,
-  },
-];
-
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    id: 'book',
-    label: 'Book now',
-    icon: 'calendar',
-    bgColor: colors.primaryMuted,
-    iconColor: colors.primary,
-    route: '/(parent)/search',
-  },
-  {
-    id: 'emergency',
-    label: 'Emergency',
-    icon: 'alert-circle',
-    bgColor: 'rgba(192,99,74,0.12)',
-    iconColor: colors.error,
-    route: '/(parent)/search',
-  },
-  {
-    id: 'community',
-    label: 'Community',
-    icon: 'people',
-    bgColor: colors.taupeLight,
-    iconColor: colors.textTertiary,
-    route: '/(parent)/community',
-  },
-  {
-    id: 'monitor',
-    label: 'Live monitor',
-    icon: 'videocam',
-    bgColor: colors.primaryMuted,
-    iconColor: colors.primary,
-    route: '/(parent)/nanny/live-video-monitor',
-  },
-];
-
-const RECOMMENDED_NANNIES: NannyPreview[] = [
-  {
-    id: '1',
-    name: 'Elena R.',
-    rating: 4.9,
-    hourlyRate: 28,
-    image: IMG_ELENA,
-  },
-  {
-    id: '2',
-    name: 'Sarah J.',
-    rating: 5.0,
-    hourlyRate: 32,
-    image: IMG_SARAH,
-  },
-  {
-    id: '3',
-    name: 'Maria L.',
-    rating: 4.8,
-    hourlyRate: 25,
-    image: IMG_SARAH,
-  },
-];
-
-const FAVOURITE_NANNIES: FavouriteNanny[] = [
-  { id: '1', name: 'Elena', image: IMG_ELENA },
-  { id: '2', name: 'Sarah', image: IMG_SARAH },
-  { id: '3', name: 'Maria', image: IMG_ELENA },
-];
+import { PROMO_CARDS, QUICK_ACTIONS, RECOMMENDED_NANNIES, FAVOURITE_NANNIES } from '@mobile/mocks';
+import { IMG_USER_AVATAR, IMG_HERO } from '@mobile/mocks/images';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -160,7 +33,7 @@ export default function HomeDashboardScreen() {
           <View style={styles.headerRight}>
             <Pressable
               style={styles.bellBtn}
-              onPress={() => router.push('/(parent)/notifications' as never)}
+              onPress={() => router.push('/(parent)/notifications')}
             >
               <Ionicons name="notifications-outline" size={22} color={colors.textDark} />
               <Badge count={3} size="sm" style={styles.bellBadge} />
@@ -179,7 +52,7 @@ export default function HomeDashboardScreen() {
         {/* 1. Search bar */}
         <Pressable
           style={styles.searchBar}
-          onPress={() => router.push('/(parent)/search' as never)}
+          onPress={() => router.push('/(parent)/search')}
         >
           <View style={styles.searchLeft}>
             <Ionicons name="search" size={18} color={colors.textMuted} />
@@ -211,7 +84,7 @@ export default function HomeDashboardScreen() {
                 <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
                 <Pressable
                   style={styles.promoCta}
-                  onPress={() => router.push('/(parent)/marketplace' as never)}
+                  onPress={() => router.push('/(parent)/marketplace')}
                 >
                   <Text style={styles.promoCtaText}>{item.cta}</Text>
                 </Pressable>
@@ -226,7 +99,7 @@ export default function HomeDashboardScreen() {
             <Pressable
               key={action.id}
               style={styles.quickCard}
-              onPress={() => router.push(action.route as never)}
+              onPress={() => router.push(action.route)}
             >
               <View style={[styles.quickIconBg, { backgroundColor: action.bgColor }]}>
                 <Ionicons name={action.icon} size={22} color={action.iconColor} />
@@ -241,7 +114,7 @@ export default function HomeDashboardScreen() {
           <SectionHeader
             title="Recommended nearby"
             actionLabel="See all"
-            onAction={() => router.push('/(parent)/search' as never)}
+            onAction={() => router.push('/(parent)/search')}
           />
           <FlatList
             data={RECOMMENDED_NANNIES}
@@ -256,7 +129,7 @@ export default function HomeDashboardScreen() {
                   router.push({
                     pathname: '/(parent)/nanny/nanny-profile',
                     params: { id: item.id },
-                  } as never)
+                  })
                 }
               >
                 <Image
@@ -293,7 +166,7 @@ export default function HomeDashboardScreen() {
                   router.push({
                     pathname: '/(parent)/nanny/nanny-profile',
                     params: { id: fav.id },
-                  } as never)
+                  })
                 }
               >
                 <Avatar uri={fav.image} size="lg" />
@@ -302,7 +175,7 @@ export default function HomeDashboardScreen() {
             ))}
             <Pressable
               style={styles.favouriteItem}
-              onPress={() => router.push('/(parent)/search' as never)}
+              onPress={() => router.push('/(parent)/search')}
             >
               <View style={styles.addFavourite}>
                 <Ionicons name="add" size={24} color={colors.primary} />
@@ -315,7 +188,7 @@ export default function HomeDashboardScreen() {
         {/* 6. Community preview */}
         <View style={styles.communityCard}>
           <Image
-            source={{ uri: IMG_COMMUNITY }}
+            source={{ uri: IMG_HERO }}
             style={styles.communityImage}
             resizeMode="cover"
           />
@@ -326,7 +199,7 @@ export default function HomeDashboardScreen() {
             </Text>
             <Pressable
               style={styles.communityLink}
-              onPress={() => router.push('/(parent)/community' as never)}
+              onPress={() => router.push('/(parent)/community')}
             >
               <Text style={styles.communityLinkText}>{'Join \u2192'}</Text>
             </Pressable>

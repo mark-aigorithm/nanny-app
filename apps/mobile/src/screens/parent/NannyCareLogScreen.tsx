@@ -11,72 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
+import { IMG_BABY } from '@mobile/mocks/images';
+import { MOCK_CHILD, QUICK_ENTRIES, MOCK_LOG_ENTRIES } from '@mobile/mocks';
 import { styles } from './styles/nanny-care-log-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_BABY = 'https://www.figma.com/api/mcp/asset/dd892144-8adb-4fbb-b53c-a456b48cc568';
-
-// ASSUMPTION: Care log data will come from GET /bookings/:id/care-log.
-// Using hardcoded mock data until the backend service is ready.
-const MOCK_CHILD = {
-  name: 'Baby Liam',
-  age: '8 months',
-  lastActivity: 'Nap ended 45m ago',
-};
-
-type QuickEntry = {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  bg: string;
-};
-
-const QUICK_ENTRIES: QuickEntry[] = [
-  { label: 'Meal', icon: 'restaurant', bg: colors.warmLight },
-  { label: 'Nap', icon: 'moon', bg: colors.tintPurple },
-  { label: 'Diaper', icon: 'happy', bg: colors.successLight },
-  { label: 'Activity', icon: 'game-controller', bg: colors.tintYellow },
-];
-
-type LogEntry = {
-  id: string;
-  type: 'diaper' | 'meal' | 'nap';
-  title: string;
-  subtitle: string;
-  time: string;
-  iconBg: string;
-  icon: keyof typeof Ionicons.glyphMap;
-};
-
-const MOCK_LOG_ENTRIES: LogEntry[] = [
-  {
-    id: '1',
-    type: 'diaper',
-    title: 'Diaper Change',
-    subtitle: 'Wet \u2022 Soft',
-    time: '2:15 PM',
-    iconBg: colors.successLight,
-    icon: 'happy',
-  },
-  {
-    id: '2',
-    type: 'meal',
-    title: 'Meal',
-    subtitle: '150ml Formula',
-    time: '12:45 PM',
-    iconBg: colors.warmLight,
-    icon: 'restaurant',
-  },
-  {
-    id: '3',
-    type: 'nap',
-    title: 'Nap',
-    subtitle: '45 minutes',
-    time: '11:30 AM',
-    iconBg: colors.tintPurple,
-    icon: 'moon',
-  },
-];
 
 export default function NannyCareLogScreen() {
   const router = useRouter();

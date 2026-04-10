@@ -13,74 +13,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors, borderRadius } from '@mobile/theme';
 import { Avatar, Card } from '@mobile/components/ui';
+import { IMG_AVATAR_REVIEWER_1, IMG_AVATAR_REVIEWER_2, IMG_AVATAR_REVIEWER_3 } from '@mobile/mocks/images';
+import { MOCK_NANNY_PROFILE } from '@mobile/mocks/nanny-profile';
+import { MOCK_REVIEWS } from '@mobile/mocks/reviews';
 import { styles } from './styles/nanny-profile-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_NANNY_HERO = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-const IMG_AVATAR_1 = 'https://www.figma.com/api/mcp/asset/375d31c8-8abc-45b9-9273-4db36fa6b36c';
-const IMG_AVATAR_2 = 'https://www.figma.com/api/mcp/asset/b89dbd06-ef11-4609-8517-36912efbc57e';
-const IMG_AVATAR_3 = 'https://www.figma.com/api/mcp/asset/8a071716-147b-4521-91d8-f02ffc431d69';
-
-// ASSUMPTION: Nanny profile data will come from GET /nannies/:id.
-// Using hardcoded mock data until the backend service is ready.
-// TODO: Replace with useNannyProfile(id) React Query hook
-const MOCK_NANNY = {
-  id: '1',
-  name: 'Elena Martinez',
-  hourlyRate: 28,
-  rating: 4.9,
-  reviewCount: 127,
-  location: 'Brooklyn, NY',
-  yearsExperience: 8,
-  age: 29,
-  ageRange: '0-5',
-  verified: true,
-  about:
-    'Passionate childcare professional with 8 years of experience in early childhood education. I specialize in creating nurturing, stimulating environments where children can thrive and develop at their own pace. My approach combines Montessori principles with play-based learning.',
-  certifications: [
-    { id: '1', label: 'First Aid', icon: 'medkit-outline' as const },
-    { id: '2', label: 'CPR', icon: 'heart-outline' as const },
-    { id: '3', label: 'BG Check', icon: 'shield-checkmark-outline' as const },
-    { id: '4', label: 'ECE Degree', icon: 'school-outline' as const },
-  ],
-  connectionsCount: 3,
-  image: IMG_NANNY_HERO,
-};
-
-// ASSUMPTION: Reviews will come from GET /nannies/:id/reviews with pagination.
-// Using hardcoded mock data until the backend service is ready.
-const MOCK_REVIEWS = [
-  {
-    id: '1',
-    authorInitial: 'S',
-    authorName: 'Sarah Jenkins',
-    timeAgo: '2 weeks ago',
-    rating: 5,
-    text: 'Elena was absolutely wonderful with our twins. She kept them engaged with creative activities all day and even helped with light tidying. We felt completely at ease leaving them in her care.',
-  },
-  {
-    id: '2',
-    authorInitial: 'M',
-    authorName: 'Michael Ross',
-    timeAgo: '1 month ago',
-    rating: 4,
-    text: 'Very professional and reliable. Our son loved spending time with Elena. She was always on time and communicated well throughout the day.',
-  },
-];
-
-// ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
-// from @expo-google-fonts/manrope in the root _layout.tsx.
 
 const FOOTER_HEIGHT = 100;
 
 export default function NannyProfileScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // TODO: Pass id to useNannyProfile(id) once React Query hook is ready
+  useLocalSearchParams<{ id: string }>();
   const [aboutExpanded, setAboutExpanded] = useState(false);
 
   // TODO: Replace with useNannyProfile(id) React Query hook
-  const nanny = MOCK_NANNY;
+  const nanny = MOCK_NANNY_PROFILE;
   const reviews = MOCK_REVIEWS;
 
   const handleBack = () => {
@@ -217,9 +164,9 @@ export default function NannyProfileScreen() {
         {/* ── Trust Bar ── */}
         <TouchableOpacity style={styles.trustBar} activeOpacity={0.7}>
           <View style={styles.trustAvatars}>
-            <Image source={{ uri: IMG_AVATAR_1 }} style={[styles.trustAvatar, styles.trustAvatar1]} />
-            <Image source={{ uri: IMG_AVATAR_2 }} style={[styles.trustAvatar, styles.trustAvatar2]} />
-            <Image source={{ uri: IMG_AVATAR_3 }} style={[styles.trustAvatar, styles.trustAvatar3]} />
+            <Image source={{ uri: IMG_AVATAR_REVIEWER_1 }} style={[styles.trustAvatar, styles.trustAvatar1]} />
+            <Image source={{ uri: IMG_AVATAR_REVIEWER_2 }} style={[styles.trustAvatar, styles.trustAvatar2]} />
+            <Image source={{ uri: IMG_AVATAR_REVIEWER_3 }} style={[styles.trustAvatar, styles.trustAvatar3]} />
           </View>
           <Text style={styles.trustText}>
             {nanny.connectionsCount} connections hired {nanny.name.split(' ')[0]}
@@ -285,7 +232,7 @@ export default function NannyProfileScreen() {
             router.push({
               pathname: '/(parent)/book/booking-step-1',
               params: { nannyId: nanny.id },
-            } as any)
+            })
           }
         >
           <Text style={styles.bookButtonText}>

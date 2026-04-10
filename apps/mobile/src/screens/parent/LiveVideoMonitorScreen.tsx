@@ -9,43 +9,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
+import { IMG_VIDEO_FEED, MOCK_ACTIVITIES_LIVE } from '@mobile/mocks';
 import { styles } from './styles/live-video-monitor-screen.styles';
-
-// ASSUMPTION: Video feed URL will come from a real RTSP/HLS stream service.
-// Using a placeholder Figma asset until the live streaming backend is ready.
-const IMG_VIDEO_FEED = 'https://www.figma.com/api/mcp/asset/34497713-eb8c-45c7-b74a-3d6e83988202';
-
-// ASSUMPTION: Activity data will come from GET /bookings/:id/activity or a realtime feed.
-// Using hardcoded mock data until the backend service is ready.
-const MOCK_ACTIVITIES = [
-  {
-    id: '1',
-    title: 'Motion detected',
-    subtitle: '10:45 AM \u2022 Nursery Cam',
-    icon: 'notifications-outline' as const,
-    borderColor: colors.primary,
-    iconBg: colors.primaryMuted,
-    iconColor: colors.primary,
-  },
-  {
-    id: '2',
-    title: 'Feeding started 6oz',
-    subtitle: '09:30 AM \u2022 Kitchen',
-    icon: 'restaurant-outline' as const,
-    borderColor: colors.bronze,
-    iconBg: 'rgba(184,157,120,0.1)',
-    iconColor: colors.bronze,
-  },
-  {
-    id: '3',
-    title: 'Nap started',
-    subtitle: '08:15 AM \u2022 Nursery',
-    icon: 'moon-outline' as const,
-    borderColor: colors.primaryDark,
-    iconBg: 'rgba(85,98,81,0.1)',
-    iconColor: colors.primaryDark,
-  },
-];
 
 export default function LiveVideoMonitorScreen() {
   const router = useRouter();
@@ -131,7 +96,7 @@ export default function LiveVideoMonitorScreen() {
         {/* Recent Activity Section */}
         <View style={styles.activitySection}>
           <Text style={styles.activityHeading}>Recent activity</Text>
-          {MOCK_ACTIVITIES.map((item) => (
+          {MOCK_ACTIVITIES_LIVE.map((item) => (
             <Pressable key={item.id} style={[styles.activityCard, { borderLeftColor: item.borderColor }]}>
               <View style={styles.activityLeft}>
                 <View style={[styles.activityIconCircle, { backgroundColor: item.iconBg }]}>

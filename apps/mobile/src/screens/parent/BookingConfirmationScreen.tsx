@@ -10,27 +10,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { Divider } from '@mobile/components/ui';
+import { MOCK_BOOKING } from '@mobile/mocks';
 import { styles } from './styles/booking-confirmation-screen.styles';
 
 // TODO: Replace with useBookingDetails(bookingId) React Query hook
-
-// ASSUMPTION: Nanny photo sourced from Figma CDN — expires in 7 days.
-// Replace with S3/CDN URL or bundled asset before production.
-const IMG_ELENA = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-
-// ASSUMPTION: Booking data will come from GET /bookings/:id once backend is ready.
-// Using hardcoded mock data until the React Query hook is wired up.
-const MOCK_BOOKING = {
-  nannyName: 'Elena Martinez',
-  nannyPhoto: IMG_ELENA,
-  verified: true,
-  date: 'Sat, Apr 12',
-  dateFull: 'Saturday, Apr 12',
-  time: '06:00 PM - 11:00 PM',
-  location: 'Upper West Side',
-  charged: '$189.95',
-};
 
 // ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
 

@@ -6,24 +6,20 @@ import {
   Pressable,
   StatusBar,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
+import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import { styles } from './styles/registration-step3-screen.styles';
-
-const OTP_LENGTH = 6;
-const RESEND_SECONDS = 42;
 
 export default function RegistrationStep3Screen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ phone?: string; role?: string }>();
 
   const phoneDisplay = params.phone ?? '+1 (555) 000-0000';
-  const role = params.role ?? 'parent';
 
   const [otp, setOtp] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -64,7 +60,7 @@ export default function RegistrationStep3Screen() {
 
   function handleCompleteSetup() {
     if (otp.length < OTP_LENGTH || !termsAccepted) return;
-    router.push('/(auth)/notification-permission' as never);
+    router.push('/(auth)/notification-permission');
   }
 
   function handleOtpChange(value: string) {

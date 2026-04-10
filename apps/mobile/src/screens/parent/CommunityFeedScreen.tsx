@@ -7,121 +7,17 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
+import type { PostTag, Post, AdvicePost, MarketplacePost, EventPost } from '@mobile/types';
+import { MOCK_POSTS } from '@mobile/mocks';
 import { styles } from './styles/community-feed-screen.styles';
 
-// ─── Placeholder images ───────────────────────────────────────────────────────
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-
-const IMG_AVATAR_JESSICA = 'https://www.figma.com/api/mcp/asset/b7f91406-93dc-4d30-860a-dc6e88a9fc5a';
-const IMG_AVATAR_MARIA = 'https://www.figma.com/api/mcp/asset/6ba72ba9-1c3f-4232-a5a2-33333bc60cbc';
-const IMG_AVATAR_SOPHIE = 'https://www.figma.com/api/mcp/asset/d79b72d7-50fc-40da-9658-91cf8aa579f8';
-const IMG_MARKETPLACE_ITEM = 'https://www.figma.com/api/mcp/asset/e5e2492a-ec18-4a84-b3ca-85fde8330bf9';
-
-// Attendee avatars for event posts
-const IMG_ATTENDEE_1 = 'https://www.figma.com/api/mcp/asset/b7f91406-93dc-4d30-860a-dc6e88a9fc5a';
-const IMG_ATTENDEE_2 = 'https://www.figma.com/api/mcp/asset/6ba72ba9-1c3f-4232-a5a2-33333bc60cbc';
-const IMG_ATTENDEE_3 = 'https://www.figma.com/api/mcp/asset/d79b72d7-50fc-40da-9658-91cf8aa579f8';
-
-// ─── Mock data interfaces ─────────────────────────────────────────────────────
+// ─── Screen-specific filter config ───────────────────────────────────────────
 
 type FilterPill = 'All posts' | 'Q&A' | 'Marketplace' | 'Events';
 
-type PostTag = 'General advice' | 'Marketplace' | 'Event';
-
-interface PostAuthor {
-  name: string;
-  avatar: string;
-  timeAgo: string;
-}
-
-interface BasePost {
-  id: string;
-  author: PostAuthor;
-  tag: PostTag;
-  likes: number;
-  comments: number;
-}
-
-interface AdvicePost extends BasePost {
-  type: 'advice';
-  body: string;
-}
-
-interface MarketplacePost extends BasePost {
-  type: 'marketplace';
-  title: string;
-  image: string;
-  price: string;
-}
-
-interface EventPost extends BasePost {
-  type: 'event';
-  title: string;
-  date: string;
-  location: string;
-  attendeeAvatars: string[];
-  attendeeCount: number;
-}
-
-type Post = AdvicePost | MarketplacePost | EventPost;
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-// ASSUMPTION: Post data will come from GET /community/feed.
-// Using hardcoded mock data until the backend service is ready.
-
 const FILTER_PILLS: FilterPill[] = ['All posts', 'Q&A', 'Marketplace', 'Events'];
-
-const POSTS: Post[] = [
-  {
-    id: '1',
-    type: 'advice',
-    author: {
-      name: 'Jessica K.',
-      avatar: IMG_AVATAR_JESSICA,
-      timeAgo: '2h ago',
-    },
-    tag: 'General advice',
-    body: 'Does anyone have a recommendation for a paediatric dentist in Park Slope?',
-    likes: 24,
-    comments: 8,
-  },
-  {
-    id: '2',
-    type: 'marketplace',
-    author: {
-      name: 'Maria T.',
-      avatar: IMG_AVATAR_MARIA,
-      timeAgo: '5h ago',
-    },
-    tag: 'Marketplace',
-    title: 'UppaBaby Vista V2 - Gently used',
-    image: IMG_MARKETPLACE_ITEM,
-    price: '$320',
-    likes: 6,
-    comments: 3,
-  },
-  {
-    id: '3',
-    type: 'event',
-    author: {
-      name: 'Sophie L.',
-      avatar: IMG_AVATAR_SOPHIE,
-      timeAgo: 'Just now',
-    },
-    tag: 'Event',
-    title: 'Saturday Storytime @ Prospect Park',
-    date: 'Saturday, Apr 19 \u2022 10:30 AM',
-    location: 'Prospect Park, Brooklyn',
-    attendeeAvatars: [IMG_ATTENDEE_1, IMG_ATTENDEE_2, IMG_ATTENDEE_3],
-    attendeeCount: 14,
-    likes: 0,
-    comments: 0,
-  },
-];
 
 // ─── Tag style config ─────────────────────────────────────────────────────────
 
@@ -134,7 +30,6 @@ const TAG_STYLES: Record<PostTag, { bg: string; text: string }> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CommunityFeedScreen() {
-  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterPill>('All posts');
 
   const renderAdvicePost = (post: AdvicePost) => (
@@ -315,7 +210,7 @@ export default function CommunityFeedScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {POSTS.map(renderPost)}
+        {MOCK_POSTS.map(renderPost)}
       </ScrollView>
 
       {/* FAB */}

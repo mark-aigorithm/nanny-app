@@ -12,74 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
+import { IMG_USER_PROFILE_MESSAGES } from '@mobile/mocks/images';
+import type { Conversation } from '@mobile/types';
+import { MOCK_CONVERSATIONS } from '@mobile/mocks';
 import { styles } from './styles/messages-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_USER_PROFILE = 'https://www.figma.com/api/mcp/asset/e3b31381-7984-4540-863f-9fb1008d16d8';
-const IMG_NANNY_ELENA = 'https://www.figma.com/api/mcp/asset/b2edbb96-6e7f-477d-92f0-993954368fc0';
-const IMG_NANNY_SARAH = 'https://www.figma.com/api/mcp/asset/dea5c5c1-c606-45d1-bb41-729c090facde';
-const IMG_NANNY_MAYA = 'https://www.figma.com/api/mcp/asset/4391d043-f232-490f-a80e-d2a231725d58';
-const IMG_NANNY_CLAIRE = 'https://www.figma.com/api/mcp/asset/e99d742d-d1a0-4619-98b7-2be0a3514602';
-const IMG_NANNY_SANDRA = 'https://www.figma.com/api/mcp/asset/fc43d888-9646-41ad-9c3c-5216ade75761';
-
-// ASSUMPTION: Conversation list will come from GET /messages/conversations.
-// Using hardcoded mock data until the backend messaging service is ready.
-
-interface Conversation {
-  id: string;
-  name: string;
-  preview: string;
-  time: string;
-  unreadCount?: number;
-  isOnline?: boolean;
-  isVerified?: boolean;
-  opacity?: number;
-  avatar: string;
-}
-
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: '1',
-    name: 'Elena Rodriguez',
-    preview: "I'll be there by 8:00 AM tomorrow. …",
-    time: '10:24 AM',
-    unreadCount: 2,
-    isOnline: true,
-    avatar: IMG_NANNY_ELENA,
-  },
-  {
-    id: '2',
-    name: 'Sarah Jenkins',
-    preview: 'Thank you for the wonderful feedback! L…',
-    time: 'Yesterday',
-    avatar: IMG_NANNY_SARAH,
-  },
-  {
-    id: '3',
-    name: 'Maya Patel',
-    preview: "I've updated my availability for the upco…",
-    time: 'Tuesday',
-    isVerified: true,
-    avatar: IMG_NANNY_MAYA,
-  },
-  {
-    id: '4',
-    name: 'Claire Thompson',
-    preview: "Sounds good, let's touch base next wee…",
-    time: 'Oct 12',
-    opacity: 0.8,
-    avatar: IMG_NANNY_CLAIRE,
-  },
-  {
-    id: '5',
-    name: 'Sandra Weber',
-    preview: 'The school pickup went smoothly today.',
-    time: 'Oct 10',
-    opacity: 0.7,
-    avatar: IMG_NANNY_SANDRA,
-  },
-];
 
 function ConversationItem({ conversation, onPress }: { conversation: Conversation; onPress: (id: string) => void }) {
   return (
@@ -152,7 +88,7 @@ export default function MessagesScreen() {
             <Text style={styles.headerTitle}>Messages</Text>
           </View>
           <View style={styles.headerAvatarBg}>
-            <Image source={{ uri: IMG_USER_PROFILE }} style={styles.headerAvatar} />
+            <Image source={{ uri: IMG_USER_PROFILE_MESSAGES }} style={styles.headerAvatar} />
           </View>
         </View>
       </View>
@@ -180,7 +116,7 @@ export default function MessagesScreen() {
             <ConversationItem
               key={conversation.id}
               conversation={conversation}
-              onPress={(id) => router.push({ pathname: '/(parent)/chat/messaging', params: { id } } as any)}
+              onPress={(id) => router.push({ pathname: '/(parent)/chat/messaging', params: { id } })}
             />
           ))}
         </View>

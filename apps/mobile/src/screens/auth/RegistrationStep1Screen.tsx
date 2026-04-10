@@ -32,7 +32,7 @@ export default function RegistrationStep1Screen() {
   }
 
   function handleContinue() {
-    router.push('/(auth)/register-step-2' as any);
+    router.push('/(auth)/register-step-2');
   }
 
   return (

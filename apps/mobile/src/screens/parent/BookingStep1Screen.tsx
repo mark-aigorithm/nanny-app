@@ -6,33 +6,17 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors, spacing, borderRadius } from '@mobile/theme';
 import { Card } from '@mobile/components/ui';
+import { MOCK_NANNY_BOOKING } from '@mobile/mocks';
+import { PROMO_CODE_VALUE, PROMO_DISCOUNT_PERCENT, PLATFORM_FEE_PERCENT } from '@mobile/constants';
 import { styles } from './styles/booking-step1-screen.styles';
 
 // TODO: Replace with useBookingSummary() React Query hook
-
-// ASSUMPTION: Nanny photo will come from GET /nannies/:id response.
-// Using placeholder until the backend service is ready.
-const IMG_NANNY = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-
-// ASSUMPTION: Pricing data will come from GET /bookings/estimate endpoint.
-// Using hardcoded mock values until the backend service is ready.
-const MOCK_NANNY = {
-  name: 'Elena Martinez',
-  rating: 4.9,
-  hourlyRate: 28,
-  image: IMG_NANNY,
-};
-
-const PROMO_CODE_VALUE = 'FIRST20';
-const PROMO_DISCOUNT_PERCENT = 0.2;
-const PLATFORM_FEE_PERCENT = 0.06;
 
 export default function BookingStep1Screen() {
   const router = useRouter();
@@ -53,7 +37,7 @@ export default function BookingStep1Screen() {
   const hours = 8;
 
   // Price calculations
-  const baseCost = MOCK_NANNY.hourlyRate * hours;
+  const baseCost = MOCK_NANNY_BOOKING.hourlyRate * hours;
   const promoDiscount = promoApplied ? baseCost * PROMO_DISCOUNT_PERCENT : 0;
   const subtotalAfterPromo = baseCost - promoDiscount;
   const fee = subtotalAfterPromo * PLATFORM_FEE_PERCENT;
@@ -116,12 +100,12 @@ export default function BookingStep1Screen() {
         {/* Nanny Card */}
         <Card shadow="sm" padding={spacing.lg} radius={borderRadius.xl}>
           <View style={styles.nannyCardInner}>
-            <Image source={{ uri: MOCK_NANNY.image }} style={styles.nannyPhoto} />
+            <Image source={{ uri: MOCK_NANNY_BOOKING.image }} style={styles.nannyPhoto} />
             <View style={styles.nannyInfo}>
               <View style={styles.nannyNameRow}>
-                <Text style={styles.nannyName}>{MOCK_NANNY.name}</Text>
+                <Text style={styles.nannyName}>{MOCK_NANNY_BOOKING.name}</Text>
                 <Ionicons name="star" size={13} color={colors.gold} />
-                <Text style={styles.nannyRating}>{MOCK_NANNY.rating}</Text>
+                <Text style={styles.nannyRating}>{MOCK_NANNY_BOOKING.rating}</Text>
               </View>
               <View style={styles.nannyDateRow}>
                 <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
@@ -174,7 +158,7 @@ export default function BookingStep1Screen() {
         <View style={styles.priceCard}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>
-              Base ${MOCK_NANNY.hourlyRate}×{hours}
+              Base ${MOCK_NANNY_BOOKING.hourlyRate}×{hours}
             </Text>
             <Text style={styles.priceValue}>${baseCost.toFixed(2)}</Text>
           </View>

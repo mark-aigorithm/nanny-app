@@ -11,17 +11,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
-import { Avatar, Badge } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
+import { IMG_FEATURED_BANNER, IMG_USER_PROFILE_SEARCH } from '@mobile/mocks/images';
+import type { NannyCardData } from '@mobile/types';
+import { MOCK_NANNIES_SEARCH } from '@mobile/mocks';
 import { styles } from './styles/search-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_NANNY_CLARA = 'https://www.figma.com/api/mcp/asset/81c926bc-6bcd-45bd-83be-49eda0682d21';
-const IMG_NANNY_ELENA = 'https://www.figma.com/api/mcp/asset/1f5ca631-9125-4e5b-8903-7ba2fec58cf5';
-const IMG_NANNY_MARCUS = 'https://www.figma.com/api/mcp/asset/3f04a106-7250-4240-b990-bceccc1c6f19';
-const IMG_FEATURED_BANNER = 'https://www.figma.com/api/mcp/asset/30ac9da3-2d48-4c6d-a670-ad67ec6c7383';
-const IMG_USER_PROFILE = 'https://www.figma.com/api/mcp/asset/f2251544-1290-4beb-886d-cbaf76b442ce';
 
 // ASSUMPTION: Nannies data will come from GET /nannies?filter=nearby.
 // Using hardcoded mock data until the backend and geolocation service are ready.
@@ -33,50 +27,6 @@ const FILTER_CHIPS: FilterChip[] = [
   'Live-in',
   'Special Needs',
   'Night Nurse',
-];
-
-interface NannyCardData {
-  id: string;
-  name: string;
-  experience: string;
-  type: string;
-  rating: number;
-  hourlyRate: number;
-  image: string;
-  verified: boolean;
-}
-
-const MOCK_NANNIES: NannyCardData[] = [
-  {
-    id: '1',
-    name: 'Clara Henderson',
-    experience: '8 years experience',
-    type: 'Full-time',
-    rating: 4.9,
-    hourlyRate: 25,
-    image: IMG_NANNY_CLARA,
-    verified: true,
-  },
-  {
-    id: '2',
-    name: 'Elena Rodriguez',
-    experience: '15 years experience',
-    type: 'Part-time',
-    rating: 5.0,
-    hourlyRate: 32,
-    image: IMG_NANNY_ELENA,
-    verified: true,
-  },
-  {
-    id: '3',
-    name: 'Marcus Thorne',
-    experience: '5 years experience',
-    type: 'Activity Specialist',
-    rating: 4.8,
-    hourlyRate: 28,
-    image: IMG_NANNY_MARCUS,
-    verified: true,
-  },
 ];
 
 function NannyCard({ nanny, onViewProfile }: { nanny: NannyCardData; onViewProfile: (id: string) => void }) {
@@ -157,12 +107,12 @@ export default function SearchScreen() {
         </View>
 
         {/* Nanny Cards */}
-        {MOCK_NANNIES.map((nanny, index) => (
+        {MOCK_NANNIES_SEARCH.map((nanny, index) => (
           <React.Fragment key={nanny.id}>
             <NannyCard
               nanny={nanny}
               onViewProfile={(id) =>
-                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } } as any)
+                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } })
               }
             />
             {/* Featured banner after second card */}
@@ -177,7 +127,7 @@ export default function SearchScreen() {
                 </Text>
                 <Pressable
                   style={styles.featuredButton}
-                  onPress={() => router.push('/(parent)/search-results' as never)}
+                  onPress={() => router.push('/(parent)/search-results')}
                 >
                   <Text style={styles.featuredButtonText}>Explore Pro+</Text>
                 </Pressable>
@@ -203,7 +153,7 @@ export default function SearchScreen() {
             </Pressable>
             <Text style={styles.headerTitle}>Explore</Text>
             <View style={styles.headerAvatarBorder}>
-              <Image source={{ uri: IMG_USER_PROFILE }} style={styles.headerAvatar} />
+              <Image source={{ uri: IMG_USER_PROFILE_SEARCH }} style={styles.headerAvatar} />
             </View>
           </View>
           <View style={styles.searchBarContainer}>
@@ -216,7 +166,7 @@ export default function SearchScreen() {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 returnKeyType="search"
-                onSubmitEditing={() => router.push('/(parent)/search-results' as never)}
+                onSubmitEditing={() => router.push('/(parent)/search-results')}
               />
             </View>
           </View>

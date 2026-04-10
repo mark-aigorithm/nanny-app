@@ -9,67 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { IconCircle } from '@mobile/components/ui';
+import type { NotificationType, AppNotification } from '@mobile/types';
+import { MOCK_NOTIFICATIONS } from '@mobile/mocks';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/notifications-screen.styles';
-
-// ASSUMPTION: Notification data will come from GET /notifications.
-// TODO: Replace with useNotifications() React Query hook
-// Using hardcoded mock data until the backend service is ready.
-
-type NotificationType = 'booking' | 'activity' | 'social' | 'promo' | 'review';
-
-type Notification = {
-  id: string;
-  type: NotificationType;
-  title: string;
-  subtitle: string;
-  time: string;
-  read: boolean;
-};
-
-// ASSUMPTION: Notification list will be paginated via cursor-based pagination from the API.
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    type: 'booking',
-    title: 'Booking confirmed',
-    subtitle: 'Elena Martinez \u00b7 Sat Apr 12 \u00b7 9AM\u20135PM',
-    time: '2m ago',
-    read: false,
-  },
-  {
-    id: '2',
-    type: 'activity',
-    title: 'Liam had lunch',
-    subtitle: 'Sarah gave Liam a bottle at 12:30 PM',
-    time: '15m ago',
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'social',
-    title: 'Jessica replied to your post',
-    subtitle: '"That\u2019s a great tip! We do the same with our nanny..."',
-    time: '1h ago',
-    read: true,
-  },
-  {
-    id: '4',
-    type: 'promo',
-    title: 'Weekend Special',
-    subtitle: 'Get 15% off your next weekend booking. Limited time offer!',
-    time: '3h ago',
-    read: true,
-  },
-  {
-    id: '5',
-    type: 'review',
-    title: 'Share your feedback',
-    subtitle: 'How was your experience with Elena? Leave a review.',
-    time: '5h ago',
-    read: true,
-  },
-];
 
 const FILTER_PILLS = ['All', 'Updates', 'Activity', 'Messages'] as const;
 type FilterPill = (typeof FILTER_PILLS)[number];
@@ -196,7 +139,7 @@ export default function NotificationsScreen() {
 
 // ─── NotificationCard ────────────────────────────────────────────────────────
 
-function NotificationCard({ notification }: { notification: Notification }) {
+function NotificationCard({ notification }: { notification: AppNotification }) {
   const icon = getIconForType(notification.type);
   const iconColor = getIconColor(notification.type);
   const isUnread = !notification.read;

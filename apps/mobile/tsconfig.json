@@ -21,7 +21,8 @@
   "include": [
     "src/**/*",
     "app/**/*",
-    "app.config.ts"
+    "app.config.ts",
+    ".expo/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

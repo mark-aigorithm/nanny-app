@@ -10,8 +10,6 @@ import {
   STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
-const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 64;
-
 export const styles = StyleSheet.create({
   container: {
     flex: 1,

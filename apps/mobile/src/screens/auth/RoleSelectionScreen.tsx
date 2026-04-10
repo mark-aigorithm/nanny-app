@@ -7,10 +7,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import type { Role } from '@mobile/types';
 import { Button } from '@mobile/components/ui';
 import { styles } from './styles/role-selection-screen.styles';
-
-type Role = 'parent' | 'nanny';
 
 export default function RoleSelectionScreen() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);

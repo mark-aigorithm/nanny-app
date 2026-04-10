@@ -8,43 +8,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { IMG_HEADER_AVATAR, IMG_PROFILE_PHOTO } from '@mobile/mocks/images';
+import { MOCK_PROFILE, SETTINGS_ITEMS } from '@mobile/mocks';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/mother-profile-wallet-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_HEADER_AVATAR = 'https://www.figma.com/api/mcp/asset/3fcb7428-8e0f-4525-8142-e2358dfa4082';
-const IMG_PROFILE_PHOTO = 'https://www.figma.com/api/mcp/asset/07ae7b45-0147-4684-bac1-5564fb715bc5';
-
-// ASSUMPTION: Profile data will come from GET /users/me.
-// Using hardcoded mock data until the backend service is ready.
-// TODO: Replace with useProfile() React Query hook
-const MOCK_PROFILE = {
-  name: 'Sarah Johnson',
-  location: 'Brooklyn, NY',
-  memberTier: 'Pro Member',
-  walletBalance: 47.5,
-  rewardPoints: 320,
-  rewardValue: 3.2,
-  favouriteNanniesCount: 5,
-};
-
-type SettingsItem = {
-  id: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  badge?: string;
-  isDestructive?: boolean;
-};
-
-const SETTINGS_ITEMS: SettingsItem[] = [
-  { id: 'account', label: 'Account details', icon: 'person-outline' },
-  { id: 'nannies', label: 'My nannies', icon: 'heart-outline', badge: '5' },
-  { id: 'payment', label: 'Payment methods', icon: 'card-outline' },
-  { id: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
-  { id: 'help', label: 'Help & support', icon: 'help-circle-outline' },
-  { id: 'logout', label: 'Log out', icon: 'log-out-outline', isDestructive: true },
-];
 
 export default function MotherProfileWalletScreen() {
   const router = useRouter();
@@ -54,7 +21,7 @@ export default function MotherProfileWalletScreen() {
     // TODO: Wire up navigation to individual settings screens
     switch (id) {
       case 'notifications':
-        router.push('/(parent)/notifications' as any);
+        router.push('/(parent)/notifications');
         break;
       case 'logout':
         // TODO: Call auth sign-out via useAuth hook

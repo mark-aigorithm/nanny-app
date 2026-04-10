@@ -10,70 +10,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import BottomNav from '@mobile/components/BottomNav';
+import type { ActivityItem } from '@mobile/types';
+import { TODAY_ACTIVITIES, YESTERDAY_ACTIVITIES } from '@mobile/mocks';
 import { styles } from './styles/care-activity-feed-screen.styles';
-
-// ASSUMPTION: Thumbnail sourced from Figma CDN — expires in 7 days.
-// Replace with S3/CDN URL or bundled asset before production.
-const IMG_MILK_BOTTLE =
-  'https://www.figma.com/api/mcp/asset/4aa21093-e5c2-4482-a69d-b0c8f3ead002';
 
 // ASSUMPTION: Filter categories will come from GET /care-activities/categories.
 // Using hardcoded mock data until the backend service is ready.
 const FILTER_PILLS = ['All', 'Health', 'Play', 'Meals', 'Sleep'] as const;
 type FilterPill = (typeof FILTER_PILLS)[number];
-
-// ASSUMPTION: Activity data will come from GET /children/:childId/activities.
-// Using hardcoded mock data until the backend service is ready.
-type ActivityItem = {
-  id: string;
-  type: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconBg: string;
-  time: string;
-  description: string;
-  thumbnail?: string;
-  unread?: boolean;
-};
-
-const TODAY_ACTIVITIES: ActivityItem[] = [
-  {
-    id: '1',
-    type: 'Feeding',
-    icon: 'restaurant-outline',
-    iconBg: colors.warmLight,
-    time: '1:30 PM',
-    description: 'Elena fed Liam 6oz. He finished the whole bottle.',
-    thumbnail: IMG_MILK_BOTTLE,
-    unread: true,
-  },
-  {
-    id: '2',
-    type: 'Nap',
-    icon: 'moon-outline',
-    iconBg: colors.tintPurple,
-    time: '12:15 PM',
-    description: 'Liam fell asleep in his crib. He was very calm today.',
-  },
-  {
-    id: '3',
-    type: 'Diaper change',
-    icon: 'leaf-outline',
-    iconBg: colors.successLight,
-    time: '11:45 AM',
-    description: 'Wet diaper changed. No redness observed.',
-  },
-];
-
-const YESTERDAY_ACTIVITIES: ActivityItem[] = [
-  {
-    id: '4',
-    type: 'Play time',
-    icon: 'game-controller-outline',
-    iconBg: colors.surfaceMuted,
-    time: '3:00 PM',
-    description: 'Liam enjoyed building blocks and stacking cups for 30 minutes.',
-  },
-];
 
 export default function CareActivityFeedScreen() {
   const router = useRouter();

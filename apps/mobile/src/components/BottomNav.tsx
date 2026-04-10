@@ -14,9 +14,9 @@ interface Props {
 const TABS: {
   key: BottomNavTab;
   label: string;
-  activeIcon: string;
-  inactiveIcon: string;
-  href: string;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
+  href: '/(parent)/home' | '/(parent)/search' | '/(parent)/community' | '/(parent)/messages';
 }[] = [
   {
     key: 'home',
@@ -59,11 +59,11 @@ export default function BottomNav({ activeTab, messagesBadge }: Props) {
           <Pressable
             key={tab.key}
             style={styles.navItem}
-            onPress={() => router.push(tab.href as any)}
+            onPress={() => router.push(tab.href)}
           >
             <View style={styles.iconWrapper}>
               <Ionicons
-                name={(isActive ? tab.activeIcon : tab.inactiveIcon) as any}
+                name={isActive ? tab.activeIcon : tab.inactiveIcon}
                 size={20}
                 color={isActive ? colors.primary : colors.textMuted}
               />

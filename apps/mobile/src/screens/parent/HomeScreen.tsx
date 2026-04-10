@@ -10,47 +10,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
-import { Avatar, Badge } from '@mobile/components/ui';
+import { Avatar } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
-
-// ASSUMPTION: Images sourced from Figma CDN — expire in 7 days.
-// Replace with S3/CDN URLs or bundled assets before production.
-const IMG_HERO = 'https://www.figma.com/api/mcp/asset/8a071716-147b-4521-91d8-f02ffc431d69';
-const IMG_ELENA = 'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
-const IMG_SARAH = 'https://www.figma.com/api/mcp/asset/b89dbd06-ef11-4609-8517-36912efbc57e';
-const IMG_USER_AVATAR = 'https://www.figma.com/api/mcp/asset/375d31c8-8abc-45b9-9273-4db36fa6b36c';
-
-// ASSUMPTION: Nanny data will come from GET /nannies?recommended=true.
-// Using hardcoded mock data until the backend service is ready.
-const MOCK_NANNIES: NannyData[] = [
-  {
-    id: '1',
-    name: 'Elena Rodriguez',
-    experience: '8 years experience',
-    distance: '2.4 miles',
-    rating: 4.9,
-    bio: 'Expert in Montessori education and newborn care. Certified in infant CPR and first aid...',
-    hourlyRate: 28,
-    verified: true,
-    image: IMG_ELENA,
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    experience: '5 years experience',
-    distance: '0.8 miles',
-    rating: 5.0,
-    bio: 'Former preschool teacher specializing in early childhood development and creative play...',
-    hourlyRate: 32,
-    verified: true,
-    image: IMG_SARAH,
-  },
-];
-
-// ASSUMPTION: Filter selection will trigger a filtered API call once backend is ready.
-const FILTER_TABS = ['Full-time', 'Part-time', 'Occasional', 'Emergency'] as const;
-type FilterTab = (typeof FILTER_TABS)[number];
+import type { NannyData } from '@mobile/types';
+import { HOME_FILTER_TABS } from '@mobile/constants';
+import type { FilterTab } from '@mobile/constants';
+import { MOCK_NANNIES_HOME } from '@mobile/mocks';
+import { IMG_HERO, IMG_USER_AVATAR } from '@mobile/mocks/images';
 
 // ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
 // from @expo-google-fonts/manrope in the root _layout.tsx.
@@ -88,7 +55,7 @@ export default function HomeScreen() {
           style={styles.filtersScroll}
           contentContainerStyle={styles.filtersContent}
         >
-          {FILTER_TABS.map((tab) => (
+          {HOME_FILTER_TABS.map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.chip, activeFilter === tab ? styles.chipActive : styles.chipInactive]}
@@ -110,12 +77,12 @@ export default function HomeScreen() {
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>
-          {MOCK_NANNIES.map((nanny) => (
+          {MOCK_NANNIES_HOME.map((nanny) => (
             <NannyCard
               key={nanny.id}
               nanny={nanny}
               onViewProfile={(id) =>
-                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } } as any)
+                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } })
               }
             />
           ))}
@@ -144,7 +111,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.iconBtn}
               activeOpacity={0.7}
-              onPress={() => router.push('/(parent)/notifications' as any)}
+              onPress={() => router.push('/(parent)/notifications')}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
@@ -164,18 +131,6 @@ export default function HomeScreen() {
 }
 
 // ─── NannyCard ───────────────────────────────────────────────────────────────
-
-type NannyData = {
-  id: string;
-  name: string;
-  experience: string;
-  distance: string;
-  rating: number;
-  bio: string;
-  hourlyRate: number;
-  verified: boolean;
-  image: string;
-};
 
 function NannyCard({ nanny, onViewProfile }: { nanny: NannyData; onViewProfile: (id: string) => void }) {
   return (
