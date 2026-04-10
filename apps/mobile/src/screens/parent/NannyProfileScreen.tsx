@@ -117,7 +117,16 @@ export default function NannyProfileScreen() {
               <Ionicons name="chatbubble-outline" size={18} color={colors.primaryDark} />
               <Text style={styles.actionBtnText}>Message</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              activeOpacity={0.7}
+              onPress={() =>
+                router.push({
+                  pathname: '/(parent)/nanny/nanny-availability',
+                  params: { nannyId: nanny.id },
+                } as never)
+              }
+            >
               <Ionicons name="calendar-outline" size={18} color={colors.primaryDark} />
               <Text style={styles.actionBtnText}>Availability</Text>
             </TouchableOpacity>
@@ -230,7 +239,7 @@ export default function NannyProfileScreen() {
           activeOpacity={0.85}
           onPress={() =>
             router.push({
-              pathname: '/(parent)/book/booking-step-1',
+              pathname: '/(parent)/book/booking-date-picker',
               params: { nannyId: nanny.id },
             })
           }

@@ -40,8 +40,10 @@ export default function BookingHistoryScreen() {
   };
 
   const handleViewDetails = (bookingId: string) => {
-    // TODO: Navigate to booking detail screen once it exists
-    console.log('View details:', bookingId);
+    router.push({
+      pathname: '/(parent)/book/booking-detail',
+      params: { bookingId },
+    } as never);
   };
 
   const handleCancel = (bookingId: string) => {
@@ -54,8 +56,10 @@ export default function BookingHistoryScreen() {
   };
 
   const handleLeaveReview = (bookingId: string) => {
-    // TODO: Navigate to review screen once it exists
-    console.log('Leave review:', bookingId);
+    router.push({
+      pathname: '/(parent)/book/review',
+      params: { bookingId },
+    } as never);
   };
 
   const handleBookAgain = (_bookingId: string) => {

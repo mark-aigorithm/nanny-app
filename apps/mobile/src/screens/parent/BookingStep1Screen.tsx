@@ -56,9 +56,16 @@ export default function BookingStep1Screen() {
   };
 
   const handleProceed = () => {
-    // ASSUMPTION: Navigation target will be booking-step-2 once payment screen is created.
-    console.log('Proceeding to payment', { total: total.toFixed(2) });
-    // router.push('/(parent)/book/booking-step-2');
+    router.push({
+      pathname: '/(parent)/book/booking-step-2',
+      params: {
+        nannyId: params.nannyId,
+        date: dateDisplay,
+        startTime: timeDisplay.split('–')[0],
+        endTime: timeDisplay.split('–')[1],
+        total: total.toFixed(2),
+      },
+    } as never);
   };
 
   return (

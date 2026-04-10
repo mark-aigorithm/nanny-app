@@ -200,7 +200,7 @@ export default function CommunityScreen() {
       {/* FAB */}
       <Pressable
         style={styles.fab}
-        onPress={() => router.push('/(parent)/community-feed')}
+        onPress={() => router.push('/(parent)/create-post' as never)}
       >
         <Ionicons name="add" size={24} color={colors.white} />
       </Pressable>

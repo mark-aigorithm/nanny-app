@@ -159,7 +159,7 @@ export default function EventsMeetupsScreen() {
 
       {/* FAB */}
       <View style={styles.fabContainer}>
-        <Pressable style={styles.fab}>
+        <Pressable style={styles.fab} onPress={() => router.push('/(parent)/create-event' as never)}>
           <Ionicons name="add" size={24} color={colors.white} />
         </Pressable>
         <Text style={styles.fabLabel}>CREATE EVENT</Text>

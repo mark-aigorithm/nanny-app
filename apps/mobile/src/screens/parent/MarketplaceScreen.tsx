@@ -29,12 +29,14 @@ const CATEGORY_CHIPS: CategoryChip[] = [
 function ProductCard({
   product,
   onToggleFavorite,
+  onPress,
 }: {
   product: ProductItem;
   onToggleFavorite: (id: string) => void;
+  onPress: (id: string) => void;
 }) {
   return (
-    <View style={styles.productCard}>
+    <Pressable style={styles.productCard} onPress={() => onPress(product.id)}>
       <View style={[styles.productImagePlaceholder, { height: product.imageHeight }]}>
         <Ionicons name="cube-outline" size={32} color={colors.textMuted} />
         <Pressable
@@ -57,7 +59,7 @@ function ProductCard({
           {product.location}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -125,6 +127,7 @@ export default function MarketplaceScreen() {
                 key={product.id}
                 product={product}
                 onToggleFavorite={handleToggleFavorite}
+                onPress={(id) => router.push({ pathname: '/(parent)/marketplace-item-detail', params: { productId: id } } as never)}
               />
             ))}
           </View>
@@ -134,6 +137,7 @@ export default function MarketplaceScreen() {
                 key={product.id}
                 product={product}
                 onToggleFavorite={handleToggleFavorite}
+                onPress={(id) => router.push({ pathname: '/(parent)/marketplace-item-detail', params: { productId: id } } as never)}
               />
             ))}
           </View>
@@ -148,7 +152,7 @@ export default function MarketplaceScreen() {
               <Ionicons name="chevron-back" size={24} color={colors.textDark} />
             </Pressable>
             <Text style={styles.headerTitle}>Marketplace</Text>
-            <Pressable style={styles.sellButton}>
+            <Pressable style={styles.sellButton} onPress={() => router.push('/(parent)/create-listing' as never)}>
               <Text style={styles.sellButtonText}>Sell</Text>
             </Pressable>
           </View>

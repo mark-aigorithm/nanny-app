@@ -7,6 +7,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
 import type { PostTag, Post, AdvicePost, MarketplacePost, EventPost } from '@mobile/types';
@@ -30,6 +31,7 @@ const TAG_STYLES: Record<PostTag, { bg: string; text: string }> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CommunityFeedScreen() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterPill>('All posts');
 
   const renderAdvicePost = (post: AdvicePost) => (
@@ -140,15 +142,26 @@ export default function CommunityFeedScreen() {
     </View>
   );
 
+  const handlePostPress = (postId: string) => {
+    router.push({ pathname: '/(parent)/post-detail', params: { postId } } as never);
+  };
+
   const renderPost = (post: Post) => {
-    switch (post.type) {
-      case 'advice':
-        return renderAdvicePost(post);
-      case 'marketplace':
-        return renderMarketplacePost(post);
-      case 'event':
-        return renderEventPost(post);
-    }
+    const content = (() => {
+      switch (post.type) {
+        case 'advice':
+          return renderAdvicePost(post);
+        case 'marketplace':
+          return renderMarketplacePost(post);
+        case 'event':
+          return renderEventPost(post);
+      }
+    })();
+    return (
+      <Pressable key={post.id} onPress={() => handlePostPress(post.id)}>
+        {content}
+      </Pressable>
+    );
   };
 
   return (
@@ -214,7 +227,7 @@ export default function CommunityFeedScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <Pressable style={styles.fab}>
+      <Pressable style={styles.fab} onPress={() => router.push('/(parent)/create-post' as never)}>
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
 

@@ -24,8 +24,10 @@ export default function BookingConfirmationScreen() {
   const booking = MOCK_BOOKING;
 
   const handleViewDetails = () => {
-    // TODO: Navigate to booking detail screen once it exists
-    console.log('View booking details for:', bookingId);
+    router.push({
+      pathname: '/(parent)/book/booking-detail',
+      params: { bookingId: bookingId ?? 'b1' },
+    } as never);
   };
 
   const handleAddToCalendar = () => {

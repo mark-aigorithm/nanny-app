@@ -18,10 +18,18 @@ export default function MotherProfileWalletScreen() {
   const profile = MOCK_PROFILE;
 
   const handleSettingsPress = (id: string) => {
-    // TODO: Wire up navigation to individual settings screens
     switch (id) {
+      case 'account':
+        router.push('/(parent)/account-details' as never);
+        break;
+      case 'payment':
+        router.push('/(parent)/payment-methods' as never);
+        break;
       case 'notifications':
         router.push('/(parent)/notifications');
+        break;
+      case 'help':
+        router.push('/(parent)/customer-support' as never);
         break;
       case 'logout':
         // TODO: Call auth sign-out via useAuth hook
