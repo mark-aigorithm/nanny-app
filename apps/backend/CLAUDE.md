@@ -60,19 +60,7 @@ prisma/
 
 | Variable | Required | Source | Description |
 |---|---|---|---|
-| `NODE_ENV` | yes | manual | `development` / `staging` / `production` |
-| `PORT` | yes | manual | HTTP port (default 3000) |
 | `DATABASE_URL` | yes | Secrets Manager | PostgreSQL connection string |
-| `REDIS_URL` | yes | Secrets Manager | Redis connection string |
-| `FIREBASE_PROJECT_ID` | yes | Secrets Manager | Firebase project ID |
-| `FIREBASE_CLIENT_EMAIL` | yes | Secrets Manager | Firebase service account email |
-| `FIREBASE_PRIVATE_KEY` | yes | Secrets Manager | Firebase service account private key |
-| `AWS_REGION` | yes | ECS task role | AWS region |
-| `S3_BUCKET_NAME` | yes | CDK output | S3 bucket for assets |
-| `CLOUDFRONT_DOMAIN` | yes | CDK output | CloudFront distribution domain |
-| `CORS_ORIGINS` | yes | manual | Comma-separated allowed origins |
-| `RATE_LIMIT_WINDOW_MS` | no | manual | Rate limit window (default 900000ms) |
-| `RATE_LIMIT_MAX_REQUESTS` | no | manual | Max requests per window (default 100) |
 
 **Production rule:** All secrets come from AWS Secrets Manager, injected as env vars by ECS task definition. `.env` files are for local dev only and must never be committed.
 
