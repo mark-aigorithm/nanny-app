@@ -1,4 +1,5 @@
-import type { SettingsItem, UserProfile } from '@mobile/types';
+import type { SettingsItem, UserProfile, AccountDetails } from '@mobile/types';
+import { IMG_PROFILE_PHOTO } from './images';
 
 export const MOCK_PROFILE: UserProfile = {
   name: 'Sarah Johnson',
@@ -18,3 +19,15 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
   { id: 'help', label: 'Help & support', icon: 'help-circle-outline' },
   { id: 'logout', label: 'Log out', icon: 'log-out-outline', isDestructive: true },
 ];
+
+export const MOCK_ACCOUNT_DETAILS: AccountDetails = {
+  firstName: 'Sarah',
+  lastName: 'Johnson',
+  email: 'sarah.johnson@email.com',
+  phone: '+1 (555) 123-4567',
+  photo: IMG_PROFILE_PHOTO,
+  address: '123 Park Slope Ave',
+  city: 'Brooklyn',
+  state: 'NY',
+  zipCode: '11215',
+};

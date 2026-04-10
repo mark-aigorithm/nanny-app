@@ -16,6 +16,9 @@ export type {
   UpcomingBooking,
   PastBooking,
   BookingConfirmation,
+  BookingDetail,
+  PaymentMethod,
+  TimeSlot,
 } from './booking';
 
 export type {
@@ -27,11 +30,12 @@ export type {
   MarketplacePost,
   EventPost,
   Post,
+  Comment,
 } from './community';
 
-export type { Attendee, EventData } from './events';
+export type { Attendee, EventData, CreateEventData } from './events';
 
-export type { ProductItem } from './marketplace';
+export type { ProductItem, ProductDetail } from './marketplace';
 
 export type { Conversation, ChatMessage } from './messages';
 
@@ -45,7 +49,7 @@ export type {
   ChildInfo,
 } from './care';
 
-export type { SettingsItem, UserProfile } from './profile';
+export type { SettingsItem, UserProfile, AccountDetails } from './profile';
 
 export type { PromoCard, QuickAction } from './dashboard';
 
@@ -54,3 +58,11 @@ export type { Role, Child } from './registration';
 export type { FilterChipData, SortOption } from './search';
 
 export type { FaqItem } from './support';
+
+export type {
+  NannyEarnings,
+  NannyBookingRequest,
+  NannyStats,
+  NannyAvailabilitySlot,
+  NannyProfileEdit,
+} from './nanny-dashboard';

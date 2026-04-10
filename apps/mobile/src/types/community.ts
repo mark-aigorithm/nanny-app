@@ -38,3 +38,11 @@ export interface EventPost extends BasePost {
 }
 
 export type Post = AdvicePost | MarketplacePost | EventPost;
+
+export interface Comment {
+  id: string;
+  author: PostAuthor;
+  text: string;
+  likes: number;
+  replies: Comment[];
+}

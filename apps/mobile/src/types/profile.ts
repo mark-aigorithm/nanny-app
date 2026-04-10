@@ -17,3 +17,15 @@ export interface UserProfile {
   rewardValue: number;
   favouriteNanniesCount: number;
 }
+
+export interface AccountDetails {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  photo: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
