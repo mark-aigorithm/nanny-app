@@ -14,7 +14,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1002.0",
@@ -32,6 +33,9 @@
     "rate-limit-redis": "^4.2.0",
     "winston": "^3.13.0",
     "zod": "^3.23.8"
+  },
+  "prisma": {
+    "seed": "ts-node --transpile-only -r tsconfig-paths/register prisma/seed.ts"
   },
   "devDependencies": {
     "@nanny-app/config": "workspace:*",

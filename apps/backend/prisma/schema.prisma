@@ -1,13 +1,20 @@
-// TODO: Define Prisma schema
-// Models: User, NannyProfile, ParentProfile, Child, EmergencyContact,
-//         Booking, Review
-// Requires: postgis extension for geospatial nanny search
+// ──────────────────────────────────────────────────────────────
+// NannyApp — Prisma Schema
+// ──────────────────────────────────────────────────────────────
+// Conventions:
+//   • Every model must have created_at, updated_at, deleted_at (soft delete)
+//   • DB columns use snake_case via @map; Prisma fields use camelCase
+//   • Table names are plural snake_case via @@map
+//   • Enums are PascalCase in Prisma, snake_case in DB via @@map
+//   • PostGIS geography columns are Unsupported — use $queryRaw
+// ──────────────────────────────────────────────────────────────
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  extensions = [postgis]
 }
