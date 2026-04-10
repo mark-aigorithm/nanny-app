@@ -243,9 +243,19 @@ Before creating any new visual pattern, check if an existing component covers it
 | `ScreenContainer` | SafeAreaView + background + StatusBar wrapper |
 | `Divider` | Horizontal line with optional "or" text |
 
-- Screen-specific layout styles remain in per-screen `StyleSheet.create`
 - Only create new UI components if no existing one covers the use case
 - Import from `@mobile/components/ui`
+
+### Screen Style Files (`screens/*/styles/`)
+
+Every screen's `StyleSheet.create` block lives in a **dedicated style file**, not in the screen file itself:
+
+- Auth screens: `src/screens/auth/styles/[screen-name].styles.ts`
+- Parent screens: `src/screens/parent/styles/[screen-name].styles.ts`
+- File naming: `[screen-name].styles.ts` (kebab-case, matching the screen file)
+- Each style file imports only from `@mobile/theme` — no hardcoded values
+- The screen file imports: `import { styles } from './styles/[screen-name].styles';`
+- Screen files only retain theme imports that are used **directly in JSX** (e.g. icon `color` props)
 
 ### Mock Data (`apps/mobile/src/mocks/`)
 
