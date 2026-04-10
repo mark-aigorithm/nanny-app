@@ -212,6 +212,7 @@ All visual constants are centralized in `src/theme/` and imported via `@mobile/t
 - Use `spacing.xxx` for margins, padding, and gaps where an exact token match exists
 - Use `borderRadius.xxx` for corner radii where an exact token match exists
 - The canonical background color is `colors.background` (`#fdfaf8`). Never use `#fcf9f7`.
+- **When improvising or filling in missing parts of a screen, ONLY use colors that already exist in `colors.ts`.** Do not invent new color values or add ad-hoc rgba/hex literals to work around a missing token. If no existing token fits, pick the closest one — do not create a new token without explicit instruction.
 
 **Theme files:**
 | File | Exports |
