@@ -33,7 +33,7 @@ export default function RegistrationStep1Screen() {
   }
 
   function handleContinue() {
-    router.push({ pathname: '/(auth)/register-step-2', params: { role } });
+    router.push({ pathname: '/(auth)/register-create-password', params: { role } });
   }
 
   return (
@@ -67,7 +67,7 @@ export default function RegistrationStep1Screen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 1 OF 3 — PERSONAL INFO</Text>
+          <Text style={styles.stepLabel}>STEP 1 OF 4 — PERSONAL INFO</Text>
 
           {/* Photo picker */}
           <View style={styles.photoSection}>

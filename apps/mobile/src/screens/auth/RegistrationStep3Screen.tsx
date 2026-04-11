@@ -99,7 +99,7 @@ export default function RegistrationStep3Screen() {
         {/* Progress section */}
         <View style={styles.progressSection}>
           <View style={styles.progressLabelRow}>
-            <Text style={styles.stepLabel}>STEP 3 OF 3</Text>
+            <Text style={styles.stepLabel}>STEP 4 OF 4</Text>
             <Text style={styles.completionLabel}>100% Complete</Text>
           </View>
           <View style={styles.progressBarTrack}>

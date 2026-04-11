@@ -6,7 +6,6 @@ import {
   typeScale,
   spacing,
   screenPadding,
-  borderRadius,
   STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
@@ -63,7 +62,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   progressBarFill: {
-    width: '25%',
+    width: '50%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
@@ -87,65 +86,49 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Photo picker
-  photoSection: {
-    alignItems: 'center',
-    gap: 10,
+  // Intro
+  introGroup: {
+    gap: spacing.sm,
   },
-  avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.taupe,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headline: {
+    ...typeScale.displaySm,
+    color: colors.textPrimary,
   },
-  addPhotoLink: {
-    ...typeScale.labelSm,
-    color: colors.primaryDark,
+  subtitle: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
   },
 
   // Form
   form: {
     gap: spacing.xl,
   },
-  fieldGroup: {
+
+  // Requirements checklist
+  requirementsCard: {
+    backgroundColor: colors.taupeLight,
+    borderRadius: 16,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
-  fieldLabel: {
+  requirementsTitle: {
     ...typeScale.labelMd,
     color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
-
-  // Phone row
-  phoneRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    height: 56,
-  },
-  countryCodeBox: {
-    width: 64,
-    height: 56,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
+  requirementRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  countryCodeText: {
-    ...typeScale.labelLg,
-    color: colors.textPrimary,
-  },
-  phoneInput: {
+  requirementText: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
     flex: 1,
-    height: 56,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
-    color: colors.textPrimary,
+  },
+  requirementTextMet: {
+    fontFamily: fontFamily.medium,
+    color: colors.successDark,
   },
 
   // Footer
