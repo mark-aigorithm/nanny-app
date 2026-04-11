@@ -15,6 +15,58 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [postgis]
+  provider = "postgresql"
+  // The postgis/postgis Docker image pre-installs these four extensions
+  // as part of its init scripts. Declare all of them so Prisma's drift
+  // detection matches the actual database state on fresh dev environments.
+  extensions = [fuzzystrmatch, postgis, postgis_tiger_geocoder, postgis_topology]
+}
+
+// ──────────────────────────────────────────────────────────────
+// Auth & Identity
+// ──────────────────────────────────────────────────────────────
+
+enum Role {
+  MOTHER
+  NANNY
+  ADMIN
+
+  @@map("role")
+}
+
+/// Central identity row — one per Firebase Auth user.
+/// Role-specific data (children, certifications, bio, location) lives on
+/// future MotherProfile / NannyProfile models, not here.
+/// Note: the spec's single `isVerified` flag is intentionally split into
+/// `isEmailVerified` / `isPhoneVerified` — email can be re-verified on
+/// change independently of phone (AUTH-10).
+model User {
+  id                   String    @id @default(cuid())
+  firebaseUid          String    @unique @map("firebase_uid")
+  email                String    @unique
+  phone                String?   @unique // E.164
+  firstName            String    @map("first_name")
+  lastName             String    @map("last_name")
+  dateOfBirth          DateTime? @map("date_of_birth") @db.Date
+  avatarUrl            String?   @map("avatar_url")
+  // Nullable: social sign-in creates a User before the role is chosen;
+  // `/auth/set-role` (AUTH-08) fills it in.
+  role                 Role?
+  isEmailVerified      Boolean   @default(false) @map("is_email_verified")
+  isPhoneVerified      Boolean   @default(false) @map("is_phone_verified")
+  isActive             Boolean   @default(true)  @map("is_active")
+  lastLoginAt          DateTime? @map("last_login_at")
+  emailVerifiedAt      DateTime? @map("email_verified_at")
+  phoneVerifiedAt      DateTime? @map("phone_verified_at")
+  termsAcceptedAt      DateTime? @map("terms_accepted_at")
+  termsAcceptedVersion String?   @map("terms_accepted_version")
+  // Soft-delete grace window (AUTH-14): 30-day window before PII is purged.
+  deletionRequestedAt  DateTime? @map("deletion_requested_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt      @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
 }
