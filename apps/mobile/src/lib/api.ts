@@ -1,6 +1,8 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 
+import { auth } from '@mobile/lib/firebase';
+
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.['apiBaseUrl'] as string | undefined) ??
   'http://localhost:3000';
@@ -11,10 +13,26 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach Firebase JWT to every request
+// Attach Firebase JWT to every request automatically. The token refreshes
+// itself transparently — `getIdToken()` returns a fresh one if expired.
 api.interceptors.request.use(async (config) => {
-  // TODO: import auth from './firebase' and attach token
-  // const token = await auth.currentUser?.getIdToken();
-  // if (token) config.headers.Authorization = `Bearer ${token}`;
+  const currentUser = auth().currentUser;
+  if (currentUser) {
+    const token = await currentUser.getIdToken();
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
+
+/**
+ * Unwraps the backend's `{ data, error }` envelope. On success, returns
+ * `data`; on error, throws an `Error` with the server's message so React
+ * Query / try-catch sees it as a normal failure.
+ */
+export async function unwrap<T>(promise: Promise<{ data: { data: T | null; error: string | null } }>): Promise<T> {
+  const res = await promise;
+  if (res.data.error || res.data.data === null) {
+    throw new Error(res.data.error ?? 'Unknown server error');
+  }
+  return res.data.data;
+}

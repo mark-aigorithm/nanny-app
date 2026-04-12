@@ -167,6 +167,18 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
+  // Form-level error banner
+  formErrorBanner: {
+    backgroundColor: colors.errorLight,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  formErrorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
+  },
+
   // Terms card
   termsCard: {
     flexDirection: 'row',

@@ -9,14 +9,20 @@ import { useRouter } from 'expo-router';
 
 import type { Role } from '@mobile/types';
 import { Button } from '@mobile/components/ui';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/role-selection-screen.styles';
 
 export default function RoleSelectionScreen() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const router = useRouter();
+  const patchDraft = useRegistrationDraftStore((s) => s.patch);
+  const resetDraft = useRegistrationDraftStore((s) => s.reset);
 
   function handleContinue() {
     if (!selectedRole) return;
+    // Start a fresh draft for this registration attempt and seed the role.
+    resetDraft();
+    patchDraft({ role: selectedRole });
     router.push({ pathname: '/(auth)/register-step-1', params: { role: selectedRole } });
   }
 

@@ -77,14 +77,16 @@ export const styles = StyleSheet.create({
     color: colors.primary,
   },
 
-  // Social buttons
-  socialButtons: {
-    gap: spacing.md,
+  // Form-level error banner
+  formErrorBanner: {
+    backgroundColor: colors.errorLight,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  socialButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.taupe,
+  formErrorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
   },
 
   // Footer

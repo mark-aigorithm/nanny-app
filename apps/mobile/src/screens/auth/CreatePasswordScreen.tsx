@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/create-password-screen.styles';
 
 type Requirement = {
@@ -22,12 +23,20 @@ type Requirement = {
   met: boolean;
 };
 
+// NOTE: This screen only stores the password in the in-memory draft store.
+// Firebase account creation happens at Step 4 instead, where the phone OTP
+// verification creates the user (phone as primary provider) and the stored
+// email + password are linked to it as a secondary EmailAuthProvider
+// credential — the "phone primary, email linked" pattern.
 export default function CreatePasswordScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
 
+  const patch = useRegistrationDraftStore((s) => s.patch);
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const requirements: Requirement[] = [
     {
@@ -60,6 +69,8 @@ export default function CreatePasswordScreen() {
 
   function handleContinue() {
     if (!canContinue) return;
+    setFormError(null);
+    patch({ password });
     router.push({ pathname: '/(auth)/register-step-2', params: { role } });
   }
 
@@ -109,7 +120,10 @@ export default function CreatePasswordScreen() {
             <TextInputField
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(val: string) => {
+                setPassword(val);
+                if (formError) setFormError(null);
+              }}
               placeholder="Enter a password"
               placeholderTextColor={colors.textPlaceholder}
               secureTextEntry
@@ -121,7 +135,10 @@ export default function CreatePasswordScreen() {
             <TextInputField
               label="Confirm password"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(val: string) => {
+                setConfirmPassword(val);
+                if (formError) setFormError(null);
+              }}
               placeholder="Re-enter your password"
               placeholderTextColor={colors.textPlaceholder}
               secureTextEntry
@@ -151,12 +168,22 @@ export default function CreatePasswordScreen() {
                 </View>
               ))}
             </View>
+
+            {formError && (
+              <View style={styles.formErrorBanner}>
+                <Text style={styles.formErrorText}>{formError}</Text>
+              </View>
+            )}
           </View>
         </ScrollView>
 
         {/* Fixed footer */}
         <View style={styles.footer}>
-          <Button title="Continue" onPress={handleContinue} disabled={!canContinue} />
+          <Button
+            title="Continue"
+            onPress={handleContinue}
+            disabled={!canContinue}
+          />
         </View>
       </View>
     </KeyboardAvoidingView>

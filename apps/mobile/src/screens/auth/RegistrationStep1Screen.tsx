@@ -7,32 +7,100 @@ import {
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
+  Modal,
   Platform,
 } from 'react-native';
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
+import { validateEmail, validatePhone } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
+
+/** Format a Date as 'mm/dd/yyyy' — the storage format expected by step 3. */
+function formatDob(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+/** Parse 'mm/dd/yyyy' back to a Date; returns a sensible default on bad input. */
+function parseDob(str: string): Date {
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return new Date(new Date().getFullYear() - 25, 0, 1);
+  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+}
+
+const MAX_DOB = new Date();
+const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 
 export default function RegistrationStep1Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [dob, setDob] = useState('');
-  const [photo, setPhoto] = useState<string | null>(null);
+  const draft = useRegistrationDraftStore();
+  const patch = useRegistrationDraftStore((s) => s.patch);
+
+  const [formError, setFormError] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(() => parseDob(draft.dob));
 
   function handleBack() {
     router.back();
   }
 
+  function openDatePicker() {
+    setTempDate(parseDob(draft.dob));
+    setShowDatePicker(true);
+  }
+
+  function handleAndroidDateChange(event: DateTimePickerEvent, date?: Date) {
+    // On Android the picker is a modal dialog that dismisses itself on
+    // either "set" (user tapped OK) or "dismissed" (cancel / tap-outside).
+    setShowDatePicker(false);
+    if (event.type === 'set' && date) {
+      patch({ dob: formatDob(date) });
+      if (formError) setFormError(null);
+    }
+  }
+
+  function handleIosDateChange(_event: DateTimePickerEvent, date?: Date) {
+    if (date) setTempDate(date);
+  }
+
+  function confirmIosDate() {
+    patch({ dob: formatDob(tempDate) });
+    setShowDatePicker(false);
+    if (formError) setFormError(null);
+  }
+
   function handleContinue() {
+    setFormError(null);
+    if (!draft.firstName.trim() || !draft.lastName.trim()) {
+      setFormError('Please enter your first and last name.');
+      return;
+    }
+    const emailErr = validateEmail(draft.email);
+    if (emailErr) {
+      setFormError(emailErr);
+      return;
+    }
+    const phoneErr = validatePhone(draft.phone);
+    if (phoneErr) {
+      setFormError(phoneErr);
+      return;
+    }
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(draft.dob)) {
+      setFormError('Please select your date of birth.');
+      return;
+    }
     router.push({ pathname: '/(auth)/register-create-password', params: { role } });
   }
 
@@ -72,7 +140,7 @@ export default function RegistrationStep1Screen() {
           {/* Photo picker */}
           <View style={styles.photoSection}>
             <Pressable style={styles.avatarCircle} onPress={() => {}}>
-              {photo ? null : (
+              {draft.photoUri ? null : (
                 <Ionicons name="camera-outline" size={28} color={colors.textTertiary} />
               )}
             </Pressable>
@@ -86,8 +154,8 @@ export default function RegistrationStep1Screen() {
             {/* First name */}
             <TextInputField
               label="First name"
-              value={firstName}
-              onChangeText={setFirstName}
+              value={draft.firstName}
+              onChangeText={(val) => patch({ firstName: val })}
               placeholder="Enter your first name"
               placeholderTextColor={colors.textPlaceholder}
               autoCapitalize="words"
@@ -97,8 +165,8 @@ export default function RegistrationStep1Screen() {
             {/* Last name */}
             <TextInputField
               label="Last name"
-              value={lastName}
-              onChangeText={setLastName}
+              value={draft.lastName}
+              onChangeText={(val) => patch({ lastName: val })}
               placeholder="Enter your last name"
               placeholderTextColor={colors.textPlaceholder}
               autoCapitalize="words"
@@ -108,8 +176,8 @@ export default function RegistrationStep1Screen() {
             {/* Email */}
             <TextInputField
               label="Email"
-              value={email}
-              onChangeText={setEmail}
+              value={draft.email}
+              onChangeText={(val) => patch({ email: val })}
               placeholder="hello@example.com"
               placeholderTextColor={colors.textPlaceholder}
               keyboardType="email-address"
@@ -122,13 +190,13 @@ export default function RegistrationStep1Screen() {
               <Text style={styles.fieldLabel}>Phone</Text>
               <View style={styles.phoneRow}>
                 <View style={styles.countryCodeBox}>
-                  <Text style={styles.countryCodeText}>+1</Text>
+                  <Text style={styles.countryCodeText}>{draft.countryCode}</Text>
                   <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
                 </View>
                 <TextInput
                   style={styles.phoneInput}
-                  value={phone}
-                  onChangeText={setPhone}
+                  value={draft.phone}
+                  onChangeText={(val) => patch({ phone: val })}
                   placeholder="(555) 000-0000"
                   placeholderTextColor={colors.textPlaceholder}
                   keyboardType="phone-pad"
@@ -138,27 +206,77 @@ export default function RegistrationStep1Screen() {
             </View>
 
             {/* Date of birth */}
-            <TextInputField
-              label="Date of birth"
-              value={dob}
-              onChangeText={setDob}
-              placeholder="mm/dd/yyyy"
-              placeholderTextColor={colors.textPlaceholder}
-              keyboardType="numeric"
-              autoCorrect={false}
-              rightIcon={
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Date of birth</Text>
+              <Pressable style={styles.dateField} onPress={openDatePicker}>
+                <Text
+                  style={[
+                    styles.dateFieldText,
+                    !draft.dob && styles.dateFieldPlaceholder,
+                  ]}
+                >
+                  {draft.dob || 'Select your date of birth'}
+                </Text>
                 <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-              }
-            />
+              </Pressable>
+            </View>
           </View>
+
+          {formError && <Text style={styles.errorText}>{formError}</Text>}
         </ScrollView>
 
         {/* Fixed footer */}
         <View style={styles.footer}>
           <Button title="Continue" onPress={handleContinue} />
         </View>
+
+        {/* Android: native modal dialog, no custom wrapper needed. */}
+        {Platform.OS === 'android' && showDatePicker && (
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display="default"
+            maximumDate={MAX_DOB}
+            minimumDate={MIN_DOB}
+            onChange={handleAndroidDateChange}
+          />
+        )}
+
+        {/* iOS: spinner inside a bottom-sheet Modal with Cancel/Done. */}
+        {Platform.OS === 'ios' && (
+          <Modal
+            visible={showDatePicker}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowDatePicker(false)}
+          >
+            <Pressable
+              style={styles.datePickerBackdrop}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <Pressable style={styles.datePickerSheet}>
+                <View style={styles.datePickerHeader}>
+                  <Pressable onPress={() => setShowDatePicker(false)} hitSlop={8}>
+                    <Text style={styles.datePickerCancel}>Cancel</Text>
+                  </Pressable>
+                  <Text style={styles.datePickerTitle}>Date of birth</Text>
+                  <Pressable onPress={confirmIosDate} hitSlop={8}>
+                    <Text style={styles.datePickerDone}>Done</Text>
+                  </Pressable>
+                </View>
+                <DateTimePicker
+                  value={tempDate}
+                  mode="date"
+                  display="spinner"
+                  maximumDate={MAX_DOB}
+                  minimumDate={MIN_DOB}
+                  onChange={handleIosDateChange}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
 }
-

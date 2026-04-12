@@ -7,8 +7,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useForgotPassword } from '@mobile/hooks/useAuth';
 
+import { useForgotPassword } from '@mobile/hooks/useAuth';
+import { validateEmail } from '@mobile/lib/validation';
 import { colors } from '@mobile/theme';
 import { Button, TextInputField, IconCircle } from '@mobile/components/ui';
 import { styles } from './styles/forgot-password-screen.styles';
@@ -16,14 +17,26 @@ import { styles } from './styles/forgot-password-screen.styles';
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
 
   const mutation = useForgotPassword();
 
   const handleSendReset = () => {
+    setEmailError(null);
+    const validationError = validateEmail(email);
+    if (validationError) {
+      setEmailError(validationError);
+      return;
+    }
+
     mutation.mutate(email, {
       onSuccess: () => {
         setEmailSent(true);
+      },
+      onError: (err) => {
+        if (err.field === 'email') setEmailError(err.message);
+        // form-level errors fall through to the inline error message below
       },
     });
   };
@@ -78,12 +91,16 @@ export default function ForgotPasswordScreen() {
         {/* Email input */}
         <TextInputField
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(val: string) => {
+            setEmail(val);
+            if (emailError) setEmailError(null);
+          }}
           placeholder="Email address"
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
           editable={!emailSent}
+          error={emailError}
           containerStyle={styles.inputContainer}
         />
 
@@ -97,10 +114,10 @@ export default function ForgotPasswordScreen() {
           style={styles.ctaButton}
         />
 
-        {/* Error message */}
-        {mutation.isError && (
+        {/* Error message (form-level) */}
+        {mutation.isError && mutation.error?.field === 'form' && (
           <Text style={styles.errorText}>
-            Something went wrong. Please try again.
+            {mutation.error.message}
           </Text>
         )}
       </View>

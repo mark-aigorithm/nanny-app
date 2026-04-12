@@ -9,23 +9,56 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSignIn } from '@mobile/hooks/useAuth';
 
-import { Button, TextInputField, Divider } from '@mobile/components/ui';
+import { useSignIn } from '@mobile/hooks/useAuth';
+import { validateEmailAndPassword } from '@mobile/lib/validation';
+import { Button, TextInputField } from '@mobile/components/ui';
 import { styles } from './styles/sign-in-screen.styles';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
   const signIn = useSignIn();
 
-  function handleSignIn() {
+  function clearErrors() {
+    setEmailError(null);
     setPasswordError(null);
-    // TODO: Replace with real Firebase auth once backend is ready
-    router.replace('/(parent)/home');
+    setFormError(null);
+  }
+
+  function handleSignIn() {
+    clearErrors();
+
+    const validation = validateEmailAndPassword(email, password);
+    if (validation.email) {
+      setEmailError(validation.email);
+      return;
+    }
+    if (validation.password) {
+      setPasswordError(validation.password);
+      return;
+    }
+
+    signIn.mutate(
+      { email, password },
+      {
+        onSuccess: () => {
+          // Bounce through the root gate so it can wait for /auth/me and
+          // route based on profile state (handles orphan-session + role).
+          router.replace('/');
+        },
+        onError: (err) => {
+          if (err.field === 'email') setEmailError(err.message);
+          else if (err.field === 'password') setPasswordError(err.message);
+          else setFormError(err.message);
+        },
+      },
+    );
   }
 
   function handleForgotPassword() {
@@ -68,11 +101,16 @@ export default function SignInScreen() {
             <TextInputField
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(val: string) => {
+                setEmail(val);
+                if (emailError) setEmailError(null);
+                if (formError) setFormError(null);
+              }}
               placeholder="your@email.com"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              error={emailError}
             />
 
             {/* Password field */}
@@ -83,6 +121,7 @@ export default function SignInScreen() {
                 onChangeText={(val: string) => {
                   setPassword(val);
                   if (passwordError) setPasswordError(null);
+                  if (formError) setFormError(null);
                 }}
                 placeholder="••••••••"
                 secureTextEntry
@@ -101,34 +140,21 @@ export default function SignInScreen() {
             </View>
           </View>
 
+          {/* Form-level error banner */}
+          {formError && (
+            <View style={styles.formErrorBanner}>
+              <Text style={styles.formErrorText}>{formError}</Text>
+            </View>
+          )}
+
           {/* Sign in button */}
           <Button
-            title="Sign in"
+            title={signIn.isPending ? 'Signing in\u2026' : 'Sign in'}
             onPress={handleSignIn}
             variant="primary"
             fullWidth
+            disabled={signIn.isPending}
           />
-
-          {/* Divider */}
-          <Divider label="or" />
-
-          {/* Social buttons */}
-          <View style={styles.socialButtons}>
-            <Button
-              title="Continue with Google"
-              onPress={() => {}}
-              variant="outline"
-              fullWidth
-              style={styles.socialButton}
-            />
-            <Button
-              title="Continue with Apple"
-              onPress={() => {}}
-              variant="outline"
-              fullWidth
-              style={styles.socialButton}
-            />
-          </View>
 
           {/* Footer */}
           <Pressable style={styles.footerRow} onPress={handleSignUp}>

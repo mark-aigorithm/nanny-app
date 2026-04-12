@@ -74,6 +74,11 @@ export const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.surface,
   },
+  photoFallback: {
+    backgroundColor: colors.taupeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cameraBadge: {
     position: 'absolute',
     bottom: 0,
@@ -133,5 +138,22 @@ export const styles = StyleSheet.create({
     ...typeScale.labelLg,
     fontFamily: fontFamily.bold,
     color: colors.white,
+  },
+
+  // Sign-out button (destructive)
+  signOutButton: {
+    height: 56,
+    marginTop: 16,
+    borderRadius: borderRadius['2xl'],
+    borderWidth: 1.5,
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutButtonText: {
+    ...typeScale.labelLg,
+    fontFamily: fontFamily.bold,
+    color: colors.error,
   },
 });

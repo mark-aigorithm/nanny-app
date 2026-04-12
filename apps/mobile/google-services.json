@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "936472549582",
+    "project_id": "nanny-now-d8518",
+    "storage_bucket": "nanny-now-d8518.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:936472549582:android:eef4d3c4ad112865eb589f",
+        "android_client_info": {
+          "package_name": "com.nannyapp.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3eB2qrs8KVEPu5ny8J9sBAPcLbvWnuL8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

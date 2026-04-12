@@ -148,6 +148,67 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  // Date of birth — tappable field that mirrors TextInputField visually
+  dateField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 56,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  dateFieldText: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  dateFieldPlaceholder: {
+    color: colors.textPlaceholder,
+  },
+
+  // iOS date picker bottom-sheet modal
+  datePickerBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  datePickerSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingBottom: 36,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSubtle,
+  },
+  datePickerTitle: {
+    ...typeScale.labelLg,
+    color: colors.textPrimary,
+  },
+  datePickerCancel: {
+    ...typeScale.labelLg,
+    color: colors.textMuted,
+  },
+  datePickerDone: {
+    ...typeScale.labelLg,
+    color: colors.primaryDark,
+  },
+
+  // Inline form-level error
+  errorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
+    textAlign: 'center',
+  },
+
   // Footer
   footer: {
     paddingHorizontal: screenPadding,

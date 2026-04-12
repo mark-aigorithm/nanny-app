@@ -31,6 +31,16 @@ src/
 
 ---
 
+## Forms & Validation
+
+**Forms must match the backend exactly on what is required vs optional.** The backend is the source of truth — if a field is optional in the backend's Zod schema / Prisma model, it must be optional in the mobile form (and vice versa). Never mark a field as required on the client if the backend accepts it as optional, and never allow submission of a form that omits a field the backend requires.
+
+- Consume the shared Zod schemas from `@nanny-app/shared` for form validation wherever possible, so required/optional stays in sync automatically.
+- When adding or changing a form, cross-check the corresponding backend route's request schema and Prisma model before deciding which fields are mandatory.
+- Applies to every form: registration, profile editing, booking, reviews, support, etc.
+
+---
+
 ## Theme System (`src/theme/`)
 
 All visual constants are centralized in `src/theme/` and imported via `@mobile/theme`.

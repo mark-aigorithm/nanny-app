@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -17,19 +17,15 @@ import type { Child } from '@mobile/types';
 import { PREFERENCE_OPTIONS } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-step2-screen.styles';
 
 export default function RegistrationStep2Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
 
-  const [address, setAddress] = useState('');
-  const [neighbourhood, setNeighbourhood] = useState('');
-  const [children, setChildren] = useState<Child[]>([{ name: '', age: '' }]);
-  const [preferences, setPreferences] = useState<string[]>([
-    'Background checked',
-    'CPR certified',
-  ]);
+  const draft = useRegistrationDraftStore();
+  const patch = useRegistrationDraftStore((s) => s.patch);
 
   function handleBack() {
     router.back();
@@ -40,19 +36,21 @@ export default function RegistrationStep2Screen() {
   }
 
   function handleAddChild() {
-    setChildren((prev) => [...prev, { name: '', age: '' }]);
+    patch({ children: [...draft.children, { name: '', age: '' }] });
   }
 
   function handleChildName(index: number, value: string) {
-    setChildren((prev) =>
-      prev.map((child, i) => (i === index ? { ...child, name: value } : child))
+    const next: Child[] = draft.children.map((child, i) =>
+      i === index ? { ...child, name: value } : child,
     );
+    patch({ children: next });
   }
 
   function togglePreference(pref: string) {
-    setPreferences((prev) =>
-      prev.includes(pref) ? prev.filter((p) => p !== pref) : [...prev, pref]
-    );
+    const next = draft.preferences.includes(pref)
+      ? draft.preferences.filter((p) => p !== pref)
+      : [...draft.preferences, pref];
+    patch({ preferences: next });
   }
 
   return (
@@ -89,7 +87,7 @@ export default function RegistrationStep2Screen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>Step 2 of 3 — Location & preferences</Text>
+          <Text style={styles.stepLabel}>STEP 3 OF 4 — LOCATION & PREFERENCES</Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Where are you based?</Text>
@@ -101,8 +99,8 @@ export default function RegistrationStep2Screen() {
               <Ionicons name="location-outline" size={20} color={colors.primary} />
               <TextInput
                 style={styles.iconInputInner}
-                value={address}
-                onChangeText={setAddress}
+                value={draft.address}
+                onChangeText={(val) => patch({ address: val })}
                 placeholder="Street address"
                 placeholderTextColor={colors.textPlaceholder}
                 autoCapitalize="words"
@@ -113,8 +111,8 @@ export default function RegistrationStep2Screen() {
             {/* Neighbourhood */}
             <TextInput
               style={styles.inputShort}
-              value={neighbourhood}
-              onChangeText={setNeighbourhood}
+              value={draft.neighbourhood}
+              onChangeText={(val) => patch({ neighbourhood: val })}
               placeholder="Neighbourhood (optional)"
               placeholderTextColor={colors.textPlaceholder}
               autoCapitalize="words"
@@ -133,7 +131,7 @@ export default function RegistrationStep2Screen() {
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>Your children</Text>
 
-            {children.map((child, index) => (
+            {draft.children.map((child, index) => (
               <View key={index} style={styles.childCard}>
                 <TextInput
                   style={styles.childNameInput}
@@ -164,7 +162,7 @@ export default function RegistrationStep2Screen() {
             <Text style={styles.sectionHeader}>What matters most?</Text>
             <View style={styles.chipsWrap}>
               {PREFERENCE_OPTIONS.map((pref) => {
-                const isSelected = preferences.includes(pref);
+                const isSelected = draft.preferences.includes(pref);
                 return (
                   <Chip
                     key={pref}
@@ -188,4 +186,3 @@ export default function RegistrationStep2Screen() {
     </KeyboardAvoidingView>
   );
 }
-
