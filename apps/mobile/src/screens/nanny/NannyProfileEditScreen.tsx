@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,22 +13,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { MOCK_NANNY_PROFILE_EDIT } from '@mobile/mocks';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 const AGE_RANGE_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
 
 export default function NannyProfileEditScreen() {
   const router = useRouter();
-  const profile = MOCK_NANNY_PROFILE_EDIT;
+  const profile = useUserProfileStore((s) => s.profile);
 
-  const [name, setName] = useState(profile.name);
-  const [bio, setBio] = useState(profile.bio);
-  const [location, setLocation] = useState(profile.location);
-  const [experience, setExperience] = useState(String(profile.yearsExperience));
-  const [hourlyRate, setHourlyRate] = useState(String(profile.hourlyRate));
-  const [certifications, setCertifications] = useState(profile.certifications);
-  const [selectedAgeRange, setSelectedAgeRange] = useState(profile.ageRange);
+  const [name, setName] = useState(profile ? `${profile.firstName} ${profile.lastName}` : '');
+  const [bio, setBio] = useState('');
+  const [location, setLocation] = useState('');
+  const [experience, setExperience] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [selectedAgeRange, setSelectedAgeRange] = useState('');
+
+  useEffect(() => {
+    if (!profile) return;
+    setName(`${profile.firstName} ${profile.lastName}`);
+  }, [profile]);
 
   const handleRemoveCert = (cert: string) => {
     setCertifications((prev) => prev.filter((c) => c !== cert));
@@ -54,7 +59,13 @@ export default function NannyProfileEditScreen() {
         {/* Photo */}
         <View style={styles.photoSection}>
           <Pressable style={styles.photoWrapper}>
-            <Image source={{ uri: profile.image }} style={styles.photo} resizeMode="cover" />
+            {profile?.avatarUrl ? (
+              <Image source={{ uri: profile.avatarUrl }} style={styles.photo} resizeMode="cover" />
+            ) : (
+              <View style={[styles.photo, { backgroundColor: colors.taupe, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person" size={40} color={colors.textPlaceholder} />
+              </View>
+            )}
             <View style={styles.cameraBadge}>
               <Ionicons name="camera" size={14} color={colors.white} />
             </View>

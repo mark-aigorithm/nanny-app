@@ -8,14 +8,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { IMG_HEADER_AVATAR, IMG_PROFILE_PHOTO } from '@mobile/mocks/images';
 import { MOCK_PROFILE, SETTINGS_ITEMS } from '@mobile/mocks';
+import { Avatar } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/mother-profile-wallet-screen.styles';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 export default function MotherProfileWalletScreen() {
   const router = useRouter();
-  const profile = MOCK_PROFILE;
+  const profile = useUserProfileStore((s) => s.profile);
+  const walletData = MOCK_PROFILE;
 
   const handleSettingsPress = (id: string) => {
     switch (id) {
@@ -54,11 +56,17 @@ export default function MotherProfileWalletScreen() {
         <View style={styles.heroSection}>
           {/* Profile photo with camera badge */}
           <Pressable style={styles.profilePhotoWrap}>
-            <Image
-              source={{ uri: IMG_PROFILE_PHOTO }}
-              style={styles.profilePhoto}
-              resizeMode="cover"
-            />
+            {profile?.avatarUrl ? (
+              <Image
+                source={{ uri: profile.avatarUrl }}
+                style={styles.profilePhoto}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.profilePhoto, { backgroundColor: colors.taupe, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person" size={40} color={colors.textPlaceholder} />
+              </View>
+            )}
             <View style={styles.cameraBadge}>
               <Ionicons name="camera" size={14} color={colors.white} />
             </View>
@@ -66,16 +74,16 @@ export default function MotherProfileWalletScreen() {
 
           {/* Pro Member badge */}
           <View style={styles.memberBadge}>
-            <Text style={styles.memberBadgeText}>{profile.memberTier}</Text>
+            <Text style={styles.memberBadgeText}>{walletData.memberTier}</Text>
           </View>
 
           {/* Name */}
-          <Text style={styles.profileName}>{profile.name}</Text>
+          <Text style={styles.profileName}>{profile ? `${profile.firstName} ${profile.lastName}` : ''}</Text>
 
           {/* Location */}
           <View style={styles.locationRow}>
             <Ionicons name="location-sharp" size={14} color={colors.textTertiary} />
-            <Text style={styles.locationText}>{profile.location}</Text>
+            <Text style={styles.locationText}>{walletData.location}</Text>
           </View>
 
           {/* Edit profile button */}
@@ -90,7 +98,7 @@ export default function MotherProfileWalletScreen() {
           <View style={styles.walletCard}>
             <Ionicons name="wallet-outline" size={20} color={colors.primary} />
             <Text style={styles.walletAmount}>
-              ${profile.walletBalance.toFixed(2)}
+              ${walletData.walletBalance.toFixed(2)}
             </Text>
             <Text style={styles.walletLabel}>Available credit</Text>
           </View>
@@ -99,11 +107,11 @@ export default function MotherProfileWalletScreen() {
           <View style={styles.walletCard}>
             <Ionicons name="star-outline" size={20} color={colors.bronze} />
             <Text style={styles.rewardsAmount}>
-              {profile.rewardPoints}
+              {walletData.rewardPoints}
               <Text style={styles.rewardsPts}> pts</Text>
             </Text>
             <Text style={styles.walletLabel}>
-              {'\u2248'} ${profile.rewardValue.toFixed(2)} value
+              {'\u2248'} ${walletData.rewardValue.toFixed(2)} value
             </Text>
             <Pressable>
               <Text style={styles.earnMore}>Earn more</Text>
@@ -171,7 +179,7 @@ export default function MotherProfileWalletScreen() {
           </Pressable>
           <Text style={styles.headerTitle}>Profile</Text>
           <Pressable onPress={() => router.push('/(parent)/account-details' as never)}>
-            <Image source={{ uri: IMG_HEADER_AVATAR }} style={styles.headerAvatar} />
+            <Avatar uri={profile?.avatarUrl ?? undefined} size="sm" fallbackInitial={profile?.firstName?.[0]} />
           </Pressable>
         </View>
       </View>

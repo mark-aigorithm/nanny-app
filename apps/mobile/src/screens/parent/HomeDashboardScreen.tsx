@@ -15,12 +15,15 @@ import { Avatar, Badge, SectionHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-dashboard-screen.styles';
 import { PROMO_CARDS, QUICK_ACTIONS, RECOMMENDED_NANNIES, FAVOURITE_NANNIES } from '@mobile/mocks';
-import { IMG_USER_AVATAR, IMG_HERO } from '@mobile/mocks/images';
+import { IMG_HERO } from '@mobile/mocks/images';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
+import { getGreeting } from '@mobile/lib/greeting';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
+  const profile = useUserProfileStore((s) => s.profile);
 
   return (
     <View style={styles.container}>
@@ -29,7 +32,7 @@ export default function HomeDashboardScreen() {
       {/* ── Fixed header ── */}
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Text style={styles.greeting}>Good morning, Sarah</Text>
+          <Text style={styles.greeting}>{`${getGreeting()}, ${profile?.firstName ?? ''}`}</Text>
           <View style={styles.headerRight}>
             <Pressable
               style={styles.bellBtn}
@@ -39,7 +42,7 @@ export default function HomeDashboardScreen() {
               <Badge count={3} size="sm" style={styles.bellBadge} />
             </Pressable>
             <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
-              <Avatar uri={IMG_USER_AVATAR} size="md" borderWidth={2} borderColor={colors.white} />
+              <Avatar uri={profile?.avatarUrl ?? undefined} size="md" borderWidth={2} borderColor={colors.white} fallbackInitial={profile?.firstName?.[0]} />
             </Pressable>
           </View>
         </View>

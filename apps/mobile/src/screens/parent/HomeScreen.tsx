@@ -18,7 +18,8 @@ import type { NannyData } from '@mobile/types';
 import { HOME_FILTER_TABS } from '@mobile/constants';
 import type { FilterTab } from '@mobile/constants';
 import { MOCK_NANNIES_HOME } from '@mobile/mocks';
-import { IMG_HERO, IMG_USER_AVATAR } from '@mobile/mocks/images';
+import { IMG_HERO } from '@mobile/mocks/images';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 // ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
 // from @expo-google-fonts/manrope in the root _layout.tsx.
@@ -28,6 +29,7 @@ import { IMG_HERO, IMG_USER_AVATAR } from '@mobile/mocks/images';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const profile = useUserProfileStore((s) => s.profile);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   return (
@@ -117,7 +119,7 @@ export default function HomeScreen() {
               <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
             <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
-              <Avatar uri={IMG_USER_AVATAR} size="sm" />
+              <Avatar uri={profile?.avatarUrl ?? undefined} size="sm" fallbackInitial={profile?.firstName?.[0]} />
             </Pressable>
           </View>
         </View>
