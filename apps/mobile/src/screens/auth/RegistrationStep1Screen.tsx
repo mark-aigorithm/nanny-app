@@ -9,10 +9,13 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Image,
+  Alert,
 } from 'react-native';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -81,6 +84,33 @@ export default function RegistrationStep1Screen() {
     if (formError) setFormError(null);
   }
 
+  async function handlePickPhoto() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission needed',
+          'Please allow photo library access to pick a profile picture.',
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        patch({ photoUri: result.assets[0].uri });
+      }
+    } catch (err) {
+      Alert.alert(
+        'Could not open photos',
+        err instanceof Error ? err.message : 'Something went wrong.',
+      );
+    }
+  }
+
   function handleContinue() {
     setFormError(null);
     if (!draft.firstName.trim() || !draft.lastName.trim()) {
@@ -139,13 +169,17 @@ export default function RegistrationStep1Screen() {
 
           {/* Photo picker */}
           <View style={styles.photoSection}>
-            <Pressable style={styles.avatarCircle} onPress={() => {}}>
-              {draft.photoUri ? null : (
+            <Pressable style={styles.avatarCircle} onPress={handlePickPhoto}>
+              {draft.photoUri ? (
+                <Image source={{ uri: draft.photoUri }} style={styles.avatarImage} />
+              ) : (
                 <Ionicons name="camera-outline" size={28} color={colors.textTertiary} />
               )}
             </Pressable>
-            <Pressable onPress={() => {}}>
-              <Text style={styles.addPhotoLink}>Add photo</Text>
+            <Pressable onPress={handlePickPhoto}>
+              <Text style={styles.addPhotoLink}>
+                {draft.photoUri ? 'Change photo' : 'Add photo'}
+              </Text>
             </Pressable>
           </View>
 
@@ -271,6 +305,9 @@ export default function RegistrationStep1Screen() {
                   maximumDate={MAX_DOB}
                   minimumDate={MIN_DOB}
                   onChange={handleIosDateChange}
+                  themeVariant="light"
+                  textColor={colors.textPrimary}
+                  style={styles.iosDatePicker}
                 />
               </Pressable>
             </Pressable>

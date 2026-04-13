@@ -30,14 +30,24 @@ const config: ExpoConfig = {
     ['expo-location', { locationAlwaysAndWhenInUsePermission: 'NannyApp needs your location to find nearby nannies.' }],
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
-    "@react-native-community/datetimepicker"
+    "@react-native-community/datetimepicker",
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'NannyApp needs access to your photos so you can set a profile picture.',
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
   },
   extra: {
-    // TODO: Pull from env vars via expo-constants
-    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://localhost:3000',
+    // Points at the laptop's LAN IP so the iPhone (on the same Wi-Fi) can
+    // actually reach it. `localhost` on the phone means the phone itself.
+    // The IP must match whatever Metro prints at startup ("Metro waiting
+    // on exp://192.168.x.x:8081"). Update this value when your DHCP lease
+    // changes, or override via the API_BASE_URL env var.
+    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.11:3000',
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the
     // native @react-native-firebase modules. In a native/dev-client build,
@@ -49,13 +59,6 @@ const config: ExpoConfig = {
     firebaseAppId: process.env['FIREBASE_APP_ID'] ?? '1:936472549582:android:eef4d3c4ad112865eb589f',
     firebaseStorageBucket: process.env['FIREBASE_STORAGE_BUCKET'] ?? 'nanny-now-d8518.firebasestorage.app',
     firebaseMessagingSenderId: process.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '936472549582',
-    // Dev-only escape hatch: the Firebase JS SDK cannot do real phone auth on
-    // React Native (needs a RecaptchaVerifier that only exists in browsers),
-    // so the firebase.ts shim fakes success when running in Expo Go. Users
-    // type this code in the OTP screen to "pass" verification. Must match
-    // the "Phone numbers for testing" entry in Firebase Console so the same
-    // code also works on a future native build.
-    expoGoTestPhoneCode: process.env['EXPO_GO_TEST_PHONE_CODE'] ?? '123456',
   },
 };
 

@@ -99,6 +99,11 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   addPhotoLink: {
     ...typeScale.labelSm,
@@ -200,6 +205,10 @@ export const styles = StyleSheet.create({
   datePickerDone: {
     ...typeScale.labelLg,
     color: colors.primaryDark,
+  },
+  iosDatePicker: {
+    height: 216,
+    backgroundColor: colors.background,
   },
 
   // Inline form-level error

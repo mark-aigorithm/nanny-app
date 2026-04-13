@@ -57,21 +57,17 @@ export function useSignOut() {
 }
 
 /**
- * Sends a phone verification SMS via `signInWithPhoneNumber`. The returned
- * `ConfirmationResult` is consumed by `useConfirmPhoneCode`, which calls
- * `confirmation.confirm(code)` to create the Firebase user with the phone
- * provider as primary, then links the email/password collected in step 2
- * as a secondary provider via `linkWithCredential(EmailAuthProvider.credential)`.
+ * Sends a phone verification SMS via the real Firebase JS SDK
+ * `signInWithPhoneNumber`. Firebase validates the code server-side on
+ * the follow-up `confirmation.confirm(code)` call, so there are no
+ * hardcoded test codes in the client.
  *
- * There is deliberately NO `currentUser` check here — in the phone-primary
- * flow, no Firebase user exists yet at this point. The user is created
- * downstream inside `confirmation.confirm(code)`.
- *
- * Why `signInWithPhoneNumber` instead of the event-based `verifyPhoneNumber`?
- * The ConfirmationResult API is a clean Promise → object with `verificationId`,
- * whereas `verifyPhoneNumber` returns a `PhoneAuthListener` that you have to
- * subscribe to via `.on('state_changed', ...)` to extract the same value.
- * Same SMS, simpler call site.
+ * In Expo Go the shim internally passes a minimal fake
+ * `ApplicationVerifier` — Firebase bypasses reCAPTCHA verification for
+ * phone numbers listed under "Phone numbers for testing" in the Firebase
+ * Console, so the dummy token is never checked. On a native build the
+ * shim is replaced and @react-native-firebase/auth handles the verifier
+ * natively; the hook signature stays the same.
  */
 export function useLinkPhoneNumber() {
   return useMutation<PhoneConfirmation, MappedAuthError, string>({
@@ -102,19 +98,17 @@ export function useRegisterProfile() {
 /**
  * Step 4 of registration — phone primary, email/password linked after.
  *
- * 1. `confirmation.confirm(code)` verifies the OTP and creates the
- *    Firebase user. On a native build with @react-native-firebase/auth,
- *    this yields a user whose primary provider is "phone". In Expo Go,
- *    the shim routes this through `signInAnonymously` instead (see
- *    src/lib/firebase.ts) so the result is an anonymous user we can
- *    then upgrade.
+ * 1. `confirmation.confirm(code)` is the real Firebase JS SDK call.
+ *    Firebase validates the code server-side; on success it creates a
+ *    Firebase user whose primary provider is "phone". For numbers in
+ *    "Phone numbers for testing" (Firebase Console) the preset code is
+ *    accepted without an SMS being sent.
  * 2. `linkWithCredential(emailCred)` attaches the email/password the
- *    user typed in step 2 as a secondary provider. Firebase auto-merges
- *    anonymous upgrades, so in Expo Go the user ends up with just the
- *    email provider; on native it ends up with phone + email.
+ *    user typed in step 2 as a secondary provider, so the end state
+ *    in Firebase is a single user with both phone + email.
  *
- * The hook shape is native-compatible — swapping the shim for the real
- * @react-native-firebase/auth module requires zero changes here.
+ * Identical code path for test numbers and real numbers — no branching
+ * on environment.
  */
 export function useConfirmPhoneCode() {
   return useMutation<
@@ -124,10 +118,9 @@ export function useConfirmPhoneCode() {
   >({
     mutationFn: async ({ confirmation, code, email, password }) => {
       try {
-        // 1. Verify the OTP (creates phone user on native, anon on Expo Go).
+        // 1. Verify the OTP — Firebase validates server-side.
         await confirmation.confirm(code);
-        // 2. Link email/password as a secondary provider. Note: in Expo Go
-        // this upgrades the anonymous user Firebase just created.
+        // 2. Link email/password as a secondary provider on the new user.
         const user = auth().currentUser;
         if (!user) {
           throw {
@@ -136,7 +129,15 @@ export function useConfirmPhoneCode() {
           } satisfies MappedAuthError;
         }
         const emailCred = auth.EmailAuthProvider.credential(email.trim(), password);
-        await user.linkWithCredential(emailCred);
+        try {
+          await user.linkWithCredential(emailCred);
+        } catch (linkError) {
+          // Idempotent retry: if the email is already linked (from a
+          // previous partial run that got this far), that's a success,
+          // not a failure. Let the flow continue to backend registration.
+          const code = (linkError as { code?: string })?.code;
+          if (code !== 'auth/provider-already-linked') throw linkError;
+        }
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }

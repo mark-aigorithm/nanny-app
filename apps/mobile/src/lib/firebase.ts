@@ -11,9 +11,10 @@ import {
   linkWithCredential as jsLinkWithCredential,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  signInAnonymously,
   signInWithEmailAndPassword,
+  signInWithPhoneNumber as jsSignInWithPhoneNumber,
   signOut,
+  type ApplicationVerifier,
   type Auth,
   type AuthCredential,
   type User as JsUser,
@@ -55,38 +56,26 @@ try {
 
 // ── Legacy-style `auth()` API shim ─────────────────────────────────────────
 // Mimics @react-native-firebase/auth so callsites don't need to change.
-// Email/password, sign-out, and state observation use the real JS SDK.
+// Email/password, sign-out, state observation, AND phone OTP all use the
+// real Firebase JS SDK — nothing is stubbed or faked.
 //
 // REGISTRATION FLOW (Option B — phone primary, email/password linked after):
-// The hook `useConfirmPhoneCode` calls `confirmation.confirm(code)` to
-// create the Firebase user, then links an EmailAuthProvider credential.
+// `useConfirmPhoneCode` calls `confirmation.confirm(code)` — the real JS
+// SDK call that validates the code server-side and creates a Firebase
+// user with "phone" as the primary provider. It then links the email +
+// password collected in step 2 as a secondary EmailAuthProvider
+// credential via `currentUser.linkWithCredential`.
 //
-// Phone OTP cannot actually run in Expo Go because the Firebase JS SDK
-// requires a RecaptchaVerifier (browser DOM) that does not exist on React
-// Native. So in this shim:
-//
-//   - `signInWithPhoneNumber` returns a fake ConfirmationResult whose
-//     `confirm(code)` validates the code against `expoGoTestPhoneCode`
-//     (from app.config.ts) and then calls the real `signInAnonymously` —
-//     this creates a temporary Firebase user so subsequent operations
-//     have a valid `currentUser`.
-//   - The Proxy-wrapped `currentUser.linkWithCredential` forwards real
-//     `EmailAuthCredential`s to the real JS SDK, which upgrades the
-//     anonymous user to an email-provider user (standard Firebase pattern).
-//
-// Net result in Expo Go: the Firebase Console shows the user with the
-// "email" provider (since anonymous gets upgraded). On a native build
-// with @react-native-firebase/auth swapped in, `confirm(code)` will
-// create a real phone-provider user and `linkWithCredential(email)` will
-// attach email as a secondary provider — giving you the "phone + email"
-// result Option B is designed for, with no hook-level code changes.
-//
-// Prerequisite: Anonymous auth must be enabled in the Firebase Console
-// (Authentication → Sign-in method → Anonymous → Enable) so that
-// `signInAnonymously` doesn't fail with `auth/admin-restricted-operation`.
+// Phone OTP works in Expo Go for numbers configured under "Phone numbers
+// for testing" in the Firebase Console. The shim passes a minimal fake
+// `ApplicationVerifier` that returns a dummy reCAPTCHA token without
+// doing any real verification — Firebase servers bypass the reCAPTCHA
+// check entirely for whitelisted test numbers, so the dummy token is
+// never validated. For real numbers this approach does NOT work
+// (Firebase will reject the dummy token), but that's fine: real phone
+// testing happens on a native build where @react-native-firebase/auth
+// handles reCAPTCHA natively via Play Integrity / App Attestation.
 // ───────────────────────────────────────────────────────────────────────────
-
-const EXPO_GO_STUB_VERIFICATION_ID = 'expo-go-stub-verification-id';
 
 /**
  * Wrap the JS SDK User in a Proxy that (a) preserves every real method
@@ -145,29 +134,59 @@ const legacy: LegacyAuth = {
   sendPasswordResetEmail: (email) => sendPasswordResetEmail(jsAuth, email),
   signOut: () => signOut(jsAuth),
   signInWithPhoneNumber: async (phoneNumber) => {
-    // eslint-disable-next-line no-console
-    console.log(`[firebase shim] Expo Go: pretending to send SMS to ${phoneNumber}`);
-    // Fake ConfirmationResult whose `confirm(code)` validates the test
-    // code then calls real `signInAnonymously`, establishing a Firebase
-    // user so the subsequent `linkWithCredential(emailCred)` can upgrade
-    // it to an email-provider user. On a native build, this whole method
-    // is replaced by @react-native-firebase/auth's real phone flow.
-    const fake = {
-      verificationId: EXPO_GO_STUB_VERIFICATION_ID,
-      confirm: async (code: string) => {
-        const expected = Constants.expoConfig?.extra?.['expoGoTestPhoneCode'] as
-          | string
-          | undefined;
-        if (code !== expected) {
-          throw { code: 'auth/invalid-verification-code' };
-        }
-        // eslint-disable-next-line no-console
-        console.log('[firebase shim] Expo Go: test code accepted, signing in anonymously');
-        const cred = await signInAnonymously(jsAuth);
-        return cred as unknown as FirebaseAuthTypes.UserCredential;
-      },
+    // Real Firebase JS SDK call, but with a minimal inline
+    // ApplicationVerifier that returns a dummy reCAPTCHA token without
+    // ever loading a WebView. Firebase bypasses reCAPTCHA verification
+    // entirely for numbers configured under "Phone numbers for testing"
+    // in the Firebase Console, so the dummy token is never validated.
+    //
+    // This only works for test numbers in Expo Go — real numbers would
+    // require a real verifier, which we can't provide on React Native
+    // against current Firebase (expo-firebase-recaptcha is broken by
+    // Firebase's reCAPTCHA Enterprise migration). That's an accepted
+    // trade-off since Expo Go is a dev environment only; production
+    // will use @react-native-firebase/auth on a native build, which
+    // does real reCAPTCHA natively via Play Integrity / App Attestation.
+    // The public ApplicationVerifier interface is `{ type, verify }`, but
+    // Firebase's v2 phone auth flow also calls internal methods that live
+    // on the real `RecaptchaVerifier` class — `_reset`, `_render`, etc.
+    // Add them as no-ops so Firebase's JS SDK internals don't throw on
+    // undefined property access.
+    const fakeVerifier: ApplicationVerifier & {
+      _reset: () => void;
+      _render: () => Promise<number>;
+      _isInvisible?: boolean;
+      clear: () => void;
+    } = {
+      type: 'recaptcha',
+      verify: async () => 'expo-go-fake-recaptcha-token',
+      _reset: () => {},
+      _render: async () => 0,
+      _isInvisible: true,
+      clear: () => {},
     };
-    return fake as unknown as FirebaseAuthTypes.ConfirmationResult;
+    // eslint-disable-next-line no-console
+    console.log(`[firebase shim] signInWithPhoneNumber START phone=${phoneNumber}`);
+    // Race against a 20s timeout so the UI fails loudly on regressions.
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject({ code: 'auth/timeout', message: 'signInWithPhoneNumber hung for 20s' }),
+        20_000,
+      ),
+    );
+    try {
+      const confirmation = await Promise.race([
+        jsSignInWithPhoneNumber(jsAuth, phoneNumber, fakeVerifier),
+        timeout,
+      ]);
+      // eslint-disable-next-line no-console
+      console.log('[firebase shim] signInWithPhoneNumber RESOLVED', { verificationId: (confirmation as unknown as { verificationId?: string }).verificationId });
+      return confirmation as unknown as FirebaseAuthTypes.ConfirmationResult;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.log('[firebase shim] signInWithPhoneNumber REJECTED', err);
+      throw err;
+    }
   },
   onAuthStateChanged: (callback) =>
     onAuthStateChanged(jsAuth, (user) =>
