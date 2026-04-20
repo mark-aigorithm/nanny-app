@@ -5,6 +5,7 @@ import { useAuthStore } from '@mobile/store/authStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { Role } from '@shared/auth';
 
 export default function Index() {
   const user = useAuthStore((s) => s.user);
@@ -35,9 +36,12 @@ export default function Index() {
   // Firebase user but profile fetch in flight — keep the splash up.
   if (meQuery.isFetching && !profile) return null;
 
-  // Firebase user + backend profile — main app.
-  // TODO(role-routing): when nanny screens exist, route NANNY → /(nanny)/dashboard.
-  if (profile) return <Redirect href="/(parent)/home" />;
+  // Firebase user + backend profile — route by role.
+  if (profile) {
+    return profile.role === Role.NANNY
+      ? <Redirect href="/(nanny)/dashboard" />
+      : <Redirect href="/(parent)/home" />;
+  }
 
   // Firebase user with no profile (404 from /me) — useEffect above is
   // signing them out; render nothing while it processes.

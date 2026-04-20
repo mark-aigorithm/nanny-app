@@ -1,74 +1,52 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import type { NannyAvailabilitySlot } from '@mobile/types';
-import { MOCK_NANNY_AVAILABILITY } from '@mobile/mocks';
 import { colors } from '@mobile/theme';
+import { useNannyPublicProfile } from '@mobile/hooks/useNannies';
 import { styles } from './styles/nanny-availability-screen.styles';
+import type { WeeklySchedule } from '@nanny-app/shared';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Mon=1..Sat=6, Sun=0
+const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Mon=1 … Sat=6, Sun=0
 
-function getWeekRange(offset: number): { label: string; start: Date } {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + mondayOffset + offset * 7);
-
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
-  const label = `${months[monday.getMonth()]} ${monday.getDate()} - ${months[sunday.getMonth()]} ${sunday.getDate()}`;
-  return { label, start: monday };
+function formatHour(t: string): string {
+  const h = parseInt(t.split(':')[0] ?? '0', 10);
+  if (h === 0) return '12AM';
+  if (h === 12) return '12PM';
+  return h > 12 ? `${h - 12}PM` : `${h}AM`;
 }
 
-function formatSlotTime(startTime: string, endTime: string): string {
-  const formatHour = (t: string) => {
-    const [h] = t.split(':').map(Number);
-    if (h === 0) return '12AM';
-    if (h === 12) return '12PM';
-    return h > 12 ? `${h - 12}PM` : `${h}AM`;
-  };
-  return `${formatHour(startTime)}-${formatHour(endTime)}`;
-}
-
-function getSlotForDay(
-  slots: NannyAvailabilitySlot[],
+function getDayAvailability(
+  schedule: WeeklySchedule | null | undefined,
   dayOfWeek: number,
-  period: 'morning' | 'afternoon',
-): NannyAvailabilitySlot | undefined {
-  return slots.find(s => {
-    if (s.dayOfWeek !== dayOfWeek) return false;
-    const hour = parseInt(s.startTime.split(':')[0], 10);
-    return period === 'morning' ? hour < 12 : hour >= 12;
-  });
+): { available: boolean; label: string } {
+  if (!schedule) return { available: false, label: '--' };
+  const day = schedule[String(dayOfWeek)];
+  if (!day || !day.available) return { available: false, label: 'Unavailable' };
+  return { available: true, label: `${formatHour(day.startTime)} – ${formatHour(day.endTime)}` };
 }
 
 export default function NannyAvailabilityScreen() {
   const router = useRouter();
-  const { nannyId: _nannyId } = useLocalSearchParams<{ nannyId: string }>();
-  const [weekOffset, setWeekOffset] = useState(0);
+  const { nannyId, nannyName, nannyPhoto, nannyRate } = useLocalSearchParams<{
+    nannyId: string;
+    nannyName?: string;
+    nannyPhoto?: string;
+    nannyRate?: string;
+  }>();
 
-  // In production, fetch availability by nannyId and week
-  const availability = MOCK_NANNY_AVAILABILITY;
-  const weekRange = getWeekRange(weekOffset);
+  const { data: nanny, isLoading } = useNannyPublicProfile(nannyId);
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()}>
@@ -78,142 +56,85 @@ export default function NannyAvailabilityScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Week Selector */}
-        <View style={styles.weekSelector}>
-          <Pressable
-            style={styles.weekArrowButton}
-            onPress={() => setWeekOffset(prev => prev - 1)}
-          >
-            <Ionicons name="chevron-back" size={18} color={colors.textDark} />
-          </Pressable>
-          <Text style={styles.weekLabel}>{weekRange.label}</Text>
-          <Pressable
-            style={styles.weekArrowButton}
-            onPress={() => setWeekOffset(prev => prev + 1)}
-          >
-            <Ionicons name="chevron-forward" size={18} color={colors.textDark} />
-          </Pressable>
+      {isLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-
-        {/* Availability Grid */}
-        <View style={styles.gridContainer}>
-          {/* Grid Header */}
-          <View style={styles.gridHeaderRow}>
-            <View style={styles.gridHeaderDayCell}>
-              <Text style={styles.gridHeaderDayText}>Day</Text>
-            </View>
-            <View style={styles.gridHeaderSlotCell}>
-              <Text style={styles.gridHeaderSlotText}>Morning</Text>
-            </View>
-            <View style={styles.gridHeaderSlotCell}>
-              <Text style={styles.gridHeaderSlotText}>Afternoon</Text>
-            </View>
-          </View>
-
-          {/* Day Rows */}
-          {DAY_INDICES.map((dayIdx, i) => {
-            const morningSlot = getSlotForDay(availability, dayIdx, 'morning');
-            const afternoonSlot = getSlotForDay(availability, dayIdx, 'afternoon');
-            const isLast = i === DAY_INDICES.length - 1;
-
-            return (
-              <View
-                key={dayIdx}
-                style={[styles.dayRow, isLast && styles.dayRowLast]}
-              >
-                <View style={styles.dayLabelCell}>
-                  <Text style={styles.dayLabel}>{DAY_NAMES[i]}</Text>
-                </View>
-
-                {/* Morning Slot */}
-                <View style={styles.slotCell}>
-                  {morningSlot ? (
-                    <View
-                      style={[
-                        styles.slotPill,
-                        morningSlot.available
-                          ? styles.slotAvailable
-                          : styles.slotUnavailable,
-                      ]}
-                    >
-                      <Text
-                        style={
-                          morningSlot.available
-                            ? styles.slotTimeText
-                            : styles.slotUnavailableText
-                        }
-                      >
-                        {morningSlot.available
-                          ? formatSlotTime(morningSlot.startTime, morningSlot.endTime)
-                          : 'Unavailable'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.slotPill, styles.slotUnavailable]}>
-                      <Text style={styles.slotUnavailableText}>--</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Afternoon Slot */}
-                <View style={styles.slotCell}>
-                  {afternoonSlot ? (
-                    <View
-                      style={[
-                        styles.slotPill,
-                        afternoonSlot.available
-                          ? styles.slotAvailable
-                          : styles.slotUnavailable,
-                      ]}
-                    >
-                      <Text
-                        style={
-                          afternoonSlot.available
-                            ? styles.slotTimeText
-                            : styles.slotUnavailableText
-                        }
-                      >
-                        {afternoonSlot.available
-                          ? formatSlotTime(
-                              afternoonSlot.startTime,
-                              afternoonSlot.endTime,
-                            )
-                          : 'Unavailable'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.slotPill, styles.slotUnavailable]}>
-                      <Text style={styles.slotUnavailableText}>--</Text>
-                    </View>
-                  )}
-                </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Grid */}
+          <View style={styles.gridContainer}>
+            <View style={styles.gridHeaderRow}>
+              <View style={styles.gridHeaderDayCell}>
+                <Text style={styles.gridHeaderDayText}>Day</Text>
               </View>
-            );
-          })}
-        </View>
+              <View style={[styles.gridHeaderSlotCell, { flex: 6 }]}>
+                <Text style={styles.gridHeaderSlotText}>Available Hours</Text>
+              </View>
+            </View>
 
-        {/* Legend */}
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={styles.legendDotAvailable} />
-            <Text style={styles.legendText}>Available</Text>
+            {DAY_INDICES.map((dayIdx, i) => {
+              const { available, label } = getDayAvailability(nanny?.schedule, dayIdx);
+              const isLast = i === DAY_INDICES.length - 1;
+              return (
+                <View key={dayIdx} style={[styles.dayRow, isLast && styles.dayRowLast]}>
+                  <View style={styles.dayLabelCell}>
+                    <Text style={styles.dayLabel}>{DAY_NAMES[i]}</Text>
+                  </View>
+                  <View style={[styles.slotCell, { flex: 6 }]}>
+                    <View
+                      style={[
+                        styles.slotPill,
+                        available ? styles.slotAvailable : styles.slotUnavailable,
+                      ]}
+                    >
+                      <Text
+                        style={available ? styles.slotTimeText : styles.slotUnavailableText}
+                      >
+                        {label}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-          <View style={styles.legendItem}>
-            <View style={styles.legendDotUnavailable} />
-            <Text style={styles.legendText}>Unavailable</Text>
-          </View>
-        </View>
 
-        {/* Book Button */}
-        <Pressable style={styles.bookButton}>
-          <Text style={styles.bookButtonText}>Book available slot</Text>
-        </Pressable>
-      </ScrollView>
+          {/* Legend */}
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={styles.legendDotAvailable} />
+              <Text style={styles.legendText}>Available</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendDotUnavailable} />
+              <Text style={styles.legendText}>Unavailable</Text>
+            </View>
+          </View>
+
+          {/* Book Button */}
+          <Pressable
+            style={styles.bookButton}
+            onPress={() =>
+              router.push({
+                pathname: '/(parent)/book/booking-date-picker',
+                params: {
+                  nannyId: nannyId ?? nanny?.nannyProfileId ?? '',
+                  nannyName: nannyName ?? `${nanny?.firstName ?? ''} ${nanny?.lastName ?? ''}`.trim(),
+                  nannyPhoto: nannyPhoto ?? nanny?.avatarUrl ?? '',
+                  nannyRate: nannyRate ?? String(nanny?.hourlyRate ?? 0),
+                },
+              } as never)
+            }
+          >
+            <Text style={styles.bookButtonText}>Book available slot</Text>
+          </Pressable>
+        </ScrollView>
+      )}
     </View>
   );
 }

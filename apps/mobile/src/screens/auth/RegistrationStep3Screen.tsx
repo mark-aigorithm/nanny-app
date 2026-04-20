@@ -146,6 +146,7 @@ export default function RegistrationStep3Screen() {
               dateOfBirth: dobIso,
               role: apiRole,
               termsAcceptedVersion: TERMS_VERSION,
+              address: draft.address || undefined,
             },
             {
               onSuccess: () => {

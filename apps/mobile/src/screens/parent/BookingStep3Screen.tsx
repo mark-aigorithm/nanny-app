@@ -7,36 +7,72 @@ import {
   Image,
   TextInput,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { MOCK_NANNY_BOOKING } from '@mobile/mocks';
 import { PLATFORM_FEE_PERCENT } from '@mobile/constants';
+import { useCreateBooking, useMockPay, DEMO_PAY_BODY } from '@mobile/hooks/useBookings';
 import { styles } from './styles/booking-step3-screen.styles';
 
 export default function BookingStep3Screen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
-    nannyId?: string;
+    nannyProfileId?: string;
     date?: string;
     startTime?: string;
     endTime?: string;
+    dateIso?: string;
+    startTimeIso?: string;
+    endTimeIso?: string;
+    nannyName?: string;
+    nannyPhoto?: string;
+    nannyRate?: string;
     paymentLabel?: string;
   }>();
 
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const createBooking = useCreateBooking();
+  const mockPay = useMockPay();
 
-  const nanny = MOCK_NANNY_BOOKING;
+  const nannyName = params.nannyName ?? MOCK_NANNY_BOOKING.name;
+  const nannyPhoto = params.nannyPhoto ?? MOCK_NANNY_BOOKING.image;
+  const nannyRate = params.nannyRate ? Number(params.nannyRate) : 28;
+
   const dateDisplay = params.date ?? 'Sat Apr 12';
   const timeDisplay = `${params.startTime ?? '9AM'} - ${params.endTime ?? '5PM'}`;
-  const hours = 8;
-  const baseCost = 28 * hours;
+  const hours = params.startTimeIso && params.endTimeIso
+    ? Math.round((new Date(params.endTimeIso).getTime() - new Date(params.startTimeIso).getTime()) / 3_600_000)
+    : 8;
+  const baseCost = nannyRate * hours;
   const fee = baseCost * PLATFORM_FEE_PERCENT;
   const total = baseCost + fee;
 
-  const handleConfirm = () => {
-    router.push('/(parent)/book/booking-confirmation' as never);
+  const isSubmitting = createBooking.isPending || mockPay.isPending;
+
+  const handleConfirm = async () => {
+    if (!params.nannyProfileId || !params.dateIso || !params.startTimeIso || !params.endTimeIso) {
+      Alert.alert('Error', 'Missing booking details. Please go back and try again.');
+      return;
+    }
+    try {
+      const booking = await createBooking.mutateAsync({
+        nannyProfileId: params.nannyProfileId,
+        date: params.dateIso,
+        startTime: params.startTimeIso,
+        endTime: params.endTimeIso,
+      });
+      await mockPay.mutateAsync({ id: booking.id, body: DEMO_PAY_BODY });
+      router.push({
+        pathname: '/(parent)/book/booking-confirmation',
+        params: { bookingId: booking.id },
+      } as never);
+    } catch (err) {
+      Alert.alert('Booking failed', err instanceof Error ? err.message : 'Something went wrong.');
+    }
   };
 
   return (
@@ -68,10 +104,10 @@ export default function BookingStep3Screen() {
 
         {/* Nanny Card */}
         <View style={styles.nannyCard}>
-          <Image source={{ uri: nanny.image }} style={styles.nannyPhoto} />
+          <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} />
           <View style={styles.nannyInfo}>
             <View style={styles.nannyNameRow}>
-              <Text style={styles.nannyName}>{nanny.name}</Text>
+              <Text style={styles.nannyName}>{nannyName}</Text>
               <Ionicons name="star" size={13} color={colors.gold} />
             </View>
             <View style={styles.nannyDateRow}>
@@ -86,7 +122,7 @@ export default function BookingStep3Screen() {
         {/* Price Card */}
         <View style={styles.priceCard}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Base $28 x {hours}</Text>
+            <Text style={styles.priceLabel}>Base ${nannyRate} x {hours}</Text>
             <Text style={styles.priceValue}>${baseCost.toFixed(2)}</Text>
           </View>
           <View style={styles.priceRow}>
@@ -138,8 +174,11 @@ export default function BookingStep3Screen() {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Pressable style={styles.confirmBtn} onPress={handleConfirm}>
-          <Text style={styles.confirmBtnText}>Confirm booking · ${total.toFixed(2)}</Text>
+        <Pressable style={styles.confirmBtn} onPress={handleConfirm} disabled={isSubmitting}>
+          {isSubmitting
+            ? <ActivityIndicator color={colors.white} />
+            : <Text style={styles.confirmBtnText}>Confirm booking · ${total.toFixed(2)}</Text>
+          }
         </Pressable>
       </View>
     </View>

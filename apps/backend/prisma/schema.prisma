@@ -34,6 +34,51 @@ enum Role {
   @@map("role")
 }
 
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REFUNDED
+
+  @@map("booking_status")
+}
+
+enum BookingType {
+  STANDARD
+  EMERGENCY
+
+  @@map("booking_type")
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  CARD
+  APPLE_PAY
+  GOOGLE_PAY
+  WALLET
+
+  @@map("payment_method")
+}
+
+enum AvailabilityType {
+  FULL_TIME
+  PART_TIME
+  OCCASIONAL
+
+  @@map("availability_type")
+}
+
 /// Central identity row — one per Firebase Auth user.
 /// Role-specific data (children, certifications, bio, location) lives on
 /// future MotherProfile / NannyProfile models, not here.
@@ -66,7 +111,155 @@ model User {
   updatedAt            DateTime  @updatedAt      @map("updated_at")
   deletedAt            DateTime? @map("deleted_at")
 
+  nannyProfile      NannyProfile?
+  bookingsAsMother  Booking[]  @relation("BookingMother")
+  cancelledBookings Booking[]  @relation("BookingCancelledBy")
+  payments          Payment[]  @relation("PaymentMother")
+  reviewsGiven      Review[]   @relation("ReviewMother")
+
   @@index([role])
   @@index([deletedAt])
   @@map("users")
+}
+
+/// Nanny-specific extended profile. Created automatically when role = NANNY
+/// on /auth/register. One-to-one with User.
+model NannyProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio               String?   @db.Text
+  location          String?
+  yearsOfExperience Int?      @map("years_of_experience")
+  hourlyRate        Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
+  certifications    String[]
+  ageRanges         String[]  @map("age_ranges")
+  /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
+  schedule          Json?
+  isProfileComplete Boolean   @default(false) @map("is_profile_complete")
+  /// Decimal degrees — used for emergency booking proximity search.
+  latitude          Decimal?  @db.Decimal(10, 7)
+  longitude         Decimal?  @db.Decimal(10, 7)
+  /// Availability type for filtering: FULL_TIME, PART_TIME, OCCASIONAL
+  availabilityType  AvailabilityType @default(OCCASIONAL) @map("availability_type")
+  /// Denormalised rating cache — recomputed on every new review.
+  rating            Decimal   @default(0) @db.Decimal(3, 2)
+  reviewCount       Int       @default(0) @map("review_count")
+  bookings          Booking[]
+  reviews           Review[]
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  @@index([availabilityType])
+  @@index([rating])
+  @@map("nanny_profiles")
+}
+
+// ──────────────────────────────────────────────────────────────
+// App Config
+// ──────────────────────────────────────────────────────────────
+
+/// Singleton key-value store for runtime-configurable settings (e.g. service_fee_percent).
+/// Never hard-code config values that operations may need to tune without a deploy.
+model AppSettings {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  value     String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt      @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("app_settings")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Booking & Payments
+// ──────────────────────────────────────────────────────────────
+
+model Booking {
+  id                      String        @id @default(cuid())
+  motherId                String        @map("mother_id")
+  mother                  User          @relation("BookingMother",      fields: [motherId],     references: [id])
+  /// Null for EMERGENCY bookings until a nanny accepts.
+  nannyProfileId          String?       @map("nanny_profile_id")
+  nannyProfile            NannyProfile? @relation(fields: [nannyProfileId], references: [id])
+  status                  BookingStatus @default(PENDING)
+  type                    BookingType   @default(STANDARD)
+  date                    DateTime      @db.Date
+  startTime               DateTime      @map("start_time")
+  endTime                 DateTime      @map("end_time")
+  durationHours           Decimal       @map("duration_hours")     @db.Decimal(5, 2)
+  baseRate                Decimal       @map("base_rate")          @db.Decimal(10, 2)
+  subtotal                Decimal       @db.Decimal(10, 2)
+  discountAmount          Decimal       @default(0)  @map("discount_amount")    @db.Decimal(10, 2)
+  serviceFeePercent       Decimal       @map("service_fee_percent") @db.Decimal(5, 2)
+  serviceFeeAmount        Decimal       @map("service_fee_amount")  @db.Decimal(10, 2)
+  totalAmount             Decimal       @map("total_amount")        @db.Decimal(10, 2)
+  cancellationReason      String?       @map("cancellation_reason")
+  cancelledById           String?       @map("cancelled_by_id")
+  cancelledBy             User?         @relation("BookingCancelledBy", fields: [cancelledById], references: [id])
+  cancelledAt             DateTime?     @map("cancelled_at")
+  nannyCheckedInAt        DateTime?     @map("nanny_checked_in_at")
+  nannyCheckedOutAt       DateTime?     @map("nanny_checked_out_at")
+  replacementForBookingId String?       @map("replacement_for_booking_id")
+  replacementForBooking   Booking?      @relation("BookingReplacement",  fields: [replacementForBookingId], references: [id])
+  replacementBookings     Booking[]     @relation("BookingReplacement")
+  payment                 Payment?
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt      @map("updated_at")
+  deletedAt               DateTime?     @map("deleted_at")
+
+  review                  Review?
+  @@index([motherId])
+  @@index([nannyProfileId])
+  @@index([status])
+  @@index([date])
+  @@map("bookings")
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  bookingId           String        @unique @map("booking_id")
+  booking             Booking       @relation(fields: [bookingId],  references: [id])
+  motherId            String        @map("mother_id")
+  mother              User          @relation("PaymentMother", fields: [motherId], references: [id])
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("EGP")
+  method              PaymentMethod
+  status              PaymentStatus @default(PENDING)
+  paymobOrderId       String?       @map("paymob_order_id")
+  paymobTransactionId String?       @map("paymob_transaction_id")
+  failureReason       String?       @map("failure_reason")
+  refundedAmount      Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+  refundedAt          DateTime?     @map("refunded_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt      @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  @@index([paymobOrderId])
+  @@map("payments")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Reviews
+// ──────────────────────────────────────────────────────────────
+
+model Review {
+  id             String       @id @default(cuid())
+  bookingId      String       @unique   @map("booking_id")
+  booking        Booking      @relation(fields: [bookingId],      references: [id])
+  nannyProfileId String       @map("nanny_profile_id")
+  nannyProfile   NannyProfile @relation(fields: [nannyProfileId], references: [id])
+  motherId       String       @map("mother_id")
+  mother         User         @relation("ReviewMother", fields: [motherId], references: [id])
+  rating         Int
+  comment        String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt      @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@index([nannyProfileId])
+  @@index([motherId])
+  @@map("reviews")
 }

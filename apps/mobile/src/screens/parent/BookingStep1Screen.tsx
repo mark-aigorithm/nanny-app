@@ -21,23 +21,35 @@ import { styles } from './styles/booking-step1-screen.styles';
 export default function BookingStep1Screen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
-    nannyId: string;
+    nannyProfileId: string;
     date: string;
     startTime: string;
     endTime: string;
+    dateIso: string;
+    startTimeIso: string;
+    endTimeIso: string;
+    nannyName?: string;
+    nannyPhoto?: string;
+    nannyRate?: string;
   }>();
 
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
 
-  // ASSUMPTION: Date/time parsing will use a shared date utility from @nanny-app/shared.
-  // Hardcoding display string until params are wired from the date picker screen.
   const dateDisplay = params.date || 'Sat Apr 12';
   const timeDisplay = `${params.startTime || '9AM'}–${params.endTime || '5PM'}`;
-  const hours = 8;
+
+  const nannyName = params.nannyName ?? MOCK_NANNY_BOOKING.name;
+  const nannyPhoto = params.nannyPhoto ?? MOCK_NANNY_BOOKING.image;
+  const nannyRate = params.nannyRate ? Number(params.nannyRate) : MOCK_NANNY_BOOKING.hourlyRate;
+
+  // Estimate hours from ISO times if available, fallback to 8
+  const hours = params.startTimeIso && params.endTimeIso
+    ? Math.round((new Date(params.endTimeIso).getTime() - new Date(params.startTimeIso).getTime()) / 3_600_000)
+    : 8;
 
   // Price calculations
-  const baseCost = MOCK_NANNY_BOOKING.hourlyRate * hours;
+  const baseCost = nannyRate * hours;
   const promoDiscount = promoApplied ? baseCost * PROMO_DISCOUNT_PERCENT : 0;
   const subtotalAfterPromo = baseCost - promoDiscount;
   const fee = subtotalAfterPromo * PLATFORM_FEE_PERCENT;
@@ -59,10 +71,16 @@ export default function BookingStep1Screen() {
     router.push({
       pathname: '/(parent)/book/booking-step-2',
       params: {
-        nannyId: params.nannyId,
+        nannyProfileId: params.nannyProfileId,
         date: dateDisplay,
         startTime: timeDisplay.split('–')[0],
         endTime: timeDisplay.split('–')[1],
+        dateIso: params.dateIso,
+        startTimeIso: params.startTimeIso,
+        endTimeIso: params.endTimeIso,
+        nannyName,
+        nannyPhoto,
+        nannyRate: String(nannyRate),
         total: total.toFixed(2),
       },
     } as never);
@@ -107,12 +125,11 @@ export default function BookingStep1Screen() {
         {/* Nanny Card */}
         <Card shadow="sm" padding={spacing.lg} radius={borderRadius.xl}>
           <View style={styles.nannyCardInner}>
-            <Image source={{ uri: MOCK_NANNY_BOOKING.image }} style={styles.nannyPhoto} />
+            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} />
             <View style={styles.nannyInfo}>
               <View style={styles.nannyNameRow}>
-                <Text style={styles.nannyName}>{MOCK_NANNY_BOOKING.name}</Text>
+                <Text style={styles.nannyName}>{nannyName}</Text>
                 <Ionicons name="star" size={13} color={colors.gold} />
-                <Text style={styles.nannyRating}>{MOCK_NANNY_BOOKING.rating}</Text>
               </View>
               <View style={styles.nannyDateRow}>
                 <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
@@ -165,7 +182,7 @@ export default function BookingStep1Screen() {
         <View style={styles.priceCard}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>
-              Base ${MOCK_NANNY_BOOKING.hourlyRate}×{hours}
+              Base ${nannyRate}×{hours}
             </Text>
             <Text style={styles.priceValue}>${baseCost.toFixed(2)}</Text>
           </View>
@@ -190,7 +207,7 @@ export default function BookingStep1Screen() {
         <View style={styles.guaranteeCard}>
           <Ionicons name="shield-checkmark" size={20} color={colors.success} />
           <Text style={styles.guaranteeText}>
-            If Elena cancels within 24hrs, we find a replacement automatically
+            If {nannyName} cancels within 24hrs, we find a replacement automatically
           </Text>
         </View>
       </ScrollView>

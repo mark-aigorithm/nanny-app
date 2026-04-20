@@ -26,7 +26,19 @@ function getCardIcon(type: PaymentMethod['type']): string {
 
 export default function BookingStep2Screen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{
+    nannyProfileId?: string;
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+    dateIso?: string;
+    startTimeIso?: string;
+    endTimeIso?: string;
+    nannyName?: string;
+    nannyPhoto?: string;
+    nannyRate?: string;
+    total?: string;
+  }>();
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>(
     MOCK_PAYMENT_METHODS.find((m) => m.isDefault)?.id ?? MOCK_PAYMENT_METHODS[0].id,
   );
@@ -34,16 +46,27 @@ export default function BookingStep2Screen() {
 
   const handleContinue = () => {
     const selected = MOCK_PAYMENT_METHODS.find((m) => m.id === selectedPaymentId);
+    const paymentLabel = selected
+      ? selected.type === 'apple_pay'
+        ? 'Apple Pay'
+        : `${PAYMENT_TYPES[selected.type]} ending in ${selected.last4}`
+      : '';
     router.push({
       pathname: '/(parent)/book/booking-step-3',
       params: {
-        ...params,
+        nannyProfileId: params.nannyProfileId,
+        date: params.date,
+        startTime: params.startTime,
+        endTime: params.endTime,
+        dateIso: params.dateIso,
+        startTimeIso: params.startTimeIso,
+        endTimeIso: params.endTimeIso,
+        nannyName: params.nannyName,
+        nannyPhoto: params.nannyPhoto,
+        nannyRate: params.nannyRate,
+        total: params.total,
         paymentMethodId: selectedPaymentId,
-        paymentLabel: selected
-          ? selected.type === 'apple_pay'
-            ? 'Apple Pay'
-            : `${PAYMENT_TYPES[selected.type]} ending in ${selected.last4}`
-          : '',
+        paymentLabel,
       },
     } as never);
   };

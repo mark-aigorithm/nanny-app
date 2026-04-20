@@ -7,6 +7,7 @@ import {
   Pressable,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -14,12 +15,18 @@ import BottomNav from '@mobile/components/BottomNav';
 import { Avatar } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
-import type { NannyData } from '@mobile/types';
+import type { NannyListItem, AvailabilityType } from '@nanny-app/shared';
 import { HOME_FILTER_TABS } from '@mobile/constants';
 import type { FilterTab } from '@mobile/constants';
-import { MOCK_NANNIES_HOME } from '@mobile/mocks';
 import { IMG_HERO } from '@mobile/mocks/images';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
+import { useNannyList } from '@mobile/hooks/useNannies';
+
+const FILTER_TO_AVAILABILITY: Partial<Record<FilterTab, AvailabilityType>> = {
+  'Full-time': 'FULL_TIME',
+  'Part-time': 'PART_TIME',
+  'Occasional': 'OCCASIONAL',
+};
 
 // ASSUMPTION: Font 'Manrope' is loaded at the app root via expo-font / useFonts.
 // from @expo-google-fonts/manrope in the root _layout.tsx.
@@ -31,6 +38,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const profile = useUserProfileStore((s) => s.profile);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
+
+  const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
+  const { data: nannies = [], isLoading } = useNannyList(availabilityFilter);
 
   return (
     <View style={styles.container}>
@@ -80,15 +90,23 @@ export default function HomeScreen() {
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>
-          {MOCK_NANNIES_HOME.map((nanny) => (
-            <NannyCard
-              key={nanny.id}
-              nanny={nanny}
-              onViewProfile={(id) =>
-                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } })
-              }
-            />
-          ))}
+          {isLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
+          ) : nannies.length === 0 ? (
+            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 24 }}>
+              No nannies available yet
+            </Text>
+          ) : (
+            nannies.map((nanny) => (
+              <NannyCard
+                key={nanny.nannyProfileId}
+                nanny={nanny}
+                onViewProfile={(id) =>
+                  router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } })
+                }
+              />
+            ))
+          )}
         </View>
 
         {/* Editorial block */}
@@ -137,15 +155,25 @@ export default function HomeScreen() {
 
 // ─── NannyCard ───────────────────────────────────────────────────────────────
 
-function NannyCard({ nanny, onViewProfile }: { nanny: NannyData; onViewProfile: (id: string) => void }) {
+function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfile: (id: string) => void }) {
+  const name = `${nanny.firstName} ${nanny.lastName}`;
+  const expLabel = nanny.yearsOfExperience ? `${nanny.yearsOfExperience} yrs exp` : '';
+  const locationLabel = nanny.location ?? '';
+
   return (
     <View style={styles.card}>
       {/* Photo */}
       <View style={styles.cardPhotoWrap}>
-        <Image source={{ uri: nanny.image }} style={styles.cardPhoto} resizeMode="cover" />
-        {nanny.verified && (
+        {nanny.avatarUrl ? (
+          <Image source={{ uri: nanny.avatarUrl }} style={styles.cardPhoto} resizeMode="cover" />
+        ) : (
+          <View style={[styles.cardPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="person" size={40} color={colors.primary} />
+          </View>
+        )}
+        {nanny.reviewCount > 0 && (
           <View style={styles.verifiedBadge}>
-            <Text style={styles.verifiedText}>VERIFIED</Text>
+            <Text style={styles.verifiedText}>REVIEWED</Text>
           </View>
         )}
       </View>
@@ -154,27 +182,29 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyData; onViewProfile: 
       <View style={styles.cardBody}>
         <View style={styles.cardRow}>
           <View style={styles.cardNameCol}>
-            <Text style={styles.cardName}>{nanny.name}</Text>
+            <Text style={styles.cardName}>{name}</Text>
             <Text style={styles.cardMeta}>
-              {nanny.experience} • {nanny.distance}
+              {[expLabel, locationLabel].filter(Boolean).join(' • ')}
             </Text>
           </View>
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={13} color={colors.gold} />
-            <Text style={styles.ratingText}>{nanny.rating.toFixed(1)}</Text>
+            <Text style={styles.ratingText}>
+              {nanny.reviewCount > 0 ? nanny.rating.toFixed(1) : 'New'}
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.cardBio} numberOfLines={2}>
-          {nanny.bio}
-        </Text>
+        {nanny.bio ? (
+          <Text style={styles.cardBio} numberOfLines={2}>{nanny.bio}</Text>
+        ) : null}
 
         <View style={styles.cardFooter}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceAmount}>${nanny.hourlyRate}</Text>
+            <Text style={styles.priceAmount}>${nanny.hourlyRate ?? '—'}</Text>
             <Text style={styles.priceUnit}>/hr</Text>
           </View>
-          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85} onPress={() => onViewProfile(nanny.id)}>
+          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85} onPress={() => onViewProfile(nanny.nannyProfileId)}>
             <Text style={styles.bookBtnText}>Book Now</Text>
           </TouchableOpacity>
         </View>

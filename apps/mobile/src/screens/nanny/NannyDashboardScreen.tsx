@@ -4,29 +4,27 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
-import {
-  MOCK_NANNY_EARNINGS,
-  MOCK_NANNY_STATS,
-  MOCK_NANNY_REQUESTS,
-} from '@mobile/mocks';
+import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { useNannyDashboard } from '@mobile/hooks/useNannies';
 import { styles } from './styles/nanny-dashboard-screen.styles';
 
-const STAT_CONFIG = [
-  { key: 'totalBookings' as const, label: 'Total bookings', icon: 'calendar', bg: colors.primaryMuted, iconColor: colors.primary },
-  { key: 'repeatClients' as const, label: 'Repeat clients', icon: 'people', bg: colors.taupeLight, iconColor: colors.textTertiary },
-  { key: 'averageRating' as const, label: 'Avg. rating', icon: 'star', bg: colors.warmLight, iconColor: colors.goldWarm },
-  { key: 'responseRate' as const, label: 'Response rate', icon: 'flash', bg: colors.successLight, iconColor: colors.success },
-] as const;
+type StatKey = 'totalBookings' | 'repeatClients' | 'averageRating' | 'responseRate';
+
+const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; iconColor: string }[] = [
+  { key: 'totalBookings', label: 'Total bookings', icon: 'calendar', bg: colors.primaryMuted, iconColor: colors.primary },
+  { key: 'repeatClients', label: 'Repeat clients', icon: 'people', bg: colors.taupeLight, iconColor: colors.textTertiary },
+  { key: 'averageRating', label: 'Avg. rating', icon: 'star', bg: colors.warmLight, iconColor: colors.goldWarm },
+  { key: 'responseRate', label: 'Response rate', icon: 'flash', bg: colors.successLight, iconColor: colors.success },
+];
 
 export default function NannyDashboardScreen() {
-  const earnings = MOCK_NANNY_EARNINGS;
-  const stats = MOCK_NANNY_STATS;
-  const upcomingBookings = MOCK_NANNY_REQUESTS.filter((r) => r.status === 'accepted');
+  const { data: dashboard, isLoading: loadingDashboard } = useNannyDashboard();
+  const { data: upcomingBookings = [], isLoading: loadingBookings } = useBookingList('CONFIRMED,IN_PROGRESS');
 
   return (
     <View style={styles.container}>
@@ -36,24 +34,29 @@ export default function NannyDashboardScreen() {
         {/* Earnings Card */}
         <View style={styles.earningsCard}>
           <Text style={styles.earningsTitle}>Your earnings</Text>
-          <View style={styles.earningsRow}>
-            <View style={styles.earningsItem}>
-              <Text style={styles.earningsLabel}>This week</Text>
-              <Text style={styles.earningsAmount}>${earnings.thisWeek}</Text>
+          {loadingDashboard ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
+          ) : (
+            <View style={styles.earningsRow}>
+              <View style={styles.earningsItem}>
+                <Text style={styles.earningsLabel}>This week</Text>
+                <Text style={styles.earningsAmount}>${dashboard?.earningsThisWeek.toFixed(2) ?? '—'}</Text>
+              </View>
+              <View style={styles.earningsDivider} />
+              <View style={styles.earningsItem}>
+                <Text style={styles.earningsLabel}>This month</Text>
+                <Text style={styles.earningsAmount}>${dashboard?.earningsThisMonth.toFixed(2) ?? '—'}</Text>
+              </View>
             </View>
-            <View style={styles.earningsDivider} />
-            <View style={styles.earningsItem}>
-              <Text style={styles.earningsLabel}>This month</Text>
-              <Text style={styles.earningsAmount}>${earnings.thisMonth}</Text>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Quick Stats */}
         <View style={styles.statsGrid}>
           {STAT_CONFIG.map((item) => {
-            const value = stats[item.key];
-            const display = item.key === 'averageRating' ? value.toFixed(1)
+            const value = dashboard?.[item.key as keyof typeof dashboard] as number | undefined;
+            const display = loadingDashboard || value === undefined ? '—'
+              : item.key === 'averageRating' ? value.toFixed(1)
               : item.key === 'responseRate' ? `${value}%`
               : String(value);
             return (
@@ -77,18 +80,24 @@ export default function NannyDashboardScreen() {
             </Pressable>
           </View>
           <View style={[styles.bookingsList, { marginTop: 14 }]}>
-            {upcomingBookings.length === 0 ? (
+            {loadingBookings ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : upcomingBookings.length === 0 ? (
               <Text style={styles.statLabel}>No upcoming bookings</Text>
             ) : (
               upcomingBookings.map((booking) => (
                 <View key={booking.id} style={styles.bookingCard}>
-                  <Image source={{ uri: booking.parentPhoto }} style={styles.bookingAvatar} />
-                  <View style={styles.bookingInfo}>
-                    <Text style={styles.bookingName}>{booking.parentName}</Text>
-                    <Text style={styles.bookingMeta}>{booking.date}</Text>
-                    <Text style={styles.bookingMeta}>{booking.time}</Text>
+                  <View style={[styles.bookingAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
+                    <Ionicons name="person" size={16} color={colors.primary} />
                   </View>
-                  <Text style={styles.bookingAmount}>${booking.totalAmount}</Text>
+                  <View style={styles.bookingInfo}>
+                    <Text style={styles.bookingName}>
+                      {booking.motherFirstName} {booking.motherLastName}
+                    </Text>
+                    <Text style={styles.bookingMeta}>{fmtBookingDate(booking.date)}</Text>
+                    <Text style={styles.bookingMeta}>{fmtBookingTime(booking.startTime, booking.endTime)}</Text>
+                  </View>
+                  <Text style={styles.bookingAmount}>${booking.totalAmount.toFixed(2)}</Text>
                 </View>
               ))
             )}

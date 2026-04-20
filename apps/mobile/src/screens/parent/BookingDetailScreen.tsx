@@ -6,33 +6,72 @@ import {
   Pressable,
   Image,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { MOCK_BOOKING_DETAIL } from '@mobile/mocks';
-import type { BookingDetail } from '@mobile/types';
+import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import type { BookingStatus } from '@nanny-app/shared';
 import { styles } from './styles/booking-detail-screen.styles';
 
-function getStatusStyle(status: BookingDetail['status']) {
+function getStatusStyle(status: BookingStatus) {
   switch (status) {
-    case 'CONFIRMED':
-      return { badge: styles.statusConfirmed, text: styles.statusTextConfirmed };
-    case 'COMPLETED':
-      return { badge: styles.statusCompleted, text: styles.statusTextCompleted };
-    case 'CANCELLED':
-      return { badge: styles.statusCancelled, text: styles.statusTextCancelled };
-    case 'PENDING':
-      return { badge: styles.statusPending, text: styles.statusTextPending };
+    case 'CONFIRMED': return { badge: styles.statusConfirmed, text: styles.statusTextConfirmed };
+    case 'COMPLETED': return { badge: styles.statusCompleted, text: styles.statusTextCompleted };
+    case 'CANCELLED': return { badge: styles.statusCancelled, text: styles.statusTextCancelled };
+    default:          return { badge: styles.statusPending,   text: styles.statusTextPending };
   }
 }
 
 export default function BookingDetailScreen() {
   const router = useRouter();
-  const { bookingId: _bookingId } = useLocalSearchParams<{ bookingId?: string }>();
+  const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
 
-  const booking = MOCK_BOOKING_DETAIL;
+  const { data: booking, isLoading } = useBooking(bookingId);
+  const cancelBooking = useCancelBooking();
+
+  const handleCancel = () => {
+    if (!bookingId) return;
+    Alert.alert(
+      'Cancel booking',
+      'Are you sure you want to cancel? Cancellations within 24 hours of the booking are subject to a 50% fee.',
+      [
+        { text: 'Keep booking', style: 'cancel' },
+        {
+          text: 'Cancel booking',
+          style: 'destructive',
+          onPress: () => {
+            cancelBooking.mutate(
+              { id: bookingId, reason: 'Cancelled by parent' },
+              {
+                onSuccess: () => router.back(),
+                onError: (err) => Alert.alert('Error', err.message),
+              },
+            );
+          },
+        },
+      ],
+    );
+  };
+
+  if (isLoading || !booking) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   const statusStyle = getStatusStyle(booking.status);
+  const nannyName = booking.nanny
+    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+    : 'Nanny TBD';
+  const nannyPhoto = booking.nanny?.avatarUrl ?? '';
+  const dateDisplay = fmtBookingDate(booking.date);
+  const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
+  const canCancel = booking.status === 'CONFIRMED' || booking.status === 'PENDING';
 
   return (
     <View style={styles.container}>
@@ -46,17 +85,16 @@ export default function BookingDetailScreen() {
 
         {/* Nanny Card */}
         <View style={styles.nannyCard}>
-          <Image source={{ uri: booking.nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+          {nannyPhoto ? (
+            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+          ) : (
+            <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
+              <Ionicons name="person" size={24} color={colors.primary} />
+            </View>
+          )}
           <View style={styles.nannyInfo}>
             <View style={styles.nannyNameRow}>
-              <Text style={styles.nannyName}>{booking.nannyName}</Text>
-              {booking.verified && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
-            </View>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={12} color={colors.gold} />
-              <Text style={styles.ratingText}>
-                {booking.rating.toFixed(1)} ({booking.reviewCount} reviews)
-              </Text>
+              <Text style={styles.nannyName}>{nannyName}</Text>
             </View>
           </View>
         </View>
@@ -68,71 +106,58 @@ export default function BookingDetailScreen() {
               <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
               <Text style={styles.detailLabel}>Date</Text>
             </View>
-            <Text style={styles.detailValue}>{booking.dateFull}</Text>
+            <Text style={styles.detailValue}>{dateDisplay}</Text>
           </View>
           <View style={styles.detailRow}>
             <View style={styles.detailLeft}>
               <Ionicons name="time-outline" size={16} color={colors.textMuted} />
               <Text style={styles.detailLabel}>Time</Text>
             </View>
-            <Text style={styles.detailValue}>{booking.time}</Text>
+            <Text style={styles.detailValue}>{timeDisplay}</Text>
           </View>
           <View style={styles.detailRow}>
             <View style={styles.detailLeft}>
               <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
               <Text style={styles.detailLabel}>Duration</Text>
             </View>
-            <Text style={styles.detailValue}>{booking.duration} hours</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <View style={styles.detailLeft}>
-              <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-              <Text style={styles.detailLabel}>Location</Text>
-            </View>
-            <Text style={styles.detailValue}>{booking.location}</Text>
+            <Text style={styles.detailValue}>{booking.durationHours} hours</Text>
           </View>
         </View>
-
-        {/* Special Instructions */}
-        {booking.specialInstructions !== '' && (
-          <View style={styles.instructionsCard}>
-            <Text style={styles.instructionsLabel}>Special instructions</Text>
-            <Text style={styles.instructionsText}>{booking.specialInstructions}</Text>
-          </View>
-        )}
 
         {/* Payment Summary */}
         <View style={styles.paymentCard}>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Base ${booking.hourlyRate} x {booking.duration}h</Text>
-            <Text style={styles.paymentValue}>${(booking.hourlyRate * booking.duration).toFixed(2)}</Text>
+            <Text style={styles.paymentLabel}>Base ${booking.baseRate} × {booking.durationHours}h</Text>
+            <Text style={styles.paymentValue}>${booking.subtotal.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Platform fee</Text>
-            <Text style={styles.paymentValue}>{booking.platformFee}</Text>
+            <Text style={styles.paymentLabel}>Service fee ({booking.serviceFeePercent}%)</Text>
+            <Text style={styles.paymentValue}>${booking.serviceFeeAmount.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentDivider} />
           <View style={styles.paymentRow}>
             <Text style={styles.paymentTotalLabel}>Total</Text>
-            <Text style={styles.paymentTotalValue}>{booking.totalCharged}</Text>
+            <Text style={styles.paymentTotalValue}>${booking.totalAmount.toFixed(2)}</Text>
           </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Paid with</Text>
-            <Text style={styles.paymentValue}>{booking.paymentMethod}</Text>
-          </View>
+          {booking.payment && (
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Paid with</Text>
+              <Text style={styles.paymentValue}>{booking.payment.method}</Text>
+            </View>
+          )}
         </View>
 
         {/* Action Buttons */}
-        {booking.status === 'CONFIRMED' && (
+        {canCancel && (
           <View style={styles.actionsSection}>
-            <Pressable style={styles.messageButton}>
-              <Text style={styles.messageButtonText}>Message nanny</Text>
-            </Pressable>
-            <Pressable style={styles.rescheduleButton}>
-              <Text style={styles.rescheduleButtonText}>Reschedule</Text>
-            </Pressable>
-            <Pressable style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Cancel booking</Text>
+            <Pressable
+              style={styles.cancelButton}
+              onPress={handleCancel}
+              disabled={cancelBooking.isPending}
+            >
+              <Text style={styles.cancelButtonText}>
+                {cancelBooking.isPending ? 'Cancelling...' : 'Cancel booking'}
+              </Text>
             </Pressable>
           </View>
         )}

@@ -155,19 +155,6 @@ export default function MotherProfileWalletScreen() {
             </Pressable>
           ))}
 
-          {/* Switch to Nanny View */}
-          <Pressable
-            style={styles.settingsItem}
-            onPress={() => router.replace('/(nanny)/dashboard')}
-          >
-            <View style={styles.settingsItemLeft}>
-              <Ionicons name="swap-horizontal-outline" size={20} color={colors.primary} />
-              <Text style={[styles.settingsItemLabel, { color: colors.primary }]}>
-                Switch to Nanny View
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-          </Pressable>
         </View>
       </ScrollView>
 

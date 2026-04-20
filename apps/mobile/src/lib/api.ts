@@ -4,9 +4,7 @@ import Constants from 'expo-constants';
 import { auth } from '@mobile/lib/firebase';
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.['apiBaseUrl'] as string | undefined) ??
-  'http://localhost:3000';
-
+  'http://192.168.100.6:3000';
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10_000,

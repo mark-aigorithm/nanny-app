@@ -9,6 +9,8 @@ import { z } from 'zod';
 // ──────────────────────────────────────────────────────────────
 
 export const RoleSchema = z.enum(['MOTHER', 'NANNY']);
+/** Enum-like const for value comparisons: `Role.NANNY`, `Role.MOTHER`. */
+export const Role = RoleSchema.enum;
 export type Role = z.infer<typeof RoleSchema>;
 
 /** Body for POST /auth/register — fields not in Firebase. */
@@ -25,6 +27,7 @@ export const RegisterRequestSchema = z.object({
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD'),
   role: RoleSchema,
   termsAcceptedVersion: z.string().min(1),
+  address: z.string().trim().max(200).optional(),
 });
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 

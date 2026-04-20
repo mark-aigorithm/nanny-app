@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,8 +14,9 @@ import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
 import { Avatar } from '@mobile/components/ui';
 import { IMG_PROFILE_BOOKING } from '@mobile/mocks/images';
-import type { BookingTabKey, UpcomingBooking, PastBooking } from '@mobile/types';
-import { MOCK_UPCOMING_BOOKINGS, MOCK_PAST_BOOKINGS } from '@mobile/mocks';
+import type { BookingTabKey } from '@mobile/types';
+import type { BookingResponse } from '@nanny-app/shared';
+import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { styles } from './styles/booking-history-screen.styles';
 
 // ─── Tab configuration ────────────────────────────────────────────────────────
@@ -27,9 +29,17 @@ const TABS: { key: BookingTabKey; label: string }[] = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const STATUS_BY_TAB: Record<BookingTabKey, string> = {
+  upcoming: 'PENDING,CONFIRMED,IN_PROGRESS',
+  past: 'COMPLETED',
+  cancelled: 'CANCELLED,REFUNDED',
+};
+
 export default function BookingHistoryScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
+
+  const { data: bookings = [], isLoading } = useBookingList(STATUS_BY_TAB[activeTab]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -46,11 +56,6 @@ export default function BookingHistoryScreen() {
     } as never);
   };
 
-  const handleCancel = (bookingId: string) => {
-    // TODO: Trigger cancellation flow via useCancelBooking mutation
-    console.log('Cancel booking:', bookingId);
-  };
-
   const handleMessage = (_bookingId: string) => {
     router.push('/(parent)/chat/messaging');
   };
@@ -60,10 +65,6 @@ export default function BookingHistoryScreen() {
       pathname: '/(parent)/book/review',
       params: { bookingId },
     } as never);
-  };
-
-  const handleBookAgain = (_bookingId: string) => {
-    router.push('/(parent)/book/booking-step-1');
   };
 
   return (
@@ -107,38 +108,42 @@ export default function BookingHistoryScreen() {
         </View>
 
         {/* ── Tab Content ── */}
-        {activeTab === 'upcoming' && (
+        {isLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : bookings.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
+            <Text style={styles.emptyStateText}>No {activeTab} bookings</Text>
+          </View>
+        ) : activeTab === 'upcoming' ? (
           <View style={styles.section}>
-            {MOCK_UPCOMING_BOOKINGS.map((booking) => (
+            {bookings.map((booking) => (
               <UpcomingBookingCard
                 key={booking.id}
                 booking={booking}
                 onViewDetails={handleViewDetails}
-                onCancel={handleCancel}
                 onMessage={handleMessage}
               />
             ))}
           </View>
-        )}
-
-        {activeTab === 'past' && (
+        ) : activeTab === 'past' ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Past bookings</Text>
-            {MOCK_PAST_BOOKINGS.map((booking) => (
+            {bookings.map((booking) => (
               <PastBookingCard
                 key={booking.id}
                 booking={booking}
                 onLeaveReview={handleLeaveReview}
-                onBookAgain={handleBookAgain}
               />
             ))}
           </View>
-        )}
-
-        {activeTab === 'cancelled' && (
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
-            <Text style={styles.emptyStateText}>No cancelled bookings</Text>
+        ) : (
+          <View style={styles.section}>
+            {bookings.map((booking) => (
+              <CancelledBookingCard key={booking.id} booking={booking} />
+            ))}
           </View>
         )}
       </ScrollView>
@@ -154,37 +159,35 @@ export default function BookingHistoryScreen() {
 function UpcomingBookingCard({
   booking,
   onViewDetails,
-  onCancel,
   onMessage,
 }: {
-  booking: UpcomingBooking;
+  booking: BookingResponse;
   onViewDetails: (id: string) => void;
-  onCancel: (id: string) => void;
   onMessage: (id: string) => void;
 }) {
+  const nannyName = booking.nanny
+    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+    : 'Nanny TBD';
+  const nannyPhoto = booking.nanny?.avatarUrl;
+  const dateDisplay = fmtBookingDate(booking.date);
+  const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
+
   return (
     <View style={styles.card}>
       {/* Nanny Info Row */}
       <View style={styles.nannyRow}>
         <View style={styles.nannyPhotoWrapper}>
-          <Image
-            source={{ uri: booking.nannyPhoto }}
-            style={styles.nannyPhoto}
-            resizeMode="cover"
-          />
+          {nannyPhoto ? (
+            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+          ) : (
+            <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
+              <Ionicons name="person" size={20} color={colors.primary} />
+            </View>
+          )}
         </View>
         <View style={styles.nannyInfo}>
           <View style={styles.nannyNameRow}>
-            <Text style={styles.nannyName}>{booking.nannyName}</Text>
-            {booking.verified && (
-              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-            )}
-          </View>
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={12} color={colors.gold} />
-            <Text style={styles.ratingText}>
-              {booking.rating.toFixed(1)} ({booking.reviewCount} reviews)
-            </Text>
+            <Text style={styles.nannyName}>{nannyName}</Text>
           </View>
         </View>
       </View>
@@ -197,11 +200,11 @@ function UpcomingBookingCard({
       {/* Date & Time */}
       <View style={styles.detailRow}>
         <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-        <Text style={styles.detailText}>{booking.date}</Text>
+        <Text style={styles.detailText}>{dateDisplay}</Text>
       </View>
       <View style={styles.detailRow}>
         <Ionicons name="time-outline" size={16} color={colors.textMuted} />
-        <Text style={styles.detailText}>{booking.time}</Text>
+        <Text style={styles.detailText}>{timeDisplay}</Text>
       </View>
 
       {/* Divider */}
@@ -209,23 +212,10 @@ function UpcomingBookingCard({
 
       {/* Actions */}
       <View style={styles.cardActions}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => onViewDetails(booking.id)}
-        >
+        <TouchableOpacity activeOpacity={0.7} onPress={() => onViewDetails(booking.id)}>
           <Text style={styles.viewDetailsText}>View details</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => onCancel(booking.id)}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.messageButton}
-          activeOpacity={0.7}
-          onPress={() => onMessage(booking.id)}
-        >
+        <TouchableOpacity style={styles.messageButton} activeOpacity={0.7} onPress={() => onMessage(booking.id)}>
           <Text style={styles.messageButtonText}>Message</Text>
         </TouchableOpacity>
       </View>
@@ -238,28 +228,31 @@ function UpcomingBookingCard({
 function PastBookingCard({
   booking,
   onLeaveReview,
-  onBookAgain,
 }: {
-  booking: PastBooking;
+  booking: BookingResponse;
   onLeaveReview: (id: string) => void;
-  onBookAgain: (id: string) => void;
 }) {
+  const nannyName = booking.nanny
+    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+    : 'Nanny TBD';
+  const nannyPhoto = booking.nanny?.avatarUrl;
+
   return (
     <View style={styles.pastCard}>
       {/* Nanny Info Row */}
       <View style={styles.nannyRow}>
         <View style={styles.nannyPhotoWrapper}>
-          <Image
-            source={{ uri: booking.nannyPhoto }}
-            style={styles.nannyPhoto}
-            resizeMode="cover"
-          />
+          {nannyPhoto ? (
+            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+          ) : (
+            <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
+              <Ionicons name="person" size={20} color={colors.primary} />
+            </View>
+          )}
         </View>
         <View style={styles.nannyInfo}>
-          <Text style={styles.nannyName}>{booking.nannyName}</Text>
-          <Text style={styles.bookedTimesText}>
-            Booked {booking.bookedTimes} times
-          </Text>
+          <Text style={styles.nannyName}>{nannyName}</Text>
+          <Text style={styles.bookedTimesText}>${booking.totalAmount.toFixed(2)} total</Text>
         </View>
       </View>
 
@@ -270,24 +263,43 @@ function PastBookingCard({
 
       {/* Actions */}
       <View style={styles.pastCardActions}>
-        {!booking.hasReview && (
-          <TouchableOpacity
-            style={styles.leaveReviewRow}
-            activeOpacity={0.7}
-            onPress={() => onLeaveReview(booking.id)}
-          >
-            <Ionicons name="star" size={14} color={colors.gold} />
-            <Text style={styles.leaveReviewText}>Leave review</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
-          style={styles.bookAgainButton}
+          style={styles.leaveReviewRow}
           activeOpacity={0.7}
-          onPress={() => onBookAgain(booking.id)}
+          onPress={() => onLeaveReview(booking.id)}
         >
-          <Text style={styles.bookAgainButtonText}>Book again</Text>
+          <Ionicons name="star" size={14} color={colors.gold} />
+          <Text style={styles.leaveReviewText}>Leave review</Text>
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+// ─── Cancelled Booking Card ───────────────────────────────────────────────────
+
+function CancelledBookingCard({ booking }: { booking: BookingResponse }) {
+  const nannyName = booking.nanny
+    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+    : 'Nanny TBD';
+  const dateDisplay = fmtBookingDate(booking.date);
+
+  return (
+    <View style={styles.pastCard}>
+      <View style={styles.nannyRow}>
+        <View style={styles.nannyInfo}>
+          <Text style={styles.nannyName}>{nannyName}</Text>
+          <Text style={styles.bookedTimesText}>{dateDisplay}</Text>
+        </View>
+      </View>
+      <View style={styles.completedBadge}>
+        <Text style={styles.completedBadgeText}>{booking.status}</Text>
+      </View>
+      {booking.cancellationReason && (
+        <Text style={[styles.bookedTimesText, { marginTop: 4 }]}>
+          Reason: {booking.cancellationReason}
+        </Text>
+      )}
     </View>
   );
 }

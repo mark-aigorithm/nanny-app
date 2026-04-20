@@ -1,12 +1,10 @@
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { getApps, initializeApp } from 'firebase/app';
 import {
   EmailAuthProvider as JsEmailAuthProvider,
   createUserWithEmailAndPassword,
   getAuth,
-  getReactNativePersistence,
   initializeAuth,
   linkWithCredential as jsLinkWithCredential,
   onAuthStateChanged,
@@ -17,8 +15,19 @@ import {
   type ApplicationVerifier,
   type Auth,
   type AuthCredential,
+  type Persistence,
   type User as JsUser,
 } from 'firebase/auth';
+import { secureStorageAdapter } from '@mobile/lib/secureStorage';
+
+// getReactNativePersistence was removed from `firebase/auth` in v12 but still
+// exists in the underlying `@firebase/auth` package's React Native build. Metro
+// resolves `@firebase/auth` using the `react-native` field in its package.json
+// (→ dist/rn/index.js) which does export it. We use require() to side-step the
+// TypeScript browser-typings which don't declare it.
+const { getReactNativePersistence } = require('@firebase/auth') as {
+  getReactNativePersistence: (storage: typeof secureStorageAdapter) => Persistence;
+};
 
 // ── Firebase JS SDK setup (Expo Go compatible) ─────────────────────────────
 // @react-native-firebase/* are native modules and are not available in
@@ -48,7 +57,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 let jsAuth: Auth;
 try {
   jsAuth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
+    persistence: getReactNativePersistence(secureStorageAdapter),
   });
 } catch {
   jsAuth = getAuth(app);

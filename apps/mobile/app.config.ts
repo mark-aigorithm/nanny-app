@@ -27,6 +27,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-secure-store',
     ['expo-location', { locationAlwaysAndWhenInUsePermission: 'NannyApp needs your location to find nearby nannies.' }],
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
@@ -59,6 +60,11 @@ const config: ExpoConfig = {
     firebaseAppId: process.env['FIREBASE_APP_ID'] ?? '1:936472549582:android:eef4d3c4ad112865eb589f',
     firebaseStorageBucket: process.env['FIREBASE_STORAGE_BUCKET'] ?? 'nanny-now-d8518.firebasestorage.app',
     firebaseMessagingSenderId: process.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '936472549582',
+    // Set OTP_BYPASS_ENABLED=true in your shell to skip phone OTP during local dev.
+    // Uses email/password Firebase auth instead — still creates a real Firebase user
+    // and a real JWT, so the backend registration path works end-to-end.
+    // Never enable in production (env var is not set there).
+    otpBypassEnabled: process.env['OTP_BYPASS_ENABLED'] ?? 'false',
   },
 };
 
