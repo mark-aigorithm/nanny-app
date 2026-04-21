@@ -194,6 +194,30 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     lineHeight: 19.5,
   },
+  specialtiesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  specialtyChip: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+  },
+  specialtyChipText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 11,
+    color: colors.primaryDark,
+    letterSpacing: 0.2,
+  },
+  emptyText: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginVertical: spacing['2xl'],
+  },
   nannyPriceRow: {
     flexDirection: 'row',
     alignItems: 'center',

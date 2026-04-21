@@ -32,6 +32,7 @@ export const NannyProfileResponseSchema = z.object({
   hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   ageRanges: z.array(z.string()),
+  specialties: z.array(z.string()),
   schedule: WeeklyScheduleSchema.nullable(),
   isProfileComplete: z.boolean(),
   availabilityType: AvailabilityTypeSchema,
@@ -53,6 +54,7 @@ export const NannyListItemSchema = z.object({
   hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   ageRanges: z.array(z.string()),
+  specialties: z.array(z.string()),
   availabilityType: AvailabilityTypeSchema,
   rating: z.number(),
   reviewCount: z.number().int(),
@@ -80,6 +82,8 @@ export type NannyPublicProfile = z.infer<typeof NannyPublicProfileSchema>;
 
 export const NannyListQuerySchema = z.object({
   availabilityType: AvailabilityTypeSchema.optional(),
+  name: z.string().trim().optional(),
+  specialty: z.string().trim().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),
 });
@@ -98,6 +102,7 @@ export const UpdateNannyProfileRequestSchema = z.object({
   hourlyRate: z.number().min(0).optional(),
   certifications: z.array(z.string().max(100)).optional(),
   ageRanges: z.array(z.string()).optional(),
+  specialties: z.array(z.string().max(100)).optional(),
   schedule: WeeklyScheduleSchema.optional(),
   availabilityType: AvailabilityTypeSchema.optional(),
 });

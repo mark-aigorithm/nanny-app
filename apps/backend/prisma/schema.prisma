@@ -134,6 +134,7 @@ model NannyProfile {
   hourlyRate        Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
   certifications    String[]
   ageRanges         String[]  @map("age_ranges")
+  specialties       String[]  @default([])
   /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
   schedule          Json?
   isProfileComplete Boolean   @default(false) @map("is_profile_complete")

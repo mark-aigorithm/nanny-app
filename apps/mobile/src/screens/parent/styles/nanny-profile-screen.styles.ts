@@ -184,6 +184,27 @@ export const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 
+  // Specialties
+  specialtiesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  specialtyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primaryMuted,
+    paddingHorizontal: 14,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+  },
+  specialtyPillText: {
+    ...typeScale.captionBold,
+    lineHeight: 16,
+    color: colors.primaryDark,
+  },
+
   // Certifications
   certsScroll: {
     marginHorizontal: -screenPadding,

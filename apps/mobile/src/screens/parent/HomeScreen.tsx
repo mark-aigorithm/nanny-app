@@ -40,7 +40,9 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
-  const { data: nannies = [], isLoading } = useNannyList(availabilityFilter);
+  const { data: nannies = [], isLoading } = useNannyList(
+    availabilityFilter ? { availabilityType: availabilityFilter } : undefined,
+  );
 
   return (
     <View style={styles.container}>
@@ -161,7 +163,7 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
   const locationLabel = nanny.location ?? '';
 
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={() => onViewProfile(nanny.nannyProfileId)}>
       {/* Photo */}
       <View style={styles.cardPhotoWrap}>
         {nanny.avatarUrl ? (
@@ -209,7 +211,7 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

@@ -33,6 +33,7 @@ function toNannyProfileResponse(user: User, profile: NannyProfile): NannyProfile
     hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
     ageRanges: profile.ageRanges,
+    specialties: profile.specialties,
     schedule: (profile.schedule as WeeklySchedule) ?? null,
     isProfileComplete: profile.isProfileComplete,
     availabilityType: profile.availabilityType,
@@ -55,6 +56,7 @@ function toNannyListItem(
     hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
     ageRanges: profile.ageRanges,
+    specialties: profile.specialties,
     availabilityType: profile.availabilityType,
     rating: Number(profile.rating),
     reviewCount: profile.reviewCount,
@@ -164,6 +166,17 @@ export async function listNannies(
     isProfileComplete: true,
     deletedAt: null as null,
     ...(query.availabilityType ? { availabilityType: query.availabilityType } : {}),
+    ...(query.specialty ? { specialties: { has: query.specialty } } : {}),
+    ...(query.name
+      ? {
+          user: {
+            OR: [
+              { firstName: { contains: query.name, mode: 'insensitive' as const } },
+              { lastName: { contains: query.name, mode: 'insensitive' as const } },
+            ],
+          },
+        }
+      : {}),
   };
 
   const [total, profiles] = await Promise.all([

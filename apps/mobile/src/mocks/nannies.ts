@@ -47,6 +47,7 @@ export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
     hourlyRate: 25,
     image: IMG_NANNY_CLARA,
     verified: true,
+    specialties: ['Newborn Care', 'Night Nurse'],
   },
   {
     id: '2',
@@ -57,6 +58,7 @@ export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
     hourlyRate: 32,
     image: IMG_NANNY_ELENA_SEARCH,
     verified: true,
+    specialties: ['Live-in', 'Special Needs'],
   },
   {
     id: '3',
@@ -67,6 +69,7 @@ export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
     hourlyRate: 28,
     image: IMG_NANNY_MARCUS,
     verified: true,
+    specialties: ['Newborn Care', 'Special Needs'],
   },
 ];
 

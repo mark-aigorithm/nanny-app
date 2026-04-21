@@ -12,15 +12,22 @@ import { api, unwrap } from '@mobile/lib/api';
 
 const NANNIES_KEY = 'nannies';
 
-export function useNannyList(availabilityType?: AvailabilityType) {
+interface NannyListParams {
+  availabilityType?: AvailabilityType;
+  name?: string;
+  specialty?: string;
+}
+
+export function useNannyList(params?: NannyListParams) {
   return useQuery<NannyListItem[]>({
-    queryKey: [NANNIES_KEY, availabilityType],
-    queryFn: () =>
-      unwrap(
-        api.get('/nanny/nannies', {
-          params: availabilityType ? { availabilityType } : undefined,
-        }),
-      ),
+    queryKey: [NANNIES_KEY, 'list', params],
+    queryFn: () => {
+      const queryParams: Record<string, string> = {};
+      if (params?.availabilityType) queryParams['availabilityType'] = params.availabilityType;
+      if (params?.name) queryParams['name'] = params.name;
+      if (params?.specialty) queryParams['specialty'] = params.specialty;
+      return unwrap(api.get('/nanny/nannies', { params: Object.keys(queryParams).length ? queryParams : undefined }));
+    },
   });
 }
 

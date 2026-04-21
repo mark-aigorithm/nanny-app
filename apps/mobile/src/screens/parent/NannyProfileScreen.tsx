@@ -189,6 +189,21 @@ export default function NannyProfileScreen() {
           </View>
         )}
 
+        {/* ── Specialties ── */}
+        {nanny.specialties && nanny.specialties.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeading}>SPECIALTIES</Text>
+            <View style={styles.specialtiesRow}>
+              {nanny.specialties.map((s, i) => (
+                <View key={i} style={styles.specialtyPill}>
+                  <Ionicons name="ribbon-outline" size={13} color={colors.primaryDark} />
+                  <Text style={styles.specialtyPillText}>{s}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* ── Certifications ── */}
         {nanny.certifications.length > 0 && (
           <View style={styles.sectionContainer}>
