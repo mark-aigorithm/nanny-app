@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, useAcceptBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import { styles } from './styles/nanny-requests-screen.styles';
 
 type FilterKey = 'pending' | 'accepted' | 'declined';
@@ -131,6 +132,8 @@ export default function NannyRequestsScreen() {
       <StatusBar barStyle="dark-content" />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <OngoingBookingBanner />
+
         {/* Filter chips */}
         <View style={styles.filterRow}>
           {FILTERS.map((filter) => {

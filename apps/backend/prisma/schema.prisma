@@ -79,6 +79,16 @@ enum AvailabilityType {
   @@map("availability_type")
 }
 
+enum CareLogType {
+  MEAL
+  NAP
+  DIAPER
+  ACTIVITY
+  CUSTOM
+
+  @@map("care_log_type")
+}
+
 /// Central identity row — one per Firebase Auth user.
 /// Role-specific data (children, certifications, bio, location) lives on
 /// future MotherProfile / NannyProfile models, not here.
@@ -148,6 +158,7 @@ model NannyProfile {
   reviewCount       Int       @default(0) @map("review_count")
   bookings          Booking[]
   reviews           Review[]
+  careLogs          CareLog[]
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   deletedAt         DateTime? @map("deleted_at")
@@ -212,6 +223,7 @@ model Booking {
   deletedAt               DateTime?     @map("deleted_at")
 
   review                  Review?
+  careLogs                CareLog[]
   @@index([motherId])
   @@index([nannyProfileId])
   @@index([status])
@@ -273,4 +285,33 @@ model Review {
   @@index([nannyProfileId])
   @@index([motherId])
   @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Care Logs
+// ──────────────────────────────────────────────────────────────
+
+/// One entry per logged activity during an in-progress booking.
+/// `customLabel` is required only for type = CUSTOM. Evidence is a list of
+/// remote image URLs (clients upload the file to Firebase Storage first and
+/// then submit the resulting URL).
+model CareLog {
+  id             String       @id @default(cuid())
+  bookingId      String       @map("booking_id")
+  booking        Booking      @relation(fields: [bookingId], references: [id])
+  nannyProfileId String       @map("nanny_profile_id")
+  nannyProfile   NannyProfile @relation(fields: [nannyProfileId], references: [id])
+  type           CareLogType
+  customLabel    String?      @map("custom_label")
+  notes          String?      @db.Text
+  occurredAt     DateTime     @map("occurred_at")
+  evidenceUrls   String[]     @default([]) @map("evidence_urls")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt      @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@index([bookingId])
+  @@index([nannyProfileId])
+  @@index([occurredAt])
+  @@map("care_logs")
 }

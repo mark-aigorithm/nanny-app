@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
   // Header
   header: {
     position: 'absolute',
-    top: 0,
+    top: spacing.xs,
     left: 0,
     right: 0,
     backgroundColor: colors.background,

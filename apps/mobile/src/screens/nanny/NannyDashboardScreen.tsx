@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { useNannyDashboard } from '@mobile/hooks/useNannies';
+import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import { styles } from './styles/nanny-dashboard-screen.styles';
 
 type StatKey = 'totalBookings' | 'repeatClients' | 'averageRating' | 'responseRate';
@@ -24,13 +25,15 @@ const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; icon
 
 export default function NannyDashboardScreen() {
   const { data: dashboard, isLoading: loadingDashboard } = useNannyDashboard();
-  const { data: upcomingBookings = [], isLoading: loadingBookings } = useBookingList('CONFIRMED,IN_PROGRESS');
+  const { data: upcomingBookings = [], isLoading: loadingBookings } = useBookingList('CONFIRMED');
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <OngoingBookingBanner />
+
         {/* Earnings Card */}
         <View style={styles.earningsCard}>
           <Text style={styles.earningsTitle}>Your earnings</Text>

@@ -35,7 +35,8 @@ const config: ExpoConfig = {
     [
       'expo-image-picker',
       {
-        photosPermission: 'NannyApp needs access to your photos so you can set a profile picture.',
+        photosPermission: 'NannyApp needs access to your photos so you can set a profile picture or attach evidence to care log entries.',
+        cameraPermission: 'NannyApp needs access to your camera so you can attach photo evidence to care log entries.',
       },
     ],
   ],
@@ -48,7 +49,7 @@ const config: ExpoConfig = {
     // The IP must match whatever Metro prints at startup ("Metro waiting
     // on exp://192.168.x.x:8081"). Update this value when your DHCP lease
     // changes, or override via the API_BASE_URL env var.
-    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.11:3000',
+    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.17:3000',
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the
     // native @react-native-firebase modules. In a native/dev-client build,

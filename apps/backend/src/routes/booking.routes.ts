@@ -4,6 +4,7 @@ import {
   BookingListQuerySchema,
   CancelBookingSchema,
   CreateBookingSchema,
+  CreateCareLogSchema,
   CreateEmergencyBookingSchema,
   CreatePaymobIntentionSchema,
   MockPayBookingSchema,
@@ -23,6 +24,7 @@ import {
   listBookings,
   mockPayBooking,
 } from '@backend/services/booking.service';
+import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
 import { createPaymobIntentionForBooking } from '@backend/services/paymob.service';
 
 export const bookingRouter = Router();
@@ -144,6 +146,31 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const booking = await checkOutBooking(req.firebaseUser, String(req.params['id']));
       res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.get(
+  '/:id/care-logs',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const logs = await listCareLogs(req.firebaseUser, String(req.params['id']));
+      res.json(ok(logs));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/care-logs',
+  requireAuth,
+  validateBody(CreateCareLogSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const log = await createCareLog(req.firebaseUser, String(req.params['id']), req.body);
+      res.status(201).json(ok(log));
     } catch (err) { next(err); }
   },
 );
