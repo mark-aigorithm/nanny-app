@@ -231,6 +231,15 @@ model Payment {
   status              PaymentStatus @default(PENDING)
   paymobOrderId       String?       @map("paymob_order_id")
   paymobTransactionId String?       @map("paymob_transaction_id")
+  /// Paymob unified intention id (`id` from create-intention response).
+  paymobIntentionId   String?       @map("paymob_intention_id")
+  /// One-time client secret for Pixel / unified checkout and for server-side intention polling.
+  paymobClientSecret  String?       @map("paymob_client_secret") @db.Text
+  /// T0 for staggered reconciliation (usually intention creation time).
+  paymobReconcileAnchorAt DateTime? @map("paymob_reconcile_anchor_at")
+  /// Number of reconciliation polls already executed (0..PAYMOB_RECONCILE_OFFSETS_MS.length).
+  paymobReconcileAttempt  Int       @default(0) @map("paymob_reconcile_attempt")
+  paymobNextReconcileAt   DateTime? @map("paymob_next_reconcile_at")
   failureReason       String?       @map("failure_reason")
   refundedAmount      Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
   refundedAt          DateTime?     @map("refunded_at")
@@ -239,6 +248,7 @@ model Payment {
   deletedAt           DateTime?     @map("deleted_at")
 
   @@index([paymobOrderId])
+  @@index([paymobNextReconcileAt])
   @@map("payments")
 }
 

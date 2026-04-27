@@ -13,9 +13,14 @@ import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { IMG_BABY } from '@mobile/mocks/images';
 import { MOCK_CHILD, QUICK_ENTRIES, MOCK_LOG_ENTRIES } from '@mobile/mocks';
-import { styles } from './styles/nanny-care-log-screen.styles';
+import { styles } from './styles/care-log-screen.styles';
 
-export default function NannyCareLogScreen() {
+const TODAY_LABEL = new Date().toLocaleDateString('en-US', {
+  month: 'short',
+  day: 'numeric',
+});
+
+export default function CareLogScreen() {
   const router = useRouter();
   const [activeToggle, setActiveToggle] = useState<'falling-asleep' | 'woke-up'>('falling-asleep');
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
@@ -64,7 +69,7 @@ export default function NannyCareLogScreen() {
           <View style={styles.logHeader}>
             <Text style={styles.logTitle}>Today&apos;s log</Text>
             <View style={styles.logCountBadge}>
-              <Text style={styles.logCountText}>12</Text>
+              <Text style={styles.logCountText}>{MOCK_LOG_ENTRIES.length}</Text>
             </View>
           </View>
 
@@ -97,7 +102,7 @@ export default function NannyCareLogScreen() {
             </Pressable>
             <View>
               <Text style={styles.headerTitle}>Care log</Text>
-              <Text style={styles.headerSubtitle}>Apr 12</Text>
+              <Text style={styles.headerSubtitle}>{TODAY_LABEL}</Text>
             </View>
           </View>
           <Pressable style={styles.iconBtn}>
@@ -203,4 +208,3 @@ export default function NannyCareLogScreen() {
     </View>
   );
 }
-

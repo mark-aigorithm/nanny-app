@@ -5,6 +5,7 @@ import {
   CancelBookingSchema,
   CreateBookingSchema,
   CreateEmergencyBookingSchema,
+  CreatePaymobIntentionSchema,
   MockPayBookingSchema,
 } from '@nanny-app/shared';
 
@@ -22,6 +23,7 @@ import {
   listBookings,
   mockPayBooking,
 } from '@backend/services/booking.service';
+import { createPaymobIntentionForBooking } from '@backend/services/paymob.service';
 
 export const bookingRouter = Router();
 
@@ -88,6 +90,23 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const result = await mockPayBooking(req.firebaseUser, String(req.params['id']), req.body);
       res.json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/pay/paymob',
+  requireAuth,
+  validateBody(CreatePaymobIntentionSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const result = await createPaymobIntentionForBooking(
+        req.firebaseUser,
+        String(req.params['id']),
+        req.body,
+      );
+      res.status(201).json(ok(result));
     } catch (err) { next(err); }
   },
 );

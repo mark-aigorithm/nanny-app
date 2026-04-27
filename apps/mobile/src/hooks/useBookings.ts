@@ -92,6 +92,11 @@ export function fmtBookingDate(isoDate: string): string {
 
 export function fmtBookingTime(startIso: string, endIso: string): string {
   const fmt = (iso: string) =>
-    new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    new Date(iso).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'UTC',
+    });
   return `${fmt(startIso)} - ${fmt(endIso)}`;
 }

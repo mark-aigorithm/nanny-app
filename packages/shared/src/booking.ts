@@ -137,6 +137,12 @@ export const MockPayBookingSchema = z.object({
 });
 export type MockPayBookingRequest = z.infer<typeof MockPayBookingSchema>;
 
+/** Start a real Paymob unified checkout (intention) for a booking. */
+export const CreatePaymobIntentionSchema = z.object({
+  method: PaymentMethodSchema,
+});
+export type CreatePaymobIntentionRequest = z.infer<typeof CreatePaymobIntentionSchema>;
+
 export const BookingListQuerySchema = z.object({
   /** Comma-separated statuses, e.g. "CONFIRMED,IN_PROGRESS" */
   status: z.string().optional(),

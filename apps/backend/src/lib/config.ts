@@ -16,6 +16,17 @@ const ConfigSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
   FIREBASE_CLIENT_EMAIL: z.string().email('FIREBASE_CLIENT_EMAIL must be an email'),
   FIREBASE_PRIVATE_KEY: z.string().min(1, 'FIREBASE_PRIVATE_KEY is required'),
+
+  // Paymob unified (intention) API — all optional; feature enabled only when complete.
+  PAYMOB_SECRET_KEY: z.string().optional(),
+  PAYMOB_PUBLIC_KEY: z.string().optional(),
+  PAYMOB_HMAC_SECRET: z.string().optional(),
+  /** Comma-separated Paymob integration IDs, e.g. "4869470" or "123,456" */
+  PAYMOB_PAYMENT_METHOD_IDS: z.string().optional(),
+  /** e.g. https://accept.paymob.com — region-specific if Paymob gives a different host */
+  PAYMOB_API_BASE_URL: z.string().optional(),
+  /** Public origin of this API, e.g. https://api.example.com (no trailing slash). Used to build notification_url. */
+  PUBLIC_API_URL: z.string().optional(),
 });
 
 const parsed = ConfigSchema.safeParse(process.env);
@@ -28,6 +39,49 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
+function buildPaymobConfig():
+  | { enabled: false }
+  | {
+      enabled: true;
+      secretKey: string;
+      publicKey: string;
+      hmacSecret: string;
+      paymentMethodIds: number[];
+      apiBaseUrl: string;
+      publicApiUrl: string;
+    } {
+  const secretKey = raw.PAYMOB_SECRET_KEY?.trim();
+  const publicKey = raw.PAYMOB_PUBLIC_KEY?.trim();
+  const hmacSecret = raw.PAYMOB_HMAC_SECRET?.trim();
+  const idsRaw = raw.PAYMOB_PAYMENT_METHOD_IDS?.trim();
+  const publicApiUrl = raw.PUBLIC_API_URL?.trim().replace(/\/$/, '') ?? '';
+
+  if (!secretKey || !publicKey || !hmacSecret || !idsRaw || !publicApiUrl) {
+    return { enabled: false };
+  }
+
+  const paymentMethodIds = idsRaw
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  if (paymentMethodIds.length === 0) {
+    return { enabled: false };
+  }
+
+  const apiBaseUrl = (raw.PAYMOB_API_BASE_URL?.trim().replace(/\/$/, '') || 'https://accept.paymob.com');
+
+  return {
+    enabled: true,
+    secretKey,
+    publicKey,
+    hmacSecret,
+    paymentMethodIds,
+    apiBaseUrl,
+    publicApiUrl,
+  };
+}
+
 export const config = {
   nodeEnv: raw.NODE_ENV,
   port: raw.PORT,
@@ -39,6 +93,7 @@ export const config = {
     // into real newlines for the Firebase SDK.
     privateKey: raw.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
   },
+  paymob: buildPaymobConfig(),
 } as const;
 
 export type Config = typeof config;
