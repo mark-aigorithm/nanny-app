@@ -89,7 +89,12 @@ export default function HomeDashboardScreen() {
                 <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
                 <Pressable
                   style={styles.promoCta}
-                  onPress={() => router.push('/(parent)/marketplace')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(parent)/community-feed',
+                      params: { filter: 'Marketplace' },
+                    } as never)
+                  }
                 >
                   <Text style={styles.promoCtaText}>{item.cta}</Text>
                 </Pressable>

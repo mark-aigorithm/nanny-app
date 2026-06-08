@@ -10,6 +10,13 @@ import {
   STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
+export const postDetailTheme = {
+  iconDark: colors.textDark,
+  primary: colors.primary,
+  white: colors.white,
+  textPlaceholder: colors.textPlaceholder,
+} as const;
+
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -293,8 +300,7 @@ export const styles = StyleSheet.create({
 
   // ── Sticky reply input ──────────────────────────────────────────────────────
   replyInputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     paddingHorizontal: screenPadding,
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
@@ -328,5 +334,35 @@ export const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: colors.neutralLight,
+  },
+
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonAbsolute: {
+    position: 'absolute',
+    top: 56,
+    left: 20,
+  },
+  loadMorePressable: {
+    paddingVertical: 12,
+  },
+  loadMoreText: {
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  replyCancelText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  replyInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  replyInputFlex: {
+    flex: 1,
   },
 });

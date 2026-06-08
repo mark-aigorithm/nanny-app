@@ -101,6 +101,12 @@ export const styles = StyleSheet.create({
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing['2xl'],
     gap: spacing.lg,
   },
+  scrollContentEmpty: {
+    flexGrow: 1,
+  },
+  loadingIndicator: {
+    marginTop: 40,
+  },
 
   // Card
   card: {

@@ -6,7 +6,6 @@ import {
   spacing,
   screenPadding,
   borderRadius,
-  shadows,
   STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
@@ -16,7 +15,6 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: colors.background,
     paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
@@ -47,23 +45,34 @@ export const styles = StyleSheet.create({
     color: colors.white,
   },
 
-  // ── Scroll content ──────────────────────────────────────────────────────────
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: screenPadding,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing['4xl'],
-    gap: spacing.xl,
+    gap: spacing.lg,
   },
 
-  // ── Post type selector ──────────────────────────────────────────────────────
+  fieldGroup: {
+    gap: spacing.sm,
+  },
   sectionLabel: {
     ...typeScale.labelMd,
     color: colors.textTertiary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
+  fieldLabel: {
+    ...typeScale.labelSm,
+    color: colors.textDark,
+  },
+  fieldOptional: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    fontWeight: '400',
+  },
+
   typeChipsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -89,19 +98,72 @@ export const styles = StyleSheet.create({
     color: colors.white,
   },
 
-  // ── Text input area ─────────────────────────────────────────────────────────
-  textArea: {
+  textInput: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    minHeight: 160,
-    ...typeScale.bodyLg,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    ...typeScale.bodyMd,
     color: colors.textDark,
+  },
+  textArea: {
+    minHeight: 96,
+    maxHeight: 160,
     textAlignVertical: 'top',
-    ...shadows.sm,
+    paddingTop: spacing.md,
   },
 
-  // ── Image picker row ────────────────────────────────────────────────────────
+  selectField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  selectFieldText: {
+    ...typeScale.bodyMd,
+    color: colors.textDark,
+    flex: 1,
+  },
+
+  numberRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  numberField: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+    paddingHorizontal: spacing.md,
+  },
+  pricePrefix: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    marginRight: spacing.xs,
+  },
+  numberInputIcon: {
+    marginRight: spacing.xs,
+  },
+  priceInput: {
+    flex: 1,
+    paddingVertical: spacing.sm + 2,
+    ...typeScale.bodyMd,
+    color: colors.textDark,
+  },
+
   imagePickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,8 +175,8 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     borderWidth: 1,
     borderColor: colors.warmBorder,
     borderStyle: 'dashed',
@@ -123,11 +185,13 @@ export const styles = StyleSheet.create({
     ...typeScale.labelSm,
     color: colors.textTertiary,
   },
+  imagePreviewWrap: {
+    position: 'relative',
+  },
   imagePreview: {
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceMuted,
   },
   imagePreviewRemove: {
     position: 'absolute',
@@ -141,7 +205,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Tag selector ────────────────────────────────────────────────────────────
   tagsContainer: {
     gap: spacing.sm,
   },
@@ -152,8 +215,8 @@ export const styles = StyleSheet.create({
   },
   tagChip: {
     borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
     backgroundColor: colors.surfaceMuted,
   },
   tagChipActive: {

@@ -1,3 +1,12 @@
-import CreateEventScreen from '@mobile/screens/parent/CreateEventScreen';
+import { Redirect } from 'expo-router';
 
-export default CreateEventScreen;
+export default function CreateEventRedirect() {
+  return (
+    <Redirect
+      href={{
+        pathname: '/(parent)/create-post',
+        params: { type: 'event', returnTo: 'community-feed', filter: 'Events' },
+      }}
+    />
+  );
+}

@@ -1,2 +1,12 @@
-import MarketplaceScreen from '@mobile/screens/parent/MarketplaceScreen';
-export default MarketplaceScreen;
+import { Redirect } from 'expo-router';
+
+export default function MarketplaceRedirect() {
+  return (
+    <Redirect
+      href={{
+        pathname: '/(parent)/community-feed',
+        params: { filter: 'Marketplace' },
+      }}
+    />
+  );
+}

@@ -3,6 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 const config: ExpoConfig = {
   name: 'NannyApp',
   slug: 'nanny-app',
+  scheme: 'nanny-app',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -44,12 +45,9 @@ const config: ExpoConfig = {
     typedRoutes: true,
   },
   extra: {
-    // Points at the laptop's LAN IP so the iPhone (on the same Wi-Fi) can
-    // actually reach it. `localhost` on the phone means the phone itself.
-    // The IP must match whatever Metro prints at startup ("Metro waiting
-    // on exp://192.168.x.x:8081"). Update this value when your DHCP lease
-    // changes, or override via the API_BASE_URL env var.
-    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.17:3000',
+    // Production / fallback URL. In dev, api.ts derives the host from Metro's
+    // hostUri so it stays in sync with the IP printed at startup.
+    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.10:3000',
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the
     // native @react-native-firebase modules. In a native/dev-client build,

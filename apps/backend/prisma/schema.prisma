@@ -126,6 +126,11 @@ model User {
   cancelledBookings Booking[]  @relation("BookingCancelledBy")
   payments          Payment[]  @relation("PaymentMother")
   reviewsGiven      Review[]   @relation("ReviewMother")
+  communityPosts    CommunityPost[]
+  postLikes         PostLike[]
+  comments          Comment[]
+  commentLikes      CommentLike[]
+  eventRsvps        EventRsvp[]
 
   @@index([role])
   @@index([deletedAt])
@@ -314,4 +319,116 @@ model CareLog {
   @@index([nannyProfileId])
   @@index([occurredAt])
   @@map("care_logs")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Community
+// ──────────────────────────────────────────────────────────────
+
+enum CommunityPostType {
+  QA
+  MARKETPLACE
+  EVENT
+
+  @@map("community_post_type")
+}
+
+model CommunityPost {
+  id            String            @id @default(cuid())
+  authorId      String            @map("author_id")
+  author        User              @relation(fields: [authorId], references: [id])
+  type          CommunityPostType
+  title         String?
+  body          String?           @db.Text
+  imageUrls     String[]          @default([]) @map("image_urls")
+  price         Decimal?          @db.Decimal(10, 2)
+  location      String?
+  eventStartsAt DateTime?         @map("event_starts_at")
+  maxAttendees  Int?              @map("max_attendees")
+  rsvpCount     Int               @default(0) @map("rsvp_count")
+  tags          String[]          @default([])
+  likeCount     Int               @default(0) @map("like_count")
+  commentCount  Int               @default(0) @map("comment_count")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  deletedAt     DateTime?         @map("deleted_at")
+
+  likes    PostLike[]
+  comments Comment[]
+  rsvps    EventRsvp[]
+
+  @@index([type, createdAt])
+  @@index([authorId, createdAt])
+  @@map("community_posts")
+}
+
+model PostLike {
+  id        String        @id @default(cuid())
+  postId    String        @map("post_id")
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  deletedAt DateTime?     @map("deleted_at")
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model Comment {
+  id              String        @id @default(cuid())
+  postId          String        @map("post_id")
+  post            CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId        String        @map("author_id")
+  author          User          @relation(fields: [authorId], references: [id])
+  parentCommentId String?       @map("parent_comment_id")
+  parentComment   Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[]     @relation("CommentReplies")
+  body            String        @db.Text
+  likeCount       Int           @default(0) @map("like_count")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  likes CommentLike[]
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+model CommentLike {
+  id        String    @id @default(cuid())
+  commentId String    @map("comment_id")
+  comment   Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+  @@map("comment_likes")
+}
+
+model EventRsvp {
+  id        String        @id @default(cuid())
+  postId    String        @map("post_id")
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  deletedAt DateTime?     @map("deleted_at")
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("event_rsvps")
 }

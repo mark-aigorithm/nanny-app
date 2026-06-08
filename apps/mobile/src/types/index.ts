@@ -22,15 +22,12 @@ export type {
 } from './booking';
 
 export type {
-  PostTag,
+  CommunityPostResponse,
+  CommunityPostType,
+  CommentResponse,
   CommunityTab,
-  PostAuthor,
-  BasePost,
-  AdvicePost,
-  MarketplacePost,
-  EventPost,
-  Post,
-  Comment,
+  CommunityFilterPill,
+  CreatePostUiType,
 } from './community';
 
 export type { Attendee, EventData, CreateEventData } from './events';

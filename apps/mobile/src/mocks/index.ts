@@ -1,7 +1,6 @@
 export { MOCK_NANNIES_HOME, MOCK_NANNIES_SEARCH, MOCK_NANNIES_RESULTS, MOCK_NANNY_BOOKING } from './nannies';
 export { MOCK_BOOKING, MOCK_UPCOMING_BOOKINGS, MOCK_PAST_BOOKINGS } from './bookings';
 export { PROMO_CARDS, QUICK_ACTIONS, RECOMMENDED_NANNIES, FAVOURITE_NANNIES } from './dashboard';
-export { MOCK_POSTS } from './community';
 export { MOCK_EVENTS } from './events';
 export { MOCK_PRODUCTS } from './marketplace';
 export { MOCK_CONVERSATIONS, MOCK_MESSAGES } from './messages';
@@ -20,7 +19,6 @@ export { MOCK_FAQS } from './support';
 export { MOCK_REVIEWS } from './reviews';
 export { MOCK_NANNY_PROFILE } from './nanny-profile';
 export { MOCK_BOOKING_DETAIL, MOCK_PAYMENT_METHODS, MOCK_TIME_SLOTS } from './bookings';
-export { MOCK_COMMENTS } from './community';
 export { MOCK_PRODUCT_DETAIL, MOCK_SIMILAR_PRODUCTS } from './marketplace';
 export { MOCK_ACCOUNT_DETAILS } from './profile';
 export {
