@@ -17,6 +17,7 @@ import { errors } from '@backend/lib/errors';
 import {
   acceptBooking,
   cancelBooking,
+  checkInBooking,
   checkOutBooking,
   createBooking,
   createEmergencyBooking,
@@ -25,7 +26,10 @@ import {
   mockPayBooking,
 } from '@backend/services/booking.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
-import { createPaymobIntentionForBooking } from '@backend/services/paymob.service';
+import {
+  createPaymobIntentionForBooking,
+  syncPaymobPaymentForBooking,
+} from '@backend/services/paymob.service';
 
 export const bookingRouter = Router();
 
@@ -114,6 +118,20 @@ bookingRouter.post(
 );
 
 bookingRouter.post(
+  '/:id/pay/paymob/sync',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const bookingId = String(req.params['id']);
+      await syncPaymobPaymentForBooking(req.firebaseUser, bookingId);
+      const booking = await getBooking(req.firebaseUser, bookingId);
+      res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
   '/:id/cancel',
   requireAuth,
   validateBody(CancelBookingSchema),
@@ -133,6 +151,18 @@ bookingRouter.post(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       const booking = await acceptBooking(req.firebaseUser, String(req.params['id']));
+      res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/check-in',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const booking = await checkInBooking(req.firebaseUser, String(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },

@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
+import { OTP_LENGTH, RESEND_SECONDS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import {
   useLinkPhoneNumber,
@@ -204,7 +204,7 @@ export default function RegistrationStep3Screen() {
           <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
             <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </Pressable>
-          <Text style={styles.brandText}>NannyMom</Text>
+          <Text style={styles.brandText}>{APP_NAME}</Text>
         </View>
       </View>
 

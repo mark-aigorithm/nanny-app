@@ -12,15 +12,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
-import { Avatar } from '@mobile/components/ui';
+import ParentTabHeader from '@mobile/components/ParentTabHeader';
+import ParentTabFab from '@mobile/components/ParentTabFab';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 import type { NannyListItem, AvailabilityType } from '@nanny-app/shared';
 import { HOME_FILTER_TABS } from '@mobile/constants';
 import type { FilterTab } from '@mobile/constants';
 import { IMG_HERO } from '@mobile/mocks/images';
-import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useNannyList } from '@mobile/hooks/useNannies';
+import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
+
+const SHOW_HOME_BANNER = false;
 
 const FILTER_TO_AVAILABILITY: Partial<Record<FilterTab, AvailabilityType>> = {
   'Full-time': 'FULL_TIME',
@@ -36,7 +39,6 @@ const FILTER_TO_AVAILABILITY: Partial<Record<FilterTab, AvailabilityType>> = {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const profile = useUserProfileStore((s) => s.profile);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
@@ -54,14 +56,15 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero — tap to view dashboard */}
-        <Pressable style={styles.heroSection} onPress={() => router.push('/(parent)/home-dashboard' as never)}>
-          <Text style={styles.heroTitle}>{'Find the perfect nanny\ntoday'}</Text>
-          <View style={styles.heroImageWrap}>
-            <Image source={{ uri: IMG_HERO }} style={styles.heroImage} resizeMode="cover" />
-            <View style={styles.heroOverlay} />
-          </View>
-        </Pressable>
+        {SHOW_HOME_BANNER && (
+          <Pressable style={styles.heroSection} onPress={() => router.push('/(parent)/home-dashboard' as never)}>
+            <Text style={styles.heroTitle}>{'Find the perfect nanny\ntoday'}</Text>
+            <View style={styles.heroImageWrap}>
+              <Image source={{ uri: IMG_HERO }} style={styles.heroImage} resizeMode="cover" />
+              <View style={styles.heroOverlay} />
+            </View>
+          </Pressable>
+        )}
 
         {/* Quick filters */}
         <ScrollView
@@ -112,43 +115,26 @@ export default function HomeScreen() {
         </View>
 
         {/* Editorial block */}
-        <View style={styles.editorial}>
+        <Pressable
+          style={styles.editorial}
+          onPress={() => router.push('/(parent)/nanny-selection-guide')}
+        >
           <Text style={styles.editorialTag}>Curated Advice</Text>
           <Text style={styles.editorialTitle}>The Nanny Selection Guide: 5 Questions to Ask</Text>
           <Text style={styles.editorialBody}>
             Finding the right fit for your family sanctuary starts with deep alignment on values and
             safety standards.
           </Text>
-          <TouchableOpacity style={styles.readBtn} activeOpacity={0.7}>
+          <View style={styles.readBtn}>
             <Text style={styles.readBtnText}>Read article</Text>
             <Ionicons name="chevron-forward" size={12} color={colors.primaryDark} />
-          </TouchableOpacity>
-        </View>
+          </View>
+        </Pressable>
       </ScrollView>
 
-      {/* ── Fixed: Header ── */}
-      <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <Text style={styles.logoText}>NannyMom</Text>
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              activeOpacity={0.7}
-              onPress={() => router.push('/(parent)/notifications')}
-            >
-              <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
-              <Avatar uri={profile?.avatarUrl ?? undefined} size="sm" fallbackInitial={profile?.firstName?.[0]} />
-            </Pressable>
-          </View>
-        </View>
-      </View>
+      <ParentTabHeader />
 
-      {/* ── Fixed: FAB ── */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => router.push('/(parent)/search')}>
-        <Ionicons name="add" size={22} color={colors.white} />
-      </TouchableOpacity>
+      <ParentTabFab onPress={() => router.push('/(parent)/search')} />
 
       <BottomNav activeTab="home" />
     </View>
@@ -203,8 +189,8 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
 
         <View style={styles.cardFooter}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceAmount}>${nanny.hourlyRate ?? '—'}</Text>
-            <Text style={styles.priceUnit}>/hr</Text>
+            <Text style={styles.priceAmount}>{formatHourlyRateAmount(nanny.hourlyRate)}</Text>
+            {nanny.hourlyRate != null && <Text style={styles.priceUnit}>/hr</Text>}
           </View>
           <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85} onPress={() => onViewProfile(nanny.nannyProfileId)}>
             <Text style={styles.bookBtnText}>Book Now</Text>

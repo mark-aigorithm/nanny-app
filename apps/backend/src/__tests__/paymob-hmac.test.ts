@@ -3,6 +3,7 @@ import {
   computePaymobHmacHex,
   verifyPaymobTransactionHmac,
 } from '@backend/lib/paymob/hmac';
+import { normalizeMerchantPaymentReference } from '@backend/lib/paymob/parse-webhook';
 import type { PaymobTransactionHmacPayload } from '@backend/lib/paymob/types';
 
 describe('Paymob transaction HMAC', () => {
@@ -48,5 +49,12 @@ describe('Paymob transaction HMAC', () => {
   it('rejects tampered HMAC', () => {
     const plain = buildTransactionHmacPlaintext(sample);
     expect(verifyPaymobTransactionHmac(plain, 'abc123', 'unit_test_hmac')).toBe(false);
+  });
+});
+
+describe('Paymob merchant payment reference', () => {
+  it('normalizes retry suffixes back to the payment id', () => {
+    expect(normalizeMerchantPaymentReference('clxyz123')).toBe('clxyz123');
+    expect(normalizeMerchantPaymentReference('clxyz123-r2')).toBe('clxyz123');
   });
 });

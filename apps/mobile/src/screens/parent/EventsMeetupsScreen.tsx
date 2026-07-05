@@ -5,12 +5,13 @@ import {
   ScrollView,
   Pressable,
   Image,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
+import { APP_NAME } from '@mobile/constants';
 import { IMG_USER_PROFILE_COMMUNITY } from '@mobile/mocks/images';
 import { MOCK_EVENTS } from '@mobile/mocks';
 import { styles } from './styles/events-meetups-screen.styles';
@@ -32,13 +33,20 @@ export default function EventsMeetupsScreen() {
             <Pressable onPress={() => router.back()} hitSlop={8}>
               <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
             </Pressable>
-            <Text style={styles.headerTitle}>NannyMom</Text>
+            <Text style={styles.headerTitle}>{APP_NAME}</Text>
             <View style={styles.headerRight}>
               <View style={styles.locationPill}>
                 <Ionicons name="location" size={14} color={colors.textTertiary} />
                 <Text style={styles.locationText}>Brooklyn, NY</Text>
               </View>
-              <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/(parent)/mother-profile',
+                    params: { returnTo: 'events-meetups' },
+                  } as never)
+                }
+              >
                 <View style={styles.headerAvatarBorder}>
                   <Image source={{ uri: IMG_USER_PROFILE_COMMUNITY }} style={styles.headerAvatar} />
                 </View>

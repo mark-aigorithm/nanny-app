@@ -8,6 +8,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { requestPushPermissionAndRegister } from '@mobile/hooks/usePushNotifications';
 import { colors } from '@mobile/theme';
 import IconCircle from '@mobile/components/ui/icon-circle';
 import { styles } from './styles/notification-permission-screen.styles';
@@ -25,8 +26,11 @@ export default function NotificationPermissionScreen() {
   const homeRoute = role === 'nanny' ? '/(nanny)/dashboard' : '/(parent)/home';
 
   async function handleEnable() {
-    // TODO: Wire up expo-notifications permission request at runtime
-    // await Notifications.requestPermissionsAsync();
+    try {
+      await requestPushPermissionAndRegister();
+    } catch {
+      // Permission denied or native module unavailable — still continue onboarding.
+    }
     router.replace(homeRoute);
   }
 

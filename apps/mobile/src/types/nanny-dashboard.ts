@@ -15,7 +15,7 @@ export interface NannyBookingRequest {
   location: string;
   hourlyRate: number;
   totalAmount: number;
-  status: 'pending' | 'accepted' | 'declined';
+  status: 'accepted' | 'declined';
   requestedAt: string;
   specialInstructions?: string;
 }

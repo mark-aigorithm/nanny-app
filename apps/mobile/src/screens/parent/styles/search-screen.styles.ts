@@ -7,6 +7,8 @@ import {
   borderRadius,
   shadows,
   screenPadding,
+  PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
+  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -18,68 +20,10 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 172,
-    paddingBottom: 100,
+    paddingTop: PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
+    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
     paddingHorizontal: screenPadding,
     gap: spacing['2xl'],
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.taupeHeader,
-    zIndex: 10,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  headerTitle: {
-    ...typeScale.headingMd,
-    color: colors.primary,
-  },
-  headerAvatarBorder: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(151, 165, 145, 0.2)',
-    overflow: 'hidden',
-    padding: 1,
-    backgroundColor: colors.neutralLight,
-  },
-  headerAvatar: {
-    flex: 1,
-    borderRadius: borderRadius.lg,
-  },
-  searchBarContainer: {
-    paddingHorizontal: screenPadding,
-    paddingBottom: spacing.lg,
-  },
-  searchBar: {
-    backgroundColor: colors.taupe,
-    borderRadius: borderRadius.xl,
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.lg,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
-    color: colors.textPrimary,
   },
 
   // Filter chips

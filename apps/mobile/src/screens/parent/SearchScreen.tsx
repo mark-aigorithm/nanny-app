@@ -5,16 +5,17 @@ import {
   ScrollView,
   Pressable,
   Image,
-  SafeAreaView,
-  TextInput,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import ParentTabHeader from '@mobile/components/ParentTabHeader';
+import ParentTabSearchStrip from '@mobile/components/ParentTabSearchStrip';
 import { colors } from '@mobile/theme';
-import { IMG_FEATURED_BANNER, IMG_USER_PROFILE_SEARCH } from '@mobile/mocks/images';
 import { useNannyList } from '@mobile/hooks/useNannies';
+import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import { styles } from './styles/search-screen.styles';
 import type { NannyListItem } from '@nanny-app/shared';
 
@@ -76,8 +77,8 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
         )}
         <View style={styles.nannyPriceRow}>
           <Text style={styles.nannyPrice}>
-            <Text style={styles.nannyPriceAmount}>${nanny.hourlyRate ?? '—'}</Text>
-            <Text style={styles.nannyPriceUnit}>/hr</Text>
+            <Text style={styles.nannyPriceAmount}>{formatHourlyRateAmount(nanny.hourlyRate)}</Text>
+            {nanny.hourlyRate != null && <Text style={styles.nannyPriceUnit}>/hr</Text>}
           </Text>
           <Pressable style={styles.viewProfileButton} onPress={() => onViewProfile(nanny.nannyProfileId)}>
             <Text style={styles.viewProfileText}>View Profile</Text>
@@ -108,6 +109,8 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -154,78 +157,27 @@ export default function SearchScreen() {
         )}
 
         {/* Nanny Cards */}
-        {!isLoading && !isError && nannies.map((nanny, index) => (
-          <React.Fragment key={nanny.nannyProfileId}>
-            <NannyCard
-              nanny={nanny}
-              onViewProfile={(id) =>
-                router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } })
-              }
-            />
-            {index === 1 && (
-              <View style={styles.featuredBanner}>
-                <View style={styles.featuredPremiumBadge}>
-                  <Text style={styles.featuredPremiumText}>Premium Selection</Text>
-                </View>
-                <Text style={styles.featuredTitle}>Elite Care for Your Sanctuary</Text>
-                <Text style={styles.featuredBody}>
-                  {`Our Pro+ nannies have completed background checks, pediatric first aid, and professional training certifications.`}
-                </Text>
-                <Pressable
-                  style={styles.featuredButton}
-                  onPress={() => router.push('/(parent)/search-results')}
-                >
-                  <Text style={styles.featuredButtonText}>Explore Pro+</Text>
-                </Pressable>
-                <View style={styles.featuredImageContainer}>
-                  <Image
-                    source={{ uri: IMG_FEATURED_BANNER }}
-                    style={styles.featuredImage}
-                    resizeMode="cover"
-                  />
-                </View>
-              </View>
-            )}
-          </React.Fragment>
+        {!isLoading && !isError && nannies.map((nanny) => (
+          <NannyCard
+            key={nanny.nannyProfileId}
+            nanny={nanny}
+            onViewProfile={(id) =>
+              router.push({ pathname: '/(parent)/nanny/nanny-profile', params: { id } })
+            }
+          />
         ))}
       </ScrollView>
 
-      {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <SafeAreaView>
-          <View style={styles.headerInner}>
-            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
-              <Ionicons name="menu-outline" size={22} color={colors.primary} />
-            </Pressable>
-            <Text style={styles.headerTitle}>Explore</Text>
-            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
-              <View style={styles.headerAvatarBorder}>
-                <Image source={{ uri: IMG_USER_PROFILE_SEARCH }} style={styles.headerAvatar} />
-              </View>
-            </Pressable>
-          </View>
-          <View style={styles.searchBarContainer}>
-            <View style={styles.searchBar}>
-              <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Find the perfect nanny..."
-                placeholderTextColor={colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-              />
-              {searchQuery.length > 0 && (
-                <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </SafeAreaView>
-      </View>
+      <ParentTabHeader />
 
-      <BottomNav activeTab="search" messagesBadge={1} />
+      <ParentTabSearchStrip
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Find the perfect nanny..."
+        onClear={() => setSearchQuery('')}
+      />
+
+      <BottomNav activeTab="home" messagesBadge={1} />
     </View>
   );
 }

@@ -1,5 +1,7 @@
 import type { CommunityPostResponse, CommunityPostType, PaginationMeta } from '@nanny-app/shared';
 
+import { formatMoney } from './formatMoney';
+
 export function formatTimeAgo(isoDate: string): string {
   const diffMs = Date.now() - new Date(isoDate).getTime();
   const minutes = Math.floor(diffMs / 60_000);
@@ -19,7 +21,7 @@ export function formatAuthorName(author: CommunityPostResponse['author']): strin
 
 export function formatPrice(price: number | null): string {
   if (price === null) return 'Free';
-  return `EGP ${price.toLocaleString()}`;
+  return formatMoney(price, { fractionDigits: 0 });
 }
 
 export function formatEventDate(isoDate: string | null): string {
@@ -61,6 +63,30 @@ export function filterPillToType(pill: string): CommunityFeedFilter {
     default:
       return undefined;
   }
+}
+
+export function filterPostsBySearch(
+  posts: CommunityPostResponse[],
+  query: string,
+): CommunityPostResponse[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return posts;
+
+  return posts.filter((post) => {
+    const haystack = [
+      post.title,
+      post.body,
+      post.location,
+      formatAuthorName(post.author),
+      ...post.tags,
+      getPostTypeLabel(post.type),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalized);
+  });
 }
 
 export function createTypeToUi(type: CommunityPostType): 'Q&A' | 'Marketplace' | 'Event' {
@@ -107,7 +133,10 @@ export function getCommunityReturnHref(params: {
       ...(params.filter ? { params: { filter: params.filter } } : {}),
     };
   }
-  return { pathname: '/(parent)/community' };
+  return {
+    pathname: '/(parent)/community',
+    ...(params.filter ? { params: { filter: params.filter } } : {}),
+  };
 }
 
 /** @deprecated Use getCommunityReturnHref */

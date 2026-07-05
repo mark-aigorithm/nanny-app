@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors } from '@mobile/theme';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
+import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { formatMoney, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import type { BookingStatus } from '@nanny-app/shared';
 import { styles } from './styles/booking-detail-screen.styles';
 
@@ -27,10 +29,44 @@ function getStatusStyle(status: BookingStatus) {
 
 export default function BookingDetailScreen() {
   const router = useRouter();
-  const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
+  const { bookingId, returnTo, focusCareLog } = useLocalSearchParams<{
+    bookingId?: string;
+    returnTo?: string;
+    focusCareLog?: string;
+  }>();
+
+  const scrollRef = useRef<ScrollView>(null);
+  const careLogScrollY = useRef(0);
 
   const { data: booking, isLoading } = useBooking(bookingId);
+  const canViewCareLog =
+    booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED';
   const cancelBooking = useCancelBooking();
+
+  useEffect(() => {
+    if (focusCareLog !== '1' || isLoading || !booking || !canViewCareLog) return;
+
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(careLogScrollY.current - HEADER_HEIGHT, 0),
+        animated: true,
+      });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [focusCareLog, isLoading, booking, canViewCareLog]);
+
+  const handleBack = () => {
+    if (returnTo === 'bookings') {
+      router.replace('/(parent)/bookings' as never);
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(parent)/bookings' as never);
+  };
 
   const handleCancel = () => {
     if (!bookingId) return;
@@ -46,7 +82,7 @@ export default function BookingDetailScreen() {
             cancelBooking.mutate(
               { id: bookingId, reason: 'Cancelled by parent' },
               {
-                onSuccess: () => router.back(),
+                onSuccess: () => handleBack(),
                 onError: (err) => Alert.alert('Error', err.message),
               },
             );
@@ -77,7 +113,12 @@ export default function BookingDetailScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Status Badge */}
         <View style={[styles.statusBadge, statusStyle.badge]}>
           <Text style={[styles.statusText, statusStyle.text]}>{booking.status}</Text>
@@ -127,17 +168,19 @@ export default function BookingDetailScreen() {
         {/* Payment Summary */}
         <View style={styles.paymentCard}>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Base ${booking.baseRate} × {booking.durationHours}h</Text>
-            <Text style={styles.paymentValue}>${booking.subtotal.toFixed(2)}</Text>
+            <Text style={styles.paymentLabel}>
+              Base {formatHourlyRateAmount(booking.baseRate)} × {booking.durationHours}h
+            </Text>
+            <Text style={styles.paymentValue}>{formatMoney(booking.subtotal)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Service fee ({booking.serviceFeePercent}%)</Text>
-            <Text style={styles.paymentValue}>${booking.serviceFeeAmount.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>{formatMoney(booking.serviceFeeAmount)}</Text>
           </View>
           <View style={styles.paymentDivider} />
           <View style={styles.paymentRow}>
             <Text style={styles.paymentTotalLabel}>Total</Text>
-            <Text style={styles.paymentTotalValue}>${booking.totalAmount.toFixed(2)}</Text>
+            <Text style={styles.paymentTotalValue}>{formatMoney(booking.totalAmount)}</Text>
           </View>
           {booking.payment && (
             <View style={styles.paymentRow}>
@@ -147,7 +190,16 @@ export default function BookingDetailScreen() {
           )}
         </View>
 
-        {/* Action Buttons */}
+        {canViewCareLog && bookingId ? (
+          <View
+            onLayout={(event) => {
+              careLogScrollY.current = event.nativeEvent.layout.y;
+            }}
+          >
+            <BookingCareLogSection bookingId={bookingId} />
+          </View>
+        ) : null}
+
         {canCancel && (
           <View style={styles.actionsSection}>
             <Pressable
@@ -166,7 +218,7 @@ export default function BookingDetailScreen() {
       {/* Header */}
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Pressable style={styles.iconBtn} onPress={() => router.back()} hitSlop={8}>
+          <Pressable style={styles.iconBtn} onPress={handleBack} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Booking details</Text>

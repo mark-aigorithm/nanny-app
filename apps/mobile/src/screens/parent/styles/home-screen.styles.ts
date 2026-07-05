@@ -7,9 +7,8 @@ import {
   borderRadius,
   shadows,
   screenPadding,
-  STATUS_BAR_HEIGHT,
-  HEADER_HEIGHT,
-  BOTTOM_NAV_HEIGHT,
+  PARENT_TAB_CONTENT_TOP,
+  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -23,10 +22,10 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: HEADER_HEIGHT + spacing.lg,
-    paddingBottom: BOTTOM_NAV_HEIGHT + 40,
+    paddingTop: PARENT_TAB_CONTENT_TOP,
+    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
     paddingHorizontal: screenPadding,
-    gap: 40,
+    gap: spacing['2xl'],
   },
 
   // Hero
@@ -258,59 +257,4 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primaryDark,
   },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.taupeHeader,
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.lg,
-  },
-  logoText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 24,
-    lineHeight: 32,
-    letterSpacing: -1.2,
-    color: colors.primary,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    bottom: BOTTOM_NAV_HEIGHT + spacing.lg,
-    right: screenPadding,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primaryDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-
 });

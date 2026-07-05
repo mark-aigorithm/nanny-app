@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { UserResponse } from '@nanny-app/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UpdateProfileRequest, UserResponse } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { useAuthStore } from '@mobile/store/authStore';
@@ -39,4 +39,18 @@ export function useMe() {
   }, [query.data, firebaseUser, setProfile]);
 
   return query;
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const firebaseUser = useAuthStore((s) => s.user);
+  const setProfile = useUserProfileStore((s) => s.setProfile);
+
+  return useMutation<UserResponse, Error, UpdateProfileRequest>({
+    mutationFn: (body) => unwrap(api.patch('/auth/me', body)),
+    onSuccess: (updated) => {
+      setProfile(updated);
+      queryClient.setQueryData(['auth', 'me', firebaseUser?.uid], updated);
+    },
+  });
 }

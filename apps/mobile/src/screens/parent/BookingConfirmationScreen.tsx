@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { formatMoney } from '@mobile/lib/formatMoney';
 import { styles } from './styles/booking-confirmation-screen.styles';
 
 export default function BookingConfirmationScreen() {
@@ -46,7 +47,7 @@ export default function BookingConfirmationScreen() {
   const nannyPhoto = booking.nanny?.avatarUrl ?? '';
   const dateDisplay = fmtBookingDate(booking.date);
   const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
-  const totalDisplay = `$${booking.totalAmount.toFixed(2)}`;
+  const totalDisplay = formatMoney(booking.totalAmount);
 
   return (
     <ScrollView

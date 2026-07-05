@@ -365,4 +365,20 @@ export const styles = StyleSheet.create({
   replyInputFlex: {
     flex: 1,
   },
+  messageSellerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    ...shadows.sm,
+  },
+  messageSellerButtonText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 15,
+    color: colors.white,
+  },
 });

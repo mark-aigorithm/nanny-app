@@ -14,7 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import type { Child } from '@mobile/types';
-import { PREFERENCE_OPTIONS } from '@mobile/constants';
+import { PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -67,7 +67,7 @@ export default function RegistrationStep2Screen() {
             <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
               <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
             </Pressable>
-            <Text style={styles.brandText}>NannyMom</Text>
+            <Text style={styles.brandText}>{APP_NAME}</Text>
           </View>
           <View style={styles.miniProgressTrack}>
             <View style={styles.miniProgressFill} />

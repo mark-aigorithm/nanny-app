@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, borderRadius } from '@mobile/theme';
 import { Avatar, Card } from '@mobile/components/ui';
 import { useNannyPublicProfile } from '@mobile/hooks/useNannies';
+import { formatHourlyRate } from '@mobile/lib/formatMoney';
 import { styles } from './styles/nanny-profile-screen.styles';
 import type { ReviewSummary } from '@nanny-app/shared';
 
@@ -106,7 +107,7 @@ export default function NannyProfileScreen() {
               <Text style={styles.nannyName}>{fullName}</Text>
             </View>
             <Text style={styles.hourlyRate}>
-              {nanny.hourlyRate ? `$${nanny.hourlyRate}/hr` : 'Rate TBD'}
+              {formatHourlyRate(nanny.hourlyRate, 'Rate TBD')}
             </Text>
           </View>
 
@@ -147,12 +148,6 @@ export default function NannyProfileScreen() {
 
           {/* Quick action buttons */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}
-              onPress={() => router.push('/(parent)/chat/messaging')}
-            >
-              <Ionicons name="chatbubble-outline" size={18} color={colors.primaryDark} />
-              <Text style={styles.actionBtnText}>Message</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtn}
               activeOpacity={0.7}
@@ -275,7 +270,7 @@ export default function NannyProfileScreen() {
           }
         >
           <Text style={styles.bookButtonText}>
-            Book {nanny.firstName} — {nanny.hourlyRate ? `$${nanny.hourlyRate}/hr` : 'Rate TBD'}
+            Book {nanny.firstName} — {formatHourlyRate(nanny.hourlyRate, 'Rate TBD')}
           </Text>
         </TouchableOpacity>
       </View>

@@ -4,9 +4,9 @@ import {
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
@@ -171,7 +171,7 @@ export default function MarketplaceScreen() {
         </SafeAreaView>
       </View>
 
-      <BottomNav activeTab="search" />
+      <BottomNav activeTab="home" />
     </View>
   );
 }

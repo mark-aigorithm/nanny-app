@@ -10,13 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
-  Modal,
   ActivityIndicator,
 } from 'react-native';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
+import { CURRENCY_CODE } from '@mobile/lib/formatMoney';
+import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
+import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
 import { useNannyProfile, useUpdateNannyProfile } from '@mobile/hooks/useNannyProfile';
 import { AvailabilityType } from '@nanny-app/shared';
@@ -62,26 +63,6 @@ function uiScheduleToApi(schedule: Record<number, DaySchedule>): WeeklySchedule 
   return result;
 }
 
-function formatTime(hhmm: string): string {
-  const parts = hhmm.split(':');
-  const h = parseInt(parts[0] ?? '8', 10);
-  const m = parseInt(parts[1] ?? '0', 10);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
-}
-
-function timeToDate(hhmm: string): Date {
-  const parts = hhmm.split(':').map(Number);
-  const d = new Date();
-  d.setHours(parts[0] ?? 8, parts[1] ?? 0, 0, 0);
-  return d;
-}
-
-function dateToTime(date: Date): string {
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const AGE_RANGE_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
@@ -115,7 +96,6 @@ export default function NannyProfileEditScreen() {
     () => structuredClone(DEFAULT_SCHEDULE),
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
-  const [pickerDate, setPickerDate] = useState(new Date());
 
   // Populate form when profile data loads
   useEffect(() => {
@@ -176,16 +156,11 @@ export default function NannyProfileEditScreen() {
   };
 
   const openPicker = (day: number, field: 'start' | 'end') => {
-    const slot = schedule[day];
-    if (!slot) return;
-    setPickerDate(timeToDate(field === 'start' ? slot.startTime : slot.endTime));
     setPickerTarget({ day, field });
   };
 
-  const onTimeChange = (_event: DateTimePickerEvent, selected?: Date) => {
-    if (!selected || !pickerTarget) return;
-    setPickerDate(selected);
-    const time = dateToTime(selected);
+  const handleTimeSelect = (time: string) => {
+    if (!pickerTarget) return;
     setSchedule((prev) => ({
       ...prev,
       [pickerTarget.day]: {
@@ -193,7 +168,7 @@ export default function NannyProfileEditScreen() {
         ...(pickerTarget.field === 'start' ? { startTime: time } : { endTime: time }),
       },
     }));
-    if (Platform.OS === 'android') setPickerTarget(null);
+    setPickerTarget(null);
   };
 
   const copyToAllActiveDays = () => {
@@ -293,7 +268,7 @@ export default function NannyProfileEditScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Hourly rate</Text>
             <View style={styles.rateInputRow}>
-              <Text style={styles.ratePrefix}>$</Text>
+              <Text style={styles.ratePrefix}>{CURRENCY_CODE}</Text>
               <TextInput style={styles.rateInput} value={hourlyRate} onChangeText={setHourlyRate} keyboardType="decimal-pad" />
               <Text style={styles.rateUnit}>/hr</Text>
             </View>
@@ -391,11 +366,11 @@ export default function NannyProfileEditScreen() {
                       {slot.available ? (
                         <>
                           <Pressable style={styles.timePill} onPress={() => openPicker(day, 'start')}>
-                            <Text style={styles.timePillText}>{formatTime(slot.startTime)}</Text>
+                            <Text style={styles.timePillText}>{formatTimeDisplay(slot.startTime)}</Text>
                           </Pressable>
                           <Text style={styles.timeSeparator}>→</Text>
                           <Pressable style={styles.timePill} onPress={() => openPicker(day, 'end')}>
-                            <Text style={styles.timePillText}>{formatTime(slot.endTime)}</Text>
+                            <Text style={styles.timePillText}>{formatTimeDisplay(slot.endTime)}</Text>
                           </Pressable>
                         </>
                       ) : (
@@ -463,48 +438,19 @@ export default function NannyProfileEditScreen() {
         </View>
       </View>
 
-      {/* Time picker — Android shows as native dialog */}
-      {pickerTarget !== null && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={pickerDate}
-          mode="time"
-          is24Hour={false}
-          display="clock"
-          onChange={onTimeChange}
-        />
-      )}
+      <TimeSelectSheet
+        visible={pickerTarget !== null}
+        title={pickerTarget?.field === 'start' ? 'Start time' : 'End time'}
+        value={
+          pickerTarget
+            ? schedule[pickerTarget.day]?.[pickerTarget.field === 'start' ? 'startTime' : 'endTime'] ?? '08:00'
+            : '08:00'
+        }
+        onSelect={handleTimeSelect}
+        onClose={() => setPickerTarget(null)}
+      />
 
-      {/* Time picker — iOS shows in a bottom sheet modal */}
-      {Platform.OS === 'ios' && (
-        <Modal
-          visible={pickerTarget !== null}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPickerTarget(null)}
-        >
-          <View style={styles.pickerOverlay}>
-            <Pressable style={{ flex: 1 }} onPress={() => setPickerTarget(null)} />
-            <View style={styles.pickerSheet}>
-              <View style={styles.pickerHeader}>
-                <Text style={styles.pickerTitle}>
-                  {pickerTarget?.field === 'start' ? 'Start time' : 'End time'}
-                </Text>
-                <Pressable onPress={() => setPickerTarget(null)} hitSlop={12}>
-                  <Text style={styles.pickerDone}>Done</Text>
-                </Pressable>
-              </View>
-              <DateTimePicker
-                value={pickerDate}
-                mode="time"
-                is24Hour={false}
-                display="spinner"
-                onChange={onTimeChange}
-                style={{ height: 200 }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
+      <NannyBottomNav activeTab="profile" />
     </KeyboardAvoidingView>
   );
 }

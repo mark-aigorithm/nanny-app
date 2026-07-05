@@ -5,66 +5,63 @@ import {
   ScrollView,
   Pressable,
   StatusBar,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
 import type { BookingResponse } from '@nanny-app/shared';
-import { useBookingList, useAcceptBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { formatMoney } from '@mobile/lib/formatMoney';
+import { useBookingList, useCheckIn, useCheckOut, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
+import UpcomingShiftBanner, { confirmEndShift, confirmStartShift } from '@mobile/components/UpcomingShiftBanner';
+import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import { styles } from './styles/nanny-requests-screen.styles';
 
-type FilterKey = 'pending' | 'accepted' | 'declined';
+type FilterKey = 'upcoming' | 'declined';
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'accepted', label: 'Accepted' },
+  { key: 'upcoming', label: 'Upcoming' },
   { key: 'declined', label: 'Declined' },
 ];
 
 const STATUS_BY_FILTER: Record<FilterKey, string> = {
-  pending: 'PENDING',
-  accepted: 'CONFIRMED,IN_PROGRESS',
+  upcoming: 'CONFIRMED,IN_PROGRESS',
   declined: 'CANCELLED',
 };
 
 export default function NannyRequestsScreen() {
-  const [activeFilter, setActiveFilter] = useState<FilterKey>('pending');
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('upcoming');
 
-  const { data: requests = [], isLoading } = useBookingList(STATUS_BY_FILTER[activeFilter]);
-  const acceptBooking = useAcceptBooking();
-  const cancelBooking = useCancelBooking();
+  const listOptions =
+    activeFilter === 'upcoming'
+      ? ({ sortBy: 'startTime' as const, sortDir: 'asc' as const })
+      : undefined;
 
-  const handleAccept = (id: string) => {
-    acceptBooking.mutate(id, {
-      onError: (err) => Alert.alert('Error', err.message),
-    });
-  };
-
-  const handleDecline = (id: string) => {
-    Alert.alert(
-      'Decline request',
-      'Are you sure you want to decline this booking?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Decline',
-          style: 'destructive',
-          onPress: () =>
-            cancelBooking.mutate(
-              { id, reason: 'Declined by nanny' },
-              { onError: (err) => Alert.alert('Error', err.message) },
-            ),
-        },
-      ],
-    );
-  };
+  const { data: requests = [], isLoading } = useBookingList(
+    STATUS_BY_FILTER[activeFilter],
+    listOptions,
+  );
+  const checkIn = useCheckIn();
+  const checkOut = useCheckOut();
+  const { nearestBooking, canCheckIn, canCheckOut } = useBookingShiftTimer(
+    activeFilter === 'upcoming' ? requests : [],
+  );
 
   const renderRequestCard = (booking: BookingResponse) => {
     const dateDisplay = fmtBookingDate(booking.date);
     const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
     const motherName = `${booking.motherFirstName} ${booking.motherLastName}`;
-    const isPending = booking.status === 'PENDING';
+    const isInProgress = booking.status === 'IN_PROGRESS';
+    const showStart =
+      activeFilter === 'upcoming' &&
+      booking.status === 'CONFIRMED' &&
+      nearestBooking?.id === booking.id &&
+      canCheckIn;
+    const showEnd =
+      activeFilter === 'upcoming' &&
+      isInProgress &&
+      nearestBooking?.id === booking.id &&
+      canCheckOut;
 
     return (
       <View key={booking.id} style={styles.requestCard}>
@@ -78,7 +75,7 @@ export default function NannyRequestsScreen() {
             <Text style={styles.requestedAt}>{new Date(booking.createdAt).toLocaleDateString()}</Text>
           </View>
           <View style={styles.amountBadge}>
-            <Text style={styles.amountText}>${booking.totalAmount.toFixed(2)}</Text>
+            <Text style={styles.amountText}>{formatMoney(booking.totalAmount)}</Text>
           </View>
         </View>
 
@@ -95,29 +92,33 @@ export default function NannyRequestsScreen() {
         </View>
 
         {/* Actions or Status */}
-        {isPending ? (
+        {showStart || showEnd ? (
           <View style={styles.actionsRow}>
-            <Pressable
-              style={styles.declineButton}
-              onPress={() => handleDecline(booking.id)}
-              disabled={cancelBooking.isPending}
-            >
-              <Text style={styles.declineButtonText}>Decline</Text>
-            </Pressable>
-            <Pressable
-              style={styles.acceptButton}
-              onPress={() => handleAccept(booking.id)}
-              disabled={acceptBooking.isPending}
-            >
-              <Text style={styles.acceptButtonText}>Accept</Text>
-            </Pressable>
+            {showStart ? (
+              <Pressable
+                style={styles.acceptButton}
+                onPress={() => confirmStartShift(booking, checkIn)}
+                disabled={checkIn.isPending}
+              >
+                <Text style={styles.acceptButtonText}>Start shift</Text>
+              </Pressable>
+            ) : null}
+            {showEnd ? (
+              <Pressable
+                style={styles.declineButton}
+                onPress={() => confirmEndShift(booking, checkOut)}
+                disabled={checkOut.isPending}
+              >
+                <Text style={styles.declineButtonText}>End shift</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <View style={[styles.statusBadge,
-            activeFilter === 'accepted' ? styles.statusAccepted : styles.statusDeclined,
+            activeFilter === 'upcoming' ? styles.statusAccepted : styles.statusDeclined,
           ]}>
             <Text style={[styles.statusText,
-              activeFilter === 'accepted' ? styles.statusAcceptedText : styles.statusDeclinedText,
+              activeFilter === 'upcoming' ? styles.statusAcceptedText : styles.statusDeclinedText,
             ]}>
               {booking.status}
             </Text>
@@ -133,6 +134,7 @@ export default function NannyRequestsScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <OngoingBookingBanner />
+        {activeFilter === 'upcoming' ? <UpcomingShiftBanner bookings={requests} /> : null}
 
         {/* Filter chips */}
         <View style={styles.filterRow}>
@@ -175,6 +177,8 @@ export default function NannyRequestsScreen() {
           <Text style={styles.headerTitle}>Booking requests</Text>
         </View>
       </View>
+
+      <NannyBottomNav activeTab="requests" />
     </View>
   );
 }

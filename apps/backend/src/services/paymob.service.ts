@@ -6,7 +6,11 @@ import { prisma } from '@backend/db/prisma';
 import { config } from '@backend/lib/config';
 import { AppError, errors } from '@backend/lib/errors';
 import { createPaymobApiClient, type PaymobIntentionElementResponse } from '@backend/lib/paymob/client';
-import { PAYMOB_RECONCILE_OFFSETS_MS, PAYMOB_WEBHOOK_PATH } from '@backend/lib/paymob/constants';
+import {
+  PAYMOB_RECONCILE_OFFSETS_MS,
+  PAYMOB_RETURN_PATH,
+  PAYMOB_WEBHOOK_PATH,
+} from '@backend/lib/paymob/constants';
 import { buildTransactionHmacPlaintext, verifyPaymobTransactionHmac } from '@backend/lib/paymob/hmac';
 import {
   coerceTransactionHmacPayload,
@@ -19,18 +23,18 @@ import {
 import type { DecodedIdToken } from '@backend/lib/firebase';
 
 function mapIntentionElement(data: PaymobIntentionElementResponse): 'pending' | 'captured' | 'failed' {
-  if (data.confirmed === true) {
-    return 'captured';
-  }
   const txns = data.transactions ?? [];
   for (let i = txns.length - 1; i >= 0; i--) {
     const t = txns[i]!;
     if (t.success === true && t.pending === false) return 'captured';
     if (t.success === false && t.pending === false) return 'failed';
   }
+
   const st = String(data.status ?? '').toLowerCase();
-  if (['paid', 'confirmed', 'successful', 'success', 'completed'].includes(st)) return 'captured';
   if (['failed', 'declined', 'voided', 'cancelled'].includes(st)) return 'failed';
+
+  // Require a successful transaction — do not trust `confirmed` or success-like
+  // status strings alone (fresh intentions can look "confirmed" before payment).
   return 'pending';
 }
 
@@ -88,6 +92,12 @@ async function finalizePaymentTimeout(paymentId: string) {
   );
 }
 
+/** Paymob merchant order id — payment row id on first attempt, suffixed on retries. */
+function buildPaymobMerchantOrderId(paymentId: string, attempt: number): string {
+  if (attempt <= 1) return paymentId;
+  return `${paymentId}-r${attempt}`;
+}
+
 export async function createPaymobIntentionForBooking(
   decoded: DecodedIdToken,
   bookingId: string,
@@ -126,14 +136,25 @@ export async function createPaymobIntentionForBooking(
     if (existing.status === PaymentStatus.CAPTURED) {
       throw errors.badRequest('This booking is already paid.');
     }
-    if (existing.status === PaymentStatus.PENDING && existing.paymobClientSecret) {
-      throw errors.badRequest('A Paymob checkout is already in progress for this booking.');
+    if (
+      existing.status === PaymentStatus.PENDING &&
+      existing.paymobClientSecret &&
+      existing.paymobIntentionId
+    ) {
+      return {
+        paymentId: existing.id,
+        clientSecret: existing.paymobClientSecret,
+        publicKey: config.paymob.publicKey,
+        intentionId: existing.paymobIntentionId,
+      };
     }
   }
 
   const anchor = new Date();
   const nextReconcile = new Date(anchor.getTime() + PAYMOB_RECONCILE_OFFSETS_MS[0]);
   const notificationUrl = `${config.paymob.publicApiUrl}${PAYMOB_WEBHOOK_PATH}`;
+
+  const nextIntentionAttempt = (existing?.paymobIntentionAttempt ?? 0) + 1;
 
   const resetPaymentData = {
     amount: booking.totalAmount,
@@ -145,6 +166,7 @@ export async function createPaymobIntentionForBooking(
     paymobTransactionId: null,
     paymobIntentionId: null,
     paymobClientSecret: null,
+    paymobIntentionAttempt: nextIntentionAttempt,
     paymobReconcileAnchorAt: anchor,
     paymobReconcileAttempt: 0,
     paymobNextReconcileAt: nextReconcile,
@@ -163,6 +185,8 @@ export async function createPaymobIntentionForBooking(
             ...resetPaymentData,
           },
         });
+
+  const merchantOrderId = buildPaymobMerchantOrderId(payment.id, nextIntentionAttempt);
 
   const amountCents = Math.round(Number(booking.totalAmount) * 100);
   const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
@@ -184,15 +208,19 @@ export async function createPaymobIntentionForBooking(
     delivery_needed: false,
   };
 
+  const redirectionUrl = `${config.paymob.publicApiUrl}${PAYMOB_RETURN_PATH}?bookingId=${encodeURIComponent(bookingId)}`;
+
   try {
     const intention = await api.createIntention({
       amount: amountCents,
       currency: 'EGP',
       payment_methods: config.paymob.paymentMethodIds,
       billing_data,
-      special_reference: payment.id,
+      merchant_order_id: merchantOrderId,
+      special_reference: merchantOrderId,
       notification_url: notificationUrl,
-      extras: { payment_id: payment.id, booking_id: bookingId },
+      redirection_url: redirectionUrl,
+      extras: { payment_id: payment.id },
     });
 
     await prisma.payment.update({
@@ -222,6 +250,52 @@ export async function createPaymobIntentionForBooking(
       },
     });
     throw err;
+  }
+}
+
+/** Poll Paymob for the latest intention state after the customer returns from checkout. */
+export async function syncPaymobPaymentForBooking(
+  decoded: DecodedIdToken,
+  bookingId: string,
+): Promise<void> {
+  if (!config.paymob.enabled) return;
+
+  const user = await getUserByUid(decoded.uid);
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: { payment: true },
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
+
+  const payment = booking.payment;
+  if (!payment || payment.deletedAt || payment.status !== PaymentStatus.PENDING) return;
+  if (!payment.paymobClientSecret) return;
+
+  const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
+  const element = await api.getIntentionElement(config.paymob.publicKey, payment.paymobClientSecret);
+  const mapped = mapIntentionElement(element);
+
+  if (mapped === 'captured') {
+    const txns = element.transactions ?? [];
+    let tid: string | null = null;
+    for (let i = txns.length - 1; i >= 0; i--) {
+      const rawId: unknown = txns[i]!['id'];
+      if (typeof rawId === 'number') {
+        tid = String(rawId);
+        break;
+      }
+      if (typeof rawId === 'string' && rawId.length > 0) {
+        tid = rawId;
+        break;
+      }
+    }
+    await finalizePaymentCaptured(payment.id, tid);
+    return;
+  }
+
+  if (mapped === 'failed') {
+    await finalizePaymentFailed(payment.id, 'Paymob reported a failed payment.');
   }
 }
 

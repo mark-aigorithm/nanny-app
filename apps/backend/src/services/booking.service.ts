@@ -9,17 +9,27 @@ import {
   type CreateBookingRequest,
   type CreateEmergencyBookingRequest,
   type EmergencyBookingResponse,
+  isStandardBookingDateAllowed,
+  STANDARD_BOOKING_SAME_DAY_MESSAGE,
   type MockPayBookingRequest,
   type NearbyNanny,
   type PaginationMeta,
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
+import {
+  NotificationReferenceType,
+  NotificationType,
+} from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
 import { getServiceFeePercent } from './app-settings.service';
+import { createInAppNotification, dispatchPush } from './notification.service';
 import { calculatePriceBreakdown } from './pricing.service';
+
+/** Minutes before scheduled start when nanny may check in. */
+export const CHECK_IN_EARLY_MINUTES = 15;
 
 // ── Prisma include shape ──────────────────────────────────────────────────────
 
@@ -27,6 +37,7 @@ const bookingInclude = {
   mother: true,
   nannyProfile: { include: { user: true } },
   payment: true,
+  review: true,
 } as const;
 
 type BookingWithRelations = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
@@ -69,6 +80,7 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
     serviceFeePercent: Number(b.serviceFeePercent),
     serviceFeeAmount: Number(b.serviceFeeAmount),
     totalAmount: Number(b.totalAmount),
+    specialInstructions: b.specialInstructions,
     cancellationReason: b.cancellationReason,
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
     nannyCheckedInAt: b.nannyCheckedInAt?.toISOString() ?? null,
@@ -81,6 +93,15 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
           amount: Number(b.payment.amount),
         }
       : null,
+    myReview:
+      b.review && !b.review.deletedAt
+        ? {
+            id: b.review.id,
+            rating: b.review.rating,
+            comment: b.review.comment,
+            createdAt: b.review.createdAt.toISOString(),
+          }
+        : null,
     createdAt: b.createdAt.toISOString(),
   };
 }
@@ -88,7 +109,7 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
 /** Valid status transitions — enforces the booking lifecycle. */
 const VALID_TRANSITIONS: Record<string, string[]> = {
   [BookingStatus.PENDING]:     [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
-  [BookingStatus.CONFIRMED]:   [BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+  [BookingStatus.CONFIRMED]:   [BookingStatus.IN_PROGRESS, BookingStatus.CANCELLED],
   [BookingStatus.IN_PROGRESS]: [BookingStatus.COMPLETED],
   [BookingStatus.COMPLETED]:   [BookingStatus.REFUNDED],
   [BookingStatus.CANCELLED]:   [BookingStatus.REFUNDED],
@@ -106,6 +127,44 @@ function computeDurationHours(start: Date, end: Date): number {
   return Math.round((ms / 3_600_000) * 100) / 100;
 }
 
+function buildListOrderBy(
+  query: BookingListQuery,
+): Prisma.BookingOrderByWithRelationInput {
+  const field =
+    query.sortBy === 'createdAt'
+      ? 'createdAt'
+      : query.sortBy === 'startTime'
+        ? 'startTime'
+        : 'date';
+  return { [field]: query.sortDir };
+}
+
+async function notifyMotherBookingEvent(
+  booking: BookingWithRelations,
+  type: 'NANNY_CHECKIN' | 'BOOKING_COMPLETED',
+  title: string,
+  body: string,
+): Promise<void> {
+  await createInAppNotification({
+    userId: booking.motherId,
+    type: type as NotificationType,
+    title,
+    body,
+    referenceId: booking.id,
+    referenceType: 'BOOKING' as NotificationReferenceType,
+  });
+
+  await dispatchPush(booking.motherId, {
+    title,
+    body,
+    data: {
+      type,
+      bookingId: booking.id,
+      title,
+    },
+  });
+}
+
 async function assertNoConflict(
   nannyProfileId: string,
   startTime: Date,
@@ -121,8 +180,29 @@ async function assertNoConflict(
       endTime: { gt: startTime },
       ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
     },
+    select: {
+      id: true,
+      motherId: true,
+      status: true,
+      startTime: true,
+      endTime: true,
+    },
   });
-  if (conflict) throw errors.conflict('This nanny is already booked for the requested time slot.');
+  if (conflict) {
+    // eslint-disable-next-line no-console
+    console.warn('[booking] slot conflict', {
+      nannyProfileId,
+      requestedStart: startTime.toISOString(),
+      requestedEnd: endTime.toISOString(),
+      excludeBookingId: excludeBookingId ?? null,
+      existingBookingId: conflict.id,
+      existingMotherId: conflict.motherId,
+      existingStatus: conflict.status,
+      existingStart: conflict.startTime.toISOString(),
+      existingEnd: conflict.endTime.toISOString(),
+    });
+    throw errors.conflict('This nanny is already booked for the requested time slot.');
+  }
 }
 
 // ── Public service functions ──────────────────────────────────────────────────
@@ -131,7 +211,6 @@ export async function createBooking(
   decoded: DecodedIdToken,
   body: CreateBookingRequest,
 ): Promise<BookingResponse> {
-  console.log('body', body,"#########################");
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
 
@@ -146,10 +225,34 @@ export async function createBooking(
   const endTime = new Date(body.endTime);
   if (startTime >= endTime) throw errors.badRequest('startTime must be before endTime.');
   if (startTime < new Date()) throw errors.badRequest('Cannot book in the past.');
+  if (!isStandardBookingDateAllowed(body.date)) {
+    throw errors.badRequest(STANDARD_BOOKING_SAME_DAY_MESSAGE);
+  }
 
   const durationHours = computeDurationHours(startTime, endTime);
   if (durationHours < 1) throw errors.badRequest('Minimum booking duration is 1 hour.');
   if (durationHours > 12) throw errors.badRequest('Maximum booking duration is 12 hours.');
+
+  const existingPending = await prisma.booking.findFirst({
+    where: {
+      motherId: user.id,
+      nannyProfileId: body.nannyProfileId,
+      deletedAt: null,
+      status: BookingStatus.PENDING,
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
+    },
+    include: bookingInclude,
+  });
+  if (existingPending) {
+    // eslint-disable-next-line no-console
+    console.info('[booking] reusing pending booking for checkout retry', {
+      bookingId: existingPending.id,
+      motherId: user.id,
+      nannyProfileId: body.nannyProfileId,
+    });
+    return toBookingResponse(existingPending);
+  }
 
   await assertNoConflict(body.nannyProfileId, startTime, endTime);
 
@@ -176,6 +279,9 @@ export async function createBooking(
       serviceFeePercent: breakdown.serviceFeePercent,
       serviceFeeAmount: breakdown.serviceFeeAmount,
       totalAmount: breakdown.totalAmount,
+      ...(body.specialInstructions
+        ? { specialInstructions: body.specialInstructions }
+        : {}),
     },
     include: bookingInclude,
   });
@@ -311,7 +417,7 @@ export async function listBookings(
     prisma.booking.findMany({
       where,
       include: bookingInclude,
-      orderBy: query.sortBy === 'createdAt' ? { createdAt: 'desc' } : { date: 'desc' },
+      orderBy: buildListOrderBy(query),
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     }),
@@ -496,7 +602,64 @@ export async function mockPayBooking(
   return { booking: toBookingResponse(updatedBooking), payment };
 }
 
-/** Nanny checks out — marks booking COMPLETED. Allowed from CONFIRMED or IN_PROGRESS. */
+/** Nanny checks in — marks booking IN_PROGRESS. Allowed from CHECK_IN_EARLY_MINUTES before start until end. */
+export async function checkInBooking(
+  decoded: DecodedIdToken,
+  bookingId: string,
+): Promise<BookingResponse> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies can check in.');
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: bookingInclude,
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.nannyProfile?.userId !== user.id) throw errors.forbidden('This is not your booking.');
+
+  if (booking.status !== BookingStatus.CONFIRMED) {
+    throw errors.badRequest(`Cannot check in to a booking in status ${booking.status}.`);
+  }
+
+  const now = new Date();
+  const earliestCheckIn = new Date(
+    booking.startTime.getTime() - CHECK_IN_EARLY_MINUTES * 60_000,
+  );
+  if (now < earliestCheckIn) {
+    throw errors.badRequest(
+      `Check-in opens ${CHECK_IN_EARLY_MINUTES} minutes before the scheduled start time.`,
+    );
+  }
+  if (now > booking.endTime) {
+    throw errors.badRequest('This booking has already ended.');
+  }
+
+  validateStatusTransition(booking.status, BookingStatus.IN_PROGRESS);
+
+  const updated = await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status: BookingStatus.IN_PROGRESS,
+      nannyCheckedInAt: now,
+    },
+    include: bookingInclude,
+  });
+
+  const nannyName = updated.nannyProfile
+    ? `${updated.nannyProfile.user.firstName} ${updated.nannyProfile.user.lastName}`
+    : 'Your nanny';
+
+  await notifyMotherBookingEvent(
+    updated,
+    'NANNY_CHECKIN',
+    'Nanny checked in',
+    `${nannyName} has started your booking.`,
+  );
+
+  return toBookingResponse(updated);
+}
+
+/** Nanny checks out — marks booking COMPLETED. Requires IN_PROGRESS. */
 export async function checkOutBooking(
   decoded: DecodedIdToken,
   bookingId: string,
@@ -511,12 +674,11 @@ export async function checkOutBooking(
   if (!booking) throw errors.notFound('Booking not found.');
   if (booking.nannyProfile?.userId !== user.id) throw errors.forbidden('This is not your booking.');
 
-  if (
-    booking.status !== BookingStatus.CONFIRMED &&
-    booking.status !== BookingStatus.IN_PROGRESS
-  ) {
+  if (booking.status !== BookingStatus.IN_PROGRESS) {
     throw errors.badRequest(`Cannot check out a booking in status ${booking.status}.`);
   }
+
+  validateStatusTransition(booking.status, BookingStatus.COMPLETED);
 
   const updated = await prisma.booking.update({
     where: { id: bookingId },
@@ -526,6 +688,13 @@ export async function checkOutBooking(
     },
     include: bookingInclude,
   });
+
+  await notifyMotherBookingEvent(
+    updated,
+    'BOOKING_COMPLETED',
+    'Booking complete',
+    'Your booking is complete — leave a review?',
+  );
 
   return toBookingResponse(updated);
 }

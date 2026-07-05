@@ -9,22 +9,25 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { useUpdateProfile } from '@mobile/hooks/useMe';
+import { isLocalImageUri, uploadImageToFirebase } from '@mobile/lib/storage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { styles } from './styles/account-details-screen.styles';
 
 export default function AccountDetailsScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const signOut = useSignOut();
+  const updateProfile = useUpdateProfile();
   const profile = useUserProfileStore((s) => s.profile);
 
-  // Bind editable fields to the live backend profile. Address fields are not
-  // yet on the User model — they stay as empty inputs until a future migration
-  // adds them. Update wiring is intentionally still pending; see handleSave.
   const [firstName, setFirstName] = useState(profile?.firstName ?? '');
   const [lastName, setLastName] = useState(profile?.lastName ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
@@ -33,29 +36,99 @@ export default function AccountDetailsScreen() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zipCode, setZipCode] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(profile?.avatarUrl ?? null);
 
-  // Re-sync the editable fields when the profile loads after this screen
-  // mounts (e.g. cold launch or store hydration races).
   useEffect(() => {
     if (!profile) return;
     setFirstName(profile.firstName);
     setLastName(profile.lastName);
     setEmail(profile.email);
     setPhone(profile.phone ?? '');
+    setPhotoUri(profile.avatarUrl);
   }, [profile]);
 
-  const handleSave = () => {
-    // Update flow lives in a separate task — see /auth/update-profile when
-    // that endpoint exists. For now, just close the screen.
-    router.back();
+  const displayPhotoUri = photoUri ?? profile?.avatarUrl ?? null;
+
+  async function handlePickPhoto() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission needed',
+          'Please allow photo library access to pick a profile picture.',
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert(
+        'Could not open photos',
+        err instanceof Error ? err.message : 'Something went wrong.',
+      );
+    }
+  }
+
+  const handleBack = () => {
+    router.replace({
+      pathname: '/(parent)/mother-profile',
+      params: { returnTo: returnTo ?? 'home' },
+    } as never);
+  };
+
+  const handleSave = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      Alert.alert('Missing name', 'Please enter your first and last name.');
+      return;
+    }
+
+    try {
+      let avatarUrl: string | null | undefined;
+      if (photoUri !== profile?.avatarUrl) {
+        if (photoUri && isLocalImageUri(photoUri)) {
+          avatarUrl = await uploadImageToFirebase(photoUri, 'avatars');
+        } else {
+          avatarUrl = photoUri;
+        }
+      }
+
+      const trimmedPhone = phone.trim();
+      const phoneUpdate =
+        trimmedPhone !== (profile?.phone ?? '')
+          ? trimmedPhone
+            ? trimmedPhone
+            : null
+          : undefined;
+
+      await updateProfile.mutateAsync({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        ...(phoneUpdate !== undefined && { phone: phoneUpdate }),
+        ...(avatarUrl !== undefined && { avatarUrl }),
+      });
+
+      router.replace({
+        pathname: '/(parent)/mother-profile',
+        params: { returnTo: returnTo ?? 'home' },
+      } as never);
+    } catch (err) {
+      Alert.alert(
+        'Could not save profile',
+        err instanceof Error ? err.message : 'Something went wrong.',
+      );
+    }
   };
 
   const handleSignOut = () => {
     signOut.mutate(undefined, {
       onSuccess: () => {
-        // Root gate at app/index.tsx redirects to /(auth)/splash once the
-        // Firebase auth listener nulls out the user; the router push is
-        // redundant but unambiguous from a non-index screen.
         router.replace('/');
       },
     });
@@ -74,12 +147,11 @@ export default function AccountDetailsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Photo */}
         <View style={styles.photoSection}>
-          <Pressable style={styles.photoWrapper}>
-            {profile?.avatarUrl ? (
+          <Pressable style={styles.photoWrapper} onPress={handlePickPhoto}>
+            {displayPhotoUri ? (
               <Image
-                source={{ uri: profile.avatarUrl }}
+                source={{ uri: displayPhotoUri }}
                 style={styles.photo}
                 resizeMode="cover"
               />
@@ -92,12 +164,11 @@ export default function AccountDetailsScreen() {
               <Ionicons name="camera" size={14} color={colors.white} />
             </View>
           </Pressable>
-          <Pressable>
+          <Pressable onPress={handlePickPhoto}>
             <Text style={styles.changePhotoText}>Change photo</Text>
           </Pressable>
         </View>
 
-        {/* Form */}
         <View style={styles.formSection}>
           <View style={styles.formRow}>
             <View style={[styles.fieldGroup, styles.formFieldHalf]}>
@@ -112,7 +183,13 @@ export default function AccountDetailsScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+            <TextInput
+              style={[styles.input, styles.inputDisabled]}
+              value={email}
+              editable={false}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
           </View>
 
           <View style={styles.fieldGroup}>
@@ -141,12 +218,16 @@ export default function AccountDetailsScreen() {
           </View>
         </View>
 
-        {/* Save */}
-        <Pressable style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save changes</Text>
+        <Pressable
+          style={[styles.saveButton, updateProfile.isPending && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={updateProfile.isPending}
+        >
+          <Text style={styles.saveButtonText}>
+            {updateProfile.isPending ? 'Saving\u2026' : 'Save changes'}
+          </Text>
         </Pressable>
 
-        {/* Sign out */}
         <Pressable
           style={styles.signOutButton}
           onPress={handleSignOut}
@@ -158,13 +239,12 @@ export default function AccountDetailsScreen() {
         </Pressable>
       </ScrollView>
 
-      {/* Header */}
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Pressable style={styles.iconBtn} onPress={() => router.back()} hitSlop={8}>
+          <Pressable style={styles.iconBtn} onPress={handleBack} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
-          <Text style={styles.headerTitle}>Account details</Text>
+          <Text style={styles.headerTitle}>Edit profile</Text>
           <View style={styles.iconBtn} />
         </View>
       </View>

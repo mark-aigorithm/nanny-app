@@ -1,12 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 
-import { RegisterRequestSchema } from '@nanny-app/shared';
+import { RegisterRequestSchema, UpdateProfileRequestSchema } from '@nanny-app/shared';
 
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
-import { registerUser, getMe } from '@backend/services/auth.service';
+import { registerUser, getMe, updateProfile } from '@backend/services/auth.service';
 
 export const authRouter = Router();
 
@@ -47,3 +47,22 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response, next: Nex
     next(err);
   }
 });
+
+/**
+ * PATCH /auth/me
+ * Updates profile fields for the current user (name, phone, avatar URL).
+ */
+authRouter.patch(
+  '/me',
+  requireAuth,
+  validateBody(UpdateProfileRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const user = await updateProfile(req.firebaseUser, req.body);
+      res.json(ok(user));
+    } catch (err) {
+      next(err);
+    }
+  },
+);

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { CommentResponse } from '@nanny-app/shared';
 
 import { formatAuthorName, formatTimeAgo } from '@mobile/lib/communityUtils';
+import { resolveAvatarUri } from '@mobile/lib/imageUri';
 import { colors, spacing, borderRadius, typeScale } from '@mobile/theme';
 
 type Props = {
@@ -18,9 +19,10 @@ function CommentItem({
   onReplyPress,
   isReply = false,
 }: Props & { isReply?: boolean }) {
-  const avatarUri =
-    comment.author.avatarUrl ??
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(formatAuthorName(comment.author))}`;
+  const avatarUri = resolveAvatarUri(
+    formatAuthorName(comment.author),
+    comment.author.avatarUrl,
+  );
 
   return (
     <View style={[styles.commentCard, isReply && styles.replyCard]}>

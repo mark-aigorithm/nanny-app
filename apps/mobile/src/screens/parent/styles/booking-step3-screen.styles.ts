@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: screenPadding,
-    height: 64,
+    height: 48,
   },
   headerIconBtn: {
     width: 32,
@@ -97,6 +97,32 @@ export const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.neutralLight,
+  },
+  nannyPhotoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centeredState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: screenPadding,
+    gap: spacing.lg,
+  },
+  missingParamsText: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  missingParamsBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing.md,
+  },
+  missingParamsBtnText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 15,
+    color: colors.white,
   },
   nannyInfo: {
     flex: 1,
@@ -244,9 +270,73 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.lg,
   },
+  confirmBtnDisabled: {
+    opacity: 0.5,
+  },
   confirmBtnText: {
     ...typeScale.labelLg,
     fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
+
+  introSection: {
+    paddingHorizontal: screenPadding,
+    paddingBottom: spacing.sm,
+    gap: spacing.xxs,
+    alignItems: 'center',
+  },
+  checkoutSummary: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  instructionsCompact: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 16,
+    maxWidth: '100%',
+  },
+  webviewWrap: {
+    flex: 1,
+    marginHorizontal: screenPadding,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+    backgroundColor: colors.surface,
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  webviewLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    padding: spacing.xl,
+  },
+  webviewLoadingText: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+  },
+  errorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+  },
+  retryBtnText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 15,
     color: colors.white,
   },
 });

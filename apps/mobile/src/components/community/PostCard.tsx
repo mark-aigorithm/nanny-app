@@ -11,6 +11,7 @@ import {
   formatPrice,
   formatTimeAgo,
 } from '@mobile/lib/communityUtils';
+import { resolveAvatarUri, resolveImageUri } from '@mobile/lib/imageUri';
 import { colors, spacing, borderRadius, typeScale, shadows } from '@mobile/theme';
 
 type Props = {
@@ -30,9 +31,11 @@ export default function PostCard({
   onRsvpPress,
   compact = false,
 }: Props) {
-  const avatarUri =
-    post.author.avatarUrl ??
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(formatAuthorName(post.author))}`;
+  const authorName = formatAuthorName(post.author);
+  const avatarUri = resolveAvatarUri(authorName, post.author.avatarUrl);
+  const primaryImageUri = post.imageUrls
+    .map(resolveImageUri)
+    .find((url): url is string => Boolean(url));
 
   const content = (
     <View style={styles.card}>
@@ -53,9 +56,9 @@ export default function PostCard({
 
       {post.type === 'marketplace' && (
         <>
-          {post.imageUrls[0] ? (
+          {primaryImageUri ? (
             <View style={styles.imageWrap}>
-              <Image source={{ uri: post.imageUrls[0] }} style={styles.image} resizeMode="cover" />
+              <Image source={{ uri: primaryImageUri }} style={styles.image} resizeMode="cover" />
               <View style={styles.priceBadge}>
                 <Text style={styles.priceBadgeText}>{formatPrice(post.price)}</Text>
               </View>

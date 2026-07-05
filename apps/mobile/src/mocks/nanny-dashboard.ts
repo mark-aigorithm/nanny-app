@@ -32,7 +32,7 @@ export const MOCK_NANNY_REQUESTS: NannyBookingRequest[] = [
     location: 'Upper West Side, NY',
     hourlyRate: 28,
     totalAmount: 224,
-    status: 'pending',
+    status: 'accepted',
     requestedAt: '2 hours ago',
     specialInstructions: 'Liam has a peanut allergy. Emma needs help with her reading homework.',
   },
@@ -47,7 +47,7 @@ export const MOCK_NANNY_REQUESTS: NannyBookingRequest[] = [
     location: 'Park Slope, Brooklyn',
     hourlyRate: 28,
     totalAmount: 140,
-    status: 'pending',
+    status: 'accepted',
     requestedAt: '5 hours ago',
   },
   {

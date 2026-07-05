@@ -6,10 +6,15 @@ import {
   type CareLogResponse,
   type CreateCareLogRequest,
 } from '@nanny-app/shared';
+import {
+  NotificationReferenceType,
+  NotificationType,
+} from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 
 type CareLogRow = Prisma.CareLogGetPayload<true>;
 
@@ -49,6 +54,55 @@ async function loadAuthorizedBooking(decoded: DecodedIdToken, bookingId: string)
   return { user, booking, isMother, isNanny };
 }
 
+function careLogEntrySummary(type: CareLogType, customLabel: string | null): string {
+  switch (type) {
+    case CareLogType.MEAL:
+      return 'logged a meal';
+    case CareLogType.NAP:
+      return 'logged nap time';
+    case CareLogType.DIAPER:
+      return 'logged a diaper change';
+    case CareLogType.ACTIVITY:
+      return 'logged an activity';
+    case CareLogType.CUSTOM:
+      return customLabel ? `logged: ${customLabel}` : 'added a care update';
+    default:
+      return 'added a care update';
+  }
+}
+
+async function notifyMotherCareLogEntry(
+  bookingId: string,
+  motherId: string,
+  nannyFirstName: string,
+  nannyLastName: string,
+  entryType: CareLogType,
+  customLabel: string | null,
+): Promise<void> {
+  const nannyName = `${nannyFirstName} ${nannyLastName}`.trim();
+  const title = 'New care log update';
+  const body = `${nannyName} ${careLogEntrySummary(entryType, customLabel)}`;
+
+  await createInAppNotification({
+    userId: motherId,
+    type: NotificationType.CARE_LOG_ENTRY,
+    title,
+    body,
+    referenceId: bookingId,
+    referenceType: NotificationReferenceType.BOOKING,
+  });
+
+  await dispatchPush(motherId, {
+    title,
+    body,
+    data: {
+      type: 'CARE_LOG_ENTRY',
+      bookingId,
+      focusCareLog: '1',
+    },
+  });
+}
+
 export async function listCareLogs(
   decoded: DecodedIdToken,
   bookingId: string,
@@ -73,7 +127,7 @@ export async function createCareLog(
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId, deletedAt: null },
-    include: { nannyProfile: true },
+    include: { nannyProfile: { include: { user: true } } },
   });
   if (!booking) throw errors.notFound('Booking not found.');
   if (!booking.nannyProfile || booking.nannyProfile.userId !== user.id) {
@@ -96,6 +150,15 @@ export async function createCareLog(
       evidenceUrls: body.evidenceUrls,
     },
   });
+
+  void notifyMotherCareLogEntry(
+    booking.id,
+    booking.motherId,
+    booking.nannyProfile.user.firstName,
+    booking.nannyProfile.user.lastName,
+    body.type,
+    body.type === CareLogType.CUSTOM ? body.customLabel ?? null : null,
+  ).catch(() => undefined);
 
   return toCareLogResponse(created);
 }

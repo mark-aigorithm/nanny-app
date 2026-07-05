@@ -84,6 +84,14 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.primary,
   },
+  emptyText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing['3xl'],
+  },
 
   // Activity list
   activityList: {

@@ -23,7 +23,8 @@ import * as ImagePicker from 'expo-image-picker';
 import type { CareLogResponse, CareLogType } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
-import { useBookingList } from '@mobile/hooks/useBookings';
+import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
+import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
 import { useCareLogs, useCreateCareLog } from '@mobile/hooks/useCareLogs';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { styles } from './styles/care-log-screen.styles';
@@ -42,7 +43,7 @@ const CATEGORIES: CategoryConfig[] = [
   { type: 'NAP', label: 'Nap', icon: 'moon', bg: colors.tintPurple },
   { type: 'DIAPER', label: 'Diaper', icon: 'happy', bg: colors.successLight },
   { type: 'ACTIVITY', label: 'Activity', icon: 'game-controller', bg: colors.tintYellow },
-  { type: 'CUSTOM', label: 'Custom', icon: 'add-circle', bg: colors.taupeLight },
+  { type: 'CUSTOM', label: 'Custom', icon: 'add-circle', bg: colors.warmSubtle },
 ];
 
 const CATEGORY_BY_TYPE: Record<CareLogType, CategoryConfig> = CATEGORIES.reduce(
@@ -74,6 +75,7 @@ export default function CareLogScreen() {
   const { data: inProgressBookings = [] } = useBookingList('IN_PROGRESS');
   const activeBooking = inProgressBookings[0];
   const bookingId = activeBooking?.id;
+  const checkOut = useCheckOut();
 
   const { data: entries = [], isLoading: loadingEntries } = useCareLogs(bookingId);
   const createLog = useCreateCareLog(bookingId);
@@ -325,9 +327,19 @@ export default function CareLogScreen() {
               <Text style={styles.headerSubtitle}>{TODAY_LABEL}</Text>
             </View>
           </View>
-          <Pressable style={styles.iconBtn}>
-            <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
-          </Pressable>
+          {activeBooking ? (
+            <Pressable
+              style={styles.endShiftBtn}
+              onPress={() => confirmEndShift(activeBooking, checkOut, () => router.back())}
+              disabled={checkOut.isPending}
+            >
+              <Text style={styles.endShiftBtnText}>End shift</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.iconBtn}>
+              <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
+            </Pressable>
+          )}
         </View>
       </View>
 

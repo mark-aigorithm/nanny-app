@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  BookingListQuery,
   BookingResponse,
   CreateBookingRequest,
   MockPayBookingRequest,
@@ -7,14 +8,25 @@ import type {
 import { PaymentMethod } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
+import { formatTimeRangeUtc } from '@mobile/lib/formatTime';
 
 const BOOKINGS_KEY = 'bookings';
 
-export function useBookingList(statusFilter?: string) {
+export type BookingListOptions = Pick<BookingListQuery, 'sortBy' | 'sortDir'>;
+
+export function useBookingList(statusFilter?: string, options?: BookingListOptions) {
   return useQuery<BookingResponse[]>({
-    queryKey: [BOOKINGS_KEY, statusFilter],
+    queryKey: [BOOKINGS_KEY, statusFilter, options?.sortBy, options?.sortDir],
     queryFn: () =>
-      unwrap(api.get('/bookings', { params: statusFilter ? { status: statusFilter } : undefined })),
+      unwrap(
+        api.get('/bookings', {
+          params: {
+            ...(statusFilter ? { status: statusFilter } : {}),
+            ...(options?.sortBy ? { sortBy: options.sortBy } : {}),
+            ...(options?.sortDir ? { sortDir: options.sortDir } : {}),
+          },
+        }),
+      ),
   });
 }
 
@@ -31,6 +43,37 @@ export function useCreateBooking() {
   return useMutation<BookingResponse, Error, CreateBookingRequest>({
     mutationFn: (body) => unwrap(api.post('/bookings', body)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+export type PaymobCheckoutSession = {
+  paymentId: string;
+  clientSecret: string;
+  publicKey: string;
+  intentionId: string;
+};
+
+export function usePaymobCheckout() {
+  const qc = useQueryClient();
+  return useMutation<
+    PaymobCheckoutSession,
+    Error,
+    { bookingId: string; method?: MockPayBookingRequest['method'] }
+  >({
+    mutationFn: ({ bookingId, method = PaymentMethod.CARD }) =>
+      unwrap(api.post(`/bookings/${bookingId}/pay/paymob`, { method })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+export function useSyncPaymobPayment() {
+  const qc = useQueryClient();
+  return useMutation<BookingResponse, Error, string>({
+    mutationFn: (bookingId) => unwrap(api.post(`/bookings/${bookingId}/pay/paymob/sync`)),
+    onSuccess: (booking) => {
+      qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
+      qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+    },
   });
 }
 
@@ -68,6 +111,14 @@ export function useAcceptBooking() {
   });
 }
 
+export function useCheckIn() {
+  const qc = useQueryClient();
+  return useMutation<BookingResponse, Error, string>({
+    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/check-in`)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
 export function useCheckOut() {
   const qc = useQueryClient();
   return useMutation<BookingResponse, Error, string>({
@@ -91,12 +142,5 @@ export function fmtBookingDate(isoDate: string): string {
 }
 
 export function fmtBookingTime(startIso: string, endIso: string): string {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'UTC',
-    });
-  return `${fmt(startIso)} - ${fmt(endIso)}`;
+  return formatTimeRangeUtc(startIso, endIso);
 }

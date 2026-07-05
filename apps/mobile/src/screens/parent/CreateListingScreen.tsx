@@ -4,9 +4,9 @@ import {
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MARKETPLACE_CATEGORIES, CONDITION_OPTIONS } from '@mobile/constants';

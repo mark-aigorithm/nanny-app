@@ -12,11 +12,13 @@
     "test:coverage": "jest --coverage",
     "clean": "rm -rf dist",
     "db:generate": "prisma generate",
+    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
-    "db:seed:community": "ts-node --transpile-only -r tsconfig-paths/register prisma/seed-community.ts"
+    "db:seed:community": "ts-node --transpile-only -r tsconfig-paths/register prisma/seed-community.ts",
+    "db:seed:demo": "ts-node --transpile-only -r tsconfig-paths/register prisma/seed-demo.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1002.0",

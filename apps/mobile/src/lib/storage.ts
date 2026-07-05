@@ -35,6 +35,11 @@ export async function uploadImageToFirebase(
   return getDownloadURL(objectRef);
 }
 
+/** True when the URI points at a device-local file rather than a remote URL. */
+export function isLocalImageUri(uri: string): boolean {
+  return uri.startsWith('file:') || uri.startsWith('content:') || uri.startsWith('ph://');
+}
+
 function inferExtension(uri: string, mimeType: string): string {
   const fromMime = mimeType.startsWith('image/') ? mimeType.split('/')[1] : null;
   if (fromMime) return fromMime === 'jpeg' ? 'jpg' : fromMime;

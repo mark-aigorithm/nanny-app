@@ -61,6 +61,7 @@ export function useCreateReview(bookingId: string) {
       unwrap(api.post(`/nanny/bookings/${bookingId}/review`, body)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [NANNIES_KEY] });
+      qc.invalidateQueries({ queryKey: ['bookings'] });
     },
   });
 }

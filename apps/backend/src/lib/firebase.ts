@@ -15,4 +15,5 @@ if (!admin.apps.length) {
 }
 
 export const firebaseAuth = admin.auth();
+export const firebaseMessaging = admin.messaging();
 export type DecodedIdToken = admin.auth.DecodedIdToken;

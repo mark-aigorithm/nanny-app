@@ -99,6 +99,32 @@ export const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: colors.surfaceMuted,
   },
+  nannyPhotoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centeredState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: screenPadding,
+    gap: spacing.lg,
+  },
+  missingParamsText: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  missingParamsBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing.md,
+  },
+  missingParamsBtnText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 15,
+    color: colors.white,
+  },
   nannyInfo: {
     flex: 1,
     gap: 6,
@@ -217,6 +243,25 @@ export const styles = StyleSheet.create({
     color: colors.primary,
   },
 
+  instructionsSection: {
+    gap: spacing.sm,
+  },
+  instructionsLabel: {
+    ...typeScale.labelMd,
+    color: colors.textTertiary,
+  },
+  instructionsInput: {
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    minHeight: 100,
+    fontFamily: fontFamily.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textPrimary,
+    textAlignVertical: 'top',
+  },
+
   // Guarantee Card
   guaranteeCard: {
     backgroundColor: colors.taupeLight,
@@ -251,6 +296,9 @@ export const styles = StyleSheet.create({
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  proceedBtnDisabled: {
+    opacity: 0.5,
   },
   proceedBtnText: {
     fontFamily: fontFamily.bold,

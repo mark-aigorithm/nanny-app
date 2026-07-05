@@ -4,7 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { BOOKING_DURATION_OPTIONS } from '@mobile/constants';
+import { isStandardBookingDateAllowed, STANDARD_BOOKING_SAME_DAY_MESSAGE } from '@nanny-app/shared';
 import { useNannyPublicProfile, useNannyBookedSlots } from '@mobile/hooks/useNannies';
+import BookingStepProgress from '@mobile/components/BookingStepProgress';
+import { formatHour24 } from '@mobile/lib/formatTime';
+import { resolveImageUri } from '@mobile/lib/imageUri';
 import { styles } from './styles/booking-date-picker-screen.styles';
 import type { TimeSlot } from '@mobile/types';
 import type { WeeklySchedule } from '@nanny-app/shared';
@@ -23,12 +27,6 @@ function getFirstDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
-function formatHourLabel(h: number): string {
-  if (h === 0) return '12:00 AM';
-  if (h === 12) return '12:00 PM';
-  return h > 12 ? `${h - 12}:00 PM` : `${h}:00 AM`;
-}
-
 function generateSlotsFromSchedule(schedule: WeeklySchedule | null | undefined, dayOfWeek: number): TimeSlot[] {
   if (!schedule) return [];
   const day = schedule[String(dayOfWeek)];
@@ -43,7 +41,7 @@ function generateSlotsFromSchedule(schedule: WeeklySchedule | null | undefined, 
     const nextHh = String(h + 1).padStart(2, '0');
     slots.push({
       id: `${hh}:00`,
-      label: formatHourLabel(h),
+      label: formatHour24(h),
       startTime: `${hh}:00`,
       endTime: `${nextHh}:00`,
       available: true,
@@ -76,10 +74,11 @@ export default function BookingDatePickerScreen() {
   const isToday = (day: number) =>
     day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
 
-  const isPast = (day: number) => {
+  const isUnavailable = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    return date < todayStart;
+    // Standard bookings cannot be same-day; only emergency bookings allow today.
+    return date <= todayStart;
   };
 
   const handlePrevMonth = () => {
@@ -130,26 +129,32 @@ export default function BookingDatePickerScreen() {
 
   const handleContinue = () => {
     if (!canContinue || selectedDay === null) return;
-    const slot = availableSlots.find((s) => s.id === selectedTimeSlot);
     const dateIso = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
-    const [startHH, startMM] = (slot?.startTime ?? '09:00').split(':');
-    const endHour = (parseInt(startHH ?? '9', 10) + selectedDuration);
+    if (!isStandardBookingDateAllowed(dateIso)) return;
+
+    const slot = availableSlots.find((s) => s.id === selectedTimeSlot);
+    if (!slot) return;
+
+    const [startHH, startMM] = slot.startTime.split(':');
+    const endHour = parseInt(startHH ?? '0', 10) + selectedDuration;
+    const endMinute = parseInt(startMM ?? '0', 10);
     const endTimeStr = `${String(endHour).padStart(2, '0')}:${startMM ?? '00'}`;
-    const startTimeIso = `${dateIso}T${slot?.startTime ?? '09:00'}:00+00:00`;
+    const startTimeIso = `${dateIso}T${slot.startTime}:00+00:00`;
     const endTimeIso = `${dateIso}T${endTimeStr}:00+00:00`;
+    const resolvedPhoto = resolveImageUri(nannyPhoto) ?? resolveImageUri(nanny?.avatarUrl);
     router.push({
       pathname: '/(parent)/book/booking-step-1',
       params: {
         nannyProfileId: nannyId ?? '',
         date: `${MONTHS[currentMonth].slice(0, 3)} ${selectedDay}`,
-        startTime: slot?.label ?? '9:00 AM',
-        endTime: endTimeStr,
+        startTime: slot.label,
+        endTime: formatHour24(endHour, endMinute),
         dateIso,
         startTimeIso,
         endTimeIso,
         nannyName: nannyName ?? '',
-        nannyPhoto: nannyPhoto ?? '',
-        nannyRate: nannyRate ?? '',
+        ...(resolvedPhoto ? { nannyPhoto: resolvedPhoto } : {}),
+        nannyRate: nannyRate ?? String(nanny?.hourlyRate ?? ''),
       },
     } as never);
   };
@@ -189,6 +194,10 @@ export default function BookingDatePickerScreen() {
       <StatusBar barStyle="dark-content" />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <BookingStepProgress step={1} title="Select date & time" centered />
+
+        <Text style={styles.advanceNotice}>{STANDARD_BOOKING_SAME_DAY_MESSAGE}</Text>
+
         {/* Calendar */}
         <View>
           <View style={styles.calendarHeader}>
@@ -213,7 +222,7 @@ export default function BookingDatePickerScreen() {
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
-              const past = isPast(day);
+              const unavailable = isUnavailable(day);
               const selected = selectedDay === day;
               const todayMark = isToday(day);
               return (
@@ -221,15 +230,15 @@ export default function BookingDatePickerScreen() {
                   key={day}
                   style={styles.dayCell}
                   onPress={() => {
-                    if (!past) {
+                    if (!unavailable) {
                       setSelectedDay(day);
                       setSelectedTimeSlot(null);
                     }
                   }}
-                  disabled={past}
+                  disabled={unavailable}
                 >
-                  <View style={[selected && styles.daySelected, todayMark && !selected && styles.dayToday]}>
-                    <Text style={[styles.dayText, past && styles.dayTextDisabled, selected && styles.dayTextSelected]}>
+                  <View style={[selected && styles.daySelected, todayMark && !selected && !unavailable && styles.dayToday]}>
+                    <Text style={[styles.dayText, unavailable && styles.dayTextDisabled, selected && styles.dayTextSelected]}>
                       {day}
                     </Text>
                   </View>

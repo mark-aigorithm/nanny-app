@@ -3,3 +3,5 @@ export * from './nanny';
 export * from './booking';
 export * from './care-log';
 export * from './community';
+export * from './messaging';
+export * from './notifications';

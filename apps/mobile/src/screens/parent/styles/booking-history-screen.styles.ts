@@ -40,6 +40,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerSide: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     ...typeScale.headingLg,
     color: colors.textPrimary,
@@ -271,6 +277,26 @@ export const styles = StyleSheet.create({
   leaveReviewText: {
     ...typeScale.labelMd,
     color: colors.primary,
+  },
+  yourReviewBlock: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  yourReviewLabel: {
+    ...typeScale.labelSm,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  reviewStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  yourReviewComment: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   bookAgainButton: {
     borderWidth: 1.5,

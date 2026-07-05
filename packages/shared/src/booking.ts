@@ -71,6 +71,14 @@ export const BookingPaymentSummarySchema = z.object({
   amount: z.number(),
 });
 
+export const BookingMyReviewSchema = z.object({
+  id: z.string(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type BookingMyReview = z.infer<typeof BookingMyReviewSchema>;
+
 export const BookingResponseSchema = z.object({
   id: z.string(),
   motherId: z.string(),
@@ -91,11 +99,13 @@ export const BookingResponseSchema = z.object({
   serviceFeePercent: z.number(),
   serviceFeeAmount: z.number(),
   totalAmount: z.number(),
+  specialInstructions: z.string().nullable(),
   cancellationReason: z.string().nullable(),
   cancelledAt: z.string().nullable(),
   nannyCheckedInAt: z.string().nullable(),
   nannyCheckedOutAt: z.string().nullable(),
   payment: BookingPaymentSummarySchema.nullable(),
+  myReview: BookingMyReviewSchema.nullable(),
   createdAt: z.string(),
 });
 export type BookingResponse = z.infer<typeof BookingResponseSchema>;
@@ -113,8 +123,25 @@ export const CreateBookingSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
   startTime: z.string().datetime({ offset: true }),
   endTime: z.string().datetime({ offset: true }),
+  specialInstructions: z.string().trim().max(1000).optional(),
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
+
+/** YYYY-MM-DD in local calendar time for the given instant. */
+export function toLocalDateIso(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Standard bookings must be on a future calendar day — not today. */
+export function isStandardBookingDateAllowed(dateIso: string, now: Date = new Date()): boolean {
+  return dateIso > toLocalDateIso(now);
+}
+
+export const STANDARD_BOOKING_SAME_DAY_MESSAGE =
+  'Standard bookings must be scheduled at least one day in advance. Use emergency booking for same-day care.';
 
 export const CreateEmergencyBookingSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -143,12 +170,16 @@ export const CreatePaymobIntentionSchema = z.object({
 });
 export type CreatePaymobIntentionRequest = z.infer<typeof CreatePaymobIntentionSchema>;
 
+/** Minutes before scheduled start when nanny may check in (must match backend). */
+export const CHECK_IN_EARLY_MINUTES = 15;
+
 export const BookingListQuerySchema = z.object({
   /** Comma-separated statuses, e.g. "CONFIRMED,IN_PROGRESS" */
   status: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),
-  sortBy: z.enum(['date', 'createdAt']).default('date'),
+  sortBy: z.enum(['date', 'startTime', 'createdAt']).default('date'),
+  sortDir: z.enum(['asc', 'desc']).default('desc'),
 });
 export type BookingListQuery = z.infer<typeof BookingListQuerySchema>;
 

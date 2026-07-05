@@ -12,13 +12,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import BottomNav from '@mobile/components/BottomNav';
+import NotificationBellButton from '@mobile/components/NotificationBellButton';
 import PostCard from '@mobile/components/community/PostCard';
+import { SearchBar } from '@mobile/components/ui';
 import {
   useCommunityPosts,
   useToggleEventRsvp,
   useTogglePostLike,
 } from '@mobile/hooks/useCommunity';
-import { filterPillToType } from '@mobile/lib/communityUtils';
+import { filterPillToType, filterPostsBySearch } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/community-feed-screen.styles';
@@ -30,6 +32,8 @@ export default function CommunityFeedScreen() {
   const params = useLocalSearchParams<{ filter?: string }>();
   const initialFilter = (params.filter as CommunityFilterPill) ?? 'All posts';
   const [activeFilter, setActiveFilter] = useState<CommunityFilterPill>(initialFilter);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (params.filter && FILTER_PILLS.includes(params.filter as CommunityFilterPill)) {
@@ -51,25 +55,59 @@ export default function CommunityFeedScreen() {
   const toggleRsvp = useToggleEventRsvp();
 
   const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+  const visiblePosts = useMemo(
+    () => filterPostsBySearch(posts, searchQuery),
+    [posts, searchQuery],
+  );
+
+  const closeSearch = () => {
+    setIsSearchActive(false);
+    setSearchQuery('');
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Community</Text>
-          <View style={styles.headerRight}>
-            <View style={styles.onlinePill}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>Live feed</Text>
-            </View>
-            <Pressable style={styles.headerIcon}>
-              <Ionicons name="search" size={20} color={colors.textDark} />
-            </Pressable>
-            <Pressable style={styles.headerIcon}>
-              <Ionicons name="notifications-outline" size={20} color={colors.textDark} />
+        {isSearchActive ? (
+          <View style={styles.searchRow}>
+            <SearchBar
+              style={styles.searchBar}
+              size="compact"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search posts, authors, tags..."
+              showClearButton
+              onClear={() => setSearchQuery('')}
+              autoFocus
+            />
+            <Pressable onPress={closeSearch} hitSlop={8} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
-        </View>
+        ) : (
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Community</Text>
+            <View style={styles.headerRight}>
+              <View style={styles.onlinePill}>
+                <View style={styles.onlineDot} />
+                <Text style={styles.onlineText}>Live feed</Text>
+              </View>
+              <Pressable
+                style={styles.headerIcon}
+                onPress={() => setIsSearchActive(true)}
+                accessibilityLabel="Search community posts"
+                accessibilityRole="button"
+              >
+                <Ionicons name="search" size={20} color={colors.textDark} />
+              </Pressable>
+              <NotificationBellButton
+                iconSize={20}
+                iconColor={colors.textDark}
+                style={styles.headerIcon}
+              />
+            </View>
+          </View>
+        )}
 
         <ScrollView
           horizontal
@@ -103,12 +141,14 @@ export default function CommunityFeedScreen() {
 
       <FlatList
         style={styles.scroll}
-        data={posts}
+        data={visiblePosts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.scrollContent,
-          (isLoading || posts.length === 0) && styles.scrollContentEmpty,
+          (isLoading || visiblePosts.length === 0) && styles.scrollContentEmpty,
         ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
         }
@@ -120,7 +160,11 @@ export default function CommunityFeedScreen() {
           isLoading ? (
             <ActivityIndicator color={colors.primary} style={styles.loadingIndicator} />
           ) : (
-            <Text style={styles.filterPillTextInactive}>No posts in this category yet.</Text>
+            <Text style={styles.filterPillTextInactive}>
+              {searchQuery.trim()
+                ? 'No posts match your search.'
+                : 'No posts in this category yet.'}
+            </Text>
           )
         }
         ListFooterComponent={

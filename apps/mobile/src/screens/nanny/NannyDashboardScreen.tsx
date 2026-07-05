@@ -10,8 +10,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { sortBookingsByStartTime } from '@mobile/hooks/useBookingShiftTimer';
 import { useNannyDashboard } from '@mobile/hooks/useNannies';
+import { formatMoney } from '@mobile/lib/formatMoney';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
+import UpcomingShiftBanner from '@mobile/components/UpcomingShiftBanner';
+import NannyBottomNav from '@mobile/components/NannyBottomNav';
+import NotificationBellButton from '@mobile/components/NotificationBellButton';
 import { styles } from './styles/nanny-dashboard-screen.styles';
 
 type StatKey = 'totalBookings' | 'repeatClients' | 'averageRating' | 'responseRate';
@@ -25,7 +30,14 @@ const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; icon
 
 export default function NannyDashboardScreen() {
   const { data: dashboard, isLoading: loadingDashboard } = useNannyDashboard();
-  const { data: upcomingBookings = [], isLoading: loadingBookings } = useBookingList('CONFIRMED');
+  const { data: shiftBookings = [], isLoading: loadingShift } = useBookingList(
+    'CONFIRMED,IN_PROGRESS',
+    { sortBy: 'startTime', sortDir: 'asc' },
+  );
+  const upcomingBookings = sortBookingsByStartTime(
+    shiftBookings.filter((b) => b.status === 'CONFIRMED'),
+  );
+  const loadingBookings = loadingShift;
 
   return (
     <View style={styles.container}>
@@ -33,6 +45,7 @@ export default function NannyDashboardScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <OngoingBookingBanner />
+        <UpcomingShiftBanner bookings={shiftBookings} />
 
         {/* Earnings Card */}
         <View style={styles.earningsCard}>
@@ -43,12 +56,16 @@ export default function NannyDashboardScreen() {
             <View style={styles.earningsRow}>
               <View style={styles.earningsItem}>
                 <Text style={styles.earningsLabel}>This week</Text>
-                <Text style={styles.earningsAmount}>${dashboard?.earningsThisWeek.toFixed(2) ?? '—'}</Text>
+                <Text style={styles.earningsAmount}>
+                  {dashboard != null ? formatMoney(dashboard.earningsThisWeek) : '—'}
+                </Text>
               </View>
               <View style={styles.earningsDivider} />
               <View style={styles.earningsItem}>
                 <Text style={styles.earningsLabel}>This month</Text>
-                <Text style={styles.earningsAmount}>${dashboard?.earningsThisMonth.toFixed(2) ?? '—'}</Text>
+                <Text style={styles.earningsAmount}>
+                  {dashboard != null ? formatMoney(dashboard.earningsThisMonth) : '—'}
+                </Text>
               </View>
             </View>
           )}
@@ -100,7 +117,7 @@ export default function NannyDashboardScreen() {
                     <Text style={styles.bookingMeta}>{fmtBookingDate(booking.date)}</Text>
                     <Text style={styles.bookingMeta}>{fmtBookingTime(booking.startTime, booking.endTime)}</Text>
                   </View>
-                  <Text style={styles.bookingAmount}>${booking.totalAmount.toFixed(2)}</Text>
+                  <Text style={styles.bookingAmount}>{formatMoney(booking.totalAmount)}</Text>
                 </View>
               ))
             )}
@@ -112,11 +129,11 @@ export default function NannyDashboardScreen() {
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Dashboard</Text>
-          <Pressable style={styles.bellBtn}>
-            <Ionicons name="notifications-outline" size={22} color={colors.textDark} />
-          </Pressable>
+          <NotificationBellButton route="/(nanny)/notifications" iconColor={colors.textDark} />
         </View>
       </View>
+
+      <NannyBottomNav activeTab="dashboard" />
     </View>
   );
 }

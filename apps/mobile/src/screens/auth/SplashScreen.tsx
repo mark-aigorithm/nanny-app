@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 
 import { Button } from '@mobile/components/ui';
+import { APP_NAME } from '@mobile/constants';
 import { styles } from './styles/splash-screen.styles';
 
 interface Props {
@@ -24,7 +25,7 @@ export default function SplashScreen({ onGetStarted }: Props) {
       {/* Center brand identity */}
       <View style={styles.centerContent}>
         <View style={styles.typographyCluster}>
-          <Text style={styles.appName}>NannyMom</Text>
+          <Text style={styles.appName}>{APP_NAME}</Text>
           <Text style={styles.tagline}>Care you can trust</Text>
         </View>
       </View>

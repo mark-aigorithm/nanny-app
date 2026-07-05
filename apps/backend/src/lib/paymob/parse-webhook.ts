@@ -93,15 +93,22 @@ export function transactionFailed(txn: Record<string, unknown>): boolean {
   return tx.success === false && tx.pending === false;
 }
 
+/** Strip Paymob retry suffix (`<paymentId>-r2`) back to the Payment row id. */
+export function normalizeMerchantPaymentReference(reference: string): string {
+  const trimmed = reference.trim();
+  const match = trimmed.match(/^(.+)-r\d+$/);
+  return match?.[1] ?? trimmed;
+}
+
 /** Resolve our payment row id from callback (special_reference / merchant_order_id / extras). */
 export function extractMerchantPaymentId(txn: Record<string, unknown>): string | null {
   const tx = txn as unknown as PaymobTransactionDto;
-  return (
+  const raw =
     tx.extras?.payment_id ??
     tx.order.merchant_order_id ??
     tx.payment_key_claims?.extra?.merchant_reference ??
     tx.payment_key_claims?.extra?.payment_id ??
     tx.special_reference ??
-    null
-  );
+    null;
+  return raw ? normalizeMerchantPaymentReference(raw) : null;
 }

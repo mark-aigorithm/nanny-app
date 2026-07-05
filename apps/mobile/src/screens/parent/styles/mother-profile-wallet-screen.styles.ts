@@ -52,6 +52,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerAvatarWrap: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontFamily: fontFamily.bold,
     fontSize: 20,
@@ -72,7 +78,7 @@ export const styles = StyleSheet.create({
   heroSection: {
     backgroundColor: colors.warmBorder,
     borderRadius: borderRadius.xl,
-    height: 305,
+    minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing['2xl'],
@@ -90,30 +96,10 @@ export const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.white,
   },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    borderWidth: 2,
-    borderColor: colors.white,
+  profilePhotoFallback: {
+    backgroundColor: colors.taupe,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  memberBadge: {
-    backgroundColor: colors.bronze,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  memberBadgeText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.white,
   },
   profileName: {
     fontFamily: fontFamily.bold,
@@ -145,49 +131,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.primary,
-  },
-
-  // Wallet row
-  walletRow: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-  },
-  walletCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.xs,
-  },
-  walletAmount: {
-    fontFamily: fontFamily.bold,
-    fontSize: 24,
-    lineHeight: 32,
-    color: colors.primary,
-  },
-  rewardsAmount: {
-    fontFamily: fontFamily.bold,
-    fontSize: 24,
-    lineHeight: 32,
-    color: colors.textPrimary,
-  },
-  rewardsPts: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    color: colors.textPrimary,
-  },
-  walletLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.textTertiary,
-  },
-  earnMore: {
-    fontFamily: fontFamily.bold,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.primary,
-    marginTop: spacing.xxs,
   },
 
   // Settings list

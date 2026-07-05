@@ -48,6 +48,20 @@ export const UserResponseSchema = z.object({
 });
 export type UserResponse = z.infer<typeof UserResponseSchema>;
 
+/** Body for PATCH /auth/me — all fields optional (patch semantics). */
+export const UpdateProfileRequestSchema = z.object({
+  firstName: z.string().trim().min(1).max(80).optional(),
+  lastName: z.string().trim().min(1).max(80).optional(),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+\d{7,15}$/, 'phone must be E.164, e.g. +15551234567')
+    .nullable()
+    .optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+});
+export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
+
 /** Standard API envelope used by every backend response (success and error). */
 export const ApiSuccessSchema = <T extends z.ZodTypeAny>(data: T) =>
   z.object({ data, error: z.null() });

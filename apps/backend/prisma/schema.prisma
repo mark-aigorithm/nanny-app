@@ -126,11 +126,16 @@ model User {
   cancelledBookings Booking[]  @relation("BookingCancelledBy")
   payments          Payment[]  @relation("PaymentMother")
   reviewsGiven      Review[]   @relation("ReviewMother")
-  communityPosts    CommunityPost[]
-  postLikes         PostLike[]
-  comments          Comment[]
-  commentLikes      CommentLike[]
-  eventRsvps        EventRsvp[]
+  communityPosts            CommunityPost[]
+  postLikes                 PostLike[]
+  comments                  Comment[]
+  commentLikes              CommentLike[]
+  eventRsvps                EventRsvp[]
+  conversationParticipants  ConversationParticipant[]
+  messagesSent              Message[]
+  notifications             Notification[]
+  deviceTokens              DeviceToken[]
+  initiatedConversations    Conversation[]            @relation("ConversationInitiator")
 
   @@index([role])
   @@index([deletedAt])
@@ -213,6 +218,7 @@ model Booking {
   serviceFeePercent       Decimal       @map("service_fee_percent") @db.Decimal(5, 2)
   serviceFeeAmount        Decimal       @map("service_fee_amount")  @db.Decimal(10, 2)
   totalAmount             Decimal       @map("total_amount")        @db.Decimal(10, 2)
+  specialInstructions     String?       @map("special_instructions") @db.Text
   cancellationReason      String?       @map("cancellation_reason")
   cancelledById           String?       @map("cancelled_by_id")
   cancelledBy             User?         @relation("BookingCancelledBy", fields: [cancelledById], references: [id])
@@ -252,6 +258,8 @@ model Payment {
   paymobIntentionId   String?       @map("paymob_intention_id")
   /// One-time client secret for Pixel / unified checkout and for server-side intention polling.
   paymobClientSecret  String?       @map("paymob_client_secret") @db.Text
+  /// Incremented each time a new Paymob intention is created (retry-safe merchant order ids).
+  paymobIntentionAttempt Int        @default(0) @map("paymob_intention_attempt")
   /// T0 for staggered reconciliation (usually intention creation time).
   paymobReconcileAnchorAt DateTime? @map("paymob_reconcile_anchor_at")
   /// Number of reconciliation polls already executed (0..PAYMOB_RECONCILE_OFFSETS_MS.length).
@@ -353,9 +361,10 @@ model CommunityPost {
   updatedAt     DateTime          @updatedAt @map("updated_at")
   deletedAt     DateTime?         @map("deleted_at")
 
-  likes    PostLike[]
-  comments Comment[]
-  rsvps    EventRsvp[]
+  likes         PostLike[]
+  comments      Comment[]
+  rsvps         EventRsvp[]
+  conversations Conversation[]
 
   @@index([type, createdAt])
   @@index([authorId, createdAt])
@@ -431,4 +440,133 @@ model EventRsvp {
   @@index([postId])
   @@index([userId])
   @@map("event_rsvps")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Messaging
+// ──────────────────────────────────────────────────────────────
+
+enum ConversationType {
+  MARKETPLACE
+
+  @@map("conversation_type")
+}
+
+enum MessageType {
+  TEXT
+
+  @@map("message_type")
+}
+
+model Conversation {
+  id              String           @id @default(cuid())
+  type            ConversationType @default(MARKETPLACE)
+  communityPostId String           @map("community_post_id")
+  communityPost   CommunityPost    @relation(fields: [communityPostId], references: [id])
+  initiatorId     String           @map("initiator_id")
+  initiator       User             @relation("ConversationInitiator", fields: [initiatorId], references: [id])
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@unique([communityPostId, initiatorId])
+  @@index([communityPostId])
+  @@index([initiatorId])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id])
+  lastReadAt     DateTime?    @map("last_read_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String       @map("sender_id")
+  sender         User         @relation(fields: [senderId], references: [id])
+  type           MessageType  @default(TEXT)
+  content        String       @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Notifications
+// ──────────────────────────────────────────────────────────────
+
+enum NotificationType {
+  MARKETPLACE_MESSAGE
+  NANNY_CHECKIN
+  BOOKING_COMPLETED
+  CARE_LOG_ENTRY
+
+  @@map("notification_type")
+}
+
+enum NotificationReferenceType {
+  CONVERSATION
+  BOOKING
+
+  @@map("notification_reference_type")
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+
+  @@map("device_platform")
+}
+
+model Notification {
+  id            String                    @id @default(cuid())
+  userId        String                    @map("user_id")
+  user          User                      @relation(fields: [userId], references: [id])
+  type          NotificationType
+  title         String
+  body          String                    @db.Text
+  isRead        Boolean                   @default(false) @map("is_read")
+  referenceId   String?                   @map("reference_id")
+  referenceType NotificationReferenceType? @map("reference_type")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+  deletedAt     DateTime?                 @map("deleted_at")
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, type])
+  @@map("notifications")
+}
+
+model DeviceToken {
+  id        String         @id @default(cuid())
+  userId    String         @map("user_id")
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String         @unique
+  platform  DevicePlatform
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  deletedAt DateTime?      @map("deleted_at")
+
+  @@index([userId])
+  @@map("device_tokens")
 }

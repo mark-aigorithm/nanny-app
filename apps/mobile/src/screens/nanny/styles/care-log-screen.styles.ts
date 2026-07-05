@@ -70,6 +70,19 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  endShiftBtn: {
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  endShiftBtnText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 13,
+    color: colors.white,
+  },
 
   // Child Banner Card
   childCard: {

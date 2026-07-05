@@ -29,7 +29,10 @@ export type PaymobIntentionCreateBody = {
   currency: string;
   payment_methods: number[];
   billing_data: Record<string, string | boolean>;
+  /** Stable idempotency key — our Payment row id (retry suffix when attempt > 1). */
+  merchant_order_id: string;
   special_reference: string;
   notification_url: string;
+  redirection_url?: string;
   extras?: Record<string, string>;
 };

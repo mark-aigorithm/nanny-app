@@ -23,7 +23,9 @@ import {
   useToggleEventRsvp,
   useTogglePostLike,
 } from '@mobile/hooks/useCommunity';
+import { useContactSeller } from '@mobile/hooks/useMessaging';
 import { getCommunityReturnHref } from '@mobile/lib/communityUtils';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { postDetailTheme, styles } from './styles/post-detail-screen.styles';
 
 export default function PostDetailScreen() {
@@ -46,10 +48,15 @@ export default function PostDetailScreen() {
     isLoading: commentsLoading,
   } = useComments(postId);
 
+  const currentUserId = useUserProfileStore((s) => s.profile?.id);
   const toggleLike = useTogglePostLike();
   const toggleRsvp = useToggleEventRsvp();
   const toggleCommentLike = useToggleCommentLike();
   const createComment = useCreateComment();
+  const contactSeller = useContactSeller();
+
+  const canMessageSeller =
+    post?.type === 'marketplace' && post.author.id !== currentUserId;
 
   const comments = useMemo(
     () => commentsData?.pages.flatMap((page) => page.comments) ?? [],
@@ -79,6 +86,15 @@ export default function PostDetailScreen() {
     });
     setReplyText('');
     setReplyToId(undefined);
+  };
+
+  const handleMessageSeller = async () => {
+    if (!postId || contactSeller.isPending) return;
+    const result = await contactSeller.mutateAsync(postId);
+    router.push({
+      pathname: '/(parent)/chat/messaging',
+      params: { conversationId: result.conversation.id },
+    });
   };
 
   if (postLoading || !post) {
@@ -123,6 +139,19 @@ export default function PostDetailScreen() {
           onLikePress={() => toggleLike.mutate(post.id)}
           onRsvpPress={() => toggleRsvp.mutate(post.id)}
         />
+
+        {canMessageSeller ? (
+          <Pressable
+            style={styles.messageSellerButton}
+            onPress={handleMessageSeller}
+            disabled={contactSeller.isPending}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color={postDetailTheme.white} />
+            <Text style={styles.messageSellerButtonText}>
+              {contactSeller.isPending ? 'Opening chat…' : 'Message seller'}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.commentsSection}>
           <Text style={styles.commentsTitle}>Comments ({post.commentCount})</Text>

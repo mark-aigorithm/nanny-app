@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Animated, Easing, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { BookingResponse } from '@nanny-app/shared';
@@ -11,7 +11,8 @@ import {
   borderRadius,
   shadows,
 } from '@mobile/theme';
-import { useBookingList } from '@mobile/hooks/useBookings';
+import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
+import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
 
 function getElapsed(startIso: string | null): string {
   if (!startIso) return 'Just started';
@@ -31,10 +32,15 @@ function pickActive(bookings: BookingResponse[]): BookingResponse | null {
 
 interface Props {
   href?: string;
+  onPressBooking?: (booking: BookingResponse) => void;
 }
 
-export default function OngoingBookingBanner({ href = '/(nanny)/care-log' }: Props) {
+export default function OngoingBookingBanner({
+  href = '/(nanny)/care-log',
+  onPressBooking,
+}: Props) {
   const router = useRouter();
+  const checkOut = useCheckOut();
   const { data: bookings = [] } = useBookingList('IN_PROGRESS');
   const active = pickActive(bookings);
 
@@ -64,49 +70,81 @@ export default function OngoingBookingBanner({ href = '/(nanny)/care-log' }: Pro
 
   if (!active) return null;
 
-  const motherName = `${active.motherFirstName} ${active.motherLastName}`;
+  const isParentView = !!onPressBooking;
+  const subjectName = isParentView
+    ? (active.nanny ? `${active.nanny.firstName} ${active.nanny.lastName}` : 'Your nanny')
+    : `${active.motherFirstName} ${active.motherLastName}`;
+  const title = isParentView
+    ? `${subjectName} is on shift`
+    : `Caring for ${subjectName}'s family`;
+  const cta = isParentView ? 'Tap to view details' : 'Tap to open care log';
   const elapsedLabel = getElapsed(active.nannyCheckedInAt);
-
   const dotScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] });
   const dotOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] });
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
-      onPress={() => router.push(href as never)}
-      accessibilityRole="button"
-      accessibilityLabel={`Open care log for ongoing booking with ${motherName}`}
-    >
-      <View style={styles.liveWrap}>
-        <Animated.View
-          style={[
-            styles.liveHalo,
-            { transform: [{ scale: dotScale }], opacity: dotOpacity },
-          ]}
-        />
-        <View style={styles.liveDot} />
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <Text style={styles.eyebrow}>ON SHIFT</Text>
-          <View style={styles.eyebrowDivider} />
-          <Text style={styles.elapsed}>{elapsedLabel}</Text>
+    <View style={styles.wrapper}>
+      <Pressable
+        style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+        onPress={() => {
+          if (onPressBooking) {
+            onPressBooking(active);
+            return;
+          }
+          router.push(href as never);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={isParentView ? `View booking details for ${subjectName}` : `Open care log for ongoing booking with ${subjectName}`}
+      >
+        <View style={styles.liveWrap}>
+          <Animated.View
+            style={[
+              styles.liveHalo,
+              { transform: [{ scale: dotScale }], opacity: dotOpacity },
+            ]}
+          />
+          <View style={styles.liveDot} />
         </View>
-        <Text style={styles.title} numberOfLines={1}>
-          Caring for {motherName}&apos;s family
-        </Text>
-        <Text style={styles.cta}>Tap to open care log</Text>
-      </View>
 
-      <View style={styles.chevron}>
-        <Ionicons name="chevron-forward" size={18} color={colors.white} />
-      </View>
-    </Pressable>
+        <View style={styles.content}>
+          <View style={styles.titleRow}>
+            <Text style={styles.eyebrow}>ON SHIFT</Text>
+            <View style={styles.eyebrowDivider} />
+            <Text style={styles.elapsed}>{elapsedLabel}</Text>
+          </View>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={styles.cta}>{cta}</Text>
+        </View>
+
+        <View style={styles.chevron}>
+          <Ionicons name="chevron-forward" size={18} color={colors.white} />
+        </View>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [styles.endButton, pressed && styles.pressed]}
+        onPress={() => confirmEndShift(active, checkOut)}
+        disabled={checkOut.isPending}
+        accessibilityRole="button"
+        accessibilityLabel="End shift"
+      >
+        {checkOut.isPending ? (
+          <ActivityIndicator color={colors.white} size="small" />
+        ) : (
+          <Text style={styles.endButtonText}>End shift</Text>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -182,5 +220,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  endButton: {
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+  },
+  endButtonText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 14,
+    color: colors.white,
   },
 });

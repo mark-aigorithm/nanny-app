@@ -12,7 +12,7 @@ export const colors = {
   // Taupe / warm neutrals
   taupe: '#e3d5ca',
   taupeLight: 'rgba(227,213,202,0.5)',
-  taupeHeader: 'rgba(227,213,202,0.92)',
+  taupeHeader: '#e3d5ca',
   warmBorder: '#ebddd2',
   warmLight: '#f5dec8',
   warmSubtle: '#f0e9df',

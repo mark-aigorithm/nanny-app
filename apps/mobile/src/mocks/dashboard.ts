@@ -50,7 +50,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     icon: 'time',
     bgColor: colors.warmLight,
     iconColor: colors.goldWarm,
-    route: '/(parent)/booking-history',
+    route: '/(parent)/bookings',
   },
 ];
 

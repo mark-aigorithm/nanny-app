@@ -4,13 +4,13 @@ import {
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { useNannyPublicProfile } from '@mobile/hooks/useNannies';
+import { resolveImageUri } from '@mobile/lib/imageUri';
 import { styles } from './styles/nanny-availability-screen.styles';
 import type { WeeklySchedule } from '@nanny-app/shared';
 
@@ -47,17 +47,15 @@ export default function NannyAvailabilityScreen() {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={styles.headerSafeArea}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color={colors.textDark} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Availability</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color={colors.textDark} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Availability</Text>
+      </View>
 
       {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View style={styles.loadingState}>
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
@@ -119,17 +117,19 @@ export default function NannyAvailabilityScreen() {
           {/* Book Button */}
           <Pressable
             style={styles.bookButton}
-            onPress={() =>
+            onPress={() => {
+              const resolvedPhoto =
+                resolveImageUri(nannyPhoto) ?? resolveImageUri(nanny?.avatarUrl);
               router.push({
                 pathname: '/(parent)/book/booking-date-picker',
                 params: {
                   nannyId: nannyId ?? nanny?.nannyProfileId ?? '',
                   nannyName: nannyName ?? `${nanny?.firstName ?? ''} ${nanny?.lastName ?? ''}`.trim(),
-                  nannyPhoto: nannyPhoto ?? nanny?.avatarUrl ?? '',
+                  ...(resolvedPhoto ? { nannyPhoto: resolvedPhoto } : {}),
                   nannyRate: nannyRate ?? String(nanny?.hourlyRate ?? 0),
                 },
-              } as never)
-            }
+              } as never);
+            }}
           >
             <Text style={styles.bookButtonText}>Book available slot</Text>
           </Pressable>

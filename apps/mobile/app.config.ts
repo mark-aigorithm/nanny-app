@@ -1,8 +1,9 @@
 import type { ExpoConfig } from 'expo/config';
 
+/** Keep in sync with src/constants/app.ts — Expo config cannot import from src/. */
+const APP_NAME = 'NannyNow';
 const config: ExpoConfig = {
-  name: 'NannyApp',
-  slug: 'nanny-app',
+  name: APP_NAME,  slug: 'nanny-app',
   scheme: 'nanny-app',
   version: '1.0.0',
   orientation: 'portrait',
@@ -29,15 +30,16 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-secure-store',
-    ['expo-location', { locationAlwaysAndWhenInUsePermission: 'NannyApp needs your location to find nearby nannies.' }],
+    ['expo-location', { locationAlwaysAndWhenInUsePermission: `${APP_NAME} needs your location to find nearby nannies.` }],
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
+    "@react-native-firebase/messaging",
     "@react-native-community/datetimepicker",
     [
       'expo-image-picker',
       {
-        photosPermission: 'NannyApp needs access to your photos so you can set a profile picture or attach evidence to care log entries.',
-        cameraPermission: 'NannyApp needs access to your camera so you can attach photo evidence to care log entries.',
+        photosPermission: `${APP_NAME} needs access to your photos so you can set a profile picture or attach evidence to care log entries.`,
+        cameraPermission: `${APP_NAME} needs access to your camera so you can attach photo evidence to care log entries.`,
       },
     ],
   ],
@@ -47,7 +49,8 @@ const config: ExpoConfig = {
   extra: {
     // Production / fallback URL. In dev, api.ts derives the host from Metro's
     // hostUri so it stays in sync with the IP printed at startup.
-    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.10:3000',
+    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.14:3000',
+    currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the
     // native @react-native-firebase modules. In a native/dev-client build,
