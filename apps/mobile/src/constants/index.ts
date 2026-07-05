@@ -1,6 +1,6 @@
 export { APP_NAME } from './app';
 export { AGE_OPTIONS, PREFERENCE_OPTIONS } from './registration';
-export { OTP_LENGTH, RESEND_SECONDS } from './otp';
+export { OTP_LENGTH, RESEND_SECONDS, BYPASS_OTP } from './otp';
 export {
   SHOW_PROMO_CODE,
   PROMO_CODE_VALUE,

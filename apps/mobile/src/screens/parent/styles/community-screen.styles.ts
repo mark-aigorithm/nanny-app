@@ -22,6 +22,7 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 50,
+    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     backgroundColor: colors.background,
   },
@@ -53,7 +54,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingTop: HEADER_HEIGHT + spacing['3xl'] + spacing.lg,
+    paddingTop: HEADER_HEIGHT + spacing['3xl'] + spacing.lg + spacing.md,
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing['3xl'],
     paddingHorizontal: screenPadding,
     gap: spacing.lg,

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, fontFamily, typeScale, spacing } from '@mobile/theme';
+import { colors, fontFamily, typeScale, spacing, borderRadius } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
   keyboardAvoid: {
@@ -63,6 +63,45 @@ export const styles = StyleSheet.create({
   },
   fieldGroup: {
     gap: spacing.sm,
+  },
+  fieldLabel: {
+    ...typeScale.labelMd,
+    color: colors.textSecondary,
+  },
+
+  // Phone row
+  phoneRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    height: 56,
+  },
+  countryCodeBox: {
+    width: 64,
+    height: 56,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  countryCodeText: {
+    ...typeScale.labelLg,
+    color: colors.textPrimary,
+  },
+  phoneInput: {
+    flex: 1,
+    height: 56,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  fieldError: {
+    ...typeScale.bodySm,
+    color: colors.error,
   },
 
   // Password meta row

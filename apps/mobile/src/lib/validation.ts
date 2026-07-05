@@ -18,16 +18,6 @@ export function validatePassword(password: string): string | null {
   return null;
 }
 
-export function validateEmailAndPassword(
-  email: string,
-  password: string,
-): { email: string | null; password: string | null } {
-  return {
-    email: validateEmail(email),
-    password: validatePassword(password),
-  };
-}
-
 export function validatePhone(phoneDigits: string): string | null {
   const digits = phoneDigits.replace(/\D/g, '');
   if (!digits) return 'Please enter your phone number.';
@@ -40,4 +30,17 @@ export function toE164(countryCode: string, phone: string): string {
   const digits = phone.replace(/\D/g, '');
   const cc = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
   return `${cc}${digits}`;
+}
+
+/**
+ * Synthesize a stable placeholder email from an E.164 phone number.
+ *
+ * Sign-up is phone-number-only, but Firebase account creation and the
+ * backend `User` row both still require a unique email. Until a real OTP
+ * provider is wired up we derive a deterministic placeholder from the
+ * phone digits so the same number always maps to the same account.
+ */
+export function phoneToPlaceholderEmail(phoneE164: string): string {
+  const digits = phoneE164.replace(/\D/g, '');
+  return `${digits}@phone.nannyapp.local`;
 }

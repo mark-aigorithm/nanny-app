@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RegisterRequest, UserResponse } from '@nanny-app/shared';
 
 import { auth } from '@mobile/lib/firebase';
-import type { PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
+import type { UserCredential } from '@mobile/lib/firebase';
 import { api, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -57,24 +57,32 @@ export function useSignOut() {
 }
 
 /**
- * Sends a phone verification SMS via the real Firebase JS SDK
- * `signInWithPhoneNumber`. Firebase validates the code server-side on
- * the follow-up `confirmation.confirm(code)` call, so there are no
- * hardcoded test codes in the client.
+ * Creates the Firebase account for a phone-number-only sign-up.
  *
- * In Expo Go the shim internally passes a minimal fake
- * `ApplicationVerifier` — Firebase bypasses reCAPTCHA verification for
- * phone numbers listed under "Phone numbers for testing" in the Firebase
- * Console, so the dummy token is never checked. On a native build the
- * shim is replaced and @react-native-firebase/auth handles the verifier
- * natively; the hook signature stays the same.
+ * Phone verification is bypassed for now (no SMS provider), so instead of
+ * the real phone-OTP flow we back the account with Firebase email/password
+ * using a placeholder email derived from the phone number (see
+ * `phoneToPlaceholderEmail`) plus the password collected in step 2. This
+ * yields a real Firebase user + JWT that the backend accepts unchanged.
+ *
+ * Idempotent: if the account already exists (e.g. the user retried after a
+ * partial run), sign in to it instead of failing.
  */
-export function useLinkPhoneNumber() {
-  return useMutation<PhoneConfirmation, MappedAuthError, string>({
-    mutationFn: async (phoneE164) => {
+export function useCreatePhoneAccount() {
+  return useMutation<void, MappedAuthError, { email: string; password: string }>({
+    mutationFn: async ({ email, password }) => {
+      const trimmed = email.trim();
       try {
-        return await auth().signInWithPhoneNumber(phoneE164, true);
+        await auth().createUserWithEmailAndPassword(trimmed, password);
       } catch (error) {
+        if ((error as { code?: string })?.code === 'auth/email-already-in-use') {
+          try {
+            await auth().signInWithEmailAndPassword(trimmed, password);
+            return;
+          } catch (signInError) {
+            throw mapFirebaseAuthError(signInError);
+          }
+        }
         throw mapFirebaseAuthError(error);
       }
     },
@@ -95,52 +103,3 @@ export function useRegisterProfile() {
   });
 }
 
-/**
- * Step 4 of registration — phone primary, email/password linked after.
- *
- * 1. `confirmation.confirm(code)` is the real Firebase JS SDK call.
- *    Firebase validates the code server-side; on success it creates a
- *    Firebase user whose primary provider is "phone". For numbers in
- *    "Phone numbers for testing" (Firebase Console) the preset code is
- *    accepted without an SMS being sent.
- * 2. `linkWithCredential(emailCred)` attaches the email/password the
- *    user typed in step 2 as a secondary provider, so the end state
- *    in Firebase is a single user with both phone + email.
- *
- * Identical code path for test numbers and real numbers — no branching
- * on environment.
- */
-export function useConfirmPhoneCode() {
-  return useMutation<
-    void,
-    MappedAuthError,
-    { confirmation: PhoneConfirmation; code: string; email: string; password: string }
-  >({
-    mutationFn: async ({ confirmation, code, email, password }) => {
-      try {
-        // 1. Verify the OTP — Firebase validates server-side.
-        await confirmation.confirm(code);
-        // 2. Link email/password as a secondary provider on the new user.
-        const user = auth().currentUser;
-        if (!user) {
-          throw {
-            field: 'form',
-            message: 'Session expired. Please sign in again.',
-          } satisfies MappedAuthError;
-        }
-        const emailCred = auth.EmailAuthProvider.credential(email.trim(), password);
-        try {
-          await user.linkWithCredential(emailCred);
-        } catch (linkError) {
-          // Idempotent retry: if the email is already linked (from a
-          // previous partial run that got this far), that's a success,
-          // not a failure. Let the flow continue to backend registration.
-          const code = (linkError as { code?: string })?.code;
-          if (code !== 'auth/provider-already-linked') throw linkError;
-        }
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
-      }
-    },
-  });
-}

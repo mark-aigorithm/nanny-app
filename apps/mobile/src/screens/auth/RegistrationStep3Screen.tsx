@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { OTP_LENGTH, RESEND_SECONDS, APP_NAME } from '@mobile/constants';
+import { OTP_LENGTH, BYPASS_OTP, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
-import {
-  useLinkPhoneNumber,
-  useConfirmPhoneCode,
-  useRegisterProfile,
-} from '@mobile/hooks/useAuth';
+import { useCreatePhoneAccount, useRegisterProfile } from '@mobile/hooks/useAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { toE164 } from '@mobile/lib/validation';
-import type { PhoneConfirmation } from '@mobile/lib/firebase';
+import { toE164, phoneToPlaceholderEmail } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step3-screen.styles';
 
 // Bumping this version triggers a re-acceptance flow when terms change.
@@ -41,97 +36,50 @@ export default function RegistrationStep3Screen() {
   const patch = useRegistrationDraftStore((s) => s.patch);
   const resetDraft = useRegistrationDraftStore((s) => s.reset);
 
-  const linkPhone = useLinkPhoneNumber();
-  const confirmCode = useConfirmPhoneCode();
+  const createAccount = useCreatePhoneAccount();
   const registerProfile = useRegisterProfile();
 
   const phoneE164 = toE164(draft.countryCode, draft.phone);
-  // Show the user-friendly format from what they typed; E.164 only goes to Firebase.
+  // Show the user-friendly format from what they typed.
   const phoneDisplay = draft.phone
     ? `${draft.countryCode} ${draft.phone}`
     : '+20 100 000 0000';
 
-  const [otp, setOtp] = useState('');
+  // Phone verification is bypassed (no SMS provider yet): the code is
+  // pre-filled with the fixed test value and accepted locally.
+  const [otp, setOtp] = useState(BYPASS_OTP);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [resendTimer, setResendTimer] = useState(RESEND_SECONDS);
-  const [isTimerRunning, setIsTimerRunning] = useState(true);
-  const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const inputRef = useRef<TextInput>(null);
-  // Guard against double-sending the initial SMS on hot reload / re-mount
-  const didSendInitialRef = useRef(false);
-
-  // Fire the phone link on mount — sends the SMS code to the user's number.
-  useEffect(() => {
-    if (didSendInitialRef.current) return;
-    if (!phoneE164) {
-      setFormError('No phone number found. Please go back and add one.');
-      return;
-    }
-    didSendInitialRef.current = true;
-    linkPhone.mutate(phoneE164, {
-      onSuccess: (conf) => setConfirmation(conf),
-      onError: (err) => setFormError(err.message),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Countdown timer
-  useEffect(() => {
-    if (!isTimerRunning) return;
-    if (resendTimer <= 0) {
-      setIsTimerRunning(false);
-      return;
-    }
-    const interval = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          setIsTimerRunning(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isTimerRunning, resendTimer]);
 
   function handleBack() {
     router.back();
   }
 
-  function handleResend() {
-    if (resendTimer > 0) return;
-    setOtp('');
-    setFormError(null);
-    setResendTimer(RESEND_SECONDS);
-    setIsTimerRunning(true);
-    linkPhone.mutate(phoneE164, {
-      onSuccess: (conf) => setConfirmation(conf),
-      onError: (err) => setFormError(err.message),
-    });
-  }
-
   function handleCompleteSetup() {
-    if (otp.length < OTP_LENGTH || !termsAccepted || !confirmation) return;
+    if (otp !== BYPASS_OTP) {
+      setFormError(`For testing, enter ${BYPASS_OTP} to continue.`);
+      return;
+    }
+    if (!termsAccepted) return;
     setFormError(null);
 
-    confirmCode.mutate(
-      {
-        confirmation,
-        code: otp,
-        email: draft.email,
-        password: draft.password,
-      },
+    const dobIso = dobToIso(draft.dob);
+    if (!dobIso) {
+      setFormError('Date of birth is invalid. Please go back and fix it.');
+      return;
+    }
+
+    // Placeholder email derived from the phone number backs the Firebase
+    // account while sign-up is phone-only. See phoneToPlaceholderEmail.
+    const email = phoneToPlaceholderEmail(phoneE164);
+
+    createAccount.mutate(
+      { email, password: draft.password },
       {
         onSuccess: () => {
           patch({ termsAcceptedAt: Date.now() });
-
-          const dobIso = dobToIso(draft.dob);
-          if (!dobIso) {
-            setFormError('Date of birth is invalid. Please go back and fix it.');
-            return;
-          }
 
           const localRole = draft.role ?? 'parent';
           // Mobile uses 'parent' / 'nanny'; backend enum is 'MOTHER' / 'NANNY'.
@@ -141,7 +89,7 @@ export default function RegistrationStep3Screen() {
             {
               firstName: draft.firstName,
               lastName: draft.lastName,
-              email: draft.email,
+              email,
               phone: phoneE164,
               dateOfBirth: dobIso,
               role: apiRole,
@@ -157,8 +105,8 @@ export default function RegistrationStep3Screen() {
                 });
               },
               onError: (err) => {
-                // Backend rejected the registration — Firebase user already
-                // exists with linked phone, so the user can retry by tapping
+                // Backend rejected the registration — the Firebase user
+                // already exists, so the user can retry by tapping
                 // Complete setup again (idempotent on the backend).
                 setFormError(
                   err instanceof Error ? err.message : 'Could not save your profile.',
@@ -169,7 +117,6 @@ export default function RegistrationStep3Screen() {
         },
         onError: (err) => {
           setFormError(err.message);
-          setOtp('');
         },
       },
     );
@@ -181,18 +128,8 @@ export default function RegistrationStep3Screen() {
     if (formError) setFormError(null);
   }
 
-  function formatTimer(seconds: number): string {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  }
-
-  const isSubmitting = confirmCode.isPending || registerProfile.isPending;
-  const canSubmit =
-    otp.length === OTP_LENGTH &&
-    termsAccepted &&
-    !!confirmation &&
-    !isSubmitting;
+  const isSubmitting = createAccount.isPending || registerProfile.isPending;
+  const canSubmit = otp === BYPASS_OTP && termsAccepted && !isSubmitting;
 
   return (
     <View style={styles.container}>
@@ -217,7 +154,7 @@ export default function RegistrationStep3Screen() {
         {/* Progress section */}
         <View style={styles.progressSection}>
           <View style={styles.progressLabelRow}>
-            <Text style={styles.stepLabel}>STEP 4 OF 4</Text>
+            <Text style={styles.stepLabel}>FINAL STEP</Text>
             <Text style={styles.completionLabel}>100% Complete</Text>
           </View>
           <View style={styles.progressBarTrack}>
@@ -229,7 +166,6 @@ export default function RegistrationStep3Screen() {
         <View style={styles.headlineGroup}>
           <Text style={styles.headline}>Verify your phone number</Text>
           <Text style={styles.subtitle}>
-            {'We sent a 6-digit code to '}
             <Text style={styles.phoneHighlight}>{phoneDisplay}</Text>
           </Text>
         </View>
@@ -244,7 +180,6 @@ export default function RegistrationStep3Screen() {
             onChangeText={handleOtpChange}
             keyboardType="number-pad"
             maxLength={OTP_LENGTH}
-            autoFocus
             caretHidden
           />
 
@@ -274,27 +209,6 @@ export default function RegistrationStep3Screen() {
             })}
           </Pressable>
 
-          {/* Resend row */}
-          <View style={styles.resendRow}>
-            <Pressable
-              onPress={handleResend}
-              disabled={resendTimer > 0 || linkPhone.isPending}
-              hitSlop={8}
-            >
-              <Text
-                style={[
-                  styles.resendLink,
-                  (resendTimer > 0 || linkPhone.isPending) && styles.resendLinkDisabled,
-                ]}
-              >
-                {linkPhone.isPending ? 'Sending\u2026' : 'Resend code'}
-              </Text>
-            </Pressable>
-            {resendTimer > 0 && (
-              <Text style={styles.timerText}>in {formatTimer(resendTimer)}</Text>
-            )}
-          </View>
-
           {formError && (
             <View style={styles.formErrorBanner}>
               <Text style={styles.formErrorText}>{formError}</Text>
@@ -323,10 +237,10 @@ export default function RegistrationStep3Screen() {
         {/* Complete setup button */}
         <Button
           title={
-            confirmCode.isPending
-              ? 'Verifying\u2026'
+            createAccount.isPending
+              ? 'Creating account…'
               : registerProfile.isPending
-                ? 'Saving\u2026'
+                ? 'Saving…'
                 : 'Complete setup'
           }
           onPress={handleCompleteSetup}
