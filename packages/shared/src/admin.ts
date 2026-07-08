@@ -1,0 +1,84 @@
+import { z } from 'zod';
+
+// ──────────────────────────────────────────────────────────────
+// Promo codes
+// ──────────────────────────────────────────────────────────────
+
+export const DiscountTypeSchema = z.enum(['FLAT', 'PERCENTAGE']);
+export type DiscountType = z.infer<typeof DiscountTypeSchema>;
+
+export const CreatePromoCodeSchema = z
+  .object({
+    code: z
+      .string()
+      .min(3)
+      .max(32)
+      .regex(/^[A-Z0-9_-]+$/, 'Use uppercase letters, digits, - or _'),
+    discountType: DiscountTypeSchema,
+    /** Flat amount in EGP, or percentage (0–100] when discountType is PERCENTAGE. */
+    value: z.number().positive(),
+    /** Total redemptions allowed across all users. Omit for unlimited. */
+    maxUsage: z.number().int().positive().optional(),
+    /** Redemptions allowed per user. Omit for unlimited. */
+    maxUsagePerUser: z.number().int().positive().optional(),
+    expiresAt: z.string().datetime().optional(),
+    isActive: z.boolean().default(true),
+  })
+  .refine((v) => v.discountType !== 'PERCENTAGE' || v.value <= 100, {
+    message: 'Percentage discount cannot exceed 100',
+    path: ['value'],
+  });
+export type CreatePromoCodeInput = z.infer<typeof CreatePromoCodeSchema>;
+
+export const UpdatePromoCodeSchema = z
+  .object({
+    discountType: DiscountTypeSchema.optional(),
+    value: z.number().positive().optional(),
+    maxUsage: z.number().int().positive().nullable().optional(),
+    maxUsagePerUser: z.number().int().positive().nullable().optional(),
+    expiresAt: z.string().datetime().nullable().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine(
+    (v) => v.discountType !== 'PERCENTAGE' || v.value === undefined || v.value <= 100,
+    { message: 'Percentage discount cannot exceed 100', path: ['value'] },
+  );
+export type UpdatePromoCodeInput = z.infer<typeof UpdatePromoCodeSchema>;
+
+export const PromoCodeSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  discountType: DiscountTypeSchema,
+  value: z.number(),
+  maxUsage: z.number().int().nullable(),
+  maxUsagePerUser: z.number().int().nullable(),
+  usageCount: z.number().int(),
+  expiresAt: z.string().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+export type PromoCode = z.infer<typeof PromoCodeSchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Platform configuration (app_settings key/value pairs)
+// ──────────────────────────────────────────────────────────────
+
+export const PlatformConfigSchema = z.object({
+  /** Platform service fee taken on each booking, in percent. */
+  serviceFeePercent: z.number().min(0).max(100),
+  /** Maximum hours a mother can reserve in a single booking. */
+  maxBookingHours: z.number().int().min(1).max(24),
+  /** Minimum hours a mother can reserve in a single booking. */
+  minBookingHours: z.number().int().min(1).max(24),
+  /** Minimum lead time (hours) before a booking's start time when reserving. */
+  minAdvanceBookingHours: z.number().int().min(0).max(168),
+  /** Hours before start time after which cancellation incurs a fee. */
+  cancellationWindowHours: z.number().int().min(0).max(168),
+});
+export type PlatformConfig = z.infer<typeof PlatformConfigSchema>;
+
+export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial().refine(
+  (v) => Object.keys(v).length > 0,
+  { message: 'Provide at least one setting to update' },
+);
+export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchema>;
