@@ -27,8 +27,44 @@ import {
 } from '@prisma/client';
 
 import { config } from '../src/lib/config';
+import { firebaseAuth } from '../src/lib/firebase';
 
 const PREFIX = 'seed-demo-';
+/** Password for every seeded Firebase Auth account. */
+const SEED_PASSWORD = 'Test1234!';
+
+/** Available every day 07:00–22:00 so any reasonable booking slot works. */
+const FULL_WEEK_SCHEDULE = Object.fromEntries(
+  Array.from({ length: 7 }, (_, day) => [
+    String(day),
+    { available: true, startTime: '07:00', endTime: '22:00' },
+  ]),
+);
+
+/**
+ * Create (or update) a real Firebase Auth user and return its uid.
+ * Idempotent: looks the account up by email first.
+ */
+async function ensureAuthUser(email: string, displayName: string): Promise<string> {
+  try {
+    const existing = await firebaseAuth.getUserByEmail(email);
+    await firebaseAuth.updateUser(existing.uid, {
+      password: SEED_PASSWORD,
+      displayName,
+      emailVerified: true,
+    });
+    return existing.uid;
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'auth/user-not-found') throw error;
+    const created = await firebaseAuth.createUser({
+      email,
+      password: SEED_PASSWORD,
+      displayName,
+      emailVerified: true,
+    });
+    return created.uid;
+  }
+}
 const LINKED_MOTHER_UID = process.env['DEMO_MOTHER_FIREBASE_UID']?.trim();
 
 const adapter = new PrismaPg({ connectionString: config.databaseUrl });
@@ -54,11 +90,22 @@ function bookingWindow(
   return { date, startTime, endTime };
 }
 
+/**
+ * Mirror of the mobile app's `phoneToPlaceholderEmail` (apps/mobile/src/lib/validation.ts):
+ * sign-in is phone-number-only, backed by email/password with an email
+ * derived from the E.164 digits. Keep the two in sync.
+ */
+function phoneToPlaceholderEmail(phoneE164: string): string {
+  const digits = phoneE164.replace(/\D/g, '');
+  return `${digits}@phone.nannyapp.local`;
+}
+
 const SEED_MOTHERS = [
   {
     id: `${PREFIX}user-sarah`,
     firebaseUid: `${PREFIX}sarah`,
-    email: 'demo.sarah@nanny-app.local',
+    phone: '+201001234567',
+    email: phoneToPlaceholderEmail('+201001234567'),
     firstName: 'Sarah',
     lastName: 'Khalil',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-sarah',
@@ -66,7 +113,8 @@ const SEED_MOTHERS = [
   {
     id: `${PREFIX}user-elena`,
     firebaseUid: `${PREFIX}elena`,
-    email: 'demo.elena@nanny-app.local',
+    phone: '+201112345678',
+    email: phoneToPlaceholderEmail('+201112345678'),
     firstName: 'Elena',
     lastName: 'Hassan',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-elena',
@@ -74,7 +122,8 @@ const SEED_MOTHERS = [
   {
     id: `${PREFIX}user-nadia`,
     firebaseUid: `${PREFIX}nadia`,
-    email: 'demo.nadia@nanny-app.local',
+    phone: '+201223456789',
+    email: phoneToPlaceholderEmail('+201223456789'),
     firstName: 'Nadia',
     lastName: 'Farouk',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nadia',
@@ -84,7 +133,8 @@ const SEED_MOTHERS = [
 const FALLBACK_DEMO_MOTHER = {
   id: `${PREFIX}user-mother`,
   firebaseUid: `${PREFIX}mother`,
-  email: 'demo.mother@nanny-app.local',
+  phone: '+201004455667',
+  email: phoneToPlaceholderEmail('+201004455667'),
   firstName: 'Layla',
   lastName: 'Mostafa',
   avatarUrl: 'https://i.pravatar.cc/150?u=demo-mother',
@@ -95,7 +145,8 @@ const SEED_NANNIES = [
     userId: `${PREFIX}user-nanny-elena`,
     profileId: `${PREFIX}nanny-elena`,
     firebaseUid: `${PREFIX}nanny-elena`,
-    email: 'demo.nanny.elena@nanny-app.local',
+    phone: '+201055512340',
+    email: phoneToPlaceholderEmail('+201055512340'),
     firstName: 'Elena',
     lastName: 'Rodriguez',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-elena',
@@ -114,7 +165,8 @@ const SEED_NANNIES = [
     userId: `${PREFIX}user-nanny-maya`,
     profileId: `${PREFIX}nanny-maya`,
     firebaseUid: `${PREFIX}nanny-maya`,
-    email: 'demo.nanny.maya@nanny-app.local',
+    phone: '+201155512341',
+    email: phoneToPlaceholderEmail('+201155512341'),
     firstName: 'Maya',
     lastName: 'Patel',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-maya',
@@ -133,7 +185,8 @@ const SEED_NANNIES = [
     userId: `${PREFIX}user-nanny-claire`,
     profileId: `${PREFIX}nanny-claire`,
     firebaseUid: `${PREFIX}nanny-claire`,
-    email: 'demo.nanny.claire@nanny-app.local',
+    phone: '+201255512342',
+    email: phoneToPlaceholderEmail('+201255512342'),
     firstName: 'Claire',
     lastName: 'Thompson',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-claire',
@@ -152,7 +205,8 @@ const SEED_NANNIES = [
     userId: `${PREFIX}user-nanny-sandra`,
     profileId: `${PREFIX}nanny-sandra`,
     firebaseUid: `${PREFIX}nanny-sandra`,
-    email: 'demo.nanny.sandra@nanny-app.local',
+    phone: '+201555512343',
+    email: phoneToPlaceholderEmail('+201555512343'),
     firstName: 'Sandra',
     lastName: 'Weber',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-sandra',
@@ -201,7 +255,9 @@ async function clearPreviousDemoData(linkedMotherId: string | null) {
 
   await prisma.nannyProfile.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.user.deleteMany({
-    where: { firebaseUid: { startsWith: PREFIX } },
+    where: {
+      OR: [{ firebaseUid: { startsWith: PREFIX } }, { id: { startsWith: PREFIX } }],
+    },
   });
 
   // eslint-disable-next-line no-console
@@ -227,10 +283,15 @@ async function resolveDemoMother() {
     return linked;
   }
 
+  const fallbackUid = await ensureAuthUser(
+    FALLBACK_DEMO_MOTHER.email,
+    `${FALLBACK_DEMO_MOTHER.firstName} ${FALLBACK_DEMO_MOTHER.lastName}`,
+  );
   return prisma.user.upsert({
-    where: { firebaseUid: FALLBACK_DEMO_MOTHER.firebaseUid },
+    where: { email: FALLBACK_DEMO_MOTHER.email },
     create: {
       ...FALLBACK_DEMO_MOTHER,
+      firebaseUid: fallbackUid,
       role: Role.MOTHER,
       isEmailVerified: true,
       isPhoneVerified: true,
@@ -239,6 +300,7 @@ async function resolveDemoMother() {
       firstName: FALLBACK_DEMO_MOTHER.firstName,
       lastName: FALLBACK_DEMO_MOTHER.lastName,
       avatarUrl: FALLBACK_DEMO_MOTHER.avatarUrl,
+      firebaseUid: fallbackUid,
       role: Role.MOTHER,
       deletedAt: null,
     },
@@ -248,16 +310,19 @@ async function resolveDemoMother() {
 async function ensureSeedMothers() {
   const users = [];
   for (const seed of SEED_MOTHERS) {
+    const uid = await ensureAuthUser(seed.email, `${seed.firstName} ${seed.lastName}`);
     users.push(
       await prisma.user.upsert({
-        where: { firebaseUid: seed.firebaseUid },
+        where: { email: seed.email },
         create: {
           ...seed,
+          firebaseUid: uid,
           role: Role.MOTHER,
           isEmailVerified: true,
           isPhoneVerified: true,
         },
         update: {
+          firebaseUid: uid,
           firstName: seed.firstName,
           lastName: seed.lastName,
           avatarUrl: seed.avatarUrl,
@@ -273,22 +338,26 @@ async function ensureSeedMothers() {
 async function seedNannies() {
   const profiles = [];
   for (const n of SEED_NANNIES) {
+    const uid = await ensureAuthUser(n.email, `${n.firstName} ${n.lastName}`);
     await prisma.user.upsert({
-      where: { firebaseUid: n.firebaseUid },
+      where: { email: n.email },
       create: {
         id: n.userId,
-        firebaseUid: n.firebaseUid,
+        firebaseUid: uid,
         email: n.email,
+        phone: n.phone,
         firstName: n.firstName,
         lastName: n.lastName,
         avatarUrl: n.avatarUrl,
         role: Role.NANNY,
         isEmailVerified: true,
+        isPhoneVerified: true,
       },
       update: {
         firstName: n.firstName,
         lastName: n.lastName,
         avatarUrl: n.avatarUrl,
+        firebaseUid: uid,
         role: Role.NANNY,
         deletedAt: null,
       },
@@ -307,6 +376,7 @@ async function seedNannies() {
         ageRanges: [...n.ageRanges],
         specialties: [...n.specialties],
         availabilityType: n.availabilityType,
+        schedule: FULL_WEEK_SCHEDULE,
         rating: new Prisma.Decimal(n.rating),
         reviewCount: n.reviewCount,
         isProfileComplete: true,
@@ -316,6 +386,7 @@ async function seedNannies() {
       update: {
         bio: n.bio,
         location: n.location,
+        schedule: FULL_WEEK_SCHEDULE,
         hourlyRate: new Prisma.Decimal(n.hourlyRate),
         rating: new Prisma.Decimal(n.rating),
         reviewCount: n.reviewCount,
@@ -823,7 +894,17 @@ async function main() {
     console.log('  Tip: set DEMO_MOTHER_FIREBASE_UID=<your-uid> to attach data to your login');
   }
   // eslint-disable-next-line no-console
-  console.log(`  Nannies: ${SEED_NANNIES.length} profiles with reviews`);
+  console.log(`  Nannies: ${SEED_NANNIES.length} profiles with reviews + full weekly availability`);
+  // eslint-disable-next-line no-console
+  console.log(`  All seeded accounts exist in Firebase Auth — password: ${SEED_PASSWORD}`);
+  // eslint-disable-next-line no-console
+  console.log('  Sign in with phone number + password:');
+  // eslint-disable-next-line no-console
+  console.log(`    Mother:  ${FALLBACK_DEMO_MOTHER.phone}`);
+  for (const n of SEED_NANNIES) {
+    // eslint-disable-next-line no-console
+    console.log(`    Nanny ${n.firstName}: ${n.phone}`);
+  }
   // eslint-disable-next-line no-console
   console.log('  Community: 3 marketplace, 1 Q&A, 1 event');
   // eslint-disable-next-line no-console
