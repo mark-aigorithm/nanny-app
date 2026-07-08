@@ -1,190 +1,114 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
-  Image,
+  ActivityIndicator,
+  RefreshControl,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
 import BottomNav from '@mobile/components/BottomNav';
+import NotificationBellButton from '@mobile/components/NotificationBellButton';
+import PostCard from '@mobile/components/community/PostCard';
+import { SearchBar } from '@mobile/components/ui';
+import {
+  useCommunityPosts,
+  useToggleEventRsvp,
+  useTogglePostLike,
+} from '@mobile/hooks/useCommunity';
+import { filterPillToType, filterPostsBySearch } from '@mobile/lib/communityUtils';
+import type { CommunityFilterPill } from '@mobile/types';
 import { colors } from '@mobile/theme';
-import type { PostTag, Post, AdvicePost, MarketplacePost, EventPost } from '@mobile/types';
-import { MOCK_POSTS } from '@mobile/mocks';
 import { styles } from './styles/community-feed-screen.styles';
 
-// ─── Screen-specific filter config ───────────────────────────────────────────
-
-type FilterPill = 'All posts' | 'Q&A' | 'Marketplace' | 'Events';
-
-const FILTER_PILLS: FilterPill[] = ['All posts', 'Q&A', 'Marketplace', 'Events'];
-
-// ─── Tag style config ─────────────────────────────────────────────────────────
-
-const TAG_STYLES: Record<PostTag, { bg: string; text: string }> = {
-  'General advice': { bg: colors.taupe, text: colors.primary },
-  Marketplace: { bg: colors.tintYellow, text: colors.goldWarm },
-  Event: { bg: colors.successLight, text: colors.successDark },
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
+const FILTER_PILLS: CommunityFilterPill[] = ['All posts', 'Q&A', 'Marketplace', 'Events'];
 
 export default function CommunityFeedScreen() {
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<FilterPill>('All posts');
+  const params = useLocalSearchParams<{ filter?: string }>();
+  const initialFilter = (params.filter as CommunityFilterPill) ?? 'All posts';
+  const [activeFilter, setActiveFilter] = useState<CommunityFilterPill>(initialFilter);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const renderAdvicePost = (post: AdvicePost) => (
-    <View key={post.id} style={styles.card}>
-      {renderAuthorRow(post)}
-      <Text style={styles.postBody} numberOfLines={2}>
-        {post.body}
-      </Text>
-      <Pressable>
-        <Text style={styles.readMore}>Read more</Text>
-      </Pressable>
-      {renderActionBar(post)}
-    </View>
+  useEffect(() => {
+    if (params.filter && FILTER_PILLS.includes(params.filter as CommunityFilterPill)) {
+      setActiveFilter(params.filter as CommunityFilterPill);
+    }
+  }, [params.filter]);
+
+  const typeFilter = useMemo(() => filterPillToType(activeFilter), [activeFilter]);
+  const {
+    data,
+    isLoading,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useCommunityPosts(typeFilter);
+  const toggleLike = useTogglePostLike();
+  const toggleRsvp = useToggleEventRsvp();
+
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+  const visiblePosts = useMemo(
+    () => filterPostsBySearch(posts, searchQuery),
+    [posts, searchQuery],
   );
 
-  const renderMarketplacePost = (post: MarketplacePost) => (
-    <View key={post.id} style={styles.card}>
-      {renderAuthorRow(post)}
-      <View style={styles.marketplaceImageContainer}>
-        <Image
-          source={{ uri: post.image }}
-          style={styles.marketplaceImage}
-          resizeMode="cover"
-        />
-        <View style={styles.priceBadge}>
-          <Text style={styles.priceBadgeText}>{post.price}</Text>
-        </View>
-      </View>
-      <Text style={styles.marketplaceTitle}>{post.title}</Text>
-      {renderActionBar(post)}
-    </View>
-  );
-
-  const renderEventPost = (post: EventPost) => (
-    <View key={post.id} style={[styles.card, styles.eventCard]}>
-      {renderAuthorRow(post)}
-      <Text style={styles.eventTitle}>{post.title}</Text>
-      <View style={styles.eventDetailRow}>
-        <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-        <Text style={styles.eventDetailText}>{post.date}</Text>
-      </View>
-      <View style={styles.eventDetailRow}>
-        <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-        <Text style={styles.eventDetailText}>{post.location}</Text>
-      </View>
-      <View style={styles.attendeesRow}>
-        <View style={styles.stackedAvatars}>
-          {post.attendeeAvatars.map((uri, index) => (
-            <Image
-              key={index}
-              source={{ uri }}
-              style={[
-                styles.attendeeAvatar,
-                { marginLeft: index === 0 ? 0 : -12 },
-              ]}
-            />
-          ))}
-        </View>
-        <Text style={styles.attendeeCount}>+{post.attendeeCount} going</Text>
-      </View>
-      <Pressable style={styles.rsvpButton}>
-        <Text style={styles.rsvpButtonText}>RSVP</Text>
-      </Pressable>
-    </View>
-  );
-
-  const renderAuthorRow = (post: Post) => (
-    <View style={styles.authorRow}>
-      <Image source={{ uri: post.author.avatar }} style={styles.avatar} />
-      <View style={styles.authorInfo}>
-        <Text style={styles.authorName}>{post.author.name}</Text>
-        <Text style={styles.authorTime}>{post.author.timeAgo}</Text>
-      </View>
-      <View
-        style={[
-          styles.tagPill,
-          { backgroundColor: TAG_STYLES[post.tag].bg },
-        ]}
-      >
-        <Text
-          style={[
-            styles.tagPillText,
-            { color: TAG_STYLES[post.tag].text },
-          ]}
-        >
-          {post.tag}
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderActionBar = (post: Post) => (
-    <View style={styles.actionBar}>
-      <Pressable style={styles.actionItem}>
-        <Ionicons name="heart-outline" size={17} color={colors.textMuted} />
-        <Text style={styles.actionCount}>{post.likes}</Text>
-      </Pressable>
-      <Pressable style={styles.actionItem}>
-        <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
-        <Text style={styles.actionCount}>{post.comments}</Text>
-      </Pressable>
-      {post.type === 'advice' && (
-        <Pressable style={styles.actionItem}>
-          <Ionicons name="share-social-outline" size={17} color={colors.textMuted} />
-          <Text style={styles.actionCount}>Share</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-
-  const handlePostPress = (postId: string) => {
-    router.push({ pathname: '/(parent)/post-detail', params: { postId } } as never);
-  };
-
-  const renderPost = (post: Post) => {
-    const content = (() => {
-      switch (post.type) {
-        case 'advice':
-          return renderAdvicePost(post);
-        case 'marketplace':
-          return renderMarketplacePost(post);
-        case 'event':
-          return renderEventPost(post);
-      }
-    })();
-    return (
-      <Pressable key={post.id} onPress={() => handlePostPress(post.id)}>
-        {content}
-      </Pressable>
-    );
+  const closeSearch = () => {
+    setIsSearchActive(false);
+    setSearchQuery('');
   };
 
   return (
     <View style={styles.container}>
-      {/* Fixed Header */}
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Community</Text>
-          <View style={styles.headerRight}>
-            <View style={styles.onlinePill}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>42 moms online</Text>
-            </View>
-            <Pressable style={styles.headerIcon}>
-              <Ionicons name="search" size={20} color={colors.textDark} />
-            </Pressable>
-            <Pressable style={styles.headerIcon}>
-              <Ionicons name="notifications-outline" size={20} color={colors.textDark} />
+        {isSearchActive ? (
+          <View style={styles.searchRow}>
+            <SearchBar
+              style={styles.searchBar}
+              size="compact"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search posts, authors, tags..."
+              showClearButton
+              onClear={() => setSearchQuery('')}
+              autoFocus
+            />
+            <Pressable onPress={closeSearch} hitSlop={8} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
-        </View>
+        ) : (
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Community</Text>
+            <View style={styles.headerRight}>
+              <View style={styles.onlinePill}>
+                <View style={styles.onlineDot} />
+                <Text style={styles.onlineText}>Live feed</Text>
+              </View>
+              <Pressable
+                style={styles.headerIcon}
+                onPress={() => setIsSearchActive(true)}
+                accessibilityLabel="Search community posts"
+                accessibilityRole="button"
+              >
+                <Ionicons name="search" size={20} color={colors.textDark} />
+              </Pressable>
+              <NotificationBellButton
+                iconSize={20}
+                iconColor={colors.textDark}
+                style={styles.headerIcon}
+              />
+            </View>
+          </View>
+        )}
 
-        {/* Filter Pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -204,9 +128,7 @@ export default function CommunityFeedScreen() {
                 <Text
                   style={[
                     styles.filterPillText,
-                    isActive
-                      ? styles.filterPillTextActive
-                      : styles.filterPillTextInactive,
+                    isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
                   ]}
                 >
                   {pill}
@@ -217,17 +139,70 @@ export default function CommunityFeedScreen() {
         </ScrollView>
       </View>
 
-      {/* Scrollable Content */}
-      <ScrollView
+      <FlatList
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {MOCK_POSTS.map(renderPost)}
-      </ScrollView>
+        data={visiblePosts}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[
+          styles.scrollContent,
+          (isLoading || visiblePosts.length === 0) && styles.scrollContentEmpty,
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
+        }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
+        onEndReachedThreshold={0.4}
+        ListEmptyComponent={
+          isLoading ? (
+            <ActivityIndicator color={colors.primary} style={styles.loadingIndicator} />
+          ) : (
+            <Text style={styles.filterPillTextInactive}>
+              {searchQuery.trim()
+                ? 'No posts match your search.'
+                : 'No posts in this category yet.'}
+            </Text>
+          )
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            onPress={() =>
+              router.push({
+                pathname: '/(parent)/post-detail',
+                params: {
+                  postId: item.id,
+                  returnTo: 'community-feed',
+                  ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
+                },
+              })
+            }
+            onLikePress={() => toggleLike.mutate(item.id)}
+            onRsvpPress={() => toggleRsvp.mutate(item.id)}
+          />
+        )}
+      />
 
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => router.push('/(parent)/create-post' as never)}>
+      <Pressable
+        style={styles.fab}
+        onPress={() =>
+          router.push({
+            pathname: '/(parent)/create-post',
+            params: {
+              returnTo: 'community-feed',
+              ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
+            },
+          } as never)
+        }
+      >
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
 
@@ -235,4 +210,3 @@ export default function CommunityFeedScreen() {
     </View>
   );
 }
-

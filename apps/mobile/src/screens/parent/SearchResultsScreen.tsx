@@ -5,9 +5,9 @@ import {
   ScrollView,
   Pressable,
   Image,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
@@ -16,6 +16,7 @@ import { colors } from '@mobile/theme';
 import type { FilterChipData, SortOption, NannyResult } from '@mobile/types';
 import { SORT_OPTIONS, INITIAL_SEARCH_FILTERS } from '@mobile/constants';
 import { MOCK_NANNIES_RESULTS } from '@mobile/mocks';
+import { formatHourlyRate } from '@mobile/lib/formatMoney';
 import { styles } from './styles/search-results-screen.styles';
 
 function NannyResultCard({
@@ -62,7 +63,7 @@ function NannyResultCard({
       </View>
 
       <View style={styles.cardRight}>
-        <Text style={styles.price}>${nanny.hourlyRate}/hr</Text>
+        <Text style={styles.price}>{formatHourlyRate(nanny.hourlyRate)}</Text>
         <Pressable style={styles.bookButton} onPress={() => onBook(nanny.id)}>
           <Text style={styles.bookButtonText}>Book</Text>
         </Pressable>
@@ -85,10 +86,15 @@ export default function SearchResultsScreen() {
   };
 
   const handleBook = (nannyId: string) => {
+    const nanny = MOCK_NANNIES_RESULTS.find((n) => n.id === nannyId);
     router.push({
-      pathname: '/(parent)/book/booking-step-1',
-      params: { nannyId },
-    });
+      pathname: '/(parent)/book/booking-date-picker',
+      params: {
+        nannyId,
+        nannyName: nanny?.name ?? '',
+        nannyRate: nanny?.hourlyRate != null ? String(nanny.hourlyRate) : '',
+      },
+    } as never);
   };
 
   const handleNannyPress = (nannyId: string) => {
@@ -192,7 +198,7 @@ export default function SearchResultsScreen() {
         ))}
       </ScrollView>
 
-      <BottomNav activeTab="search" />
+      <BottomNav activeTab="home" />
     </View>
   );
 }

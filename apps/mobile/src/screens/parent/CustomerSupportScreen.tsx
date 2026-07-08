@@ -4,18 +4,21 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Image,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { IMG_SUPPORT_AVATAR } from '@mobile/mocks/images';
 import { MOCK_FAQS } from '@mobile/mocks';
+import { getProfileReturnHref } from '@mobile/lib/profileUtils';
 import { styles } from './styles/customer-support-screen.styles';
 
 export default function CustomerSupportScreen() {
   const router = useRouter();
+  const { returnTo, profileReturnTo } = useLocalSearchParams<{
+    returnTo?: string;
+    profileReturnTo?: string;
+  }>();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(1);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -27,29 +30,30 @@ export default function CustomerSupportScreen() {
       )
     : MOCK_FAQS;
 
+  const handleBack = () => {
+    if (returnTo === 'mother-profile') {
+      router.replace({
+        pathname: '/(parent)/mother-profile',
+        params: { returnTo: profileReturnTo ?? 'home' },
+      } as never);
+      return;
+    }
+    if (returnTo) {
+      router.replace(getProfileReturnHref(returnTo) as never);
+      return;
+    }
+    router.back();
+  };
+
   return (
     <View style={styles.container}>
-      {/* ── Scrollable main content ── */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
         <Text style={styles.pageTitle}>Help &amp; support</Text>
 
-        {/* Live Chat Card */}
-        <View style={styles.liveChatCard}>
-          <View style={styles.liveChatLeft}>
-            <Text style={styles.liveChatTitle}>Chat with us</Text>
-            <Text style={styles.liveChatSubtitle}>● Available now · ~2 min wait</Text>
-          </View>
-          <Pressable style={styles.startChatBtn}>
-            <Text style={styles.startChatBtnText}>Start chat</Text>
-          </Pressable>
-        </View>
-
-        {/* FAQ Search Bar */}
         <View style={styles.searchBar}>
           <Ionicons
             name="search-outline"
@@ -66,7 +70,6 @@ export default function CustomerSupportScreen() {
           />
         </View>
 
-        {/* FAQ Accordion */}
         <View style={styles.faqList}>
           {filteredFaqs.map((faq) => {
             const isExpanded = expandedFaq === faq.id;
@@ -100,11 +103,9 @@ export default function CustomerSupportScreen() {
           })}
         </View>
 
-        {/* Other Ways to Reach Us */}
         <View style={styles.otherWaysSection}>
           <Text style={styles.otherWaysHeader}>OTHER WAYS TO REACH US</Text>
           <View style={styles.contactGrid}>
-            {/* Email support */}
             <Pressable style={styles.contactCard}>
               <View style={styles.contactIconWrapGreen}>
                 <Ionicons name="mail-outline" size={20} color={colors.primaryDark} />
@@ -113,8 +114,10 @@ export default function CustomerSupportScreen() {
               <Text style={styles.contactSubtitle}>Reply within 24 hours</Text>
             </Pressable>
 
-            {/* Ask the community */}
-            <Pressable style={styles.contactCard}>
+            <Pressable
+              style={styles.contactCard}
+              onPress={() => router.push('/(parent)/community')}
+            >
               <View style={styles.contactIconWrapBeige}>
                 <Ionicons name="chatbubbles-outline" size={20} color={colors.textTertiary} />
               </View>
@@ -124,36 +127,17 @@ export default function CustomerSupportScreen() {
           </View>
         </View>
 
-        {/* Emergency Card */}
         <View style={styles.emergencyCard}>
-          <View style={styles.emergencyLeft}>
-            <Text style={styles.emergencyTitle}>Emergency assistance</Text>
-            <Text style={styles.emergencySubtitle}>24/7 safety hotline</Text>
-          </View>
-          <Pressable style={styles.callNowBtn}>
-            <Ionicons name="call-outline" size={16} color={colors.error} />
-            <Text style={styles.callNowText}>Call now</Text>
-          </Pressable>
+          <Text style={styles.emergencyTitle}>Emergency assistance</Text>
+          <Text style={styles.emergencySubtitle}>24/7 safety hotline</Text>
         </View>
-
-        {/* TODO: Replace with proper BottomNav once tab design is finalized.
-            The Figma shows different bottom nav tabs (Home, Bookings, Support, Profile)
-            than the existing BottomNav component. */}
       </ScrollView>
 
-      {/* ── Fixed: Header ── */}
       <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <Pressable style={styles.iconBtn} onPress={() => router.push('/(parent)/mother-profile' as never)}>
-            <Ionicons name="menu-outline" size={22} color={colors.textPrimary} />
-          </Pressable>
-          <Text style={styles.logoText}>NannyMom</Text>
-          <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
-            <Image source={{ uri: IMG_SUPPORT_AVATAR }} style={styles.avatar} />
-          </Pressable>
-        </View>
+        <Pressable style={styles.backBtn} onPress={handleBack} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+        </Pressable>
       </View>
     </View>
   );
 }
-

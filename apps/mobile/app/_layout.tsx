@@ -17,6 +17,7 @@ import { queryClient } from '@mobile/lib/queryClient';
 import { auth } from '@mobile/lib/firebase';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useMe } from '@mobile/hooks/useMe';
+import { usePushNotifications } from '@mobile/hooks/usePushNotifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +28,7 @@ SplashScreen.preventAutoHideAsync();
  */
 function ProfileLoader() {
   useMe();
+  usePushNotifications();
   return null;
 }
 

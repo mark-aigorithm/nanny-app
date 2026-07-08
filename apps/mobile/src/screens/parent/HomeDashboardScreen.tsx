@@ -11,13 +11,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
-import { Avatar, Badge, SectionHeader } from '@mobile/components/ui';
+import NotificationBellButton from '@mobile/components/NotificationBellButton';
+import { Avatar, SectionHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-dashboard-screen.styles';
 import { PROMO_CARDS, QUICK_ACTIONS, RECOMMENDED_NANNIES, FAVOURITE_NANNIES } from '@mobile/mocks';
 import { IMG_HERO } from '@mobile/mocks/images';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { getGreeting } from '@mobile/lib/greeting';
+import { formatHourlyRate } from '@mobile/lib/formatMoney';
+
+const SHOW_PROMO_CAROUSEL = false;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -34,14 +38,19 @@ export default function HomeDashboardScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>{`${getGreeting()}, ${profile?.firstName ?? ''}`}</Text>
           <View style={styles.headerRight}>
-            <Pressable
+            <NotificationBellButton
+              iconSize={22}
+              iconColor={colors.textDark}
               style={styles.bellBtn}
-              onPress={() => router.push('/(parent)/notifications')}
+            />
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/(parent)/mother-profile',
+                  params: { returnTo: 'home-dashboard' },
+                } as never)
+              }
             >
-              <Ionicons name="notifications-outline" size={22} color={colors.textDark} />
-              <Badge count={3} size="sm" style={styles.bellBadge} />
-            </Pressable>
-            <Pressable onPress={() => router.push('/(parent)/mother-profile' as never)}>
               <Avatar uri={profile?.avatarUrl ?? undefined} size="md" borderWidth={2} borderColor={colors.white} fallbackInitial={profile?.firstName?.[0]} />
             </Pressable>
           </View>
@@ -73,30 +82,36 @@ export default function HomeDashboardScreen() {
           </View>
         </Pressable>
 
-        {/* 2. Promo carousel */}
-        <FlatList
-          data={PROMO_CARDS}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.promoList}
-          renderItem={({ item }) => (
-            <View style={styles.promoCard}>
-              <Image source={{ uri: item.image }} style={styles.promoImage} resizeMode="cover" />
-              <View style={styles.promoGradient} />
-              <View style={styles.promoContent}>
-                <Text style={styles.promoTitle}>{item.title}</Text>
-                <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
-                <Pressable
-                  style={styles.promoCta}
-                  onPress={() => router.push('/(parent)/marketplace')}
-                >
-                  <Text style={styles.promoCtaText}>{item.cta}</Text>
-                </Pressable>
+        {SHOW_PROMO_CAROUSEL && (
+          <FlatList
+            data={PROMO_CARDS}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.promoList}
+            renderItem={({ item }) => (
+              <View style={styles.promoCard}>
+                <Image source={{ uri: item.image }} style={styles.promoImage} resizeMode="cover" />
+                <View style={styles.promoGradient} />
+                <View style={styles.promoContent}>
+                  <Text style={styles.promoTitle}>{item.title}</Text>
+                  <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
+                  <Pressable
+                    style={styles.promoCta}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(parent)/community-feed',
+                        params: { filter: 'Marketplace' },
+                      } as never)
+                    }
+                  >
+                    <Text style={styles.promoCtaText}>{item.cta}</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          )}
-        />
+            )}
+          />
+        )}
 
         {/* 3. Quick actions grid */}
         <View style={styles.quickGrid}>
@@ -148,7 +163,7 @@ export default function HomeDashboardScreen() {
                     <Ionicons name="star" size={12} color={colors.gold} />
                     <Text style={styles.nannyRating}>{item.rating.toFixed(1)}</Text>
                   </View>
-                  <Text style={styles.nannyPrice}>${item.hourlyRate}/hr</Text>
+                  <Text style={styles.nannyPrice}>{formatHourlyRate(item.hourlyRate)}</Text>
                 </View>
               </Pressable>
             )}

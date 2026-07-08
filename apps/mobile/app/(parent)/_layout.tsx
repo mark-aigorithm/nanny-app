@@ -28,6 +28,7 @@ export default function ParentLayout() {
       <Tabs.Screen name="create-event" options={{ headerShown: false }} />
       <Tabs.Screen name="marketplace-item-detail" options={{ headerShown: false }} />
       <Tabs.Screen name="create-listing" options={{ headerShown: false }} />
+      <Tabs.Screen name="nanny-selection-guide" options={{ headerShown: false }} />
     </Tabs>
   );
 }

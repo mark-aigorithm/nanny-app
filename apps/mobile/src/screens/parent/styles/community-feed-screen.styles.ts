@@ -64,6 +64,24 @@ export const styles = StyleSheet.create({
   headerIcon: {
     padding: spacing.xs,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: screenPadding,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  searchBar: {
+    flex: 1,
+  },
+  cancelButton: {
+    paddingVertical: spacing.xs,
+  },
+  cancelText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 14,
+    color: colors.primaryDark,
+  },
 
   // Filter pills
   filterRow: {
@@ -100,6 +118,12 @@ export const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing['2xl'],
     gap: spacing.lg,
+  },
+  scrollContentEmpty: {
+    flexGrow: 1,
+  },
+  loadingIndicator: {
+    marginTop: 40,
   },
 
   // Card

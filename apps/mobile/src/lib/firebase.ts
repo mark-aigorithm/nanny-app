@@ -1,12 +1,10 @@
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { getApps, initializeApp } from 'firebase/app';
 import {
   EmailAuthProvider as JsEmailAuthProvider,
   createUserWithEmailAndPassword,
   getAuth,
-  getReactNativePersistence,
   initializeAuth,
   linkWithCredential as jsLinkWithCredential,
   onAuthStateChanged,
@@ -17,8 +15,19 @@ import {
   type ApplicationVerifier,
   type Auth,
   type AuthCredential,
+  type Persistence,
   type User as JsUser,
 } from 'firebase/auth';
+import { secureStorageAdapter } from '@mobile/lib/secureStorage';
+
+// getReactNativePersistence was removed from `firebase/auth` in v12 but still
+// exists in the underlying `@firebase/auth` package's React Native build. Metro
+// resolves `@firebase/auth` using the `react-native` field in its package.json
+// (→ dist/rn/index.js) which does export it. We use require() to side-step the
+// TypeScript browser-typings which don't declare it.
+const { getReactNativePersistence } = require('@firebase/auth') as {
+  getReactNativePersistence: (storage: typeof secureStorageAdapter) => Persistence;
+};
 
 // ── Firebase JS SDK setup (Expo Go compatible) ─────────────────────────────
 // @react-native-firebase/* are native modules and are not available in
@@ -48,7 +57,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 let jsAuth: Auth;
 try {
   jsAuth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
+    persistence: getReactNativePersistence(secureStorageAdapter),
   });
 } catch {
   jsAuth = getAuth(app);
@@ -59,22 +68,20 @@ try {
 // Email/password, sign-out, state observation, AND phone OTP all use the
 // real Firebase JS SDK — nothing is stubbed or faked.
 //
-// REGISTRATION FLOW (Option B — phone primary, email/password linked after):
-// `useConfirmPhoneCode` calls `confirmation.confirm(code)` — the real JS
-// SDK call that validates the code server-side and creates a Firebase
-// user with "phone" as the primary provider. It then links the email +
-// password collected in step 2 as a secondary EmailAuthProvider
-// credential via `currentUser.linkWithCredential`.
+// REGISTRATION FLOW (phone-only sign-up, OTP bypassed):
+// Sign-up collects a phone number + password only. Because no SMS
+// provider is wired up yet, phone verification is bypassed for
+// end-to-end testing (see `useCreatePhoneAccount` and `BYPASS_OTP`).
+// Under the hood the account is created with the real Firebase JS SDK
+// `createUserWithEmailAndPassword`, using a placeholder email derived
+// from the phone number (`phoneToPlaceholderEmail`) plus the chosen
+// password. This yields a real Firebase user + JWT that the backend
+// accepts unchanged.
 //
-// Phone OTP works in Expo Go for numbers configured under "Phone numbers
-// for testing" in the Firebase Console. The shim passes a minimal fake
-// `ApplicationVerifier` that returns a dummy reCAPTCHA token without
-// doing any real verification — Firebase servers bypass the reCAPTCHA
-// check entirely for whitelisted test numbers, so the dummy token is
-// never validated. For real numbers this approach does NOT work
-// (Firebase will reject the dummy token), but that's fine: real phone
-// testing happens on a native build where @react-native-firebase/auth
-// handles reCAPTCHA natively via Play Integrity / App Attestation.
+// The `signInWithPhoneNumber` shim below is retained for when a real
+// OTP provider / native build replaces this bypass. It passes a minimal
+// fake `ApplicationVerifier`; Firebase only accepts it for numbers under
+// "Phone numbers for testing" in the Firebase Console.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**

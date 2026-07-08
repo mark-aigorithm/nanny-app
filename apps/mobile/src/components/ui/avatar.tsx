@@ -68,12 +68,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.white,
   },
   image: {
     resizeMode: 'cover',
   },
   fallback: {
-    backgroundColor: colors.taupe,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },

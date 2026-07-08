@@ -9,6 +9,7 @@ import {
   shadows,
   STATUS_BAR_HEIGHT,
   HEADER_HEIGHT,
+  BOTTOM_NAV_HEIGHT,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -22,14 +23,14 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: HEADER_HEIGHT + spacing.lg,
     paddingHorizontal: screenPadding,
-    paddingBottom: 120,
+    paddingBottom: BOTTOM_NAV_HEIGHT + spacing.lg,
     gap: spacing['2xl'],
   },
 
   // Header
   header: {
     position: 'absolute',
-    top: 0,
+    top: spacing.xs,
     left: 0,
     right: 0,
     backgroundColor: colors.background,
@@ -212,6 +213,121 @@ export const styles = StyleSheet.create({
   },
   ageChipTextSelected: {
     color: colors.white,
+  },
+
+  // Availability type
+  availabilityRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  availabilityChip: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupe,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availabilityChipSelected: {
+    backgroundColor: colors.primary,
+  },
+  availabilityChipText: {
+    ...typeScale.labelSm,
+    color: colors.textTertiary,
+  },
+  availabilityChipTextSelected: {
+    color: colors.white,
+  },
+
+  // Working hours
+  scheduleCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    ...shadows.sm,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  dayDivider: {
+    height: 1,
+    backgroundColor: colors.borderSubtle,
+  },
+  dayLabel: {
+    width: 36,
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.semiBold,
+    color: colors.textPrimary,
+  },
+  timePills: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  timePill: {
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  timePillText: {
+    ...typeScale.labelSm,
+    color: colors.textPrimary,
+  },
+  timeSeparator: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.xxs,
+  },
+  dayOffLabel: {
+    flex: 1,
+    ...typeScale.labelSm,
+    color: colors.textMuted,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.md,
+  },
+  copyButtonText: {
+    ...typeScale.labelSm,
+    color: colors.primary,
+  },
+
+  // Time picker modal (iOS)
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    paddingBottom: spacing['3xl'],
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: screenPadding,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  pickerTitle: {
+    ...typeScale.headingMd,
+    color: colors.textPrimary,
+  },
+  pickerDone: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
   },
 
   // Save button

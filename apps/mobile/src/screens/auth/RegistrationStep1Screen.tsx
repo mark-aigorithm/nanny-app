@@ -23,7 +23,7 @@ import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { validateEmail, validatePhone } from '@mobile/lib/validation';
+import { validatePhone } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
 
 /** Format a Date as 'mm/dd/yyyy' — the storage format expected by step 3. */
@@ -117,11 +117,6 @@ export default function RegistrationStep1Screen() {
       setFormError('Please enter your first and last name.');
       return;
     }
-    const emailErr = validateEmail(draft.email);
-    if (emailErr) {
-      setFormError(emailErr);
-      return;
-    }
     const phoneErr = validatePhone(draft.phone);
     if (phoneErr) {
       setFormError(phoneErr);
@@ -204,18 +199,6 @@ export default function RegistrationStep1Screen() {
               placeholder="Enter your last name"
               placeholderTextColor={colors.textPlaceholder}
               autoCapitalize="words"
-              autoCorrect={false}
-            />
-
-            {/* Email */}
-            <TextInputField
-              label="Email"
-              value={draft.email}
-              onChangeText={(val) => patch({ email: val })}
-              placeholder="hello@example.com"
-              placeholderTextColor={colors.textPlaceholder}
-              keyboardType="email-address"
-              autoCapitalize="none"
               autoCorrect={false}
             />
 

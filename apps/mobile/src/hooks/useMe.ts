@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { UserResponse } from '@nanny-app/shared';
+import { useEffect, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UpdateProfileRequest, UserResponse } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { useAuthStore } from '@mobile/store/authStore';
@@ -30,6 +30,17 @@ export function useMe() {
     },
   });
 
+  // If a *different* Firebase account signs in (logout → login as another
+  // role), drop the previous user's profile immediately so the role-based
+  // router never routes by stale data while /auth/me refetches.
+  const lastUidRef = useRef(firebaseUser?.uid);
+  useEffect(() => {
+    if (lastUidRef.current !== firebaseUser?.uid) {
+      lastUidRef.current = firebaseUser?.uid;
+      setProfile(null);
+    }
+  }, [firebaseUser?.uid, setProfile]);
+
   useEffect(() => {
     if (query.data) {
       setProfile(query.data);
@@ -39,4 +50,18 @@ export function useMe() {
   }, [query.data, firebaseUser, setProfile]);
 
   return query;
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const firebaseUser = useAuthStore((s) => s.user);
+  const setProfile = useUserProfileStore((s) => s.setProfile);
+
+  return useMutation<UserResponse, Error, UpdateProfileRequest>({
+    mutationFn: (body) => unwrap(api.patch('/auth/me', body)),
+    onSuccess: (updated) => {
+      setProfile(updated);
+      queryClient.setQueryData(['auth', 'me', firebaseUser?.uid], updated);
+    },
+  });
 }

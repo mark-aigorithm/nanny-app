@@ -1,4 +1,3 @@
-import type { Conversation, ChatMessage } from '@mobile/types';
 import {
   IMG_ELENA_MESSAGES,
   IMG_SARAH_MESSAGES,
@@ -7,11 +6,31 @@ import {
   IMG_SANDRA_MESSAGES,
 } from './images';
 
-export const MOCK_CONVERSATIONS: Conversation[] = [
+/** Preview-only mock shapes for web component previews. */
+export interface MockConversation {
+  id: string;
+  name: string;
+  preview: string;
+  time: string;
+  unreadCount?: number;
+  isOnline?: boolean;
+  isVerified?: boolean;
+  opacity?: number;
+  avatar: string;
+}
+
+export interface MockChatMessage {
+  id: string;
+  type: 'sent' | 'received';
+  text: string;
+  time: string;
+}
+
+export const MOCK_CONVERSATIONS: MockConversation[] = [
   {
     id: '1',
     name: 'Elena Rodriguez',
-    preview: "I'll be there by 8:00 AM tomorrow. \u2026",
+    preview: "I'll be there by 8:00 AM tomorrow. …",
     time: '10:24 AM',
     unreadCount: 2,
     isOnline: true,
@@ -20,14 +39,14 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: '2',
     name: 'Sarah Jenkins',
-    preview: 'Thank you for the wonderful feedback! L\u2026',
+    preview: 'Thank you for the wonderful feedback! L…',
     time: 'Yesterday',
     avatar: IMG_SARAH_MESSAGES,
   },
   {
     id: '3',
     name: 'Maya Patel',
-    preview: "I've updated my availability for the upco\u2026",
+    preview: "I've updated my availability for the upco…",
     time: 'Tuesday',
     isVerified: true,
     avatar: IMG_MAYA_MESSAGES,
@@ -35,7 +54,7 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: '4',
     name: 'Claire Thompson',
-    preview: "Sounds good, let's touch base next wee\u2026",
+    preview: "Sounds good, let's touch base next wee…",
     time: 'Oct 12',
     opacity: 0.8,
     avatar: IMG_CLAIRE_MESSAGES,
@@ -50,23 +69,23 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   },
 ];
 
-export const MOCK_MESSAGES: ChatMessage[] = [
+export const MOCK_MESSAGES: MockChatMessage[] = [
   {
     id: '1',
     type: 'received',
-    text: 'Hi Sarah! I\'ll be there on time. Does Liam have any specific lunch preferences today?',
+    text: "Hi Sarah! I'll be there on time. Does Liam have any specific lunch preferences today?",
     time: '10:42 AM',
   },
   {
     id: '2',
     type: 'sent',
-    text: 'Hi Elena, that\'s great. He loves the mashed sweet potatoes I\'ve prepared.',
+    text: "Hi Elena, that's great. He loves the mashed sweet potatoes I've prepared.",
     time: '10:45 AM',
   },
   {
     id: '3',
     type: 'received',
-    text: 'Perfect, I\'ll make sure he enjoys that. See you soon!',
+    text: "Perfect, I'll make sure he enjoys that. See you soon!",
     time: '10:48 AM',
   },
   {

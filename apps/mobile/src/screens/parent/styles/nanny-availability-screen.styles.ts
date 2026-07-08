@@ -8,6 +8,8 @@ import {
   borderRadius,
   shadows,
   BOTTOM_NAV_HEIGHT,
+  STATUS_BAR_HEIGHT,
+  HEADER_HEIGHT,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -16,16 +18,25 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // Header
-  headerSafeArea: {
-    backgroundColor: colors.background,
-  },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: screenPadding,
-    paddingVertical: spacing.md,
+    paddingTop: STATUS_BAR_HEIGHT,
+    backgroundColor: colors.background,
     gap: spacing.md,
+    zIndex: 10,
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: HEADER_HEIGHT,
   },
   headerTitle: {
     ...typeScale.headingMd,
@@ -38,6 +49,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: HEADER_HEIGHT + spacing.md,
     paddingHorizontal: screenPadding,
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing['3xl'],
     gap: spacing.xl,

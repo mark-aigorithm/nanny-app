@@ -1,11 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { MOCK_TIME_SLOTS } from '@mobile/mocks';
 import { BOOKING_DURATION_OPTIONS } from '@mobile/constants';
+import { isStandardBookingDateAllowed, STANDARD_BOOKING_SAME_DAY_MESSAGE } from '@nanny-app/shared';
+import { useNannyPublicProfile, useNannyBookedSlots } from '@mobile/hooks/useNannies';
+import BookingStepProgress from '@mobile/components/BookingStepProgress';
+import { formatHour24 } from '@mobile/lib/formatTime';
+import { resolveImageUri } from '@mobile/lib/imageUri';
 import { styles } from './styles/booking-date-picker-screen.styles';
+import type { TimeSlot } from '@mobile/types';
+import type { WeeklySchedule } from '@nanny-app/shared';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
@@ -21,9 +27,39 @@ function getFirstDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
+function generateSlotsFromSchedule(schedule: WeeklySchedule | null | undefined, dayOfWeek: number): TimeSlot[] {
+  if (!schedule) return [];
+  const day = schedule[String(dayOfWeek)];
+  if (!day || !day.available) return [];
+
+  const startH = parseInt(day.startTime.split(':')[0] ?? '0', 10);
+  const endH = parseInt(day.endTime.split(':')[0] ?? '0', 10);
+
+  const slots: TimeSlot[] = [];
+  for (let h = startH; h < endH; h++) {
+    const hh = String(h).padStart(2, '0');
+    const nextHh = String(h + 1).padStart(2, '0');
+    slots.push({
+      id: `${hh}:00`,
+      label: formatHour24(h),
+      startTime: `${hh}:00`,
+      endTime: `${nextHh}:00`,
+      available: true,
+    });
+  }
+  return slots;
+}
+
 export default function BookingDatePickerScreen() {
   const router = useRouter();
-  const { nannyId } = useLocalSearchParams<{ nannyId?: string }>();
+  const { nannyId, nannyName, nannyPhoto, nannyRate } = useLocalSearchParams<{
+    nannyId?: string;
+    nannyName?: string;
+    nannyPhoto?: string;
+    nannyRate?: string;
+  }>();
+
+  const { data: nanny, isLoading } = useNannyPublicProfile(nannyId);
 
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -38,10 +74,11 @@ export default function BookingDatePickerScreen() {
   const isToday = (day: number) =>
     day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
 
-  const isPast = (day: number) => {
+  const isUnavailable = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    return date < todayStart;
+    // Standard bookings cannot be same-day; only emergency bookings allow today.
+    return date <= todayStart;
   };
 
   const handlePrevMonth = () => {
@@ -52,6 +89,7 @@ export default function BookingDatePickerScreen() {
       setCurrentMonth((m) => m - 1);
     }
     setSelectedDay(null);
+    setSelectedTimeSlot(null);
   };
 
   const handleNextMonth = () => {
@@ -62,29 +100,66 @@ export default function BookingDatePickerScreen() {
       setCurrentMonth((m) => m + 1);
     }
     setSelectedDay(null);
+    setSelectedTimeSlot(null);
   };
 
-  const morningSlots = MOCK_TIME_SLOTS.filter((s) => parseInt(s.startTime) < 12);
-  const afternoonSlots = MOCK_TIME_SLOTS.filter((s) => parseInt(s.startTime) >= 12 && parseInt(s.startTime) < 17);
-  const eveningSlots = MOCK_TIME_SLOTS.filter((s) => parseInt(s.startTime) >= 17);
+  const selectedDateIso = selectedDay !== null
+    ? `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
+    : null;
+
+  const selectedDayOfWeek = selectedDay !== null
+    ? new Date(currentYear, currentMonth, selectedDay).getDay()
+    : null;
+
+  const { data: bookedSlots = [], isFetching: fetchingSlots } = useNannyBookedSlots(nannyId, selectedDateIso);
+
+  const bookedSet = useMemo(() => new Set(bookedSlots), [bookedSlots]);
+
+  const availableSlots = useMemo(() => {
+    if (selectedDayOfWeek === null) return [];
+    const raw = generateSlotsFromSchedule(nanny?.schedule, selectedDayOfWeek);
+    return raw.map((s) => ({ ...s, available: !bookedSet.has(s.id) }));
+  }, [nanny?.schedule, selectedDayOfWeek, bookedSet]);
+
+  const morningSlots = availableSlots.filter((s) => parseInt(s.startTime) < 12);
+  const afternoonSlots = availableSlots.filter((s) => parseInt(s.startTime) >= 12 && parseInt(s.startTime) < 17);
+  const eveningSlots = availableSlots.filter((s) => parseInt(s.startTime) >= 17);
 
   const canContinue = selectedDay !== null && selectedTimeSlot !== null;
 
   const handleContinue = () => {
-    if (!canContinue) return;
-    const slot = MOCK_TIME_SLOTS.find((s) => s.id === selectedTimeSlot);
+    if (!canContinue || selectedDay === null) return;
+    const dateIso = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+    if (!isStandardBookingDateAllowed(dateIso)) return;
+
+    const slot = availableSlots.find((s) => s.id === selectedTimeSlot);
+    if (!slot) return;
+
+    const [startHH, startMM] = slot.startTime.split(':');
+    const endHour = parseInt(startHH ?? '0', 10) + selectedDuration;
+    const endMinute = parseInt(startMM ?? '0', 10);
+    const endTimeStr = `${String(endHour).padStart(2, '0')}:${startMM ?? '00'}`;
+    const startTimeIso = `${dateIso}T${slot.startTime}:00+00:00`;
+    const endTimeIso = `${dateIso}T${endTimeStr}:00+00:00`;
+    const resolvedPhoto = resolveImageUri(nannyPhoto) ?? resolveImageUri(nanny?.avatarUrl);
     router.push({
       pathname: '/(parent)/book/booking-step-1',
       params: {
-        nannyId: nannyId ?? '1',
+        nannyProfileId: nannyId ?? '',
         date: `${MONTHS[currentMonth].slice(0, 3)} ${selectedDay}`,
-        startTime: slot?.label ?? '9AM',
-        endTime: `${selectedDuration}h`,
+        startTime: slot.label,
+        endTime: formatHour24(endHour, endMinute),
+        dateIso,
+        startTimeIso,
+        endTimeIso,
+        nannyName: nannyName ?? '',
+        ...(resolvedPhoto ? { nannyPhoto: resolvedPhoto } : {}),
+        nannyRate: nannyRate ?? String(nanny?.hourlyRate ?? ''),
       },
     } as never);
   };
 
-  const renderTimeSlotGroup = (label: string, slots: typeof MOCK_TIME_SLOTS) => {
+  const renderTimeSlotGroup = (label: string, slots: TimeSlot[]) => {
     if (slots.length === 0) return null;
     return (
       <View style={styles.timeSlotSection}>
@@ -95,7 +170,11 @@ export default function BookingDatePickerScreen() {
             return (
               <Pressable
                 key={slot.id}
-                style={[styles.timeSlot, isSelected && styles.timeSlotSelected, !slot.available && styles.timeSlotDisabled]}
+                style={[
+                  styles.timeSlot,
+                  isSelected && styles.timeSlotSelected,
+                  !slot.available && styles.timeSlotDisabled,
+                ]}
                 onPress={() => slot.available && setSelectedTimeSlot(slot.id)}
                 disabled={!slot.available}
               >
@@ -115,6 +194,10 @@ export default function BookingDatePickerScreen() {
       <StatusBar barStyle="dark-content" />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <BookingStepProgress step={1} title="Select date & time" centered />
+
+        <Text style={styles.advanceNotice}>{STANDARD_BOOKING_SAME_DAY_MESSAGE}</Text>
+
         {/* Calendar */}
         <View>
           <View style={styles.calendarHeader}>
@@ -139,18 +222,23 @@ export default function BookingDatePickerScreen() {
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
-              const past = isPast(day);
+              const unavailable = isUnavailable(day);
               const selected = selectedDay === day;
               const todayMark = isToday(day);
               return (
                 <Pressable
                   key={day}
                   style={styles.dayCell}
-                  onPress={() => !past && setSelectedDay(day)}
-                  disabled={past}
+                  onPress={() => {
+                    if (!unavailable) {
+                      setSelectedDay(day);
+                      setSelectedTimeSlot(null);
+                    }
+                  }}
+                  disabled={unavailable}
                 >
-                  <View style={[selected && styles.daySelected, todayMark && !selected && styles.dayToday]}>
-                    <Text style={[styles.dayText, past && styles.dayTextDisabled, selected && styles.dayTextSelected]}>
+                  <View style={[selected && styles.daySelected, todayMark && !selected && !unavailable && styles.dayToday]}>
+                    <Text style={[styles.dayText, unavailable && styles.dayTextDisabled, selected && styles.dayTextSelected]}>
                       {day}
                     </Text>
                   </View>
@@ -163,9 +251,27 @@ export default function BookingDatePickerScreen() {
         {/* Time Slots */}
         <View>
           <Text style={styles.sectionTitle}>Select time</Text>
-          {renderTimeSlotGroup('Morning', morningSlots)}
-          {renderTimeSlotGroup('Afternoon', afternoonSlots)}
-          {renderTimeSlotGroup('Evening', eveningSlots)}
+          {isLoading || fetchingSlots ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+          ) : selectedDay === null ? (
+            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 16 }}>
+              Select a date to see available times
+            </Text>
+          ) : availableSlots.length === 0 ? (
+            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 16 }}>
+              Nanny is not available on this day
+            </Text>
+          ) : availableSlots.every((s) => !s.available) ? (
+            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 16 }}>
+              All slots are booked for this day
+            </Text>
+          ) : (
+            <>
+              {renderTimeSlotGroup('Morning', morningSlots)}
+              {renderTimeSlotGroup('Afternoon', afternoonSlots)}
+              {renderTimeSlotGroup('Evening', eveningSlots)}
+            </>
+          )}
         </View>
 
         {/* Duration */}

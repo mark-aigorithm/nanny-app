@@ -6,51 +6,14 @@ import {
   spacing,
   screenPadding,
   borderRadius,
-  shadows,
+  PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
+  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  statusBar: {
-    backgroundColor: colors.taupeHeader,
-  },
-
-  // Header
-  header: {
-    backgroundColor: colors.taupeHeader,
-    zIndex: 3,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingVertical: spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  headerTitle: {
-    ...typeScale.headingMd,
-    letterSpacing: -0.45,
-    color: colors.primary,
-    lineHeight: 28,
-  },
-  headerAvatarBg: {
-    width: 32,
-    height: 32,
-    borderRadius: spacing.lg,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceMuted,
-  },
-  headerAvatar: {
-    width: 32,
-    height: 32,
   },
 
   // Scroll
@@ -59,26 +22,32 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: screenPadding,
-    paddingTop: spacing['2xl'],
-    paddingBottom: 96,
-    gap: spacing['3xl'],
+    paddingTop: PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
+    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
   },
 
-  // Search bar
-  searchBar: {
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+  emptyText: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.lg,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    color: colors.textPrimary,
+  loader: {
+    marginTop: spacing.lg,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryMuted,
+  },
+  avatarInitial: {
+    fontFamily: fontFamily.bold,
+    fontSize: 18,
+    color: colors.primary,
+  },
+  listingSubtitle: {
+    ...typeScale.caption,
+    color: colors.textTertiary,
   },
 
   // Conversation list
@@ -175,20 +144,4 @@ export const styles = StyleSheet.create({
     color: colors.white,
     lineHeight: 15,
   },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    right: screenPadding,
-    bottom: 96,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.lg,
-    zIndex: 2,
-  },
-
 });

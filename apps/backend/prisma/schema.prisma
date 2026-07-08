@@ -34,6 +34,61 @@ enum Role {
   @@map("role")
 }
 
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REFUNDED
+
+  @@map("booking_status")
+}
+
+enum BookingType {
+  STANDARD
+  EMERGENCY
+
+  @@map("booking_type")
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  CARD
+  APPLE_PAY
+  GOOGLE_PAY
+  WALLET
+
+  @@map("payment_method")
+}
+
+enum AvailabilityType {
+  FULL_TIME
+  PART_TIME
+  OCCASIONAL
+
+  @@map("availability_type")
+}
+
+enum CareLogType {
+  MEAL
+  NAP
+  DIAPER
+  ACTIVITY
+  CUSTOM
+
+  @@map("care_log_type")
+}
+
 /// Central identity row — one per Firebase Auth user.
 /// Role-specific data (children, certifications, bio, location) lives on
 /// future MotherProfile / NannyProfile models, not here.
@@ -66,7 +121,500 @@ model User {
   updatedAt            DateTime  @updatedAt      @map("updated_at")
   deletedAt            DateTime? @map("deleted_at")
 
+  nannyProfile      NannyProfile?
+  bookingsAsMother  Booking[]  @relation("BookingMother")
+  cancelledBookings Booking[]  @relation("BookingCancelledBy")
+  payments          Payment[]  @relation("PaymentMother")
+  reviewsGiven      Review[]   @relation("ReviewMother")
+  communityPosts            CommunityPost[]
+  postLikes                 PostLike[]
+  comments                  Comment[]
+  commentLikes              CommentLike[]
+  eventRsvps                EventRsvp[]
+  conversationParticipants  ConversationParticipant[]
+  messagesSent              Message[]
+  notifications             Notification[]
+  deviceTokens              DeviceToken[]
+  initiatedConversations    Conversation[]            @relation("ConversationInitiator")
+  promoRedemptions          PromoCodeRedemption[]
+
   @@index([role])
   @@index([deletedAt])
   @@map("users")
+}
+
+/// Nanny-specific extended profile. Created automatically when role = NANNY
+/// on /auth/register. One-to-one with User.
+model NannyProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio               String?   @db.Text
+  location          String?
+  yearsOfExperience Int?      @map("years_of_experience")
+  hourlyRate        Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
+  certifications    String[]
+  ageRanges         String[]  @map("age_ranges")
+  specialties       String[]  @default([])
+  /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
+  schedule          Json?
+  isProfileComplete Boolean   @default(false) @map("is_profile_complete")
+  /// Decimal degrees — used for emergency booking proximity search.
+  latitude          Decimal?  @db.Decimal(10, 7)
+  longitude         Decimal?  @db.Decimal(10, 7)
+  /// Availability type for filtering: FULL_TIME, PART_TIME, OCCASIONAL
+  availabilityType  AvailabilityType @default(OCCASIONAL) @map("availability_type")
+  /// Denormalised rating cache — recomputed on every new review.
+  rating            Decimal   @default(0) @db.Decimal(3, 2)
+  reviewCount       Int       @default(0) @map("review_count")
+  bookings          Booking[]
+  reviews           Review[]
+  careLogs          CareLog[]
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  @@index([availabilityType])
+  @@index([rating])
+  @@map("nanny_profiles")
+}
+
+// ──────────────────────────────────────────────────────────────
+// App Config
+// ──────────────────────────────────────────────────────────────
+
+/// Singleton key-value store for runtime-configurable settings (e.g. service_fee_percent).
+/// Never hard-code config values that operations may need to tune without a deploy.
+model AppSettings {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  value     String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt      @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("app_settings")
+}
+
+enum DiscountType {
+  FLAT
+  PERCENTAGE
+
+  @@map("discount_type")
+}
+
+model PromoCode {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  discountType    DiscountType @map("discount_type")
+  /// Flat amount in EGP, or percentage when discount_type = PERCENTAGE.
+  value           Decimal      @db.Decimal(10, 2)
+  /// Total redemptions allowed across all users; null = unlimited.
+  maxUsage        Int?         @map("max_usage")
+  /// Redemptions allowed per user; null = unlimited.
+  maxUsagePerUser Int?         @map("max_usage_per_user")
+  usageCount      Int          @default(0) @map("usage_count")
+  isActive        Boolean      @default(true) @map("is_active")
+  expiresAt       DateTime?    @map("expires_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt      @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+
+  redemptions PromoCodeRedemption[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("promo_codes")
+}
+
+model PromoCodeRedemption {
+  id          String    @id @default(cuid())
+  promoCodeId String    @map("promo_code_id")
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id])
+  bookingId   String?   @map("booking_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt      @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([promoCodeId, userId])
+  @@index([userId])
+  @@map("promo_code_redemptions")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Booking & Payments
+// ──────────────────────────────────────────────────────────────
+
+model Booking {
+  id                      String        @id @default(cuid())
+  motherId                String        @map("mother_id")
+  mother                  User          @relation("BookingMother",      fields: [motherId],     references: [id])
+  /// Null for EMERGENCY bookings until a nanny accepts.
+  nannyProfileId          String?       @map("nanny_profile_id")
+  nannyProfile            NannyProfile? @relation(fields: [nannyProfileId], references: [id])
+  status                  BookingStatus @default(PENDING)
+  type                    BookingType   @default(STANDARD)
+  date                    DateTime      @db.Date
+  startTime               DateTime      @map("start_time")
+  endTime                 DateTime      @map("end_time")
+  durationHours           Decimal       @map("duration_hours")     @db.Decimal(5, 2)
+  baseRate                Decimal       @map("base_rate")          @db.Decimal(10, 2)
+  subtotal                Decimal       @db.Decimal(10, 2)
+  discountAmount          Decimal       @default(0)  @map("discount_amount")    @db.Decimal(10, 2)
+  serviceFeePercent       Decimal       @map("service_fee_percent") @db.Decimal(5, 2)
+  serviceFeeAmount        Decimal       @map("service_fee_amount")  @db.Decimal(10, 2)
+  totalAmount             Decimal       @map("total_amount")        @db.Decimal(10, 2)
+  specialInstructions     String?       @map("special_instructions") @db.Text
+  cancellationReason      String?       @map("cancellation_reason")
+  cancelledById           String?       @map("cancelled_by_id")
+  cancelledBy             User?         @relation("BookingCancelledBy", fields: [cancelledById], references: [id])
+  cancelledAt             DateTime?     @map("cancelled_at")
+  nannyCheckedInAt        DateTime?     @map("nanny_checked_in_at")
+  nannyCheckedOutAt       DateTime?     @map("nanny_checked_out_at")
+  replacementForBookingId String?       @map("replacement_for_booking_id")
+  replacementForBooking   Booking?      @relation("BookingReplacement",  fields: [replacementForBookingId], references: [id])
+  replacementBookings     Booking[]     @relation("BookingReplacement")
+  payment                 Payment?
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt      @map("updated_at")
+  deletedAt               DateTime?     @map("deleted_at")
+
+  review                  Review?
+  careLogs                CareLog[]
+  @@index([motherId])
+  @@index([nannyProfileId])
+  @@index([status])
+  @@index([date])
+  @@map("bookings")
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  bookingId           String        @unique @map("booking_id")
+  booking             Booking       @relation(fields: [bookingId],  references: [id])
+  motherId            String        @map("mother_id")
+  mother              User          @relation("PaymentMother", fields: [motherId], references: [id])
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("EGP")
+  method              PaymentMethod
+  status              PaymentStatus @default(PENDING)
+  paymobOrderId       String?       @map("paymob_order_id")
+  paymobTransactionId String?       @map("paymob_transaction_id")
+  /// Paymob unified intention id (`id` from create-intention response).
+  paymobIntentionId   String?       @map("paymob_intention_id")
+  /// One-time client secret for Pixel / unified checkout and for server-side intention polling.
+  paymobClientSecret  String?       @map("paymob_client_secret") @db.Text
+  /// Incremented each time a new Paymob intention is created (retry-safe merchant order ids).
+  paymobIntentionAttempt Int        @default(0) @map("paymob_intention_attempt")
+  /// T0 for staggered reconciliation (usually intention creation time).
+  paymobReconcileAnchorAt DateTime? @map("paymob_reconcile_anchor_at")
+  /// Number of reconciliation polls already executed (0..PAYMOB_RECONCILE_OFFSETS_MS.length).
+  paymobReconcileAttempt  Int       @default(0) @map("paymob_reconcile_attempt")
+  paymobNextReconcileAt   DateTime? @map("paymob_next_reconcile_at")
+  failureReason       String?       @map("failure_reason")
+  refundedAmount      Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+  refundedAt          DateTime?     @map("refunded_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt      @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  @@index([paymobOrderId])
+  @@index([paymobNextReconcileAt])
+  @@map("payments")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Reviews
+// ──────────────────────────────────────────────────────────────
+
+model Review {
+  id             String       @id @default(cuid())
+  bookingId      String       @unique   @map("booking_id")
+  booking        Booking      @relation(fields: [bookingId],      references: [id])
+  nannyProfileId String       @map("nanny_profile_id")
+  nannyProfile   NannyProfile @relation(fields: [nannyProfileId], references: [id])
+  motherId       String       @map("mother_id")
+  mother         User         @relation("ReviewMother", fields: [motherId], references: [id])
+  rating         Int
+  comment        String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt      @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@index([nannyProfileId])
+  @@index([motherId])
+  @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Care Logs
+// ──────────────────────────────────────────────────────────────
+
+/// One entry per logged activity during an in-progress booking.
+/// `customLabel` is required only for type = CUSTOM. Evidence is a list of
+/// remote image URLs (clients upload the file to Firebase Storage first and
+/// then submit the resulting URL).
+model CareLog {
+  id             String       @id @default(cuid())
+  bookingId      String       @map("booking_id")
+  booking        Booking      @relation(fields: [bookingId], references: [id])
+  nannyProfileId String       @map("nanny_profile_id")
+  nannyProfile   NannyProfile @relation(fields: [nannyProfileId], references: [id])
+  type           CareLogType
+  customLabel    String?      @map("custom_label")
+  notes          String?      @db.Text
+  occurredAt     DateTime     @map("occurred_at")
+  evidenceUrls   String[]     @default([]) @map("evidence_urls")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt      @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@index([bookingId])
+  @@index([nannyProfileId])
+  @@index([occurredAt])
+  @@map("care_logs")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Community
+// ──────────────────────────────────────────────────────────────
+
+enum CommunityPostType {
+  QA
+  MARKETPLACE
+  EVENT
+
+  @@map("community_post_type")
+}
+
+model CommunityPost {
+  id            String            @id @default(cuid())
+  authorId      String            @map("author_id")
+  author        User              @relation(fields: [authorId], references: [id])
+  type          CommunityPostType
+  title         String?
+  body          String?           @db.Text
+  imageUrls     String[]          @default([]) @map("image_urls")
+  price         Decimal?          @db.Decimal(10, 2)
+  location      String?
+  eventStartsAt DateTime?         @map("event_starts_at")
+  maxAttendees  Int?              @map("max_attendees")
+  rsvpCount     Int               @default(0) @map("rsvp_count")
+  tags          String[]          @default([])
+  likeCount     Int               @default(0) @map("like_count")
+  commentCount  Int               @default(0) @map("comment_count")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  deletedAt     DateTime?         @map("deleted_at")
+
+  likes         PostLike[]
+  comments      Comment[]
+  rsvps         EventRsvp[]
+  conversations Conversation[]
+
+  @@index([type, createdAt])
+  @@index([authorId, createdAt])
+  @@map("community_posts")
+}
+
+model PostLike {
+  id        String        @id @default(cuid())
+  postId    String        @map("post_id")
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  deletedAt DateTime?     @map("deleted_at")
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model Comment {
+  id              String        @id @default(cuid())
+  postId          String        @map("post_id")
+  post            CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId        String        @map("author_id")
+  author          User          @relation(fields: [authorId], references: [id])
+  parentCommentId String?       @map("parent_comment_id")
+  parentComment   Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[]     @relation("CommentReplies")
+  body            String        @db.Text
+  likeCount       Int           @default(0) @map("like_count")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  likes CommentLike[]
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+model CommentLike {
+  id        String    @id @default(cuid())
+  commentId String    @map("comment_id")
+  comment   Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+  @@map("comment_likes")
+}
+
+model EventRsvp {
+  id        String        @id @default(cuid())
+  postId    String        @map("post_id")
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  deletedAt DateTime?     @map("deleted_at")
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("event_rsvps")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Messaging
+// ──────────────────────────────────────────────────────────────
+
+enum ConversationType {
+  MARKETPLACE
+
+  @@map("conversation_type")
+}
+
+enum MessageType {
+  TEXT
+
+  @@map("message_type")
+}
+
+model Conversation {
+  id              String           @id @default(cuid())
+  type            ConversationType @default(MARKETPLACE)
+  communityPostId String           @map("community_post_id")
+  communityPost   CommunityPost    @relation(fields: [communityPostId], references: [id])
+  initiatorId     String           @map("initiator_id")
+  initiator       User             @relation("ConversationInitiator", fields: [initiatorId], references: [id])
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@unique([communityPostId, initiatorId])
+  @@index([communityPostId])
+  @@index([initiatorId])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id])
+  lastReadAt     DateTime?    @map("last_read_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String       @map("sender_id")
+  sender         User         @relation(fields: [senderId], references: [id])
+  type           MessageType  @default(TEXT)
+  content        String       @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Notifications
+// ──────────────────────────────────────────────────────────────
+
+enum NotificationType {
+  MARKETPLACE_MESSAGE
+  NANNY_CHECKIN
+  BOOKING_COMPLETED
+  CARE_LOG_ENTRY
+
+  @@map("notification_type")
+}
+
+enum NotificationReferenceType {
+  CONVERSATION
+  BOOKING
+
+  @@map("notification_reference_type")
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+
+  @@map("device_platform")
+}
+
+model Notification {
+  id            String                    @id @default(cuid())
+  userId        String                    @map("user_id")
+  user          User                      @relation(fields: [userId], references: [id])
+  type          NotificationType
+  title         String
+  body          String                    @db.Text
+  isRead        Boolean                   @default(false) @map("is_read")
+  referenceId   String?                   @map("reference_id")
+  referenceType NotificationReferenceType? @map("reference_type")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+  deletedAt     DateTime?                 @map("deleted_at")
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, type])
+  @@map("notifications")
+}
+
+model DeviceToken {
+  id        String         @id @default(cuid())
+  userId    String         @map("user_id")
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String         @unique
+  platform  DevicePlatform
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  deletedAt DateTime?      @map("deleted_at")
+
+  @@index([userId])
+  @@map("device_tokens")
 }

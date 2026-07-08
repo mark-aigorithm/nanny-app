@@ -7,11 +7,15 @@ import {
   Image,
   TextInput,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { MOCK_NANNY_BOOKING } from '@mobile/mocks';
+import { useBooking } from '@mobile/hooks/useBookings';
+import { useCreateReview } from '@mobile/hooks/useNannies';
+import { getApiErrorMessage } from '@mobile/lib/api';
 import { styles } from './styles/review-screen.styles';
 
 const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
@@ -19,18 +23,65 @@ const MAX_CHARS = 500;
 
 export default function ReviewScreen() {
   const router = useRouter();
-  const { bookingId: _bookingId } = useLocalSearchParams<{ bookingId?: string }>();
+  const { bookingId, returnTo } = useLocalSearchParams<{ bookingId?: string; returnTo?: string }>();
 
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
 
-  const nanny = MOCK_NANNY_BOOKING;
-  const canSubmit = rating > 0;
+  const { data: booking, isLoading } = useBooking(bookingId);
+  const createReview = useCreateReview(bookingId ?? '');
+
+  const nannyName = booking?.nanny
+    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+    : 'Your nanny';
+  const nannyPhoto = booking?.nanny?.avatarUrl;
+  const canSubmit = rating > 0 && !!bookingId && !createReview.isPending;
+
+  const handleExit = () => {
+    if (returnTo === 'bookings') {
+      router.replace('/(parent)/bookings' as never);
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(parent)/bookings' as never);
+  };
 
   const handleSubmit = () => {
-    // TODO: Wire up useCreateReview mutation
-    router.back();
+    if (!bookingId || rating < 1) return;
+
+    createReview.mutate(
+      {
+        rating,
+        ...(reviewText.trim() ? { comment: reviewText.trim() } : {}),
+      },
+      {
+        onSuccess: () => handleExit(),
+        onError: (err) => Alert.alert('Could not submit review', getApiErrorMessage(err)),
+      },
+    );
   };
+
+  if (!bookingId) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <Text style={styles.ratingLabel}>Missing booking.</Text>
+        <Pressable onPress={handleExit}>
+          <Text style={[styles.ratingLabel, { color: colors.primary }]}>Go back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (isLoading || !booking) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -42,13 +93,17 @@ export default function ReviewScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Nanny Info */}
         <View style={styles.nannySection}>
-          <Image source={{ uri: nanny.image }} style={styles.nannyPhoto} resizeMode="cover" />
-          <Text style={styles.nannyName}>{nanny.name}</Text>
+          {nannyPhoto ? (
+            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+          ) : (
+            <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="person" size={40} color={colors.primary} />
+            </View>
+          )}
+          <Text style={styles.nannyName}>{nannyName}</Text>
         </View>
 
-        {/* Star Rating */}
         <View style={styles.starsSection}>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
@@ -61,10 +116,9 @@ export default function ReviewScreen() {
               </Pressable>
             ))}
           </View>
-          {rating > 0 && <Text style={styles.ratingLabel}>{RATING_LABELS[rating]}</Text>}
+          {rating > 0 ? <Text style={styles.ratingLabel}>{RATING_LABELS[rating]}</Text> : null}
         </View>
 
-        {/* Review Text */}
         <View style={styles.reviewSection}>
           <Text style={styles.reviewLabel}>Your review</Text>
           <TextInput
@@ -79,30 +133,22 @@ export default function ReviewScreen() {
           <Text style={styles.charCount}>{reviewText.length}/{MAX_CHARS}</Text>
         </View>
 
-        {/* Photo Upload */}
-        <View style={styles.photoSection}>
-          <Text style={styles.photoLabel}>Add photos (optional)</Text>
-          <View style={styles.photoRow}>
-            <Pressable style={styles.addPhotoButton}>
-              <Ionicons name="camera-outline" size={24} color={colors.textMuted} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Submit */}
         <Pressable
           style={[styles.submitButton, !canSubmit && { opacity: 0.5 }]}
           onPress={handleSubmit}
           disabled={!canSubmit}
         >
-          <Text style={styles.submitButtonText}>Submit review</Text>
+          {createReview.isPending ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.submitButtonText}>Submit review</Text>
+          )}
         </Pressable>
       </ScrollView>
 
-      {/* Header */}
       <View style={styles.header} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Pressable style={styles.iconBtn} onPress={() => router.back()} hitSlop={8}>
+          <Pressable style={styles.iconBtn} onPress={handleExit} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Leave a review</Text>

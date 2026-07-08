@@ -143,19 +143,6 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
-  // Map placeholder
-  mapPlaceholder: {
-    height: 140,
-    backgroundColor: colors.neutralLight,
-    borderRadius: borderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapPinContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   // Section block
   sectionBlock: {
     gap: spacing.lg,
@@ -198,6 +185,64 @@ export const styles = StyleSheet.create({
   ageDropdownText: {
     ...typeScale.labelMd,
     color: colors.textTertiary,
+  },
+  ageDropdownTextFilled: {
+    color: colors.textPrimary,
+  },
+
+  // Age picker bottom-sheet modal
+  ageModalBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  ageModalSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingBottom: 36,
+  },
+  ageModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSubtle,
+  },
+  ageModalTitle: {
+    ...typeScale.labelLg,
+    color: colors.textPrimary,
+  },
+  ageModalCancel: {
+    ...typeScale.labelLg,
+    color: colors.textMuted,
+  },
+  ageModalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    padding: spacing.lg,
+  },
+  ageOption: {
+    minWidth: 56,
+    height: 44,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.taupeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ageOptionSelected: {
+    backgroundColor: colors.primary,
+  },
+  ageOptionText: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+  },
+  ageOptionTextSelected: {
+    color: colors.white,
   },
 
   // Add another child link

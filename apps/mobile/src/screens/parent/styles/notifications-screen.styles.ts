@@ -9,14 +9,47 @@ import {
   screenPadding,
   STATUS_BAR_HEIGHT,
   BOTTOM_NAV_HEIGHT,
+  HEADER_HEIGHT,
 } from '@mobile/theme';
-
-const HEADER_HEIGHT = 64;
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loader: {
+    marginTop: spacing.xl,
+  },
+  emptyText: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: screenPadding,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: spacing['3xl'],
+    gap: spacing.md,
+  },
+  retryButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  retryButtonText: {
+    ...typeScale.labelMd,
+    color: colors.white,
+  },
+  loadMoreButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.md,
+  },
+  loadMoreText: {
+    ...typeScale.labelMd,
+    color: colors.primary,
   },
 
   // Header
@@ -44,6 +77,9 @@ export const styles = StyleSheet.create({
   markAllRead: {
     ...typeScale.labelMd,
     color: colors.primary,
+  },
+  headerSpacer: {
+    width: 72,
   },
 
   // Scroll
@@ -97,9 +133,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     gap: spacing.md,
   },
-  yesterdaySection: {
-    opacity: 0.7,
-  },
   sectionHeading: {
     ...typeScale.headingMd,
     letterSpacing: 0,
@@ -151,6 +184,9 @@ export const styles = StyleSheet.create({
     color: colors.textDark,
     flex: 1,
   },
+  cardTitleUnread: {
+    fontFamily: fontFamily.bold,
+  },
   cardTime: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
@@ -160,5 +196,8 @@ export const styles = StyleSheet.create({
     ...typeScale.bodySm,
     lineHeight: 18,
     color: colors.textMuted,
+  },
+  cardSubtitleUnread: {
+    color: colors.textDark,
   },
 });

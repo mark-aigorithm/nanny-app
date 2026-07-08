@@ -212,6 +212,62 @@ export const styles = StyleSheet.create({
   actionsSection: {
     gap: spacing.md,
   },
+  careLogSection: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  careLogSectionTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  careLogEmpty: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+  },
+  careLogList: {
+    gap: spacing.sm,
+  },
+  careLogEntry: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  careLogEntryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  careLogEntryType: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.semiBold,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  careLogEntryTime: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+  },
+  careLogEntryNotes: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  careLogLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.xs,
+  },
+  careLogLinkText: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.semiBold,
+    color: colors.primaryDark,
+  },
   cancelButton: {
     height: 48,
     borderRadius: borderRadius['2xl'],

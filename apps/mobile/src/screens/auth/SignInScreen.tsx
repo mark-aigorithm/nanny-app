@@ -2,23 +2,32 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   Pressable,
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { colors } from '@mobile/theme';
 import { useSignIn } from '@mobile/hooks/useAuth';
-import { validateEmailAndPassword } from '@mobile/lib/validation';
+import {
+  validatePhone,
+  validatePassword,
+  toE164,
+  phoneToPlaceholderEmail,
+} from '@mobile/lib/validation';
 import { Button, TextInputField } from '@mobile/components/ui';
 import { styles } from './styles/sign-in-screen.styles';
 
 export default function SignInScreen() {
-  const [email, setEmail] = useState('');
+  const [countryCode] = useState('+20');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -26,7 +35,7 @@ export default function SignInScreen() {
   const signIn = useSignIn();
 
   function clearErrors() {
-    setEmailError(null);
+    setPhoneError(null);
     setPasswordError(null);
     setFormError(null);
   }
@@ -34,15 +43,20 @@ export default function SignInScreen() {
   function handleSignIn() {
     clearErrors();
 
-    const validation = validateEmailAndPassword(email, password);
-    if (validation.email) {
-      setEmailError(validation.email);
+    const phoneValidation = validatePhone(phone);
+    if (phoneValidation) {
+      setPhoneError(phoneValidation);
       return;
     }
-    if (validation.password) {
-      setPasswordError(validation.password);
+    const passwordValidation = validatePassword(password);
+    if (passwordValidation) {
+      setPasswordError(passwordValidation);
       return;
     }
+
+    // Sign-up is phone-only, backed by a phone-derived placeholder email in
+    // Firebase — sign in against that same synthesized credential.
+    const email = phoneToPlaceholderEmail(toE164(countryCode, phone));
 
     signIn.mutate(
       { email, password },
@@ -53,8 +67,10 @@ export default function SignInScreen() {
           router.replace('/');
         },
         onError: (err) => {
-          if (err.field === 'email') setEmailError(err.message);
-          else if (err.field === 'password') setPasswordError(err.message);
+          if (err.field === 'password') setPasswordError(err.message);
+          else if (err.field === 'phone') setPhoneError(err.message);
+          // 'email'/'form' fields have no dedicated input here (phone-only
+          // sign-in), so surface them as a form-level error.
           else setFormError(err.message);
         },
       },
@@ -97,21 +113,30 @@ export default function SignInScreen() {
 
           {/* Form */}
           <View style={styles.form}>
-            {/* Email field */}
-            <TextInputField
-              label="Email"
-              value={email}
-              onChangeText={(val: string) => {
-                setEmail(val);
-                if (emailError) setEmailError(null);
-                if (formError) setFormError(null);
-              }}
-              placeholder="your@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              error={emailError}
-            />
+            {/* Phone field */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Phone</Text>
+              <View style={styles.phoneRow}>
+                <View style={styles.countryCodeBox}>
+                  <Text style={styles.countryCodeText}>{countryCode}</Text>
+                  <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
+                </View>
+                <TextInput
+                  style={styles.phoneInput}
+                  value={phone}
+                  onChangeText={(val: string) => {
+                    setPhone(val);
+                    if (phoneError) setPhoneError(null);
+                    if (formError) setFormError(null);
+                  }}
+                  placeholder="(555) 000-0000"
+                  placeholderTextColor={colors.textPlaceholder}
+                  keyboardType="phone-pad"
+                  autoCorrect={false}
+                />
+              </View>
+              {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
+            </View>
 
             {/* Password field */}
             <View style={styles.fieldGroup}>
@@ -149,7 +174,7 @@ export default function SignInScreen() {
 
           {/* Sign in button */}
           <Button
-            title={signIn.isPending ? 'Signing in\u2026' : 'Sign in'}
+            title={signIn.isPending ? 'Signing in…' : 'Sign in'}
             onPress={handleSignIn}
             variant="primary"
             fullWidth

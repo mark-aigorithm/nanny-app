@@ -32,10 +32,10 @@ export function mapFirebaseAuthError(error: unknown): MappedAuthError {
     case 'auth/invalid-email':
       return { field: 'email', message: "That doesn't look like a valid email address." };
     case 'auth/user-not-found':
-      return { field: 'email', message: "We couldn't find an account with that email." };
+      return { field: 'email', message: "We couldn't find an account with those details." };
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return { field: 'password', message: 'Incorrect email or password.' };
+      return { field: 'password', message: 'Incorrect phone number or password.' };
     case 'auth/email-already-in-use':
       return { field: 'email', message: 'An account with this email already exists.' };
     case 'auth/weak-password':

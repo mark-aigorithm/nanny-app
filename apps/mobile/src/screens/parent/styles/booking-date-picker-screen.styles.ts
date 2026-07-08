@@ -25,6 +25,12 @@ export const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: spacing['3xl'],
   },
+  advanceNotice: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: -spacing.lg,
+  },
 
   // Calendar
   calendarHeader: {

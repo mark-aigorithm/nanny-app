@@ -5,7 +5,6 @@ import {
   fontFamily,
   spacing,
   borderRadius,
-  shadows,
   screenPadding,
   STATUS_BAR_HEIGHT,
   HEADER_HEIGHT,
@@ -35,48 +34,6 @@ export const styles = StyleSheet.create({
     lineHeight: 28,
     color: colors.textPrimary,
     textAlign: 'center',
-  },
-
-  // Live Chat Card
-  liveChatCard: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...shadows.md,
-  },
-  liveChatLeft: {
-    flex: 1,
-    marginRight: spacing.md,
-    gap: spacing.xs,
-  },
-  liveChatTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: 18,
-    lineHeight: 26,
-    color: colors.white,
-  },
-  liveChatSubtitle: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  startChatBtn: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    height: 36,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.sm,
-  },
-  startChatBtnText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
-    color: colors.primary,
   },
 
   // FAQ Search Bar
@@ -200,13 +157,6 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: colors.error,
     padding: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  emergencyLeft: {
-    flex: 1,
-    marginRight: spacing.md,
     gap: spacing.xs,
   },
   emergencyTitle: {
@@ -221,56 +171,20 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.textDark,
   },
-  callNowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  callNowText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    color: colors.error,
-  },
 
-  // Header
   header: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(253,250,248,0.8)',
+    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
+    paddingHorizontal: screenPadding,
     zIndex: 100,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.lg,
-  },
-  logoText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: -1,
-    color: colors.textPrimary,
-  },
-  iconBtn: {
-    width: spacing['3xl'],
-    height: spacing['3xl'],
+  backBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatar: {
-    width: spacing['3xl'],
-    height: spacing['3xl'],
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.surfaceMuted,
   },
 });

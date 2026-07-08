@@ -1,2 +1,2 @@
-import MessagingElenaScreen from '@mobile/screens/parent/MessagingElenaScreen';
-export default MessagingElenaScreen;
+import ChatThreadScreen from '@mobile/screens/parent/ChatThreadScreen';
+export default ChatThreadScreen;

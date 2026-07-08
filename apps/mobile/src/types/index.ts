@@ -22,15 +22,12 @@ export type {
 } from './booking';
 
 export type {
-  PostTag,
+  CommunityPostResponse,
+  CommunityPostType,
+  CommentResponse,
   CommunityTab,
-  PostAuthor,
-  BasePost,
-  AdvicePost,
-  MarketplacePost,
-  EventPost,
-  Post,
-  Comment,
+  CommunityFilterPill,
+  CreatePostUiType,
 } from './community';
 
 export type { Attendee, EventData, CreateEventData } from './events';
@@ -39,7 +36,11 @@ export type { ProductItem, ProductDetail } from './marketplace';
 
 export type { Conversation, ChatMessage } from './messages';
 
-export type { NotificationType, AppNotification } from './notifications';
+export type {
+  NotificationType,
+  NotificationReferenceType,
+  NotificationResponse,
+} from './notifications';
 
 export type {
   ActivityItem,

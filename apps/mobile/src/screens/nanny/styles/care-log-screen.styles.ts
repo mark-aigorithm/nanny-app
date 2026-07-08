@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
   // Header
   header: {
     position: 'absolute',
-    top: 0,
+    top: spacing.xs,
     left: 0,
     right: 0,
     backgroundColor: 'rgba(253,250,248,0.92)',
@@ -69,6 +69,19 @@ export const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  endShiftBtn: {
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  endShiftBtnText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 13,
+    color: colors.white,
   },
 
   // Child Banner Card
@@ -308,6 +321,36 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     color: colors.textPrimary,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    paddingHorizontal: screenPadding,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pickerTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.textPrimary,
+  },
+  pickerDone: {
+    fontFamily: fontFamily.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.primary,
   },
 
   // Toggle

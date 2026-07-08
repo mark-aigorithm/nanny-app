@@ -71,7 +71,11 @@ export default function CreatePasswordScreen() {
     if (!canContinue) return;
     setFormError(null);
     patch({ password });
-    router.push({ pathname: '/(auth)/register-step-2', params: { role } });
+    // Step 2 (location, children, preferences) is mother-only — nannies skip
+    // straight to phone verification.
+    const next =
+      role === 'nanny' ? '/(auth)/register-step-3' : '/(auth)/register-step-2';
+    router.push({ pathname: next, params: { role } });
   }
 
   return (

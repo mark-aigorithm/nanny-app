@@ -20,6 +20,7 @@ export interface NannyData extends NannyBase {
 export interface NannyCardData extends NannyBase {
   experience: string;
   type: string;
+  specialties?: string[];
 }
 
 /** SearchResultsScreen — result row */

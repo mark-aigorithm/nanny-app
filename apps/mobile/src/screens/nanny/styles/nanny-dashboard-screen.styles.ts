@@ -8,6 +8,7 @@ import {
   shadows,
   STATUS_BAR_HEIGHT,
   HEADER_HEIGHT,
+  BOTTOM_NAV_HEIGHT,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -21,14 +22,14 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: HEADER_HEIGHT + spacing.lg,
     paddingHorizontal: screenPadding,
-    paddingBottom: 100,
+    paddingBottom: BOTTOM_NAV_HEIGHT + spacing.lg,
     gap: spacing['2xl'],
   },
 
   // Header
   header: {
     position: 'absolute',
-    top: 0,
+    top: spacing.xs,
     left: 0,
     right: 0,
     backgroundColor: colors.background,

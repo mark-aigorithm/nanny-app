@@ -6,7 +6,6 @@ export type RegistrationDraft = {
   // Step 1 — personal info
   firstName: string;
   lastName: string;
-  email: string;
   phone: string; // digits only, no country code
   countryCode: string; // e.g. '+1'
   dob: string;
@@ -31,7 +30,6 @@ const INITIAL: RegistrationDraft = {
   role: null,
   firstName: '',
   lastName: '',
-  email: '',
   phone: '',
   countryCode: '+20',
   dob: '',

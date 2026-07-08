@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
+  Modal,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import type { Child } from '@mobile/types';
-import { PREFERENCE_OPTIONS } from '@mobile/constants';
+import { AGE_OPTIONS, PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -26,6 +27,9 @@ export default function RegistrationStep2Screen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+
+  // Index of the child whose age picker is open, or null when closed.
+  const [agePickerIndex, setAgePickerIndex] = useState<number | null>(null);
 
   function handleBack() {
     router.back();
@@ -44,6 +48,14 @@ export default function RegistrationStep2Screen() {
       i === index ? { ...child, name: value } : child,
     );
     patch({ children: next });
+  }
+
+  function handleChildAge(index: number, value: string) {
+    const next: Child[] = draft.children.map((child, i) =>
+      i === index ? { ...child, age: value } : child,
+    );
+    patch({ children: next });
+    setAgePickerIndex(null);
   }
 
   function togglePreference(pref: string) {
@@ -67,7 +79,7 @@ export default function RegistrationStep2Screen() {
             <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
               <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
             </Pressable>
-            <Text style={styles.brandText}>NannyMom</Text>
+            <Text style={styles.brandText}>{APP_NAME}</Text>
           </View>
           <View style={styles.miniProgressTrack}>
             <View style={styles.miniProgressFill} />
@@ -118,13 +130,6 @@ export default function RegistrationStep2Screen() {
               autoCapitalize="words"
               autoCorrect={false}
             />
-
-            {/* Map placeholder */}
-            <View style={styles.mapPlaceholder}>
-              <View style={styles.mapPinContainer}>
-                <Ionicons name="location" size={32} color={colors.primary} />
-              </View>
-            </View>
           </View>
 
           {/* Your children section */}
@@ -142,12 +147,20 @@ export default function RegistrationStep2Screen() {
                   autoCapitalize="words"
                   autoCorrect={false}
                 />
-                <View style={styles.ageDropdown}>
-                  <Text style={styles.ageDropdownText}>
+                <Pressable
+                  style={styles.ageDropdown}
+                  onPress={() => setAgePickerIndex(index)}
+                >
+                  <Text
+                    style={[
+                      styles.ageDropdownText,
+                      child.age !== '' && styles.ageDropdownTextFilled,
+                    ]}
+                  >
                     {child.age !== '' ? child.age + ' yr' : 'Age'}
                   </Text>
                   <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
-                </View>
+                </Pressable>
               </View>
             ))}
 
@@ -182,6 +195,53 @@ export default function RegistrationStep2Screen() {
         <View style={styles.footer}>
           <Button title="Continue" onPress={handleContinue} />
         </View>
+
+        {/* Age picker bottom-sheet modal */}
+        <Modal
+          visible={agePickerIndex !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setAgePickerIndex(null)}
+        >
+          <Pressable
+            style={styles.ageModalBackdrop}
+            onPress={() => setAgePickerIndex(null)}
+          >
+            <Pressable style={styles.ageModalSheet}>
+              <View style={styles.ageModalHeader}>
+                <Text style={styles.ageModalTitle}>Child&apos;s age</Text>
+                <Pressable onPress={() => setAgePickerIndex(null)} hitSlop={8}>
+                  <Text style={styles.ageModalCancel}>Cancel</Text>
+                </Pressable>
+              </View>
+              <View style={styles.ageModalGrid}>
+                {AGE_OPTIONS.map((age) => {
+                  const isSelected =
+                    agePickerIndex !== null &&
+                    draft.children[agePickerIndex]?.age === age;
+                  return (
+                    <Pressable
+                      key={age}
+                      style={[styles.ageOption, isSelected && styles.ageOptionSelected]}
+                      onPress={() =>
+                        agePickerIndex !== null && handleChildAge(agePickerIndex, age)
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.ageOptionText,
+                          isSelected && styles.ageOptionTextSelected,
+                        ]}
+                      >
+                        {age}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );

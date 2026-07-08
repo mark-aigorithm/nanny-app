@@ -9,6 +9,7 @@ import morgan from 'morgan';
 
 import { apiRouter } from '@backend/routes';
 import { errorHandler, notFoundHandler } from '@backend/middleware/error.middleware';
+import { startPaymobReconciliationScheduler } from '@backend/services/paymob.service';
 
 function buildApp(): Express {
   const app = express();
@@ -34,4 +35,5 @@ const app = buildApp();
 app.listen(config.port, () => {
   // eslint-disable-next-line no-console
   console.log(`[backend] listening on http://localhost:${config.port} (${config.nodeEnv})`);
+  startPaymobReconciliationScheduler();
 });

@@ -124,6 +124,9 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
   },
+  inputDisabled: {
+    color: colors.textTertiary,
+  },
 
   // Save button
   saveButton: {
@@ -133,6 +136,9 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     ...typeScale.labelLg,

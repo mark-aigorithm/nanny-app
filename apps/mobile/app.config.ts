@@ -1,8 +1,10 @@
 import type { ExpoConfig } from 'expo/config';
 
+/** Keep in sync with src/constants/app.ts — Expo config cannot import from src/. */
+const APP_NAME = 'NannyNow';
 const config: ExpoConfig = {
-  name: 'NannyApp',
-  slug: 'nanny-app',
+  name: APP_NAME,  slug: 'nanny-app',
+  scheme: 'nanny-app',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -27,14 +29,17 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
-    ['expo-location', { locationAlwaysAndWhenInUsePermission: 'NannyApp needs your location to find nearby nannies.' }],
+    'expo-secure-store',
+    ['expo-location', { locationAlwaysAndWhenInUsePermission: `${APP_NAME} needs your location to find nearby nannies.` }],
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
+    "@react-native-firebase/messaging",
     "@react-native-community/datetimepicker",
     [
       'expo-image-picker',
       {
-        photosPermission: 'NannyApp needs access to your photos so you can set a profile picture.',
+        photosPermission: `${APP_NAME} needs access to your photos so you can set a profile picture or attach evidence to care log entries.`,
+        cameraPermission: `${APP_NAME} needs access to your camera so you can attach photo evidence to care log entries.`,
       },
     ],
   ],
@@ -42,12 +47,10 @@ const config: ExpoConfig = {
     typedRoutes: true,
   },
   extra: {
-    // Points at the laptop's LAN IP so the iPhone (on the same Wi-Fi) can
-    // actually reach it. `localhost` on the phone means the phone itself.
-    // The IP must match whatever Metro prints at startup ("Metro waiting
-    // on exp://192.168.x.x:8081"). Update this value when your DHCP lease
-    // changes, or override via the API_BASE_URL env var.
-    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.11:3000',
+    // Production / fallback URL. In dev, api.ts derives the host from Metro's
+    // hostUri so it stays in sync with the IP printed at startup.
+    apiBaseUrl: process.env['API_BASE_URL'] ?? 'https://backend-beige-nine-55.vercel.app',
+    currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the
     // native @react-native-firebase modules. In a native/dev-client build,
@@ -59,6 +62,11 @@ const config: ExpoConfig = {
     firebaseAppId: process.env['FIREBASE_APP_ID'] ?? '1:936472549582:android:eef4d3c4ad112865eb589f',
     firebaseStorageBucket: process.env['FIREBASE_STORAGE_BUCKET'] ?? 'nanny-now-d8518.firebasestorage.app',
     firebaseMessagingSenderId: process.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '936472549582',
+    // Set OTP_BYPASS_ENABLED=true in your shell to skip phone OTP during local dev.
+    // Uses email/password Firebase auth instead — still creates a real Firebase user
+    // and a real JWT, so the backend registration path works end-to-end.
+    // Never enable in production (env var is not set there).
+    otpBypassEnabled: process.env['OTP_BYPASS_ENABLED'] ?? 'false',
   },
 };
 

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, fontFamily, BOTTOM_NAV_HEIGHT } from '@mobile/theme';
 
-export type BottomNavTab = 'home' | 'search' | 'community' | 'messages';
+export type BottomNavTab = 'home' | 'bookings' | 'community' | 'messages';
 
 interface Props {
   activeTab: BottomNavTab;
@@ -16,7 +16,7 @@ const TABS: {
   label: string;
   activeIcon: keyof typeof Ionicons.glyphMap;
   inactiveIcon: keyof typeof Ionicons.glyphMap;
-  href: '/(parent)/home' | '/(parent)/search' | '/(parent)/community' | '/(parent)/messages';
+  href: '/(parent)/home' | '/(parent)/bookings' | '/(parent)/community' | '/(parent)/messages';
 }[] = [
   {
     key: 'home',
@@ -26,11 +26,11 @@ const TABS: {
     href: '/(parent)/home',
   },
   {
-    key: 'search',
-    label: 'Search',
-    activeIcon: 'search',
-    inactiveIcon: 'search-outline',
-    href: '/(parent)/search',
+    key: 'bookings',
+    label: 'My bookings',
+    activeIcon: 'calendar',
+    inactiveIcon: 'calendar-outline',
+    href: '/(parent)/bookings',
   },
   {
     key: 'community',
@@ -99,9 +99,9 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.semiBold,
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textMuted,
-    lineHeight: 19.5,
+    lineHeight: 16,
   },
   labelActive: {
     color: colors.primary,

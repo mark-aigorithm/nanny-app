@@ -1,5 +1,11 @@
 import type { User, Role as PrismaRole } from '@prisma/client';
-import type { RegisterRequest, Role as ApiRole, UserResponse } from '@nanny-app/shared';
+import {
+  Role,
+  type RegisterRequest,
+  type Role as ApiRole,
+  type UpdateProfileRequest,
+  type UserResponse,
+} from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -11,7 +17,7 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
  * (returned as null so the wire shape stays valid).
  */
 function toApiRole(role: PrismaRole | null): ApiRole | null {
-  if (role === 'MOTHER' || role === 'NANNY') return role;
+  if (role === Role.MOTHER || role === Role.NANNY) return role;
   return null;
 }
 
@@ -69,27 +75,39 @@ export async function registerUser(
   if (phoneOwner) {
     throw errors.conflict('An account with this phone number already exists.');
   }
+  const created = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        firebaseUid: decoded.uid,
+        email: body.email,
+        phone: body.phone,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        dateOfBirth: new Date(body.dateOfBirth),
+        role: body.role,
+        isEmailVerified: decoded.email_verified ?? false,
+        // Phone is verified server-side via the Firebase token's phone_number
+        // claim. If the mobile client linked the phone before calling /register,
+        // the token contains it.
+        isPhoneVerified: !!decoded.phone_number,
+        emailVerifiedAt: decoded.email_verified ? new Date() : null,
+        phoneVerifiedAt: decoded.phone_number ? new Date() : null,
+        termsAcceptedAt: new Date(),
+        termsAcceptedVersion: body.termsAcceptedVersion,
+        lastLoginAt: new Date(),
+      },
+    });
 
-  const created = await prisma.user.create({
-    data: {
-      firebaseUid: decoded.uid,
-      email: body.email,
-      phone: body.phone,
-      firstName: body.firstName,
-      lastName: body.lastName,
-      dateOfBirth: new Date(body.dateOfBirth),
-      role: body.role,
-      isEmailVerified: decoded.email_verified ?? false,
-      // Phone is verified server-side via the Firebase token's phone_number
-      // claim. If the mobile client linked the phone before calling /register,
-      // the token contains it.
-      isPhoneVerified: !!decoded.phone_number,
-      emailVerifiedAt: decoded.email_verified ? new Date() : null,
-      phoneVerifiedAt: decoded.phone_number ? new Date() : null,
-      termsAcceptedAt: new Date(),
-      termsAcceptedVersion: body.termsAcceptedVersion,
-      lastLoginAt: new Date(),
-    },
+    if (body.role === Role.NANNY) {
+      await tx.nannyProfile.create({
+        data: {
+          userId: user.id,
+          location: body.address ?? null,
+        },
+      });
+    }
+
+    return user;
   });
 
   return toUserResponse(created);
@@ -114,6 +132,47 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
+  });
+
+  return toUserResponse(updated);
+}
+
+/**
+ * Updates the authenticated user's profile fields. Email is managed by
+ * Firebase and is not patchable here.
+ */
+export async function updateProfile(
+  decoded: DecodedIdToken,
+  body: UpdateProfileRequest,
+): Promise<UserResponse> {
+  const user = await prisma.user.findUnique({
+    where: { firebaseUid: decoded.uid },
+  });
+  if (!user || user.deletedAt) {
+    throw errors.notFound('User profile not found. Please complete registration.');
+  }
+
+  if (body.phone) {
+    const phoneOwner = await prisma.user.findFirst({
+      where: {
+        phone: body.phone,
+        id: { not: user.id },
+        deletedAt: null,
+      },
+    });
+    if (phoneOwner) {
+      throw errors.conflict('An account with this phone number already exists.');
+    }
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      ...(body.firstName !== undefined && { firstName: body.firstName }),
+      ...(body.lastName !== undefined && { lastName: body.lastName }),
+      ...(body.phone !== undefined && { phone: body.phone }),
+      ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
+    },
   });
 
   return toUserResponse(updated);
