@@ -136,6 +136,7 @@ model User {
   notifications             Notification[]
   deviceTokens              DeviceToken[]
   initiatedConversations    Conversation[]            @relation("ConversationInitiator")
+  promoRedemptions          PromoCodeRedemption[]
 
   @@index([role])
   @@index([deletedAt])
@@ -193,6 +194,53 @@ model AppSettings {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("app_settings")
+}
+
+enum DiscountType {
+  FLAT
+  PERCENTAGE
+
+  @@map("discount_type")
+}
+
+model PromoCode {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  discountType    DiscountType @map("discount_type")
+  /// Flat amount in EGP, or percentage when discount_type = PERCENTAGE.
+  value           Decimal      @db.Decimal(10, 2)
+  /// Total redemptions allowed across all users; null = unlimited.
+  maxUsage        Int?         @map("max_usage")
+  /// Redemptions allowed per user; null = unlimited.
+  maxUsagePerUser Int?         @map("max_usage_per_user")
+  usageCount      Int          @default(0) @map("usage_count")
+  isActive        Boolean      @default(true) @map("is_active")
+  expiresAt       DateTime?    @map("expires_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt      @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+
+  redemptions PromoCodeRedemption[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("promo_codes")
+}
+
+model PromoCodeRedemption {
+  id          String    @id @default(cuid())
+  promoCodeId String    @map("promo_code_id")
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id])
+  bookingId   String?   @map("booking_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt      @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([promoCodeId, userId])
+  @@index([userId])
+  @@map("promo_code_redemptions")
 }
 
 // ──────────────────────────────────────────────────────────────

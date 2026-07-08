@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 
 import { ok } from '@backend/lib/api-response';
+import { adminRouter } from './admin.routes';
 import { authRouter } from './auth.routes';
 import { nannyRouter } from './nanny.routes';
 import { bookingRouter } from './booking.routes';
@@ -19,6 +20,7 @@ apiRouter.get('/health', (_req: Request, res: Response) => {
 
 apiRouter.use('/webhooks', webhookRouter);
 apiRouter.use('/paymob', paymobRouter);
+apiRouter.use('/admin', adminRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/nanny', nannyRouter);
 apiRouter.use('/bookings', bookingRouter);
