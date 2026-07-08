@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
 import type { BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import { useBookingList, useCheckIn, useCheckOut, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
@@ -120,7 +121,7 @@ export default function NannyRequestsScreen() {
             <Text style={[styles.statusText,
               activeFilter === 'upcoming' ? styles.statusAcceptedText : styles.statusDeclinedText,
             ]}>
-              {booking.status}
+              {formatBookingStatus(booking.status)}
             </Text>
           </View>
         )}

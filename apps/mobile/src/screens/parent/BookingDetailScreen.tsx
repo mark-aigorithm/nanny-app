@@ -15,6 +15,7 @@ import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { formatMoney, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
+import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import type { BookingStatus } from '@nanny-app/shared';
 import { styles } from './styles/booking-detail-screen.styles';
 
@@ -121,7 +122,7 @@ export default function BookingDetailScreen() {
       >
         {/* Status Badge */}
         <View style={[styles.statusBadge, statusStyle.badge]}>
-          <Text style={[styles.statusText, statusStyle.text]}>{booking.status}</Text>
+          <Text style={[styles.statusText, statusStyle.text]}>{formatBookingStatus(booking.status)}</Text>
         </View>
 
         {/* Nanny Card */}

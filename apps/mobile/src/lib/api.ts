@@ -3,26 +3,8 @@ import Constants from 'expo-constants';
 
 import { auth } from '@mobile/lib/firebase';
 
-const BACKEND_PORT = 3000;
 
-/** In dev, reuse the same LAN IP Metro advertises (exp://192.168.x.x:8081). */
-function resolveApiBaseUrl(): string {
-  const configured = Constants.expoConfig?.extra?.['apiBaseUrl'] as string | undefined;
-
-  if (__DEV__) {
-    const host =
-      Constants.expoConfig?.hostUri?.split(':')[0] ??
-      Constants.expoGoConfig?.debuggerHost?.split(':')[0];
-
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      return `http://${host}:${BACKEND_PORT}`;
-    }
-  }
-
-  return configured ?? `http://localhost:${BACKEND_PORT}`;
-}
-
-const API_BASE_URL = resolveApiBaseUrl();
+const API_BASE_URL = "https://backend-beige-nine-55.vercel.app";
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10_000,
@@ -93,6 +75,7 @@ export function getApiErrorMessage(
     }
 
     if (!err.response) {
+      console.log(API_BASE_URL)
       return 'Could not reach the server. Please check your connection and try again.';
     }
 

@@ -9,9 +9,8 @@ import {
   screenPadding,
   STATUS_BAR_HEIGHT,
   BOTTOM_NAV_HEIGHT,
+  HEADER_HEIGHT,
 } from '@mobile/theme';
-
-const HEADER_HEIGHT = 64;
 
 export const styles = StyleSheet.create({
   container: {

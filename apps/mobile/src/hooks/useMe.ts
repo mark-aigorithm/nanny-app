@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UpdateProfileRequest, UserResponse } from '@nanny-app/shared';
 
@@ -29,6 +29,17 @@ export function useMe() {
       return failureCount < 2;
     },
   });
+
+  // If a *different* Firebase account signs in (logout → login as another
+  // role), drop the previous user's profile immediately so the role-based
+  // router never routes by stale data while /auth/me refetches.
+  const lastUidRef = useRef(firebaseUser?.uid);
+  useEffect(() => {
+    if (lastUidRef.current !== firebaseUser?.uid) {
+      lastUidRef.current = firebaseUser?.uid;
+      setProfile(null);
+    }
+  }, [firebaseUser?.uid, setProfile]);
 
   useEffect(() => {
     if (query.data) {

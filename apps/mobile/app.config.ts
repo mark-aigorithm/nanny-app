@@ -49,7 +49,7 @@ const config: ExpoConfig = {
   extra: {
     // Production / fallback URL. In dev, api.ts derives the host from Metro's
     // hostUri so it stays in sync with the IP printed at startup.
-    apiBaseUrl: process.env['API_BASE_URL'] ?? 'http://192.168.1.14:3000',
+    apiBaseUrl: process.env['API_BASE_URL'] ?? 'https://backend-beige-nine-55.vercel.app',
     currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the

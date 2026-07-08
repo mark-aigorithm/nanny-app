@@ -123,19 +123,21 @@ export default function OngoingBookingBanner({
         </View>
       </Pressable>
 
-      <Pressable
-        style={({ pressed }) => [styles.endButton, pressed && styles.pressed]}
-        onPress={() => confirmEndShift(active, checkOut)}
-        disabled={checkOut.isPending}
-        accessibilityRole="button"
-        accessibilityLabel="End shift"
-      >
-        {checkOut.isPending ? (
-          <ActivityIndicator color={colors.white} size="small" />
-        ) : (
-          <Text style={styles.endButtonText}>End shift</Text>
-        )}
-      </Pressable>
+      {!isParentView && (
+        <Pressable
+          style={({ pressed }) => [styles.endButton, pressed && styles.pressed]}
+          onPress={() => confirmEndShift(active, checkOut)}
+          disabled={checkOut.isPending}
+          accessibilityRole="button"
+          accessibilityLabel="End shift"
+        >
+          {checkOut.isPending ? (
+            <ActivityIndicator color={colors.white} size="small" />
+          ) : (
+            <Text style={styles.endButtonText}>End shift</Text>
+          )}
+        </Pressable>
+      )}
     </View>
   );
 }

@@ -18,6 +18,7 @@ import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import { styles } from './styles/booking-history-screen.styles';
 
 const TABS: { key: BookingTabKey; label: string }[] = [
@@ -195,7 +196,7 @@ function BookingCard({
       </View>
 
       <View style={statusStyle}>
-        <Text style={statusTextStyle}>{booking.status}</Text>
+        <Text style={statusTextStyle}>{formatBookingStatus(booking.status)}</Text>
       </View>
 
       {variant !== 'cancelled' && !isCompleted ? (
