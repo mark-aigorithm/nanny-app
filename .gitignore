@@ -58,3 +58,5 @@ screenshots
 # Preview pipeline (generated/output files)
 apps/mobile/src/preview-entry-generated.tsx
 apps/mobile/screenshots/
+.vercel
+apps/backend/api/
