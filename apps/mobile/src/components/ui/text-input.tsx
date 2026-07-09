@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import type {
   TextInputProps as RNTextInputProps,
+  TextStyle,
   ViewStyle,
   StyleProp,
 } from 'react-native';
@@ -20,7 +21,7 @@ interface TextInputFieldProps extends Omit<RNTextInputProps, 'style'> {
   error?: string | null;
   rightIcon?: React.ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
-  inputStyle?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<TextStyle>;
 }
 
 export default function TextInputField({
