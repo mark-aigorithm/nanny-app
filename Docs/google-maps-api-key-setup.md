@@ -155,36 +155,49 @@ release).
 
 ---
 
-## Step 5 — (I do this) Wire the keys into the app
+## Step 5 — Put the key in an env var (NOT in the repo)
 
-You don't need to do this — it's here so you know what happens next. Once you send
-me the keys, I will:
+⚠️ **Never paste the key into chat, a screenshot, or any committed file.** This
+repo is **public** — a key committed here must be treated as leaked and rotated.
 
-1. Add it to `apps/mobile/app.config.ts` — the same key on both platforms:
-   ```ts
-   android: { config: { googleMaps: { apiKey: process.env.GOOGLE_MAPS_API_KEY } } }
-   ios:     { config: { googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY } }
+`app.config.ts` is already wired to read the key from the environment (same key
+on both platforms):
+
+```ts
+const GOOGLE_MAPS_API_KEY = process.env['GOOGLE_MAPS_API_KEY'] ?? '';
+// → android.config.googleMaps.apiKey  and  ios.config.googleMapsApiKey
+```
+
+So all you do is set the value where it will **not** be committed:
+
+1. **Local dev:** create `apps/mobile/.env` (already gitignored):
    ```
-2. Store the actual key value in your **EAS secrets** / local `.env` (never
-   committed to git).
+   GOOGLE_MAPS_API_KEY=your-key-here
+   ```
+2. **Builds:** add it as an EAS secret:
+   ```bash
+   cd apps/mobile
+   npx eas secret:create --scope project --name GOOGLE_MAPS_API_KEY --value your-key-here
+   ```
 3. Rebuild the dev client (`npx expo prebuild` + a fresh EAS/dev build) — **maps
    will not appear in Expo Go**, only in a native/dev-client build, because
    Google Maps is a native module.
-4. Build the map location-picker into the nanny & mother registration screens.
+4. Then I'll build the map location-picker into the nanny & mother registration
+   screens.
 
 ---
 
-## What to give me
+## What to do (don't send me the key)
 
-Please send me:
+1. ✅ Create the key (Step 3) and set it as `GOOGLE_MAPS_API_KEY` yourself
+   (Step 5) — **do not paste it into chat or commit it.**
+2. ✅ Make sure these 4 APIs are enabled: Maps SDK for Android, Maps SDK for iOS,
+   Geocoding API, Places API.
+3. ✅ Tell me only *"the key is set"* — I don't need the value to build the
+   map screens against `process.env['GOOGLE_MAPS_API_KEY']`.
 
-1. ✅ **Maps API key** (`AIza…`) — the single key from Step 3
-2. ✅ Confirmation that these 4 APIs are enabled: Maps SDK for Android, Maps SDK
-   for iOS, Geocoding API, Places API
-
-That's it — billing is already sorted via your Firebase **Blaze** plan. This one
-key is all we need to start; we'll harden it into restricted Android/iOS keys
-before launch.
+Billing is already sorted via your Firebase **Blaze** plan. This one key is all
+we need to start; we'll harden it into restricted Android/iOS keys before launch.
 
 ---
 
