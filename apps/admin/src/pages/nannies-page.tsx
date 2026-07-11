@@ -28,17 +28,31 @@ function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
 }
 
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+}
+
+const EMPTY = <span className="table-empty">—</span>;
+
 export function NanniesPage() {
   const [status, setStatus] = useState<AdminNannyStatusFilter>('PENDING_REVIEW');
   const queryClient = useQueryClient();
 
-  const { data: nannies, isLoading, error } = useQuery({
+  const {
+    data: nannies,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['admin-nannies', status],
     queryFn: () => fetchNannies(status),
   });
 
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: ['admin-nannies'] });
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['admin-nannies'] });
 
   const approveMutation = useMutation({
     mutationFn: approveNanny,
@@ -46,8 +60,7 @@ export function NanniesPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      rejectNanny(id, reason),
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) => rejectNanny(id, reason),
     onSuccess: invalidate,
   });
 
@@ -82,9 +95,7 @@ export function NanniesPage() {
       </div>
       {isLoading && <p>Loading nannies…</p>}
       {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
-      {mutationError != null && (
-        <Feedback tone="error">{apiErrorMessage(mutationError)}</Feedback>
-      )}
+      {mutationError != null && <Feedback tone="error">{apiErrorMessage(mutationError)}</Feedback>}
       {nannies && nannies.length === 0 && (
         <Card>
           <p className="empty-state">No nannies with this status.</p>
@@ -92,67 +103,68 @@ export function NanniesPage() {
       )}
       {nannies && nannies.length > 0 && (
         <Card flush>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nanny</th>
-                  <th>Contact</th>
-                  <th>Location</th>
-                  <th>Experience</th>
-                  <th>Rate (EGP/h)</th>
-                  <th>Verified</th>
-                  <th>Registered</th>
-                  <th>Status</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {nannies.map((nanny: AdminNanny) => (
-                  <tr key={nanny.id}>
-                    <td>
-                      {nanny.name}
-                      {nanny.dateOfBirth && (
-                        <div className="table-subtext">Born {formatDate(nanny.dateOfBirth)}</div>
-                      )}
-                    </td>
-                    <td>
-                      {nanny.phone ? (
-                        <a href={`tel:${nanny.phone}`}>{nanny.phone}</a>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td>{nanny.location ?? '—'}</td>
-                    <td>
-                      {nanny.yearsOfExperience !== null
-                        ? `${nanny.yearsOfExperience} yrs`
-                        : '—'}
-                      {nanny.certifications.length > 0 && (
-                        <div className="table-subtext">
-                          {nanny.certifications.join(', ')}
-                        </div>
-                      )}
-                    </td>
-                    <td>{nanny.hourlyRate !== null ? nanny.hourlyRate.toFixed(2) : '—'}</td>
-                    <td>
-                      {[
-                        nanny.isEmailVerified ? 'email' : null,
-                        nanny.isPhoneVerified ? 'phone' : null,
-                      ]
-                        .filter(Boolean)
-                        .join(', ') || '—'}
-                    </td>
-                    <td>{formatDate(nanny.createdAt)}</td>
-                    <td>
-                      <Badge tone={statusTone(nanny.approvalStatus)}>
-                        {statusLabel(nanny.approvalStatus)}
-                      </Badge>
-                      {nanny.rejectionReason && (
-                        <div className="table-subtext">{nanny.rejectionReason}</div>
-                      )}
-                    </td>
-                    <td>
+          <table className="table table--full">
+            <thead>
+              <tr>
+                <th>Nanny</th>
+                <th>Phone number</th>
+                <th>Location</th>
+                <th>Experience</th>
+                <th>Rate (EGP/h)</th>
+                <th>Registered</th>
+                <th>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {nannies.map((nanny: AdminNanny) => (
+                <tr key={nanny.id}>
+                  <td>
+                    <div className="nanny-cell">
+                      <span className="nanny-avatar" aria-hidden>
+                        {initials(nanny.name)}
+                      </span>
+                      <div>
+                        <div className="nanny-name">{nanny.name}</div>
+                        {nanny.dateOfBirth && (
+                          <div className="table-subtext">Born {formatDate(nanny.dateOfBirth)}</div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="cell-nowrap">
+                    {nanny.phone ?? EMPTY}
+                    {(nanny.isEmailVerified || nanny.isPhoneVerified) && (
+                      <div className="table-subtext">
+                        {[
+                          nanny.isEmailVerified ? 'email' : null,
+                          nanny.isPhoneVerified ? 'phone' : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' & ')}{' '}
+                        verified
+                      </div>
+                    )}
+                  </td>
+                  <td>{nanny.location ?? EMPTY}</td>
+                  <td>
+                    {nanny.yearsOfExperience !== null ? `${nanny.yearsOfExperience} yrs` : EMPTY}
+                    {nanny.certifications.length > 0 && (
+                      <div className="table-subtext">{nanny.certifications.join(', ')}</div>
+                    )}
+                  </td>
+                  <td>{nanny.hourlyRate !== null ? nanny.hourlyRate.toFixed(2) : EMPTY}</td>
+                  <td className="cell-nowrap">{formatDate(nanny.createdAt)}</td>
+                  <td>
+                    <Badge tone={statusTone(nanny.approvalStatus)}>
+                      {statusLabel(nanny.approvalStatus)}
+                    </Badge>
+                    {nanny.rejectionReason && (
+                      <div className="table-subtext">{nanny.rejectionReason}</div>
+                    )}
+                  </td>
+                  <td>
+                    <div className="table-actions">
                       {nanny.approvalStatus !== 'APPROVED' && (
                         <Button
                           size="sm"
@@ -161,23 +173,23 @@ export function NanniesPage() {
                         >
                           Approve
                         </Button>
-                      )}{' '}
+                      )}
                       {nanny.approvalStatus === 'PENDING_REVIEW' && (
                         <Button
                           size="sm"
-                          variant="ghost"
+                          variant="danger"
                           disabled={mutating}
                           onClick={() => handleReject(nanny)}
                         >
                           Reject
                         </Button>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Card>
       )}
     </section>
