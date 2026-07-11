@@ -28,6 +28,7 @@ export default function AccountDetailsScreen() {
   const updateProfile = useUpdateProfile();
   const profile = useUserProfileStore((s) => s.profile);
 
+  const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(profile?.firstName ?? '');
   const [lastName, setLastName] = useState(profile?.lastName ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
@@ -48,6 +49,19 @@ export default function AccountDetailsScreen() {
   }, [profile]);
 
   const displayPhotoUri = photoUri ?? profile?.avatarUrl ?? null;
+
+  const resetFields = () => {
+    setFirstName(profile?.firstName ?? '');
+    setLastName(profile?.lastName ?? '');
+    setEmail(profile?.email ?? '');
+    setPhone(profile?.phone ?? '');
+    setPhotoUri(profile?.avatarUrl ?? null);
+  };
+
+  const handleToggleEdit = () => {
+    if (isEditing) resetFields(); // closing without saving discards changes
+    setIsEditing(!isEditing);
+  };
 
   async function handlePickPhoto() {
     try {
@@ -114,10 +128,7 @@ export default function AccountDetailsScreen() {
         ...(avatarUrl !== undefined && { avatarUrl }),
       });
 
-      router.replace({
-        pathname: '/(parent)/mother-profile',
-        params: { returnTo: returnTo ?? 'home' },
-      } as never);
+      setIsEditing(false);
     } catch (err) {
       Alert.alert(
         'Could not save profile',
@@ -148,7 +159,11 @@ export default function AccountDetailsScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.photoSection}>
-          <Pressable style={styles.photoWrapper} onPress={handlePickPhoto}>
+          <Pressable
+            style={styles.photoWrapper}
+            onPress={handlePickPhoto}
+            disabled={!isEditing}
+          >
             {displayPhotoUri ? (
               <Image
                 source={{ uri: displayPhotoUri }}
@@ -160,24 +175,28 @@ export default function AccountDetailsScreen() {
                 <Ionicons name="person" size={40} color={colors.textPlaceholder} />
               </View>
             )}
-            <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={14} color={colors.white} />
-            </View>
+            {isEditing && (
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={14} color={colors.white} />
+              </View>
+            )}
           </Pressable>
-          <Pressable onPress={handlePickPhoto}>
-            <Text style={styles.changePhotoText}>Change photo</Text>
-          </Pressable>
+          {isEditing && (
+            <Pressable onPress={handlePickPhoto}>
+              <Text style={styles.changePhotoText}>Change photo</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.formSection}>
           <View style={styles.formRow}>
             <View style={[styles.fieldGroup, styles.formFieldHalf]}>
               <Text style={styles.fieldLabel}>First name</Text>
-              <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
+              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={firstName} onChangeText={setFirstName} autoCapitalize="words" editable={isEditing} />
             </View>
             <View style={[styles.fieldGroup, styles.formFieldHalf]}>
               <Text style={styles.fieldLabel}>Last name</Text>
-              <TextInput style={styles.input} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
+              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={lastName} onChangeText={setLastName} autoCapitalize="words" editable={isEditing} />
             </View>
           </View>
 
@@ -194,39 +213,41 @@ export default function AccountDetailsScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Phone</Text>
-            <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={isEditing} />
           </View>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Address</Text>
-            <TextInput style={styles.input} value={address} onChangeText={setAddress} autoCapitalize="words" />
+            <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={address} onChangeText={setAddress} autoCapitalize="words" editable={isEditing} />
           </View>
 
           <View style={styles.formRow}>
             <View style={[styles.fieldGroup, { flex: 2 }]}>
               <Text style={styles.fieldLabel}>City</Text>
-              <TextInput style={styles.input} value={city} onChangeText={setCity} autoCapitalize="words" />
+              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={city} onChangeText={setCity} autoCapitalize="words" editable={isEditing} />
             </View>
             <View style={[styles.fieldGroup, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>State</Text>
-              <TextInput style={styles.input} value={state} onChangeText={setState} autoCapitalize="characters" maxLength={2} />
+              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={state} onChangeText={setState} autoCapitalize="characters" maxLength={2} editable={isEditing} />
             </View>
             <View style={[styles.fieldGroup, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>ZIP</Text>
-              <TextInput style={styles.input} value={zipCode} onChangeText={setZipCode} keyboardType="number-pad" maxLength={5} />
+              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={zipCode} onChangeText={setZipCode} keyboardType="number-pad" maxLength={5} editable={isEditing} />
             </View>
           </View>
         </View>
 
-        <Pressable
-          style={[styles.saveButton, updateProfile.isPending && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={updateProfile.isPending}
-        >
-          <Text style={styles.saveButtonText}>
-            {updateProfile.isPending ? 'Saving\u2026' : 'Save changes'}
-          </Text>
-        </Pressable>
+        {isEditing && (
+          <Pressable
+            style={[styles.saveButton, updateProfile.isPending && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={updateProfile.isPending}
+          >
+            <Text style={styles.saveButtonText}>
+              {updateProfile.isPending ? 'Saving\u2026' : 'Save changes'}
+            </Text>
+          </Pressable>
+        )}
 
         <Pressable
           style={styles.signOutButton}
@@ -244,8 +265,14 @@ export default function AccountDetailsScreen() {
           <Pressable style={styles.iconBtn} onPress={handleBack} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
-          <Text style={styles.headerTitle}>Edit profile</Text>
-          <View style={styles.iconBtn} />
+          <Text style={styles.headerTitle}>Profile</Text>
+          <Pressable style={styles.iconBtn} onPress={handleToggleEdit} hitSlop={8}>
+            <Ionicons
+              name={isEditing ? 'close' : 'create-outline'}
+              size={22}
+              color={colors.textPrimary}
+            />
+          </Pressable>
         </View>
       </View>
     </KeyboardAvoidingView>

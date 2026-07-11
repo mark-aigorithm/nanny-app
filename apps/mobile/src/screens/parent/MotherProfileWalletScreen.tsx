@@ -106,7 +106,7 @@ export default function MotherProfileWalletScreen() {
               } as never)
             }
           >
-            <Text style={styles.editProfileText}>Edit profile</Text>
+            <Text style={styles.editProfileText}>View profile</Text>
           </Pressable>
         </View>
 

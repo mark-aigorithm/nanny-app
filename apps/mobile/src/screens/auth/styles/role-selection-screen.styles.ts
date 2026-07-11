@@ -37,37 +37,70 @@ export const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    gap: 40,
+    gap: spacing['2xl'],
+  },
+  headingGroup: {
+    gap: spacing.sm,
   },
   headline: {
     ...typeScale.displayMd,
     color: colors.textPrimary,
     textAlign: 'center',
   },
+  subtitle: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   cards: {
     gap: spacing.lg,
+  },
+  helperText: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
 
   // Role card
   card: {
-    height: 72,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     borderWidth: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.lg,
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
   cardSelected: {
     borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
   },
   cardUnselected: {
     borderColor: colors.warmBorder,
   },
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardIconSelected: {
+    backgroundColor: colors.surface,
+  },
+  cardTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
   cardLabel: {
     ...typeScale.labelLg,
     color: colors.textPrimary,
+  },
+  cardDescription: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
   },
 
   // Radio
@@ -94,27 +127,28 @@ export const styles = StyleSheet.create({
 
   // Footer
   footer: {
-    gap: spacing['2xl'],
-    alignItems: 'center',
+    gap: spacing.lg,
+    alignItems: 'stretch',
   },
   continueButton: {
     ...shadows.lg,
     shadowColor: colors.primaryDark,
   },
 
-  // Sign in footer
-  signInRow: {
+  // "Already have an account?" divider
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
   },
-  signInLabel: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.warmBorder,
+  },
+  dividerText: {
     fontFamily: fontFamily.regular,
     fontSize: 14,
     color: colors.textSecondary,
-  },
-  signInLink: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
-    color: colors.primaryDark,
   },
 });
