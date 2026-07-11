@@ -273,13 +273,15 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
     allBookings,
     repeatClientsRaw,
   ] = await Promise.all([
+    // Nanny earnings are her hourly rate × hours (subtotal) — the service
+    // fee on top belongs to the platform, so totalAmount must not be used.
     prisma.booking.aggregate({
       where: { ...baseWhere, status: BookingStatus.COMPLETED, date: { gte: weekStart } },
-      _sum: { totalAmount: true },
+      _sum: { subtotal: true },
     }),
     prisma.booking.aggregate({
       where: { ...baseWhere, status: BookingStatus.COMPLETED, date: { gte: monthStart } },
-      _sum: { totalAmount: true },
+      _sum: { subtotal: true },
     }),
     prisma.booking.count({
       where: { ...baseWhere, status: { in: [BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED] } },
@@ -299,8 +301,8 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
   const responseRate = allBookings.length > 0 ? Math.round((responded / allBookings.length) * 100) : 100;
 
   return {
-    earningsThisWeek: Number(weekEarningsAgg._sum.totalAmount ?? 0),
-    earningsThisMonth: Number(monthEarningsAgg._sum.totalAmount ?? 0),
+    earningsThisWeek: Number(weekEarningsAgg._sum.subtotal ?? 0),
+    earningsThisMonth: Number(monthEarningsAgg._sum.subtotal ?? 0),
     totalBookings,
     repeatClients: repeatClientsRaw.length,
     averageRating: Number(user.nannyProfile.rating),
