@@ -9,6 +9,7 @@ import type {
 } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
+import { useAuthStore } from '@mobile/store/authStore';
 
 export const NANNIES_KEY = 'nannies';
 
@@ -55,9 +56,11 @@ export function useNannyBookedSlots(nannyProfileId: string | undefined, date: st
 }
 
 export function useNannyDashboard() {
+  const firebaseUser = useAuthStore((s) => s.user);
   return useQuery<NannyDashboard>({
-    queryKey: [NANNIES_KEY, 'dashboard'],
+    queryKey: [NANNIES_KEY, 'dashboard', firebaseUser?.uid],
     queryFn: () => unwrap(api.get('/nanny/dashboard')),
+    enabled: !!firebaseUser,
   });
 }
 

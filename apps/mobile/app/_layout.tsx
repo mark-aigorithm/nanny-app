@@ -45,7 +45,15 @@ export default function RootLayout() {
 
   // Subscribe to Firebase auth state changes for the whole app lifecycle.
   useEffect(() => {
+    let lastUid: string | null | undefined;
     const unsubscribe = auth().onAuthStateChanged((user) => {
+      // Safety net: if the signed-in account changes (or signs out), wipe all
+      // cached server data so a new session can never read the previous
+      // user's queries — even if a sign-out path forgot to clear them.
+      if (lastUid !== undefined && lastUid !== (user?.uid ?? null)) {
+        queryClient.clear();
+      }
+      lastUid = user?.uid ?? null;
       useAuthStore.getState().setUser(user);
       useAuthStore.getState().markHydrated();
     });

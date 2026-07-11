@@ -21,6 +21,7 @@ import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
 import { useNannyProfile, useUpdateNannyProfile } from '@mobile/hooks/useNannyProfile';
+import { useSignOut } from '@mobile/hooks/useAuth';
 import { AvailabilityType } from '@nanny-app/shared';
 import type { AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
 
@@ -80,6 +81,7 @@ export default function NannyProfileEditScreen() {
   const router = useRouter();
   const { data: nannyProfile, isLoading } = useNannyProfile();
   const updateProfile = useUpdateNannyProfile();
+  const signOut = useSignOut();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -418,12 +420,21 @@ export default function NannyProfileEditScreen() {
 
         {/* Sign out */}
         <Pressable
-          style={[styles.saveButton, { backgroundColor: colors.taupe, marginTop: 0 }]}
-          onPress={() => router.replace('/(auth)/splash')}
+          style={[styles.saveButton, { backgroundColor: colors.taupe, marginTop: 0 }, signOut.isPending && { opacity: 0.6 }]}
+          onPress={() =>
+            signOut.mutate(undefined, {
+              onSuccess: () => {
+                router.replace('/(auth)/splash');
+              },
+            })
+          }
+          disabled={signOut.isPending}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="log-out-outline" size={18} color={colors.error} />
-            <Text style={[styles.saveButtonText, { color: colors.error }]}>Sign out</Text>
+            <Text style={[styles.saveButtonText, { color: colors.error }]}>
+              {signOut.isPending ? 'Signing out…' : 'Sign out'}
+            </Text>
           </View>
         </Pressable>
       </ScrollView>
