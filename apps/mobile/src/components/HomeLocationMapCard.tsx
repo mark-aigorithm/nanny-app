@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 
+import { colors } from '@mobile/theme';
 import { useDeviceLocation } from '@mobile/hooks/useDeviceLocation';
 import { styles } from './styles/home-location-map-card.styles';
 
@@ -44,6 +46,10 @@ export default function HomeLocationMapCard({
   // one (first GPS fix or a search selection — recenter the camera).
   const lastEmittedRef = useRef<HomeCoords | null>(null);
 
+  // Set true while the user is awaiting a fresh fix from the "use current
+  // location" button, so the next device coords get applied to the pin.
+  const pendingCurrentRef = useRef(false);
+
   const emitChange = (next: HomeCoords) => {
     lastEmittedRef.current = next;
     onChange(next);
@@ -56,6 +62,22 @@ export default function HomeLocationMapCard({
       onChange(deviceLocation.coords);
     }
   }, [coords, deviceLocation.coords, onChange]);
+
+  useEffect(() => {
+    if (pendingCurrentRef.current && deviceLocation.coords) {
+      pendingCurrentRef.current = false;
+      // Treat as an external change (not emitChange) so the pin moves AND the
+      // camera recenters via the effect below.
+      onChange(deviceLocation.coords);
+    }
+  }, [deviceLocation.coords, onChange]);
+
+  function handleUseCurrentLocation() {
+    // Always fetch a fresh fix; the effect above applies it once it arrives.
+    // If permission was denied, refresh re-prompts for it.
+    pendingCurrentRef.current = true;
+    deviceLocation.refresh();
+  }
 
   useEffect(() => {
     if (!coords) return;
@@ -91,6 +113,17 @@ export default function HomeLocationMapCard({
             />
           )}
         </MapView>
+
+        {/* Recenter the pin on the device's current location. */}
+        <Pressable
+          style={styles.currentLocationButton}
+          onPress={handleUseCurrentLocation}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Use my current location"
+        >
+          <Ionicons name="locate" size={20} color={colors.primary} />
+        </Pressable>
       </View>
       <Text style={styles.mapHint}>
         Tap the map or drag the pin to your home location.

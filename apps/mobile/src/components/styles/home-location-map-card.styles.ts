@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, typeScale, borderRadius } from '@mobile/theme';
+import { colors, typeScale, borderRadius, shadows } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
   mapCard: {
@@ -11,6 +11,18 @@ export const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  currentLocationButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
   },
   mapHint: {
     ...typeScale.labelMd,
