@@ -18,6 +18,7 @@ import { colors } from '@mobile/theme';
 import { CURRENCY_CODE } from '@mobile/lib/formatMoney';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
+import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
 import { useNannyProfile, useUpdateNannyProfile } from '@mobile/hooks/useNannyProfile';
 import { AvailabilityType } from '@nanny-app/shared';
@@ -427,16 +428,7 @@ export default function NannyProfileEditScreen() {
         </Pressable>
       </ScrollView>
 
-      {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <View style={styles.iconBtn} />
-          <Text style={styles.headerTitle}>Edit profile</Text>
-          <Pressable style={styles.iconBtn} onPress={handleSave} disabled={updateProfile.isPending}>
-            <Text style={styles.saveText}>Save</Text>
-          </Pressable>
-        </View>
-      </View>
+      <NannyTabHeader title="Edit profile" />
 
       <TimeSelectSheet
         visible={pickerTarget !== null}

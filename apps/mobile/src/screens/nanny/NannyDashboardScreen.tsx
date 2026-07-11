@@ -6,6 +6,7 @@ import {
   Pressable,
   StatusBar,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@mobile/theme';
@@ -16,7 +17,7 @@ import { formatMoney } from '@mobile/lib/formatMoney';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import UpcomingShiftBanner from '@mobile/components/UpcomingShiftBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
-import NotificationBellButton from '@mobile/components/NotificationBellButton';
+import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-dashboard-screen.styles';
 
 type StatKey = 'totalBookings' | 'repeatClients' | 'averageRating' | 'responseRate';
@@ -29,11 +30,18 @@ const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; icon
 ];
 
 export default function NannyDashboardScreen() {
-  const { data: dashboard, isLoading: loadingDashboard } = useNannyDashboard();
-  const { data: shiftBookings = [], isLoading: loadingShift } = useBookingList(
-    'CONFIRMED,IN_PROGRESS',
-    { sortBy: 'startTime', sortDir: 'asc' },
-  );
+  const {
+    data: dashboard,
+    isLoading: loadingDashboard,
+    refetch: refetchDashboard,
+    isRefetching: refetchingDashboard,
+  } = useNannyDashboard();
+  const {
+    data: shiftBookings = [],
+    isLoading: loadingShift,
+    refetch: refetchShift,
+    isRefetching: refetchingShift,
+  } = useBookingList('CONFIRMED,IN_PROGRESS', { sortBy: 'startTime', sortDir: 'asc' });
   const upcomingBookings = sortBookingsByStartTime(
     shiftBookings.filter((b) => b.status === 'CONFIRMED'),
   );
@@ -43,7 +51,22 @@ export default function NannyDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refetchingDashboard || refetchingShift}
+            onRefresh={() => {
+              void refetchDashboard();
+              void refetchShift();
+            }}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         <OngoingBookingBanner />
         <UpcomingShiftBanner bookings={shiftBookings} />
 
@@ -125,13 +148,7 @@ export default function NannyDashboardScreen() {
         </View>
       </ScrollView>
 
-      {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <NotificationBellButton route="/(nanny)/notifications" iconColor={colors.textDark} />
-        </View>
-      </View>
+      <NannyTabHeader title="Dashboard" />
 
       <NannyBottomNav activeTab="dashboard" />
     </View>

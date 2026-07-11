@@ -7,7 +7,6 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
   HEADER_HEIGHT,
   BOTTOM_NAV_HEIGHT,
 } from '@mobile/theme';
@@ -25,30 +24,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing.lg,
     gap: spacing['2xl'],
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: spacing.xs,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    zIndex: 100,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerTitle: {
-    ...typeScale.headingLg,
-    color: colors.textPrimary,
   },
 
   // Filter chips
@@ -208,6 +183,38 @@ export const styles = StyleSheet.create({
   },
   statusDeclinedText: {
     color: colors.error,
+  },
+
+  // Review block (past bookings)
+  reviewBlock: {
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  reviewLabel: {
+    ...typeScale.captionBold,
+    color: colors.textTertiary,
+  },
+  reviewStarsRow: {
+    flexDirection: 'row',
+    gap: spacing.xxs,
+  },
+  reviewComment: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+  },
+
+  // View details link
+  viewDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  viewDetailsText: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.semiBold,
+    color: colors.primaryDark,
   },
 
   // Empty state
