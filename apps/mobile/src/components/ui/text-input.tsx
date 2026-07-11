@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import type {
   TextInputProps as RNTextInputProps,
-  ViewStyle,
   TextStyle,
+  ViewStyle,
   StyleProp,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

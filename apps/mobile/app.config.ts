@@ -43,6 +43,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-font',
     'expo-secure-store',
     ['expo-location', { locationAlwaysAndWhenInUsePermission: `${APP_NAME} needs your location to find nearby nannies.` }],
     "@react-native-firebase/app",
@@ -81,6 +82,9 @@ const config: ExpoConfig = {
     // and a real JWT, so the backend registration path works end-to-end.
     // Never enable in production (env var is not set there).
     otpBypassEnabled: process.env['OTP_BYPASS_ENABLED'] ?? 'false',
+    eas: {
+      projectId: 'cd5987c1-9302-4742-b278-97926265980c',
+    },
   },
 };
 
