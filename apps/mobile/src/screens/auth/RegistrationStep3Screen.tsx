@@ -71,6 +71,14 @@ export default function RegistrationStep3Screen() {
       return;
     }
 
+    // Step 2 blocks Continue without a pin, but guard anyway — the backend
+    // requires coordinates.
+    const { latitude, longitude } = draft;
+    if (latitude === null || longitude === null) {
+      setFormError('Home location is missing. Please go back and set it on the map.');
+      return;
+    }
+
     // Placeholder email derived from the phone number backs the Firebase
     // account while sign-up is phone-only. See phoneToPlaceholderEmail.
     const email = phoneToPlaceholderEmail(phoneE164);
@@ -95,6 +103,8 @@ export default function RegistrationStep3Screen() {
               role: apiRole,
               termsAcceptedVersion: TERMS_VERSION,
               address: draft.address || undefined,
+              latitude,
+              longitude,
             },
             {
               onSuccess: () => {

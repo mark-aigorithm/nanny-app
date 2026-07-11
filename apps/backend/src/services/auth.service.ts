@@ -53,6 +53,9 @@ function toUserResponse(user: UserWithApproval): UserResponse {
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
     nannyApprovalStatus: user.nannyProfile?.approvalStatus ?? null,
+    address: user.address,
+    latitude: user.latitude !== null ? Number(user.latitude) : null,
+    longitude: user.longitude !== null ? Number(user.longitude) : null,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -110,16 +113,23 @@ export async function registerUser(
         termsAcceptedAt: new Date(),
         termsAcceptedVersion: body.termsAcceptedVersion,
         lastLoginAt: new Date(),
+        address: body.address ?? null,
+        latitude: body.latitude,
+        longitude: body.longitude,
       },
     });
 
     if (body.role === Role.NANNY) {
       // New nannies always start PENDING_REVIEW (schema default) — an admin
       // must vet them before they can use the app.
+      // Lat/lng are mirrored here because proximity search and emergency
+      // booking read them from the nanny profile, not the user row.
       await tx.nannyProfile.create({
         data: {
           userId: user.id,
           location: body.address ?? null,
+          latitude: body.latitude,
+          longitude: body.longitude,
         },
       });
     }

@@ -30,6 +30,10 @@ export const RegisterRequestSchema = z.object({
   role: RoleSchema,
   termsAcceptedVersion: z.string().min(1),
   address: z.string().trim().max(200).optional(),
+  // Home coordinates from the registration map picker — required so
+  // proximity search / distance sorting work for every account.
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
 });
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
@@ -48,6 +52,9 @@ export const UserResponseSchema = z.object({
   isPhoneVerified: z.boolean(),
   /** Vetting state of the nanny profile; null for non-nanny users. */
   nannyApprovalStatus: NannyApprovalStatusSchema.nullable(),
+  address: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
   createdAt: z.string(), // ISO datetime
 });
 export type UserResponse = z.infer<typeof UserResponseSchema>;

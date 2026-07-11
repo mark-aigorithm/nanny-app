@@ -125,6 +125,12 @@ model User {
   phoneVerifiedAt      DateTime? @map("phone_verified_at")
   termsAcceptedAt      DateTime? @map("terms_accepted_at")
   termsAcceptedVersion String?   @map("terms_accepted_version")
+  /// Street address + home coordinates captured by the registration map
+  /// picker. For nannies, lat/lng are mirrored onto NannyProfile, which
+  /// proximity search reads.
+  address              String?
+  latitude             Decimal?  @db.Decimal(10, 7)
+  longitude            Decimal?  @db.Decimal(10, 7)
   // Soft-delete grace window (AUTH-14): 30-day window before PII is purged.
   deletionRequestedAt  DateTime? @map("deletion_requested_at")
   createdAt            DateTime  @default(now()) @map("created_at")

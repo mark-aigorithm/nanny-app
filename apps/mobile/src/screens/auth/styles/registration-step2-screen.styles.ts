@@ -115,6 +115,25 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
 
+  // Map pin picker
+  mapCard: {
+    height: 220,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.taupeLight,
+  },
+  map: {
+    flex: 1,
+  },
+  mapHint: {
+    ...typeScale.labelMd,
+    color: colors.textTertiary,
+  },
+  mapError: {
+    ...typeScale.labelMd,
+    color: colors.error,
+  },
+
   // Icon input (address)
   iconInputWrapper: {
     height: 56,
