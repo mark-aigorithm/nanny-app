@@ -9,6 +9,7 @@ import { PaymentMethod } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { formatTimeRangeUtc } from '@mobile/lib/formatTime';
+import { NANNIES_KEY } from '@mobile/hooks/useNannies';
 
 const BOOKINGS_KEY = 'bookings';
 
@@ -123,7 +124,12 @@ export function useCheckOut() {
   const qc = useQueryClient();
   return useMutation<BookingResponse, Error, string>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/check-out`)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+      // Ending a shift completes the booking — refresh the nanny dashboard
+      // so the new earnings show up immediately.
+      void qc.invalidateQueries({ queryKey: [NANNIES_KEY, 'dashboard'] });
+    },
   });
 }
 

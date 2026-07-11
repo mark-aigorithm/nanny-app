@@ -7,6 +7,7 @@ import {
   Image,
   ActivityIndicator,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -28,7 +29,7 @@ const TABS: { key: BookingTabKey; label: string }[] = [
 ];
 
 const STATUS_BY_TAB: Record<BookingTabKey, string> = {
-  upcoming: 'PENDING,CONFIRMED,IN_PROGRESS',
+  upcoming: 'PENDING,PENDING_CONFIRMATION,CONFIRMED,IN_PROGRESS',
   past: 'COMPLETED',
   cancelled: 'CANCELLED,REFUNDED',
 };
@@ -37,7 +38,7 @@ export default function BookingHistoryScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
 
-  const { data: bookings = [], isLoading } = useBookingList(
+  const { data: bookings = [], isLoading, refetch, isRefetching } = useBookingList(
     STATUS_BY_TAB[activeTab],
     activeTab === 'upcoming' ? { sortBy: 'startTime', sortDir: 'asc' } : undefined,
   );
@@ -70,6 +71,14 @@ export default function BookingHistoryScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => void refetch()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         <OngoingBookingBanner
           onPressBooking={(booking) =>

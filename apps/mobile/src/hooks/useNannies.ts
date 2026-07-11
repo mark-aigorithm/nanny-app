@@ -10,7 +10,7 @@ import type {
 
 import { api, unwrap } from '@mobile/lib/api';
 
-const NANNIES_KEY = 'nannies';
+export const NANNIES_KEY = 'nannies';
 
 interface NannyListParams {
   availabilityType?: AvailabilityType;

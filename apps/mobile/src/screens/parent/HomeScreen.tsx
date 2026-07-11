@@ -8,6 +8,7 @@ import {
   Image,
   StatusBar,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -42,7 +43,7 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
-  const { data: nannies = [], isLoading } = useNannyList(
+  const { data: nannies = [], isLoading, refetch, isRefetching } = useNannyList(
     availabilityFilter ? { availabilityType: availabilityFilter } : undefined,
   );
 
@@ -55,6 +56,14 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => void refetch()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {SHOW_HOME_BANNER && (
           <Pressable style={styles.heroSection} onPress={() => router.push('/(parent)/home-dashboard' as never)}>
