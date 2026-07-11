@@ -6,9 +6,11 @@ import {
   Pressable,
   StatusBar,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@mobile/theme';
+import { useRouter } from 'expo-router';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import type { BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
@@ -17,20 +19,24 @@ import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import UpcomingShiftBanner, { confirmEndShift, confirmStartShift } from '@mobile/components/UpcomingShiftBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
+import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-requests-screen.styles';
 
-type FilterKey = 'upcoming' | 'declined';
+type FilterKey = 'upcoming' | 'past' | 'declined';
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'upcoming', label: 'Upcoming' },
+  { key: 'past', label: 'Past' },
   { key: 'declined', label: 'Declined' },
 ];
 
 const STATUS_BY_FILTER: Record<FilterKey, string> = {
   upcoming: 'CONFIRMED,IN_PROGRESS',
+  past: 'COMPLETED',
   declined: 'CANCELLED',
 };
 
 export default function NannyRequestsScreen() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterKey>('upcoming');
 
   const listOptions =
@@ -38,7 +44,7 @@ export default function NannyRequestsScreen() {
       ? ({ sortBy: 'startTime' as const, sortDir: 'asc' as const })
       : undefined;
 
-  const { data: requests = [], isLoading } = useBookingList(
+  const { data: requests = [], isLoading, refetch, isRefetching } = useBookingList(
     STATUS_BY_FILTER[activeFilter],
     listOptions,
   );
@@ -92,6 +98,28 @@ export default function NannyRequestsScreen() {
           </View>
         </View>
 
+        {/* Mother's review (past bookings) */}
+        {activeFilter === 'past' && booking.myReview ? (
+          <View style={styles.reviewBlock}>
+            <Text style={styles.reviewLabel}>Rating & review</Text>
+            <View style={styles.reviewStarsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Ionicons
+                  key={star}
+                  name={star <= booking.myReview!.rating ? 'star' : 'star-outline'}
+                  size={14}
+                  color={colors.gold}
+                />
+              ))}
+            </View>
+            {booking.myReview.comment ? (
+              <Text style={styles.reviewComment} numberOfLines={2}>
+                {booking.myReview.comment}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* Actions or Status */}
         {showStart || showEnd ? (
           <View style={styles.actionsRow}>
@@ -116,15 +144,30 @@ export default function NannyRequestsScreen() {
           </View>
         ) : (
           <View style={[styles.statusBadge,
-            activeFilter === 'upcoming' ? styles.statusAccepted : styles.statusDeclined,
+            activeFilter === 'declined' ? styles.statusDeclined : styles.statusAccepted,
           ]}>
             <Text style={[styles.statusText,
-              activeFilter === 'upcoming' ? styles.statusAcceptedText : styles.statusDeclinedText,
+              activeFilter === 'declined' ? styles.statusDeclinedText : styles.statusAcceptedText,
             ]}>
               {formatBookingStatus(booking.status)}
             </Text>
           </View>
         )}
+
+        {activeFilter === 'past' ? (
+          <Pressable
+            style={styles.viewDetailsRow}
+            onPress={() =>
+              router.push({
+                pathname: '/(nanny)/booking-detail',
+                params: { bookingId: booking.id },
+              } as never)
+            }
+          >
+            <Text style={styles.viewDetailsText}>View details</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.primaryDark} />
+          </Pressable>
+        ) : null}
       </View>
     );
   };
@@ -133,7 +176,20 @@ export default function NannyRequestsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
+            refreshing={isRefetching}
+            onRefresh={() => void refetch()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         <OngoingBookingBanner />
         {activeFilter === 'upcoming' ? <UpcomingShiftBanner bookings={requests} /> : null}
 
@@ -172,12 +228,7 @@ export default function NannyRequestsScreen() {
         )}
       </ScrollView>
 
-      {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Booking requests</Text>
-        </View>
-      </View>
+      <NannyTabHeader title="Booking requests" />
 
       <NannyBottomNav activeTab="requests" />
     </View>

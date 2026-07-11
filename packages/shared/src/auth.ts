@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { NannyApprovalStatusSchema } from './nanny';
+
 // ──────────────────────────────────────────────────────────────
 // Auth — shared Zod schemas
 // ──────────────────────────────────────────────────────────────
@@ -44,6 +46,8 @@ export const UserResponseSchema = z.object({
   role: RoleSchema.nullable(),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
+  /** Vetting state of the nanny profile; null for non-nanny users. */
+  nannyApprovalStatus: NannyApprovalStatusSchema.nullable(),
   createdAt: z.string(), // ISO datetime
 });
 export type UserResponse = z.infer<typeof UserResponseSchema>;

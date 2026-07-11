@@ -2,6 +2,7 @@ import type { BookingResponse } from '@nanny-app/shared';
 
 const STATUS_LABELS: Record<BookingResponse['status'], string> = {
   PENDING: 'Pending',
+  PENDING_CONFIRMATION: 'Awaiting Confirmation',
   CONFIRMED: 'Confirmed',
   IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',

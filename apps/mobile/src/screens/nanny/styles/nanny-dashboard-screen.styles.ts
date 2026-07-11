@@ -6,7 +6,6 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
   HEADER_HEIGHT,
   BOTTOM_NAV_HEIGHT,
 } from '@mobile/theme';
@@ -24,36 +23,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing.lg,
     gap: spacing['2xl'],
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: spacing.xs,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    zIndex: 100,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerTitle: {
-    ...typeScale.headingLg,
-    color: colors.textPrimary,
-  },
-  bellBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   // Earnings card

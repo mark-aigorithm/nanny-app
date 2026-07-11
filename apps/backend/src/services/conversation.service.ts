@@ -215,7 +215,6 @@ export async function listConversations(
   query: ConversationListQuery,
 ): Promise<ConversationListResponse> {
   const user = await getUserByUid(decoded.uid);
-  requireMother(user);
 
   const where: Prisma.ConversationWhereInput = {
     deletedAt: null,
@@ -254,7 +253,6 @@ export async function getConversation(
   conversationId: string,
 ): Promise<ConversationResponse> {
   const user = await getUserByUid(decoded.uid);
-  requireMother(user);
 
   const conversation = await getConversationForUser(user.id, conversationId);
   return toConversationResponse(conversation, user.id);
@@ -266,7 +264,6 @@ export async function listMessages(
   query: MessageHistoryQuery,
 ): Promise<MessageListResponse> {
   const user = await getUserByUid(decoded.uid);
-  requireMother(user);
 
   await getConversationForUser(user.id, conversationId);
 
@@ -294,7 +291,6 @@ export async function sendMessage(
   body: SendMessageRequest,
 ): Promise<MessageResponse> {
   const user = await getUserByUid(decoded.uid);
-  requireMother(user);
 
   const conversation = await getConversationForUser(user.id, conversationId);
 
@@ -358,7 +354,6 @@ export async function markConversationRead(
   conversationId: string,
 ): Promise<{ read: true }> {
   const user = await getUserByUid(decoded.uid);
-  requireMother(user);
 
   await getConversationForUser(user.id, conversationId);
 
@@ -374,7 +369,6 @@ export async function getUnreadMessageCount(
   decoded: DecodedIdToken,
 ): Promise<{ unreadCount: number }> {
   const user = await getUserByUid(decoded.uid);
-  requireMother(user);
 
   const participants = await prisma.conversationParticipant.findMany({
     where: { userId: user.id, deletedAt: null, conversation: { deletedAt: null } },

@@ -5,7 +5,7 @@ import { z } from 'zod';
 // ──────────────────────────────────────────────────────────────
 
 export const BookingStatusSchema = z.enum([
-  'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REFUNDED',
+  'PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REFUNDED',
 ]);
 export const BookingStatus = BookingStatusSchema.enum;
 export type BookingStatus = z.infer<typeof BookingStatusSchema>;

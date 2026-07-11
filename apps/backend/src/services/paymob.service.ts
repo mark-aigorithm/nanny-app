@@ -66,9 +66,11 @@ async function finalizePaymentCaptured(paymentId: string, paymobTransactionId: s
       },
     });
 
+    // Paid bookings wait for an admin to accept them before the nanny is
+    // notified — see confirmBooking in admin-booking.service.ts.
     await tx.booking.update({
       where: { id: payment.bookingId },
-      data: { status: BookingStatus.CONFIRMED },
+      data: { status: BookingStatus.PENDING_CONFIRMATION },
     });
   });
 }

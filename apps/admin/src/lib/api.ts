@@ -1,4 +1,10 @@
 import type {
+  AdminBooking,
+  AdminBookingStatusFilter,
+  AdminNanny,
+  AdminNannyStatusFilter,
+  AdminUser,
+  CreateAdminInput,
   CreatePromoCodeInput,
   PlatformConfig,
   PromoCode,
@@ -44,5 +50,60 @@ export async function updatePlatformConfig(
   input: UpdatePlatformConfigInput,
 ): Promise<PlatformConfig> {
   const res = await apiClient.put<ApiEnvelope<PlatformConfig>>('/admin/config', input);
+  return res.data.data;
+}
+
+export async function fetchAdminMe(): Promise<AdminUser> {
+  const res = await apiClient.get<ApiEnvelope<AdminUser>>('/admin/me');
+  return res.data.data;
+}
+
+export async function fetchBookings(
+  status: AdminBookingStatusFilter,
+): Promise<AdminBooking[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminBooking[]>>('/admin/bookings', {
+    params: { status },
+  });
+  return res.data.data;
+}
+
+export async function confirmBooking(id: string): Promise<AdminBooking> {
+  const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
+    `/admin/bookings/${id}/confirm`,
+  );
+  return res.data.data;
+}
+
+export async function fetchNannies(
+  status: AdminNannyStatusFilter,
+): Promise<AdminNanny[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminNanny[]>>('/admin/nannies', {
+    params: { status },
+  });
+  return res.data.data;
+}
+
+export async function approveNanny(id: string): Promise<AdminNanny> {
+  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
+    `/admin/nannies/${id}/approve`,
+  );
+  return res.data.data;
+}
+
+export async function rejectNanny(id: string, reason?: string): Promise<AdminNanny> {
+  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
+    `/admin/nannies/${id}/reject`,
+    reason ? { reason } : {},
+  );
+  return res.data.data;
+}
+
+export async function fetchAdmins(): Promise<AdminUser[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminUser[]>>('/admin/admins');
+  return res.data.data;
+}
+
+export async function createAdmin(input: CreateAdminInput): Promise<AdminUser> {
+  const res = await apiClient.post<ApiEnvelope<AdminUser>>('/admin/admins', input);
   return res.data.data;
 }

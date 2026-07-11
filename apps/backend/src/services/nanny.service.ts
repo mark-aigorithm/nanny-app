@@ -1,4 +1,5 @@
 import type { NannyProfile, User } from '@prisma/client';
+import { NannyApprovalStatus, Prisma } from '@prisma/client';
 import {
   BookingStatus,
   Role,
@@ -159,11 +160,14 @@ export async function updateNannyProfile(
 
 // ── Public nanny listing ──────────────────────────────────────────────────────
 
-export async function listNannies(
-  query: NannyListQuery,
-): Promise<{ nannies: NannyListItem[]; total: number }> {
-  const where = {
+/**
+ * Builds the Prisma `where` shared by the count and the (non-located) findMany.
+ * Kept in sync, by hand, with the SQL predicates in `buildListFilterSql` below.
+ */
+function buildListWhere(query: NannyListQuery) {
+  return {
     isProfileComplete: true,
+    approvalStatus: NannyApprovalStatus.APPROVED,
     deletedAt: null as null,
     ...(query.availabilityType ? { availabilityType: query.availabilityType } : {}),
     ...(query.specialty ? { specialties: { has: query.specialty } } : {}),
@@ -178,24 +182,106 @@ export async function listNannies(
         }
       : {}),
   };
+}
 
-  const [total, profiles] = await Promise.all([
+/**
+ * Same predicates as `buildListWhere`, as raw SQL over `nanny_profiles np`
+ * joined to `users u`. Enum columns are compared as text since the Prisma enum
+ * values are unmapped (stored verbatim: 'APPROVED', 'FULL_TIME', …).
+ */
+function buildListFilterSql(query: NannyListQuery): Prisma.Sql {
+  const filters: Prisma.Sql[] = [
+    Prisma.sql`np.is_profile_complete = true`,
+    Prisma.sql`np.approval_status::text = 'APPROVED'`,
+    Prisma.sql`np.deleted_at IS NULL`,
+  ];
+  if (query.availabilityType) {
+    filters.push(Prisma.sql`np.availability_type::text = ${query.availabilityType}`);
+  }
+  if (query.specialty) {
+    filters.push(Prisma.sql`${query.specialty} = ANY(np.specialties)`);
+  }
+  if (query.name) {
+    const like = `%${query.name}%`;
+    filters.push(Prisma.sql`(u.first_name ILIKE ${like} OR u.last_name ILIKE ${like})`);
+  }
+  return Prisma.join(filters, ' AND ');
+}
+
+export async function listNannies(
+  query: NannyListQuery,
+): Promise<{ nannies: NannyListItem[]; total: number }> {
+  const where = buildListWhere(query);
+
+  // Without caller coordinates, keep the simple rating-ordered, DB-paginated path.
+  if (query.latitude === undefined || query.longitude === undefined) {
+    const [total, profiles] = await Promise.all([
+      prisma.nannyProfile.count({ where }),
+      prisma.nannyProfile.findMany({
+        where,
+        include: { user: true },
+        orderBy: { rating: 'desc' },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+    ]);
+
+    return { nannies: profiles.map(toNannyListItem), total };
+  }
+
+  // Location-aware "recommended" ranking: closest first, then highest-rated.
+  // Distance is computed in PostGIS (ST_DistanceSphere → metres) so ordering
+  // and pagination happen in the database. Nannies without coordinates sort
+  // last (NULLS LAST), ranked among themselves by rating.
+  const { latitude, longitude } = query;
+  const offset = (query.page - 1) * query.limit;
+  const filterSql = buildListFilterSql(query);
+
+  const distanceSql = Prisma.sql`
+    CASE
+      WHEN np.latitude IS NOT NULL AND np.longitude IS NOT NULL THEN ST_DistanceSphere(
+        ST_MakePoint(np.longitude::float8, np.latitude::float8),
+        ST_MakePoint(${longitude}::float8, ${latitude}::float8)
+      )
+    END`;
+
+  const [total, rows] = await Promise.all([
     prisma.nannyProfile.count({ where }),
-    prisma.nannyProfile.findMany({
-      where,
-      include: { user: true },
-      orderBy: { rating: 'desc' },
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-    }),
+    prisma.$queryRaw<Array<{ id: string; distance_m: number | null }>>(Prisma.sql`
+      SELECT np.id AS id, ${distanceSql} AS distance_m
+      FROM nanny_profiles np
+      JOIN users u ON u.id = np.user_id
+      WHERE ${filterSql}
+      ORDER BY distance_m ASC NULLS LAST, np.rating DESC, np.id ASC
+      LIMIT ${query.limit} OFFSET ${offset}
+    `),
   ]);
 
-  return { nannies: profiles.map(toNannyListItem), total };
+  const distanceById = new Map(rows.map((r) => [r.id, r.distance_m]));
+  const profiles = await prisma.nannyProfile.findMany({
+    where: { id: { in: rows.map((r) => r.id) } },
+    include: { user: true },
+  });
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+
+  // Preserve the DB ordering (findMany does not guarantee `in` order).
+  const nannies = rows.flatMap((r) => {
+    const profile = profileById.get(r.id);
+    if (!profile) return [];
+    const distanceKm = r.distance_m !== null ? Math.round((r.distance_m / 1000) * 10) / 10 : null;
+    return [{ ...toNannyListItem(profile), distanceKm }];
+  });
+
+  return { nannies, total };
 }
 
 export async function getNannyPublicProfile(nannyProfileId: string): Promise<NannyPublicProfile> {
   const profile = await prisma.nannyProfile.findUnique({
-    where: { id: nannyProfileId, deletedAt: null },
+    where: {
+      id: nannyProfileId,
+      approvalStatus: NannyApprovalStatus.APPROVED,
+      deletedAt: null,
+    },
     include: {
       user: true,
       reviews: {
@@ -273,13 +359,15 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
     allBookings,
     repeatClientsRaw,
   ] = await Promise.all([
+    // Nanny earnings are her hourly rate × hours (subtotal) — the service
+    // fee on top belongs to the platform, so totalAmount must not be used.
     prisma.booking.aggregate({
       where: { ...baseWhere, status: BookingStatus.COMPLETED, date: { gte: weekStart } },
-      _sum: { totalAmount: true },
+      _sum: { subtotal: true },
     }),
     prisma.booking.aggregate({
       where: { ...baseWhere, status: BookingStatus.COMPLETED, date: { gte: monthStart } },
-      _sum: { totalAmount: true },
+      _sum: { subtotal: true },
     }),
     prisma.booking.count({
       where: { ...baseWhere, status: { in: [BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED] } },
@@ -299,8 +387,8 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
   const responseRate = allBookings.length > 0 ? Math.round((responded / allBookings.length) * 100) : 100;
 
   return {
-    earningsThisWeek: Number(weekEarningsAgg._sum.totalAmount ?? 0),
-    earningsThisMonth: Number(monthEarningsAgg._sum.totalAmount ?? 0),
+    earningsThisWeek: Number(weekEarningsAgg._sum.subtotal ?? 0),
+    earningsThisMonth: Number(monthEarningsAgg._sum.subtotal ?? 0),
     totalBookings,
     repeatClients: repeatClientsRaw.length,
     averageRating: Number(user.nannyProfile.rating),

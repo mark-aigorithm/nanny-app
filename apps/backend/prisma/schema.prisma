@@ -30,12 +30,14 @@ enum Role {
   MOTHER
   NANNY
   ADMIN
+  SUPERUSER
 
   @@map("role")
 }
 
 enum BookingStatus {
   PENDING
+  PENDING_CONFIRMATION
   CONFIRMED
   IN_PROGRESS
   COMPLETED
@@ -69,6 +71,14 @@ enum PaymentMethod {
   WALLET
 
   @@map("payment_method")
+}
+
+enum NannyApprovalStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+
+  @@map("nanny_approval_status")
 }
 
 enum AvailabilityType {
@@ -159,6 +169,11 @@ model NannyProfile {
   /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
   schedule          Json?
   isProfileComplete Boolean   @default(false) @map("is_profile_complete")
+  /// Admin vetting gate: new nannies start PENDING_REVIEW and cannot appear
+  /// in search or use the app until an admin approves them (KYC).
+  approvalStatus    NannyApprovalStatus @default(PENDING_REVIEW) @map("approval_status")
+  reviewedAt        DateTime? @map("reviewed_at")
+  rejectionReason   String?   @map("rejection_reason")
   /// Decimal degrees — used for emergency booking proximity search.
   latitude          Decimal?  @db.Decimal(10, 7)
   longitude         Decimal?  @db.Decimal(10, 7)
@@ -176,6 +191,7 @@ model NannyProfile {
 
   @@index([availabilityType])
   @@index([rating])
+  @@index([approvalStatus])
   @@map("nanny_profiles")
 }
 
@@ -565,9 +581,12 @@ model Message {
 
 enum NotificationType {
   MARKETPLACE_MESSAGE
+  BOOKING_CONFIRMED
   NANNY_CHECKIN
   BOOKING_COMPLETED
   CARE_LOG_ENTRY
+  NANNY_APPROVED
+  NANNY_REJECTED
 
   @@map("notification_type")
 }

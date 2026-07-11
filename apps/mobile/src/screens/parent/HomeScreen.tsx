@@ -8,19 +8,21 @@ import {
   Image,
   StatusBar,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabFab from '@mobile/components/ParentTabFab';
-import { colors } from '@mobile/theme';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 import type { NannyListItem, AvailabilityType } from '@nanny-app/shared';
 import { HOME_FILTER_TABS } from '@mobile/constants';
 import type { FilterTab } from '@mobile/constants';
 import { IMG_HERO } from '@mobile/mocks/images';
 import { useNannyList } from '@mobile/hooks/useNannies';
+import { useDeviceLocation } from '@mobile/hooks/useDeviceLocation';
 import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 
 const SHOW_HOME_BANNER = false;
@@ -42,9 +44,11 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
-  const { data: nannies = [], isLoading } = useNannyList(
-    availabilityFilter ? { availabilityType: availabilityFilter } : undefined,
-  );
+  const { coords } = useDeviceLocation();
+  const { data: nannies = [], isLoading, refetch, isRefetching } = useNannyList({
+    ...(availabilityFilter ? { availabilityType: availabilityFilter } : {}),
+    ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
+  });
 
   return (
     <View style={styles.container}>
@@ -55,6 +59,15 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
+            refreshing={isRefetching}
+            onRefresh={() => void refetch()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {SHOW_HOME_BANNER && (
           <Pressable style={styles.heroSection} onPress={() => router.push('/(parent)/home-dashboard' as never)}>
@@ -90,7 +103,7 @@ export default function HomeScreen() {
         {/* Recommended nannies */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recommended nannies</Text>
+            <Text style={styles.sectionTitle}>{coords ? 'Recommended near you' : 'Recommended nannies'}</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(parent)/search')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
@@ -146,6 +159,7 @@ export default function HomeScreen() {
 function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfile: (id: string) => void }) {
   const name = `${nanny.firstName} ${nanny.lastName}`;
   const expLabel = nanny.yearsOfExperience ? `${nanny.yearsOfExperience} yrs exp` : '';
+  const distanceLabel = nanny.distanceKm != null ? `${nanny.distanceKm.toFixed(1)} km away` : '';
   const locationLabel = nanny.location ?? '';
 
   return (
@@ -172,7 +186,7 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
           <View style={styles.cardNameCol}>
             <Text style={styles.cardName}>{name}</Text>
             <Text style={styles.cardMeta}>
-              {[expLabel, locationLabel].filter(Boolean).join(' • ')}
+              {[distanceLabel, expLabel, locationLabel].filter(Boolean).join(' • ')}
             </Text>
           </View>
           <View style={styles.ratingRow}>

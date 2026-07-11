@@ -68,6 +68,12 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.taupe,
         iconColor: colors.textTertiary,
       };
+    case 'booking_confirmed':
+      return {
+        name: 'calendar',
+        backgroundColor: colors.successLight,
+        iconColor: colors.successDark,
+      };
     case 'nanny_checkin':
       return {
         name: 'checkmark-circle',

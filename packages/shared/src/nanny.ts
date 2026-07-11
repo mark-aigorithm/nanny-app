@@ -15,6 +15,11 @@ export type DaySchedule = z.infer<typeof DayScheduleSchema>;
 export const WeeklyScheduleSchema = z.record(z.string(), DayScheduleSchema);
 export type WeeklySchedule = z.infer<typeof WeeklyScheduleSchema>;
 
+export const NannyApprovalStatusSchema = z.enum(['PENDING_REVIEW', 'APPROVED', 'REJECTED']);
+/** Enum-like const for value comparisons: `NannyApprovalStatus.APPROVED`, … */
+export const NannyApprovalStatus = NannyApprovalStatusSchema.enum;
+export type NannyApprovalStatus = z.infer<typeof NannyApprovalStatusSchema>;
+
 export const AvailabilityTypeSchema = z.enum(['FULL_TIME', 'PART_TIME', 'OCCASIONAL']);
 export const AvailabilityType = AvailabilityTypeSchema.enum;
 export type AvailabilityType = z.infer<typeof AvailabilityTypeSchema>;
@@ -58,6 +63,12 @@ export const NannyListItemSchema = z.object({
   availabilityType: AvailabilityTypeSchema,
   rating: z.number(),
   reviewCount: z.number().int(),
+  /**
+   * Distance in kilometres from the coordinates passed in the list query,
+   * rounded to one decimal. `null` when the nanny has no saved coordinates;
+   * omitted entirely when the query had no `latitude`/`longitude`.
+   */
+  distanceKm: z.number().nullable().optional(),
 });
 export type NannyListItem = z.infer<typeof NannyListItemSchema>;
 
@@ -84,6 +95,14 @@ export const NannyListQuerySchema = z.object({
   availabilityType: AvailabilityTypeSchema.optional(),
   name: z.string().trim().optional(),
   specialty: z.string().trim().optional(),
+  /**
+   * Caller (mother) coordinates. When both are provided, results are ranked
+   * "recommended"-style: closest first, then highest-rated. Must be sent
+   * together — one without the other is ignored and the list falls back to
+   * rating order.
+   */
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),
 });
