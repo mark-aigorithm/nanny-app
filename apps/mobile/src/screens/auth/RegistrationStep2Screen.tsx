@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,24 +12,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import MapView, { Marker } from 'react-native-maps';
 
 import { colors } from '@mobile/theme';
 import type { Child } from '@mobile/types';
 import { AGE_OPTIONS, PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
+import HomeLocationMapCard from '@mobile/components/HomeLocationMapCard';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { useDeviceLocation } from '@mobile/hooks/useDeviceLocation';
 import { styles } from './styles/registration-step2-screen.styles';
-
-// Fallback map center when location permission is denied (Cairo).
-const DEFAULT_REGION = {
-  latitude: 30.0444,
-  longitude: 31.2357,
-  latitudeDelta: 0.05,
-  longitudeDelta: 0.05,
-};
 
 export default function RegistrationStep2Screen() {
   const router = useRouter();
@@ -42,18 +33,10 @@ export default function RegistrationStep2Screen() {
   const [agePickerIndex, setAgePickerIndex] = useState<number | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  // Center the map on the device once permission is granted; the first fix
-  // also places the pin so most users never have to drag it.
-  const deviceLocation = useDeviceLocation();
   const pinCoords =
     draft.latitude !== null && draft.longitude !== null
       ? { latitude: draft.latitude, longitude: draft.longitude }
-      : deviceLocation.coords;
-  useEffect(() => {
-    if (draft.latitude === null && deviceLocation.coords) {
-      patch({ ...deviceLocation.coords });
-    }
-  }, [draft.latitude, deviceLocation.coords, patch]);
+      : null;
 
   function handleBack() {
     router.back();
@@ -161,35 +144,14 @@ export default function RegistrationStep2Screen() {
             />
 
             {/* Home location map picker */}
-            <View style={styles.mapCard}>
-              <MapView
-                style={styles.map}
-                initialRegion={
-                  pinCoords
-                    ? { ...DEFAULT_REGION, ...pinCoords }
-                    : DEFAULT_REGION
-                }
-                onPress={(e) => {
-                  setLocationError(null);
-                  patch({ ...e.nativeEvent.coordinate });
-                }}
-              >
-                {pinCoords && (
-                  <Marker
-                    coordinate={pinCoords}
-                    draggable
-                    onDragEnd={(e) => {
-                      setLocationError(null);
-                      patch({ ...e.nativeEvent.coordinate });
-                    }}
-                  />
-                )}
-              </MapView>
-            </View>
-            <Text style={styles.mapHint}>
-              Tap the map or drag the pin to your home location.
-            </Text>
-            {locationError && <Text style={styles.mapError}>{locationError}</Text>}
+            <HomeLocationMapCard
+              coords={pinCoords}
+              onChange={(coords) => {
+                setLocationError(null);
+                patch(coords);
+              }}
+              errorText={locationError}
+            />
           </View>
 
           {/* Your children section */}
