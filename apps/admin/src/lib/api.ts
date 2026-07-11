@@ -1,4 +1,8 @@
 import type {
+  AdminBooking,
+  AdminBookingStatusFilter,
+  AdminUser,
+  CreateAdminInput,
   CreatePromoCodeInput,
   PlatformConfig,
   PromoCode,
@@ -44,5 +48,36 @@ export async function updatePlatformConfig(
   input: UpdatePlatformConfigInput,
 ): Promise<PlatformConfig> {
   const res = await apiClient.put<ApiEnvelope<PlatformConfig>>('/admin/config', input);
+  return res.data.data;
+}
+
+export async function fetchAdminMe(): Promise<AdminUser> {
+  const res = await apiClient.get<ApiEnvelope<AdminUser>>('/admin/me');
+  return res.data.data;
+}
+
+export async function fetchReservations(
+  status: AdminBookingStatusFilter,
+): Promise<AdminBooking[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminBooking[]>>('/admin/bookings', {
+    params: { status },
+  });
+  return res.data.data;
+}
+
+export async function confirmReservation(id: string): Promise<AdminBooking> {
+  const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
+    `/admin/bookings/${id}/confirm`,
+  );
+  return res.data.data;
+}
+
+export async function fetchAdmins(): Promise<AdminUser[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminUser[]>>('/admin/admins');
+  return res.data.data;
+}
+
+export async function createAdmin(input: CreateAdminInput): Promise<AdminUser> {
+  const res = await apiClient.post<ApiEnvelope<AdminUser>>('/admin/admins', input);
   return res.data.data;
 }

@@ -345,3 +345,64 @@ h3 {
   text-align: center;
   color: var(--color-text-muted);
 }
+
+/* ── Login ──────────────────────────────────────────────── */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-card .admin-logo {
+  margin-bottom: 0.25rem;
+}
+
+.login-subtitle {
+  margin: 0 0 1.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Sidebar footer ─────────────────────────────────────── */
+
+.admin-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-user-email {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  overflow-wrap: break-word;
+}
+
+/* ── Reservations ───────────────────────────────────────── */
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.table-subtext {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
