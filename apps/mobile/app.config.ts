@@ -2,6 +2,12 @@ import type { ExpoConfig } from 'expo/config';
 
 /** Keep in sync with src/constants/app.ts — Expo config cannot import from src/. */
 const APP_NAME = 'NannyNow';
+
+// Google Maps key for react-native-maps (Android + iOS). Injected from the
+// environment only — never hardcode it in the repo. Set GOOGLE_MAPS_API_KEY
+// locally (.env, untracked) and as an EAS secret for builds.
+const GOOGLE_MAPS_API_KEY = process.env['GOOGLE_MAPS_API_KEY'] ?? '';
+
 const config: ExpoConfig = {
   name: APP_NAME,  slug: 'nanny-app',
   scheme: 'nanny-app',
@@ -16,7 +22,10 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.nannyapp.mobile',
-    googleServicesFile: "./GoogleService-Info.plist"
+    googleServicesFile: "./GoogleService-Info.plist",
+    config: {
+      googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    },
   },
   android: {
     adaptiveIcon: {
@@ -26,6 +35,11 @@ const config: ExpoConfig = {
     package: 'com.nannyapp.mobile',
     googleServicesFile: "./google-services.json",
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+    config: {
+      googleMaps: {
+        apiKey: GOOGLE_MAPS_API_KEY,
+      },
+    },
   },
   plugins: [
     'expo-router',

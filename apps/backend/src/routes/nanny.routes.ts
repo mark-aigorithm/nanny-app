@@ -3,6 +3,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { CreateReviewSchema, NannyBookedSlotsQuerySchema, NannyListQuerySchema, UpdateNannyProfileRequestSchema } from '@nanny-app/shared';
 
 import { requireAuth } from '@backend/middleware/auth.middleware';
+import { requireApprovedNanny } from '@backend/middleware/nanny.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
@@ -23,6 +24,7 @@ export const nannyRouter = Router();
 nannyRouter.get(
   '/dashboard',
   requireAuth,
+  requireApprovedNanny,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();

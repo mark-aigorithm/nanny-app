@@ -31,6 +31,10 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'booking_completed';
     case 'CARE_LOG_ENTRY':
       return 'care_log_entry';
+    case 'NANNY_APPROVED':
+      return 'nanny_approved';
+    case 'NANNY_REJECTED':
+      return 'nanny_rejected';
     default:
       return 'marketplace_message';
   }

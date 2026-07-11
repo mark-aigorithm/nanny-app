@@ -6,6 +6,7 @@ import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { Role } from '@shared/auth';
+import { NannyApprovalStatus } from '@shared/nanny';
 
 export default function Index() {
   const user = useAuthStore((s) => s.user);
@@ -38,9 +39,13 @@ export default function Index() {
 
   // Firebase user + backend profile — route by role.
   if (profile) {
-    return profile.role === Role.NANNY
-      ? <Redirect href="/(nanny)/dashboard" />
-      : <Redirect href="/(parent)/home" />;
+    if (profile.role === Role.NANNY) {
+      // Nannies are vetted by an admin before they can use the app.
+      return profile.nannyApprovalStatus === NannyApprovalStatus.APPROVED
+        ? <Redirect href="/(nanny)/dashboard" />
+        : <Redirect href="/(auth)/pending-review" />;
+    }
+    return <Redirect href="/(parent)/home" />;
   }
 
   // Firebase user with no profile (404 from /me) — useEffect above is

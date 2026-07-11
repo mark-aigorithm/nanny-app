@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { NannyApprovalStatusSchema } from './nanny';
+
 // ──────────────────────────────────────────────────────────────
 // Promo codes
 // ──────────────────────────────────────────────────────────────
@@ -117,6 +119,42 @@ export const AdminBookingSchema = z.object({
   createdAt: z.string(),
 });
 export type AdminBooking = z.infer<typeof AdminBookingSchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Nanny review queue (admin vetting of new nanny registrations)
+// ──────────────────────────────────────────────────────────────
+
+export const AdminNannyStatusFilterSchema = z.enum([
+  'ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+]);
+export type AdminNannyStatusFilter = z.infer<typeof AdminNannyStatusFilterSchema>;
+
+export const AdminNannySchema = z.object({
+  /** NannyProfile id (used by approve/reject endpoints). */
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  dateOfBirth: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  bio: z.string().nullable(),
+  location: z.string().nullable(),
+  yearsOfExperience: z.number().int().nullable(),
+  hourlyRate: z.number().nullable(),
+  certifications: z.array(z.string()),
+  isEmailVerified: z.boolean(),
+  isPhoneVerified: z.boolean(),
+  approvalStatus: NannyApprovalStatusSchema,
+  rejectionReason: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AdminNanny = z.infer<typeof AdminNannySchema>;
+
+export const RejectNannySchema = z.object({
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+export type RejectNannyInput = z.infer<typeof RejectNannySchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)

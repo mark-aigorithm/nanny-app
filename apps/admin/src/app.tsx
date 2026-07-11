@@ -6,6 +6,7 @@ import { AuthProvider, RequireAuth } from './lib/auth';
 import { AdminsPage } from './pages/admins-page';
 import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
+import { NanniesPage } from './pages/nannies-page';
 import { ReservationsPage } from './pages/reservations-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { SettingsPage } from './pages/settings-page';
@@ -35,6 +36,7 @@ export function App() {
             >
               <Route index element={<DashboardPage />} />
               <Route path="reservations" element={<ReservationsPage />} />
+              <Route path="nannies" element={<NanniesPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
               <Route path="settings" element={<SettingsPage />} />

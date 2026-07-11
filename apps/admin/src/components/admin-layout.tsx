@@ -8,6 +8,7 @@ import { Button } from './ui';
 const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/reservations', label: 'Reservations' },
+  { to: '/nannies', label: 'New Nannies' },
   { to: '/promo-codes', label: 'Promo Codes' },
   { to: '/settings', label: 'Configuration' },
 ] as const;

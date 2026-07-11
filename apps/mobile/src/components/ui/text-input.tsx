@@ -9,6 +9,7 @@ import {
 import type {
   TextInputProps as RNTextInputProps,
   ViewStyle,
+  TextStyle,
   StyleProp,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,7 @@ interface TextInputFieldProps extends Omit<RNTextInputProps, 'style'> {
   error?: string | null;
   rightIcon?: React.ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
-  inputStyle?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<TextStyle>;
 }
 
 export default function TextInputField({

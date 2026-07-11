@@ -23,7 +23,9 @@ export default function NotificationPermissionScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
 
-  const homeRoute = role === 'nanny' ? '/(nanny)/dashboard' : '/(parent)/home';
+  // A freshly-registered nanny is always PENDING_REVIEW — she lands on the
+  // pending screen until an admin approves her.
+  const homeRoute = role === 'nanny' ? '/(auth)/pending-review' : '/(parent)/home';
 
   async function handleEnable() {
     try {

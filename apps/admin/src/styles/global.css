@@ -326,6 +326,11 @@ h3 {
   color: var(--color-success-text);
 }
 
+.badge--danger {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
 .feedback {
   margin: 0 0 1rem;
   font-size: 0.85rem;

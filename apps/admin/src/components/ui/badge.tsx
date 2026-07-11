@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 
 type BadgeProps = {
-  tone?: 'neutral' | 'success';
+  tone?: 'neutral' | 'success' | 'danger';
   children: ReactNode;
 };
 
 export function Badge({ tone = 'neutral', children }: BadgeProps) {
   return (
-    <span className={tone === 'success' ? 'badge badge--success' : 'badge'}>
+    <span className={tone === 'neutral' ? 'badge' : `badge badge--${tone}`}>
       {children}
     </span>
   );

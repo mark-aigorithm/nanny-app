@@ -1,6 +1,8 @@
 import type {
   AdminBooking,
   AdminBookingStatusFilter,
+  AdminNanny,
+  AdminNannyStatusFilter,
   AdminUser,
   CreateAdminInput,
   CreatePromoCodeInput,
@@ -68,6 +70,30 @@ export async function fetchReservations(
 export async function confirmReservation(id: string): Promise<AdminBooking> {
   const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
     `/admin/bookings/${id}/confirm`,
+  );
+  return res.data.data;
+}
+
+export async function fetchNannies(
+  status: AdminNannyStatusFilter,
+): Promise<AdminNanny[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminNanny[]>>('/admin/nannies', {
+    params: { status },
+  });
+  return res.data.data;
+}
+
+export async function approveNanny(id: string): Promise<AdminNanny> {
+  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
+    `/admin/nannies/${id}/approve`,
+  );
+  return res.data.data;
+}
+
+export async function rejectNanny(id: string, reason?: string): Promise<AdminNanny> {
+  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
+    `/admin/nannies/${id}/reject`,
+    reason ? { reason } : {},
   );
   return res.data.data;
 }

@@ -16,6 +16,9 @@ interface NannyListParams {
   availabilityType?: AvailabilityType;
   name?: string;
   specialty?: string;
+  /** Caller coordinates — when both are set, results come back closest first, then highest-rated. */
+  latitude?: number;
+  longitude?: number;
 }
 
 export function useNannyList(params?: NannyListParams) {
@@ -26,6 +29,10 @@ export function useNannyList(params?: NannyListParams) {
       if (params?.availabilityType) queryParams['availabilityType'] = params.availabilityType;
       if (params?.name) queryParams['name'] = params.name;
       if (params?.specialty) queryParams['specialty'] = params.specialty;
+      if (params?.latitude !== undefined && params?.longitude !== undefined) {
+        queryParams['latitude'] = String(params.latitude);
+        queryParams['longitude'] = String(params.longitude);
+      }
       return unwrap(api.get('/nanny/nannies', { params: Object.keys(queryParams).length ? queryParams : undefined }));
     },
   });

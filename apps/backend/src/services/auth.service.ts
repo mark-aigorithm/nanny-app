@@ -1,4 +1,8 @@
-import type { User, Role as PrismaRole } from '@prisma/client';
+import type {
+  User,
+  NannyApprovalStatus,
+  Role as PrismaRole,
+} from '@prisma/client';
 import {
   Role,
   type RegisterRequest,
@@ -26,7 +30,16 @@ function toApiRole(role: PrismaRole | null): ApiRole | null {
  * `UserResponseSchema`. Strips internal columns (timestamps, soft-delete
  * markers) and serializes Date fields to ISO strings.
  */
-function toUserResponse(user: User): UserResponse {
+type UserWithApproval = User & {
+  nannyProfile: { approvalStatus: NannyApprovalStatus } | null;
+};
+
+/** Include clause every query in this file uses so the approval status is available. */
+const userInclude = {
+  nannyProfile: { select: { approvalStatus: true } },
+} as const;
+
+function toUserResponse(user: UserWithApproval): UserResponse {
   return {
     id: user.id,
     firebaseUid: user.firebaseUid,
@@ -39,6 +52,7 @@ function toUserResponse(user: User): UserResponse {
     role: toApiRole(user.role),
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
+    nannyApprovalStatus: user.nannyProfile?.approvalStatus ?? null,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -56,6 +70,7 @@ export async function registerUser(
 ): Promise<UserResponse> {
   const existing = await prisma.user.findUnique({
     where: { firebaseUid: decoded.uid },
+    include: userInclude,
   });
   if (existing) {
     if (existing.deletedAt) {
@@ -99,6 +114,8 @@ export async function registerUser(
     });
 
     if (body.role === Role.NANNY) {
+      // New nannies always start PENDING_REVIEW (schema default) — an admin
+      // must vet them before they can use the app.
       await tx.nannyProfile.create({
         data: {
           userId: user.id,
@@ -107,7 +124,10 @@ export async function registerUser(
       });
     }
 
-    return user;
+    return tx.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: userInclude,
+    });
   });
 
   return toUserResponse(created);
@@ -132,6 +152,7 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
+    include: userInclude,
   });
 
   return toUserResponse(updated);
@@ -173,6 +194,7 @@ export async function updateProfile(
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
     },
+    include: userInclude,
   });
 
   return toUserResponse(updated);

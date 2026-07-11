@@ -2,8 +2,10 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 
 import {
   AdminBookingStatusFilterSchema,
+  AdminNannyStatusFilterSchema,
   CreateAdminSchema,
   CreatePromoCodeSchema,
+  RejectNannySchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
 } from '@nanny-app/shared';
@@ -18,6 +20,11 @@ import {
   confirmAdminBooking,
   listAdminBookings,
 } from '@backend/services/admin-booking.service';
+import {
+  approveNanny,
+  listAdminNannies,
+  rejectNanny,
+} from '@backend/services/admin-nanny.service';
 import {
   createAdminUser,
   getAdminProfile,
@@ -65,6 +72,42 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await confirmAdminBooking(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Nanny review queue (new nanny registrations / KYC) ────────
+
+adminRouter.get('/nannies', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = AdminNannyStatusFilterSchema.catch('PENDING_REVIEW').parse(
+      req.query.status,
+    );
+    res.json(ok(await listAdminNannies(status)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/nannies/:id/approve',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await approveNanny(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/nannies/:id/reject',
+  validateBody(RejectNannySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await rejectNanny(routeParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
