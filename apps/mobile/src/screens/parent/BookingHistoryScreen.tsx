@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import NotificationBellButton from '@mobile/components/NotificationBellButton';
-import { colors } from '@mobile/theme';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -73,6 +73,7 @@ export default function BookingHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
             refreshing={isRefetching}
             onRefresh={() => void refetch()}
             tintColor={colors.primary}

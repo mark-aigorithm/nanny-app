@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabFab from '@mobile/components/ParentTabFab';
-import { colors } from '@mobile/theme';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 import type { NannyListItem, AvailabilityType } from '@nanny-app/shared';
 import { HOME_FILTER_TABS } from '@mobile/constants';
@@ -58,6 +58,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
             refreshing={isRefetching}
             onRefresh={() => void refetch()}
             tintColor={colors.primary}

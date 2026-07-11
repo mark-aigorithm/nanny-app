@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors } from '@mobile/theme';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import type { BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
@@ -182,6 +182,7 @@ export default function NannyRequestsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
             refreshing={isRefetching}
             onRefresh={() => void refetch()}
             tintColor={colors.primary}

@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@mobile/theme';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { sortBookingsByStartTime } from '@mobile/hooks/useBookingShiftTimer';
 import { useNannyDashboard } from '@mobile/hooks/useNannies';
@@ -57,6 +57,7 @@ export default function NannyDashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
             refreshing={refetchingDashboard || refetchingShift}
             onRefresh={() => {
               void refetchDashboard();
