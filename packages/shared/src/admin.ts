@@ -82,3 +82,58 @@ export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial().refine(
   { message: 'Provide at least one setting to update' },
 );
 export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Reservations (admin booking review queue)
+// ──────────────────────────────────────────────────────────────
+
+export const AdminBookingStatusFilterSchema = z.enum([
+  'ALL', 'PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS',
+  'COMPLETED', 'CANCELLED', 'REFUNDED',
+]);
+export type AdminBookingStatusFilter = z.infer<typeof AdminBookingStatusFilterSchema>;
+
+export const AdminBookingSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  type: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  durationHours: z.number(),
+  totalAmount: z.number(),
+  paymentStatus: z.string().nullable(),
+  mother: z.object({
+    id: z.string(),
+    name: z.string(),
+    phone: z.string().nullable(),
+  }),
+  nanny: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .nullable(),
+  createdAt: z.string(),
+});
+export type AdminBooking = z.infer<typeof AdminBookingSchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Admin user management (superuser only)
+// ──────────────────────────────────────────────────────────────
+
+export const CreateAdminSchema = z.object({
+  name: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8).max(128),
+});
+export type CreateAdminInput = z.infer<typeof CreateAdminSchema>;
+
+export const AdminUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(['ADMIN', 'SUPERUSER']),
+  createdAt: z.string(),
+});
+export type AdminUser = z.infer<typeof AdminUserSchema>;

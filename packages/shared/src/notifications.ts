@@ -4,6 +4,7 @@ import { PaginationMetaSchema } from './booking';
 
 export const NotificationTypeSchema = z.enum([
   'marketplace_message',
+  'booking_confirmed',
   'nanny_checkin',
   'booking_completed',
   'care_log_entry',
