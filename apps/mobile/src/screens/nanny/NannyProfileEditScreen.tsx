@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { CURRENCY_CODE } from '@mobile/lib/formatMoney';
+import { CURRENCY_CODE, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
@@ -83,6 +83,7 @@ export default function NannyProfileEditScreen() {
   const updateProfile = useUpdateNannyProfile();
   const signOut = useSignOut();
 
+  const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
@@ -100,8 +101,8 @@ export default function NannyProfileEditScreen() {
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
-  // Populate form when profile data loads
-  useEffect(() => {
+  // Populate form from the loaded profile (also used to discard edits on cancel)
+  const resetFields = () => {
     if (!nannyProfile) return;
     setFirstName(nannyProfile.firstName);
     setLastName(nannyProfile.lastName);
@@ -113,7 +114,18 @@ export default function NannyProfileEditScreen() {
     setSelectedAgeRanges(nannyProfile.ageRanges);
     setAvailabilityType(nannyProfile.availabilityType);
     setSchedule(apiScheduleToUi(nannyProfile.schedule));
+  };
+
+  // Populate form when profile data loads
+  useEffect(() => {
+    resetFields();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nannyProfile]);
+
+  const handleToggleEdit = () => {
+    if (isEditing) resetFields(); // closing without saving discards changes
+    setIsEditing((prev) => !prev);
+  };
 
   const handleRemoveCert = (cert: string) => {
     setCertifications((prev) => prev.filter((c) => c !== cert));
@@ -135,18 +147,21 @@ export default function NannyProfileEditScreen() {
   };
 
   const handleSave = () => {
-    updateProfile.mutate({
-      firstName: firstName.trim() || undefined,
-      lastName: lastName.trim() || undefined,
-      bio: bio || undefined,
-      location: location || undefined,
-      yearsOfExperience: experience ? parseInt(experience, 10) : undefined,
-      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
-      certifications,
-      ageRanges: selectedAgeRanges,
-      availabilityType,
-      schedule: uiScheduleToApi(schedule),
-    });
+    updateProfile.mutate(
+      {
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+        bio: bio || undefined,
+        location: location || undefined,
+        yearsOfExperience: experience ? parseInt(experience, 10) : undefined,
+        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+        certifications,
+        ageRanges: selectedAgeRanges,
+        availabilityType,
+        schedule: uiScheduleToApi(schedule),
+      },
+      { onSuccess: () => setIsEditing(false) },
+    );
   };
 
   // ── Working hours handlers ─────────────────────────────────────────────────
@@ -195,6 +210,21 @@ export default function NannyProfileEditScreen() {
     );
   }
 
+  // ── Read-only view helpers ─────────────────────────────────────────────────
+
+  const fullName = `${firstName} ${lastName}`.trim();
+  const rateValue = hourlyRate ? Number(hourlyRate) : null;
+  const experienceValue = experience ? Number(experience) : null;
+  const availabilityLabel =
+    AVAILABILITY_OPTIONS.find((o) => o.value === availabilityType)?.label ?? '';
+
+  const stats: { value: string; label: string }[] = [];
+  if (rateValue != null) stats.push({ value: formatHourlyRateAmount(rateValue), label: 'per hour' });
+  if (experienceValue != null) {
+    stats.push({ value: String(experienceValue), label: experienceValue === 1 ? 'year' : 'years' });
+  }
+  if (availabilityLabel) stats.push({ value: availabilityLabel, label: 'availability' });
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -208,9 +238,9 @@ export default function NannyProfileEditScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Photo */}
+        {/* Photo + identity */}
         <View style={styles.photoSection}>
-          <Pressable style={styles.photoWrapper}>
+          <Pressable style={styles.photoWrapper} disabled={!isEditing}>
             {nannyProfile?.avatarUrl ? (
               <Image source={{ uri: nannyProfile.avatarUrl }} style={styles.photo} resizeMode="cover" />
             ) : (
@@ -218,205 +248,299 @@ export default function NannyProfileEditScreen() {
                 <Ionicons name="person" size={40} color={colors.textPlaceholder} />
               </View>
             )}
-            <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={14} color={colors.white} />
-            </View>
-          </Pressable>
-          <Pressable>
-            <Text style={styles.changePhotoText}>Change photo</Text>
-          </Pressable>
-        </View>
-
-        {/* Basic Info */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>Basic information</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>First name</Text>
-            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Last name</Text>
-            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Bio</Text>
-            <TextInput
-              style={styles.textArea}
-              value={bio}
-              onChangeText={setBio}
-              multiline
-              textAlignVertical="top"
-              placeholder="Tell parents about yourself..."
-              placeholderTextColor={colors.textPlaceholder}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Location</Text>
-            <TextInput style={styles.input} value={location} onChangeText={setLocation} autoCapitalize="words" />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Years of experience</Text>
-            <TextInput style={styles.input} value={experience} onChangeText={setExperience} keyboardType="number-pad" />
-          </View>
-        </View>
-
-        {/* Rates */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>Rates</Text>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Hourly rate</Text>
-            <View style={styles.rateInputRow}>
-              <Text style={styles.ratePrefix}>{CURRENCY_CODE}</Text>
-              <TextInput style={styles.rateInput} value={hourlyRate} onChangeText={setHourlyRate} keyboardType="decimal-pad" />
-              <Text style={styles.rateUnit}>/hr</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Certifications */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>Certifications</Text>
-          <View style={styles.certsRow}>
-            {certifications.map((cert) => (
-              <View key={cert} style={styles.certChip}>
-                <Text style={styles.certChipText}>{cert}</Text>
-                <Pressable onPress={() => handleRemoveCert(cert)} hitSlop={4}>
-                  <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-                </Pressable>
+            {isEditing && (
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={14} color={colors.white} />
               </View>
-            ))}
-            {showCertInput ? (
-              <View style={styles.certChip}>
+            )}
+          </Pressable>
+
+          {isEditing ? (
+            <Pressable>
+              <Text style={styles.changePhotoText}>Change photo</Text>
+            </Pressable>
+          ) : (
+            <>
+              {fullName ? <Text style={styles.viewName}>{fullName}</Text> : null}
+              {location ? (
+                <View style={styles.viewLocationRow}>
+                  <Ionicons name="location-outline" size={15} color={colors.textTertiary} />
+                  <Text style={styles.viewLocationText}>{location}</Text>
+                </View>
+              ) : null}
+            </>
+          )}
+        </View>
+
+        {isEditing ? (
+          <>
+            {/* Basic Info */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Basic information</Text>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>First name</Text>
+                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Last name</Text>
+                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Bio</Text>
                 <TextInput
-                  autoFocus
-                  style={[styles.certChipText, { minWidth: 80 }]}
-                  value={newCert}
-                  onChangeText={setNewCert}
-                  onSubmitEditing={handleAddCert}
-                  onBlur={handleAddCert}
-                  placeholder="Type & press enter"
+                  style={styles.textArea}
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Tell parents about yourself..."
                   placeholderTextColor={colors.textPlaceholder}
-                  returnKeyType="done"
                 />
               </View>
-            ) : (
-              <Pressable style={styles.addCertButton} onPress={() => setShowCertInput(true)}>
-                <Ionicons name="add" size={14} color={colors.primary} />
-                <Text style={styles.addCertText}>Add</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
 
-        {/* Age Range */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>Age range</Text>
-          <View style={styles.ageChipsRow}>
-            {AGE_RANGE_OPTIONS.map((range) => {
-              const isSelected = selectedAgeRanges.includes(range);
-              return (
-                <Pressable
-                  key={range}
-                  style={[styles.ageChip, isSelected && styles.ageChipSelected]}
-                  onPress={() => toggleAgeRange(range)}
-                >
-                  <Text style={[styles.ageChipText, isSelected && styles.ageChipTextSelected]}>
-                    {range}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Location</Text>
+                <TextInput style={styles.input} value={location} onChangeText={setLocation} autoCapitalize="words" />
+              </View>
 
-        {/* Availability Type */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>Availability</Text>
-          <View style={styles.availabilityRow}>
-            {AVAILABILITY_OPTIONS.map((option) => {
-              const isSelected = availabilityType === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[styles.availabilityChip, isSelected && styles.availabilityChipSelected]}
-                  onPress={() => setAvailabilityType(option.value)}
-                >
-                  <Text style={[styles.availabilityChipText, isSelected && styles.availabilityChipTextSelected]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Years of experience</Text>
+                <TextInput style={styles.input} value={experience} onChangeText={setExperience} keyboardType="number-pad" />
+              </View>
+            </View>
 
-        {/* Working Hours */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>Working hours</Text>
-          <View style={styles.scheduleCard}>
-            {DAY_ORDER.map((day, index) => {
-              const slot = schedule[day]!;
-              return (
-                <View key={day}>
-                  <View style={styles.dayRow}>
-                    <Text style={styles.dayLabel}>{DAY_NAMES[day]}</Text>
-                    <View style={styles.timePills}>
-                      {slot.available ? (
-                        <>
-                          <Pressable style={styles.timePill} onPress={() => openPicker(day, 'start')}>
-                            <Text style={styles.timePillText}>{formatTimeDisplay(slot.startTime)}</Text>
-                          </Pressable>
-                          <Text style={styles.timeSeparator}>→</Text>
-                          <Pressable style={styles.timePill} onPress={() => openPicker(day, 'end')}>
-                            <Text style={styles.timePillText}>{formatTimeDisplay(slot.endTime)}</Text>
-                          </Pressable>
-                        </>
-                      ) : (
-                        <Text style={styles.dayOffLabel}>Day off</Text>
-                      )}
-                    </View>
-                    <Switch
-                      value={slot.available}
-                      onValueChange={() => toggleDay(day)}
-                      trackColor={{ false: colors.neutralLight, true: colors.primary }}
-                      thumbColor={colors.white}
+            {/* Rates */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Rates</Text>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Hourly rate</Text>
+                <View style={styles.rateInputRow}>
+                  <Text style={styles.ratePrefix}>{CURRENCY_CODE}</Text>
+                  <TextInput style={styles.rateInput} value={hourlyRate} onChangeText={setHourlyRate} keyboardType="decimal-pad" />
+                  <Text style={styles.rateUnit}>/hr</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Certifications */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Certifications</Text>
+              <View style={styles.certsRow}>
+                {certifications.map((cert) => (
+                  <View key={cert} style={styles.certChip}>
+                    <Text style={styles.certChipText}>{cert}</Text>
+                    <Pressable onPress={() => handleRemoveCert(cert)} hitSlop={4}>
+                      <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                ))}
+                {showCertInput ? (
+                  <View style={styles.certChip}>
+                    <TextInput
+                      autoFocus
+                      style={[styles.certChipText, { minWidth: 80 }]}
+                      value={newCert}
+                      onChangeText={setNewCert}
+                      onSubmitEditing={handleAddCert}
+                      onBlur={handleAddCert}
+                      placeholder="Type & press enter"
+                      placeholderTextColor={colors.textPlaceholder}
+                      returnKeyType="done"
                     />
                   </View>
-                  {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
+                ) : (
+                  <Pressable style={styles.addCertButton} onPress={() => setShowCertInput(true)}>
+                    <Ionicons name="add" size={14} color={colors.primary} />
+                    <Text style={styles.addCertText}>Add</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            {/* Age Range */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Age range</Text>
+              <View style={styles.ageChipsRow}>
+                {AGE_RANGE_OPTIONS.map((range) => {
+                  const isSelected = selectedAgeRanges.includes(range);
+                  return (
+                    <Pressable
+                      key={range}
+                      style={[styles.ageChip, isSelected && styles.ageChipSelected]}
+                      onPress={() => toggleAgeRange(range)}
+                    >
+                      <Text style={[styles.ageChipText, isSelected && styles.ageChipTextSelected]}>
+                        {range}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Availability Type */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Availability</Text>
+              <View style={styles.availabilityRow}>
+                {AVAILABILITY_OPTIONS.map((option) => {
+                  const isSelected = availabilityType === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.availabilityChip, isSelected && styles.availabilityChipSelected]}
+                      onPress={() => setAvailabilityType(option.value)}
+                    >
+                      <Text style={[styles.availabilityChipText, isSelected && styles.availabilityChipTextSelected]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Working Hours */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Working hours</Text>
+              <View style={styles.scheduleCard}>
+                {DAY_ORDER.map((day, index) => {
+                  const slot = schedule[day]!;
+                  return (
+                    <View key={day}>
+                      <View style={styles.dayRow}>
+                        <Text style={styles.dayLabel}>{DAY_NAMES[day]}</Text>
+                        <View style={styles.timePills}>
+                          {slot.available ? (
+                            <>
+                              <Pressable style={styles.timePill} onPress={() => openPicker(day, 'start')}>
+                                <Text style={styles.timePillText}>{formatTimeDisplay(slot.startTime)}</Text>
+                              </Pressable>
+                              <Text style={styles.timeSeparator}>→</Text>
+                              <Pressable style={styles.timePill} onPress={() => openPicker(day, 'end')}>
+                                <Text style={styles.timePillText}>{formatTimeDisplay(slot.endTime)}</Text>
+                              </Pressable>
+                            </>
+                          ) : (
+                            <Text style={styles.dayOffLabel}>Day off</Text>
+                          )}
+                        </View>
+                        <Switch
+                          value={slot.available}
+                          onValueChange={() => toggleDay(day)}
+                          trackColor={{ false: colors.neutralLight, true: colors.primary }}
+                          thumbColor={colors.white}
+                        />
+                      </View>
+                      {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
+                    </View>
+                  );
+                })}
+              </View>
+              <Pressable style={styles.copyButton} onPress={copyToAllActiveDays}>
+                <Ionicons name="copy-outline" size={14} color={colors.primary} />
+                <Text style={styles.copyButtonText}>Copy first day's hours to all active days</Text>
+              </Pressable>
+            </View>
+
+            {/* Save */}
+            <Pressable
+              style={[styles.saveButton, updateProfile.isPending && { opacity: 0.6 }]}
+              onPress={handleSave}
+              disabled={updateProfile.isPending}
+            >
+              {updateProfile.isPending ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.saveButtonText}>Save changes</Text>
+              )}
+            </Pressable>
+
+            {updateProfile.isError && (
+              <Text style={{ color: colors.error, textAlign: 'center', marginTop: 8 }}>
+                {updateProfile.error instanceof Error ? updateProfile.error.message : 'Failed to save.'}
+              </Text>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Stats */}
+            {stats.length > 0 ? (
+              <View style={styles.statStrip}>
+                {stats.map((stat, i) => (
+                  <React.Fragment key={stat.label}>
+                    {i > 0 ? <View style={styles.statDivider} /> : null}
+                    <View style={styles.statCol}>
+                      <Text style={styles.statValue}>{stat.value}</Text>
+                      <Text style={styles.statLabel}>{stat.label}</Text>
+                    </View>
+                  </React.Fragment>
+                ))}
+              </View>
+            ) : null}
+
+            {/* About */}
+            {bio ? (
+              <View style={styles.formSection}>
+                <Text style={styles.sectionLabel}>About</Text>
+                <Text style={styles.viewBio}>{bio}</Text>
+              </View>
+            ) : null}
+
+            {/* Age range */}
+            {selectedAgeRanges.length > 0 ? (
+              <View style={styles.formSection}>
+                <Text style={styles.sectionLabel}>Age range</Text>
+                <View style={styles.certsRow}>
+                  {selectedAgeRanges.map((range) => (
+                    <View key={range} style={styles.certChip}>
+                      <Text style={styles.certChipText}>{range}</Text>
+                    </View>
+                  ))}
                 </View>
-              );
-            })}
-          </View>
-          <Pressable style={styles.copyButton} onPress={copyToAllActiveDays}>
-            <Ionicons name="copy-outline" size={14} color={colors.primary} />
-            <Text style={styles.copyButtonText}>Copy first day's hours to all active days</Text>
-          </Pressable>
-        </View>
+              </View>
+            ) : null}
 
-        {/* Save */}
-        <Pressable
-          style={[styles.saveButton, updateProfile.isPending && { opacity: 0.6 }]}
-          onPress={handleSave}
-          disabled={updateProfile.isPending}
-        >
-          {updateProfile.isPending ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Text style={styles.saveButtonText}>Save changes</Text>
-          )}
-        </Pressable>
+            {/* Certifications */}
+            {certifications.length > 0 ? (
+              <View style={styles.formSection}>
+                <Text style={styles.sectionLabel}>Certifications</Text>
+                <View style={styles.certsRow}>
+                  {certifications.map((cert) => (
+                    <View key={cert} style={styles.certChip}>
+                      <Text style={styles.certChipText}>{cert}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
-        {updateProfile.isError && (
-          <Text style={{ color: colors.error, textAlign: 'center', marginTop: 8 }}>
-            {updateProfile.error instanceof Error ? updateProfile.error.message : 'Failed to save.'}
-          </Text>
+            {/* Working Hours */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Working hours</Text>
+              <View style={styles.scheduleCard}>
+                {DAY_ORDER.map((day, index) => {
+                  const slot = schedule[day]!;
+                  return (
+                    <View key={day}>
+                      <View style={styles.dayRow}>
+                        <Text style={styles.dayLabel}>{DAY_NAMES[day]}</Text>
+                        <Text style={[styles.viewHoursText, !slot.available && styles.viewHoursOff]}>
+                          {slot.available
+                            ? `${formatTimeDisplay(slot.startTime)} – ${formatTimeDisplay(slot.endTime)}`
+                            : 'Day off'}
+                        </Text>
+                      </View>
+                      {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          </>
         )}
-
 
         {/* Sign out */}
         <Pressable
@@ -439,7 +563,22 @@ export default function NannyProfileEditScreen() {
         </Pressable>
       </ScrollView>
 
-      <NannyTabHeader title="Edit profile" />
+      <NannyTabHeader
+        title="Profile"
+        leftSlot={
+          <Pressable
+            onPress={handleToggleEdit}
+            hitSlop={8}
+            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons
+              name={isEditing ? 'close' : 'create-outline'}
+              size={22}
+              color={colors.textDark}
+            />
+          </Pressable>
+        }
+      />
 
       <TimeSelectSheet
         visible={pickerTarget !== null}

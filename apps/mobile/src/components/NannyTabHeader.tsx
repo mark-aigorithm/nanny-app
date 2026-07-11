@@ -12,13 +12,14 @@ import {
 
 interface Props {
   title: string;
+  leftSlot?: React.ReactNode;
 }
 
-export default function NannyTabHeader({ title }: Props) {
+export default function NannyTabHeader({ title, leftSlot }: Props) {
   return (
     <View style={styles.header} pointerEvents="box-none">
       <View style={styles.headerRow}>
-        <View style={styles.sideSlot} />
+        {leftSlot ?? <View style={styles.sideSlot} />}
         <Text style={styles.headerTitle}>{title}</Text>
         <NotificationBellButton
           route="/(nanny)/notifications"

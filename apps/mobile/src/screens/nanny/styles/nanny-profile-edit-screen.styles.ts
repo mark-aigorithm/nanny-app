@@ -308,4 +308,68 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.white,
   },
+
+  // ─── Read-only view mode ───────────────────────────────────────────────────
+  viewName: {
+    ...typeScale.headingLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  viewLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xxs,
+  },
+  viewLocationText: {
+    ...typeScale.bodyMd,
+    color: colors.textTertiary,
+  },
+  statStrip: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.lg,
+    marginTop: spacing.xs,
+    ...shadows.sm,
+  },
+  statCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xxs,
+    paddingHorizontal: spacing.sm,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.borderSubtle,
+    marginVertical: spacing.xs,
+  },
+  statValue: {
+    ...typeScale.headingMd,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  statLabel: {
+    ...typeScale.caption,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  viewBio: {
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textSecondary,
+  },
+  viewHoursText: {
+    flex: 1,
+    ...typeScale.labelSm,
+    color: colors.textPrimary,
+    textAlign: 'right',
+  },
+  viewHoursOff: {
+    color: colors.textMuted,
+  },
 });
