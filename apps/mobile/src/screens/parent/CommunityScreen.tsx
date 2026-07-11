@@ -21,6 +21,7 @@ import {
   useToggleEventRsvp,
   useTogglePostLike,
 } from '@mobile/hooks/useCommunity';
+import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { filterPillToType } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
 import { colors } from '@mobile/theme';
@@ -44,11 +45,11 @@ export default function CommunityScreen() {
     data,
     isLoading,
     refetch,
-    isRefetching,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useCommunityPosts(typeFilter);
+  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
   const toggleLike = useTogglePostLike();
   const toggleRsvp = useToggleEventRsvp();
 
@@ -113,7 +114,12 @@ export default function CommunityScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
+          <RefreshControl
+            refreshing={isRefreshingByUser}
+            onRefresh={refreshByUser}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) fetchNextPage();

@@ -15,6 +15,7 @@ import type { BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import { useBookingList, useCheckIn, useCheckOut, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import UpcomingShiftBanner, { confirmEndShift, confirmStartShift } from '@mobile/components/UpcomingShiftBanner';
@@ -44,10 +45,11 @@ export default function NannyRequestsScreen() {
       ? ({ sortBy: 'startTime' as const, sortDir: 'asc' as const })
       : undefined;
 
-  const { data: requests = [], isLoading, refetch, isRefetching } = useBookingList(
+  const { data: requests = [], isLoading, refetch } = useBookingList(
     STATUS_BY_FILTER[activeFilter],
     listOptions,
   );
+  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
   const { nearestBooking, canCheckIn, canCheckOut } = useBookingShiftTimer(
@@ -183,8 +185,8 @@ export default function NannyRequestsScreen() {
         refreshControl={
           <RefreshControl
             progressViewOffset={HEADER_HEIGHT}
-            refreshing={isRefetching}
-            onRefresh={() => void refetch()}
+            refreshing={isRefreshingByUser}
+            onRefresh={refreshByUser}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />

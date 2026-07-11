@@ -22,6 +22,7 @@ import { HOME_FILTER_TABS } from '@mobile/constants';
 import type { FilterTab } from '@mobile/constants';
 import { IMG_HERO } from '@mobile/mocks/images';
 import { useNannyList } from '@mobile/hooks/useNannies';
+import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useDeviceLocation } from '@mobile/hooks/useDeviceLocation';
 import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 
@@ -45,10 +46,11 @@ export default function HomeScreen() {
 
   const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
   const { coords } = useDeviceLocation();
-  const { data: nannies = [], isLoading, refetch, isRefetching } = useNannyList({
+  const { data: nannies = [], isLoading, refetch } = useNannyList({
     ...(availabilityFilter ? { availabilityType: availabilityFilter } : {}),
     ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
   });
+  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
 
   return (
     <View style={styles.container}>
@@ -62,8 +64,8 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             progressViewOffset={HEADER_HEIGHT}
-            refreshing={isRefetching}
-            onRefresh={() => void refetch()}
+            refreshing={isRefreshingByUser}
+            onRefresh={refreshByUser}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />

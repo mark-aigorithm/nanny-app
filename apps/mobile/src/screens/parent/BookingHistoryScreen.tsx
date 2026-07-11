@@ -14,10 +14,11 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import NotificationBellButton from '@mobile/components/NotificationBellButton';
-import { colors, HEADER_HEIGHT } from '@mobile/theme';
+import { colors } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import { styles } from './styles/booking-history-screen.styles';
@@ -38,10 +39,11 @@ export default function BookingHistoryScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
 
-  const { data: bookings = [], isLoading, refetch, isRefetching } = useBookingList(
+  const { data: bookings = [], isLoading, refetch } = useBookingList(
     STATUS_BY_TAB[activeTab],
     activeTab === 'upcoming' ? { sortBy: 'startTime', sortDir: 'asc' } : undefined,
   );
+  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
 
   const handleViewDetails = (bookingId: string) => {
     router.push({
@@ -73,9 +75,8 @@ export default function BookingHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            progressViewOffset={HEADER_HEIGHT}
-            refreshing={isRefetching}
-            onRefresh={() => void refetch()}
+            refreshing={isRefreshingByUser}
+            onRefresh={refreshByUser}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
