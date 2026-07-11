@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { AdminBooking, AdminBookingStatusFilter } from '@nanny-app/shared';
 
 import { Badge, Button, Card, Feedback, PageHeader } from '@admin/components/ui';
-import { confirmReservation, fetchReservations } from '@admin/lib/api';
+import { confirmBooking, fetchBookings } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 const STATUS_FILTERS: { value: AdminBookingStatusFilter; label: string }[] = [
@@ -27,24 +27,24 @@ function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
 }
 
-export function ReservationsPage() {
+export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING_CONFIRMATION');
   const queryClient = useQueryClient();
 
   const { data: bookings, isLoading, error } = useQuery({
-    queryKey: ['reservations', status],
-    queryFn: () => fetchReservations(status),
+    queryKey: ['bookings', status],
+    queryFn: () => fetchBookings(status),
   });
 
   const confirmMutation = useMutation({
-    mutationFn: confirmReservation,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['reservations'] }),
+    mutationFn: confirmBooking,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['bookings'] }),
   });
 
   return (
     <section>
       <PageHeader
-        title="Reservations"
+        title="Bookings"
         subtitle="Paid bookings wait here until an admin accepts them — accepting notifies the nanny."
       />
       <div className="filter-row">
@@ -59,14 +59,14 @@ export function ReservationsPage() {
           </Button>
         ))}
       </div>
-      {isLoading && <p>Loading reservations…</p>}
+      {isLoading && <p>Loading bookings…</p>}
       {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
       {confirmMutation.error != null && (
         <Feedback tone="error">{apiErrorMessage(confirmMutation.error)}</Feedback>
       )}
       {bookings && bookings.length === 0 && (
         <Card>
-          <p className="empty-state">No reservations with this status.</p>
+          <p className="empty-state">No bookings with this status.</p>
         </Card>
       )}
       {bookings && bookings.length > 0 && (

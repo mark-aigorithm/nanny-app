@@ -56,7 +56,7 @@ adminRouter.get('/me', async (req: Request, res: Response, next: NextFunction) =
   }
 });
 
-// ── Reservations ───────────────────────────────────────────────
+// ── Bookings ───────────────────────────────────────────────────
 
 adminRouter.get('/bookings', async (req: Request, res: Response, next: NextFunction) => {
   try {

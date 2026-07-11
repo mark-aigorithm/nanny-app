@@ -86,7 +86,7 @@ export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial().refine(
 export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchema>;
 
 // ──────────────────────────────────────────────────────────────
-// Reservations (admin booking review queue)
+// Bookings (admin booking review queue)
 // ──────────────────────────────────────────────────────────────
 
 export const AdminBookingStatusFilterSchema = z.enum([

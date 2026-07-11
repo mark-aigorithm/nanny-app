@@ -58,7 +58,7 @@ export async function fetchAdminMe(): Promise<AdminUser> {
   return res.data.data;
 }
 
-export async function fetchReservations(
+export async function fetchBookings(
   status: AdminBookingStatusFilter,
 ): Promise<AdminBooking[]> {
   const res = await apiClient.get<ApiEnvelope<AdminBooking[]>>('/admin/bookings', {
@@ -67,7 +67,7 @@ export async function fetchReservations(
   return res.data.data;
 }
 
-export async function confirmReservation(id: string): Promise<AdminBooking> {
+export async function confirmBooking(id: string): Promise<AdminBooking> {
   const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
     `/admin/bookings/${id}/confirm`,
   );
