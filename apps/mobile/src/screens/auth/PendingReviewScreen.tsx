@@ -65,7 +65,13 @@ export default function PendingReviewScreen() {
         <Button
           title="Sign out"
           variant="outline"
-          onPress={() => signOut.mutate()}
+          onPress={() =>
+            signOut.mutate(undefined, {
+              onSuccess: () => {
+                router.replace('/(auth)/splash');
+              },
+            })
+          }
           loading={signOut.isPending}
         />
       </View>
