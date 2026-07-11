@@ -30,12 +30,14 @@ enum Role {
   MOTHER
   NANNY
   ADMIN
+  SUPERUSER
 
   @@map("role")
 }
 
 enum BookingStatus {
   PENDING
+  PENDING_CONFIRMATION
   CONFIRMED
   IN_PROGRESS
   COMPLETED
@@ -565,6 +567,7 @@ model Message {
 
 enum NotificationType {
   MARKETPLACE_MESSAGE
+  BOOKING_CONFIRMED
   NANNY_CHECKIN
   BOOKING_COMPLETED
   CARE_LOG_ENTRY

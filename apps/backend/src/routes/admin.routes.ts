@@ -1,16 +1,28 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 
 import {
+  AdminBookingStatusFilterSchema,
+  CreateAdminSchema,
   CreatePromoCodeSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
 } from '@nanny-app/shared';
 
 import { ok } from '@backend/lib/api-response';
+import { errors } from '@backend/lib/errors';
 import { routeParam } from '@backend/lib/route-param';
-import { requireAdmin } from '@backend/middleware/admin.middleware';
+import { requireAdmin, requireSuperuser } from '@backend/middleware/admin.middleware';
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
+import {
+  confirmAdminBooking,
+  listAdminBookings,
+} from '@backend/services/admin-booking.service';
+import {
+  createAdminUser,
+  getAdminProfile,
+  listAdminUsers,
+} from '@backend/services/admin-user.service';
 import {
   getPlatformConfig,
   updatePlatformConfig,
@@ -25,6 +37,66 @@ import {
 export const adminRouter = Router();
 
 adminRouter.use(requireAuth, requireAdmin);
+
+// ── Current admin (role drives UI visibility) ─────────────────
+
+adminRouter.get('/me', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.firebaseUser) throw errors.unauthorized();
+    res.json(ok(await getAdminProfile(req.firebaseUser.uid)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Reservations ───────────────────────────────────────────────
+
+adminRouter.get('/bookings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = AdminBookingStatusFilterSchema.catch('ALL').parse(req.query.status);
+    res.json(ok(await listAdminBookings(status)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/bookings/:id/confirm',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await confirmAdminBooking(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Admin accounts (superuser only) ────────────────────────────
+
+adminRouter.get(
+  '/admins',
+  requireSuperuser,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listAdminUsers()));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/admins',
+  requireSuperuser,
+  validateBody(CreateAdminSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createAdminUser(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── Promo codes ────────────────────────────────────────────────
 
