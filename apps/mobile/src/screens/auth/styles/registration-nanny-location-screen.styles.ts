@@ -118,23 +118,6 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
 
-  // Icon input (address)
-  iconInputWrapper: {
-    height: 56,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    gap: 10,
-  },
-  iconInputInner: {
-    flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-
   // Footer
   footer: {
     paddingHorizontal: screenPadding,

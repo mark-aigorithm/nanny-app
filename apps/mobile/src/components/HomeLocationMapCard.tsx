@@ -39,19 +39,37 @@ export default function HomeLocationMapCard({
   const pinCoords = coords ?? deviceLocation.coords;
 
   const mapRef = useRef<MapView>(null);
+  // Coords the map itself last emitted via a tap/drag. Used to distinguish a
+  // user-driven change (camera already there — don't move it) from an external
+  // one (first GPS fix or a search selection — recenter the camera).
+  const lastEmittedRef = useRef<HomeCoords | null>(null);
+
+  const emitChange = (next: HomeCoords) => {
+    lastEmittedRef.current = next;
+    onChange(next);
+  };
 
   useEffect(() => {
     if (coords === null && deviceLocation.coords) {
+      // First GPS fix seeds the pin; camera animates below via the external-
+      // change effect since these coords didn't originate from the map.
       onChange(deviceLocation.coords);
-      // initialRegion is only read on mount, and the GPS fix usually arrives
-      // after that — move the camera explicitly or the map stays on the
-      // fallback region with the pin off-screen.
-      mapRef.current?.animateToRegion(
-        { ...DEFAULT_REGION, ...deviceLocation.coords },
-        600,
-      );
     }
   }, [coords, deviceLocation.coords, onChange]);
+
+  useEffect(() => {
+    if (!coords) return;
+    const emitted = lastEmittedRef.current;
+    const isSelfEmitted =
+      emitted !== null &&
+      emitted.latitude === coords.latitude &&
+      emitted.longitude === coords.longitude;
+    // Recenter only when the change came from outside the map (search select or
+    // GPS fix) — never fight the user's own drag/tap.
+    if (!isSelfEmitted) {
+      mapRef.current?.animateToRegion({ ...DEFAULT_REGION, ...coords }, 600);
+    }
+  }, [coords]);
 
   return (
     <>
@@ -63,13 +81,13 @@ export default function HomeLocationMapCard({
             pinCoords ? { ...DEFAULT_REGION, ...pinCoords } : DEFAULT_REGION
           }
           showsUserLocation={deviceLocation.status === 'granted'}
-          onPress={(e) => onChange(e.nativeEvent.coordinate)}
+          onPress={(e) => emitChange(e.nativeEvent.coordinate)}
         >
           {pinCoords && (
             <Marker
               coordinate={pinCoords}
               draggable
-              onDragEnd={(e) => onChange(e.nativeEvent.coordinate)}
+              onDragEnd={(e) => emitChange(e.nativeEvent.coordinate)}
             />
           )}
         </MapView>

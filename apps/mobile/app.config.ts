@@ -8,6 +8,12 @@ const APP_NAME = 'NannyNow';
 // locally (.env, untracked) and as an EAS secret for builds.
 const GOOGLE_MAPS_API_KEY = process.env['GOOGLE_MAPS_API_KEY'] ?? '';
 
+// Google Places / Geocoding key for registration location autocomplete +
+// reverse geocoding. Falls back to the Maps key so a single key with Places +
+// Geocoding APIs enabled works without a second env var.
+const GOOGLE_PLACES_API_KEY =
+  process.env['GOOGLE_PLACES_API_KEY'] ?? GOOGLE_MAPS_API_KEY;
+
 const config: ExpoConfig = {
   name: APP_NAME,  slug: 'nanny-app',
   scheme: 'nanny-app',
@@ -66,6 +72,8 @@ const config: ExpoConfig = {
     // hostUri so it stays in sync with the IP printed at startup.
     apiBaseUrl: process.env['API_BASE_URL'] ?? 'https://backend-beige-nine-55.vercel.app',
     currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
+    // Google Places / Geocoding key — read by src/lib/googlePlaces.ts.
+    googlePlacesApiKey: GOOGLE_PLACES_API_KEY,
     // Firebase JS SDK config (client credentials — safe to ship in the app).
     // These are only used when running under Expo Go, which can't load the
     // native @react-native-firebase modules. In a native/dev-client build,

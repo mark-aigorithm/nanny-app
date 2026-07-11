@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   StatusBar,
@@ -15,7 +14,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
-import HomeLocationMapCard from '@mobile/components/HomeLocationMapCard';
+import HomeLocationMapCard, {
+  type HomeCoords,
+} from '@mobile/components/HomeLocationMapCard';
+import LocationSearchInput from '@mobile/components/LocationSearchInput';
+import { reverseGeocode } from '@mobile/lib/googlePlaces';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-location-screen.styles';
 
@@ -47,6 +50,16 @@ export default function RegistrationNannyLocationScreen() {
     }
     setLocationError(null);
     router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+  }
+
+  // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to
+  // fill the address input so the two stay in sync.
+  function handlePinChange(coords: HomeCoords) {
+    setLocationError(null);
+    patch(coords);
+    void reverseGeocode(coords).then((address) => {
+      if (address) patch({ address });
+    });
   }
 
   return (
@@ -94,27 +107,21 @@ export default function RegistrationNannyLocationScreen() {
 
           {/* Location inputs */}
           <View style={styles.locationGroup}>
-            {/* Street address */}
-            <View style={styles.iconInputWrapper}>
-              <Ionicons name="location-outline" size={20} color={colors.primary} />
-              <TextInput
-                style={styles.iconInputInner}
-                value={draft.address}
-                onChangeText={(val) => patch({ address: val })}
-                placeholder="Street address"
-                placeholderTextColor={colors.textPlaceholder}
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
-            </View>
+            {/* Street address with map-search autocomplete */}
+            <LocationSearchInput
+              value={draft.address}
+              onChangeText={(val) => patch({ address: val })}
+              onSelectPlace={(coords, address) => {
+                setLocationError(null);
+                patch({ ...coords, address });
+              }}
+              placeholder="Street address"
+            />
 
             {/* Home location map picker */}
             <HomeLocationMapCard
               coords={pinCoords}
-              onChange={(coords) => {
-                setLocationError(null);
-                patch(coords);
-              }}
+              onChange={handlePinChange}
               errorText={locationError}
             />
           </View>
