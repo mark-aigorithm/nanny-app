@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 import { fetchAdminMe } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { NotificationBell } from './notification-bell';
 import { Button } from './ui';
 
 const navItems = [
@@ -46,6 +47,9 @@ export function AdminLayout() {
         </div>
       </aside>
       <main className="admin-content">
+        <header className="admin-topbar">
+          <NotificationBell />
+        </header>
         <Outlet />
       </main>
     </div>
