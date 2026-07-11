@@ -117,11 +117,10 @@ export function NanniesPage() {
                       )}
                     </td>
                     <td>
-                      <a href={`mailto:${nanny.email}`}>{nanny.email}</a>
-                      {nanny.phone && (
-                        <div className="table-subtext">
-                          <a href={`tel:${nanny.phone}`}>{nanny.phone}</a>
-                        </div>
+                      {nanny.phone ? (
+                        <a href={`tel:${nanny.phone}`}>{nanny.phone}</a>
+                      ) : (
+                        '—'
                       )}
                     </td>
                     <td>{nanny.location ?? '—'}</td>
