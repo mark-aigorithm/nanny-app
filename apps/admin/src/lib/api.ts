@@ -4,11 +4,15 @@ import type {
   AdminNanny,
   AdminNannyStatusFilter,
   AdminUser,
+  Camera,
   CreateAdminInput,
+  CreateCameraInput,
   CreatePromoCodeInput,
+  NannyOption,
   PlatformConfig,
   PromoCode,
   SetBookingStatusInput,
+  UpdateCameraInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
 } from '@nanny-app/shared';
@@ -40,6 +44,35 @@ export async function updatePromoCode(
 
 export async function deletePromoCode(id: string): Promise<void> {
   await apiClient.delete(`/admin/promo-codes/${id}`);
+}
+
+export async function fetchCameras(): Promise<Camera[]> {
+  const res = await apiClient.get<ApiEnvelope<Camera[]>>('/admin/cameras');
+  return res.data.data;
+}
+
+export async function fetchNannyOptions(): Promise<NannyOption[]> {
+  const res = await apiClient.get<ApiEnvelope<NannyOption[]>>(
+    '/admin/cameras/nanny-options',
+  );
+  return res.data.data;
+}
+
+export async function createCamera(input: CreateCameraInput): Promise<Camera> {
+  const res = await apiClient.post<ApiEnvelope<Camera>>('/admin/cameras', input);
+  return res.data.data;
+}
+
+export async function updateCamera(
+  id: string,
+  input: UpdateCameraInput,
+): Promise<Camera> {
+  const res = await apiClient.patch<ApiEnvelope<Camera>>(`/admin/cameras/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteCamera(id: string): Promise<void> {
+  await apiClient.delete(`/admin/cameras/${id}`);
 }
 
 export async function fetchPlatformConfig(): Promise<PlatformConfig> {

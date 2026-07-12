@@ -167,6 +167,7 @@ model User {
   deviceTokens              DeviceToken[]
   initiatedConversations    Conversation[]            @relation("ConversationInitiator")
   promoRedemptions          PromoCodeRedemption[]
+  cameras                   Camera[]                  @relation("NannyCameras")
 
   @@index([role])
   @@index([deletedAt])
@@ -672,4 +673,25 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Cameras
+// ──────────────────────────────────────────────────────────────
+
+/// A physical/streaming camera managed by admins. Optionally assigned to a
+/// nanny user (users.role = NANNY); null = unassigned.
+model Camera {
+  id          String    @id @default(cuid())
+  name        String
+  streamUrl   String    @map("stream_url")
+  nannyUserId String?   @map("nanny_user_id")
+  nannyUser   User?     @relation("NannyCameras", fields: [nannyUserId], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt      @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([nannyUserId])
+  @@index([deletedAt])
+  @@map("cameras")
 }

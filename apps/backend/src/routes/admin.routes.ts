@@ -4,10 +4,12 @@ import {
   AdminBookingStatusFilterSchema,
   AdminNannyStatusFilterSchema,
   CreateAdminSchema,
+  CreateCameraSchema,
   CreatePromoCodeSchema,
   RejectAdminBookingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
+  UpdateCameraSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
 } from '@nanny-app/shared';
@@ -38,6 +40,13 @@ import {
   getPlatformConfig,
   updatePlatformConfig,
 } from '@backend/services/app-settings.service';
+import {
+  createCamera,
+  deleteCamera,
+  listCameras,
+  listNannyOptions,
+  updateCamera,
+} from '@backend/services/camera.service';
 import {
   createPromoCode,
   deletePromoCode,
@@ -215,6 +224,63 @@ adminRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await deletePromoCode(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Cameras ────────────────────────────────────────────────────
+
+// Registered before the parameterised routes so the literal path wins.
+adminRouter.get(
+  '/cameras/nanny-options',
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listNannyOptions()));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/cameras', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listCameras()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/cameras',
+  validateBody(CreateCameraSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createCamera(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/cameras/:id',
+  validateBody(UpdateCameraSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateCamera(routeParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/cameras/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await deleteCamera(routeParam(req.params.id))));
     } catch (err) {
       next(err);
     }

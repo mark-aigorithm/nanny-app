@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminLayout } from './components/admin-layout';
 import { AuthProvider, RequireAuth } from './lib/auth';
 import { AdminsPage } from './pages/admins-page';
+import { CamerasPage } from './pages/cameras-page';
 import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
 import { NanniesPage } from './pages/nannies-page';
@@ -39,6 +40,7 @@ export function App() {
               <Route path="nannies" element={<NanniesPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
+              <Route path="cameras" element={<CamerasPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
