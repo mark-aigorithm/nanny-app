@@ -21,6 +21,7 @@ import {
   checkOutBooking,
   createBooking,
   createEmergencyBooking,
+  declineBooking,
   getBooking,
   listBookings,
   mockPayBooking,
@@ -151,6 +152,18 @@ bookingRouter.post(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       const booking = await acceptBooking(req.firebaseUser, String(req.params['id']));
+      res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/decline',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const booking = await declineBooking(req.firebaseUser, String(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },

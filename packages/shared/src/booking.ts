@@ -5,10 +5,20 @@ import { z } from 'zod';
 // ──────────────────────────────────────────────────────────────
 
 export const BookingStatusSchema = z.enum([
-  'PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REFUNDED',
+  'PENDING', 'APPROVED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REFUNDED',
 ]);
 export const BookingStatus = BookingStatusSchema.enum;
 export type BookingStatus = z.infer<typeof BookingStatusSchema>;
+
+/**
+ * Nanny's optional, informational response to a booking request. Advisory
+ * only — the admin's approval decides the booking's `status`. The nanny UI
+ * reads this to show "you accepted / declined"; the admin UI reads it to show
+ * "nanny accepted / declined / no response".
+ */
+export const NannyBookingDecisionSchema = z.enum(['PENDING', 'ACCEPTED', 'DECLINED']);
+export const NannyBookingDecision = NannyBookingDecisionSchema.enum;
+export type NannyBookingDecision = z.infer<typeof NannyBookingDecisionSchema>;
 
 export const BookingTypeSchema = z.enum(['STANDARD', 'EMERGENCY']);
 export const BookingType = BookingTypeSchema.enum;
@@ -88,6 +98,12 @@ export const BookingResponseSchema = z.object({
   nannyProfileId: z.string().nullable(),
   nanny: NannySummarySchema.nullable(),
   status: BookingStatusSchema,
+  /** Nanny's optional accept/decline (informational — admin approval is authoritative). */
+  nannyDecision: NannyBookingDecisionSchema,
+  /** When the nanny recorded her decision, or null if she hasn't responded. */
+  nannyDecidedAt: z.string().nullable(),
+  /** When an admin approved the booking (PENDING → APPROVED), or null. */
+  adminApprovedAt: z.string().nullable(),
   type: BookingTypeSchema,
   date: z.string(),
   startTime: z.string(),

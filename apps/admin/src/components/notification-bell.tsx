@@ -6,7 +6,7 @@ import { fetchBookings, fetchNannies } from '../lib/api';
 
 // Poll the pending queues so the admin sees new requests without a manual
 // refresh. Reuses the same query keys as the Nannies/Bookings pages, so their
-// mutations (approve / accept) also keep this badge in sync.
+// mutations (approve / reject) also keep this badge in sync.
 const POLL_MS = 30_000;
 
 export function NotificationBell() {
@@ -19,8 +19,8 @@ export function NotificationBell() {
     refetchInterval: POLL_MS,
   });
   const { data: pendingBookings } = useQuery({
-    queryKey: ['bookings', 'PENDING_CONFIRMATION'],
-    queryFn: () => fetchBookings('PENDING_CONFIRMATION'),
+    queryKey: ['bookings', 'PENDING'],
+    queryFn: () => fetchBookings('PENDING'),
     refetchInterval: POLL_MS,
   });
 

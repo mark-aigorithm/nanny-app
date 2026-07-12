@@ -68,11 +68,29 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.taupe,
         iconColor: colors.textTertiary,
       };
+    case 'booking_requested':
+      return {
+        name: 'hourglass',
+        backgroundColor: colors.warmLight,
+        iconColor: colors.goldWarm,
+      };
+    case 'booking_approved':
+      return {
+        name: 'shield-checkmark',
+        backgroundColor: colors.primaryMuted,
+        iconColor: colors.primary,
+      };
     case 'booking_confirmed':
       return {
         name: 'calendar',
         backgroundColor: colors.successLight,
         iconColor: colors.successDark,
+      };
+    case 'booking_cancelled':
+      return {
+        name: 'close-circle',
+        backgroundColor: colors.errorLight,
+        iconColor: colors.error,
       };
     case 'nanny_checkin':
       return {

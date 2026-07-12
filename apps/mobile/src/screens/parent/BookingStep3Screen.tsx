@@ -339,7 +339,10 @@ export default function BookingStep3Screen() {
 
 
 
-  const startCheckout = useCallback(async () => {
+  // Create-flow: submit the booking request for admin approval. Under
+  // pay-after-approval, creating a booking must NOT open payment — the mother
+  // pays only once an admin has approved (see resumeCheckout / retry mode).
+  const submitBookingRequest = useCallback(async () => {
 
     if (!params.nannyProfileId || !params.dateIso || !params.startTimeIso || !params.endTimeIso) {
 
@@ -385,28 +388,13 @@ export default function BookingStep3Screen() {
 
       });
 
-      setBookingId(created.id);
-
-      router.setParams({
-        bookingId: created.id,
-        retry: '1',
-      } as never);
-
-      if (created.status === 'CONFIRMED') {
-
-        goToConfirmation(created.id);
-
-        return;
-
-      }
-
-
-
-      await openPaymobCheckout(created.id);
+      // Route straight to the confirmation screen, which reads a PENDING
+      // booking as "request submitted — awaiting approval".
+      goToConfirmation(created.id);
 
     } catch (err) {
 
-      setLoadError(getApiErrorMessage(err, 'Payment failed. Please try again.'));
+      setLoadError(getApiErrorMessage(err, 'Could not submit your request. Please try again.'));
 
     } finally {
 
@@ -414,7 +402,7 @@ export default function BookingStep3Screen() {
 
     }
 
-  }, [createBooking, goToConfirmation, openPaymobCheckout, params, router]);
+  }, [createBooking, goToConfirmation, params]);
 
 
 
@@ -432,11 +420,11 @@ export default function BookingStep3Screen() {
 
     } else {
 
-      void startCheckout();
+      void submitBookingRequest();
 
     }
 
-  }, [draftReady, resumeCheckout, retryMode, startCheckout]);
+  }, [draftReady, resumeCheckout, retryMode, submitBookingRequest]);
 
 
 
@@ -552,7 +540,7 @@ export default function BookingStep3Screen() {
 
           </Pressable>
 
-          <Text style={styles.headerTitle}>Payment</Text>
+          <Text style={styles.headerTitle}>{retryMode ? 'Payment' : 'Confirm request'}</Text>
 
           <View style={styles.headerIconBtn} />
 
@@ -592,7 +580,9 @@ export default function BookingStep3Screen() {
 
             <ActivityIndicator color={colors.primary} size="large" />
 
-            <Text style={styles.webviewLoadingText}>Preparing checkout…</Text>
+            <Text style={styles.webviewLoadingText}>
+              {retryMode ? 'Preparing checkout…' : 'Submitting your request…'}
+            </Text>
 
           </View>
 
@@ -622,7 +612,7 @@ export default function BookingStep3Screen() {
 
                   startedRef.current = true;
 
-                  void startCheckout();
+                  void submitBookingRequest();
 
                 }
 

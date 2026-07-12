@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import type { BookingStatus } from '@nanny-app/shared';
@@ -69,6 +70,14 @@ export default function BookingDetailScreen() {
     router.replace('/(parent)/bookings' as never);
   };
 
+  const handleCompletePayment = () => {
+    if (!booking) return;
+    router.push({
+      pathname: '/(parent)/book/booking-step-3',
+      params: payBookingParams(booking) as never,
+    } as never);
+  };
+
   const handleCancel = () => {
     if (!bookingId) return;
     Alert.alert(
@@ -108,7 +117,9 @@ export default function BookingDetailScreen() {
   const nannyPhoto = booking.nanny?.avatarUrl ?? '';
   const dateDisplay = fmtBookingDate(booking.date);
   const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
-  const canCancel = booking.status === 'CONFIRMED' || booking.status === 'PENDING';
+  const isApproved = booking.status === 'APPROVED';
+  const canCancel =
+    booking.status === 'CONFIRMED' || booking.status === 'PENDING' || isApproved;
 
   return (
     <View style={styles.container}>
@@ -203,6 +214,12 @@ export default function BookingDetailScreen() {
 
         {canCancel && (
           <View style={styles.actionsSection}>
+            {isApproved && (
+              <Pressable style={styles.payButton} onPress={handleCompletePayment}>
+                <Ionicons name="card-outline" size={18} color={colors.white} />
+                <Text style={styles.payButtonText}>Complete payment</Text>
+              </Pressable>
+            )}
             <Pressable
               style={styles.cancelButton}
               onPress={handleCancel}

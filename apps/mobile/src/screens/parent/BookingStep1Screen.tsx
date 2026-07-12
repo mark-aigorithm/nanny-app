@@ -493,7 +493,7 @@ export default function BookingStep1Screen() {
 
           <Text style={styles.proceedBtnText}>
 
-            Proceed to payment · {formatMoney(total)}
+            Send booking request · {formatMoney(total)}
 
           </Text>
 

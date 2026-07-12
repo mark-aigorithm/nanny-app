@@ -19,6 +19,7 @@ import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import { styles } from './styles/booking-history-screen.styles';
@@ -30,7 +31,7 @@ const TABS: { key: BookingTabKey; label: string }[] = [
 ];
 
 const STATUS_BY_TAB: Record<BookingTabKey, string> = {
-  upcoming: 'PENDING,PENDING_CONFIRMATION,CONFIRMED,IN_PROGRESS',
+  upcoming: 'PENDING,APPROVED,PENDING_CONFIRMATION,CONFIRMED,IN_PROGRESS',
   past: 'COMPLETED',
   cancelled: 'CANCELLED,REFUNDED',
 };
@@ -56,6 +57,13 @@ export default function BookingHistoryScreen() {
     router.push({
       pathname: '/(parent)/book/review',
       params: { bookingId, returnTo: 'bookings' },
+    } as never);
+  };
+
+  const handleCompletePayment = (booking: BookingResponse) => {
+    router.push({
+      pathname: '/(parent)/book/booking-step-3',
+      params: payBookingParams(booking) as never,
     } as never);
   };
 
@@ -125,6 +133,7 @@ export default function BookingHistoryScreen() {
                 key={booking.id}
                 booking={booking}
                 onViewDetails={handleViewDetails}
+                onCompletePayment={handleCompletePayment}
               />
             ))}
           </View>
@@ -163,11 +172,13 @@ function BookingCard({
   booking,
   onViewDetails,
   onLeaveReview,
+  onCompletePayment,
   variant = 'default',
 }: {
   booking: BookingResponse;
   onViewDetails: (id: string) => void;
   onLeaveReview?: (id: string) => void;
+  onCompletePayment?: (booking: BookingResponse) => void;
   variant?: 'default' | 'cancelled';
 }) {
   const nannyName = booking.nanny
@@ -248,6 +259,17 @@ function BookingCard({
             </Text>
           ) : null}
         </View>
+      ) : null}
+
+      {booking.status === 'APPROVED' && onCompletePayment ? (
+        <TouchableOpacity
+          style={styles.payButton}
+          activeOpacity={0.85}
+          onPress={() => onCompletePayment(booking)}
+        >
+          <Ionicons name="card-outline" size={16} color={colors.white} />
+          <Text style={styles.payButtonText}>Complete payment</Text>
+        </TouchableOpacity>
       ) : null}
 
       <View style={styles.cardDivider} />

@@ -37,6 +37,7 @@ enum Role {
 
 enum BookingStatus {
   PENDING
+  APPROVED
   PENDING_CONFIRMATION
   CONFIRMED
   IN_PROGRESS
@@ -45,6 +46,17 @@ enum BookingStatus {
   REFUNDED
 
   @@map("booking_status")
+}
+
+/// Nanny's optional, informational response to a booking request. Purely
+/// advisory — the admin's approval is authoritative and overrides this. A
+/// nanny may ACCEPT or DECLINE; the booking's lifecycle status is unaffected.
+enum NannyBookingDecision {
+  PENDING
+  ACCEPTED
+  DECLINED
+
+  @@map("nanny_booking_decision")
 }
 
 enum BookingType {
@@ -126,8 +138,8 @@ model User {
   termsAcceptedAt      DateTime? @map("terms_accepted_at")
   termsAcceptedVersion String?   @map("terms_accepted_version")
   /// Street address + home coordinates captured by the registration map
-  /// picker. For nannies, lat/lng are mirrored onto NannyProfile, which
-  /// proximity search reads.
+  /// picker. Single source of truth for location — proximity search and
+  /// distance sorting (nanny listing + emergency booking) read lat/lng here.
   address              String?
   latitude             Decimal?  @db.Decimal(10, 7)
   longitude            Decimal?  @db.Decimal(10, 7)
@@ -140,6 +152,8 @@ model User {
   nannyProfile      NannyProfile?
   bookingsAsMother  Booking[]  @relation("BookingMother")
   cancelledBookings Booking[]  @relation("BookingCancelledBy")
+  approvedBookings  Booking[]  @relation("BookingAdminApprover")
+  actionedBookings  Booking[]  @relation("BookingAdminActor")
   payments          Payment[]  @relation("PaymentMother")
   reviewsGiven      Review[]   @relation("ReviewMother")
   communityPosts            CommunityPost[]
@@ -273,6 +287,18 @@ model Booking {
   nannyProfileId          String?       @map("nanny_profile_id")
   nannyProfile            NannyProfile? @relation(fields: [nannyProfileId], references: [id])
   status                  BookingStatus @default(PENDING)
+  /// Nanny's optional accept/decline of the request. Informational only —
+  /// see NannyBookingDecision. Admin approval is authoritative regardless.
+  nannyDecision           NannyBookingDecision @default(PENDING) @map("nanny_decision")
+  nannyDecidedAt          DateTime?     @map("nanny_decided_at")
+  /// Admin who approved the booking (PENDING → APPROVED), plus timestamp.
+  adminApprovedById       String?       @map("admin_approved_by_id")
+  adminApprovedBy         User?         @relation("BookingAdminApprover", fields: [adminApprovedById], references: [id])
+  adminApprovedAt         DateTime?     @map("admin_approved_at")
+  /// Audit trail for any admin status override (PATCH /admin/bookings/:id/status).
+  adminActionById         String?       @map("admin_action_by_id")
+  adminActionBy           User?         @relation("BookingAdminActor", fields: [adminActionById], references: [id])
+  adminActionAt           DateTime?     @map("admin_action_at")
   type                    BookingType   @default(STANDARD)
   date                    DateTime      @db.Date
   startTime               DateTime      @map("start_time")
@@ -304,6 +330,7 @@ model Booking {
   @@index([motherId])
   @@index([nannyProfileId])
   @@index([status])
+  @@index([nannyDecision])
   @@index([date])
   @@map("bookings")
 }
@@ -583,7 +610,10 @@ model Message {
 
 enum NotificationType {
   MARKETPLACE_MESSAGE
+  BOOKING_REQUESTED
+  BOOKING_APPROVED
   BOOKING_CONFIRMED
+  BOOKING_CANCELLED
   NANNY_CHECKIN
   BOOKING_COMPLETED
   CARE_LOG_ENTRY

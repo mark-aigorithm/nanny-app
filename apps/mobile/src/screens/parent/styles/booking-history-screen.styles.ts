@@ -200,6 +200,24 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  // Complete payment CTA (APPROVED bookings)
+  payButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    height: 44,
+    marginTop: spacing.md,
+    ...shadows.md,
+  },
+  payButtonText: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
+
   // Card Divider
   cardDivider: {
     height: 1,
