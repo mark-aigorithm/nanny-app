@@ -69,6 +69,12 @@ export type PromoCode = z.infer<typeof PromoCodeSchema>;
 export const PlatformConfigSchema = z.object({
   /** Platform service fee taken on each booking, in percent. */
   serviceFeePercent: z.number().min(0).max(100),
+  /**
+   * Fixed hourly rate (EGP) charged for every booking. Bookings no longer use a
+   * per-nanny rate — the mother sees this price up front and any nanny who
+   * claims the request is paid against it.
+   */
+  standardHourlyRate: z.number().positive().max(100000),
   /** Maximum hours a mother can reserve in a single booking. */
   maxBookingHours: z.number().int().min(1).max(24),
   /** Minimum hours a mother can reserve in a single booking. */
@@ -140,6 +146,16 @@ export const SetBookingStatusSchema = z.object({
   status: BookingStatusSchema.exclude(['REFUNDED']),
 });
 export type SetBookingStatusInput = z.infer<typeof SetBookingStatusSchema>;
+
+/**
+ * Admin edits a booking's scheduled window (PATCH /admin/bookings/:id/times).
+ * The server recomputes duration and the price breakdown from the new window.
+ */
+export const UpdateBookingTimesSchema = z.object({
+  startTime: z.string().datetime({ offset: true }),
+  endTime: z.string().datetime({ offset: true }),
+});
+export type UpdateBookingTimesInput = z.infer<typeof UpdateBookingTimesSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Nanny review queue (admin vetting of new nanny registrations)
