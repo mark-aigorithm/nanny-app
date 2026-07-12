@@ -24,6 +24,7 @@ import { IMG_HERO } from '@mobile/mocks/images';
 import { useNannyList } from '@mobile/hooks/useNannies';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useDeviceLocation } from '@mobile/hooks/useDeviceLocation';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 
 const SHOW_HOME_BANNER = false;
@@ -45,10 +46,17 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Full-time');
 
   const availabilityFilter = FILTER_TO_AVAILABILITY[activeFilter];
-  const { coords } = useDeviceLocation();
+  // Distance sort uses the mother's SAVED home location (from her user row),
+  // falling back to live device GPS only when no home is saved.
+  const savedProfile = useUserProfileStore((s) => s.profile);
+  const { coords: deviceCoords } = useDeviceLocation();
+  const searchCoords =
+    savedProfile?.latitude != null && savedProfile?.longitude != null
+      ? { latitude: savedProfile.latitude, longitude: savedProfile.longitude }
+      : deviceCoords;
   const { data: nannies = [], isLoading, refetch } = useNannyList({
     ...(availabilityFilter ? { availabilityType: availabilityFilter } : {}),
-    ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
+    ...(searchCoords ? { latitude: searchCoords.latitude, longitude: searchCoords.longitude } : {}),
   });
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
 
@@ -105,7 +113,7 @@ export default function HomeScreen() {
         {/* Recommended nannies */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{coords ? 'Recommended near you' : 'Recommended nannies'}</Text>
+            <Text style={styles.sectionTitle}>{searchCoords ? 'Recommended near you' : 'Recommended nannies'}</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(parent)/search')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>

@@ -70,6 +70,12 @@ export const UpdateProfileRequestSchema = z.object({
     .nullable()
     .optional(),
   avatarUrl: z.string().url().nullable().optional(),
+  // Home location lives on the user row (single source of truth for proximity
+  // search). Updating address + coordinates together here is what keeps the
+  // saved home in sync with the map pin and prevents distance-sort drift.
+  address: z.string().trim().max(200).nullable().optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
 });
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 

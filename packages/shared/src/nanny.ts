@@ -258,9 +258,9 @@ export const UpdateNannyProfileRequestSchema = z.object({
   lastName: z.string().trim().min(1).max(80).optional(),
   avatarUrl: z.string().url().nullable().optional(),
   bio: z.string().max(1000).optional(),
+  // Free-text home label. Persisted to `users.address` (the single source of
+  // truth); coordinates are edited via PATCH /auth/me, not here.
   location: z.string().trim().max(200).optional(),
-  latitude: z.number().min(-90).max(90).nullable().optional(),
-  longitude: z.number().min(-180).max(180).nullable().optional(),
   yearsOfExperience: z.number().int().min(0).max(60).optional(),
   hourlyRate: z.number().min(0).optional(),
   certifications: z.array(z.string().max(100)).optional(),

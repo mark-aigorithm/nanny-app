@@ -109,6 +109,9 @@ const SEED_MOTHERS = [
     firstName: 'Sarah',
     lastName: 'Khalil',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-sarah',
+    address: 'Garden City, Cairo',
+    latitude: '30.0459',
+    longitude: '31.2243',
   },
   {
     id: `${PREFIX}user-elena`,
@@ -118,6 +121,9 @@ const SEED_MOTHERS = [
     firstName: 'Elena',
     lastName: 'Hassan',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-elena',
+    address: 'Zamalek, Cairo',
+    latitude: '30.0700',
+    longitude: '31.2200',
   },
   {
     id: `${PREFIX}user-nadia`,
@@ -127,6 +133,9 @@ const SEED_MOTHERS = [
     firstName: 'Nadia',
     lastName: 'Farouk',
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nadia',
+    address: 'Dokki, Giza',
+    latitude: '30.0131',
+    longitude: '31.2089',
   },
 ] as const;
 
@@ -138,6 +147,9 @@ const FALLBACK_DEMO_MOTHER = {
   firstName: 'Layla',
   lastName: 'Mostafa',
   avatarUrl: 'https://i.pravatar.cc/150?u=demo-mother',
+  address: 'Downtown, Cairo',
+  latitude: '30.0500',
+  longitude: '31.2333',
 };
 
 const SEED_NANNIES = [
@@ -152,6 +164,8 @@ const SEED_NANNIES = [
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-elena',
     bio: 'Certified newborn care specialist with 8 years of experience. CPR & first aid certified.',
     location: 'Zamalek, Cairo',
+    latitude: '30.0614',
+    longitude: '31.2197',
     yearsOfExperience: 8,
     hourlyRate: '180.00',
     certifications: ['CPR', 'First Aid', 'Newborn Care'],
@@ -172,6 +186,8 @@ const SEED_NANNIES = [
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-maya',
     bio: 'Warm and energetic nanny specializing in toddlers and early learning activities.',
     location: 'Maadi, Cairo',
+    latitude: '29.9602',
+    longitude: '31.2569',
     yearsOfExperience: 5,
     hourlyRate: '150.00',
     certifications: ['CPR', 'Early Childhood Education'],
@@ -192,6 +208,8 @@ const SEED_NANNIES = [
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-claire',
     bio: 'British expat nanny, fluent in English and Arabic. Great with school-age children.',
     location: 'New Cairo',
+    latitude: '30.0074',
+    longitude: '31.4913',
     yearsOfExperience: 10,
     hourlyRate: '200.00',
     certifications: ['CPR', 'Montessori'],
@@ -212,6 +230,8 @@ const SEED_NANNIES = [
     avatarUrl: 'https://i.pravatar.cc/150?u=demo-nanny-sandra',
     bio: 'Flexible occasional nanny — perfect for date nights and weekend coverage.',
     location: 'Heliopolis, Cairo',
+    latitude: '30.0880',
+    longitude: '31.3230',
     yearsOfExperience: 3,
     hourlyRate: '120.00',
     certifications: ['CPR'],
@@ -278,6 +298,11 @@ async function resolveDemoMother() {
         role: Role.MOTHER,
         deletedAt: null,
         avatarUrl: linked.avatarUrl ?? FALLBACK_DEMO_MOTHER.avatarUrl,
+        // Backfill a demo home only if the linked account has none, so a real
+        // registered home (and its coordinates) is never overwritten.
+        address: linked.address ?? FALLBACK_DEMO_MOTHER.address,
+        latitude: linked.latitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
+        longitude: linked.longitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
       },
     });
     return linked;
@@ -303,6 +328,9 @@ async function resolveDemoMother() {
       firebaseUid: fallbackUid,
       role: Role.MOTHER,
       deletedAt: null,
+      address: FALLBACK_DEMO_MOTHER.address,
+      latitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
+      longitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
     },
   });
 }
@@ -328,6 +356,9 @@ async function ensureSeedMothers() {
           avatarUrl: seed.avatarUrl,
           role: Role.MOTHER,
           deletedAt: null,
+          address: seed.address,
+          latitude: new Prisma.Decimal(seed.latitude),
+          longitude: new Prisma.Decimal(seed.longitude),
         },
       }),
     );
@@ -339,6 +370,8 @@ async function seedNannies() {
   const profiles = [];
   for (const n of SEED_NANNIES) {
     const uid = await ensureAuthUser(n.email, `${n.firstName} ${n.lastName}`);
+    // Home location (address + distinct coordinates) lives on the user row —
+    // the single source of truth proximity search reads.
     await prisma.user.upsert({
       where: { email: n.email },
       create: {
@@ -352,6 +385,9 @@ async function seedNannies() {
         role: Role.NANNY,
         isEmailVerified: true,
         isPhoneVerified: true,
+        address: n.location,
+        latitude: new Prisma.Decimal(n.latitude),
+        longitude: new Prisma.Decimal(n.longitude),
       },
       update: {
         firstName: n.firstName,
@@ -360,6 +396,9 @@ async function seedNannies() {
         firebaseUid: uid,
         role: Role.NANNY,
         deletedAt: null,
+        address: n.location,
+        latitude: new Prisma.Decimal(n.latitude),
+        longitude: new Prisma.Decimal(n.longitude),
       },
     });
 
@@ -369,7 +408,6 @@ async function seedNannies() {
         id: n.profileId,
         userId: n.userId,
         bio: n.bio,
-        location: n.location,
         yearsOfExperience: n.yearsOfExperience,
         hourlyRate: new Prisma.Decimal(n.hourlyRate),
         certifications: [...n.certifications],
@@ -380,17 +418,18 @@ async function seedNannies() {
         rating: new Prisma.Decimal(n.rating),
         reviewCount: n.reviewCount,
         isProfileComplete: true,
-        latitude: new Prisma.Decimal('30.0444'),
-        longitude: new Prisma.Decimal('31.2357'),
+        // Demo nannies are pre-vetted so they appear in search (the default is
+        // PENDING_REVIEW, which is hidden from the directory).
+        approvalStatus: 'APPROVED',
       },
       update: {
         bio: n.bio,
-        location: n.location,
         schedule: FULL_WEEK_SCHEDULE,
         hourlyRate: new Prisma.Decimal(n.hourlyRate),
         rating: new Prisma.Decimal(n.rating),
         reviewCount: n.reviewCount,
         isProfileComplete: true,
+        approvalStatus: 'APPROVED',
         deletedAt: null,
       },
     });

@@ -121,15 +121,12 @@ export async function registerUser(
 
     if (body.role === Role.NANNY) {
       // New nannies always start PENDING_REVIEW (schema default) — an admin
-      // must vet them before they can use the app.
-      // Lat/lng are mirrored here because proximity search and emergency
-      // booking read them from the nanny profile, not the user row.
+      // must vet them before they can use the app. Home location (address +
+      // coordinates) lives solely on the user row now; proximity search and
+      // emergency booking read it from there, so nothing is mirrored here.
       await tx.nannyProfile.create({
         data: {
           userId: user.id,
-          location: body.address ?? null,
-          latitude: body.latitude,
-          longitude: body.longitude,
         },
       });
     }
@@ -203,6 +200,10 @@ export async function updateProfile(
       ...(body.lastName !== undefined && { lastName: body.lastName }),
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
+      // Home location — the single source of truth for proximity search.
+      ...(body.address !== undefined && { address: body.address }),
+      ...(body.latitude !== undefined && { latitude: body.latitude }),
+      ...(body.longitude !== undefined && { longitude: body.longitude }),
     },
     include: userInclude,
   });

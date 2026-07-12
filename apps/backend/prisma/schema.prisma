@@ -166,7 +166,6 @@ model NannyProfile {
   userId            String    @unique @map("user_id")
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio               String?   @db.Text
-  location          String?
   yearsOfExperience Int?      @map("years_of_experience")
   hourlyRate        Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
   certifications    String[]
@@ -180,9 +179,6 @@ model NannyProfile {
   approvalStatus    NannyApprovalStatus @default(PENDING_REVIEW) @map("approval_status")
   reviewedAt        DateTime? @map("reviewed_at")
   rejectionReason   String?   @map("rejection_reason")
-  /// Decimal degrees — used for emergency booking proximity search.
-  latitude          Decimal?  @db.Decimal(10, 7)
-  longitude         Decimal?  @db.Decimal(10, 7)
   /// Availability type for filtering: FULL_TIME, PART_TIME, OCCASIONAL
   availabilityType  AvailabilityType @default(OCCASIONAL) @map("availability_type")
   /// Denormalised rating cache — recomputed on every new review.
