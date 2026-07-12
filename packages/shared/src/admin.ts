@@ -107,6 +107,8 @@ export const AdminBookingSchema = z.object({
   endTime: z.string(),
   durationHours: z.number(),
   totalAmount: z.number(),
+  discountAmount: z.number(),
+  promoCode: z.string().nullable(),
   paymentStatus: z.string().nullable(),
   mother: z.object({
     id: z.string(),

@@ -140,8 +140,21 @@ export const CreateBookingSchema = z.object({
   startTime: z.string().datetime({ offset: true }),
   endTime: z.string().datetime({ offset: true }),
   specialInstructions: z.string().trim().max(1000).optional(),
+  promoCode: z.string().trim().min(1).optional(),
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
+
+/** Preview a promo discount before booking. `subtotal` is baseRate × hours; the server adds the service fee. */
+export const ValidateBookingPromoSchema = z.object({
+  code: z.string().trim().min(1),
+  subtotal: z.number().positive(),
+});
+export type ValidateBookingPromoRequest = z.infer<typeof ValidateBookingPromoSchema>;
+
+export const ValidateBookingPromoResponseSchema = z.object({
+  discountAmount: z.number(),
+});
+export type ValidateBookingPromoResponse = z.infer<typeof ValidateBookingPromoResponseSchema>;
 
 /** YYYY-MM-DD in local calendar time for the given instant. */
 export function toLocalDateIso(date: Date = new Date()): string {
