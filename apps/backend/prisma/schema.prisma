@@ -253,6 +253,7 @@ model PromoCode {
   deletedAt       DateTime?    @map("deleted_at")
 
   redemptions PromoCodeRedemption[]
+  bookings    Booking[]
 
   @@index([isActive])
   @@index([deletedAt])
@@ -286,6 +287,8 @@ model Booking {
   /// Null for EMERGENCY bookings until a nanny accepts.
   nannyProfileId          String?       @map("nanny_profile_id")
   nannyProfile            NannyProfile? @relation(fields: [nannyProfileId], references: [id])
+  promoCodeId             String?       @map("promo_code_id")
+  promoCode               PromoCode?    @relation(fields: [promoCodeId], references: [id])
   status                  BookingStatus @default(PENDING)
   /// Nanny's optional accept/decline of the request. Informational only —
   /// see NannyBookingDecision. Admin approval is authoritative regardless.
@@ -332,6 +335,7 @@ model Booking {
   @@index([status])
   @@index([nannyDecision])
   @@index([date])
+  @@index([promoCodeId])
   @@map("bookings")
 }
 
