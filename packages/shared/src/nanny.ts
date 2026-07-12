@@ -15,6 +15,97 @@ export type DaySchedule = z.infer<typeof DayScheduleSchema>;
 export const WeeklyScheduleSchema = z.record(z.string(), DayScheduleSchema);
 export type WeeklySchedule = z.infer<typeof WeeklyScheduleSchema>;
 
+// ── Availability-window validation ────────────────────────────────────────────
+// Define-once rules for checking a requested booking time against a nanny's
+// weekly availability. Pure and framework-free so the mobile app (and, later,
+// the backend) can share the exact same logic. All times are minutes-from-
+// midnight under the same wall-clock convention the booking screen uses.
+
+/**
+ * Parse an "HH:MM" clock string into minutes-from-midnight. Honours minutes
+ * (e.g. "17:30" → 1050). Returns `NaN` for malformed input so callers fail
+ * closed rather than treating garbage as `0`.
+ */
+function parseHhMmToMinutes(time: string): number {
+  const [hh, mm] = time.split(':');
+  const hours = Number(hh);
+  const minutes = Number(mm);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return Number.NaN;
+  return hours * 60 + minutes;
+}
+
+/**
+ * The available window length (in minutes) for a given day-of-week, or `null`
+ * when the day is missing, unavailable, or has malformed bounds.
+ * `dayOfWeek` is 0 (Sun) … 6 (Sat), matching JS `Date.getDay()`.
+ */
+export function getDayScheduleWindowMinutes(
+  schedule: WeeklySchedule | null | undefined,
+  dayOfWeek: number,
+): number | null {
+  if (!schedule) return null;
+  const day = schedule[String(dayOfWeek)];
+  if (!day || !day.available) return null;
+  const start = parseHhMmToMinutes(day.startTime);
+  const end = parseHhMmToMinutes(day.endTime);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return end - start;
+}
+
+/**
+ * True when a booking spanning `[startMinutes, endMinutes]` (minutes-from-
+ * midnight) fits entirely within the nanny's available window for `dayOfWeek`.
+ *
+ * - `false` when the day is missing or `available === false`.
+ * - Window bounds honour minutes (e.g. "17:30" → 1050), not just the hour.
+ * - Exact-edge is VALID: a booking ending exactly at the window end (or
+ *   starting exactly at the window start) passes.
+ */
+export function isTimeRangeWithinDaySchedule(
+  schedule: WeeklySchedule | null | undefined,
+  dayOfWeek: number,
+  startMinutes: number,
+  endMinutes: number,
+): boolean {
+  if (!schedule) return false;
+  const day = schedule[String(dayOfWeek)];
+  if (!day || !day.available) return false;
+  const windowStart = parseHhMmToMinutes(day.startTime);
+  const windowEnd = parseHhMmToMinutes(day.endTime);
+  if (Number.isNaN(windowStart) || Number.isNaN(windowEnd)) return false;
+  return startMinutes >= windowStart && endMinutes <= windowEnd;
+}
+
+/**
+ * Convenience for the booking screen: does a booking starting at `startMinutes`
+ * and running for `durationHours` fit within the day's available window?
+ */
+export function doesDurationFitDaySchedule(
+  schedule: WeeklySchedule | null | undefined,
+  dayOfWeek: number,
+  startMinutes: number,
+  durationHours: number,
+): boolean {
+  return isTimeRangeWithinDaySchedule(
+    schedule,
+    dayOfWeek,
+    startMinutes,
+    startMinutes + durationHours * 60,
+  );
+}
+
+/** Shown when the chosen start + duration runs past the nanny's available window. */
+export const BOOKING_OUTSIDE_AVAILABILITY_MESSAGE =
+  "This time is outside the nanny's available hours.";
+
+/** Shown when the day's window can't fit even the shortest booking option. */
+export const BOOKING_DAY_TOO_SHORT_MESSAGE =
+  "This nanny isn't available long enough on this day.";
+
+/** Shown when no booking length fits from the chosen start time — pick an earlier slot. */
+export const BOOKING_START_TOO_LATE_MESSAGE =
+  'No booking length fits from this start time. Try an earlier slot.';
+
 export const NannyApprovalStatusSchema = z.enum(['PENDING_REVIEW', 'APPROVED', 'REJECTED']);
 /** Enum-like const for value comparisons: `NannyApprovalStatus.APPROVED`, … */
 export const NannyApprovalStatus = NannyApprovalStatusSchema.enum;

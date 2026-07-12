@@ -1,10 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { BOOKING_DURATION_OPTIONS } from '@mobile/constants';
-import { isStandardBookingDateAllowed, STANDARD_BOOKING_SAME_DAY_MESSAGE } from '@nanny-app/shared';
+import {
+  isStandardBookingDateAllowed,
+  STANDARD_BOOKING_SAME_DAY_MESSAGE,
+  doesDurationFitDaySchedule,
+  getDayScheduleWindowMinutes,
+  BOOKING_OUTSIDE_AVAILABILITY_MESSAGE,
+  BOOKING_DAY_TOO_SHORT_MESSAGE,
+  BOOKING_START_TOO_LATE_MESSAGE,
+} from '@nanny-app/shared';
 import { useNannyPublicProfile, useNannyBookedSlots } from '@mobile/hooks/useNannies';
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import { formatHour24 } from '@mobile/lib/formatTime';
@@ -125,6 +133,55 @@ export default function BookingDatePickerScreen() {
   const afternoonSlots = availableSlots.filter((s) => parseInt(s.startTime) >= 12 && parseInt(s.startTime) < 17);
   const eveningSlots = availableSlots.filter((s) => parseInt(s.startTime) >= 17);
 
+  // ── Availability-window validation ──────────────────────────────────────────
+  // Booking hours are compared under the SAME wall-clock/UTC convention used to
+  // build the ISO strings below — no local-time conversion.
+  const selectedSlot = useMemo(
+    () => availableSlots.find((s) => s.id === selectedTimeSlot) ?? null,
+    [availableSlots, selectedTimeSlot],
+  );
+
+  const slotStartMinutes = useMemo(() => {
+    if (!selectedSlot) return null;
+    const [hh, mm] = selectedSlot.startTime.split(':');
+    return parseInt(hh ?? '0', 10) * 60 + parseInt(mm ?? '0', 10);
+  }, [selectedSlot]);
+
+  // A duration option is available only once a start slot is chosen and the
+  // resulting end stays within the nanny's window for the selected day.
+  const isDurationAvailable = (hrs: number): boolean => {
+    if (slotStartMinutes === null || selectedDayOfWeek === null) return true;
+    return doesDurationFitDaySchedule(nanny?.schedule, selectedDayOfWeek, slotStartMinutes, hrs);
+  };
+
+  const anyDurationFits = useMemo(() => {
+    if (slotStartMinutes === null || selectedDayOfWeek === null) return true;
+    return BOOKING_DURATION_OPTIONS.some((hrs) =>
+      doesDurationFitDaySchedule(nanny?.schedule, selectedDayOfWeek, slotStartMinutes, hrs),
+    );
+  }, [slotStartMinutes, selectedDayOfWeek, nanny?.schedule]);
+
+  const dayWindowMinutes = useMemo(
+    () => (selectedDayOfWeek === null ? null : getDayScheduleWindowMinutes(nanny?.schedule, selectedDayOfWeek)),
+    [selectedDayOfWeek, nanny?.schedule],
+  );
+
+  // Message shown when the chosen slot admits no valid duration: distinguish a
+  // genuinely too-short day from a start time that is simply too late.
+  const smallestDuration = BOOKING_DURATION_OPTIONS[0];
+  const noDurationFitsMessage = selectedSlot && !anyDurationFits
+    ? (dayWindowMinutes !== null && dayWindowMinutes < smallestDuration * 60
+        ? BOOKING_DAY_TOO_SHORT_MESSAGE
+        : BOOKING_START_TOO_LATE_MESSAGE)
+    : null;
+
+  // Backstop error surfaced on a blocked Continue press; cleared whenever the
+  // selection (slot / duration / day) changes.
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  useEffect(() => {
+    setAvailabilityError(null);
+  }, [selectedTimeSlot, selectedDuration, selectedDay]);
+
   const canContinue = selectedDay !== null && selectedTimeSlot !== null;
 
   const handleContinue = () => {
@@ -134,6 +191,12 @@ export default function BookingDatePickerScreen() {
 
     const slot = availableSlots.find((s) => s.id === selectedTimeSlot);
     if (!slot) return;
+
+    // Backstop: block navigation if the selected duration escapes the window.
+    if (!isDurationAvailable(selectedDuration)) {
+      setAvailabilityError(BOOKING_OUTSIDE_AVAILABILITY_MESSAGE);
+      return;
+    }
 
     const [startHH, startMM] = slot.startTime.split(':');
     const endHour = parseInt(startHH ?? '0', 10) + selectedDuration;
@@ -281,11 +344,19 @@ export default function BookingDatePickerScreen() {
             <View style={styles.durationRow}>
               {BOOKING_DURATION_OPTIONS.map((hrs) => {
                 const isSelected = selectedDuration === hrs;
+                const disabled = !isDurationAvailable(hrs);
                 return (
                   <Pressable
                     key={hrs}
-                    style={[styles.durationChip, isSelected && styles.durationChipSelected]}
-                    onPress={() => setSelectedDuration(hrs)}
+                    style={[
+                      styles.durationChip,
+                      isSelected && styles.durationChipSelected,
+                      disabled && styles.durationChipDisabled,
+                    ]}
+                    onPress={() => {
+                      if (!disabled) setSelectedDuration(hrs);
+                    }}
+                    disabled={disabled}
                   >
                     <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
                       {hrs} hours
@@ -295,6 +366,11 @@ export default function BookingDatePickerScreen() {
               })}
             </View>
           </ScrollView>
+          {noDurationFitsMessage ? (
+            <Text style={styles.availabilityError}>{noDurationFitsMessage}</Text>
+          ) : availabilityError ? (
+            <Text style={styles.availabilityError}>{availabilityError}</Text>
+          ) : null}
         </View>
       </ScrollView>
 
