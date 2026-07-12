@@ -22,7 +22,7 @@ jest.mock('@backend/services/notification.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import { getServiceFeePercent } from '@backend/services/app-settings.service';
-import { createBooking } from '@backend/services/booking.service';
+import { createBooking, validateBookingPromo } from '@backend/services/booking.service';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
@@ -171,5 +171,35 @@ describe('createBooking (promo wiring)', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     expect(mockPrisma.booking.create).not.toHaveBeenCalled();
     expect(mockPrisma.promoCode.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe('validateBookingPromo', () => {
+  it('computes the gross total from subtotal + fee and returns the discount', async () => {
+    mockPrisma.promoCode.findFirst.mockResolvedValue({
+      id: 'promo-1',
+      code: 'SAVE10',
+      discountType: 'PERCENTAGE',
+      value: 10,
+      maxUsage: null,
+      maxUsagePerUser: null,
+      usageCount: 0,
+      isActive: true,
+      expiresAt: null,
+      deletedAt: null,
+    });
+
+    const res = await validateBookingPromo(DECODED, { code: 'SAVE10', subtotal: 200 });
+
+    // gross = 200 + 6% (12) = 212; 10% of 212 = 21.2
+    expect(res.discountAmount).toBeCloseTo(21.2);
+    expect(mockPrisma.promoCodeRedemption.create).not.toHaveBeenCalled(); // preview never writes
+  });
+
+  it('forbids non-mothers (403)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'nanny-1', role: Role.NANNY, deletedAt: null });
+    await expect(
+      validateBookingPromo(DECODED, { code: 'SAVE10', subtotal: 200 }),
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 });

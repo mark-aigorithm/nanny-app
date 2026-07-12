@@ -8,6 +8,7 @@ import {
   CreateEmergencyBookingSchema,
   CreatePaymobIntentionSchema,
   MockPayBookingSchema,
+  ValidateBookingPromoSchema,
 } from '@nanny-app/shared';
 
 import { requireAuth } from '@backend/middleware/auth.middleware';
@@ -25,6 +26,7 @@ import {
   getBooking,
   listBookings,
   mockPayBooking,
+  validateBookingPromo,
 } from '@backend/services/booking.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
 import {
@@ -46,6 +48,19 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const result = await createEmergencyBooking(req.firebaseUser, req.body);
       res.status(201).json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/validate-promo',
+  requireAuth,
+  validateBody(ValidateBookingPromoSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const result = await validateBookingPromo(req.firebaseUser, req.body);
+      res.json(ok(result));
     } catch (err) { next(err); }
   },
 );

@@ -14,6 +14,8 @@ import {
   type MockPayBookingRequest,
   type NearbyNanny,
   type PaginationMeta,
+  type ValidateBookingPromoRequest,
+  type ValidateBookingPromoResponse,
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
@@ -418,6 +420,24 @@ export async function createBooking(
   await notifyBookingRequested(booking);
 
   return toBookingResponse(booking);
+}
+
+/**
+ * Preview a promo discount for a mother before booking. Reads only — never
+ * consumes the code or writes a redemption. The client sends the base subtotal
+ * (rate × hours); the server adds the service fee so fee logic stays server-side.
+ */
+export async function validateBookingPromo(
+  decoded: DecodedIdToken,
+  body: ValidateBookingPromoRequest,
+): Promise<ValidateBookingPromoResponse> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can apply promo codes.');
+
+  const serviceFeePercent = await getServiceFeePercent();
+  const grossTotal = body.subtotal + body.subtotal * (serviceFeePercent / 100);
+  const { discountAmount } = await validatePromoCode(body.code, grossTotal, user.id);
+  return { discountAmount };
 }
 
 /**
