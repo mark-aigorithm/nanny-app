@@ -21,10 +21,12 @@ is **not applied** anywhere in the booking/payment flow:
 
 ## Goal
 
-Wire the existing promo-code admin CRUD into the real booking/payment flow so a
-code entered by a parent produces a validated, server-computed discount that is
-frozen onto the booking at creation and consumed at payment. Remove the
-hardcoded client-side fake.
+Wire the existing promo-code admin CRUD into the real booking flow so a code
+entered by a parent produces a validated, server-computed discount that is
+frozen onto the booking's `totalAmount` at creation (and thus flows to payment
+untouched), while the code is consumed (usage recorded) at creation. Remove the
+hardcoded client-side fake. The payment layer, including paymob, is not
+modified.
 
 ## Scope
 
@@ -182,5 +184,7 @@ accepted for v1 (documented in Out of Scope for possible future refinement).
 ## Out of Scope / Future
 
 - Promo codes on emergency bookings.
+- Releasing a consumed code when its booking is rejected/cancelled/unpaid
+  (consumption is at creation for v1).
 - Min-order thresholds, first-booking-only rules, code stacking.
 - Admin visibility into redemption history in the dashboard.
