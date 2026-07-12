@@ -148,12 +148,20 @@ export const styles = StyleSheet.create({
   durationChipSelected: {
     backgroundColor: colors.primaryDark,
   },
+  durationChipDisabled: {
+    opacity: 0.4,
+  },
   durationChipText: {
     ...typeScale.labelMd,
     color: colors.textTertiary,
   },
   durationChipTextSelected: {
     color: colors.white,
+  },
+  availabilityError: {
+    ...typeScale.bodySm,
+    color: colors.error,
+    marginTop: spacing.sm,
   },
 
   // Header

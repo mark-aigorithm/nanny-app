@@ -5,6 +5,11 @@ import { Role } from '@nanny-app/shared';
 import { prisma } from '@backend/db/prisma';
 import { config } from '@backend/lib/config';
 import { AppError, errors } from '@backend/lib/errors';
+import {
+  bookingInclude,
+  canTransitionBookingStatus,
+  notifyNannyBookingConfirmed,
+} from '@backend/services/booking.service';
 import { createPaymobApiClient, type PaymobIntentionElementResponse } from '@backend/lib/paymob/client';
 import {
   PAYMOB_RECONCILE_OFFSETS_MS,
@@ -49,11 +54,13 @@ function failureReasonFromTxn(txn: PaymobTransactionDto): string {
 }
 
 async function finalizePaymentCaptured(paymentId: string, paymobTransactionId: string | null) {
-  await prisma.$transaction(async (tx) => {
+  // Pay-after-approval: the admin already approved (status APPROVED), so a
+  // successful capture is the FINAL step and confirms the booking outright.
+  const confirmedBooking = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findFirst({
       where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
     });
-    if (!payment) return;
+    if (!payment) return null;
 
     await tx.payment.update({
       where: { id: paymentId },
@@ -66,13 +73,36 @@ async function finalizePaymentCaptured(paymentId: string, paymobTransactionId: s
       },
     });
 
-    // Paid bookings wait for an admin to accept them before the nanny is
-    // notified — see confirmBooking in admin-booking.service.ts.
-    await tx.booking.update({
+    const booking = await tx.booking.findUnique({
       where: { id: payment.bookingId },
-      data: { status: BookingStatus.PENDING_CONFIRMATION },
+      include: bookingInclude,
+    });
+    if (!booking) return null;
+
+    // APPROVED → CONFIRMED (the transition table is the single source of
+    // truth). If the booking isn't in a confirmable state — e.g. an admin
+    // cancelled it between payment initiation and capture — record the money
+    // but leave the status untouched rather than crashing the webhook.
+    if (!canTransitionBookingStatus(booking.status, BookingStatus.CONFIRMED)) {
+      // eslint-disable-next-line no-console
+      console.warn('[paymob] captured payment for a non-confirmable booking', {
+        paymentId,
+        bookingId: booking.id,
+        bookingStatus: booking.status,
+      });
+      return null;
+    }
+
+    return tx.booking.update({
+      where: { id: booking.id },
+      data: { status: BookingStatus.CONFIRMED },
+      include: bookingInclude,
     });
   });
+
+  if (confirmedBooking) {
+    await notifyNannyBookingConfirmed(confirmedBooking);
+  }
 }
 
 async function finalizePaymentFailed(paymentId: string, reason: string) {
@@ -126,8 +156,10 @@ export async function createPaymobIntentionForBooking(
   });
   if (!booking) throw errors.notFound('Booking not found.');
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
-  if (booking.status !== BookingStatus.PENDING) {
-    throw errors.badRequest(`Cannot pay for a booking in status ${booking.status}.`);
+  // Pay-after-approval: payment may only be initiated once an admin has
+  // approved the booking (status APPROVED).
+  if (booking.status !== BookingStatus.APPROVED) {
+    throw errors.badRequest(`Cannot pay for a booking in status ${booking.status}. It must be approved by an admin first.`);
   }
   if (!booking.nannyProfileId) {
     throw errors.badRequest('Booking has no assigned nanny yet.');

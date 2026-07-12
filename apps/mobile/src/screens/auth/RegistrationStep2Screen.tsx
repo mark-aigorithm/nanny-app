@@ -18,6 +18,11 @@ import type { Child } from '@mobile/types';
 import { AGE_OPTIONS, PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
+import HomeLocationMapCard, {
+  type HomeCoords,
+} from '@mobile/components/HomeLocationMapCard';
+import LocationSearchInput from '@mobile/components/LocationSearchInput';
+import { reverseGeocode } from '@mobile/lib/googlePlaces';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-step2-screen.styles';
 
@@ -30,13 +35,34 @@ export default function RegistrationStep2Screen() {
 
   // Index of the child whose age picker is open, or null when closed.
   const [agePickerIndex, setAgePickerIndex] = useState<number | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const pinCoords =
+    draft.latitude !== null && draft.longitude !== null
+      ? { latitude: draft.latitude, longitude: draft.longitude }
+      : null;
 
   function handleBack() {
     router.back();
   }
 
   function handleContinue() {
+    if (draft.latitude === null || draft.longitude === null) {
+      setLocationError('Please set your home location on the map.');
+      return;
+    }
+    setLocationError(null);
     router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+  }
+
+  // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to
+  // fill the address input so the two stay in sync.
+  function handlePinChange(coords: HomeCoords) {
+    setLocationError(null);
+    patch(coords);
+    void reverseGeocode(coords).then((address) => {
+      if (address) patch({ address });
+    });
   }
 
   function handleAddChild() {
@@ -106,19 +132,16 @@ export default function RegistrationStep2Screen() {
 
           {/* Location inputs */}
           <View style={styles.locationGroup}>
-            {/* Street address */}
-            <View style={styles.iconInputWrapper}>
-              <Ionicons name="location-outline" size={20} color={colors.primary} />
-              <TextInput
-                style={styles.iconInputInner}
-                value={draft.address}
-                onChangeText={(val) => patch({ address: val })}
-                placeholder="Street address"
-                placeholderTextColor={colors.textPlaceholder}
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
-            </View>
+            {/* Street address with map-search autocomplete */}
+            <LocationSearchInput
+              value={draft.address}
+              onChangeText={(val) => patch({ address: val })}
+              onSelectPlace={(coords, address) => {
+                setLocationError(null);
+                patch({ ...coords, address });
+              }}
+              placeholder="Street address"
+            />
 
             {/* Neighbourhood */}
             <TextInput
@@ -129,6 +152,13 @@ export default function RegistrationStep2Screen() {
               placeholderTextColor={colors.textPlaceholder}
               autoCapitalize="words"
               autoCorrect={false}
+            />
+
+            {/* Home location map picker */}
+            <HomeLocationMapCard
+              coords={pinCoords}
+              onChange={handlePinChange}
+              errorText={locationError}
             />
           </View>
 

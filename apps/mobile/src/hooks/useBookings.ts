@@ -104,10 +104,26 @@ export function useCancelBooking() {
   });
 }
 
+/**
+ * Nanny's optional accept of a PENDING request. Advisory only — the admin's
+ * approval is what confirms the booking; this just records `nannyDecision`.
+ */
 export function useAcceptBooking() {
   const qc = useQueryClient();
   return useMutation<BookingResponse, Error, string>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/accept`)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+/**
+ * Nanny's optional decline of a PENDING request. Advisory only — does not
+ * change the booking status, just records `nannyDecision = DECLINED`.
+ */
+export function useDeclineBooking() {
+  const qc = useQueryClient();
+  return useMutation<BookingResponse, Error, string>({
+    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/decline`)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
 }

@@ -2,6 +2,7 @@ import type { NannyProfile, User } from '@prisma/client';
 import { NannyApprovalStatus, Prisma } from '@prisma/client';
 import {
   BookingStatus,
+  getMissingNannyProfileFields,
   Role,
   type CreateReviewRequest,
   type NannyBookedSlotsQuery,
@@ -27,9 +28,10 @@ function toNannyProfileResponse(user: User, profile: NannyProfile): NannyProfile
     lastName: user.lastName,
     avatarUrl: user.avatarUrl,
     bio: profile.bio,
-    location: profile.location,
-    latitude: profile.latitude !== null ? Number(profile.latitude) : null,
-    longitude: profile.longitude !== null ? Number(profile.longitude) : null,
+    // Home location lives on the user row (single source of truth).
+    location: user.address,
+    latitude: user.latitude !== null ? Number(user.latitude) : null,
+    longitude: user.longitude !== null ? Number(user.longitude) : null,
     yearsOfExperience: profile.yearsOfExperience,
     hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
@@ -52,7 +54,8 @@ function toNannyListItem(
     lastName: profile.user.lastName,
     avatarUrl: profile.user.avatarUrl,
     bio: profile.bio,
-    location: profile.location,
+    // Home location lives on the user row (single source of truth).
+    location: profile.user.address,
     yearsOfExperience: profile.yearsOfExperience,
     hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
@@ -108,24 +111,32 @@ export async function updateNannyProfile(
 ): Promise<NannyProfileResponse> {
   const user = await requireNannyUser(decoded.uid);
 
-  const { firstName, lastName, avatarUrl, ...profileFields } = body;
+  // `location` is the nanny's free-text home label. It now lives on the user
+  // row (users.address), the single source of truth for proximity search, so
+  // it is pulled out of the nanny-profile write path and applied to the user.
+  const { firstName, lastName, avatarUrl, location, ...profileFields } = body;
 
   const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx) => {
     const u =
-      firstName !== undefined || lastName !== undefined || avatarUrl !== undefined
+      firstName !== undefined ||
+      lastName !== undefined ||
+      avatarUrl !== undefined ||
+      location !== undefined
         ? await tx.user.update({
             where: { id: user.id },
             data: {
               ...(firstName !== undefined && { firstName }),
               ...(lastName !== undefined && { lastName }),
               ...(avatarUrl !== undefined && { avatarUrl }),
+              ...(location !== undefined && { address: location }),
             },
           })
         : user;
 
     const existing = user.nannyProfile;
     const mergedBio = profileFields.bio ?? existing?.bio;
-    const mergedLocation = profileFields.location ?? existing?.location;
+    // Completeness reads location from the user row now.
+    const mergedLocation = location ?? user.address;
     const mergedYears =
       profileFields.yearsOfExperience !== undefined
         ? profileFields.yearsOfExperience
@@ -137,14 +148,13 @@ export async function updateNannyProfile(
           ? Number(existing.hourlyRate)
           : undefined;
 
-    const isProfileComplete = !!(
-      mergedBio &&
-      mergedLocation &&
-      mergedYears !== undefined &&
-      mergedYears !== null &&
-      mergedRate !== undefined &&
-      mergedRate !== null
-    );
+    const isProfileComplete =
+      getMissingNannyProfileFields({
+        bio: mergedBio ?? null,
+        location: mergedLocation ?? null,
+        yearsOfExperience: mergedYears ?? null,
+        hourlyRate: mergedRate ?? null,
+      }).length === 0;
 
     const p = await tx.nannyProfile.upsert({
       where: { userId: user.id },
@@ -171,16 +181,21 @@ function buildListWhere(query: NannyListQuery) {
     deletedAt: null as null,
     ...(query.availabilityType ? { availabilityType: query.availabilityType } : {}),
     ...(query.specialty ? { specialties: { has: query.specialty } } : {}),
-    ...(query.name
-      ? {
-          user: {
+    // Single `user` condition: always exclude soft-deleted users, and add the
+    // name search when present. Kept as one object so the name filter does not
+    // clobber the `deletedAt` guard (which would leak soft-deleted nannies into
+    // the count and desync it from the raw-SQL rows).
+    user: {
+      deletedAt: null as null,
+      ...(query.name
+        ? {
             OR: [
               { firstName: { contains: query.name, mode: 'insensitive' as const } },
               { lastName: { contains: query.name, mode: 'insensitive' as const } },
             ],
-          },
-        }
-      : {}),
+          }
+        : {}),
+    },
   };
 }
 
@@ -194,6 +209,7 @@ function buildListFilterSql(query: NannyListQuery): Prisma.Sql {
     Prisma.sql`np.is_profile_complete = true`,
     Prisma.sql`np.approval_status::text = 'APPROVED'`,
     Prisma.sql`np.deleted_at IS NULL`,
+    Prisma.sql`u.deleted_at IS NULL`,
   ];
   if (query.availabilityType) {
     filters.push(Prisma.sql`np.availability_type::text = ${query.availabilityType}`);
@@ -231,16 +247,17 @@ export async function listNannies(
 
   // Location-aware "recommended" ranking: closest first, then highest-rated.
   // Distance is computed in PostGIS (ST_DistanceSphere → metres) so ordering
-  // and pagination happen in the database. Nannies without coordinates sort
-  // last (NULLS LAST), ranked among themselves by rating.
+  // and pagination happen in the database. Coordinates live on the user row
+  // (single source of truth). Nannies without coordinates sort last
+  // (NULLS LAST), ranked among themselves by rating.
   const { latitude, longitude } = query;
   const offset = (query.page - 1) * query.limit;
   const filterSql = buildListFilterSql(query);
 
   const distanceSql = Prisma.sql`
     CASE
-      WHEN np.latitude IS NOT NULL AND np.longitude IS NOT NULL THEN ST_DistanceSphere(
-        ST_MakePoint(np.longitude::float8, np.latitude::float8),
+      WHEN u.latitude IS NOT NULL AND u.longitude IS NOT NULL THEN ST_DistanceSphere(
+        ST_MakePoint(u.longitude::float8, u.latitude::float8),
         ST_MakePoint(${longitude}::float8, ${latitude}::float8)
       )
     END`;
@@ -297,8 +314,8 @@ export async function getNannyPublicProfile(nannyProfileId: string): Promise<Nan
   return {
     ...toNannyListItem(profile),
     schedule: (profile.schedule as WeeklySchedule) ?? null,
-    latitude: profile.latitude !== null ? Number(profile.latitude) : null,
-    longitude: profile.longitude !== null ? Number(profile.longitude) : null,
+    latitude: profile.user.latitude !== null ? Number(profile.user.latitude) : null,
+    longitude: profile.user.longitude !== null ? Number(profile.user.longitude) : null,
     recentReviews: profile.reviews.map(toReviewSummary),
   };
 }

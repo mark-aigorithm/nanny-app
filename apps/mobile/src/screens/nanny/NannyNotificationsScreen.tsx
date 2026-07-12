@@ -20,6 +20,7 @@ import {
   useNotifications,
   useUnreadNotificationCount,
 } from '@mobile/hooks/useNotifications';
+import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { formatTimeAgo } from '@mobile/lib/communityUtils';
 import {
   groupNotificationsByDate,
@@ -43,11 +44,11 @@ export default function NannyNotificationsScreen() {
     isLoading,
     isError,
     refetch,
-    isRefetching,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useNotifications(filter);
+  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
   const { data: unreadData } = useUnreadNotificationCount();
   const markAllRead = useMarkAllNotificationsRead();
   const markRead = useMarkNotificationRead();
@@ -113,9 +114,10 @@ export default function NannyNotificationsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching && !isFetchingNextPage}
-            onRefresh={() => refetch()}
+            refreshing={isRefreshingByUser}
+            onRefresh={refreshByUser}
             tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >

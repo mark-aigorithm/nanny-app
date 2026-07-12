@@ -8,6 +8,7 @@ import type {
   CreatePromoCodeInput,
   PlatformConfig,
   PromoCode,
+  SetBookingStatusInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
 } from '@nanny-app/shared';
@@ -67,9 +68,28 @@ export async function fetchBookings(
   return res.data.data;
 }
 
-export async function confirmBooking(id: string): Promise<AdminBooking> {
+export async function approveBooking(id: string): Promise<AdminBooking> {
   const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
-    `/admin/bookings/${id}/confirm`,
+    `/admin/bookings/${id}/approve`,
+  );
+  return res.data.data;
+}
+
+export async function rejectBooking(id: string, reason?: string): Promise<AdminBooking> {
+  const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
+    `/admin/bookings/${id}/reject`,
+    reason ? { reason } : {},
+  );
+  return res.data.data;
+}
+
+export async function setBookingStatus(
+  id: string,
+  status: SetBookingStatusInput['status'],
+): Promise<AdminBooking> {
+  const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
+    `/admin/bookings/${id}/status`,
+    { status },
   );
   return res.data.data;
 }

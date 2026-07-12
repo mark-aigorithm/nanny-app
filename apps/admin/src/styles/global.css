@@ -288,6 +288,68 @@ h3 {
   color: var(--color-text-secondary);
 }
 
+/* Full-width table that wraps cell content instead of scrolling horizontally.
+   Headers stay on one line; individual cells can opt back out with .cell-nowrap. */
+.table--full th,
+.table--full td {
+  padding: 0.75rem;
+}
+
+.table--full th:first-child,
+.table--full td:first-child {
+  padding-left: 1.25rem;
+}
+
+.table--full th:last-child,
+.table--full td:last-child {
+  padding-right: 1.25rem;
+}
+
+.table--full td {
+  white-space: normal;
+  vertical-align: middle;
+}
+
+.table--full td.cell-nowrap {
+  white-space: nowrap;
+}
+
+.table-empty {
+  color: var(--color-text-placeholder);
+}
+
+.table-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.nanny-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 180px;
+}
+
+.nanny-avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nanny-name {
+  font-weight: 600;
+}
+
 .table tbody tr:last-child td {
   border-bottom: none;
 }
@@ -319,6 +381,7 @@ h3 {
   color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .badge--success {
@@ -530,4 +593,28 @@ h3 {
 .table-subtext {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+/* Compact status-override dropdown inside the bookings table. */
+.status-select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.status-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }

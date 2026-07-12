@@ -1,7 +1,9 @@
 import type { BookingResponse } from '@nanny-app/shared';
 
 const STATUS_LABELS: Record<BookingResponse['status'], string> = {
-  PENDING: 'Pending',
+  PENDING: 'Awaiting approval',
+  APPROVED: 'Approved · Payment due',
+  // Legacy status kept for older rows created before pay-after-approval.
   PENDING_CONFIRMATION: 'Awaiting Confirmation',
   CONFIRMED: 'Confirmed',
   IN_PROGRESS: 'In Progress',

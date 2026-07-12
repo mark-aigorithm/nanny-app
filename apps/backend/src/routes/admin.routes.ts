@@ -5,7 +5,9 @@ import {
   AdminNannyStatusFilterSchema,
   CreateAdminSchema,
   CreatePromoCodeSchema,
+  RejectAdminBookingSchema,
   RejectNannySchema,
+  SetBookingStatusSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
 } from '@nanny-app/shared';
@@ -17,8 +19,10 @@ import { requireAdmin, requireSuperuser } from '@backend/middleware/admin.middle
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import {
-  confirmAdminBooking,
+  approveBooking,
   listAdminBookings,
+  rejectBooking,
+  setBookingStatus,
 } from '@backend/services/admin-booking.service';
 import {
   approveNanny,
@@ -68,10 +72,41 @@ adminRouter.get('/bookings', async (req: Request, res: Response, next: NextFunct
 });
 
 adminRouter.post(
-  '/bookings/:id/confirm',
+  '/bookings/:id/approve',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await confirmAdminBooking(routeParam(req.params.id))));
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await approveBooking(routeParam(req.params.id), req.firebaseUser.uid)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/bookings/:id/reject',
+  validateBody(RejectAdminBookingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await rejectBooking(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/bookings/:id/status',
+  validateBody(SetBookingStatusSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await setBookingStatus(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
     } catch (err) {
       next(err);
     }

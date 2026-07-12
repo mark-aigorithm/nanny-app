@@ -212,6 +212,21 @@ export const styles = StyleSheet.create({
   actionsSection: {
     gap: spacing.md,
   },
+  payButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: borderRadius['2xl'],
+    backgroundColor: colors.primary,
+    ...shadows.md,
+  },
+  payButtonText: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
   careLogSection: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,

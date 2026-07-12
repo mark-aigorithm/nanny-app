@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { BookingStatusSchema, NannyBookingDecisionSchema } from './booking';
 import { NannyApprovalStatusSchema } from './nanny';
 
 // ──────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchem
 // ──────────────────────────────────────────────────────────────
 
 export const AdminBookingStatusFilterSchema = z.enum([
-  'ALL', 'PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS',
+  'ALL', 'PENDING', 'APPROVED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS',
   'COMPLETED', 'CANCELLED', 'REFUNDED',
 ]);
 export type AdminBookingStatusFilter = z.infer<typeof AdminBookingStatusFilterSchema>;
@@ -98,6 +99,8 @@ export type AdminBookingStatusFilter = z.infer<typeof AdminBookingStatusFilterSc
 export const AdminBookingSchema = z.object({
   id: z.string(),
   status: z.string(),
+  /** Nanny's advisory accept/decline — admin sees "accepted / declined / no response". */
+  nannyDecision: NannyBookingDecisionSchema,
   type: z.string(),
   date: z.string(),
   startTime: z.string(),
@@ -119,6 +122,22 @@ export const AdminBookingSchema = z.object({
   createdAt: z.string(),
 });
 export type AdminBooking = z.infer<typeof AdminBookingSchema>;
+
+/** Admin rejects a booking request (→ CANCELLED). Optional operator note. */
+export const RejectAdminBookingSchema = z.object({
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+export type RejectAdminBookingInput = z.infer<typeof RejectAdminBookingSchema>;
+
+/**
+ * Admin status override (PATCH /admin/bookings/:id/status). The target must be
+ * a valid transition from the current status; a COMPLETED booking is locked.
+ * REFUNDED is not an admin-settable target (payments own that state).
+ */
+export const SetBookingStatusSchema = z.object({
+  status: BookingStatusSchema.exclude(['REFUNDED']),
+});
+export type SetBookingStatusInput = z.infer<typeof SetBookingStatusSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Nanny review queue (admin vetting of new nanny registrations)

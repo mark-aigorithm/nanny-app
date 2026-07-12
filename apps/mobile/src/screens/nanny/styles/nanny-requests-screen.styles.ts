@@ -127,6 +127,16 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  // Requests tab decision (accept / decline)
+  decisionSection: {
+    gap: spacing.sm,
+  },
+  decisionNote: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
+
   // Action buttons
   actionsRow: {
     flexDirection: 'row',

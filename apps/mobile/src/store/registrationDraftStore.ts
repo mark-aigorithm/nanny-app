@@ -15,6 +15,9 @@ export type RegistrationDraft = {
   // Step 3 — location & preferences
   address: string;
   neighbourhood: string;
+  // Home coordinates from the map picker; null until the user sets the pin.
+  latitude: number | null;
+  longitude: number | null;
   children: Child[];
   preferences: string[];
   // Step 4 — terms
@@ -37,6 +40,8 @@ const INITIAL: RegistrationDraft = {
   password: '',
   address: '',
   neighbourhood: '',
+  latitude: null,
+  longitude: null,
   children: [{ name: '', age: '' }],
   preferences: ['Background checked', 'CPR certified'],
   termsAcceptedAt: null,

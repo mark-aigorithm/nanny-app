@@ -52,6 +52,7 @@ const nannyProfileUser = {
   firstName: 'Elena',
   lastName: 'Nanny',
   avatarUrl: null,
+  address: null,
 };
 
 function makeBooking(overrides: Partial<{
@@ -74,7 +75,6 @@ function makeBooking(overrides: Partial<{
       userId: nannyUser.id,
       user: nannyProfileUser,
       hourlyRate: 100,
-      location: 'Cairo',
     },
     payment: null,
     type: 'STANDARD',

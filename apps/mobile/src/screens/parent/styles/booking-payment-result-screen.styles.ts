@@ -38,6 +38,9 @@ export const styles = StyleSheet.create({
   iconCircleFailure: {
     backgroundColor: colors.errorLight,
   },
+  iconCirclePending: {
+    backgroundColor: colors.primaryMuted,
+  },
   heading: {
     ...typeScale.displayMd,
     color: colors.textPrimary,

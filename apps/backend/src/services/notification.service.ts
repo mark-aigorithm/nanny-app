@@ -25,6 +25,14 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
   switch (type as string) {
     case 'MARKETPLACE_MESSAGE':
       return 'marketplace_message';
+    case 'BOOKING_REQUESTED':
+      return 'booking_requested';
+    case 'BOOKING_APPROVED':
+      return 'booking_approved';
+    case 'BOOKING_CONFIRMED':
+      return 'booking_confirmed';
+    case 'BOOKING_CANCELLED':
+      return 'booking_cancelled';
     case 'NANNY_CHECKIN':
       return 'nanny_checkin';
     case 'BOOKING_COMPLETED':

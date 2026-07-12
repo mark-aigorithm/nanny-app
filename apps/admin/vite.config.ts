@@ -14,9 +14,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Deployed backend serves routes at the root (no /api prefix), so strip it.
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'https://backend-beige-nine-55.vercel.app',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

@@ -17,6 +17,7 @@ import {
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
+  NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
 } from '@prisma/client';
@@ -33,14 +34,14 @@ export const CHECK_IN_EARLY_MINUTES = 15;
 
 // ── Prisma include shape ──────────────────────────────────────────────────────
 
-const bookingInclude = {
+export const bookingInclude = {
   mother: true,
   nannyProfile: { include: { user: true } },
   payment: true,
   review: true,
 } as const;
 
-type BookingWithRelations = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
+export type BookingWithRelations = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,10 +66,13 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
           lastName: b.nannyProfile.user.lastName,
           avatarUrl: b.nannyProfile.user.avatarUrl,
           hourlyRate: b.nannyProfile.hourlyRate !== null ? Number(b.nannyProfile.hourlyRate) : null,
-          location: b.nannyProfile.location,
+          location: b.nannyProfile.user.address,
         }
       : null,
     status: b.status,
+    nannyDecision: b.nannyDecision,
+    nannyDecidedAt: b.nannyDecidedAt?.toISOString() ?? null,
+    adminApprovedAt: b.adminApprovedAt?.toISOString() ?? null,
     type: b.type,
     date: b.date.toISOString().slice(0, 10),
     startTime: b.startTime.toISOString(),
@@ -106,18 +110,33 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
   };
 }
 
-/** Valid status transitions — enforces the booking lifecycle. */
+/**
+ * Valid status transitions — the single source of truth for the booking
+ * lifecycle. Pay-after-approval flow (Issues 2 + 5):
+ *   PENDING → APPROVED (admin) → CONFIRMED (mother pays) → IN_PROGRESS → COMPLETED
+ * Any non-terminal status may be CANCELLED. PENDING_CONFIRMATION is retained
+ * only so legacy rows created by the old "pay-then-confirm" flow can still be
+ * confirmed or cancelled; the new flow never produces it. REFUNDED is a
+ * terminal state owned by the payments domain and is not reachable here.
+ */
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  [BookingStatus.PENDING]:     [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
-  [BookingStatus.CONFIRMED]:   [BookingStatus.IN_PROGRESS, BookingStatus.CANCELLED],
-  [BookingStatus.IN_PROGRESS]: [BookingStatus.COMPLETED],
-  [BookingStatus.COMPLETED]:   [BookingStatus.REFUNDED],
-  [BookingStatus.CANCELLED]:   [BookingStatus.REFUNDED],
-  [BookingStatus.REFUNDED]:    [],
+  [BookingStatus.PENDING]:              [BookingStatus.APPROVED, BookingStatus.CANCELLED],
+  [BookingStatus.APPROVED]:             [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
+  [BookingStatus.PENDING_CONFIRMATION]: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
+  [BookingStatus.CONFIRMED]:            [BookingStatus.IN_PROGRESS, BookingStatus.CANCELLED],
+  [BookingStatus.IN_PROGRESS]:          [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+  [BookingStatus.COMPLETED]:            [],
+  [BookingStatus.CANCELLED]:            [],
+  [BookingStatus.REFUNDED]:             [],
 };
 
+/** Non-throwing transition check — reads the same table as validateStatusTransition. */
+export function canTransitionBookingStatus(current: string, next: string): boolean {
+  return VALID_TRANSITIONS[current]?.includes(next) ?? false;
+}
+
 export function validateStatusTransition(current: string, next: string): void {
-  if (!VALID_TRANSITIONS[current]?.includes(next)) {
+  if (!canTransitionBookingStatus(current, next)) {
     throw errors.badRequest(`Cannot transition booking from ${current} to ${next}.`);
   }
 }
@@ -163,6 +182,90 @@ async function notifyMotherBookingEvent(
       title,
     },
   });
+}
+
+async function notifyUserBookingEvent(
+  userId: string,
+  type: NotificationType,
+  pushType: string,
+  title: string,
+  body: string,
+  bookingId: string,
+): Promise<void> {
+  await createInAppNotification({
+    userId,
+    type,
+    title,
+    body,
+    referenceId: bookingId,
+    referenceType: 'BOOKING' as NotificationReferenceType,
+  });
+  await dispatchPush(userId, {
+    title,
+    body,
+    data: { type: pushType, bookingId, title },
+  });
+}
+
+/**
+ * A new booking request lands in BOTH the assigned nanny's list and every
+ * admin's review queue at once. No payment has been taken — the admin still
+ * has to approve. Emergency bookings have no assigned nanny yet, so only the
+ * admins are notified until a nanny claims it.
+ */
+async function notifyBookingRequested(booking: BookingWithRelations): Promise<void> {
+  const nannyName = `${booking.mother.firstName} ${booking.mother.lastName}`.trim();
+  const dateLabel = booking.date.toISOString().slice(0, 10);
+
+  const recipients: Array<{ userId: string; title: string; body: string }> = [];
+
+  if (booking.nannyProfile) {
+    recipients.push({
+      userId: booking.nannyProfile.user.id,
+      title: 'New booking request',
+      body: `${nannyName} requested you for ${dateLabel}. Awaiting admin approval.`,
+    });
+  }
+
+  const admins = await prisma.user.findMany({
+    where: { deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
+    select: { id: true },
+  });
+  for (const admin of admins) {
+    recipients.push({
+      userId: admin.id,
+      title: 'New booking request',
+      body: `A new booking request for ${dateLabel} needs review.`,
+    });
+  }
+
+  await Promise.all(
+    recipients.map((r) =>
+      notifyUserBookingEvent(
+        r.userId,
+        'BOOKING_REQUESTED' as NotificationType,
+        'booking_requested',
+        r.title,
+        r.body,
+        booking.id,
+      ),
+    ),
+  );
+}
+
+/** Notify the assigned nanny that a booking is fully confirmed (post-payment). */
+export async function notifyNannyBookingConfirmed(
+  booking: BookingWithRelations,
+): Promise<void> {
+  if (!booking.nannyProfile) return;
+  await notifyUserBookingEvent(
+    booking.nannyProfile.user.id,
+    'BOOKING_CONFIRMED' as NotificationType,
+    'booking_confirmed',
+    'New confirmed booking',
+    `You have a confirmed booking on ${booking.date.toISOString().slice(0, 10)}.`,
+    booking.id,
+  );
 }
 
 async function assertNoConflict(
@@ -286,6 +389,8 @@ export async function createBooking(
     include: bookingInclude,
   });
 
+  await notifyBookingRequested(booking);
+
   return toBookingResponse(booking);
 }
 
@@ -326,7 +431,14 @@ export async function createEmergencyBooking(
     include: bookingInclude,
   });
 
-  // Find 5 nearest available nannies via Haversine formula.
+  // Emergency requests have no assigned nanny yet, so this reaches the admins
+  // only; the claiming nanny is informed when an admin approves.
+  await notifyBookingRequested(booking);
+
+  // Find 5 nearest available nannies. Coordinates + address live on the user
+  // row (single source of truth); distance is computed in PostGIS
+  // (ST_DistanceSphere → metres, converted to km) for consistency with the
+  // recommended-nanny listing. `ST_MakePoint(lon, lat)` order is required.
   type RawRow = {
     nannyProfileId: string;
     firstName: string;
@@ -346,25 +458,23 @@ export async function createEmergencyBooking(
       u.last_name                          AS "lastName",
       u.avatar_url                         AS "avatarUrl",
       np.hourly_rate::text                 AS "hourlyRate",
-      np.location,
+      u.address                            AS "location",
       np.age_ranges                        AS "ageRanges",
       np.years_of_experience               AS "yearsOfExperience",
       (
-        6371 * acos(
-          LEAST(1.0,
-            cos(radians(${body.latitude}::float))  * cos(radians(np.latitude::float)) *
-            cos(radians(np.longitude::float) - radians(${body.longitude}::float)) +
-            sin(radians(${body.latitude}::float))  * sin(radians(np.latitude::float))
-          )
-        )
+        ST_DistanceSphere(
+          ST_MakePoint(u.longitude::float8, u.latitude::float8),
+          ST_MakePoint(${body.longitude}::float8, ${body.latitude}::float8)
+        ) / 1000
       ) AS "distanceKm"
     FROM nanny_profiles np
     JOIN users u ON u.id = np.user_id
     WHERE np.deleted_at IS NULL
       AND u.deleted_at   IS NULL
-      AND np.latitude    IS NOT NULL
-      AND np.longitude   IS NOT NULL
+      AND u.latitude     IS NOT NULL
+      AND u.longitude    IS NOT NULL
       AND np.is_profile_complete = true
+      AND np.approval_status::text = 'APPROVED'
       AND NOT EXISTS (
         SELECT 1 FROM bookings b
         WHERE b.nanny_profile_id = np.id
@@ -494,31 +604,51 @@ export async function cancelBooking(
   return { booking: toBookingResponse(updated), refundAmount };
 }
 
-/** Nanny accepts an EMERGENCY booking that has no assigned nanny yet. */
-export async function acceptBooking(
+/**
+ * Nanny records her optional accept/decline of a booking request. This is
+ * purely INFORMATIONAL — it sets nannyDecision + nannyDecidedAt but never
+ * changes the booking's status. The admin's approval is authoritative and
+ * works regardless of (or in the absence of) a nanny decision.
+ *
+ * For an unclaimed EMERGENCY booking, ACCEPT also assigns the nanny and prices
+ * the booking at her rate, but the booking still stays PENDING until an admin
+ * approves it. Only bookings still awaiting an admin decision (PENDING) accept
+ * a nanny response.
+ */
+async function applyNannyDecision(
   decoded: DecodedIdToken,
   bookingId: string,
+  decision: 'ACCEPTED' | 'DECLINED',
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
-  if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies can accept bookings.');
+  if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies can respond to bookings.');
 
   const nannyProfile = await prisma.nannyProfile.findUnique({
     where: { userId: user.id, deletedAt: null },
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
-  if (!nannyProfile.hourlyRate) throw errors.badRequest('Set your hourly rate before accepting bookings.');
+  if (!nannyProfile.hourlyRate) throw errors.badRequest('Set your hourly rate before responding to bookings.');
+
+  const decisionValue =
+    decision === 'ACCEPTED' ? NannyBookingDecision.ACCEPTED : NannyBookingDecision.DECLINED;
 
   // Serializable-ish: read-then-update in a transaction to guard against
-  // two nannies accepting the same emergency booking simultaneously.
+  // two nannies claiming the same emergency booking simultaneously.
   const updated = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: bookingId, deletedAt: null },
     });
     if (!booking) throw errors.notFound('Booking not found.');
-    if (booking.status !== BookingStatus.PENDING) throw errors.badRequest('This booking is no longer available.');
+    if (booking.status !== BookingStatus.PENDING) {
+      throw errors.badRequest('This booking is no longer awaiting a nanny decision.');
+    }
 
-    if (booking.type === BookingType.EMERGENCY) {
-      if (booking.nannyProfileId !== null) throw errors.conflict('Another nanny has already accepted this booking.');
+    // Unclaimed emergency booking: ACCEPT claims + prices it; you can't decline
+    // a booking that isn't assigned to you.
+    if (booking.type === BookingType.EMERGENCY && booking.nannyProfileId === null) {
+      if (decision === 'DECLINED') {
+        throw errors.badRequest('This booking is not assigned to you.');
+      }
 
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
 
@@ -538,21 +668,45 @@ export async function acceptBooking(
           serviceFeePercent: breakdown.serviceFeePercent,
           serviceFeeAmount: breakdown.serviceFeeAmount,
           totalAmount: breakdown.totalAmount,
-          status: BookingStatus.CONFIRMED,
+          nannyDecision: decisionValue,
+          nannyDecidedAt: new Date(),
+          // status intentionally unchanged — awaits admin approval.
         },
         include: bookingInclude,
       });
-    } else {
-      if (booking.nannyProfileId !== nannyProfile.id) throw errors.forbidden('This booking is not assigned to you.');
-      return tx.booking.update({
-        where: { id: bookingId },
-        data: { status: BookingStatus.CONFIRMED },
-        include: bookingInclude,
-      });
     }
+
+    // Assigned booking (standard, or an emergency already claimed by this nanny).
+    if (booking.nannyProfileId !== nannyProfile.id) {
+      throw errors.forbidden('This booking is not assigned to you.');
+    }
+    return tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        nannyDecision: decisionValue,
+        nannyDecidedAt: new Date(),
+      },
+      include: bookingInclude,
+    });
   });
 
   return toBookingResponse(updated);
+}
+
+/** Nanny accepts a booking request (informational; does not confirm). */
+export async function acceptBooking(
+  decoded: DecodedIdToken,
+  bookingId: string,
+): Promise<BookingResponse> {
+  return applyNannyDecision(decoded, bookingId, 'ACCEPTED');
+}
+
+/** Nanny declines a booking request (informational; admin may still approve). */
+export async function declineBooking(
+  decoded: DecodedIdToken,
+  bookingId: string,
+): Promise<BookingResponse> {
+  return applyNannyDecision(decoded, bookingId, 'DECLINED');
 }
 
 /** Demo mock payment — simulates Paymob success or failure without a real provider. */
@@ -570,8 +724,10 @@ export async function mockPayBooking(
   });
   if (!booking) throw errors.notFound('Booking not found.');
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
-  if (booking.status !== BookingStatus.PENDING) {
-    throw errors.badRequest(`Cannot pay for a booking in status ${booking.status}.`);
+  // Pay-after-approval: only an admin-APPROVED booking may be paid. Payment is
+  // the final step and moves the booking straight to CONFIRMED.
+  if (booking.status !== BookingStatus.APPROVED) {
+    throw errors.badRequest(`Cannot pay for a booking in status ${booking.status}. It must be approved by an admin first.`);
   }
   if (!booking.nannyProfileId) {
     throw errors.badRequest('Booking has no assigned nanny yet.');
@@ -590,14 +746,23 @@ export async function mockPayBooking(
       },
     });
 
+    // On success move APPROVED → CONFIRMED (validated). On failure leave the
+    // booking APPROVED so the mother can retry payment.
+    if (body.succeed) {
+      validateStatusTransition(booking.status, BookingStatus.CONFIRMED);
+    }
     const bk = await tx.booking.update({
       where: { id: bookingId },
-      data: { status: body.succeed ? BookingStatus.CONFIRMED : BookingStatus.PENDING },
+      data: body.succeed ? { status: BookingStatus.CONFIRMED } : {},
       include: bookingInclude,
     });
 
     return [pmt, bk] as const;
   });
+
+  if (body.succeed) {
+    await notifyNannyBookingConfirmed(updatedBooking);
+  }
 
   return { booking: toBookingResponse(updatedBooking), payment };
 }

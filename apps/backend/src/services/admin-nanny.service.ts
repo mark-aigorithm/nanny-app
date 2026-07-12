@@ -19,6 +19,7 @@ const nannyInclude = {
       phone: true,
       dateOfBirth: true,
       avatarUrl: true,
+      address: true,
       isEmailVerified: true,
       isPhoneVerified: true,
     },
@@ -38,7 +39,8 @@ function toDto(row: AdminNannyRow): AdminNanny {
       : null,
     avatarUrl: row.user.avatarUrl,
     bio: row.bio,
-    location: row.location,
+    // Home location lives on the user row (single source of truth).
+    location: row.user.address,
     yearsOfExperience: row.yearsOfExperience,
     hourlyRate: row.hourlyRate?.toNumber() ?? null,
     certifications: row.certifications,

@@ -71,10 +71,13 @@ export default function CreatePasswordScreen() {
     if (!canContinue) return;
     setFormError(null);
     patch({ password });
-    // Step 2 (location, children, preferences) is mother-only — nannies skip
-    // straight to phone verification.
+    // Both roles must set a home location before phone verification (the
+    // register API requires coordinates). Mothers get the full step 2
+    // (location, children, preferences); nannies get a location-only step.
     const next =
-      role === 'nanny' ? '/(auth)/register-step-3' : '/(auth)/register-step-2';
+      role === 'nanny'
+        ? '/(auth)/register-nanny-location'
+        : '/(auth)/register-step-2';
     router.push({ pathname: next, params: { role } });
   }
 

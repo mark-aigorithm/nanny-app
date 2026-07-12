@@ -37,6 +37,15 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
+  pendingCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
   heading: {
     ...typeScale.displayMd,
     color: colors.textPrimary,

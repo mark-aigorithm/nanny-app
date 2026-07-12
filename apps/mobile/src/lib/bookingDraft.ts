@@ -1,3 +1,5 @@
+import type { BookingResponse } from '@nanny-app/shared';
+
 import { fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 
@@ -66,6 +68,28 @@ export function bookingFlowRetryParams(
     nannyPhoto: params.nannyPhoto,
     nannyRate: params.nannyRate,
     instructions: params.instructions,
+  };
+}
+
+/**
+ * Params for launching the Paymob checkout on an already-created booking
+ * (e.g. an APPROVED booking whose payment is now due). Drives the checkout
+ * screen in retry/pay mode — no new booking is created.
+ */
+export function payBookingParams(booking: BookingResponse): BookingFlowParams {
+  const nannyName = booking.nanny
+    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`.trim()
+    : undefined;
+  return {
+    bookingId: booking.id,
+    retry: '1',
+    ...(booking.nannyProfileId ? { nannyProfileId: booking.nannyProfileId } : {}),
+    dateIso: booking.date,
+    startTimeIso: booking.startTime,
+    endTimeIso: booking.endTime,
+    ...(nannyName ? { nannyName } : {}),
+    ...(booking.nanny?.avatarUrl ? { nannyPhoto: booking.nanny.avatarUrl } : {}),
+    ...(booking.specialInstructions ? { instructions: booking.specialInstructions } : {}),
   };
 }
 
