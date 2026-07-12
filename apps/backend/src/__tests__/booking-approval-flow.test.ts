@@ -12,7 +12,7 @@ jest.mock('@backend/db/prisma', () => {
     count: jest.fn(),
   };
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
-  const nannyProfile = { findUnique: jest.fn() };
+  const nannyProfile = { findUnique: jest.fn(), findMany: jest.fn() };
   const payment = { create: jest.fn() };
   return {
     prisma: {
@@ -36,6 +36,7 @@ jest.mock('@backend/services/notification.service', () => ({
 
 jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
+  getStandardHourlyRate: jest.fn().mockResolvedValue(100),
 }));
 
 import { prisma } from '@backend/db/prisma';
@@ -58,7 +59,7 @@ const mockPrisma = prisma as unknown as {
     count: jest.Mock;
   };
   user: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
-  nannyProfile: { findUnique: jest.Mock };
+  nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   payment: { create: jest.Mock };
 };
 
@@ -166,18 +167,16 @@ describe('VALID_TRANSITIONS', () => {
 
 // ── createBooking ───────────────────────────────────────────────────────────
 
-describe('createBooking', () => {
-  it('creates a PENDING request and notifies nanny + admins (no payment)', async () => {
+describe('createBooking (broadcast)', () => {
+  it('creates an unassigned PENDING request priced at the fixed rate and broadcasts to eligible nannies + admins', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(motherUser);
-    mockPrisma.nannyProfile.findUnique.mockResolvedValue({
-      id: nannyProfileRel.id,
-      isProfileComplete: true,
-      hourlyRate: 100,
-      deletedAt: null,
-    });
-    // existingPending lookup + assertNoConflict lookup both find nothing.
+    // No existing pending request to reuse (idempotency lookup).
     mockPrisma.booking.findFirst.mockResolvedValue(null);
-    mockPrisma.booking.create.mockResolvedValue(makeBooking());
+    mockPrisma.booking.create.mockResolvedValue(
+      makeBooking({ nannyProfileId: null, nannyProfile: null }),
+    );
+    // Broadcast fan-out: one eligible nanny + two admins.
+    mockPrisma.nannyProfile.findMany.mockResolvedValue([{ userId: nannyUser.id }]);
     mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
 
     // Future, timezone-safe request window (avoids a hard-coded date time-bomb).
@@ -187,24 +186,75 @@ describe('createBooking', () => {
     const dateIso = start.toISOString().slice(0, 10);
 
     const result = await createBooking({ uid: 'fb-mother' } as never, {
-      nannyProfileId: nannyProfileRel.id,
       date: dateIso,
       startTime: start.toISOString(),
       endTime: end.toISOString(),
     });
 
     expect(result.status).toBe(BookingStatus.PENDING);
-    expect(result.nannyDecision).toBe(NannyBookingDecision.PENDING);
 
     const createData = mockPrisma.booking.create.mock.calls[0][0].data;
     expect(createData.status).toBe(BookingStatus.PENDING);
+    expect(createData.nannyProfileId).toBeNull();
+    // Priced from the fixed platform rate (100) × 3 hrs + 6% fee.
+    expect(createData.baseRate).toBe(100);
+    expect(createData.subtotal).toBe(300);
+    expect(createData.totalAmount).toBe(318);
 
-    // Nanny + both admins each get a BOOKING_REQUESTED in-app notification.
+    // Eligible nanny + both admins each get a BOOKING_REQUESTED in-app notification.
     const requested = mockNotify.mock.calls.filter((c) => c[0].type === 'BOOKING_REQUESTED');
     expect(requested).toHaveLength(3);
     expect(requested.map((c) => c[0].userId).sort()).toEqual(
       ['admin-1', 'admin-2', nannyUser.id].sort(),
     );
+  });
+});
+
+// ── Claim: first nanny to accept an unassigned request auto-approves it ────────
+
+describe('claim (unassigned request)', () => {
+  beforeEach(() => {
+    mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
+    mockPrisma.nannyProfile.findUnique.mockResolvedValue({
+      id: nannyProfileRel.id,
+      userId: nannyUser.id,
+      hourlyRate: 100,
+      deletedAt: null,
+    });
+  });
+
+  it('assigns the nanny and moves the booking PENDING → APPROVED, prompting the mother to pay', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(
+      makeBooking({ nannyProfileId: null, nannyProfile: null, type: 'STANDARD' }),
+    );
+    // assertNoConflict finds no overlapping booking.
+    mockPrisma.booking.findFirst.mockResolvedValue(null);
+    mockPrisma.booking.update.mockResolvedValue(
+      makeBooking({ status: PrismaBookingStatus.APPROVED, nannyDecision: NannyBookingDecision.ACCEPTED }),
+    );
+
+    const result = await acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1');
+
+    expect(result.status).toBe(BookingStatus.APPROVED);
+    const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
+    expect(updateData.status).toBe(BookingStatus.APPROVED);
+    expect(updateData.nannyProfile).toEqual({ connect: { id: nannyProfileRel.id } });
+    expect(updateData.nannyDecision).toBe(NannyBookingDecision.ACCEPTED);
+
+    // Mother is told a nanny accepted (reuses BOOKING_APPROVED).
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: motherUser.id, type: 'BOOKING_APPROVED' }),
+    );
+  });
+
+  it('rejects a second nanny once the request is already claimed (double-claim guard)', async () => {
+    // The transaction re-reads the booking and finds it no longer PENDING.
+    mockPrisma.booking.findUnique.mockResolvedValue(
+      makeBooking({ status: PrismaBookingStatus.APPROVED, nannyProfileId: 'np-other' }),
+    );
+
+    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1')).rejects.toThrow(AppError);
+    expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 });
 

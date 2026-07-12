@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent } from 'react';
+import { Fragment, useState, type ChangeEvent } from 'react';
 
 import {
   BookingStatusSchema,
@@ -10,8 +10,23 @@ import {
 } from '@nanny-app/shared';
 
 import { Badge, Button, Card, Feedback, PageHeader } from '@admin/components/ui';
-import { approveBooking, fetchBookings, rejectBooking, setBookingStatus } from '@admin/lib/api';
+import {
+  approveBooking,
+  fetchBookings,
+  rejectBooking,
+  setBookingStatus,
+  updateBookingTimes,
+} from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+
+const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'REFUNDED']);
+
+/** ISO instant → value for a <input type="datetime-local"> (local wall time). */
+function toDateTimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const STATUS_FILTERS: { value: AdminBookingStatusFilter; label: string }[] = [
   { value: 'PENDING', label: 'Pending approval' },
@@ -52,6 +67,7 @@ function nannyDecisionLabel(decision: NannyBookingDecision): string {
 
 export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
+  const [editing, setEditing] = useState<{ id: string; start: string; end: string } | null>(null);
   const queryClient = useQueryClient();
 
   const { data: bookings, isLoading, error } = useQuery({
@@ -79,6 +95,27 @@ export function BookingsPage() {
     onSuccess: invalidate,
   });
 
+  const timesMutation = useMutation({
+    mutationFn: ({ id, startTime, endTime }: { id: string; startTime: string; endTime: string }) =>
+      updateBookingTimes(id, { startTime, endTime }),
+    onSuccess: () => {
+      invalidate();
+      setEditing(null);
+    },
+  });
+
+  function saveEdit() {
+    if (!editing) return;
+    const start = new Date(editing.start);
+    const end = new Date(editing.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+    timesMutation.mutate({
+      id: editing.id,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    });
+  }
+
   function handleReject(booking: AdminBooking) {
     const reason = window.prompt(
       `Reject this booking for ${booking.mother.name}?\n\nOptional reason (shown to the mother):`,
@@ -93,15 +130,19 @@ export function BookingsPage() {
     statusMutation.mutate({ id: booking.id, status: next });
   }
 
-  const mutationError = approveMutation.error ?? rejectMutation.error ?? statusMutation.error;
+  const mutationError =
+    approveMutation.error ?? rejectMutation.error ?? statusMutation.error ?? timesMutation.error;
   const mutating =
-    approveMutation.isPending || rejectMutation.isPending || statusMutation.isPending;
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    statusMutation.isPending ||
+    timesMutation.isPending;
 
   return (
     <section>
       <PageHeader
         title="Bookings"
-        subtitle="New requests wait here for admin approval. Approving lets the mother pay — admin approval is authoritative regardless of the nanny's response."
+        subtitle="Requests are broadcast to all nannies; the first to accept claims a booking and the parent pays. Edit a booking's times or override its status here."
       />
       <div className="filter-row">
         {STATUS_FILTERS.map((filter) => (
@@ -146,11 +187,14 @@ export function BookingsPage() {
               <tbody>
                 {bookings.map((booking: AdminBooking) => {
                   const isCompleted = booking.status === 'COMPLETED';
+                  const isTerminal = TERMINAL_STATUSES.has(booking.status);
+                  const isEditing = editing?.id === booking.id;
                   const options = OVERRIDE_STATUSES.some((s) => s === booking.status)
                     ? OVERRIDE_STATUSES
                     : [booking.status, ...OVERRIDE_STATUSES];
                   return (
-                    <tr key={booking.id}>
+                    <Fragment key={booking.id}>
+                    <tr>
                       <td>
                         {booking.mother.name}
                         {booking.mother.phone && (
@@ -196,27 +240,81 @@ export function BookingsPage() {
                         </select>
                       </td>
                       <td>
-                        {booking.status === 'PENDING' && (
-                          <div className="table-actions">
+                        <div className="table-actions">
+                          {booking.status === 'PENDING' && (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={mutating}
+                                onClick={() => approveMutation.mutate(booking.id)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                disabled={mutating}
+                                onClick={() => handleReject(booking)}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {!isTerminal && (
                             <Button
                               size="sm"
+                              variant="ghost"
                               disabled={mutating}
-                              onClick={() => approveMutation.mutate(booking.id)}
+                              onClick={() =>
+                                setEditing({
+                                  id: booking.id,
+                                  start: toDateTimeLocal(booking.startTime),
+                                  end: toDateTimeLocal(booking.endTime),
+                                })
+                              }
                             >
-                              Approve
+                              Edit times
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              disabled={mutating}
-                              onClick={() => handleReject(booking)}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
+                    {isEditing && editing && (
+                      <tr>
+                        <td colSpan={10}>
+                          <div className="times-editor">
+                            <label>
+                              Starts
+                              <input
+                                type="datetime-local"
+                                value={editing.start}
+                                onChange={(e) => setEditing({ ...editing, start: e.target.value })}
+                              />
+                            </label>
+                            <label>
+                              Ends
+                              <input
+                                type="datetime-local"
+                                value={editing.end}
+                                onChange={(e) => setEditing({ ...editing, end: e.target.value })}
+                              />
+                            </label>
+                            <Button size="sm" disabled={mutating} onClick={saveEdit}>
+                              Save times
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={mutating}
+                              onClick={() => setEditing(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, fontFamily, BOTTOM_NAV_HEIGHT } from '@mobile/theme';
 
-export type NannyBottomNavTab = 'dashboard' | 'requests' | 'messages' | 'profile';
+export type NannyBottomNavTab = 'dashboard' | 'requests' | 'profile';
 
 interface Props {
   activeTab: NannyBottomNavTab;
@@ -15,7 +15,7 @@ const TABS: {
   label: string;
   activeIcon: keyof typeof Ionicons.glyphMap;
   inactiveIcon: keyof typeof Ionicons.glyphMap;
-  href: '/(nanny)/dashboard' | '/(nanny)/requests' | '/(nanny)/messages' | '/(nanny)/profile';
+  href: '/(nanny)/dashboard' | '/(nanny)/requests' | '/(nanny)/profile';
 }[] = [
   {
     key: 'dashboard',
@@ -30,13 +30,6 @@ const TABS: {
     activeIcon: 'document-text',
     inactiveIcon: 'document-text-outline',
     href: '/(nanny)/requests',
-  },
-  {
-    key: 'messages',
-    label: 'Messages',
-    activeIcon: 'chatbubble',
-    inactiveIcon: 'chatbubble-outline',
-    href: '/(nanny)/messages',
   },
   {
     key: 'profile',

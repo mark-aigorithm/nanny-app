@@ -11,6 +11,7 @@ import {
   RejectNannySchema,
   SetBookingStatusSchema,
   SetNannySkillsSchema,
+  UpdateBookingTimesSchema,
   UpdateCameraSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
@@ -28,6 +29,7 @@ import {
   listAdminBookings,
   rejectBooking,
   setBookingStatus,
+  updateBookingTimes,
 } from '@backend/services/admin-booking.service';
 import {
   approveNanny,
@@ -125,6 +127,21 @@ adminRouter.patch(
       if (!req.firebaseUser) throw errors.unauthorized();
       res.json(
         ok(await setBookingStatus(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/bookings/:id/times',
+  validateBody(UpdateBookingTimesSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await updateBookingTimes(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
       );
     } catch (err) {
       next(err);

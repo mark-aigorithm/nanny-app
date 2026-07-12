@@ -24,6 +24,8 @@ import {
   createEmergencyBooking,
   declineBooking,
   getBooking,
+  getBookingPricingConfig,
+  listAvailableBookings,
   listBookings,
   mockPayBooking,
   validateBookingPromo,
@@ -48,6 +50,16 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const result = await createEmergencyBooking(req.firebaseUser, req.body);
       res.status(201).json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.get(
+  '/pricing',
+  requireAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await getBookingPricingConfig()));
     } catch (err) { next(err); }
   },
 );
@@ -87,6 +99,20 @@ bookingRouter.get(
       if (!req.firebaseUser) throw errors.unauthorized();
       const result = await listBookings(req.firebaseUser, res.locals['validatedQuery']);
       res.json({ data: result.bookings, error: null, meta: result.meta });
+    } catch (err) { next(err); }
+  },
+);
+
+// GET /bookings/available must be declared BEFORE /bookings/:id so Express
+// doesn't treat "available" as a booking ID.
+bookingRouter.get(
+  '/available',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const bookings = await listAvailableBookings(req.firebaseUser);
+      res.json(ok(bookings));
     } catch (err) { next(err); }
   },
 );

@@ -67,16 +67,6 @@ export default function NannyNotificationsScreen() {
     if (!notification.isRead) {
       await markRead.mutateAsync(notification.id);
     }
-    if (
-      notification.type === 'marketplace_message' &&
-      notification.referenceType === 'conversation' &&
-      notification.referenceId
-    ) {
-      router.push({
-        pathname: '/(parent)/chat/messaging',
-        params: { conversationId: notification.referenceId },
-      });
-    }
   };
 
   const emptyMessage =

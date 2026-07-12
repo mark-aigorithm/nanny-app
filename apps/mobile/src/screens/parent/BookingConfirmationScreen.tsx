@@ -12,7 +12,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
-import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import {
+  useBooking,
+  useCancelBooking,
+  fmtBookingDate,
+  fmtBookingTime,
+} from '@mobile/hooks/useBookings';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { styles } from './styles/booking-confirmation-screen.styles';
@@ -21,7 +26,10 @@ export default function BookingConfirmationScreen() {
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
 
-  const { data: booking, isLoading } = useBooking(bookingId);
+  // Poll while the request is still unclaimed so the screen flips to
+  // "nanny accepted — pay" on its own the moment a nanny claims it.
+  const { data: booking, isLoading } = useBooking(bookingId, true);
+  const cancelBooking = useCancelBooking();
 
   const handleViewDetails = () => {
     router.push({
@@ -38,6 +46,14 @@ export default function BookingConfirmationScreen() {
     } as never);
   };
 
+  const handleCancelRequest = () => {
+    if (!booking) return;
+    cancelBooking.mutate(
+      { id: booking.id, reason: 'Cancelled by parent' },
+      { onSuccess: () => router.replace('/(parent)/home') },
+    );
+  };
+
   const handleBackToHome = () => {
     router.replace('/(parent)/home');
   };
@@ -50,40 +66,38 @@ export default function BookingConfirmationScreen() {
     );
   }
 
-  const nannyFirstName = booking.nanny?.firstName ?? 'Your nanny';
-  const nannyName = booking.nanny
-    ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
-    : 'Nanny TBD';
+  const nannyFirstName = booking.nanny?.firstName ?? 'your nanny';
   const nannyPhoto = booking.nanny?.avatarUrl ?? '';
   const dateDisplay = fmtBookingDate(booking.date);
   const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
   const totalDisplay = formatMoney(booking.totalAmount);
 
-  // Payment is the final step after admin approval, so only a captured /
-  // confirmed booking reads as "paid". A PENDING booking is awaiting approval;
-  // an APPROVED booking is waiting on the mother's payment.
+  // Payment is the final step once a nanny has claimed the request. A PENDING
+  // booking is still being broadcast (no nanny yet); an APPROVED booking has
+  // been claimed and is waiting on the parent's payment.
   const isPaid =
     booking.status === BookingStatus.CONFIRMED ||
     booking.status === BookingStatus.IN_PROGRESS ||
     booking.status === BookingStatus.COMPLETED ||
     booking.payment?.status === PaymentStatus.CAPTURED;
   const isApproved = booking.status === BookingStatus.APPROVED;
+  const isPending = !isPaid && !isApproved;
 
   let heading: string;
   let subtitle: string;
   let iconName: React.ComponentProps<typeof Ionicons>['name'];
   if (isPaid) {
     heading = "You're booked.";
-    subtitle = `${nannyFirstName} is confirmed for ${dateDisplay}`;
+    subtitle = `${nannyFirstName} is confirmed for ${dateDisplay}.`;
     iconName = 'checkmark';
   } else if (isApproved) {
-    heading = 'Approved — payment due';
-    subtitle = `Complete payment to confirm ${nannyFirstName} for ${dateDisplay}.`;
-    iconName = 'card-outline';
+    heading = 'A nanny accepted!';
+    subtitle = `${nannyFirstName} is ready for ${dateDisplay}. Complete payment to confirm.`;
+    iconName = 'sparkles-outline';
   } else {
-    heading = 'Request sent';
-    subtitle = `We'll let you know once ${nannyFirstName} is approved for ${dateDisplay}. You'll pay after approval.`;
-    iconName = 'paper-plane-outline';
+    heading = 'Finding a nanny';
+    subtitle = "We're reaching out to nannies for you. We'll let you know the moment one accepts.";
+    iconName = 'radio-outline';
   }
 
   return (
@@ -103,18 +117,22 @@ export default function BookingConfirmationScreen() {
 
       {/* ── Booking Card ── */}
       <View style={styles.card}>
-        {/* Nanny Header */}
+        {/* Nanny / status header */}
         <View style={styles.nannyHeader}>
           <View style={styles.photoWrapper}>
             {nannyPhoto ? (
               <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
             ) : (
               <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="person" size={32} color={colors.primary} />
+                <Ionicons name={isPending ? 'search' : 'person'} size={30} color={colors.primary} />
               </View>
             )}
           </View>
-          <Text style={styles.nannyName}>{nannyName}</Text>
+          <Text style={styles.nannyName}>
+            {booking.nanny
+              ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+              : 'Searching for a nanny…'}
+          </Text>
         </View>
 
         {/* Divider */}
@@ -153,6 +171,20 @@ export default function BookingConfirmationScreen() {
             <Text style={styles.primaryButtonText}>View booking details</Text>
           </TouchableOpacity>
         )}
+
+        {isPending && (
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            activeOpacity={0.85}
+            onPress={handleCancelRequest}
+            disabled={cancelBooking.isPending}
+          >
+            <Ionicons name="close" size={20} color={colors.textTertiary} />
+            <Text style={styles.secondaryButtonText}>
+              {cancelBooking.isPending ? 'Cancelling…' : 'Cancel request'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── Navigation Link ── */}
@@ -188,4 +220,3 @@ function DetailRow({
     </View>
   );
 }
-

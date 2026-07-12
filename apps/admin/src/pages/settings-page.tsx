@@ -22,6 +22,12 @@ const FIELDS: ConfigField[] = [
     step: '0.1',
   },
   {
+    key: 'standardHourlyRate',
+    label: 'Standard hourly rate (EGP)',
+    hint: 'Fixed hourly rate charged for every booking (parents no longer pick a nanny).',
+    step: '0.5',
+  },
+  {
     key: 'maxBookingHours',
     label: 'Max booking hours',
     hint: 'Maximum hours a mother can reserve in one booking.',
@@ -58,6 +64,7 @@ export function SettingsPage() {
     if (config && form === null) {
       setForm({
         serviceFeePercent: String(config.serviceFeePercent),
+        standardHourlyRate: String(config.standardHourlyRate),
         maxBookingHours: String(config.maxBookingHours),
         minBookingHours: String(config.minBookingHours),
         minAdvanceBookingHours: String(config.minAdvanceBookingHours),
@@ -82,6 +89,7 @@ export function SettingsPage() {
     setSaved(false);
     const parsed = PlatformConfigSchema.safeParse({
       serviceFeePercent: Number(form.serviceFeePercent),
+      standardHourlyRate: Number(form.standardHourlyRate),
       maxBookingHours: Number(form.maxBookingHours),
       minBookingHours: Number(form.minBookingHours),
       minAdvanceBookingHours: Number(form.minAdvanceBookingHours),

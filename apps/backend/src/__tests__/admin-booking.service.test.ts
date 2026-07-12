@@ -21,6 +21,7 @@ import {
   listAdminBookings,
   rejectBooking,
   setBookingStatus,
+  updateBookingTimes,
 } from '@backend/services/admin-booking.service';
 
 const mockPrisma = prisma as unknown as {
@@ -45,6 +46,10 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     startTime: start,
     endTime: new Date('2026-08-01T13:00:00.000Z'),
     durationHours: dec(3),
+    baseRate: dec(100),
+    subtotal: dec(300),
+    serviceFeePercent: dec(6),
+    serviceFeeAmount: dec(18),
     totalAmount: dec(318),
     discountAmount: dec(0),
     promoCode: null,
@@ -172,6 +177,60 @@ describe('setBookingStatus', () => {
 
     await expect(
       setBookingStatus('booking-1', ADMIN_UID, { status: 'IN_PROGRESS' }),
+    ).rejects.toThrow(AppError);
+    expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateBookingTimes', () => {
+  it('recomputes duration + price from the new window and stamps the admin', async () => {
+    mockPrisma.booking.findFirst
+      .mockResolvedValueOnce(makeRow()) // findAdminBooking
+      .mockResolvedValueOnce(null); // assertNoConflict: no clash
+    mockPrisma.booking.update.mockResolvedValue(
+      makeRow({ durationHours: dec(4), totalAmount: dec(424) }),
+    );
+
+    await updateBookingTimes('booking-1', ADMIN_UID, {
+      startTime: '2026-08-02T10:00:00.000Z',
+      endTime: '2026-08-02T14:00:00.000Z', // 4 hours
+    });
+
+    const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
+    expect(updateData.startTime).toEqual(new Date('2026-08-02T10:00:00.000Z'));
+    expect(updateData.durationHours).toBe(4);
+    // baseRate 100 × 4 = 400 subtotal; 6% fee = 24; total 424.
+    expect(updateData.subtotal).toBe(400);
+    expect(updateData.serviceFeeAmount).toBe(24);
+    expect(updateData.totalAmount).toBe(424);
+    expect(updateData.adminActionBy).toEqual({ connect: { id: ADMIN_ID } });
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'mother-1' }),
+    );
+  });
+
+  it('rejects editing a COMPLETED booking (locked)', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({ status: PrismaBookingStatus.COMPLETED }),
+    );
+
+    await expect(
+      updateBookingTimes('booking-1', ADMIN_UID, {
+        startTime: '2026-08-02T10:00:00.000Z',
+        endTime: '2026-08-02T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(AppError);
+    expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a window shorter than the minimum duration', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValueOnce(makeRow());
+
+    await expect(
+      updateBookingTimes('booking-1', ADMIN_UID, {
+        startTime: '2026-08-02T10:00:00.000Z',
+        endTime: '2026-08-02T10:30:00.000Z', // 0.5 h
+      }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });

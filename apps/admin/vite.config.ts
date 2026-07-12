@@ -14,9 +14,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Deployed backend serves routes at the root (no /api prefix), so strip it.
+      // Dev only. Prod uses VITE_API_BASE_URL (set in Vercel), not this proxy.
+      // Local backend serves routes at the root (no /api prefix), so strip it.
       '/api': {
-        target: 'https://backend-beige-nine-55.vercel.app',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
