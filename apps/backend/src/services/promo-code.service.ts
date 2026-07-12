@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 import type {
   CreatePromoCodeInput,
   PromoCode,
@@ -92,4 +94,61 @@ export async function deletePromoCode(id: string): Promise<{ id: string }> {
   if (!existing) throw errors.notFound('Promo code not found');
   await prisma.promoCode.update({ where: { id }, data: { deletedAt: new Date() } });
   return { id };
+}
+
+/**
+ * Read-only validation of a promo code for a given user against an applicable
+ * amount (the gross total the discount applies to). Returns the code id and the
+ * (soft-capped, unrounded) discount. Rounding + the final gross cap live in
+ * calculatePriceBreakdown. Throws AppError on any invalid condition.
+ */
+export async function validatePromoCode(
+  code: string,
+  applicableAmount: number,
+  userId: string,
+): Promise<{ promoCodeId: string; discountAmount: number }> {
+  const row = await prisma.promoCode.findFirst({ where: { code, deletedAt: null } });
+  if (!row) throw errors.notFound(`Promo code "${code}" not found.`);
+  if (!row.isActive) throw errors.badRequest('This promo code is no longer active.');
+  if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+    throw errors.badRequest('This promo code has expired.');
+  }
+  if (row.maxUsage !== null && row.usageCount >= row.maxUsage) {
+    throw errors.badRequest('This promo code has been fully redeemed.');
+  }
+  if (row.maxUsagePerUser !== null) {
+    const used = await prisma.promoCodeRedemption.count({
+      where: { promoCodeId: row.id, userId, deletedAt: null },
+    });
+    if (used >= row.maxUsagePerUser) {
+      throw errors.badRequest('You have already used this promo code.');
+    }
+  }
+
+  const value = typeof row.value === 'number' ? row.value : row.value.toNumber();
+  const raw = row.discountType === 'FLAT' ? value : (applicableAmount * value) / 100;
+  const discountAmount = Math.min(raw, applicableAmount);
+  return { promoCodeId: row.id, discountAmount };
+}
+
+/**
+ * Records consumption of a promo code inside the caller's transaction:
+ * increments usageCount and inserts a redemption row. Kept separate from
+ * validatePromoCode so validation never writes.
+ */
+export async function redeemPromoCode(
+  tx: Prisma.TransactionClient,
+  args: { promoCodeId: string; userId: string; bookingId: string },
+): Promise<void> {
+  await tx.promoCode.update({
+    where: { id: args.promoCodeId },
+    data: { usageCount: { increment: 1 } },
+  });
+  await tx.promoCodeRedemption.create({
+    data: {
+      promoCodeId: args.promoCodeId,
+      userId: args.userId,
+      bookingId: args.bookingId,
+    },
+  });
 }
