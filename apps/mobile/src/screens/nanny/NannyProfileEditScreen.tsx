@@ -13,10 +13,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { CURRENCY_CODE, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
+import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
@@ -79,6 +80,7 @@ const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityTypeValue }[] = 
 
 export default function NannyProfileEditScreen() {
   const router = useRouter();
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { data: nannyProfile, isLoading } = useNannyProfile();
   const updateProfile = useUpdateNannyProfile();
   const signOut = useSignOut();
@@ -121,6 +123,16 @@ export default function NannyProfileEditScreen() {
     resetFields();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nannyProfile]);
+
+  // Open in edit mode when navigated here with ?edit=1 (e.g. from the
+  // "Complete profile" banner), then clear the param so a later manual visit
+  // doesn't force edit mode again.
+  useEffect(() => {
+    if (edit === '1') {
+      setIsEditing(true);
+      router.setParams({ edit: undefined });
+    }
+  }, [edit, router]);
 
   const handleToggleEdit = () => {
     if (isEditing) resetFields(); // closing without saving discards changes
@@ -466,6 +478,11 @@ export default function NannyProfileEditScreen() {
           </>
         ) : (
           <>
+            <ProfileVisibilityBanner
+              ctaLabel="Complete profile"
+              onPressCta={() => setIsEditing(true)}
+            />
+
             {/* Stats */}
             {stats.length > 0 ? (
               <View style={styles.statStrip}>

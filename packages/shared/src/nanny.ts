@@ -137,6 +137,59 @@ export const NannyProfileResponseSchema = z.object({
 });
 export type NannyProfileResponse = z.infer<typeof NannyProfileResponseSchema>;
 
+// ── Profile visibility / completeness ────────────────────────────────────────
+
+/**
+ * The fields a nanny must fill in before her profile is visible to parents in
+ * search, in the order they should be surfaced to her. Single source of truth
+ * for the completeness rule — consumed by the backend (to set
+ * `isProfileComplete`) and the mobile app (to explain what's missing).
+ */
+export const NANNY_VISIBILITY_REQUIRED_FIELDS = [
+  { key: 'bio', label: 'Bio' },
+  { key: 'location', label: 'Location' },
+  { key: 'yearsOfExperience', label: 'Years of experience' },
+  { key: 'hourlyRate', label: 'Hourly rate' },
+] as const;
+
+/** Union of the field keys that gate profile visibility. */
+export type NannyVisibilityFieldKey = (typeof NANNY_VISIBILITY_REQUIRED_FIELDS)[number]['key'];
+
+/** A required field paired with its human-readable label. */
+export type NannyVisibilityField = (typeof NANNY_VISIBILITY_REQUIRED_FIELDS)[number];
+
+/** Just the visibility-gating fields, all nullable — the input to the rule. */
+export type NannyProfileCompletenessInput = Pick<
+  NannyProfileResponse,
+  NannyVisibilityFieldKey
+>;
+
+/**
+ * Returns the visibility-gating fields that are still missing, in the order of
+ * `NANNY_VISIBILITY_REQUIRED_FIELDS`. An empty array means the profile is
+ * complete (and therefore shown to parents).
+ *
+ * Truthiness rules (must match the backend's historical behaviour exactly):
+ * - `bio` / `location`: missing when falsy (null, undefined or empty string).
+ * - `yearsOfExperience` / `hourlyRate`: missing only when null/undefined — a
+ *   value of `0` counts as present.
+ */
+export function getMissingNannyProfileFields(
+  profile: NannyProfileCompletenessInput,
+): NannyVisibilityField[] {
+  return NANNY_VISIBILITY_REQUIRED_FIELDS.filter((field) => {
+    const value = profile[field.key];
+    if (field.key === 'bio' || field.key === 'location') {
+      return !value; // falsy → missing (covers null, undefined, '')
+    }
+    return value == null; // numbers: only null/undefined is missing (0 is present)
+  });
+}
+
+/** True when none of the visibility-gating fields are missing. */
+export const isNannyProfileComplete = (profile: NannyProfileCompletenessInput): boolean =>
+  getMissingNannyProfileFields(profile).length === 0;
+
 // ── Public nanny listing (used by GET /nannies) ──────────────────────────────
 
 export const NannyListItemSchema = z.object({

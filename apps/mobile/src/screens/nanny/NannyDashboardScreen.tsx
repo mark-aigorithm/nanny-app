@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { sortBookingsByStartTime } from '@mobile/hooks/useBookingShiftTimer';
@@ -17,6 +18,7 @@ import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import UpcomingShiftBanner from '@mobile/components/UpcomingShiftBanner';
+import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-dashboard-screen.styles';
@@ -31,6 +33,7 @@ const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; icon
 ];
 
 export default function NannyDashboardScreen() {
+  const router = useRouter();
   const {
     data: dashboard,
     isLoading: loadingDashboard,
@@ -67,6 +70,10 @@ export default function NannyDashboardScreen() {
           />
         }
       >
+        <ProfileVisibilityBanner
+          ctaLabel="Complete profile"
+          onPressCta={() => router.push({ pathname: '/(nanny)/profile', params: { edit: '1' } })}
+        />
         <OngoingBookingBanner />
         <UpcomingShiftBanner bookings={shiftBookings} />
 
