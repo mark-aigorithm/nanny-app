@@ -319,7 +319,9 @@ export async function sendMessage(
   });
 
   const recipient = conversation.participants.find((p) => p.userId !== user.id);
-  if (recipient) {
+  // Nannies have no messaging surface in the app, so suppress their marketplace
+  // message notifications. The message itself is still persisted.
+  if (recipient && recipient.user.role !== Role.NANNY) {
     const listingTitle = conversation.communityPost.title ?? 'your listing';
     const senderName = `${user.firstName} ${user.lastName}`.trim();
     const notificationTitle = 'New message';

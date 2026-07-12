@@ -43,6 +43,13 @@ jest.mock('@backend/services/notification.service', () => ({
 }));
 
 import { prisma } from '@backend/db/prisma';
+import {
+  createInAppNotification,
+  dispatchPush,
+} from '@backend/services/notification.service';
+
+const mockNotify = createInAppNotification as jest.Mock;
+const mockPush = dispatchPush as jest.Mock;
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock };
@@ -194,6 +201,51 @@ describe('conversation.service', () => {
 
     expect(result.content).toBe('Hello');
     expect(result.sender.id).toBe('buyer-1');
+  });
+
+  const mockSendTransaction = () =>
+    mockPrisma.$transaction.mockImplementation(async (fn) => {
+      const tx = {
+        message: {
+          create: jest.fn().mockResolvedValue({
+            id: 'msg-1',
+            conversationId: 'conv-1',
+            type: MessageType.TEXT,
+            content: 'Hello',
+            createdAt: new Date('2026-01-01T12:05:00Z'),
+            sender: buyer,
+          }),
+        },
+        conversation: { update: jest.fn() },
+        conversationParticipant: { updateMany: jest.fn() },
+      };
+      return fn(tx as never);
+    });
+
+  it('notifies a mother recipient when a message is sent', async () => {
+    mockPrisma.conversation.findFirst.mockResolvedValue(sampleConversation as never);
+    mockSendTransaction();
+
+    await sendMessage(decoded, 'conv-1', { content: 'Hello' });
+
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not notify a nanny recipient when a message is sent', async () => {
+    mockPrisma.conversation.findFirst.mockResolvedValue({
+      ...sampleConversation,
+      participants: [
+        { userId: buyer.id, lastReadAt: null, user: buyer },
+        { userId: seller.id, lastReadAt: null, user: { ...seller, role: Role.NANNY } },
+      ],
+    } as never);
+    mockSendTransaction();
+
+    await sendMessage(decoded, 'conv-1', { content: 'Hello' });
+
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('returns total unread message count', async () => {
