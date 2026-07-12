@@ -55,6 +55,41 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  // How it works
+  stepsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    ...shadows.sm,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  stepRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.warmBorder,
+  },
+  stepIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepTitle: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  stepBody: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+  },
+
   // Hero
   heroSection: {
     gap: spacing['2xl'],

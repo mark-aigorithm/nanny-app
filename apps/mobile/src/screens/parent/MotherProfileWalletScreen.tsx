@@ -44,9 +44,6 @@ export default function MotherProfileWalletScreen() {
           },
         } as never);
         break;
-      case 'nannies':
-        router.push('/(parent)/search');
-        break;
       case 'logout':
         signOut.mutate(undefined, {
           onSuccess: () => router.replace('/'),
