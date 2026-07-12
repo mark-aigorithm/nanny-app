@@ -12,8 +12,14 @@ async function main() {
     update: {},
   });
 
+  await prisma.appSettings.upsert({
+    where: { key: 'standard_hourly_rate' },
+    create: { key: 'standard_hourly_rate', value: '120' },
+    update: {},
+  });
+
   // eslint-disable-next-line no-console
-  console.log('[seed] app_settings seeded (service_fee_percent = 6)');
+  console.log('[seed] app_settings seeded (service_fee_percent = 6, standard_hourly_rate = 120)');
 }
 
 main()

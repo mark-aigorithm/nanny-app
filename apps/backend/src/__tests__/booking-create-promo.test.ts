@@ -3,7 +3,7 @@ import { Role } from '@nanny-app/shared';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), findMany: jest.fn() },
-    nannyProfile: { findUnique: jest.fn() },
+    nannyProfile: { findUnique: jest.fn(), findMany: jest.fn() },
     booking: { findFirst: jest.fn(), create: jest.fn() },
     promoCode: { findFirst: jest.fn(), update: jest.fn() },
     promoCodeRedemption: { count: jest.fn(), create: jest.fn() },
@@ -13,6 +13,7 @@ jest.mock('@backend/db/prisma', () => ({
 
 jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn(),
+  getStandardHourlyRate: jest.fn(),
 }));
 
 jest.mock('@backend/services/notification.service', () => ({
@@ -21,24 +22,28 @@ jest.mock('@backend/services/notification.service', () => ({
 }));
 
 import { prisma } from '@backend/db/prisma';
-import { getServiceFeePercent } from '@backend/services/app-settings.service';
+import {
+  getServiceFeePercent,
+  getStandardHourlyRate,
+} from '@backend/services/app-settings.service';
 import { createBooking, validateBookingPromo } from '@backend/services/booking.service';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
-  nannyProfile: { findUnique: jest.Mock };
+  nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   booking: { findFirst: jest.Mock; create: jest.Mock };
   promoCode: { findFirst: jest.Mock; update: jest.Mock };
   promoCodeRedemption: { count: jest.Mock; create: jest.Mock };
   $transaction: jest.Mock;
 };
 const mockFee = getServiceFeePercent as jest.Mock;
+const mockRate = getStandardHourlyRate as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
 
 // A far-future date keeps isStandardBookingDateAllowed + "not in the past" happy.
+// The request is nanny-less — the fixed platform rate prices it.
 const baseBody = {
-  nannyProfileId: 'np-1',
   date: '2099-01-01',
   startTime: '2099-01-01T10:00:00.000Z',
   endTime: '2099-01-01T12:00:00.000Z',
@@ -87,10 +92,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockPrisma.user.findUnique.mockResolvedValue({ id: 'mother-1', role: Role.MOTHER, deletedAt: null });
   mockPrisma.user.findMany.mockResolvedValue([]);
-  mockPrisma.nannyProfile.findUnique.mockResolvedValue({ id: 'np-1', isProfileComplete: true, hourlyRate: 100 });
+  mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
   mockPrisma.booking.findFirst.mockResolvedValue(null);
   mockPrisma.promoCodeRedemption.count.mockResolvedValue(0);
   mockFee.mockResolvedValue(6);
+  mockRate.mockResolvedValue(100);
 });
 
 describe('createBooking (promo wiring)', () => {
