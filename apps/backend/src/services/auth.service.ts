@@ -127,6 +127,8 @@ export async function registerUser(
       await tx.nannyProfile.create({
         data: {
           userId: user.id,
+          idDocumentFrontUrl: body.idDocumentFrontUrl ?? null,
+          idDocumentBackUrl: body.idDocumentBackUrl ?? null,
         },
       });
     }

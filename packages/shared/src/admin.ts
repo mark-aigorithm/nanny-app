@@ -168,6 +168,9 @@ export const AdminNannySchema = z.object({
   approvalStatus: NannyApprovalStatusSchema,
   rejectionReason: z.string().nullable(),
   reviewedAt: z.string().nullable(),
+  /** Both sides of the nanny's uploaded ID document, for admin KYC review. */
+  idDocumentFrontUrl: z.string().nullable(),
+  idDocumentBackUrl: z.string().nullable(),
   createdAt: z.string(),
 });
 export type AdminNanny = z.infer<typeof AdminNannySchema>;

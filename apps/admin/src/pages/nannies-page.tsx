@@ -41,6 +41,8 @@ const EMPTY = <span className="table-empty">—</span>;
 
 export function NanniesPage() {
   const [status, setStatus] = useState<AdminNannyStatusFilter>('PENDING_REVIEW');
+  // Nanny whose ID document is open in the viewer modal (null = closed).
+  const [idViewNanny, setIdViewNanny] = useState<AdminNanny | null>(null);
   const queryClient = useQueryClient();
 
   const {
@@ -111,6 +113,7 @@ export function NanniesPage() {
                 <th>Location</th>
                 <th>Experience</th>
                 <th>Rate (EGP/h)</th>
+                <th>ID</th>
                 <th>Registered</th>
                 <th>Status</th>
                 <th />
@@ -154,6 +157,15 @@ export function NanniesPage() {
                     )}
                   </td>
                   <td>{nanny.hourlyRate !== null ? nanny.hourlyRate.toFixed(2) : EMPTY}</td>
+                  <td>
+                    {nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl ? (
+                      <Button size="sm" variant="ghost" onClick={() => setIdViewNanny(nanny)}>
+                        View ID
+                      </Button>
+                    ) : (
+                      EMPTY
+                    )}
+                  </td>
                   <td className="cell-nowrap">{formatDate(nanny.createdAt)}</td>
                   <td>
                     <Badge tone={statusTone(nanny.approvalStatus)}>
@@ -192,6 +204,64 @@ export function NanniesPage() {
           </table>
         </Card>
       )}
+      {idViewNanny && (
+        <IdDocumentModal nanny={idViewNanny} onClose={() => setIdViewNanny(null)} />
+      )}
     </section>
+  );
+}
+
+function IdDocumentModal({
+  nanny,
+  onClose,
+}: {
+  nanny: AdminNanny;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`ID document for ${nanny.name}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 className="modal-title">{nanny.name}'s ID</h2>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+        <div className="modal-body">
+          <div className="id-doc-grid">
+            <figure className="id-doc-figure">
+              <figcaption className="id-doc-caption">Front</figcaption>
+              {nanny.idDocumentFrontUrl ? (
+                <img
+                  className="id-doc-image"
+                  src={nanny.idDocumentFrontUrl}
+                  alt={`Front of ${nanny.name}'s ID`}
+                />
+              ) : (
+                <p className="table-subtext">Not provided.</p>
+              )}
+            </figure>
+            <figure className="id-doc-figure">
+              <figcaption className="id-doc-caption">Back</figcaption>
+              {nanny.idDocumentBackUrl ? (
+                <img
+                  className="id-doc-image"
+                  src={nanny.idDocumentBackUrl}
+                  alt={`Back of ${nanny.name}'s ID`}
+                />
+              ) : (
+                <p className="table-subtext">Not provided.</p>
+              )}
+            </figure>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

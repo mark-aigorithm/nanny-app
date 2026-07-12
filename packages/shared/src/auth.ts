@@ -16,25 +16,38 @@ export const Role = RoleSchema.enum;
 export type Role = z.infer<typeof RoleSchema>;
 
 /** Body for POST /auth/register — fields not in Firebase. */
-export const RegisterRequestSchema = z.object({
-  firstName: z.string().trim().min(1).max(80),
-  lastName: z.string().trim().min(1).max(80),
-  // Email is also on the Firebase token, but we accept and validate it here
-  // so the backend doesn't have to derive it from the JWT for the insert.
-  email: z.string().trim().toLowerCase().email(),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+\d{7,15}$/, 'phone must be E.164, e.g. +15551234567'),
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD'),
-  role: RoleSchema,
-  termsAcceptedVersion: z.string().min(1),
-  address: z.string().trim().max(200).optional(),
-  // Home coordinates from the registration map picker — required so
-  // proximity search / distance sorting work for every account.
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-});
+export const RegisterRequestSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(80),
+    lastName: z.string().trim().min(1).max(80),
+    // Email is also on the Firebase token, but we accept and validate it here
+    // so the backend doesn't have to derive it from the JWT for the insert.
+    email: z.string().trim().toLowerCase().email(),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\+\d{7,15}$/, 'phone must be E.164, e.g. +15551234567'),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD'),
+    role: RoleSchema,
+    termsAcceptedVersion: z.string().min(1),
+    address: z.string().trim().max(200).optional(),
+    // Home coordinates from the registration map picker — required so
+    // proximity search / distance sorting work for every account.
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    // Both sides of the nanny's ID document (Firebase Storage download URLs),
+    // captured at registration for admin KYC review. Mothers omit these; the
+    // refine below makes them mandatory for nannies.
+    idDocumentFrontUrl: z.string().url().optional(),
+    idDocumentBackUrl: z.string().url().optional(),
+  })
+  .refine(
+    (v) => v.role !== 'NANNY' || (!!v.idDocumentFrontUrl && !!v.idDocumentBackUrl),
+    {
+      message: 'Nannies must upload both sides of their ID',
+      path: ['idDocumentFrontUrl'],
+    },
+  );
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
 /** Shape returned by /auth/me and /auth/register. Mirrors Prisma `User` minus internal fields. */

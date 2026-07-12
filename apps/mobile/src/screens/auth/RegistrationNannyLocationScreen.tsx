@@ -49,7 +49,8 @@ export default function RegistrationNannyLocationScreen() {
       return;
     }
     setLocationError(null);
-    router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+    // Nannies upload their ID next; that screen continues to the final step.
+    router.push({ pathname: '/(auth)/register-nanny-id', params: { role } });
   }
 
   // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to

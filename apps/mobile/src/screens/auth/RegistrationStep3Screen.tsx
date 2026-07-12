@@ -15,6 +15,7 @@ import { OTP_LENGTH, BYPASS_OTP, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import { useCreatePhoneAccount, useRegisterProfile } from '@mobile/hooks/useAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
+import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { toE164, phoneToPlaceholderEmail } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step3-screen.styles';
 
@@ -50,6 +51,9 @@ export default function RegistrationStep3Screen() {
   const [otp, setOtp] = useState(BYPASS_OTP);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // The nanny's ID images upload between account creation and profile save;
+  // that gap isn't covered by either mutation's pending flag, so track it here.
+  const [isUploadingId, setIsUploadingId] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -86,12 +90,41 @@ export default function RegistrationStep3Screen() {
     createAccount.mutate(
       { email, password: draft.password },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           patch({ termsAcceptedAt: Date.now() });
 
           const localRole = draft.role ?? 'parent';
           // Mobile uses 'parent' / 'nanny'; backend enum is 'MOTHER' / 'NANNY'.
           const apiRole = localRole === 'parent' ? 'MOTHER' : 'NANNY';
+
+          // Nannies must supply both sides of their ID. Upload happens here,
+          // after the Firebase account exists (uploadImageToFirebase needs the
+          // signed-in uid) and before the profile is saved so the resulting
+          // URLs go out with the register request.
+          let idDocumentFrontUrl: string | undefined;
+          let idDocumentBackUrl: string | undefined;
+          if (apiRole === 'NANNY') {
+            if (!draft.idFrontUri || !draft.idBackUri) {
+              setFormError('Your ID is missing. Please go back and upload both sides.');
+              return;
+            }
+            try {
+              setIsUploadingId(true);
+              [idDocumentFrontUrl, idDocumentBackUrl] = await Promise.all([
+                uploadImageToFirebase(draft.idFrontUri, 'nanny-ids'),
+                uploadImageToFirebase(draft.idBackUri, 'nanny-ids'),
+              ]);
+            } catch (err) {
+              setFormError(
+                err instanceof Error
+                  ? err.message
+                  : 'Could not upload your ID. Please try again.',
+              );
+              return;
+            } finally {
+              setIsUploadingId(false);
+            }
+          }
 
           registerProfile.mutate(
             {
@@ -105,6 +138,8 @@ export default function RegistrationStep3Screen() {
               address: draft.address || undefined,
               latitude,
               longitude,
+              idDocumentFrontUrl,
+              idDocumentBackUrl,
             },
             {
               onSuccess: () => {
@@ -138,7 +173,8 @@ export default function RegistrationStep3Screen() {
     if (formError) setFormError(null);
   }
 
-  const isSubmitting = createAccount.isPending || registerProfile.isPending;
+  const isSubmitting =
+    createAccount.isPending || isUploadingId || registerProfile.isPending;
   const canSubmit = otp === BYPASS_OTP && termsAccepted && !isSubmitting;
 
   return (
@@ -249,9 +285,11 @@ export default function RegistrationStep3Screen() {
           title={
             createAccount.isPending
               ? 'Creating account…'
-              : registerProfile.isPending
-                ? 'Saving…'
-                : 'Complete setup'
+              : isUploadingId
+                ? 'Uploading ID…'
+                : registerProfile.isPending
+                  ? 'Saving…'
+                  : 'Complete setup'
           }
           onPress={handleCompleteSetup}
           disabled={!canSubmit}

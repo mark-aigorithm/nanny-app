@@ -49,6 +49,8 @@ function toDto(row: AdminNannyRow): AdminNanny {
     approvalStatus: row.approvalStatus,
     rejectionReason: row.rejectionReason,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
+    idDocumentFrontUrl: row.idDocumentFrontUrl,
+    idDocumentBackUrl: row.idDocumentBackUrl,
     createdAt: row.createdAt.toISOString(),
   };
 }

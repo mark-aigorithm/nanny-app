@@ -10,6 +10,10 @@ export type RegistrationDraft = {
   countryCode: string; // e.g. '+1'
   dob: string;
   photoUri: string | null;
+  // Nanny-only — front and back of the ID document (local URIs until uploaded
+  // to Firebase Storage at submit). Mothers leave these null.
+  idFrontUri: string | null;
+  idBackUri: string | null;
   // Step 2 — password (in-memory only, never persisted to disk)
   password: string;
   // Step 3 — location & preferences
@@ -37,6 +41,8 @@ const INITIAL: RegistrationDraft = {
   countryCode: '+20',
   dob: '',
   photoUri: null,
+  idFrontUri: null,
+  idBackUri: null,
   password: '',
   address: '',
   neighbourhood: '',
