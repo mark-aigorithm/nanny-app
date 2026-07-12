@@ -36,33 +36,29 @@ hardcoded client-side fake.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| When a code is "used" | At payment success | A code is only consumed by bookings that are actually paid. Abandoned or admin-rejected bookings don't burn a code. |
-| Redemption tracking | Existing `PromoCodeRedemption` table + new `Booking.promoCodeId` | The redemption table already exists and is migrated; it gives per-user history/enforcement. `Booking.promoCodeId` is the frozen link so payment knows which code to consume. The two are complementary. |
+| When a code is "used" | At booking creation | The payment layer (paymob) must not be touched. Consuming at creation keeps all promo logic in `booking.service.ts`. Trade-off: a code is consumed even if the booking is later rejected or never paid — accepted for v1. |
+| Discount reaches payment | Via frozen `Booking.totalAmount` | The discount is baked into `totalAmount` at creation. Paymob already charges `booking.totalAmount`, so the discount flows to the real payment with **zero paymob changes**. |
+| Redemption tracking | Existing `PromoCodeRedemption` table (no new column) | The table already exists and is migrated. It ties code↔user↔booking and gives per-user enforcement/history. Written at booking creation. No `Booking` schema change or migration needed. |
 | Apply UX | Validate/preview endpoint + authoritative re-check on submit | Parent sees the real discount before submitting; backend is the single source of truth and re-validates on booking creation. |
 | Discount computation | In `promo-code.service.validatePromoCode`; rounding stays in `pricing.service` | Keeps validation in the service layer; leaves the pure pricing function untouched. |
 
 ## Data Model
 
-Already present (no change):
+**No schema change / no migration.** Everything below already exists:
 
 - `PromoCode` — `code`, `discountType` (`FLAT` | `PERCENTAGE`), `value`,
   `maxUsage?`, `maxUsagePerUser?`, `usageCount`, `isActive`, `expiresAt`,
   soft-delete columns.
 - `PromoCodeRedemption` — `promoCodeId`, `userId`, `bookingId?`, timestamps.
-  Migrated in `20260708120000_add_promo_codes`.
-- `Booking.discountAmount` (`Decimal(10,2)`, default `0`).
+  Migrated in `20260708120000_add_promo_codes`. This is the consumption record,
+  written at booking creation; it ties code↔user↔booking.
+- `Booking.discountAmount` (`Decimal(10,2)`, default `0`) — frozen discount
+  applied at creation; already flows into `totalAmount`.
 - `calculatePriceBreakdown({ baseRate, durationHours, discountAmount?, serviceFeePercent })`.
 
-New change:
-
-- Add `promoCodeId String? @map("promo_code_id")` + relation to `Booking`, and
-  the reverse relation on `PromoCode`. New migration: `add_booking_promo_code`.
-
-Meaning of each field on a booking:
-
-- `Booking.discountAmount` — frozen discount amount applied at creation.
-- `Booking.promoCodeId` — which code produced it (null when no code used).
-- `PromoCodeRedemption` — written at payment success; the consumption record.
+We deliberately do **not** add `Booking.promoCodeId`: because consumption
+happens at creation, the `PromoCodeRedemption.bookingId` link already records
+which code a booking used, so a dedicated column would be redundant.
 
 ## New Service Logic
 
@@ -91,7 +87,22 @@ Discount computation:
   `calculatePriceBreakdown` (which already caps `discountAmount` at `subtotal`);
   `validatePromoCode` may return an unrounded/soft-capped number.
 
-## Booking Creation & Payment Wiring
+And a second function to record consumption inside the caller's transaction:
+
+```
+redeemPromoCode(tx, { promoCodeId, userId, bookingId }) → Promise<void>
+```
+
+where `tx` is a Prisma transaction client. It (a) increments
+`PromoCode.usageCount` by 1 and (b) inserts a `PromoCodeRedemption` row
+(`promoCodeId`, `userId`, `bookingId`). Called only from `createBooking` when a
+valid code was applied. Kept separate from `validatePromoCode` so validation
+(read-only, also used by the preview endpoint) never writes.
+
+## Booking Creation (discount + consumption)
+
+**Paymob is not touched.** The discount is frozen into `Booking.totalAmount` at
+creation and paymob charges `totalAmount` unchanged.
 
 **`CreateBookingSchema`** (`packages/shared/src/booking.ts`): add
 `promoCode: z.string().trim().min(1).optional()`.
@@ -99,38 +110,35 @@ Discount computation:
 **`createBooking`** (standard path only, `booking.service.ts` ~line 363):
 
 - Compute `subtotal = baseRate * durationHours` (same inputs already used).
-- If `body.promoCode` present → `validatePromoCode(code, subtotal, user.id)`;
-  pass the returned `discountAmount` into `calculatePriceBreakdown`; persist
-  `discountAmount` (from breakdown) and `promoCodeId` on the new booking.
-- If absent → discount `0`, `promoCodeId` null (current behavior).
+- If `body.promoCode` present → `validatePromoCode(code, subtotal, user.id)` to
+  get `{ promoCodeId, discountAmount }`; pass `discountAmount` into
+  `calculatePriceBreakdown`.
+- If absent → discount `0` (current behavior).
+- The booking write becomes a `$transaction`: create the booking (with the
+  discounted breakdown), and — when a code was applied — call
+  `redeemPromoCode(tx, { promoCodeId, userId: user.id, bookingId: booking.id })`
+  in the same transaction so the booking, `usageCount`, and redemption row are
+  atomic. When no code is applied, keep the current single `create` (no
+  transaction needed).
 - Invalid code throws → the create request fails with the validation message.
   The parent has already seen the code validated via the preview endpoint, so
   this is the safety net, not the primary UX.
 - Emergency bookings (`createEmergencyBooking`) are unchanged and ignore promo
   codes.
 
-**`mockPayBooking`** (`booking.service.ts` ~line 713), inside the existing
-`$transaction`, only when `body.succeed`:
+**Payment layer unchanged.** `mockPayBooking`, `finalizePaymentCaptured`, and
+the rest of `paymob.service.ts` are not modified — they already charge the
+frozen `totalAmount`.
 
-- If `booking.promoCodeId` is set:
-  - Increment `PromoCode.usageCount` by 1.
-  - Insert a `PromoCodeRedemption` row (`promoCodeId`, `userId = motherId`,
-    `bookingId`).
-- This is the single consumption point. Both writes happen in the same
-  transaction as the payment + status change, so `usageCount` and the
-  redemption table never drift.
+**Retry/duplicate safety:** `createBooking` already returns the existing PENDING
+booking on a checkout retry (the early-return at ~line 350) instead of creating
+a new one, so a retry does not consume the code twice. A code is applied and
+consumed only on the first creation of a given pending booking; retries reuse
+that booking as-is.
 
-**Edge case — code exhausted after approval:** the booking's frozen
-`totalAmount` is always honored at payment. We do **not** re-validate limits or
-fail payment if the code hit `maxUsage` between approval and payment. `maxUsage`
-is a best-effort cap enforced at validation/creation time. `usageCount` may
-therefore slightly exceed `maxUsage` in a race; this is acceptable and
-documented.
-
-**Retry safety:** payment retries occur only from `APPROVED` status; a
-successful payment moves the booking to `CONFIRMED`. Consumption happens only on
-the success transition, so a failed-then-retried payment consumes the code
-exactly once.
+**Accepted trade-off:** because consumption is at creation, a code counts as
+used even if the booking is later rejected by an admin or never paid. This is
+accepted for v1 (documented in Out of Scope for possible future refinement).
 
 ## Validate / Preview Endpoint + Mobile
 
@@ -160,13 +168,15 @@ exactly once.
 - `validatePromoCode` unit tests: each rejection path (not found, inactive,
   expired, `maxUsage` reached, `maxUsagePerUser` reached) and both discount
   types plus the subtotal cap.
-- `createBooking`: applies discount with a valid code; zero discount without a
-  code; rejects an invalid code; emergency booking ignores the code.
-- `mockPayBooking`: increments `usageCount` and writes a `PromoCodeRedemption`
-  on success; writes neither on failure; consumes exactly once across a
-  failed-then-successful retry.
+- `createBooking`: applies discount with a valid code AND writes the redemption
+  (`usageCount` incremented + `PromoCodeRedemption` created) atomically; zero
+  discount and no redemption without a code; rejects an invalid code and writes
+  nothing; emergency booking ignores the code; retry (existing PENDING booking)
+  does not double-consume.
 - `POST /promo-codes/validate`: returns discount for a valid code; returns 4xx
   for invalid; does not write a redemption.
+- Payment services (`mockPayBooking`, `paymob.service.ts`) are untouched, so
+  their existing tests must still pass unchanged.
 - Coverage stays ≥ 80% (CI threshold).
 
 ## Out of Scope / Future
