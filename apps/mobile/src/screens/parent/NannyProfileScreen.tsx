@@ -257,21 +257,9 @@ export default function NannyProfileScreen() {
         <TouchableOpacity
           style={styles.bookButton}
           activeOpacity={0.85}
-          onPress={() =>
-            router.push({
-              pathname: '/(parent)/book/booking-date-picker',
-              params: {
-                nannyId: nanny.nannyProfileId,
-                nannyName: `${nanny.firstName} ${nanny.lastName}`,
-                nannyPhoto: nanny.avatarUrl ?? '',
-                nannyRate: String(nanny.hourlyRate ?? 0),
-              },
-            })
-          }
+          onPress={() => router.push('/(parent)/book/booking-date-picker')}
         >
-          <Text style={styles.bookButtonText}>
-            Book {nanny.firstName} — {formatHourlyRate(nanny.hourlyRate, 'Rate TBD')}
-          </Text>
+          <Text style={styles.bookButtonText}>Request care</Text>
         </TouchableOpacity>
       </View>
     </View>

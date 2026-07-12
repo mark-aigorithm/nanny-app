@@ -339,12 +339,12 @@ export default function BookingStep3Screen() {
 
 
 
-  // Create-flow: submit the booking request for admin approval. Under
-  // pay-after-approval, creating a booking must NOT open payment — the mother
-  // pays only once an admin has approved (see resumeCheckout / retry mode).
+  // Create-flow: broadcast the request to every eligible nanny. Creating a
+  // booking must NOT open payment — the mother pays only once a nanny has
+  // claimed it and it becomes APPROVED (see resumeCheckout / retry mode).
   const submitBookingRequest = useCallback(async () => {
 
-    if (!params.nannyProfileId || !params.dateIso || !params.startTimeIso || !params.endTimeIso) {
+    if (!params.dateIso || !params.startTimeIso || !params.endTimeIso) {
 
       setLoadError('Missing booking details. Go back and try again.');
 
@@ -371,8 +371,6 @@ export default function BookingStep3Screen() {
     try {
 
       const created = await createBooking.mutateAsync({
-
-        nannyProfileId: params.nannyProfileId,
 
         date: params.dateIso,
 
@@ -518,7 +516,7 @@ export default function BookingStep3Screen() {
 
   const hours = getBookingDurationHours(params);
 
-  const nannyName = params.nannyName?.trim() || 'Your nanny';
+  const nannyName = params.nannyName?.trim() || 'Care request';
 
   const instructions = params.instructions?.trim() ?? '';
 

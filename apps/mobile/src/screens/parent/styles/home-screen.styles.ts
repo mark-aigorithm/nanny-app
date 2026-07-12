@@ -28,6 +28,33 @@ export const styles = StyleSheet.create({
     gap: spacing['2xl'],
   },
 
+  // Book care entry
+  bookCareCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.primaryMuted,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.sm,
+  },
+  bookCareIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookCareTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  bookCareSubtitle: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+  },
+
   // Hero
   heroSection: {
     gap: spacing['2xl'],
