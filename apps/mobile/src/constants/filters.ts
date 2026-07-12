@@ -1,6 +1,7 @@
 import type { FilterChipData, SortOption } from '@mobile/types';
 
-export const HOME_FILTER_TABS = ['Full-time', 'Part-time', 'Occasional', 'Emergency'] as const;
+// 'Emergency' tab hidden — emergency booking flow is not exposed in the UI.
+export const HOME_FILTER_TABS = ['Full-time', 'Part-time', 'Occasional'] as const;
 export type FilterTab = (typeof HOME_FILTER_TABS)[number];
 
 export const SORT_OPTIONS: SortOption[] = ['Recommended', 'Price', 'Distance'];

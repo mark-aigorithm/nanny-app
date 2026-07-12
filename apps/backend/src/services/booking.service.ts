@@ -394,6 +394,35 @@ export async function createBooking(
   return toBookingResponse(booking);
 }
 
+/**
+ * EMERGENCY BOOKING FLOW — same-day care with no pre-selected nanny.
+ *
+ * Standard bookings require choosing a specific nanny and must be scheduled at
+ * least a day ahead (see isStandardBookingDateAllowed). The emergency track
+ * covers same-day needs where the mother can't wait to browse and pick: the
+ * request is broadcast, and the first eligible nanny to accept "claims" it.
+ *
+ * End-to-end lifecycle:
+ *
+ *   1. MOTHER creates the request (this function). No nanny is assigned
+ *      (nannyProfileId = null) and no price is known yet, so every money field
+ *      is created as 0. Status starts at PENDING. Admins are notified; the
+ *      response also hands the mother the 5 nearest available nannies so the
+ *      app can show who might pick it up.
+ *
+ *   2. NANNY claims it (applyNannyDecision, ACCEPTED branch). The first nanny to
+ *      accept is assigned to the booking AND the booking is (re)priced at HER
+ *      hourly rate — the price is not known until this moment. A transaction +
+ *      status re-check prevents two nannies claiming the same request at once.
+ *      The booking stays PENDING: claiming is not approval.
+ *
+ *   3. ADMIN approves (admin-booking.service). Approval is authoritative, but an
+ *      emergency request cannot be approved while unclaimed — a nanny must be
+ *      assigned first. Approval moves it to APPROVED, then the mother pays and
+ *      it becomes CONFIRMED, identical to the standard track from here on.
+ *
+ * This function is step 1 (the mother's side).
+ */
 export async function createEmergencyBooking(
   decoded: DecodedIdToken,
   body: CreateEmergencyBookingRequest,

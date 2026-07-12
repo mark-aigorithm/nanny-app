@@ -28,14 +28,15 @@ export const QUICK_ACTIONS: QuickAction[] = [
     iconColor: colors.primary,
     route: '/(parent)/search',
   },
-  {
-    id: 'emergency',
-    label: 'Emergency',
-    icon: 'alert-circle',
-    bgColor: 'rgba(192,99,74,0.12)',
-    iconColor: colors.error,
-    route: '/(parent)/search',
-  },
+  // Emergency quick action hidden — emergency booking flow is not exposed in the UI.
+  // {
+  //   id: 'emergency',
+  //   label: 'Emergency',
+  //   icon: 'alert-circle',
+  //   bgColor: 'rgba(192,99,74,0.12)',
+  //   iconColor: colors.error,
+  //   route: '/(parent)/search',
+  // },
   {
     id: 'community',
     label: 'Community',
