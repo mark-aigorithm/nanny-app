@@ -183,12 +183,32 @@ export default function BookingDetailScreen() {
             <Text style={styles.paymentLabel}>
               Base {formatHourlyRateAmount(booking.baseRate)} × {booking.durationHours}h
             </Text>
-            <Text style={styles.paymentValue}>{formatMoney(booking.subtotal)}</Text>
+            <Text style={styles.paymentValue}>
+              {formatMoney(booking.baseRate * booking.durationHours)}
+            </Text>
           </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Service fee ({booking.serviceFeePercent}%)</Text>
-            <Text style={styles.paymentValue}>{formatMoney(booking.serviceFeeAmount)}</Text>
-          </View>
+          {booking.skillAddOns.map((addon) => (
+            <View style={styles.paymentRow} key={addon.id}>
+              <Text style={styles.paymentLabel}>+ {addon.name}</Text>
+              <Text style={styles.paymentValue}>
+                {formatMoney(addon.amountPerHour * booking.durationHours)}
+              </Text>
+            </View>
+          ))}
+          {booking.effectiveHourlyRate * booking.durationHours - booking.subtotal > 0.005 && (
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Longer-booking discount</Text>
+              <Text style={styles.paymentValue}>
+                –{formatMoney(booking.effectiveHourlyRate * booking.durationHours - booking.subtotal)}
+              </Text>
+            </View>
+          )}
+          {booking.discountAmount > 0 && (
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Promo discount</Text>
+              <Text style={styles.paymentValue}>–{formatMoney(booking.discountAmount)}</Text>
+            </View>
+          )}
           <View style={styles.paymentDivider} />
           <View style={styles.paymentRow}>
             <Text style={styles.paymentTotalLabel}>Total</Text>

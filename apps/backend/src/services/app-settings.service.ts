@@ -5,6 +5,8 @@ import { prisma } from '@backend/db/prisma';
 const KEYS = {
   SERVICE_FEE_PERCENT: 'service_fee_percent',
   STANDARD_HOURLY_RATE: 'standard_hourly_rate',
+  NANNY_PERCENT: 'nanny_percent',
+  PLATFORM_PERCENT: 'platform_percent',
   MAX_BOOKING_HOURS: 'max_booking_hours',
   MIN_BOOKING_HOURS: 'min_booking_hours',
   MIN_ADVANCE_BOOKING_HOURS: 'min_advance_booking_hours',
@@ -14,6 +16,8 @@ const KEYS = {
 const DEFAULTS: PlatformConfig = {
   serviceFeePercent: 6,
   standardHourlyRate: 120,
+  nannyPercent: 80,
+  platformPercent: 20,
   maxBookingHours: 12,
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
@@ -24,6 +28,8 @@ const DEFAULTS: PlatformConfig = {
 const FIELD_TO_KEY: Record<keyof PlatformConfig, string> = {
   serviceFeePercent: KEYS.SERVICE_FEE_PERCENT,
   standardHourlyRate: KEYS.STANDARD_HOURLY_RATE,
+  nannyPercent: KEYS.NANNY_PERCENT,
+  platformPercent: KEYS.PLATFORM_PERCENT,
   maxBookingHours: KEYS.MAX_BOOKING_HOURS,
   minBookingHours: KEYS.MIN_BOOKING_HOURS,
   minAdvanceBookingHours: KEYS.MIN_ADVANCE_BOOKING_HOURS,
@@ -48,6 +54,27 @@ export async function getStandardHourlyRate(): Promise<number> {
     where: { key: KEYS.STANDARD_HOURLY_RATE },
   });
   return row ? parseFloat(row.value) : DEFAULTS.standardHourlyRate;
+}
+
+/**
+ * Returns the nanny/platform revenue split (percentages that sum to 100). This
+ * replaces the legacy service fee as the source of truth for who-gets-what.
+ */
+export async function getRevenueSplit(): Promise<{ nannyPercent: number; platformPercent: number }> {
+  const rows = await prisma.appSettings.findMany({
+    where: { key: { in: [KEYS.NANNY_PERCENT, KEYS.PLATFORM_PERCENT] }, deletedAt: null },
+  });
+  const byKey = new Map(rows.map((r) => [r.key, r.value]));
+  const parse = (key: string, fallback: number): number => {
+    const raw = byKey.get(key);
+    if (raw === undefined) return fallback;
+    const parsed = parseFloat(raw);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+  return {
+    nannyPercent: parse(KEYS.NANNY_PERCENT, DEFAULTS.nannyPercent),
+    platformPercent: parse(KEYS.PLATFORM_PERCENT, DEFAULTS.platformPercent),
+  };
 }
 
 /** Returns the full platform config, falling back to defaults for unseeded keys. */

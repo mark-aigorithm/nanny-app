@@ -7,6 +7,8 @@ jest.mock('@backend/db/prisma', () => ({
     booking: { findFirst: jest.fn(), create: jest.fn() },
     promoCode: { findFirst: jest.fn(), update: jest.fn() },
     promoCodeRedemption: { count: jest.fn(), create: jest.fn() },
+    skill: { findMany: jest.fn() },
+    durationMultiplierRule: { findMany: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -14,6 +16,7 @@ jest.mock('@backend/db/prisma', () => ({
 jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn(),
   getStandardHourlyRate: jest.fn(),
+  getRevenueSplit: jest.fn(),
 }));
 
 jest.mock('@backend/services/notification.service', () => ({
@@ -23,6 +26,7 @@ jest.mock('@backend/services/notification.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import {
+  getRevenueSplit,
   getServiceFeePercent,
   getStandardHourlyRate,
 } from '@backend/services/app-settings.service';
@@ -34,10 +38,13 @@ const mockPrisma = prisma as unknown as {
   booking: { findFirst: jest.Mock; create: jest.Mock };
   promoCode: { findFirst: jest.Mock; update: jest.Mock };
   promoCodeRedemption: { count: jest.Mock; create: jest.Mock };
+  skill: { findMany: jest.Mock };
+  durationMultiplierRule: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
 const mockFee = getServiceFeePercent as jest.Mock;
 const mockRate = getStandardHourlyRate as jest.Mock;
+const mockSplit = getRevenueSplit as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
 
@@ -95,8 +102,11 @@ beforeEach(() => {
   mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
   mockPrisma.booking.findFirst.mockResolvedValue(null);
   mockPrisma.promoCodeRedemption.count.mockResolvedValue(0);
+  mockPrisma.skill.findMany.mockResolvedValue([]);
+  mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
   mockFee.mockResolvedValue(6);
   mockRate.mockResolvedValue(100);
+  mockSplit.mockResolvedValue({ nannyPercent: 80, platformPercent: 20 });
 });
 
 describe('createBooking (promo wiring)', () => {
@@ -110,7 +120,9 @@ describe('createBooking (promo wiring)', () => {
     expect(data.discountAmount).toBe(0);
     expect(data.promoCodeId).toBeUndefined();
     expect(data.subtotal).toBe(200);
-    expect(data.totalAmount).toBe(212);
+    expect(data.totalAmount).toBe(200); // no service fee under the split model
+    expect(data.nannyAmount).toBe(160); // 80% of 200
+    expect(data.platformAmount).toBe(40);
     expect(res.discountAmount).toBe(0);
     expect(mockPrisma.promoCodeRedemption.create).not.toHaveBeenCalled();
   });
@@ -144,9 +156,10 @@ describe('createBooking (promo wiring)', () => {
     const data = tx.booking.create.mock.calls[0][0].data;
     expect(data.promoCodeId).toBe('promo-1');
     expect(data.discountAmount).toBe(50);
-    expect(data.subtotal).toBe(200); // nanny earnings untouched (Requirement 1)
-    expect(data.serviceFeeAmount).toBe(12); // fee on full subtotal (Requirement 2)
-    expect(data.totalAmount).toBe(162);
+    expect(data.subtotal).toBe(200); // priced subtotal before discount
+    expect(data.serviceFeeAmount).toBe(0); // legacy fee retired under the split
+    expect(data.totalAmount).toBe(150); // 200 − 50
+    expect(data.nannyAmount).toBe(120); // 80% of 150
     expect(tx.promoCode.update).toHaveBeenCalledWith({
       where: { id: 'promo-1' },
       data: { usageCount: { increment: 1 } },
@@ -181,7 +194,7 @@ describe('createBooking (promo wiring)', () => {
 });
 
 describe('validateBookingPromo', () => {
-  it('computes the gross total from subtotal + fee and returns the discount', async () => {
+  it('computes the discount from the priced subtotal (no fee added) and returns it', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue({
       id: 'promo-1',
       code: 'SAVE10',
@@ -197,8 +210,8 @@ describe('validateBookingPromo', () => {
 
     const res = await validateBookingPromo(DECODED, { code: 'SAVE10', subtotal: 200 });
 
-    // gross = 200 + 6% (12) = 212; 10% of 212 = 21.2
-    expect(res.discountAmount).toBeCloseTo(21.2);
+    // No fee on top: 10% of the 200 subtotal = 20
+    expect(res.discountAmount).toBeCloseTo(20);
     expect(mockPrisma.promoCodeRedemption.create).not.toHaveBeenCalled(); // preview never writes
   });
 

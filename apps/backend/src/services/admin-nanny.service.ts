@@ -53,7 +53,12 @@ function toDto(row: AdminNannyRow): AdminNanny {
     yearsOfExperience: row.yearsOfExperience,
     hourlyRate: row.hourlyRate?.toNumber() ?? null,
     certifications: row.certifications,
-    skills: row.nannySkills.map((ns) => ({ id: ns.skill.id, name: ns.skill.name })),
+    skills: row.nannySkills.map((ns) => ({
+      id: ns.skill.id,
+      name: ns.skill.name,
+      feeType: ns.skill.feeType,
+      feeValue: Number(ns.skill.feeValue),
+    })),
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
     approvalStatus: row.approvalStatus,

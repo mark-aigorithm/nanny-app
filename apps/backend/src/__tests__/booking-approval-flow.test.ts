@@ -14,12 +14,16 @@ jest.mock('@backend/db/prisma', () => {
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
   const nannyProfile = { findUnique: jest.fn(), findMany: jest.fn() };
   const payment = { create: jest.fn() };
+  const skill = { findMany: jest.fn() };
+  const durationMultiplierRule = { findMany: jest.fn() };
   return {
     prisma: {
       booking,
       user,
       nannyProfile,
       payment,
+      skill,
+      durationMultiplierRule,
       $transaction: jest.fn(async (arg: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => unknown)({ booking, user, nannyProfile, payment })
@@ -37,6 +41,7 @@ jest.mock('@backend/services/notification.service', () => ({
 jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
+  getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
 }));
 
 import { prisma } from '@backend/db/prisma';
@@ -61,6 +66,8 @@ const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   payment: { create: jest.Mock };
+  skill: { findMany: jest.Mock };
+  durationMultiplierRule: { findMany: jest.Mock };
 };
 
 const mockNotify = createInAppNotification as jest.Mock;
@@ -175,6 +182,9 @@ describe('createBooking (broadcast)', () => {
     mockPrisma.booking.create.mockResolvedValue(
       makeBooking({ nannyProfileId: null, nannyProfile: null }),
     );
+    // No add-on skills and no duration tiers configured for this scenario.
+    mockPrisma.skill.findMany.mockResolvedValue([]);
+    mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
     // Broadcast fan-out: one eligible nanny + two admins.
     mockPrisma.nannyProfile.findMany.mockResolvedValue([{ userId: nannyUser.id }]);
     mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
@@ -189,6 +199,7 @@ describe('createBooking (broadcast)', () => {
       date: dateIso,
       startTime: start.toISOString(),
       endTime: end.toISOString(),
+      skillIds: [],
     });
 
     expect(result.status).toBe(BookingStatus.PENDING);
@@ -196,10 +207,12 @@ describe('createBooking (broadcast)', () => {
     const createData = mockPrisma.booking.create.mock.calls[0][0].data;
     expect(createData.status).toBe(BookingStatus.PENDING);
     expect(createData.nannyProfileId).toBeNull();
-    // Priced from the fixed platform rate (100) × 3 hrs + 6% fee.
+    // Priced from the base platform rate (100) × 3 hrs, split 80/20, no fee on top.
     expect(createData.baseRate).toBe(100);
     expect(createData.subtotal).toBe(300);
-    expect(createData.totalAmount).toBe(318);
+    expect(createData.totalAmount).toBe(300);
+    expect(createData.nannyAmount).toBe(240);
+    expect(createData.platformAmount).toBe(60);
 
     // Eligible nanny + both admins each get a BOOKING_REQUESTED in-app notification.
     const requested = mockNotify.mock.calls.filter((c) => c[0].type === 'BOOKING_REQUESTED');

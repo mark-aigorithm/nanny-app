@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { PublicDurationRuleSchema } from './duration-rule';
+import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
+
 // ──────────────────────────────────────────────────────────────
 // Booking — shared Zod schemas
 // ──────────────────────────────────────────────────────────────
@@ -36,14 +39,38 @@ export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 
 // ── Price breakdown ─────────────────────────────────────────────────────────
 
+/** A selected skill add-on and its per-hour fee contribution. */
+export const AppliedSkillFeeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** null = the skill was requested but carries no fee (adds 0). */
+  feeType: SkillFeeTypeSchema.nullable(),
+  feeValue: z.number(),
+  /** EGP added to the hourly rate by this add-on. */
+  amountPerHour: z.number(),
+});
+export type AppliedSkillFee = z.infer<typeof AppliedSkillFeeSchema>;
+
 export const PriceBreakdownSchema = z.object({
   baseRate: z.number(),
   durationHours: z.number(),
+  /** Selected per-skill add-ons applied to the hourly rate. */
+  skillAddOns: z.array(AppliedSkillFeeSchema),
+  /** baseRate + sum of add-on per-hour fees. */
+  effectiveHourlyRate: z.number(),
   subtotal: z.number(),
+  /** Duration tier factor applied to the subtotal (1 = none). */
+  durationMultiplier: z.number(),
   discountAmount: z.number(),
+  /** Legacy platform service fee — retained for back-compat; 0 under the split model. */
   serviceFeePercent: z.number(),
   serviceFeeAmount: z.number(),
   totalAmount: z.number(),
+  /** Revenue split: nanny's share vs the platform's share of totalAmount. */
+  nannyPercent: z.number(),
+  platformPercent: z.number(),
+  nannyAmount: z.number(),
+  platformAmount: z.number(),
 });
 export type PriceBreakdown = z.infer<typeof PriceBreakdownSchema>;
 
@@ -110,11 +137,20 @@ export const BookingResponseSchema = z.object({
   endTime: z.string(),
   durationHours: z.number(),
   baseRate: z.number(),
+  /** base rate + selected skill add-on fees, per hour. */
+  effectiveHourlyRate: z.number(),
+  /** Selected per-skill add-ons applied to this booking. */
+  skillAddOns: z.array(AppliedSkillFeeSchema),
   subtotal: z.number(),
+  durationMultiplier: z.number(),
   discountAmount: z.number(),
   serviceFeePercent: z.number(),
   serviceFeeAmount: z.number(),
   totalAmount: z.number(),
+  /** What the nanny earns from this booking (nannies only ever see this). */
+  nannyAmount: z.number(),
+  /** What the platform keeps from this booking. */
+  platformAmount: z.number(),
   specialInstructions: z.string().nullable(),
   cancellationReason: z.string().nullable(),
   cancelledAt: z.string().nullable(),
@@ -148,6 +184,8 @@ export const CreateBookingSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   specialInstructions: z.string().trim().max(1000).optional(),
   promoCode: z.string().trim().min(1).optional(),
+  /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */
+  skillIds: z.array(z.string()).default([]),
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
 
@@ -165,11 +203,20 @@ export type ValidateBookingPromoResponse = z.infer<typeof ValidateBookingPromoRe
 
 /**
  * Public pricing inputs the booking form needs to show a live estimate before a
- * request is created: the fixed platform hourly rate and the service fee %.
+ * request is created: the base hourly rate, selectable skill add-ons and their
+ * fees, duration discount tiers, and the nanny/platform revenue split.
  */
 export const PricingConfigSchema = z.object({
   standardHourlyRate: z.number(),
+  /** Legacy platform service fee — retained for back-compat; 0 under the split model. */
   serviceFeePercent: z.number(),
+  /** Nanny's share of the total, in percent (nannyPercent + platformPercent = 100). */
+  nannyPercent: z.number(),
+  platformPercent: z.number(),
+  /** Skills a mother can add as paid booking add-ons (feeType is non-null). */
+  skillAddOns: z.array(PublicSkillSchema),
+  /** Duration discount/surcharge tiers, ascending by minHours. */
+  durationRules: z.array(PublicDurationRuleSchema),
 });
 export type PricingConfig = z.infer<typeof PricingConfigSchema>;
 

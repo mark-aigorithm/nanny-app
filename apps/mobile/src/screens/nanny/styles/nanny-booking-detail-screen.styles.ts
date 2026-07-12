@@ -176,6 +176,11 @@ export const styles = StyleSheet.create({
     ...typeScale.headingSm,
     color: colors.primary,
   },
+  paymentSubtext: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
 
   // Rating & review
   reviewCard: {

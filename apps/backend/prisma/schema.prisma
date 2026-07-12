@@ -224,6 +224,12 @@ model Skill {
   name        String       @unique
   description String?      @db.Text
   isActive    Boolean      @default(true) @map("is_active")
+  /// Optional booking add-on fee. When a mother selects this skill as a paid
+  /// add-on, its fee is applied on top of the base hourly rate. null feeType
+  /// (the default) means the skill carries no fee. FLAT = EGP/hour surcharge;
+  /// PERCENTAGE = percent of the base rate added per hour.
+  feeType     DiscountType? @map("fee_type")
+  feeValue    Decimal      @default(0) @map("fee_value") @db.Decimal(10, 2)
   nannySkills NannySkill[]
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
@@ -272,6 +278,27 @@ enum DiscountType {
   PERCENTAGE
 
   @@map("discount_type")
+}
+
+/// Admin-configured duration pricing tiers. When a booking's durationHours is
+/// at least `minHours`, the highest matching tier's `multiplier` is applied to
+/// the subtotal (e.g. a 3-hour booking at multiplier 0.90 gets a 10% discount).
+/// With no matching tier the multiplier defaults to 1.0 (no adjustment).
+model DurationMultiplierRule {
+  id         String    @id @default(cuid())
+  /// Inclusive lower bound in hours for this tier to apply.
+  minHours   Int       @map("min_hours")
+  /// Factor applied to the subtotal (0.90 = 10% discount, 1.10 = 10% surcharge).
+  multiplier Decimal   @db.Decimal(5, 4)
+  label      String?
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt      @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("duration_multiplier_rules")
 }
 
 model PromoCode {
@@ -347,11 +374,23 @@ model Booking {
   endTime                 DateTime      @map("end_time")
   durationHours           Decimal       @map("duration_hours")     @db.Decimal(5, 2)
   baseRate                Decimal       @map("base_rate")          @db.Decimal(10, 2)
+  /// Base rate plus any selected per-skill add-on fees (per hour).
+  effectiveHourlyRate     Decimal       @default(0) @map("effective_hourly_rate") @db.Decimal(10, 2)
   subtotal                Decimal       @db.Decimal(10, 2)
+  /// Duration tier factor applied to the subtotal (1 = none). See DurationMultiplierRule.
+  durationMultiplier      Decimal       @default(1) @map("duration_multiplier")   @db.Decimal(5, 4)
   discountAmount          Decimal       @default(0)  @map("discount_amount")    @db.Decimal(10, 2)
+  /// Legacy platform service-fee snapshot. Superseded by the nanny/platform
+  /// revenue split (nannyAmount / platformAmount); retained for old bookings.
   serviceFeePercent       Decimal       @map("service_fee_percent") @db.Decimal(5, 2)
   serviceFeeAmount        Decimal       @map("service_fee_amount")  @db.Decimal(10, 2)
   totalAmount             Decimal       @map("total_amount")        @db.Decimal(10, 2)
+  /// Revenue split snapshot: what the nanny earns and what the platform keeps
+  /// of totalAmount. Nannies only ever see nannyAmount.
+  nannyAmount             Decimal       @default(0) @map("nanny_amount")    @db.Decimal(10, 2)
+  platformAmount          Decimal       @default(0) @map("platform_amount") @db.Decimal(10, 2)
+  /// Snapshot of the selected skill add-ons for the price breakdown display.
+  selectedSkillFees       Json?         @map("selected_skill_fees")
   specialInstructions     String?       @map("special_instructions") @db.Text
   cancellationReason      String?       @map("cancellation_reason")
   cancelledById           String?       @map("cancelled_by_id")

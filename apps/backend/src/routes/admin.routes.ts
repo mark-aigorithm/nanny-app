@@ -5,14 +5,17 @@ import {
   AdminNannyStatusFilterSchema,
   CreateAdminSchema,
   CreateCameraSchema,
+  CreateDurationRuleSchema,
   CreatePromoCodeSchema,
   CreateSkillSchema,
+  PricePreviewSchema,
   RejectAdminBookingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
   SetNannySkillsSchema,
   UpdateBookingTimesSchema,
   UpdateCameraSchema,
+  UpdateDurationRuleSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
   UpdateSkillSchema,
@@ -46,6 +49,13 @@ import {
   getPlatformConfig,
   updatePlatformConfig,
 } from '@backend/services/app-settings.service';
+import {
+  createDurationRule,
+  deleteDurationRule,
+  listDurationRules,
+  updateDurationRule,
+} from '@backend/services/duration-rule.service';
+import { previewBreakdown } from '@backend/services/pricing-config.service';
 import {
   createCamera,
   deleteCamera,
@@ -387,6 +397,65 @@ adminRouter.put(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await updatePlatformConfig(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Duration multiplier rules ──────────────────────────────────
+
+adminRouter.get('/duration-rules', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listDurationRules()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/duration-rules',
+  validateBody(CreateDurationRuleSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createDurationRule(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/duration-rules/:id',
+  validateBody(UpdateDurationRuleSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateDurationRule(routeParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/duration-rules/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await deleteDurationRule(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Pricing calculator (authoritative preview for the admin UI) ─
+
+adminRouter.post(
+  '/pricing/calculate',
+  validateBody(PricePreviewSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await previewBreakdown(req.body)));
     } catch (err) {
       next(err);
     }

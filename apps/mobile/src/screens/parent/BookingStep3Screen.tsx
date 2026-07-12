@@ -386,6 +386,10 @@ export default function BookingStep3Screen() {
 
         ...(params.promoCode?.trim() ? { promoCode: params.promoCode.trim() } : {}),
 
+        skillIds: params.skillIds?.trim()
+          ? params.skillIds.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+
       });
 
       // Route straight to the confirmation screen, which reads a PENDING

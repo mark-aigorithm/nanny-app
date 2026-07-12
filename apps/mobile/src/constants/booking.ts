@@ -1,5 +1,3 @@
-export const PLATFORM_FEE_PERCENT = 0.06;
-
 export const BOOKING_DURATION_OPTIONS = [2, 3, 4, 5, 6, 7, 8] as const;
 
 export const PAYMENT_TYPES: Record<string, string> = {

@@ -10,8 +10,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
+import {
+  calculatePriceBreakdown,
+  resolveDurationMultiplier,
+  type PublicSkill,
+} from '@nanny-app/shared';
+
 import { colors, spacing, borderRadius } from '@mobile/theme';
-import { Card } from '@mobile/components/ui';
+import { Card, Chip } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { usePricingConfig, useValidatePromo } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
@@ -36,6 +42,7 @@ export default function BookingStep1Screen() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
   const [instructions, setInstructions] = useState('');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const validatePromo = useValidatePromo();
 
   const draftReady = hasRequiredBookingDraft(params);
@@ -46,20 +53,53 @@ export default function BookingStep1Screen() {
   const hours = getBookingDurationHours(params);
 
   const hourlyRate = pricing?.standardHourlyRate ?? null;
-  const feePercent = pricing?.serviceFeePercent ?? 0;
+  const promoDiscount = appliedPromo?.discountAmount ?? 0;
+
+  const addOns = pricing?.skillAddOns ?? [];
+  const selectedAddOns = addOns.filter((s) => selectedSkillIds.includes(s.id));
+
+  // Live estimate using the shared pricing engine — the same math the server
+  // runs when the request is created, so what the parent sees is what she pays.
+  const breakdown =
+    pricing && hours > 0
+      ? calculatePriceBreakdown({
+          baseRate: pricing.standardHourlyRate,
+          durationHours: hours,
+          skillAddOns: selectedAddOns,
+          durationMultiplier: resolveDurationMultiplier(hours, pricing.durationRules),
+          discountAmount: promoDiscount,
+          nannyPercent: pricing.nannyPercent,
+          platformPercent: pricing.platformPercent,
+        })
+      : null;
 
   const baseCost = hourlyRate != null ? hourlyRate * hours : 0;
-  const promoDiscount = appliedPromo?.discountAmount ?? 0;
-  const fee = baseCost * (feePercent / 100);
-  const total = Math.max(0, baseCost + fee - promoDiscount);
+  const rawSubtotal = breakdown ? breakdown.effectiveHourlyRate * hours : 0;
+  const durationDiscount = breakdown ? rawSubtotal - breakdown.subtotal : 0;
+  const total = breakdown?.totalAmount ?? 0;
 
   const canProceed = draftReady && hourlyRate != null && hours > 0 && !isPricingLoading;
+
+  const toggleSkill = (id: string) => {
+    setAppliedPromo(null); // add-ons change the price → re-validate any promo
+    setSelectedSkillIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  };
+
+  const skillChipLabel = (skill: PublicSkill): string => {
+    if (skill.feeType === 'FLAT') {
+      return `${skill.name} · +${formatMoney(skill.feeValue, { fractionDigits: 0 })}/hr`;
+    }
+    if (skill.feeType === 'PERCENTAGE') return `${skill.name} · +${skill.feeValue}%`;
+    return skill.name;
+  };
 
   const handleApplyPromo = () => {
     const code = promoCode.trim();
     if (code.length === 0) return;
     validatePromo.mutate(
-      { code, subtotal: baseCost },
+      { code, subtotal: breakdown?.subtotal ?? baseCost },
       { onSuccess: (res) => setAppliedPromo({ code, discountAmount: res.discountAmount }) },
     );
   };
@@ -82,6 +122,7 @@ export default function BookingStep1Screen() {
         total: total.toFixed(2),
         ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
         ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
+        ...(selectedSkillIds.length ? { skillIds: selectedSkillIds.join(',') } : {}),
         bookingId: '',
         retry: '',
       },
@@ -141,6 +182,26 @@ export default function BookingStep1Screen() {
           </View>
         </Card>
 
+        {addOns.length > 0 && (
+          <View style={styles.addOnSection}>
+            <Text style={styles.addOnTitle}>Add-ons</Text>
+            <Text style={styles.addOnHint}>
+              Tap the specialties you need — the fee is added to the hourly rate.
+            </Text>
+            <View style={styles.addOnChips}>
+              {addOns.map((skill) => (
+                <Chip
+                  key={skill.id}
+                  label={skillChipLabel(skill)}
+                  active={selectedSkillIds.includes(skill.id)}
+                  onPress={() => toggleSkill(skill.id)}
+                  size="sm"
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={styles.promoSection}>
           <View style={styles.promoInputRow}>
             <TextInput
@@ -191,20 +252,30 @@ export default function BookingStep1Screen() {
           <View style={styles.priceCard}>
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>
-                Rate {hourlyRate != null ? formatMoney(hourlyRate, { fractionDigits: 0 }) : '—'} × {hours}h
+                Base {hourlyRate != null ? formatMoney(hourlyRate, { fractionDigits: 0 }) : '—'} × {hours}h
               </Text>
               <Text style={styles.priceValue}>{formatMoney(baseCost)}</Text>
             </View>
+            {breakdown?.skillAddOns.map((addon) => (
+              <View style={styles.priceRow} key={addon.id}>
+                <Text style={styles.addOnRowLabel}>+ {addon.name}</Text>
+                <Text style={styles.addOnRowValue}>
+                  +{formatMoney(addon.amountPerHour * hours)}
+                </Text>
+              </View>
+            ))}
+            {durationDiscount > 0.005 && (
+              <View style={styles.priceRow}>
+                <Text style={styles.promoLabel}>Longer-booking discount</Text>
+                <Text style={styles.promoValue}>–{formatMoney(durationDiscount)}</Text>
+              </View>
+            )}
             {appliedPromo && (
               <View style={styles.priceRow}>
                 <Text style={styles.promoLabel}>Promo</Text>
                 <Text style={styles.promoValue}>–{formatMoney(promoDiscount)}</Text>
               </View>
             )}
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Fee {feePercent}%</Text>
-              <Text style={styles.priceValue}>{formatMoney(fee)}</Text>
-            </View>
             <View style={styles.priceDivider} />
             <View style={styles.priceRow}>
               <Text style={styles.totalLabel}>Total</Text>

@@ -14,6 +14,14 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@backend/services/app-settings.service', () => ({
+  getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+}));
+
+jest.mock('@backend/services/duration-rule.service', () => ({
+  listActiveDurationRules: jest.fn().mockResolvedValue([]),
+}));
+
 import { prisma } from '@backend/db/prisma';
 import { createInAppNotification } from '@backend/services/notification.service';
 import {
@@ -47,6 +55,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     endTime: new Date('2026-08-01T13:00:00.000Z'),
     durationHours: dec(3),
     baseRate: dec(100),
+    effectiveHourlyRate: dec(100),
     subtotal: dec(300),
     serviceFeePercent: dec(6),
     serviceFeeAmount: dec(18),
@@ -199,10 +208,12 @@ describe('updateBookingTimes', () => {
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
     expect(updateData.startTime).toEqual(new Date('2026-08-02T10:00:00.000Z'));
     expect(updateData.durationHours).toBe(4);
-    // baseRate 100 × 4 = 400 subtotal; 6% fee = 24; total 424.
+    // rate 100 × 4h = 400 subtotal; split 80/20, no fee on top.
     expect(updateData.subtotal).toBe(400);
-    expect(updateData.serviceFeeAmount).toBe(24);
-    expect(updateData.totalAmount).toBe(424);
+    expect(updateData.serviceFeeAmount).toBe(0);
+    expect(updateData.totalAmount).toBe(400);
+    expect(updateData.nannyAmount).toBe(320);
+    expect(updateData.platformAmount).toBe(80);
     expect(updateData.adminActionBy).toEqual({ connect: { id: ADMIN_ID } });
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'mother-1' }),

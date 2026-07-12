@@ -12,6 +12,7 @@ const navItems = [
   { to: '/nannies', label: 'New Nannies' },
   { to: '/promo-codes', label: 'Promo Codes' },
   { to: '/skills', label: 'Skills' },
+  { to: '/pricing', label: 'Pricing & Fees' },
   { to: '/cameras', label: 'Cameras' },
   { to: '/settings', label: 'Configuration' },
 ] as const;

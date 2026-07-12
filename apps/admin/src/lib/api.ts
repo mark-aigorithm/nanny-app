@@ -7,16 +7,21 @@ import type {
   Camera,
   CreateAdminInput,
   CreateCameraInput,
+  CreateDurationRuleInput,
   CreatePromoCodeInput,
   CreateSkillInput,
+  DurationRule,
   NannyOption,
   PlatformConfig,
+  PriceBreakdown,
+  PricePreviewInput,
   PromoCode,
   SetBookingStatusInput,
   SetNannySkillsInput,
   Skill,
   UpdateBookingTimesInput,
   UpdateCameraInput,
+  UpdateDurationRuleInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
   UpdateSkillInput,
@@ -124,6 +129,47 @@ export async function updatePlatformConfig(
 
 export async function fetchAdminMe(): Promise<AdminUser> {
   const res = await apiClient.get<ApiEnvelope<AdminUser>>('/admin/me');
+  return res.data.data;
+}
+
+// ── Duration multiplier rules ──────────────────────────────────
+
+export async function fetchDurationRules(): Promise<DurationRule[]> {
+  const res = await apiClient.get<ApiEnvelope<DurationRule[]>>('/admin/duration-rules');
+  return res.data.data;
+}
+
+export async function createDurationRule(
+  input: CreateDurationRuleInput,
+): Promise<DurationRule> {
+  const res = await apiClient.post<ApiEnvelope<DurationRule>>('/admin/duration-rules', input);
+  return res.data.data;
+}
+
+export async function updateDurationRule(
+  id: string,
+  input: UpdateDurationRuleInput,
+): Promise<DurationRule> {
+  const res = await apiClient.patch<ApiEnvelope<DurationRule>>(
+    `/admin/duration-rules/${id}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function deleteDurationRule(id: string): Promise<void> {
+  await apiClient.delete(`/admin/duration-rules/${id}`);
+}
+
+// ── Pricing calculator (authoritative preview) ─────────────────
+
+export async function calculatePricePreview(
+  input: PricePreviewInput,
+): Promise<PriceBreakdown> {
+  const res = await apiClient.post<ApiEnvelope<PriceBreakdown>>(
+    '/admin/pricing/calculate',
+    input,
+  );
   return res.data.data;
 }
 

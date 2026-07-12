@@ -461,6 +461,443 @@ h3 {
   color: var(--color-text-muted);
 }
 
+/* ── Pricing & Fees ─────────────────────────────────────── */
+
+.subtabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 1.75rem;
+  background: var(--color-surface-muted);
+  border-radius: 999px;
+}
+
+.subtab {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.subtab:hover {
+  color: var(--color-text-secondary);
+}
+
+.subtab.active {
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  box-shadow: var(--shadow-card);
+}
+
+.panel-lead {
+  margin: 0 0 1.25rem;
+  max-width: 62ch;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Rate input with EGP prefix / per-hour suffix */
+.rate-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.rate-field input {
+  width: 8rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.rate-field input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.rate-prefix {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.rate-suffix {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* Revenue split control */
+.split-control {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 560px;
+}
+
+.split-slider {
+  width: 100%;
+  accent-color: var(--color-primary-dark);
+  cursor: pointer;
+}
+
+.split-bar {
+  display: flex;
+  height: 38px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-surface-muted);
+}
+
+.split-bar-nanny,
+.split-bar-platform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  transition: width 160ms ease;
+}
+
+.split-bar-nanny {
+  background: var(--color-primary-dark);
+}
+
+.split-bar-platform {
+  background: var(--color-bronze);
+}
+
+.split-legend {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.split-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.dot--nanny {
+  background: var(--color-primary-dark);
+}
+
+.dot--platform {
+  background: var(--color-bronze);
+}
+
+.split-example {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: var(--color-warm-subtle);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.text-nanny {
+  color: var(--color-primary-dark);
+}
+
+.text-platform {
+  color: var(--color-bronze);
+}
+
+/* Skill fee table cells */
+.fee-skill-name {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.fee-value-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fee-value-input {
+  width: 6rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+}
+
+.fee-value-input:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-placeholder);
+}
+
+.fee-value-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.fee-unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* Calculator */
+.calc-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.2fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.calc-field {
+  margin-bottom: 1.5rem;
+}
+
+.calc-field:last-child {
+  margin-bottom: 0;
+}
+
+.calc-field .field-label {
+  display: block;
+  margin-bottom: 0.6rem;
+}
+
+.hour-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.hour-chip {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.hour-chip:hover {
+  background: var(--color-warm-subtle);
+}
+
+.hour-chip.selected {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: #fff;
+}
+
+.hour-input {
+  width: 5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+}
+
+.hour-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.addon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.addon-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.addon-chip:hover {
+  background: var(--color-warm-subtle);
+}
+
+.addon-chip.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+
+.addon-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.addon-fee {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-bronze);
+  white-space: nowrap;
+}
+
+.addon-chip.selected .addon-fee {
+  color: var(--color-primary-dark);
+}
+
+/* Live breakdown */
+.breakdown {
+  transition: opacity 120ms ease;
+}
+
+.breakdown--stale {
+  opacity: 0.55;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  border-bottom: 1px dashed var(--color-warm-subtle);
+}
+
+.breakdown-row--addon {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.breakdown-row--sub {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.breakdown-row--discount {
+  color: var(--color-success-text);
+  font-weight: 600;
+}
+
+.breakdown-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 2px solid var(--color-warm-border);
+}
+
+.breakdown-total span {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.breakdown-total strong {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+/* Split visualization inside the calculator */
+.split-viz {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-warm-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.split-amounts {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.split-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.split-amount--right {
+  text-align: right;
+}
+
+.split-amount-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.split-amount--right .split-amount-label {
+  flex-direction: row-reverse;
+}
+
+.split-amount strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.split-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 720px) {
+  .calc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Login ──────────────────────────────────────────────── */
 
 .login-page {

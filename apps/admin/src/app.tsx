@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
 import { NanniesPage } from './pages/nannies-page';
 import { BookingsPage } from './pages/bookings-page';
+import { PricingFeesPage } from './pages/pricing-fees-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { SettingsPage } from './pages/settings-page';
 import { SkillsPage } from './pages/skills-page';
@@ -42,6 +43,7 @@ export function App() {
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
               <Route path="skills" element={<SkillsPage />} />
+              <Route path="pricing" element={<PricingFeesPage />} />
               <Route path="cameras" element={<CamerasPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -13,7 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
-import { formatMoney, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
+import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import type { BookingStatus } from '@nanny-app/shared';
 import { styles } from './styles/nanny-booking-detail-screen.styles';
@@ -110,23 +110,15 @@ export default function NannyBookingDetailScreen() {
           </View>
         </View>
 
-        {/* Payment Summary */}
+        {/* Earnings — the nanny only sees what she takes home. */}
         <View style={styles.paymentCard}>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>
-              Base {formatHourlyRateAmount(booking.baseRate)} × {booking.durationHours}h
-            </Text>
-            <Text style={styles.paymentValue}>{formatMoney(booking.subtotal)}</Text>
+            <Text style={styles.paymentTotalLabel}>You earn</Text>
+            <Text style={styles.paymentTotalValue}>{formatMoney(booking.nannyAmount)}</Text>
           </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Service fee ({booking.serviceFeePercent}%)</Text>
-            <Text style={styles.paymentValue}>{formatMoney(booking.serviceFeeAmount)}</Text>
-          </View>
-          <View style={styles.paymentDivider} />
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentTotalLabel}>Total</Text>
-            <Text style={styles.paymentTotalValue}>{formatMoney(booking.totalAmount)}</Text>
-          </View>
+          <Text style={styles.paymentSubtext}>
+            For {booking.durationHours} hours of care
+          </Text>
         </View>
 
         {/* Care Log */}

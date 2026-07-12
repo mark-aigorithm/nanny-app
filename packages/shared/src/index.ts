@@ -2,6 +2,8 @@ export * from './admin';
 export * from './auth';
 export * from './camera';
 export * from './skill';
+export * from './duration-rule';
+export * from './pricing';
 export * from './nanny';
 export * from './booking';
 export * from './care-log';
