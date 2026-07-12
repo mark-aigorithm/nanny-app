@@ -144,7 +144,7 @@ Business constants, configuration values, and reusable filter definitions live i
 |---|---|
 | `registration.ts` | `AGE_OPTIONS`, `PREFERENCE_OPTIONS` |
 | `otp.ts` | `OTP_LENGTH`, `RESEND_SECONDS` |
-| `booking.ts` | `PROMO_CODE_VALUE`, `PROMO_DISCOUNT_PERCENT`, `PLATFORM_FEE_PERCENT` |
+| `booking.ts` | `PLATFORM_FEE_PERCENT`, `BOOKING_DURATION_OPTIONS`, `PAYMENT_TYPES` |
 | `filters.ts` | `HOME_FILTER_TABS`, `FilterTab`, `SORT_OPTIONS`, `INITIAL_SEARCH_FILTERS` |
 | `community.ts` | `TAGS` |
 | `index.ts` | Barrel re-export of all above |
