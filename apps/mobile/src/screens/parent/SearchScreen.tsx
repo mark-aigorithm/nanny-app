@@ -14,20 +14,13 @@ import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabSearchStrip from '@mobile/components/ParentTabSearchStrip';
 import { colors } from '@mobile/theme';
-import { useNannyList } from '@mobile/hooks/useNannies';
+import { useNannyList, useSkillCatalog } from '@mobile/hooks/useNannies';
 import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import { styles } from './styles/search-screen.styles';
 import type { NannyListItem } from '@nanny-app/shared';
 
-type FilterChip = 'All Nannies' | 'Newborn Care' | 'Live-in' | 'Special Needs' | 'Night Nurse';
-
-const FILTER_CHIPS: FilterChip[] = [
-  'All Nannies',
-  'Newborn Care',
-  'Live-in',
-  'Special Needs',
-  'Night Nurse',
-];
+/** Sentinel for the "no skill filter" chip. */
+const ALL_SKILLS = 'all';
 
 function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfile: (id: string) => void }) {
   const name = `${nanny.firstName} ${nanny.lastName}`;
@@ -66,11 +59,11 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
             </Text>
           </View>
         </View>
-        {nanny.specialties.length > 0 && (
+        {nanny.skills.length > 0 && (
           <View style={styles.specialtiesRow}>
-            {nanny.specialties.map(s => (
-              <View key={s} style={styles.specialtyChip}>
-                <Text style={styles.specialtyChipText}>{s}</Text>
+            {nanny.skills.map(s => (
+              <View key={s.id} style={styles.specialtyChip}>
+                <Text style={styles.specialtyChipText}>{s.name}</Text>
               </View>
             ))}
           </View>
@@ -91,7 +84,7 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
 
 export default function SearchScreen() {
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<FilterChip>('All Nannies');
+  const [activeSkillId, setActiveSkillId] = useState<string>(ALL_SKILLS);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -100,11 +93,12 @@ export default function SearchScreen() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const specialty = activeFilter !== 'All Nannies' ? activeFilter : undefined;
+  const { data: skills = [] } = useSkillCatalog();
+  const filterChips = [{ id: ALL_SKILLS, name: 'All Nannies' }, ...skills];
 
   const { data: nannies = [], isLoading, isError } = useNannyList({
     name: debouncedQuery || undefined,
-    specialty,
+    skillId: activeSkillId !== ALL_SKILLS ? activeSkillId : undefined,
   });
 
   return (
@@ -124,14 +118,14 @@ export default function SearchScreen() {
           contentContainerStyle={styles.filterChipsContent}
           style={styles.filterChips}
         >
-          {FILTER_CHIPS.map(chip => (
+          {filterChips.map(chip => (
             <Pressable
-              key={chip}
-              style={[styles.chip, activeFilter === chip && styles.chipActive]}
-              onPress={() => setActiveFilter(chip)}
+              key={chip.id}
+              style={[styles.chip, activeSkillId === chip.id && styles.chipActive]}
+              onPress={() => setActiveSkillId(chip.id)}
             >
-              <Text style={[styles.chipText, activeFilter === chip && styles.chipTextActive]}>
-                {chip}
+              <Text style={[styles.chipText, activeSkillId === chip.id && styles.chipTextActive]}>
+                {chip.name}
               </Text>
             </Pressable>
           ))}

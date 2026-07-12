@@ -11,6 +11,7 @@ const navItems = [
   { to: '/bookings', label: 'Bookings' },
   { to: '/nannies', label: 'New Nannies' },
   { to: '/promo-codes', label: 'Promo Codes' },
+  { to: '/skills', label: 'Skills' },
   { to: '/cameras', label: 'Cameras' },
   { to: '/settings', label: 'Configuration' },
 ] as const;

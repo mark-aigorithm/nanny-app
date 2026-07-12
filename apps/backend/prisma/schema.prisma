@@ -202,6 +202,7 @@ model NannyProfile {
   bookings          Booking[]
   reviews           Review[]
   careLogs          CareLog[]
+  nannySkills       NannySkill[]
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   deletedAt         DateTime? @map("deleted_at")
@@ -210,6 +211,40 @@ model NannyProfile {
   @@index([rating])
   @@index([approvalStatus])
   @@map("nanny_profiles")
+}
+
+/// Admin-curated catalog of nanny specialties (e.g. "French speaker",
+/// "Works with disabilities"). Controlled replacement for the free-text
+/// NannyProfile.specialties array. Linked to nannies via NannySkill.
+model Skill {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?      @db.Text
+  isActive    Boolean      @default(true) @map("is_active")
+  nannySkills NannySkill[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  deletedAt   DateTime?    @map("deleted_at")
+
+  @@index([deletedAt])
+  @@map("skills")
+}
+
+/// Many-to-many join between a nanny and a skill. Assigned by admins.
+model NannySkill {
+  id             String       @id @default(cuid())
+  nannyProfileId String       @map("nanny_profile_id")
+  nannyProfile   NannyProfile @relation(fields: [nannyProfileId], references: [id], onDelete: Cascade)
+  skillId        String       @map("skill_id")
+  skill          Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  @@unique([nannyProfileId, skillId])
+  @@index([nannyProfileId])
+  @@index([skillId])
+  @@map("nanny_skills")
 }
 
 // ──────────────────────────────────────────────────────────────

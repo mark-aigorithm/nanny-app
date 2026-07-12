@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { PublicSkillSchema } from './skill';
+
 // ──────────────────────────────────────────────────────────────
 // Nanny profile — shared Zod schemas
 // ──────────────────────────────────────────────────────────────
@@ -128,7 +130,7 @@ export const NannyProfileResponseSchema = z.object({
   hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   ageRanges: z.array(z.string()),
-  specialties: z.array(z.string()),
+  skills: z.array(PublicSkillSchema),
   schedule: WeeklyScheduleSchema.nullable(),
   isProfileComplete: z.boolean(),
   availabilityType: AvailabilityTypeSchema,
@@ -203,7 +205,7 @@ export const NannyListItemSchema = z.object({
   hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   ageRanges: z.array(z.string()),
-  specialties: z.array(z.string()),
+  skills: z.array(PublicSkillSchema),
   availabilityType: AvailabilityTypeSchema,
   rating: z.number(),
   reviewCount: z.number().int(),
@@ -238,7 +240,7 @@ export type NannyPublicProfile = z.infer<typeof NannyPublicProfileSchema>;
 export const NannyListQuerySchema = z.object({
   availabilityType: AvailabilityTypeSchema.optional(),
   name: z.string().trim().optional(),
-  specialty: z.string().trim().optional(),
+  skillId: z.string().trim().optional(),
   /**
    * Caller (mother) coordinates. When both are provided, results are ranked
    * "recommended"-style: closest first, then highest-rated. Must be sent
@@ -265,7 +267,6 @@ export const UpdateNannyProfileRequestSchema = z.object({
   hourlyRate: z.number().min(0).optional(),
   certifications: z.array(z.string().max(100)).optional(),
   ageRanges: z.array(z.string()).optional(),
-  specialties: z.array(z.string().max(100)).optional(),
   schedule: WeeklyScheduleSchema.optional(),
   availabilityType: AvailabilityTypeSchema.optional(),
 });

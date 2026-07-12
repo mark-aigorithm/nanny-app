@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { BookingStatusSchema, NannyBookingDecisionSchema } from './booking';
 import { NannyApprovalStatusSchema } from './nanny';
+import { PublicSkillSchema } from './skill';
 
 // ──────────────────────────────────────────────────────────────
 // Promo codes
@@ -163,6 +164,7 @@ export const AdminNannySchema = z.object({
   yearsOfExperience: z.number().int().nullable(),
   hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
+  skills: z.array(PublicSkillSchema),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   approvalStatus: NannyApprovalStatusSchema,

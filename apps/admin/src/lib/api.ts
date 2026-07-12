@@ -8,13 +8,17 @@ import type {
   CreateAdminInput,
   CreateCameraInput,
   CreatePromoCodeInput,
+  CreateSkillInput,
   NannyOption,
   PlatformConfig,
   PromoCode,
   SetBookingStatusInput,
+  SetNannySkillsInput,
+  Skill,
   UpdateCameraInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
+  UpdateSkillInput,
 } from '@nanny-app/shared';
 
 import { apiClient } from './api-client';
@@ -44,6 +48,36 @@ export async function updatePromoCode(
 
 export async function deletePromoCode(id: string): Promise<void> {
   await apiClient.delete(`/admin/promo-codes/${id}`);
+}
+
+export async function fetchSkills(): Promise<Skill[]> {
+  const res = await apiClient.get<ApiEnvelope<Skill[]>>('/admin/skills');
+  return res.data.data;
+}
+
+export async function createSkill(input: CreateSkillInput): Promise<Skill> {
+  const res = await apiClient.post<ApiEnvelope<Skill>>('/admin/skills', input);
+  return res.data.data;
+}
+
+export async function updateSkill(id: string, input: UpdateSkillInput): Promise<Skill> {
+  const res = await apiClient.patch<ApiEnvelope<Skill>>(`/admin/skills/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteSkill(id: string): Promise<void> {
+  await apiClient.delete(`/admin/skills/${id}`);
+}
+
+export async function setNannySkills(
+  id: string,
+  input: SetNannySkillsInput,
+): Promise<AdminNanny> {
+  const res = await apiClient.put<ApiEnvelope<AdminNanny>>(
+    `/admin/nannies/${id}/skills`,
+    input,
+  );
+  return res.data.data;
 }
 
 export async function fetchCameras(): Promise<Camera[]> {

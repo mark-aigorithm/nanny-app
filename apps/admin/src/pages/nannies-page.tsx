@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import type { AdminNanny, AdminNannyStatusFilter } from '@nanny-app/shared';
 
 import { Badge, Button, Card, Feedback, PageHeader } from '@admin/components/ui';
-import { approveNanny, fetchNannies, rejectNanny } from '@admin/lib/api';
+import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
+import { approveNanny, fetchNannies, fetchSkills, rejectNanny } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 const STATUS_FILTERS: { value: AdminNannyStatusFilter; label: string }[] = [
@@ -41,6 +42,7 @@ const EMPTY = <span className="table-empty">—</span>;
 
 export function NanniesPage() {
   const [status, setStatus] = useState<AdminNannyStatusFilter>('PENDING_REVIEW');
+  const [editingSkillsId, setEditingSkillsId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const {
@@ -51,6 +53,9 @@ export function NanniesPage() {
     queryKey: ['admin-nannies', status],
     queryFn: () => fetchNannies(status),
   });
+
+  const { data: allSkills } = useQuery({ queryKey: ['skills'], queryFn: fetchSkills });
+  const activeSkills = (allSkills ?? []).filter((s) => s.isActive);
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['admin-nannies'] });
 
@@ -111,6 +116,7 @@ export function NanniesPage() {
                 <th>Location</th>
                 <th>Experience</th>
                 <th>Rate (EGP/h)</th>
+                <th>Skills</th>
                 <th>Registered</th>
                 <th>Status</th>
                 <th />
@@ -118,7 +124,8 @@ export function NanniesPage() {
             </thead>
             <tbody>
               {nannies.map((nanny: AdminNanny) => (
-                <tr key={nanny.id}>
+                <Fragment key={nanny.id}>
+                <tr>
                   <td>
                     <div className="nanny-cell">
                       <span className="nanny-avatar" aria-hidden>
@@ -154,6 +161,19 @@ export function NanniesPage() {
                     )}
                   </td>
                   <td>{nanny.hourlyRate !== null ? nanny.hourlyRate.toFixed(2) : EMPTY}</td>
+                  <td>
+                    {nanny.skills.length > 0 ? (
+                      <div className="skill-chips">
+                        {nanny.skills.map((skill) => (
+                          <Badge key={skill.id} tone="neutral">
+                            {skill.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      EMPTY
+                    )}
+                  </td>
                   <td className="cell-nowrap">{formatDate(nanny.createdAt)}</td>
                   <td>
                     <Badge tone={statusTone(nanny.approvalStatus)}>
@@ -184,9 +204,30 @@ export function NanniesPage() {
                           Reject
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setEditingSkillsId((id) => (id === nanny.id ? null : nanny.id))
+                        }
+                      >
+                        {editingSkillsId === nanny.id ? 'Close' : 'Skills'}
+                      </Button>
                     </div>
                   </td>
                 </tr>
+                {editingSkillsId === nanny.id && (
+                  <tr>
+                    <td colSpan={9}>
+                      <NannySkillsEditor
+                        nanny={nanny}
+                        skills={activeSkills}
+                        onDone={() => setEditingSkillsId(null)}
+                      />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
