@@ -24,6 +24,7 @@ const bookingInclude = {
     },
   },
   payment: { select: { status: true } },
+  promoCode: { select: { code: true } },
 } satisfies Prisma.BookingInclude;
 
 type AdminBookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
@@ -39,6 +40,8 @@ function toDto(row: AdminBookingRow): AdminBooking {
     endTime: row.endTime.toISOString(),
     durationHours: row.durationHours.toNumber(),
     totalAmount: row.totalAmount.toNumber(),
+    discountAmount: row.discountAmount.toNumber(),
+    promoCode: row.promoCode?.code ?? null,
     paymentStatus: row.payment?.status ?? null,
     mother: {
       id: row.mother.id,

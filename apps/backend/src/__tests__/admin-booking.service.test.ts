@@ -18,6 +18,7 @@ import { prisma } from '@backend/db/prisma';
 import { createInAppNotification } from '@backend/services/notification.service';
 import {
   approveBooking,
+  listAdminBookings,
   rejectBooking,
   setBookingStatus,
 } from '@backend/services/admin-booking.service';
@@ -45,6 +46,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     endTime: new Date('2026-08-01T13:00:00.000Z'),
     durationHours: dec(3),
     totalAmount: dec(318),
+    discountAmount: dec(0),
+    promoCode: null,
     payment: { status: 'PENDING' },
     mother: { id: 'mother-1', firstName: 'Jane', lastName: 'Mom', phone: '+201000000000' },
     nannyProfileId: 'np-1',
@@ -171,5 +174,27 @@ describe('setBookingStatus', () => {
       setBookingStatus('booking-1', ADMIN_UID, { status: 'IN_PROGRESS' }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('admin booking DTO promo fields', () => {
+  it('maps discountAmount and the applied promo code', async () => {
+    mockPrisma.booking.findMany.mockResolvedValue([
+      makeRow({ discountAmount: dec(50), promoCode: { code: 'SAVE50' } }),
+    ]);
+
+    const [dto] = await listAdminBookings('ALL');
+
+    expect(dto.discountAmount).toBe(50);
+    expect(dto.promoCode).toBe('SAVE50');
+  });
+
+  it('reports a null promo code when none was applied', async () => {
+    mockPrisma.booking.findMany.mockResolvedValue([makeRow()]);
+
+    const [dto] = await listAdminBookings('ALL');
+
+    expect(dto.discountAmount).toBe(0);
+    expect(dto.promoCode).toBeNull();
   });
 });
