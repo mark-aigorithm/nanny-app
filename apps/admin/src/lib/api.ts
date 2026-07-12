@@ -12,6 +12,7 @@ import type {
   PlatformConfig,
   PromoCode,
   SetBookingStatusInput,
+  UpdateBookingTimesInput,
   UpdateCameraInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
@@ -123,6 +124,17 @@ export async function setBookingStatus(
   const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
     `/admin/bookings/${id}/status`,
     { status },
+  );
+  return res.data.data;
+}
+
+export async function updateBookingTimes(
+  id: string,
+  input: UpdateBookingTimesInput,
+): Promise<AdminBooking> {
+  const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
+    `/admin/bookings/${id}/times`,
+    input,
   );
   return res.data.data;
 }
