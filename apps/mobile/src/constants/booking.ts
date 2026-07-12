@@ -1,8 +1,3 @@
-/** Hidden until server-side promo validation ships. */
-export const SHOW_PROMO_CODE = false;
-
-export const PROMO_CODE_VALUE = 'FIRST20';
-export const PROMO_DISCOUNT_PERCENT = 0.2;
 export const PLATFORM_FEE_PERCENT = 0.06;
 
 export const BOOKING_DURATION_OPTIONS = [2, 3, 4, 5, 6, 7, 8] as const;

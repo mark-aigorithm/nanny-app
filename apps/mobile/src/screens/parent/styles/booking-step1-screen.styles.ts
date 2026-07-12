@@ -195,6 +195,11 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.successDark,
   },
+  promoErrorText: {
+    ...typeScale.caption,
+    color: colors.error,
+    marginTop: spacing.xs,
+  },
 
   // Price Card
   priceCard: {

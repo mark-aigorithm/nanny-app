@@ -28,21 +28,11 @@ import { colors, spacing, borderRadius } from '@mobile/theme';
 
 import { Card } from '@mobile/components/ui';
 
-import {
-
-  SHOW_PROMO_CODE,
-
-  PROMO_CODE_VALUE,
-
-  PROMO_DISCOUNT_PERCENT,
-
-  PLATFORM_FEE_PERCENT,
-
-  APP_NAME,
-
-} from '@mobile/constants';
+import { PLATFORM_FEE_PERCENT, APP_NAME } from '@mobile/constants';
 
 import { useNannyPublicProfile } from '@mobile/hooks/useNannies';
+
+import { useValidatePromo } from '@mobile/hooks/useBookings';
 
 import { formatMoney } from '@mobile/lib/formatMoney';
 
@@ -84,9 +74,11 @@ export default function BookingStep1Screen() {
 
   const [promoCode, setPromoCode] = useState('');
 
-  const [promoApplied, setPromoApplied] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
 
   const [instructions, setInstructions] = useState('');
+
+  const validatePromo = useValidatePromo();
 
 
 
@@ -120,15 +112,11 @@ export default function BookingStep1Screen() {
 
   const baseCost = nannyRate != null ? nannyRate * hours : 0;
 
-  const promoDiscount =
+  const promoDiscount = appliedPromo?.discountAmount ?? 0;
 
-    SHOW_PROMO_CODE && promoApplied ? baseCost * PROMO_DISCOUNT_PERCENT : 0;
+  const fee = baseCost * PLATFORM_FEE_PERCENT;
 
-  const subtotalAfterPromo = baseCost - promoDiscount;
-
-  const fee = subtotalAfterPromo * PLATFORM_FEE_PERCENT;
-
-  const total = subtotalAfterPromo + fee;
+  const total = Math.max(0, baseCost + fee - promoDiscount);
 
 
 
@@ -138,11 +126,17 @@ export default function BookingStep1Screen() {
 
   const handleApplyPromo = () => {
 
-    if (promoCode.toUpperCase() === PROMO_CODE_VALUE) {
+    const code = promoCode.trim();
 
-      setPromoApplied(true);
+    if (code.length === 0) return;
 
-    }
+    validatePromo.mutate(
+
+      { code, subtotal: baseCost },
+
+      { onSuccess: (res) => setAppliedPromo({ code, discountAmount: res.discountAmount }) },
+
+    );
 
   };
 
@@ -150,9 +144,11 @@ export default function BookingStep1Screen() {
 
   const handleRemovePromo = () => {
 
-    setPromoApplied(false);
+    setAppliedPromo(null);
 
     setPromoCode('');
+
+    validatePromo.reset();
 
   };
 
@@ -185,6 +181,8 @@ export default function BookingStep1Screen() {
         nannyRate: String(nannyRate),
 
         total: total.toFixed(2),
+
+        ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
 
         ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
 
@@ -316,79 +314,91 @@ export default function BookingStep1Screen() {
 
 
 
-        {SHOW_PROMO_CODE && (
+        <View style={styles.promoSection}>
 
-          <View style={styles.promoSection}>
+          <View style={styles.promoInputRow}>
 
-            <View style={styles.promoInputRow}>
+            <TextInput
 
-              <TextInput
+              style={styles.promoInput}
 
-                style={styles.promoInput}
+              placeholder="Promo code"
 
-                placeholder="Promo code"
+              placeholderTextColor={colors.textPlaceholder}
 
-                placeholderTextColor={colors.textPlaceholder}
+              value={promoCode}
 
-                value={promoCode}
+              onChangeText={setPromoCode}
 
-                onChangeText={setPromoCode}
+              autoCapitalize="characters"
 
-                autoCapitalize="characters"
+              editable={appliedPromo == null}
 
-                editable={!promoApplied}
+            />
 
-              />
+            <TouchableOpacity
 
-              <TouchableOpacity
+              onPress={handleApplyPromo}
 
-                onPress={handleApplyPromo}
+              activeOpacity={0.7}
 
-                activeOpacity={0.7}
+              disabled={appliedPromo != null || promoCode.trim().length === 0 || validatePromo.isPending}
 
-                disabled={promoApplied || promoCode.length === 0}
+            >
+
+              <Text
+
+                style={[
+
+                  styles.promoApplyText,
+
+                  (appliedPromo != null || promoCode.trim().length === 0 || validatePromo.isPending) &&
+
+                    styles.promoApplyTextDisabled,
+
+                ]}
 
               >
 
-                <Text
+                Apply
 
-                  style={[
+              </Text>
 
-                    styles.promoApplyText,
+            </TouchableOpacity>
 
-                    (promoApplied || promoCode.length === 0) && styles.promoApplyTextDisabled,
+          </View>
 
-                  ]}
+          {appliedPromo && (
 
-                >
+            <View style={styles.promoChip}>
 
-                  Apply
+              <Text style={styles.promoChipText}>
 
-                </Text>
+                {appliedPromo.code} — {formatMoney(appliedPromo.discountAmount)} off
+
+              </Text>
+
+              <TouchableOpacity onPress={handleRemovePromo} activeOpacity={0.7}>
+
+                <Ionicons name="close" size={16} color={colors.successDark} />
 
               </TouchableOpacity>
 
             </View>
 
-            {promoApplied && (
+          )}
 
-              <View style={styles.promoChip}>
+          {validatePromo.isError && (
 
-                <Text style={styles.promoChipText}>FIRST20 — 20% off</Text>
+            <Text style={styles.promoErrorText}>
 
-                <TouchableOpacity onPress={handleRemovePromo} activeOpacity={0.7}>
+              {validatePromo.error.message || 'That promo code could not be applied.'}
 
-                  <Ionicons name="close" size={16} color={colors.successDark} />
+            </Text>
 
-                </TouchableOpacity>
+          )}
 
-              </View>
-
-            )}
-
-          </View>
-
-        )}
+        </View>
 
 
 
@@ -412,7 +422,7 @@ export default function BookingStep1Screen() {
 
             </View>
 
-            {SHOW_PROMO_CODE && promoApplied && (
+            {appliedPromo && (
 
               <View style={styles.priceRow}>
 

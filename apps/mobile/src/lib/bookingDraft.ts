@@ -13,6 +13,7 @@ export type BookingFlowParams = {
   nannyPhoto?: string;
   nannyRate?: string;
   instructions?: string;
+  promoCode?: string;
   bookingId?: string;
   retry?: string;
 };
@@ -68,6 +69,7 @@ export function bookingFlowRetryParams(
     nannyPhoto: params.nannyPhoto,
     nannyRate: params.nannyRate,
     instructions: params.instructions,
+    promoCode: params.promoCode,
   };
 }
 

@@ -4,6 +4,8 @@ import type {
   BookingResponse,
   CreateBookingRequest,
   MockPayBookingRequest,
+  ValidateBookingPromoRequest,
+  ValidateBookingPromoResponse,
 } from '@nanny-app/shared';
 import { PaymentMethod } from '@nanny-app/shared';
 
@@ -44,6 +46,12 @@ export function useCreateBooking() {
   return useMutation<BookingResponse, Error, CreateBookingRequest>({
     mutationFn: (body) => unwrap(api.post('/bookings', body)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+export function useValidatePromo() {
+  return useMutation<ValidateBookingPromoResponse, Error, ValidateBookingPromoRequest>({
+    mutationFn: (body) => unwrap(api.post('/bookings/validate-promo', body)),
   });
 }
 
