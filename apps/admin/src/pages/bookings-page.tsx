@@ -136,6 +136,7 @@ export function BookingsPage() {
                   <th>Starts</th>
                   <th>Ends</th>
                   <th>Total (EGP)</th>
+                  <th>Promo</th>
                   <th>Payment</th>
                   <th>Status</th>
                   <th>Override</th>
@@ -165,6 +166,11 @@ export function BookingsPage() {
                       <td>{formatDateTime(booking.startTime)}</td>
                       <td>{formatDateTime(booking.endTime)}</td>
                       <td>{booking.totalAmount.toFixed(2)}</td>
+                      <td>
+                        {booking.promoCode
+                          ? `${booking.promoCode} (−${booking.discountAmount.toFixed(2)})`
+                          : '—'}
+                      </td>
                       <td>{booking.paymentStatus ? statusLabel(booking.paymentStatus) : '—'}</td>
                       <td>
                         <Badge tone={statusTone(booking.status)}>
