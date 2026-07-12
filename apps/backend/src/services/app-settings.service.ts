@@ -4,6 +4,7 @@ import { prisma } from '@backend/db/prisma';
 
 const KEYS = {
   SERVICE_FEE_PERCENT: 'service_fee_percent',
+  STANDARD_HOURLY_RATE: 'standard_hourly_rate',
   MAX_BOOKING_HOURS: 'max_booking_hours',
   MIN_BOOKING_HOURS: 'min_booking_hours',
   MIN_ADVANCE_BOOKING_HOURS: 'min_advance_booking_hours',
@@ -12,6 +13,7 @@ const KEYS = {
 
 const DEFAULTS: PlatformConfig = {
   serviceFeePercent: 6,
+  standardHourlyRate: 120,
   maxBookingHours: 12,
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
@@ -21,6 +23,7 @@ const DEFAULTS: PlatformConfig = {
 /** Maps each PlatformConfig field to its app_settings key. */
 const FIELD_TO_KEY: Record<keyof PlatformConfig, string> = {
   serviceFeePercent: KEYS.SERVICE_FEE_PERCENT,
+  standardHourlyRate: KEYS.STANDARD_HOURLY_RATE,
   maxBookingHours: KEYS.MAX_BOOKING_HOURS,
   minBookingHours: KEYS.MIN_BOOKING_HOURS,
   minAdvanceBookingHours: KEYS.MIN_ADVANCE_BOOKING_HOURS,
@@ -33,6 +36,18 @@ export async function getServiceFeePercent(): Promise<number> {
     where: { key: KEYS.SERVICE_FEE_PERCENT },
   });
   return row ? parseFloat(row.value) : DEFAULTS.serviceFeePercent;
+}
+
+/**
+ * Returns the fixed platform hourly rate from app_settings (default if not
+ * seeded). Every booking is priced against this rate rather than a per-nanny
+ * rate, so the mother knows the total before any nanny claims the request.
+ */
+export async function getStandardHourlyRate(): Promise<number> {
+  const row = await prisma.appSettings.findUnique({
+    where: { key: KEYS.STANDARD_HOURLY_RATE },
+  });
+  return row ? parseFloat(row.value) : DEFAULTS.standardHourlyRate;
 }
 
 /** Returns the full platform config, falling back to defaults for unseeded keys. */

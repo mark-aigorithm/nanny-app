@@ -11,6 +11,7 @@ import {
   type NannyListQuery,
   type NannyProfileResponse,
   type NannyPublicProfile,
+  type PublicSkill,
   type ReviewSummary,
   type UpdateNannyProfileRequest,
   type WeeklySchedule,
@@ -22,7 +23,31 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toNannyProfileResponse(user: User, profile: NannyProfile): NannyProfileResponse {
+/**
+ * Prisma `include` for a nanny's active skills, joined through the NannySkill
+ * join table to the Skill catalog. Reused by every read path that returns a
+ * nanny so responses always carry the `skills` array.
+ */
+const nannySkillsInclude = {
+  nannySkills: {
+    where: { deletedAt: null },
+    include: { skill: true },
+  },
+} as const;
+
+type NannySkillWithSkill = { skill: { id: string; name: string } };
+type ProfileWithSkills = NannyProfile & { nannySkills: NannySkillWithSkill[] };
+type ProfileWithUserAndSkills = ProfileWithSkills & { user: User };
+
+/** Flatten the join rows into the lightweight `{ id, name }` shape clients use. */
+function toPublicSkills(nannySkills: NannySkillWithSkill[]): PublicSkill[] {
+  return nannySkills.map((ns) => ({ id: ns.skill.id, name: ns.skill.name }));
+}
+
+function toNannyProfileResponse(
+  user: User,
+  profile: ProfileWithSkills,
+): NannyProfileResponse {
   return {
     firstName: user.firstName,
     lastName: user.lastName,
@@ -36,7 +61,7 @@ function toNannyProfileResponse(user: User, profile: NannyProfile): NannyProfile
     hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
     ageRanges: profile.ageRanges,
-    specialties: profile.specialties,
+    skills: toPublicSkills(profile.nannySkills),
     schedule: (profile.schedule as WeeklySchedule) ?? null,
     isProfileComplete: profile.isProfileComplete,
     availabilityType: profile.availabilityType,
@@ -45,9 +70,7 @@ function toNannyProfileResponse(user: User, profile: NannyProfile): NannyProfile
   };
 }
 
-function toNannyListItem(
-  profile: NannyProfile & { user: User },
-): NannyListItem {
+function toNannyListItem(profile: ProfileWithUserAndSkills): NannyListItem {
   return {
     nannyProfileId: profile.id,
     firstName: profile.user.firstName,
@@ -60,7 +83,7 @@ function toNannyListItem(
     hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
     ageRanges: profile.ageRanges,
-    specialties: profile.specialties,
+    skills: toPublicSkills(profile.nannySkills),
     availabilityType: profile.availabilityType,
     rating: Number(profile.rating),
     reviewCount: profile.reviewCount,
@@ -90,7 +113,7 @@ function toReviewSummary(r: ReviewWithMother): ReviewSummary {
 async function requireNannyUser(uid: string) {
   const user = await prisma.user.findUnique({
     where: { firebaseUid: uid },
-    include: { nannyProfile: true },
+    include: { nannyProfile: { include: nannySkillsInclude } },
   });
   if (!user || user.deletedAt) throw errors.notFound('User not found.');
   if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies have a nanny profile.');
@@ -160,6 +183,7 @@ export async function updateNannyProfile(
       where: { userId: user.id },
       create: { userId: user.id, ...profileFields, isProfileComplete },
       update: { ...profileFields, isProfileComplete },
+      include: nannySkillsInclude,
     });
 
     return [u, p] as const;
@@ -180,7 +204,9 @@ function buildListWhere(query: NannyListQuery) {
     approvalStatus: NannyApprovalStatus.APPROVED,
     deletedAt: null as null,
     ...(query.availabilityType ? { availabilityType: query.availabilityType } : {}),
-    ...(query.specialty ? { specialties: { has: query.specialty } } : {}),
+    ...(query.skillId
+      ? { nannySkills: { some: { skillId: query.skillId, deletedAt: null } } }
+      : {}),
     // Single `user` condition: always exclude soft-deleted users, and add the
     // name search when present. Kept as one object so the name filter does not
     // clobber the `deletedAt` guard (which would leak soft-deleted nannies into
@@ -214,8 +240,10 @@ function buildListFilterSql(query: NannyListQuery): Prisma.Sql {
   if (query.availabilityType) {
     filters.push(Prisma.sql`np.availability_type::text = ${query.availabilityType}`);
   }
-  if (query.specialty) {
-    filters.push(Prisma.sql`${query.specialty} = ANY(np.specialties)`);
+  if (query.skillId) {
+    filters.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM nanny_skills ns WHERE ns.nanny_profile_id = np.id AND ns.skill_id = ${query.skillId} AND ns.deleted_at IS NULL)`,
+    );
   }
   if (query.name) {
     const like = `%${query.name}%`;
@@ -235,7 +263,7 @@ export async function listNannies(
       prisma.nannyProfile.count({ where }),
       prisma.nannyProfile.findMany({
         where,
-        include: { user: true },
+        include: { user: true, ...nannySkillsInclude },
         orderBy: { rating: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -277,7 +305,7 @@ export async function listNannies(
   const distanceById = new Map(rows.map((r) => [r.id, r.distance_m]));
   const profiles = await prisma.nannyProfile.findMany({
     where: { id: { in: rows.map((r) => r.id) } },
-    include: { user: true },
+    include: { user: true, ...nannySkillsInclude },
   });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
 
@@ -301,6 +329,7 @@ export async function getNannyPublicProfile(nannyProfileId: string): Promise<Nan
     },
     include: {
       user: true,
+      ...nannySkillsInclude,
       reviews: {
         where: { deletedAt: null },
         include: { mother: true },

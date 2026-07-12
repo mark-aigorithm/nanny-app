@@ -16,6 +16,7 @@ import {
   listNannies,
   updateNannyProfile,
 } from '@backend/services/nanny.service';
+import { listActiveSkills } from '@backend/services/skill.service';
 
 export const nannyRouter = Router();
 
@@ -57,6 +58,18 @@ nannyRouter.put(
       if (!req.firebaseUser) throw errors.unauthorized();
       const profile = await updateNannyProfile(req.firebaseUser, req.body);
       res.json(ok(profile));
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Skill catalog (active skills, for the search filter) ──────────────────────
+
+nannyRouter.get(
+  '/skills',
+  requireAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listActiveSkills()));
     } catch (err) { next(err); }
   },
 );

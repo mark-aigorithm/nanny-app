@@ -15,11 +15,11 @@ import type { BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import {
+  useAvailableBookings,
   useBookingList,
   useCheckIn,
   useCheckOut,
   useAcceptBooking,
-  useDeclineBooking,
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
@@ -39,17 +39,16 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'declined', label: 'Declined' },
 ];
 
-const STATUS_BY_FILTER: Record<FilterKey, string> = {
-  // Pending requests awaiting admin approval — the nanny may optionally
-  // accept/decline (advisory only; admin approval confirms the booking).
-  requests: 'PENDING',
+// The Requests tab shows the OPEN broadcast pool (unassigned requests any nanny
+// can claim), not the nanny's own bookings — so it uses a different endpoint.
+const STATUS_BY_FILTER: Record<Exclude<FilterKey, 'requests'>, string> = {
   upcoming: 'CONFIRMED,IN_PROGRESS',
   past: 'COMPLETED',
   declined: 'CANCELLED',
 };
 
 const EMPTY_LABEL: Record<FilterKey, string> = {
-  requests: 'No new requests',
+  requests: 'No open requests right now',
   upcoming: 'No upcoming bookings',
   past: 'No past bookings',
   declined: 'No declined bookings',
@@ -58,21 +57,28 @@ const EMPTY_LABEL: Record<FilterKey, string> = {
 export default function NannyRequestsScreen() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterKey>('requests');
+  const isRequestsTab = activeFilter === 'requests';
 
   const listOptions =
-    activeFilter === 'upcoming' || activeFilter === 'requests'
+    activeFilter === 'upcoming'
       ? ({ sortBy: 'startTime' as const, sortDir: 'asc' as const })
       : undefined;
 
-  const { data: requests = [], isLoading, refetch } = useBookingList(
-    STATUS_BY_FILTER[activeFilter],
+  // Both hooks are always mounted; only the relevant one is enabled/read.
+  const available = useAvailableBookings(isRequestsTab);
+  const owned = useBookingList(
+    isRequestsTab ? undefined : STATUS_BY_FILTER[activeFilter],
     listOptions,
   );
+
+  const requests = (isRequestsTab ? available.data : owned.data) ?? [];
+  const isLoading = isRequestsTab ? available.isLoading : owned.isLoading;
+  const refetch = isRequestsTab ? available.refetch : owned.refetch;
+
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
   const acceptBooking = useAcceptBooking();
-  const declineBooking = useDeclineBooking();
   const { nearestBooking, canCheckIn, canCheckOut } = useBookingShiftTimer(
     activeFilter === 'upcoming' ? requests : [],
   );
@@ -92,9 +98,7 @@ export default function NannyRequestsScreen() {
       isInProgress &&
       nearestBooking?.id === booking.id &&
       canCheckOut;
-    const isDeciding =
-      (acceptBooking.isPending && acceptBooking.variables === booking.id) ||
-      (declineBooking.isPending && declineBooking.variables === booking.id);
+    const isClaiming = acceptBooking.isPending && acceptBooking.variables === booking.id;
 
     return (
       <View key={booking.id} style={styles.requestCard}>
@@ -146,37 +150,20 @@ export default function NannyRequestsScreen() {
           </View>
         ) : null}
 
-        {/* Requests tab: optional accept/decline + admin-approval note */}
-        {activeFilter === 'requests' ? (
+        {/* Requests tab: claim the open request (first to accept wins) */}
+        {isRequestsTab ? (
           <View style={styles.decisionSection}>
-            {booking.nannyDecision === 'ACCEPTED' ? (
-              <View style={[styles.statusBadge, styles.statusAccepted]}>
-                <Text style={[styles.statusText, styles.statusAcceptedText]}>You accepted</Text>
-              </View>
-            ) : booking.nannyDecision === 'DECLINED' ? (
-              <View style={[styles.statusBadge, styles.statusDeclined]}>
-                <Text style={[styles.statusText, styles.statusDeclinedText]}>You declined</Text>
-              </View>
-            ) : (
-              <View style={styles.actionsRow}>
-                <Pressable
-                  style={styles.acceptButton}
-                  onPress={() => acceptBooking.mutate(booking.id)}
-                  disabled={isDeciding}
-                >
-                  <Text style={styles.acceptButtonText}>Accept</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.declineButton}
-                  onPress={() => declineBooking.mutate(booking.id)}
-                  disabled={isDeciding}
-                >
-                  <Text style={styles.declineButtonText}>Decline</Text>
-                </Pressable>
-              </View>
-            )}
+            <Pressable
+              style={styles.acceptButton}
+              onPress={() => acceptBooking.mutate(booking.id)}
+              disabled={isClaiming}
+            >
+              <Text style={styles.acceptButtonText}>
+                {isClaiming ? 'Accepting…' : 'Accept request'}
+              </Text>
+            </Pressable>
             <Text style={styles.decisionNote}>
-              Optional — an admin approves bookings. Accepting just tells them you're available.
+              First to accept gets the booking. The parent pays once you accept.
             </Text>
           </View>
         ) : showStart || showEnd ? (

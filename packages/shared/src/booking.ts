@@ -134,11 +134,18 @@ export type EmergencyBookingResponse = z.infer<typeof EmergencyBookingResponseSc
 
 // ── Request schemas ──────────────────────────────────────────────────────────
 
+/**
+ * Create a booking request. The mother no longer picks a nanny — the request is
+ * broadcast to every eligible nanny and the first to accept claims it. Price is
+ * known up front from the fixed platform rate, not a per-nanny rate. Optional
+ * coordinates let the server order the broadcast pool by proximity.
+ */
 export const CreateBookingSchema = z.object({
-  nannyProfileId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
   startTime: z.string().datetime({ offset: true }),
   endTime: z.string().datetime({ offset: true }),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   specialInstructions: z.string().trim().max(1000).optional(),
   promoCode: z.string().trim().min(1).optional(),
 });
@@ -155,6 +162,16 @@ export const ValidateBookingPromoResponseSchema = z.object({
   discountAmount: z.number(),
 });
 export type ValidateBookingPromoResponse = z.infer<typeof ValidateBookingPromoResponseSchema>;
+
+/**
+ * Public pricing inputs the booking form needs to show a live estimate before a
+ * request is created: the fixed platform hourly rate and the service fee %.
+ */
+export const PricingConfigSchema = z.object({
+  standardHourlyRate: z.number(),
+  serviceFeePercent: z.number(),
+});
+export type PricingConfig = z.infer<typeof PricingConfigSchema>;
 
 /** YYYY-MM-DD in local calendar time for the given instant. */
 export function toLocalDateIso(date: Date = new Date()): string {

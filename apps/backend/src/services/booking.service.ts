@@ -14,11 +14,13 @@ import {
   type MockPayBookingRequest,
   type NearbyNanny,
   type PaginationMeta,
+  type PricingConfig,
   type ValidateBookingPromoRequest,
   type ValidateBookingPromoResponse,
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
+  NannyApprovalStatus,
   NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
@@ -27,7 +29,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
-import { getServiceFeePercent } from './app-settings.service';
+import { getServiceFeePercent, getStandardHourlyRate } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import { calculatePriceBreakdown } from './pricing.service';
 import { redeemPromoCode, validatePromoCode } from './promo-code.service';
@@ -144,7 +146,7 @@ export function validateStatusTransition(current: string, next: string): void {
   }
 }
 
-function computeDurationHours(start: Date, end: Date): number {
+export function computeDurationHours(start: Date, end: Date): number {
   const ms = end.getTime() - start.getTime();
   return Math.round((ms / 3_600_000) * 100) / 100;
 }
@@ -211,36 +213,51 @@ async function notifyUserBookingEvent(
 }
 
 /**
- * A new booking request lands in BOTH the assigned nanny's list and every
- * admin's review queue at once. No payment has been taken — the admin still
- * has to approve. Emergency bookings have no assigned nanny yet, so only the
- * admins are notified until a nanny claims it.
+ * Broadcast a new, unclaimed booking request to every eligible nanny and to
+ * every admin at once. No nanny is assigned yet — the request is offered to the
+ * whole pool and the first nanny to accept claims it. "Eligible" means an
+ * approved nanny with a complete profile who is free for the requested window.
+ * No payment has been taken; the mother pays once a nanny claims the request.
  */
-async function notifyBookingRequested(booking: BookingWithRelations): Promise<void> {
-  const nannyName = `${booking.mother.firstName} ${booking.mother.lastName}`.trim();
+async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<void> {
   const dateLabel = booking.date.toISOString().slice(0, 10);
 
-  const recipients: Array<{ userId: string; title: string; body: string }> = [];
-
-  if (booking.nannyProfile) {
-    recipients.push({
-      userId: booking.nannyProfile.user.id,
-      title: 'New booking request',
-      body: `${nannyName} requested you for ${dateLabel}. Awaiting admin approval.`,
-    });
-  }
+  const nannies = await prisma.nannyProfile.findMany({
+    where: {
+      deletedAt: null,
+      isProfileComplete: true,
+      approvalStatus: NannyApprovalStatus.APPROVED,
+      // Exclude nannies already booked for an overlapping window — they can't
+      // take this one anyway.
+      bookings: {
+        none: {
+          deletedAt: null,
+          status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
+          startTime: { lt: booking.endTime },
+          endTime: { gt: booking.startTime },
+        },
+      },
+    },
+    select: { userId: true },
+  });
 
   const admins = await prisma.user.findMany({
     where: { deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
     select: { id: true },
   });
-  for (const admin of admins) {
-    recipients.push({
-      userId: admin.id,
+
+  const recipients: Array<{ userId: string; title: string; body: string }> = [
+    ...nannies.map((n) => ({
+      userId: n.userId,
+      title: 'New care request',
+      body: `A parent needs care on ${dateLabel}. Accept to claim it — first to accept gets the booking.`,
+    })),
+    ...admins.map((a) => ({
+      userId: a.id,
       title: 'New booking request',
-      body: `A new booking request for ${dateLabel} needs review.`,
-    });
-  }
+      body: `A new booking request for ${dateLabel} was created.`,
+    })),
+  ];
 
   await Promise.all(
     recipients.map((r) =>
@@ -253,6 +270,23 @@ async function notifyBookingRequested(booking: BookingWithRelations): Promise<vo
         booking.id,
       ),
     ),
+  );
+}
+
+/**
+ * Tell the mother a nanny has claimed her request and payment is now due. This
+ * is the moment the mother is prompted to pay — the claim moved the booking to
+ * APPROVED (payable). Reuses the BOOKING_APPROVED notification type.
+ */
+async function notifyMotherNannyClaimed(booking: BookingWithRelations): Promise<void> {
+  const dateLabel = booking.date.toISOString().slice(0, 10);
+  await notifyUserBookingEvent(
+    booking.motherId,
+    'BOOKING_APPROVED' as NotificationType,
+    'booking_approved',
+    'A nanny accepted your request',
+    `A nanny is ready for your ${dateLabel} booking. Complete payment to confirm it.`,
+    booking.id,
   );
 }
 
@@ -271,7 +305,7 @@ export async function notifyNannyBookingConfirmed(
   );
 }
 
-async function assertNoConflict(
+export async function assertNoConflict(
   nannyProfileId: string,
   startTime: Date,
   endTime: Date,
@@ -313,19 +347,20 @@ async function assertNoConflict(
 
 // ── Public service functions ──────────────────────────────────────────────────
 
+/**
+ * Create a booking request — the primary "broadcast" flow. The mother does NOT
+ * pick a nanny: the request is created unassigned (nannyProfileId = null) and
+ * broadcast to every eligible nanny, and the first to accept claims it
+ * (applyNannyDecision). Unlike the emergency track, the price is known up front
+ * because it uses the FIXED platform hourly rate, so the mother sees her total
+ * immediately. The nanny time-conflict check happens at claim time, not here.
+ */
 export async function createBooking(
   decoded: DecodedIdToken,
   body: CreateBookingRequest,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
-
-  const nanny = await prisma.nannyProfile.findUnique({
-    where: { id: body.nannyProfileId, deletedAt: null },
-  });
-  if (!nanny) throw errors.notFound('Nanny not found.');
-  if (!nanny.isProfileComplete) throw errors.badRequest('This nanny\'s profile is not complete yet.');
-  if (!nanny.hourlyRate) throw errors.badRequest('This nanny has not set an hourly rate.');
 
   const startTime = new Date(body.startTime);
   const endTime = new Date(body.endTime);
@@ -339,35 +374,36 @@ export async function createBooking(
   if (durationHours < 1) throw errors.badRequest('Minimum booking duration is 1 hour.');
   if (durationHours > 12) throw errors.badRequest('Maximum booking duration is 12 hours.');
 
+  // Idempotency: a double-tapped "Request care" must not create two broadcasts.
+  // Reuse an existing unclaimed request for the same mother and time window.
   const existingPending = await prisma.booking.findFirst({
     where: {
       motherId: user.id,
-      nannyProfileId: body.nannyProfileId,
+      nannyProfileId: null,
       deletedAt: null,
       status: BookingStatus.PENDING,
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
+      type: BookingType.STANDARD,
+      startTime,
+      endTime,
     },
     include: bookingInclude,
   });
   if (existingPending) {
     // eslint-disable-next-line no-console
-    console.info('[booking] reusing pending booking for checkout retry', {
+    console.info('[booking] reusing pending broadcast request for retry', {
       bookingId: existingPending.id,
       motherId: user.id,
-      nannyProfileId: body.nannyProfileId,
     });
     return toBookingResponse(existingPending);
   }
 
-  await assertNoConflict(body.nannyProfileId, startTime, endTime);
-
   const serviceFeePercent = await getServiceFeePercent();
+  const hourlyRate = await getStandardHourlyRate();
 
   let promoCodeId: string | null = null;
   let discountAmount = 0;
   if (body.promoCode) {
-    const subtotal = Number(nanny.hourlyRate) * durationHours;
+    const subtotal = hourlyRate * durationHours;
     const serviceFeeAmount = subtotal * (serviceFeePercent / 100);
     const grossTotal = subtotal + serviceFeeAmount;
     const validated = await validatePromoCode(body.promoCode, grossTotal, user.id);
@@ -376,7 +412,7 @@ export async function createBooking(
   }
 
   const breakdown = calculatePriceBreakdown({
-    baseRate: Number(nanny.hourlyRate),
+    baseRate: hourlyRate,
     durationHours,
     discountAmount,
     serviceFeePercent,
@@ -384,7 +420,7 @@ export async function createBooking(
 
   const data: Prisma.BookingUncheckedCreateInput = {
     motherId: user.id,
-    nannyProfileId: body.nannyProfileId,
+    nannyProfileId: null,
     status: BookingStatus.PENDING,
     type: BookingType.STANDARD,
     date: new Date(body.date),
@@ -417,7 +453,7 @@ export async function createBooking(
     booking = await prisma.booking.create({ data, include: bookingInclude });
   }
 
-  await notifyBookingRequested(booking);
+  await notifyBookingBroadcast(booking);
 
   return toBookingResponse(booking);
 }
@@ -427,6 +463,19 @@ export async function createBooking(
  * consumes the code or writes a redemption. The client sends the base subtotal
  * (rate × hours); the server adds the service fee so fee logic stays server-side.
  */
+/**
+ * Public pricing inputs for the booking form's live estimate: the fixed
+ * platform hourly rate and the service fee %. Any authenticated user may read
+ * these (they're not secret) so the mother sees her total before requesting.
+ */
+export async function getBookingPricingConfig(): Promise<PricingConfig> {
+  const [standardHourlyRate, serviceFeePercent] = await Promise.all([
+    getStandardHourlyRate(),
+    getServiceFeePercent(),
+  ]);
+  return { standardHourlyRate, serviceFeePercent };
+}
+
 export async function validateBookingPromo(
   decoded: DecodedIdToken,
   body: ValidateBookingPromoRequest,
@@ -506,9 +555,9 @@ export async function createEmergencyBooking(
     include: bookingInclude,
   });
 
-  // Emergency requests have no assigned nanny yet, so this reaches the admins
-  // only; the claiming nanny is informed when an admin approves.
-  await notifyBookingRequested(booking);
+  // Broadcast the unclaimed request to every eligible nanny (and the admins);
+  // the first to accept claims and prices it.
+  await notifyBookingBroadcast(booking);
 
   // Find 5 nearest available nannies. Coordinates + address live on the user
   // row (single source of truth); distance is computed in PostGIS
@@ -619,6 +668,55 @@ export async function listBookings(
   };
 }
 
+/**
+ * The open broadcast pool a nanny can claim: unassigned PENDING requests that
+ * start in the future and don't overlap any booking the nanny already holds.
+ * Soonest-starting first. Any nanny may claim any of these (first to accept
+ * wins), so this is intentionally not distance-filtered.
+ */
+export async function listAvailableBookings(
+  decoded: DecodedIdToken,
+): Promise<BookingResponse[]> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.NANNY) {
+    throw errors.forbidden('Only nannies can view available requests.');
+  }
+
+  const nannyProfile = await prisma.nannyProfile.findUnique({
+    where: { userId: user.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
+
+  const [busy, open] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        nannyProfileId: nannyProfile.id,
+        deletedAt: null,
+        status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
+      },
+      select: { startTime: true, endTime: true },
+    }),
+    prisma.booking.findMany({
+      where: {
+        deletedAt: null,
+        status: BookingStatus.PENDING,
+        nannyProfileId: null,
+        startTime: { gt: new Date() },
+      },
+      include: bookingInclude,
+      orderBy: { startTime: 'asc' },
+      take: 50,
+    }),
+  ]);
+
+  const available = open.filter(
+    (b) => !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime),
+  );
+
+  return available.map(toBookingResponse);
+}
+
 export async function getBooking(
   decoded: DecodedIdToken,
   bookingId: string,
@@ -680,15 +778,19 @@ export async function cancelBooking(
 }
 
 /**
- * Nanny records her optional accept/decline of a booking request. This is
- * purely INFORMATIONAL — it sets nannyDecision + nannyDecidedAt but never
- * changes the booking's status. The admin's approval is authoritative and
- * works regardless of (or in the absence of) a nanny decision.
+ * Nanny responds to a booking request.
  *
- * For an unclaimed EMERGENCY booking, ACCEPT also assigns the nanny and prices
- * the booking at her rate, but the booking still stays PENDING until an admin
- * approves it. Only bookings still awaiting an admin decision (PENDING) accept
- * a nanny response.
+ * For an UNCLAIMED request (nannyProfileId = null, either STANDARD or
+ * EMERGENCY), ACCEPT *claims* it: the nanny is assigned and the booking moves
+ * PENDING → APPROVED so it becomes payable immediately — there is no admin
+ * approval gate. First to accept wins; a transaction + status re-check prevents
+ * two nannies claiming the same request. You can't decline an unclaimed request
+ * (it isn't yours) — you simply don't claim it. Emergency requests are re-priced
+ * at the claiming nanny's rate (their price is unknown until a nanny claims);
+ * standard requests keep the fixed platform price they were created with.
+ *
+ * For a request already ASSIGNED to this nanny, accept/decline just records
+ * nannyDecision + nannyDecidedAt (informational).
  */
 async function applyNannyDecision(
   decoded: DecodedIdToken,
@@ -702,13 +804,14 @@ async function applyNannyDecision(
     where: { userId: user.id, deletedAt: null },
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
-  if (!nannyProfile.hourlyRate) throw errors.badRequest('Set your hourly rate before responding to bookings.');
 
   const decisionValue =
     decision === 'ACCEPTED' ? NannyBookingDecision.ACCEPTED : NannyBookingDecision.DECLINED;
 
+  let claimed = false;
+
   // Serializable-ish: read-then-update in a transaction to guard against
-  // two nannies claiming the same emergency booking simultaneously.
+  // two nannies claiming the same request simultaneously.
   const updated = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: bookingId, deletedAt: null },
@@ -718,40 +821,54 @@ async function applyNannyDecision(
       throw errors.badRequest('This booking is no longer awaiting a nanny decision.');
     }
 
-    // Unclaimed emergency booking: ACCEPT claims + prices it; you can't decline
-    // a booking that isn't assigned to you.
-    if (booking.type === BookingType.EMERGENCY && booking.nannyProfileId === null) {
+    // Unclaimed request: ACCEPT claims it and makes it payable (→ APPROVED).
+    if (booking.nannyProfileId === null) {
       if (decision === 'DECLINED') {
         throw errors.badRequest('This booking is not assigned to you.');
       }
 
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
 
-      const serviceFeePercent = await getServiceFeePercent();
-      const breakdown = calculatePriceBreakdown({
-        baseRate: Number(nannyProfile.hourlyRate),
-        durationHours: Number(booking.durationHours),
-        serviceFeePercent,
-      });
-
-      return tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          nannyProfileId: nannyProfile.id,
+      // Emergency requests carry no price until claimed — re-price at the
+      // claiming nanny's rate. Standard requests keep their fixed platform price.
+      let repriceData: Prisma.BookingUpdateInput = {};
+      if (booking.type === BookingType.EMERGENCY) {
+        if (!nannyProfile.hourlyRate) {
+          throw errors.badRequest('Set your hourly rate before claiming emergency requests.');
+        }
+        const serviceFeePercent = await getServiceFeePercent();
+        const breakdown = calculatePriceBreakdown({
+          baseRate: Number(nannyProfile.hourlyRate),
+          durationHours: Number(booking.durationHours),
+          serviceFeePercent,
+        });
+        repriceData = {
           baseRate: breakdown.baseRate,
           subtotal: breakdown.subtotal,
           serviceFeePercent: breakdown.serviceFeePercent,
           serviceFeeAmount: breakdown.serviceFeeAmount,
           totalAmount: breakdown.totalAmount,
+        };
+      }
+
+      validateStatusTransition(booking.status, BookingStatus.APPROVED);
+      claimed = true;
+
+      return tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          ...repriceData,
+          nannyProfile: { connect: { id: nannyProfile.id } },
+          status: BookingStatus.APPROVED,
           nannyDecision: decisionValue,
           nannyDecidedAt: new Date(),
-          // status intentionally unchanged — awaits admin approval.
         },
         include: bookingInclude,
       });
     }
 
-    // Assigned booking (standard, or an emergency already claimed by this nanny).
+    // Assigned booking (an emergency already claimed by this nanny, or a booking
+    // routed to her): record the informational decision only.
     if (booking.nannyProfileId !== nannyProfile.id) {
       throw errors.forbidden('This booking is not assigned to you.');
     }
@@ -764,6 +881,11 @@ async function applyNannyDecision(
       include: bookingInclude,
     });
   });
+
+  // A fresh claim makes the booking payable — prompt the mother to pay.
+  if (claimed) {
+    await notifyMotherNannyClaimed(updated);
+  }
 
   return toBookingResponse(updated);
 }

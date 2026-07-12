@@ -6,12 +6,16 @@ import {
   CreateAdminSchema,
   CreateCameraSchema,
   CreatePromoCodeSchema,
+  CreateSkillSchema,
   RejectAdminBookingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
+  SetNannySkillsSchema,
+  UpdateBookingTimesSchema,
   UpdateCameraSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
+  UpdateSkillSchema,
 } from '@nanny-app/shared';
 
 import { ok } from '@backend/lib/api-response';
@@ -25,11 +29,13 @@ import {
   listAdminBookings,
   rejectBooking,
   setBookingStatus,
+  updateBookingTimes,
 } from '@backend/services/admin-booking.service';
 import {
   approveNanny,
   listAdminNannies,
   rejectNanny,
+  setNannySkills,
 } from '@backend/services/admin-nanny.service';
 import {
   createAdminUser,
@@ -53,6 +59,12 @@ import {
   listPromoCodes,
   updatePromoCode,
 } from '@backend/services/promo-code.service';
+import {
+  createSkill,
+  deleteSkill,
+  listSkills,
+  updateSkill,
+} from '@backend/services/skill.service';
 
 export const adminRouter = Router();
 
@@ -122,6 +134,21 @@ adminRouter.patch(
   },
 );
 
+adminRouter.patch(
+  '/bookings/:id/times',
+  validateBody(UpdateBookingTimesSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await updateBookingTimes(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ── Nanny review queue (new nanny registrations / KYC) ────────
 
 adminRouter.get('/nannies', async (req: Request, res: Response, next: NextFunction) => {
@@ -152,6 +179,18 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await rejectNanny(routeParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.put(
+  '/nannies/:id/skills',
+  validateBody(SetNannySkillsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await setNannySkills(routeParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -224,6 +263,51 @@ adminRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await deletePromoCode(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Skills (nanny specialty catalog) ───────────────────────────
+
+adminRouter.get('/skills', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listSkills()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/skills',
+  validateBody(CreateSkillSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createSkill(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/skills/:id',
+  validateBody(UpdateSkillSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateSkill(routeParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/skills/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await deleteSkill(routeParam(req.params.id))));
     } catch (err) {
       next(err);
     }

@@ -1,6 +1,11 @@
 import { NannyApprovalStatus, Prisma } from '@prisma/client';
 
-import type { AdminNanny, AdminNannyStatusFilter, RejectNannyInput } from '@nanny-app/shared';
+import type {
+  AdminNanny,
+  AdminNannyStatusFilter,
+  RejectNannyInput,
+  SetNannySkillsInput,
+} from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -24,6 +29,10 @@ const nannyInclude = {
       isPhoneVerified: true,
     },
   },
+  nannySkills: {
+    where: { deletedAt: null },
+    include: { skill: true },
+  },
 } satisfies Prisma.NannyProfileInclude;
 
 type AdminNannyRow = Prisma.NannyProfileGetPayload<{ include: typeof nannyInclude }>;
@@ -44,6 +53,7 @@ function toDto(row: AdminNannyRow): AdminNanny {
     yearsOfExperience: row.yearsOfExperience,
     hourlyRate: row.hourlyRate?.toNumber() ?? null,
     certifications: row.certifications,
+    skills: row.nannySkills.map((ns) => ({ id: ns.skill.id, name: ns.skill.name })),
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
     approvalStatus: row.approvalStatus,
@@ -154,5 +164,71 @@ export async function rejectNanny(id: string, input: RejectNannyInput): Promise<
     data: { type: 'nanny_rejected', title },
   });
 
+  return toDto(updated);
+}
+
+/**
+ * Replaces a nanny's assigned skills with exactly `skillIds` (admin action).
+ * Reconciles the NannySkill join rows in one transaction: soft-deletes rows no
+ * longer wanted, reactivates previously soft-deleted ones, and creates the rest.
+ * Reactivation (rather than insert) is required because the `@@unique`
+ * constraint spans soft-deleted rows too. Unknown or inactive skill ids are
+ * rejected so the assignment can never reference a skill parents can't see.
+ */
+export async function setNannySkills(
+  nannyProfileId: string,
+  input: SetNannySkillsInput,
+): Promise<AdminNanny> {
+  const nanny = await prisma.nannyProfile.findFirst({
+    where: { id: nannyProfileId, deletedAt: null, user: { deletedAt: null } },
+    select: { id: true },
+  });
+  if (!nanny) throw errors.notFound('Nanny not found');
+
+  const desiredIds = [...new Set(input.skillIds)];
+  if (desiredIds.length > 0) {
+    const valid = await prisma.skill.findMany({
+      where: { id: { in: desiredIds }, deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+    if (valid.length !== desiredIds.length) {
+      throw errors.badRequest('One or more skills are invalid or inactive.');
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const existingRows = await tx.nannySkill.findMany({
+      where: { nannyProfileId },
+      select: { id: true, skillId: true, deletedAt: true },
+    });
+    const desired = new Set(desiredIds);
+    const bySkillId = new Map(existingRows.map((r) => [r.skillId, r]));
+
+    // Soft-delete rows that are currently active but no longer wanted.
+    const toRemove = existingRows
+      .filter((r) => r.deletedAt === null && !desired.has(r.skillId))
+      .map((r) => r.id);
+    if (toRemove.length > 0) {
+      await tx.nannySkill.updateMany({
+        where: { id: { in: toRemove } },
+        data: { deletedAt: new Date() },
+      });
+    }
+
+    // Add or reactivate the desired skills.
+    for (const skillId of desiredIds) {
+      const row = bySkillId.get(skillId);
+      if (!row) {
+        await tx.nannySkill.create({ data: { nannyProfileId, skillId } });
+      } else if (row.deletedAt !== null) {
+        await tx.nannySkill.update({ where: { id: row.id }, data: { deletedAt: null } });
+      }
+    }
+  });
+
+  const updated = await prisma.nannyProfile.findUniqueOrThrow({
+    where: { id: nannyProfileId },
+    include: nannyInclude,
+  });
   return toDto(updated);
 }

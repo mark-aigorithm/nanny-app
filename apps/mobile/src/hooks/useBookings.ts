@@ -4,6 +4,7 @@ import type {
   BookingResponse,
   CreateBookingRequest,
   MockPayBookingRequest,
+  PricingConfig,
   ValidateBookingPromoRequest,
   ValidateBookingPromoResponse,
 } from '@nanny-app/shared';
@@ -33,11 +34,41 @@ export function useBookingList(statusFilter?: string, options?: BookingListOptio
   });
 }
 
-export function useBooking(id: string | undefined) {
+export function useBooking(id: string | undefined, pollWhilePending = false) {
   return useQuery<BookingResponse>({
     queryKey: [BOOKINGS_KEY, id],
     queryFn: () => unwrap(api.get(`/bookings/${id}`)),
     enabled: !!id,
+    // While a broadcast request is unclaimed, poll so the screen advances on its
+    // own the moment a nanny accepts (PENDING → APPROVED).
+    refetchInterval: pollWhilePending
+      ? (query) => (query.state.data?.status === 'PENDING' ? 5000 : false)
+      : undefined,
+  });
+}
+
+/**
+ * The open broadcast pool a nanny can claim: unassigned PENDING requests she is
+ * eligible for. First nanny to accept wins.
+ */
+export function useAvailableBookings(enabled = true) {
+  return useQuery<BookingResponse[]>({
+    queryKey: [BOOKINGS_KEY, 'available'],
+    queryFn: () => unwrap(api.get('/bookings/available')),
+    enabled,
+  });
+}
+
+/**
+ * Fixed platform hourly rate + service fee % used to show a live price estimate
+ * on the booking form (the mother no longer picks a nanny, so the rate comes
+ * from platform config, not a profile).
+ */
+export function usePricingConfig() {
+  return useQuery<PricingConfig>({
+    queryKey: ['pricing-config'],
+    queryFn: () => unwrap(api.get('/bookings/pricing')),
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -113,8 +144,8 @@ export function useCancelBooking() {
 }
 
 /**
- * Nanny's optional accept of a PENDING request. Advisory only — the admin's
- * approval is what confirms the booking; this just records `nannyDecision`.
+ * Nanny claims an unassigned request. First to accept wins: this assigns the
+ * nanny and moves the booking to APPROVED (payable) so the parent can pay.
  */
 export function useAcceptBooking() {
   const qc = useQueryClient();

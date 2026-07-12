@@ -79,6 +79,21 @@ export default function HomeScreen() {
           />
         }
       >
+        {/* Primary action: request care (broadcast to all available nannies) */}
+        <Pressable
+          style={styles.bookCareCard}
+          onPress={() => router.push('/(parent)/book/booking-date-picker')}
+        >
+          <View style={styles.bookCareIcon}>
+            <Ionicons name="add" size={24} color={colors.white} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bookCareTitle}>Book care</Text>
+            <Text style={styles.bookCareSubtitle}>One request reaches every available nanny</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+        </Pressable>
+
         {SHOW_HOME_BANNER && (
           <Pressable style={styles.heroSection} onPress={() => router.push('/(parent)/home-dashboard' as never)}>
             <Text style={styles.heroTitle}>{'Find the perfect nanny\ntoday'}</Text>

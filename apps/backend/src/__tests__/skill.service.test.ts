@@ -1,0 +1,152 @@
+jest.mock('@backend/db/prisma', () => ({
+  prisma: {
+    skill: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+  },
+}));
+
+import { prisma } from '@backend/db/prisma';
+import {
+  createSkill,
+  deleteSkill,
+  listActiveSkills,
+  listSkills,
+  updateSkill,
+} from '@backend/services/skill.service';
+
+const mockPrisma = prisma as unknown as {
+  skill: {
+    findMany: jest.Mock;
+    findUnique: jest.Mock;
+    findFirst: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+  };
+};
+
+function makeSkill(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'skill-1',
+    name: 'French speaker',
+    description: null,
+    isActive: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+describe('listSkills', () => {
+  it('returns active-and-inactive skills as DTOs, name-ordered', async () => {
+    mockPrisma.skill.findMany.mockResolvedValue([makeSkill()]);
+    const rows = await listSkills();
+    expect(mockPrisma.skill.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+    expect(rows).toEqual([
+      {
+        id: 'skill-1',
+        name: 'French speaker',
+        description: null,
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+  });
+});
+
+describe('listActiveSkills', () => {
+  it('queries only active, non-deleted skills and returns {id,name}', async () => {
+    mockPrisma.skill.findMany.mockResolvedValue([{ id: 'skill-1', name: 'French speaker' }]);
+    const rows = await listActiveSkills();
+    expect(mockPrisma.skill.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null, isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    expect(rows).toEqual([{ id: 'skill-1', name: 'French speaker' }]);
+  });
+});
+
+describe('createSkill', () => {
+  it('creates a new skill when the name is free', async () => {
+    mockPrisma.skill.findUnique.mockResolvedValue(null);
+    mockPrisma.skill.create.mockResolvedValue(makeSkill());
+    const created = await createSkill({ name: 'French speaker', isActive: true });
+    expect(mockPrisma.skill.create).toHaveBeenCalledWith({
+      data: { name: 'French speaker', description: null, isActive: true },
+    });
+    expect(created.id).toBe('skill-1');
+  });
+
+  it('throws conflict (409) when a live skill with the same name exists', async () => {
+    mockPrisma.skill.findUnique.mockResolvedValue(makeSkill());
+    await expect(createSkill({ name: 'French speaker', isActive: true })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(mockPrisma.skill.create).not.toHaveBeenCalled();
+  });
+
+  it('allows reusing the name of a soft-deleted skill', async () => {
+    mockPrisma.skill.findUnique.mockResolvedValue(makeSkill({ deletedAt: new Date() }));
+    mockPrisma.skill.create.mockResolvedValue(makeSkill());
+    await expect(createSkill({ name: 'French speaker', isActive: true })).resolves.toBeDefined();
+  });
+});
+
+describe('updateSkill', () => {
+  it('throws notFound (404) when the skill is missing', async () => {
+    mockPrisma.skill.findFirst.mockResolvedValue(null);
+    await expect(updateSkill('nope', { isActive: false })).rejects.toMatchObject({
+      statusCode: 404,
+    });
+  });
+
+  it('updates only provided fields', async () => {
+    mockPrisma.skill.findFirst.mockResolvedValue(makeSkill());
+    mockPrisma.skill.update.mockResolvedValue(makeSkill({ isActive: false }));
+    const updated = await updateSkill('skill-1', { isActive: false });
+    expect(mockPrisma.skill.update).toHaveBeenCalledWith({
+      where: { id: 'skill-1' },
+      data: { isActive: false },
+    });
+    expect(updated.isActive).toBe(false);
+  });
+
+  it('throws conflict (409) when renaming onto another live skill', async () => {
+    mockPrisma.skill.findFirst.mockResolvedValue(makeSkill({ name: 'Old name' }));
+    mockPrisma.skill.findUnique.mockResolvedValue(makeSkill({ id: 'skill-2', name: 'Taken' }));
+    await expect(updateSkill('skill-1', { name: 'Taken' })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(mockPrisma.skill.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('deleteSkill', () => {
+  it('throws notFound (404) when the skill is missing', async () => {
+    mockPrisma.skill.findFirst.mockResolvedValue(null);
+    await expect(deleteSkill('nope')).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('soft-deletes and returns the id', async () => {
+    mockPrisma.skill.findFirst.mockResolvedValue(makeSkill());
+    mockPrisma.skill.update.mockResolvedValue(makeSkill({ deletedAt: new Date() }));
+    const result = await deleteSkill('skill-1');
+    expect(mockPrisma.skill.update).toHaveBeenCalledWith({
+      where: { id: 'skill-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(result).toEqual({ id: 'skill-1' });
+  });
+});

@@ -19,12 +19,9 @@ export type BookingFlowParams = {
 };
 
 export function hasRequiredBookingDraft(params: BookingFlowParams): boolean {
-  return !!(
-    params.nannyProfileId &&
-    params.dateIso &&
-    params.startTimeIso &&
-    params.endTimeIso
-  );
+  // Broadcast flow: a request no longer needs a nanny chosen up front — just a
+  // date and window. A nanny claims it later.
+  return !!(params.dateIso && params.startTimeIso && params.endTimeIso);
 }
 
 export function getBookingDateDisplay(params: BookingFlowParams): string {

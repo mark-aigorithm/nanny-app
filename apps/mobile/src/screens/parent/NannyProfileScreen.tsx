@@ -184,15 +184,15 @@ export default function NannyProfileScreen() {
           </View>
         )}
 
-        {/* ── Specialties ── */}
-        {nanny.specialties && nanny.specialties.length > 0 && (
+        {/* ── Specialties (admin-curated skills) ── */}
+        {nanny.skills.length > 0 && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionHeading}>SPECIALTIES</Text>
             <View style={styles.specialtiesRow}>
-              {nanny.specialties.map((s, i) => (
-                <View key={i} style={styles.specialtyPill}>
+              {nanny.skills.map((s) => (
+                <View key={s.id} style={styles.specialtyPill}>
                   <Ionicons name="ribbon-outline" size={13} color={colors.primaryDark} />
-                  <Text style={styles.specialtyPillText}>{s}</Text>
+                  <Text style={styles.specialtyPillText}>{s.name}</Text>
                 </View>
               ))}
             </View>
@@ -257,21 +257,9 @@ export default function NannyProfileScreen() {
         <TouchableOpacity
           style={styles.bookButton}
           activeOpacity={0.85}
-          onPress={() =>
-            router.push({
-              pathname: '/(parent)/book/booking-date-picker',
-              params: {
-                nannyId: nanny.nannyProfileId,
-                nannyName: `${nanny.firstName} ${nanny.lastName}`,
-                nannyPhoto: nanny.avatarUrl ?? '',
-                nannyRate: String(nanny.hourlyRate ?? 0),
-              },
-            })
-          }
+          onPress={() => router.push('/(parent)/book/booking-date-picker')}
         >
-          <Text style={styles.bookButtonText}>
-            Book {nanny.firstName} — {formatHourlyRate(nanny.hourlyRate, 'Rate TBD')}
-          </Text>
+          <Text style={styles.bookButtonText}>Request care</Text>
         </TouchableOpacity>
       </View>
     </View>

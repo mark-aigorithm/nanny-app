@@ -11,6 +11,7 @@ import { NanniesPage } from './pages/nannies-page';
 import { BookingsPage } from './pages/bookings-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { SettingsPage } from './pages/settings-page';
+import { SkillsPage } from './pages/skills-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ export function App() {
               <Route path="nannies" element={<NanniesPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
+              <Route path="skills" element={<SkillsPage />} />
               <Route path="cameras" element={<CamerasPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

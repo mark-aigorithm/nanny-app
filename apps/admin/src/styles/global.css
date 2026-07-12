@@ -325,6 +325,22 @@ h3 {
   gap: 0.4rem;
 }
 
+.times-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.times-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
 .nanny-cell {
   display: flex;
   align-items: center;
@@ -369,6 +385,37 @@ h3 {
 .row-actions {
   display: flex;
   gap: 0.4rem;
+}
+
+/* ── Skills ─────────────────────────────────────────────── */
+
+.skill-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: 220px;
+}
+
+.skills-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.skills-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.skills-editor-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 /* ── Badge / feedback ───────────────────────────────────── */

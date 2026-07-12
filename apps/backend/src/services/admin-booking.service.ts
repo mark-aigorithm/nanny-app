@@ -5,15 +5,21 @@ import type {
   AdminBookingStatusFilter,
   RejectAdminBookingInput,
   SetBookingStatusInput,
+  UpdateBookingTimesInput,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import { validateStatusTransition } from '@backend/services/booking.service';
+import {
+  assertNoConflict,
+  computeDurationHours,
+  validateStatusTransition,
+} from '@backend/services/booking.service';
 import {
   createInAppNotification,
   dispatchPush,
 } from '@backend/services/notification.service';
+import { calculatePriceBreakdown } from '@backend/services/pricing.service';
 
 const bookingInclude = {
   mother: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -324,6 +330,90 @@ export async function setBookingStatus(
         updated.id,
       );
     }
+  }
+
+  return toDto(updated);
+}
+
+/**
+ * Admin edits a booking's scheduled window. Recomputes duration and the price
+ * breakdown from the new window (using the booking's own captured baseRate,
+ * service fee %, and any promo discount), guarding against a clash with the
+ * assigned nanny's other bookings. Both parties are notified of the new time.
+ * A COMPLETED or CANCELLED booking is locked.
+ */
+export async function updateBookingTimes(
+  id: string,
+  adminFirebaseUid: string,
+  input: UpdateBookingTimesInput,
+): Promise<AdminBooking> {
+  const adminId = await resolveAdminId(adminFirebaseUid);
+  const booking = await findAdminBooking(id);
+
+  if (
+    booking.status === BookingStatus.COMPLETED ||
+    booking.status === BookingStatus.CANCELLED ||
+    booking.status === BookingStatus.REFUNDED
+  ) {
+    throw errors.badRequest(
+      `A ${booking.status.toLowerCase()} booking is locked and its time cannot be changed.`,
+    );
+  }
+
+  const startTime = new Date(input.startTime);
+  const endTime = new Date(input.endTime);
+  if (startTime >= endTime) throw errors.badRequest('startTime must be before endTime.');
+
+  const durationHours = computeDurationHours(startTime, endTime);
+  if (durationHours < 1) throw errors.badRequest('Minimum booking duration is 1 hour.');
+  if (durationHours > 12) throw errors.badRequest('Maximum booking duration is 12 hours.');
+
+  // If a nanny has claimed it, keep her schedule collision-free.
+  if (booking.nannyProfileId) {
+    await assertNoConflict(booking.nannyProfileId, startTime, endTime, id);
+  }
+
+  const breakdown = calculatePriceBreakdown({
+    baseRate: booking.baseRate.toNumber(),
+    durationHours,
+    discountAmount: booking.discountAmount.toNumber(),
+    serviceFeePercent: booking.serviceFeePercent.toNumber(),
+  });
+
+  const updated = await prisma.booking.update({
+    where: { id },
+    data: {
+      startTime,
+      endTime,
+      durationHours: breakdown.durationHours,
+      subtotal: breakdown.subtotal,
+      discountAmount: breakdown.discountAmount,
+      serviceFeeAmount: breakdown.serviceFeeAmount,
+      totalAmount: breakdown.totalAmount,
+      adminActionBy: { connect: { id: adminId } },
+      adminActionAt: new Date(),
+    },
+    include: bookingInclude,
+  });
+
+  const dateLabel = updated.date.toISOString().slice(0, 10);
+  await notifyBookingParty(
+    updated.mother.id,
+    'BOOKING_CONFIRMED',
+    'booking_updated',
+    'Booking time updated',
+    `The schedule for your ${dateLabel} booking was updated by our team.`,
+    updated.id,
+  );
+  if (updated.nannyProfile) {
+    await notifyBookingParty(
+      updated.nannyProfile.user.id,
+      'BOOKING_CONFIRMED',
+      'booking_updated',
+      'Booking time updated',
+      `The schedule for a ${dateLabel} booking was updated by our team.`,
+      updated.id,
+    );
   }
 
   return toDto(updated);
