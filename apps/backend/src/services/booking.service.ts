@@ -28,6 +28,7 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
 import { getServiceFeePercent } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import { calculatePriceBreakdown } from './pricing.service';
+import { redeemPromoCode, validatePromoCode } from './promo-code.service';
 
 /** Minutes before scheduled start when nanny may check in. */
 export const CHECK_IN_EARLY_MINUTES = 15;
@@ -360,34 +361,59 @@ export async function createBooking(
   await assertNoConflict(body.nannyProfileId, startTime, endTime);
 
   const serviceFeePercent = await getServiceFeePercent();
+
+  let promoCodeId: string | null = null;
+  let discountAmount = 0;
+  if (body.promoCode) {
+    const subtotal = Number(nanny.hourlyRate) * durationHours;
+    const serviceFeeAmount = subtotal * (serviceFeePercent / 100);
+    const grossTotal = subtotal + serviceFeeAmount;
+    const validated = await validatePromoCode(body.promoCode, grossTotal, user.id);
+    promoCodeId = validated.promoCodeId;
+    discountAmount = validated.discountAmount;
+  }
+
   const breakdown = calculatePriceBreakdown({
     baseRate: Number(nanny.hourlyRate),
     durationHours,
+    discountAmount,
     serviceFeePercent,
   });
 
-  const booking = await prisma.booking.create({
-    data: {
-      motherId: user.id,
-      nannyProfileId: body.nannyProfileId,
-      status: BookingStatus.PENDING,
-      type: BookingType.STANDARD,
-      date: new Date(body.date),
-      startTime,
-      endTime,
-      durationHours: breakdown.durationHours,
-      baseRate: breakdown.baseRate,
-      subtotal: breakdown.subtotal,
-      discountAmount: breakdown.discountAmount,
-      serviceFeePercent: breakdown.serviceFeePercent,
-      serviceFeeAmount: breakdown.serviceFeeAmount,
-      totalAmount: breakdown.totalAmount,
-      ...(body.specialInstructions
-        ? { specialInstructions: body.specialInstructions }
-        : {}),
-    },
-    include: bookingInclude,
-  });
+  const data: Prisma.BookingUncheckedCreateInput = {
+    motherId: user.id,
+    nannyProfileId: body.nannyProfileId,
+    status: BookingStatus.PENDING,
+    type: BookingType.STANDARD,
+    date: new Date(body.date),
+    startTime,
+    endTime,
+    durationHours: breakdown.durationHours,
+    baseRate: breakdown.baseRate,
+    subtotal: breakdown.subtotal,
+    discountAmount: breakdown.discountAmount,
+    serviceFeePercent: breakdown.serviceFeePercent,
+    serviceFeeAmount: breakdown.serviceFeeAmount,
+    totalAmount: breakdown.totalAmount,
+    ...(promoCodeId ? { promoCodeId } : {}),
+    ...(body.specialInstructions ? { specialInstructions: body.specialInstructions } : {}),
+  };
+
+  let booking: BookingWithRelations;
+  if (promoCodeId) {
+    const appliedPromoCodeId = promoCodeId;
+    booking = await prisma.$transaction(async (tx) => {
+      const created = await tx.booking.create({ data, include: bookingInclude });
+      await redeemPromoCode(tx, {
+        promoCodeId: appliedPromoCodeId,
+        userId: user.id,
+        bookingId: created.id,
+      });
+      return created;
+    });
+  } else {
+    booking = await prisma.booking.create({ data, include: bookingInclude });
+  }
 
   await notifyBookingRequested(booking);
 
