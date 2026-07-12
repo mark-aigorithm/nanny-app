@@ -46,6 +46,13 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
+  pendingHalo: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary,
+  },
   heading: {
     ...typeScale.displayMd,
     color: colors.textPrimary,

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
+import ParentActiveBookingCard from '@mobile/components/ParentActiveBookingCard';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 
@@ -44,6 +45,9 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Live order: finding a nanny / pay now / upcoming / in progress */}
+        <ParentActiveBookingCard />
+
         {/* Primary action: request care (broadcast to all available nannies) */}
         <Pressable
           style={styles.bookCareCard}

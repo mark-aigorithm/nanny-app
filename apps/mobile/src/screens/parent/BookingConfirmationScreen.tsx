@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -30,6 +32,21 @@ export default function BookingConfirmationScreen() {
   // "nanny accepted — pay" on its own the moment a nanny claims it.
   const { data: booking, isLoading } = useBooking(bookingId, true);
   const cancelBooking = useCancelBooking();
+
+  // Gentle pulse while we're still searching for a nanny.
+  const pulse = useRef(new Animated.Value(0)).current;
+  const isSearching = booking?.status === BookingStatus.PENDING;
+  useEffect(() => {
+    if (!isSearching) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isSearching, pulse]);
 
   const handleViewDetails = () => {
     router.push({
@@ -109,6 +126,17 @@ export default function BookingConfirmationScreen() {
       {/* ── Status Indicator ── */}
       <View style={styles.successSection}>
         <View style={isPaid ? styles.successCircle : styles.pendingCircle}>
+          {isPending && (
+            <Animated.View
+              style={[
+                styles.pendingHalo,
+                {
+                  transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
+                  opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+                },
+              ]}
+            />
+          )}
           <Ionicons name={iconName} size={27} color={isPaid ? colors.white : colors.primary} />
         </View>
         <Text style={styles.heading}>{heading}</Text>

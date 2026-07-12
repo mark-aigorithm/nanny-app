@@ -18,7 +18,11 @@ const BOOKINGS_KEY = 'bookings';
 
 export type BookingListOptions = Pick<BookingListQuery, 'sortBy' | 'sortDir'>;
 
-export function useBookingList(statusFilter?: string, options?: BookingListOptions) {
+export function useBookingList(
+  statusFilter?: string,
+  options?: BookingListOptions,
+  refetchIntervalMs?: number,
+) {
   return useQuery<BookingResponse[]>({
     queryKey: [BOOKINGS_KEY, statusFilter, options?.sortBy, options?.sortDir],
     queryFn: () =>
@@ -31,6 +35,7 @@ export function useBookingList(statusFilter?: string, options?: BookingListOptio
           },
         }),
       ),
+    ...(refetchIntervalMs ? { refetchInterval: refetchIntervalMs } : {}),
   });
 }
 
