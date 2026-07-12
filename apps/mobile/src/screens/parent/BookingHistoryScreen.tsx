@@ -13,8 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
-import NotificationBellButton from '@mobile/components/NotificationBellButton';
-import { colors } from '@mobile/theme';
+import ParentTabHeader from '@mobile/components/ParentTabHeader';
+import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -69,13 +69,7 @@ export default function BookingHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      <View style={styles.header}>
-        <View style={styles.headerSide} />
-        <Text style={styles.headerTitle}>My bookings</Text>
-        <NotificationBellButton iconSize={20} iconColor={colors.textPrimary} style={styles.headerSide} />
-      </View>
+      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
 
       <ScrollView
         style={styles.scrollView}
@@ -83,6 +77,7 @@ export default function BookingHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
+            progressViewOffset={HEADER_HEIGHT}
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
             tintColor={colors.primary}
@@ -162,6 +157,8 @@ export default function BookingHistoryScreen() {
           </View>
         )}
       </ScrollView>
+
+      <ParentTabHeader />
 
       <BottomNav activeTab="bookings" />
     </View>

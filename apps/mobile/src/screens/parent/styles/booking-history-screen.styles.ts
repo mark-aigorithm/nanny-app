@@ -8,8 +8,7 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
-  HEADER_HEIGHT,
+  PARENT_TAB_CONTENT_TOP,
   BOTTOM_NAV_HEIGHT,
 } from '@mobile/theme';
 
@@ -19,46 +18,13 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingTop: STATUS_BAR_HEIGHT,
-    backgroundColor: colors.background,
-    zIndex: 10,
-  },
-  headerBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSide: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typeScale.headingLg,
-    color: colors.textPrimary,
-  },
-
   // Scroll area
   scrollView: {
     flex: 1,
-    marginTop: HEADER_HEIGHT,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
+    paddingTop: PARENT_TAB_CONTENT_TOP,
     paddingBottom: BOTTOM_NAV_HEIGHT + screenPadding,
   },
 
