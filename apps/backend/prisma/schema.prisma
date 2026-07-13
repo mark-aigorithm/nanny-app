@@ -167,6 +167,9 @@ model User {
   initiatedConversations    Conversation[]            @relation("ConversationInitiator")
   promoRedemptions          PromoCodeRedemption[]
   cameras                   Camera[]                  @relation("NannyCameras")
+  rewardWallet              RewardWallet?
+  rewardLedger              RewardLedgerEntry[]       @relation("RewardLedgerUser")
+  rewardGrantsMade          RewardLedgerEntry[]       @relation("RewardGrantAdmin")
 
   @@index([role])
   @@index([deletedAt])
@@ -341,6 +344,84 @@ model PromoCodeRedemption {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Care Points (rewards)
+// ──────────────────────────────────────────────────────────────
+
+/// How a Care Points ledger entry moved a balance.
+enum RewardEntryType {
+  EARN
+  REDEEM
+  ADMIN_GRANT
+  ADMIN_REVOKE
+
+  @@map("reward_entry_type")
+}
+
+/// Singleton earn/redeem rates for the Care Points program. A single active
+/// row is upserted by the admin config screen.
+model RewardConfig {
+  id                      String    @id @default(cuid())
+  enabled                 Boolean   @default(true)
+  /// Points granted per completed booked hour.
+  pointsPerBookedHour     Int       @default(10) @map("points_per_booked_hour")
+  /// Points required to redeem one free care hour.
+  redemptionPointsPerHour Int       @default(100) @map("redemption_points_per_hour")
+  /// Minimum points a user must spend in a single redemption.
+  minRedemptionPoints     Int       @default(100) @map("min_redemption_points")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt      @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  @@map("reward_config")
+}
+
+/// A user's Care Points balance and redeemed-but-unapplied credit. 1:1 with User.
+model RewardWallet {
+  id              String    @id @default(cuid())
+  userId          String    @unique @map("user_id")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pointsBalance   Int       @default(0) @map("points_balance")
+  /// Redeemed, not-yet-applied free care hours.
+  creditHours     Decimal   @default(0) @map("credit_hours") @db.Decimal(6, 2)
+  lifetimeEarned  Int       @default(0) @map("lifetime_earned")
+  lifetimeRedeemed Int      @default(0) @map("lifetime_redeemed")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt      @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  entries         RewardLedgerEntry[]
+
+  @@map("reward_wallets")
+}
+
+/// Append-only history of every Care Points movement (the "wallet history").
+model RewardLedgerEntry {
+  id           String          @id @default(cuid())
+  walletId     String          @map("wallet_id")
+  wallet       RewardWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId       String          @map("user_id")
+  user         User            @relation("RewardLedgerUser", fields: [userId], references: [id])
+  type         RewardEntryType
+  /// Signed delta: positive = credited, negative = debited.
+  points       Int
+  /// Running balance immediately after this entry was applied.
+  balanceAfter Int             @map("balance_after")
+  reason       String?
+  /// Set on EARN entries (the booking that generated the points).
+  bookingId    String?         @map("booking_id")
+  /// Set on ADMIN_GRANT / ADMIN_REVOKE (the acting admin).
+  adminId      String?         @map("admin_id")
+  admin        User?           @relation("RewardGrantAdmin", fields: [adminId], references: [id])
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt      @map("updated_at")
+  deletedAt    DateTime?       @map("deleted_at")
+
+  @@index([userId, createdAt])
+  @@index([bookingId])
+  @@map("reward_ledger_entries")
+}
+
+// ──────────────────────────────────────────────────────────────
 // Booking & Payments
 // ──────────────────────────────────────────────────────────────
 
@@ -378,6 +459,10 @@ model Booking {
   /// Duration tier factor applied to the subtotal (1 = none). See DurationMultiplierRule.
   durationMultiplier      Decimal       @default(1) @map("duration_multiplier")   @db.Decimal(5, 4)
   discountAmount          Decimal       @default(0)  @map("discount_amount")    @db.Decimal(10, 2)
+  /// Care Points redeemed credit consumed by this booking: free hours applied
+  /// and their monetary value (folded into discountAmount). See RewardWallet.
+  rewardCreditHoursApplied Decimal      @default(0) @map("reward_credit_hours_applied") @db.Decimal(6, 2)
+  rewardCreditAmount       Decimal      @default(0) @map("reward_credit_amount")        @db.Decimal(10, 2)
   /// Legacy platform service-fee snapshot. Superseded by the nanny/platform
   /// revenue split (nannyAmount / platformAmount); retained for old bookings.
   serviceFeePercent       Decimal       @map("service_fee_percent") @db.Decimal(5, 2)
@@ -699,6 +784,9 @@ enum NotificationType {
   CARE_LOG_ENTRY
   NANNY_APPROVED
   NANNY_REJECTED
+  POINTS_EARNED
+  POINTS_GRANTED
+  POINTS_REDEEMED
 
   @@map("notification_type")
 }

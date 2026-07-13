@@ -10,3 +10,4 @@ export * from './care-log';
 export * from './community';
 export * from './messaging';
 export * from './notifications';
+export * from './rewards';
