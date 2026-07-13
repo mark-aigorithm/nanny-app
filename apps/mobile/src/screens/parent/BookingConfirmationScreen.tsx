@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { BookingStatus, PaymentStatus } from '@nanny-app/shared';
+import { BookingStatus, PaymentStatus, type BookingResponse } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
 import {
   useBooking,
   useCancelBooking,
+  useRedeemBookingPoints,
+  useRefundBookingPoints,
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
+import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { styles } from './styles/booking-confirmation-screen.styles';
@@ -178,6 +181,9 @@ export default function BookingConfirmationScreen() {
         </View>
       </View>
 
+      {/* ── Care Points redemption (before payment) ── */}
+      {isApproved && <CarePointsCard booking={booking} />}
+
       {/* ── Action Buttons ── */}
       <View style={styles.actions}>
         {isApproved ? (
@@ -224,6 +230,95 @@ export default function BookingConfirmationScreen() {
         <Text style={styles.backLinkText}>Back to home</Text>
       </TouchableOpacity>
     </ScrollView>
+  );
+}
+
+// ─── CarePointsCard ─────────────────────────────────────────────────────────────
+
+/**
+ * Lets the parent apply Care Points to an approved booking before paying. The
+ * server lowers the booking total; whatever provider then charges bills the
+ * reduced amount. Points are refunded via "Remove" or on cancellation.
+ */
+function CarePointsCard({ booking }: { booking: BookingResponse }) {
+  const wallet = useRewardWallet();
+  const config = useRewardConfig();
+  const redeem = useRedeemBookingPoints();
+  const refund = useRefundBookingPoints();
+  const [hours, setHours] = useState(1);
+
+  const applied = booking.rewardCreditAmount > 0;
+  const pph = config.data?.redemptionPointsPerHour ?? 0;
+  const enabled = config.data?.enabled ?? false;
+  const balance = wallet.data?.pointsBalance ?? 0;
+  const maxHours =
+    pph > 0 ? Math.min(Math.floor(balance / pph), Math.floor(booking.durationHours)) : 0;
+  const clamped = Math.min(Math.max(hours, 1), Math.max(maxHours, 1));
+  const saving = clamped * booking.effectiveHourlyRate;
+
+  if (applied) {
+    return (
+      <View style={styles.rewardCard}>
+        <View style={styles.rewardAppliedRow}>
+          <Ionicons name="checkmark-circle" size={22} color={colors.successDark} />
+          <View style={styles.rewardAppliedBody}>
+            <Text style={styles.rewardTitle}>
+              {booking.rewardCreditHoursApplied}h free applied
+            </Text>
+            <Text style={styles.rewardSub}>
+              You saved {formatMoney(booking.rewardCreditAmount)} with{' '}
+              {booking.rewardCreditPoints} points.
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => refund.mutate(booking.id)} disabled={refund.isPending}>
+            <Text style={styles.rewardRemove}>{refund.isPending ? '…' : 'Remove'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (!enabled || maxHours < 1) return null;
+
+  return (
+    <View style={styles.rewardCard}>
+      <View style={styles.rewardHeaderRow}>
+        <Ionicons name="gift-outline" size={18} color={colors.goldWarm} />
+        <Text style={styles.rewardTitle}>Use Care Points</Text>
+        <Text style={styles.rewardBalance}>{balance} pts</Text>
+      </View>
+      <Text style={styles.rewardSub}>
+        Redeem up to {maxHours} free hour{maxHours === 1 ? '' : 's'} ({pph} pts each).
+      </Text>
+      <View style={styles.rewardControls}>
+        <View style={styles.stepper}>
+          <TouchableOpacity
+            style={styles.stepBtn}
+            onPress={() => setHours(Math.max(1, clamped - 1))}
+            disabled={clamped <= 1}
+          >
+            <Ionicons name="remove" size={18} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.stepValue}>{clamped}h</Text>
+          <TouchableOpacity
+            style={styles.stepBtn}
+            onPress={() => setHours(Math.min(maxHours, clamped + 1))}
+            disabled={clamped >= maxHours}
+          >
+            <Ionicons name="add" size={18} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          style={styles.rewardApplyBtn}
+          onPress={() => redeem.mutate({ id: booking.id, hours: clamped })}
+          disabled={redeem.isPending}
+        >
+          <Text style={styles.rewardApplyText}>
+            {redeem.isPending ? 'Applying…' : `Apply · −${formatMoney(saving)}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 

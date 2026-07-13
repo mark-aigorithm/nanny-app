@@ -32,6 +32,12 @@ export default function MotherProfileWalletScreen() {
 
   const handleSettingsPress = (id: string) => {
     switch (id) {
+      case 'rewards':
+        router.push({
+          pathname: '/(parent)/rewards',
+          params: { returnTo: returnTo ?? 'home' },
+        } as never);
+        break;
       case 'payment':
         router.push('/(parent)/payment-methods' as never);
         break;

@@ -43,6 +43,12 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'nanny_approved';
     case 'NANNY_REJECTED':
       return 'nanny_rejected';
+    case 'POINTS_EARNED':
+      return 'points_earned';
+    case 'POINTS_GRANTED':
+      return 'points_granted';
+    case 'POINTS_REDEEMED':
+      return 'points_redeemed';
     default:
       return 'marketplace_message';
   }

@@ -1,8 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
-import { Card, Feedback, Skeleton } from '@admin/components/ui';
-import { calculatePricePreview, fetchSkills } from '@admin/lib/api';
+import { Card, Feedback, Gift, ICON_SIZE, Skeleton } from '@admin/components/ui';
+import { calculatePricePreview, fetchRewardConfig, fetchSkills } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatAmount } from '@admin/lib/format';
 
@@ -16,6 +16,10 @@ function feeLabel(feeType: 'FLAT' | 'PERCENTAGE' | null, feeValue: number): stri
 
 export function CalculatorPanel() {
   const { data: skills } = useQuery({ queryKey: ['skills'], queryFn: fetchSkills });
+  const { data: rewardConfig } = useQuery({
+    queryKey: ['reward-config'],
+    queryFn: fetchRewardConfig,
+  });
   const activeSkills = useMemo(
     () => (skills ?? []).filter((s) => s.isActive),
     [skills],
@@ -187,6 +191,24 @@ export function CalculatorPanel() {
                 The nanny only sees her earnings. The parent sees the full breakdown above.
               </p>
             </div>
+
+            {rewardConfig?.enabled && rewardConfig.pointsPerBookedHour > 0 && (
+              <div className="calc-reward">
+                <span className="calc-reward-icon" aria-hidden>
+                  <Gift size={ICON_SIZE.inline} />
+                </span>
+                <div className="calc-reward-body">
+                  <span className="calc-reward-title">Care Points earned</span>
+                  <span className="calc-reward-sub">
+                    {rewardConfig.redemptionPointsPerHour} pts = 1 free hour · redeemable at
+                    checkout
+                  </span>
+                </div>
+                <strong className="calc-reward-points">
+                  +{Math.round(breakdown.durationHours * rewardConfig.pointsPerBookedHour)}
+                </strong>
+              </div>
+            )}
           </div>
         )}
       </Card>

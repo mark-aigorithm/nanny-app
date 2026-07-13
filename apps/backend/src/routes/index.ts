@@ -10,6 +10,7 @@ import { conversationRouter } from './conversation.routes';
 import { deviceRouter } from './device.routes';
 import { notificationRouter } from './notification.routes';
 import { paymobRouter } from './paymob.routes';
+import { rewardRouter } from './reward.routes';
 import { webhookRouter } from './webhook.routes';
 
 export const apiRouter = Router();
@@ -28,3 +29,4 @@ apiRouter.use('/community', communityRouter);
 apiRouter.use('/conversations', conversationRouter);
 apiRouter.use('/devices', deviceRouter);
 apiRouter.use('/notifications', notificationRouter);
+apiRouter.use('/rewards', rewardRouter);

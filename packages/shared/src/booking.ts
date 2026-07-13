@@ -137,6 +137,10 @@ export const BookingResponseSchema = z.object({
   nannyAmount: z.number(),
   /** What the platform keeps from this booking. */
   platformAmount: z.number(),
+  /** Care Points applied to this booking before payment (0 when none). */
+  rewardCreditHoursApplied: z.number(),
+  rewardCreditPoints: z.number(),
+  rewardCreditAmount: z.number(),
   specialInstructions: z.string().nullable(),
   cancellationReason: z.string().nullable(),
   cancelledAt: z.string().nullable(),
@@ -227,6 +231,16 @@ export const MockPayBookingSchema = z.object({
   succeed: z.boolean(),
 });
 export type MockPayBookingRequest = z.infer<typeof MockPayBookingSchema>;
+
+/**
+ * Apply Care Points against a booking before payment. Redeems this many hours
+ * of the booking, lowering the amount the parent is charged. Points are
+ * refunded if the payment is not completed (failure or cancellation).
+ */
+export const RedeemBookingPointsSchema = z.object({
+  hours: z.number().int().min(1).max(24),
+});
+export type RedeemBookingPointsRequest = z.infer<typeof RedeemBookingPointsSchema>;
 
 /** Start a real Paymob unified checkout (intention) for a booking. */
 export const CreatePaymobIntentionSchema = z.object({

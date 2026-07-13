@@ -110,6 +110,24 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.primaryMuted,
         iconColor: colors.primary,
       };
+    case 'points_earned':
+      return {
+        name: 'sparkles',
+        backgroundColor: colors.successLight,
+        iconColor: colors.successDark,
+      };
+    case 'points_granted':
+      return {
+        name: 'gift',
+        backgroundColor: colors.warmLight,
+        iconColor: colors.goldWarm,
+      };
+    case 'points_redeemed':
+      return {
+        name: 'ticket',
+        backgroundColor: colors.primaryMuted,
+        iconColor: colors.primary,
+      };
     default:
       return {
         name: 'notifications',

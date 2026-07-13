@@ -13,6 +13,7 @@ import {
   type MockPayBookingRequest,
   type PaginationMeta,
   type PricingConfig,
+  type RedeemBookingPointsRequest,
   type ValidateBookingPromoRequest,
   type ValidateBookingPromoResponse,
 } from '@nanny-app/shared';
@@ -34,9 +35,19 @@ import {
   getPricingInputs,
 } from './pricing-config.service';
 import { redeemPromoCode, validatePromoCode } from './promo-code.service';
+import {
+  applyBookingRedemption,
+  awardPointsForBooking,
+  notifyPointsRedeemed,
+  notifyPointsRefunded,
+  refundBookingRedemption,
+} from './reward.service';
 
 /** Minutes before scheduled start when nanny may check in. */
 export const CHECK_IN_EARLY_MINUTES = 15;
+
+/** Round to 2 decimals for money/hour math. */
+const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 // ── Prisma include shape ──────────────────────────────────────────────────────
 
@@ -99,6 +110,9 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
     totalAmount: Number(b.totalAmount),
     nannyAmount: Number(b.nannyAmount),
     platformAmount: Number(b.platformAmount),
+    rewardCreditHoursApplied: Number(b.rewardCreditHoursApplied),
+    rewardCreditPoints: b.rewardCreditPoints,
+    rewardCreditAmount: Number(b.rewardCreditAmount),
     specialInstructions: b.specialInstructions,
     cancellationReason: b.cancellationReason,
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
@@ -412,13 +426,16 @@ export async function createBooking(
   const pricingInputs = await getPricingInputs();
   const skillIds = body.skillIds ?? [];
 
-  // Validate the promo against the priced subtotal (add-ons + duration tier
-  // applied, before discount) so the discount can't exceed what's owed.
+  // Price once up-front (add-ons + duration tier, before any discount) to know
+  // the subtotal and effective hourly rate.
+  const preBreakdown = buildBreakdown(pricingInputs, { durationHours, skillIds });
+
+  // Validate the promo against that subtotal so the discount can't exceed
+  // what's owed.
   let promoCodeId: string | null = null;
   let discountAmount = 0;
   if (body.promoCode) {
-    const preDiscount = buildBreakdown(pricingInputs, { durationHours, skillIds });
-    const validated = await validatePromoCode(body.promoCode, preDiscount.subtotal, user.id);
+    const validated = await validatePromoCode(body.promoCode, preBreakdown.subtotal, user.id);
     promoCodeId = validated.promoCodeId;
     discountAmount = validated.discountAmount;
   }
@@ -627,6 +644,15 @@ export async function cancelBooking(
 
   validateStatusTransition(booking.status, BookingStatus.CANCELLED);
 
+  // Return any Care Points the parent applied to this (still unpaid) booking.
+  // Best-effort — a reward hiccup must not block a cancellation.
+  try {
+    await refundBookingIfApplied(booking);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[rewards] failed to refund points on cancel', { bookingId, err });
+  }
+
   const hoursUntilStart = (booking.startTime.getTime() - Date.now()) / 3_600_000;
   // Full refund if > 24 hrs out or nanny cancels; 50 % otherwise.
   const refundAmount =
@@ -781,6 +807,8 @@ export async function mockPayBooking(
       data: {
         bookingId,
         motherId: user.id,
+        // Any Care Points redemption was already applied to totalAmount before
+        // this checkout, so we simply charge the current total.
         amount: booking.totalAmount,
         currency: 'EGP',
         method: body.method,
@@ -808,6 +836,122 @@ export async function mockPayBooking(
   }
 
   return { booking: toBookingResponse(updatedBooking), payment };
+}
+
+/**
+ * Apply Care Points against an APPROVED booking before payment. Deducts the
+ * points now and lowers the amount to be charged (whatever provider then bills
+ * it). The points are refunded by {@link refundBookingPoints} if the payment is
+ * not completed. A booking that already has points applied must be cleared first.
+ */
+export async function redeemBookingPoints(
+  decoded: DecodedIdToken,
+  bookingId: string,
+  body: RedeemBookingPointsRequest,
+): Promise<BookingResponse> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can redeem points.');
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: bookingInclude,
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
+  if (booking.status !== BookingStatus.APPROVED) {
+    throw errors.badRequest('Points can only be applied to an approved booking before payment.');
+  }
+  if (Number(booking.rewardCreditAmount) > 0) {
+    throw errors.badRequest('Points are already applied. Remove them first to change the amount.');
+  }
+
+  const perHour = Number(booking.effectiveHourlyRate) || Number(booking.baseRate);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const { hours, pointsCost, discount: rawDiscount } = await applyBookingRedemption(tx, {
+      userId: user.id,
+      bookingId,
+      redeemHours: body.hours,
+      perHour,
+      durationHours: Number(booking.durationHours),
+    });
+    // Never discount below zero owed. The platform funds the reward — the
+    // nanny's earnings (nannyAmount) are never touched.
+    const discount = Math.min(rawDiscount, Number(booking.totalAmount));
+    return tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        discountAmount: round2(Number(booking.discountAmount) + discount),
+        totalAmount: round2(Number(booking.totalAmount) - discount),
+        platformAmount: round2(Number(booking.platformAmount) - discount),
+        rewardCreditHoursApplied: hours,
+        rewardCreditPoints: pointsCost,
+        rewardCreditAmount: discount,
+      },
+      include: bookingInclude,
+    });
+  });
+
+  await notifyPointsRedeemed(
+    user.id,
+    updated.rewardCreditPoints,
+    Number(updated.rewardCreditHoursApplied),
+  );
+  return toBookingResponse(updated);
+}
+
+/**
+ * Restore a booking's applied Care Points (points back to the wallet, amount
+ * back onto the total). Only valid while the booking is still unpaid (APPROVED);
+ * a no-op if nothing is applied. Used by the parent (to change their mind), and
+ * internally when a payment fails or the booking is cancelled.
+ */
+async function refundBookingIfApplied(
+  booking: BookingWithRelations,
+): Promise<BookingWithRelations | null> {
+  const points = booking.rewardCreditPoints;
+  const amount = Number(booking.rewardCreditAmount);
+  // Only reverse while unpaid — a CONFIRMED/paid booking keeps its discount.
+  if (points <= 0 || amount <= 0 || booking.status !== BookingStatus.APPROVED) return null;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await refundBookingRedemption(tx, {
+      userId: booking.motherId,
+      bookingId: booking.id,
+      points,
+    });
+    return tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        discountAmount: round2(Number(booking.discountAmount) - amount),
+        totalAmount: round2(Number(booking.totalAmount) + amount),
+        platformAmount: round2(Number(booking.platformAmount) + amount),
+        rewardCreditHoursApplied: 0,
+        rewardCreditPoints: 0,
+        rewardCreditAmount: 0,
+      },
+      include: bookingInclude,
+    });
+  });
+  await notifyPointsRefunded(booking.motherId, points);
+  return updated;
+}
+
+/** Parent-facing "remove applied points" / refund-on-failure endpoint. */
+export async function refundBookingPoints(
+  decoded: DecodedIdToken,
+  bookingId: string,
+): Promise<BookingResponse> {
+  const user = await getUserByUid(decoded.uid);
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: bookingInclude,
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
+
+  const updated = await refundBookingIfApplied(booking);
+  return toBookingResponse(updated ?? booking);
 }
 
 /** Nanny checks in — marks booking IN_PROGRESS. Allowed from CHECK_IN_EARLY_MINUTES before start until end. */
@@ -903,6 +1047,22 @@ export async function checkOutBooking(
     'Booking complete',
     'Your booking is complete — leave a review?',
   );
+
+  // Award Care Points for the completed booking. Best-effort + idempotent — a
+  // reward failure must never block a nanny's checkout.
+  try {
+    await awardPointsForBooking({
+      bookingId: updated.id,
+      motherId: updated.motherId,
+      durationHours: Number(updated.durationHours),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[rewards] failed to award points on checkout', {
+      bookingId: updated.id,
+      err,
+    });
+  }
 
   return toBookingResponse(updated);
 }

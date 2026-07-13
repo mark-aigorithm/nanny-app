@@ -12,6 +12,7 @@ export const MOCK_PROFILE: UserProfile = {
 };
 
 export const SETTINGS_ITEMS: SettingsItem[] = [
+  { id: 'rewards', label: 'Care Points', icon: 'gift-outline' },
   { id: 'payment', label: 'Payment methods', icon: 'card-outline' },
   { id: 'help', label: 'Help & support', icon: 'help-circle-outline' },
   { id: 'logout', label: 'Log out', icon: 'log-out-outline', isDestructive: true },

@@ -15,12 +15,16 @@ import type {
   CreatePromoCodeInput,
   CreateSkillInput,
   DurationRule,
+  GrantPointsInput,
   NannyOption,
   PlatformConfig,
   PaginationMeta,
   PriceBreakdown,
   PricePreviewInput,
   PromoCode,
+  RewardConfig,
+  RewardLedgerEntry,
+  RewardWalletSummary,
   SetBookingStatusInput,
   SetNannySkillsInput,
   Skill,
@@ -29,6 +33,7 @@ import type {
   UpdateDurationRuleInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
+  UpdateRewardConfigInput,
   UpdateSkillInput,
 } from '@nanny-app/shared';
 
@@ -39,6 +44,44 @@ type PagedEnvelope<T> = { data: T; error: string | null; meta: PaginationMeta };
 
 /** A page of records plus its pagination metadata. */
 export type Paged<T> = { data: T; meta: PaginationMeta };
+
+// ── Care Points (rewards) ──────────────────────────────────────
+
+export async function fetchRewardConfig(): Promise<RewardConfig> {
+  const res = await apiClient.get<ApiEnvelope<RewardConfig>>('/admin/rewards/config');
+  return res.data.data;
+}
+
+export async function updateRewardConfig(
+  input: UpdateRewardConfigInput,
+): Promise<RewardConfig> {
+  const res = await apiClient.put<ApiEnvelope<RewardConfig>>('/admin/rewards/config', input);
+  return res.data.data;
+}
+
+export async function fetchRewardWallets(): Promise<RewardWalletSummary[]> {
+  const res = await apiClient.get<ApiEnvelope<RewardWalletSummary[]>>('/admin/rewards/wallets');
+  return res.data.data;
+}
+
+export async function fetchWalletHistory(userId: string): Promise<RewardLedgerEntry[]> {
+  const res = await apiClient.get<ApiEnvelope<RewardLedgerEntry[]>>(
+    `/admin/rewards/wallets/${userId}/history`,
+    { params: { page: 1, limit: 50 } },
+  );
+  return res.data.data;
+}
+
+export async function grantWalletPoints(
+  userId: string,
+  input: GrantPointsInput,
+): Promise<RewardWalletSummary> {
+  const res = await apiClient.post<ApiEnvelope<RewardWalletSummary>>(
+    `/admin/rewards/wallets/${userId}/grant`,
+    input,
+  );
+  return res.data.data;
+}
 
 export async function fetchPromoCodes(): Promise<PromoCode[]> {
   const res = await apiClient.get<ApiEnvelope<PromoCode[]>>('/admin/promo-codes');

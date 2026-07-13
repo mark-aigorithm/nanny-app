@@ -351,6 +351,7 @@ model PromoCodeRedemption {
 enum RewardEntryType {
   EARN
   REDEEM
+  REFUND
   ADMIN_GRANT
   ADMIN_REVOKE
 
@@ -381,8 +382,6 @@ model RewardWallet {
   userId          String    @unique @map("user_id")
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   pointsBalance   Int       @default(0) @map("points_balance")
-  /// Redeemed, not-yet-applied free care hours.
-  creditHours     Decimal   @default(0) @map("credit_hours") @db.Decimal(6, 2)
   lifetimeEarned  Int       @default(0) @map("lifetime_earned")
   lifetimeRedeemed Int      @default(0) @map("lifetime_redeemed")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -459,9 +458,11 @@ model Booking {
   /// Duration tier factor applied to the subtotal (1 = none). See DurationMultiplierRule.
   durationMultiplier      Decimal       @default(1) @map("duration_multiplier")   @db.Decimal(5, 4)
   discountAmount          Decimal       @default(0)  @map("discount_amount")    @db.Decimal(10, 2)
-  /// Care Points redeemed credit consumed by this booking: free hours applied
-  /// and their monetary value (folded into discountAmount). See RewardWallet.
+  /// Care Points redeemed against this booking before payment: free hours
+  /// applied, the points they cost, and their monetary value (folded into
+  /// discountAmount). Refunded if the payment is not completed. See RewardWallet.
   rewardCreditHoursApplied Decimal      @default(0) @map("reward_credit_hours_applied") @db.Decimal(6, 2)
+  rewardCreditPoints       Int          @default(0) @map("reward_credit_points")
   rewardCreditAmount       Decimal      @default(0) @map("reward_credit_amount")        @db.Decimal(10, 2)
   /// Legacy platform service-fee snapshot. Superseded by the nanny/platform
   /// revenue split (nannyAmount / platformAmount); retained for old bookings.

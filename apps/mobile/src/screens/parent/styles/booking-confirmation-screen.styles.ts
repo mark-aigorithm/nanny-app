@@ -192,4 +192,91 @@ export const styles = StyleSheet.create({
     ...typeScale.labelMd,
     color: colors.textMuted,
   },
+
+  // Care Points redemption card
+  rewardCard: {
+    alignItems: 'flex-start',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  rewardAppliedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    width: '100%',
+  },
+  rewardAppliedBody: {
+    flex: 1,
+  },
+  rewardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+    width: '100%',
+  },
+  rewardTitle: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  rewardBalance: {
+    ...typeScale.captionBold,
+    color: colors.bronze,
+  },
+  rewardSub: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+    width: '100%',
+  },
+  rewardControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    width: '100%',
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+  },
+  stepBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  stepValue: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+    minWidth: 28,
+    textAlign: 'center',
+  },
+  rewardApplyBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  rewardApplyText: {
+    ...typeScale.labelMd,
+    color: colors.white,
+  },
+  rewardRemove: {
+    ...typeScale.labelMd,
+    color: colors.error,
+  },
 });
