@@ -2,7 +2,11 @@ import { BookingStatus, NotificationType, Prisma } from '@prisma/client';
 
 import type {
   AdminBooking,
+  AdminBookingDetail,
   AdminBookingStatusFilter,
+  AdminListQuery,
+  AppliedSkillFee,
+  PaginationMeta,
   RejectAdminBookingInput,
   SetBookingStatusInput,
   UpdateBookingTimesInput,
@@ -39,6 +43,94 @@ const bookingInclude = {
 } satisfies Prisma.BookingInclude;
 
 type AdminBookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
+
+/** Wide include for the single-booking detail page: full parties + full payment. */
+const bookingDetailInclude = {
+  mother: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+  nannyProfile: {
+    select: {
+      id: true,
+      user: {
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+      },
+    },
+  },
+  payment: true,
+  promoCode: { select: { code: true } },
+} satisfies Prisma.BookingInclude;
+
+type AdminBookingDetailRow = Prisma.BookingGetPayload<{
+  include: typeof bookingDetailInclude;
+}>;
+
+function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
+  return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
+}
+
+function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
+  return {
+    id: row.id,
+    status: row.status,
+    nannyDecision: row.nannyDecision,
+    type: row.type,
+    date: row.date.toISOString(),
+    startTime: row.startTime.toISOString(),
+    endTime: row.endTime.toISOString(),
+    durationHours: row.durationHours.toNumber(),
+    totalAmount: row.totalAmount.toNumber(),
+    discountAmount: row.discountAmount.toNumber(),
+    promoCode: row.promoCode?.code ?? null,
+    paymentStatus: row.payment?.status ?? null,
+    mother: {
+      id: row.mother.id,
+      name: `${row.mother.firstName} ${row.mother.lastName}`.trim(),
+      email: row.mother.email,
+      phone: row.mother.phone,
+    },
+    nanny: row.nannyProfile
+      ? {
+          id: row.nannyProfile.id,
+          name: `${row.nannyProfile.user.firstName} ${row.nannyProfile.user.lastName}`.trim(),
+          email: row.nannyProfile.user.email,
+          phone: row.nannyProfile.user.phone,
+        }
+      : null,
+    baseRate: row.baseRate.toNumber(),
+    effectiveHourlyRate: row.effectiveHourlyRate.toNumber(),
+    skillAddOns: parseSkillAddOns(row.selectedSkillFees),
+    subtotal: row.subtotal.toNumber(),
+    durationMultiplier: row.durationMultiplier.toNumber(),
+    serviceFeePercent: row.serviceFeePercent.toNumber(),
+    serviceFeeAmount: row.serviceFeeAmount.toNumber(),
+    nannyAmount: row.nannyAmount.toNumber(),
+    platformAmount: row.platformAmount.toNumber(),
+    payment: row.payment
+      ? {
+          status: row.payment.status,
+          method: row.payment.method,
+          amount: row.payment.amount.toNumber(),
+          currency: row.payment.currency,
+          paymobOrderId: row.payment.paymobOrderId,
+          paymobTransactionId: row.payment.paymobTransactionId,
+          paymobIntentionId: row.payment.paymobIntentionId,
+          failureReason: row.payment.failureReason,
+          refundedAmount: row.payment.refundedAmount.toNumber(),
+          refundedAt: row.payment.refundedAt?.toISOString() ?? null,
+        }
+      : null,
+    specialInstructions: row.specialInstructions,
+    cancellationReason: row.cancellationReason,
+    cancelledAt: row.cancelledAt?.toISOString() ?? null,
+    adminApprovedAt: row.adminApprovedAt?.toISOString() ?? null,
+    nannyDecidedAt: row.nannyDecidedAt?.toISOString() ?? null,
+    nannyCheckedInAt: row.nannyCheckedInAt?.toISOString() ?? null,
+    nannyCheckedOutAt: row.nannyCheckedOutAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    // Loyalty points are not implemented yet — always null for now.
+    pointsRedeemed: null,
+  };
+}
 
 function toDto(row: AdminBookingRow): AdminBooking {
   return {
@@ -117,17 +209,38 @@ async function findAdminBooking(id: string): Promise<AdminBookingRow> {
 
 export async function listAdminBookings(
   status: AdminBookingStatusFilter,
-): Promise<AdminBooking[]> {
-  const rows = await prisma.booking.findMany({
-    where: {
-      deletedAt: null,
-      ...(status !== 'ALL' ? { status: status as BookingStatus } : {}),
-    },
-    include: bookingInclude,
-    orderBy: { createdAt: 'desc' },
-    take: 200,
+  { page, limit }: AdminListQuery,
+): Promise<{ bookings: AdminBooking[]; meta: PaginationMeta }> {
+  const where: Prisma.BookingWhereInput = {
+    deletedAt: null,
+    ...(status !== 'ALL' ? { status: status as BookingStatus } : {}),
+  };
+
+  const [total, rows] = await prisma.$transaction([
+    prisma.booking.count({ where }),
+    prisma.booking.findMany({
+      where,
+      include: bookingInclude,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
+
+  return {
+    bookings: rows.map(toDto),
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+/** Full detail for a single booking (admin detail page). */
+export async function getAdminBooking(id: string): Promise<AdminBookingDetail> {
+  const row = await prisma.booking.findFirst({
+    where: { id, deletedAt: null },
+    include: bookingDetailInclude,
   });
-  return rows.map(toDto);
+  if (!row) throw errors.notFound('Booking not found');
+  return toDetailDto(row);
 }
 
 /**

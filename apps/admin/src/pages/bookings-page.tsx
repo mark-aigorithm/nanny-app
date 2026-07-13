@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import {
+  ADMIN_PAGE_SIZES,
   BookingStatusSchema,
   SetBookingStatusSchema,
   type AdminBooking,
@@ -22,6 +24,7 @@ import {
   MenuItem,
   MenuSeparator,
   PageHeader,
+  Pagination,
   Pencil,
   PromptDialog,
   Select,
@@ -37,6 +40,7 @@ import {
   updateBookingTimes,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { usePagination } from '@admin/lib/use-pagination';
 
 const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'REFUNDED']);
 
@@ -88,13 +92,22 @@ export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
   const [editing, setEditing] = useState<{ id: string; start: string; end: string } | null>(null);
   const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
+  const { page, limit, setPage, setLimit, reset } = usePagination();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
 
-  const { data: bookings, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['bookings', status],
-    queryFn: () => fetchBookings(status),
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['bookings', status, page, limit],
+    queryFn: () => fetchBookings(status, { page, limit }),
   });
+  const bookings = data?.data;
+  const meta = data?.meta;
+
+  function changeStatus(next: AdminBookingStatusFilter) {
+    setStatus(next);
+    reset();
+  }
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['bookings'] });
 
@@ -217,17 +230,19 @@ export function BookingsPage() {
           ? OVERRIDE_STATUSES
           : [booking.status, ...OVERRIDE_STATUSES];
         return (
-          <Select
-            compact
-            value={booking.status}
-            disabled={mutating || isCompleted}
-            title={isCompleted ? 'Completed bookings are locked' : 'Override booking status'}
-            aria-label={`Override status for ${booking.mother.name}'s booking`}
-            options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
-            onChange={(next) =>
-              statusMutation.mutate({ id: booking.id, status: next as AdminBooking['status'] })
-            }
-          />
+          <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
+            <Select
+              compact
+              value={booking.status}
+              disabled={mutating || isCompleted}
+              title={isCompleted ? 'Completed bookings are locked' : 'Override booking status'}
+              aria-label={`Override status for ${booking.mother.name}'s booking`}
+              options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
+              onChange={(next) =>
+                statusMutation.mutate({ id: booking.id, status: next as AdminBooking['status'] })
+              }
+            />
+          </div>
         );
       },
     },
@@ -242,6 +257,7 @@ export function BookingsPage() {
           return <span className="table-empty">—</span>;
         }
         return (
+          <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
           <ActionMenu label={`Actions for ${booking.mother.name}'s booking`} disabled={mutating}>
             {isPending && (
               <MenuItem
@@ -278,6 +294,7 @@ export function BookingsPage() {
               </>
             )}
           </ActionMenu>
+          </div>
         );
       },
     },
@@ -294,7 +311,7 @@ export function BookingsPage() {
           label="Status"
           value={status}
           options={STATUS_FILTERS}
-          onChange={(value) => setStatus(value as AdminBookingStatusFilter)}
+          onChange={(value) => changeStatus(value as AdminBookingStatusFilter)}
         />
       </div>
       {isLoading && <TableSkeleton columns={9} />}
@@ -311,6 +328,7 @@ export function BookingsPage() {
           rows={bookings}
           rowKey={(booking) => booking.id}
           empty="No bookings with this status."
+          onRowClick={(booking) => navigate(`/bookings/${booking.id}`)}
           renderExpanded={(booking) =>
             editing?.id === booking.id ? (
               <div className="times-editor">
@@ -344,6 +362,18 @@ export function BookingsPage() {
               </div>
             ) : null
           }
+        />
+      )}
+      {bookings && meta && (
+        <Pagination
+          page={meta.page}
+          totalPages={meta.totalPages}
+          total={meta.total}
+          limit={meta.limit}
+          onPageChange={setPage}
+          limitOptions={ADMIN_PAGE_SIZES}
+          onLimitChange={setLimit}
+          label="bookings"
         />
       )}
 

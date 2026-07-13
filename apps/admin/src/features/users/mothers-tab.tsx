@@ -1,16 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
-import type { AdminMother } from '@nanny-app/shared';
+import { ADMIN_PAGE_SIZES, type AdminMother } from '@nanny-app/shared';
 
 import {
   Badge,
   type Column,
   ErrorState,
+  Pagination,
   Table,
   TableSkeleton,
 } from '@admin/components/ui';
 import { fetchMothers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { usePagination } from '@admin/lib/use-pagination';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
@@ -28,10 +31,14 @@ function initials(name: string): string {
 const EMPTY = <span className="table-empty">—</span>;
 
 export function MothersTab() {
-  const { data: mothers, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-mothers'],
-    queryFn: fetchMothers,
+  const { page, limit, setPage, setLimit } = usePagination();
+  const navigate = useNavigate();
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['admin-mothers', page, limit],
+    queryFn: () => fetchMothers({ page, limit }),
   });
+  const mothers = data?.data;
+  const meta = data?.meta;
 
   const columns: Column<AdminMother>[] = [
     {
@@ -108,6 +115,19 @@ export function MothersTab() {
           rows={mothers}
           rowKey={(mother) => mother.id}
           empty="No mommies have signed up yet."
+          onRowClick={(mother) => navigate(`/users/mothers/${mother.id}`)}
+        />
+      )}
+      {mothers && meta && (
+        <Pagination
+          page={meta.page}
+          totalPages={meta.totalPages}
+          total={meta.total}
+          limit={meta.limit}
+          onPageChange={setPage}
+          limitOptions={ADMIN_PAGE_SIZES}
+          onLimitChange={setLimit}
+          label="mommies"
         />
       )}
     </>

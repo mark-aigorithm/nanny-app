@@ -9,7 +9,10 @@ import { CamerasPage } from './pages/cameras-page';
 import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
 import { UsersPage } from './pages/users-page';
+import { MotherDetailPage } from './pages/mother-detail-page';
+import { NannyDetailPage } from './pages/nanny-detail-page';
 import { BookingsPage } from './pages/bookings-page';
+import { BookingDetailPage } from './pages/booking-detail-page';
 import { PricingFeesPage } from './pages/pricing-fees-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { SettingsPage } from './pages/settings-page';
@@ -41,7 +44,10 @@ export function App() {
             >
               <Route index element={<DashboardPage />} />
               <Route path="bookings" element={<BookingsPage />} />
+              <Route path="bookings/:id" element={<BookingDetailPage />} />
               <Route path="users" element={<UsersPage />} />
+              <Route path="users/mothers/:id" element={<MotherDetailPage />} />
+              <Route path="users/nannies/:id" element={<NannyDetailPage />} />
               {/* Legacy path — the Nannies page is now a tab under Users. */}
               <Route path="nannies" element={<Navigate to="/users" replace />} />
               <Route path="admins" element={<AdminsPage />} />

@@ -6,7 +6,9 @@ jest.mock('@backend/db/prisma', () => ({
       findMany: jest.fn(),
       findFirst: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      count: jest.fn(),
     },
+    booking: { aggregate: jest.fn() },
     skill: { findMany: jest.fn() },
     $transaction: jest.fn(),
   },
@@ -17,18 +19,27 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn().mockResolvedValue(undefined),
 }));
 
+import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
-import { listAdminNannies, setNannySkills } from '@backend/services/admin-nanny.service';
+import {
+  getAdminNanny,
+  listAdminNannies,
+  setNannySkills,
+} from '@backend/services/admin-nanny.service';
 
 const mockPrisma = prisma as unknown as {
   nannyProfile: {
     findMany: jest.Mock;
     findFirst: jest.Mock;
     findUniqueOrThrow: jest.Mock;
+    count: jest.Mock;
   };
+  booking: { aggregate: jest.Mock };
   skill: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
+
+const dec = (n: number) => ({ toNumber: () => n });
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -113,24 +124,70 @@ beforeEach(() => {
 });
 
 describe('listAdminNannies', () => {
-  it('exposes both sides of the ID document in the DTO', async () => {
+  beforeEach(() => {
+    mockPrisma.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
+  });
+
+  it('exposes both sides of the ID document in the DTO, with pagination meta', async () => {
+    mockPrisma.nannyProfile.count.mockResolvedValue(3);
     mockPrisma.nannyProfile.findMany.mockResolvedValue([makeRow()]);
 
-    const [dto] = await listAdminNannies('PENDING_REVIEW');
+    const { nannies, meta } = await listAdminNannies('PENDING_REVIEW', { page: 2, limit: 10 });
 
-    expect(dto.idDocumentFrontUrl).toBe('https://storage.example/nanny-ids/front.jpg');
-    expect(dto.idDocumentBackUrl).toBe('https://storage.example/nanny-ids/back.jpg');
+    expect(nannies[0]?.idDocumentFrontUrl).toBe('https://storage.example/nanny-ids/front.jpg');
+    expect(nannies[0]?.idDocumentBackUrl).toBe('https://storage.example/nanny-ids/back.jpg');
+    expect(mockPrisma.nannyProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 }),
+    );
+    expect(meta).toEqual({ page: 2, limit: 10, total: 3, totalPages: 1 });
   });
 
   it('returns null ID urls when the nanny has not uploaded documents', async () => {
+    mockPrisma.nannyProfile.count.mockResolvedValue(1);
     mockPrisma.nannyProfile.findMany.mockResolvedValue([
       makeRow({ idDocumentFrontUrl: null, idDocumentBackUrl: null }),
     ]);
 
-    const [dto] = await listAdminNannies('ALL');
+    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20 });
 
-    expect(dto.idDocumentFrontUrl).toBeNull();
-    expect(dto.idDocumentBackUrl).toBeNull();
+    expect(nannies[0]?.idDocumentFrontUrl).toBeNull();
+    expect(nannies[0]?.idDocumentBackUrl).toBeNull();
+  });
+});
+
+describe('getAdminNanny (detail)', () => {
+  it('exposes the userId and aggregates lifetime earnings from COMPLETED bookings', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.booking.aggregate.mockResolvedValue({
+      _sum: { nannyAmount: dec(1240) },
+      _count: 7,
+    });
+
+    const dto = await getAdminNanny('nanny-1');
+
+    expect(dto.userId).toBe('user-1');
+    expect(dto.amountGained).toBe(1240);
+    expect(dto.completedBookings).toBe(7);
+    expect(mockPrisma.booking.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ nannyProfileId: 'nanny-1', status: 'COMPLETED' }),
+      }),
+    );
+  });
+
+  it('reports zero earnings when the nanny has no completed bookings', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.booking.aggregate.mockResolvedValue({ _sum: { nannyAmount: null }, _count: 0 });
+
+    const dto = await getAdminNanny('nanny-1');
+
+    expect(dto.amountGained).toBe(0);
+    expect(dto.completedBookings).toBe(0);
+  });
+
+  it('throws when the nanny does not exist', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(null);
+    await expect(getAdminNanny('missing')).rejects.toThrow(AppError);
   });
 });
 

@@ -496,6 +496,163 @@ h3 {
   gap: 0.4rem;
 }
 
+/* Clickable rows (row → detail page). */
+.table--clickable tbody tr {
+  cursor: pointer;
+}
+
+/* Wrapper around in-row controls (menus, selects) that stops row-click
+   navigation. display:contents keeps the cell layout identical. */
+.cell-interactive {
+  display: contents;
+}
+
+.table--clickable tbody tr:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* ── Pagination (shared table footer) ───────────────────── */
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pagination-size-label,
+.pagination-summary {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-page {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Detail pages (header + description list) ────────────── */
+
+.detail-header {
+  margin-bottom: 1.75rem;
+}
+
+.detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.4rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detail-back:hover {
+  background: var(--color-warm-subtle);
+  color: var(--color-text-primary);
+}
+
+.detail-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detail-header-titles h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.detail-header-titles p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.detail-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.desc-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 1.25rem;
+  margin: 0;
+}
+
+.desc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.desc-item--wide {
+  grid-column: 1 / -1;
+}
+
+.desc-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.desc-value {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.detail-skills {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.detail-skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* ── Skills ─────────────────────────────────────────────── */
 
 .skill-chips {

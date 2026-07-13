@@ -24,6 +24,8 @@ export function NannySkillsEditor({ nanny, skills, onDone }: NannySkillsEditorPr
     mutationFn: () => setNannySkills(nanny.id, { skillIds: [...selected] }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-nannies'] });
+      // Also refresh the nanny detail page's data if it's what's open.
+      void queryClient.invalidateQueries({ queryKey: ['nanny', nanny.id] });
       onDone();
     },
   });

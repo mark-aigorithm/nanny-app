@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Card } from './card';
 
@@ -29,6 +29,13 @@ type TableProps<T> = {
    * Return null/undefined for rows that are not expanded.
    */
   renderExpanded?: (row: T) => ReactNode;
+  /**
+   * Makes each row clickable (e.g. to open a detail page). The row gets a
+   * pointer cursor and keyboard support (Enter/Space). Interactive controls
+   * inside a cell (menus, selects, buttons) should call `stopPropagation` on
+   * their own click so they don't also trigger the row click.
+   */
+  onRowClick?: (row: T) => void;
 };
 
 /**
@@ -42,6 +49,7 @@ export function Table<T>({
   empty = 'Nothing to show here yet.',
   wrap = true,
   renderExpanded,
+  onRowClick,
 }: TableProps<T>) {
   if (rows.length === 0) {
     return (
@@ -51,10 +59,22 @@ export function Table<T>({
     );
   }
 
+  const clickable = onRowClick != null;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>, row: T) {
+    if (!onRowClick) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onRowClick(row);
+    }
+  }
+
   return (
     <Card flush>
       <div className="table-wrap">
-        <table className={`table${wrap ? ' table--full' : ''}`}>
+        <table
+          className={`table${wrap ? ' table--full' : ''}${clickable ? ' table--clickable' : ''}`}
+        >
           <thead>
             <tr>
               {columns.map((column) => (
@@ -69,7 +89,12 @@ export function Table<T>({
               const expanded = renderExpanded?.(row);
               return (
                 <Fragment key={rowKey(row)}>
-                  <tr>
+                  <tr
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    onKeyDown={clickable ? (event) => handleKeyDown(event, row) : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    role={clickable ? 'button' : undefined}
+                  >
                     {columns.map((column) => (
                       <td
                         key={column.key}

@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import type { AdminBooking, AdminNanny, PromoCode } from '@nanny-app/shared';
+import { ADMIN_MAX_PAGE_SIZE, type AdminBooking, type AdminNanny, type PromoCode } from '@nanny-app/shared';
 
 import { fetchBookings, fetchNannies, fetchPromoCodes } from '@admin/lib/api';
+
+// Reporting sums client-side; fetch the largest allowed page (matches the old
+// server-side cap). There is no dedicated stats API yet.
+const STATS_PAGE = { page: 1, limit: ADMIN_MAX_PAGE_SIZE };
 
 export type DashboardStats = {
   totalBookings: number;
@@ -82,17 +86,17 @@ function countBy<T, K extends string>(items: T[], key: (item: T) => K): Map<K, n
  */
 export function useDashboardStats() {
   const bookingsQuery = useQuery({
-    queryKey: ['bookings', 'ALL'],
-    queryFn: () => fetchBookings('ALL'),
+    queryKey: ['bookings', 'ALL', 'stats'],
+    queryFn: () => fetchBookings('ALL', STATS_PAGE),
   });
   const nanniesQuery = useQuery({
-    queryKey: ['admin-nannies', 'ALL'],
-    queryFn: () => fetchNannies('ALL'),
+    queryKey: ['admin-nannies', 'ALL', 'stats'],
+    queryFn: () => fetchNannies('ALL', STATS_PAGE),
   });
   const promoQuery = useQuery({ queryKey: ['promo-codes'], queryFn: fetchPromoCodes });
 
-  const bookings: AdminBooking[] = bookingsQuery.data ?? [];
-  const nannies: AdminNanny[] = nanniesQuery.data ?? [];
+  const bookings: AdminBooking[] = bookingsQuery.data?.data ?? [];
+  const nannies: AdminNanny[] = nanniesQuery.data?.data ?? [];
   const promoCodes: PromoCode[] = promoQuery.data ?? [];
 
   const data: DashboardData = useMemo(() => {

@@ -1,8 +1,50 @@
-import type { AdminMother, AdminUser, CreateAdminInput } from '@nanny-app/shared';
+import type { Prisma } from '@prisma/client';
+
+import type {
+  AdminListQuery,
+  AdminMother,
+  AdminUser,
+  CreateAdminInput,
+  PaginationMeta,
+} from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
+
+const motherSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  avatarUrl: true,
+  address: true,
+  isEmailVerified: true,
+  isPhoneVerified: true,
+  isActive: true,
+  createdAt: true,
+  _count: { select: { bookingsAsMother: true } },
+} satisfies Prisma.UserSelect;
+
+type AdminMotherRow = Prisma.UserGetPayload<{ select: typeof motherSelect }>;
+
+function toMotherDto(row: AdminMotherRow): AdminMother {
+  return {
+    id: row.id,
+    name: `${row.firstName} ${row.lastName === '-' ? '' : row.lastName}`.trim(),
+    email: row.email,
+    phone: row.phone,
+    avatarUrl: row.avatarUrl,
+    // Home location lives on the user row (single source of truth).
+    location: row.address,
+    isEmailVerified: row.isEmailVerified,
+    isPhoneVerified: row.isPhoneVerified,
+    isActive: row.isActive,
+    bookingCount: row._count.bookingsAsMother,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
 
 type AdminUserRow = {
   id: string;
@@ -58,41 +100,37 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   return rows.map((row) => toDto(row as AdminUserRow));
 }
 
-/** Read-only directory of mother (parent) accounts for the admin Users page. */
-export async function listAdminMothers(): Promise<AdminMother[]> {
-  const rows = await prisma.user.findMany({
-    where: { role: 'MOTHER', deletedAt: null },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      phone: true,
-      avatarUrl: true,
-      address: true,
-      isEmailVerified: true,
-      isPhoneVerified: true,
-      isActive: true,
-      createdAt: true,
-      _count: { select: { bookingsAsMother: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+/** Read-only, paginated directory of mother (parent) accounts for the admin Users page. */
+export async function listAdminMothers(
+  { page, limit }: AdminListQuery,
+): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
+  const where: Prisma.UserWhereInput = { role: 'MOTHER', deletedAt: null };
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: `${row.firstName} ${row.lastName === '-' ? '' : row.lastName}`.trim(),
-    email: row.email,
-    phone: row.phone,
-    avatarUrl: row.avatarUrl,
-    // Home location lives on the user row (single source of truth).
-    location: row.address,
-    isEmailVerified: row.isEmailVerified,
-    isPhoneVerified: row.isPhoneVerified,
-    isActive: row.isActive,
-    bookingCount: row._count.bookingsAsMother,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  const [total, rows] = await prisma.$transaction([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      select: motherSelect,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
+
+  return {
+    mothers: rows.map(toMotherDto),
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+/** Full detail for a single mother account (read-only admin detail page). */
+export async function getAdminMother(id: string): Promise<AdminMother> {
+  const row = await prisma.user.findFirst({
+    where: { id, role: 'MOTHER', deletedAt: null },
+    select: motherSelect,
+  });
+  if (!row) throw errors.notFound('Mother not found');
+  return toMotherDto(row);
 }
 
 /** Superuser creates an admin: Firebase Auth account + ADMIN user row. */

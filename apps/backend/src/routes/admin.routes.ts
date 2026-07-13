@@ -1,8 +1,12 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 
 import {
-  AdminBookingStatusFilterSchema,
-  AdminNannyStatusFilterSchema,
+  AdminBookingListQuerySchema,
+  type AdminBookingListQuery,
+  AdminListQuerySchema,
+  type AdminListQuery,
+  AdminNannyListQuerySchema,
+  type AdminNannyListQuery,
   CreateAdminSchema,
   CreateCameraSchema,
   CreateDurationRuleSchema,
@@ -21,14 +25,15 @@ import {
   UpdateSkillSchema,
 } from '@nanny-app/shared';
 
-import { ok } from '@backend/lib/api-response';
+import { ok, okPaged } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
 import { routeParam } from '@backend/lib/route-param';
 import { requireAdmin, requireSuperuser } from '@backend/middleware/admin.middleware';
 import { requireAuth } from '@backend/middleware/auth.middleware';
-import { validateBody } from '@backend/middleware/validate.middleware';
+import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import {
   approveBooking,
+  getAdminBooking,
   listAdminBookings,
   rejectBooking,
   setBookingStatus,
@@ -36,12 +41,14 @@ import {
 } from '@backend/services/admin-booking.service';
 import {
   approveNanny,
+  getAdminNanny,
   listAdminNannies,
   rejectNanny,
   setNannySkills,
 } from '@backend/services/admin-nanny.service';
 import {
   createAdminUser,
+  getAdminMother,
   getAdminProfile,
   listAdminMothers,
   listAdminUsers,
@@ -94,10 +101,23 @@ adminRouter.get('/me', async (req: Request, res: Response, next: NextFunction) =
 
 // ── Bookings ───────────────────────────────────────────────────
 
-adminRouter.get('/bookings', async (req: Request, res: Response, next: NextFunction) => {
+adminRouter.get(
+  '/bookings',
+  validateQuery(AdminBookingListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { status, page, limit } = res.locals['validatedQuery'] as AdminBookingListQuery;
+      const { bookings, meta } = await listAdminBookings(status, { page, limit });
+      res.json(okPaged(bookings, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/bookings/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const status = AdminBookingStatusFilterSchema.catch('ALL').parse(req.query.status);
-    res.json(ok(await listAdminBookings(status)));
+    res.json(ok(await getAdminBooking(routeParam(req.params.id))));
   } catch (err) {
     next(err);
   }
@@ -162,12 +182,24 @@ adminRouter.patch(
 
 // ── Nanny review queue (new nanny registrations / KYC) ────────
 
-adminRouter.get('/nannies', async (req: Request, res: Response, next: NextFunction) => {
+adminRouter.get(
+  '/nannies',
+  validateQuery(AdminNannyListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { status, page, limit } = res.locals['validatedQuery'] as AdminNannyListQuery;
+      const { nannies, meta } = await listAdminNannies(status, { page, limit });
+      res.json(okPaged(nannies, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Literal detail route registered before the parameterised action routes below.
+adminRouter.get('/nannies/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const status = AdminNannyStatusFilterSchema.catch('PENDING_REVIEW').parse(
-      req.query.status,
-    );
-    res.json(ok(await listAdminNannies(status)));
+    res.json(ok(await getAdminNanny(routeParam(req.params.id))));
   } catch (err) {
     next(err);
   }
@@ -210,9 +242,23 @@ adminRouter.put(
 
 // ── Mothers directory (read-only list of parent accounts) ──────
 
-adminRouter.get('/mothers', async (_req: Request, res: Response, next: NextFunction) => {
+adminRouter.get(
+  '/mothers',
+  validateQuery(AdminListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { page, limit } = res.locals['validatedQuery'] as AdminListQuery;
+      const { mothers, meta } = await listAdminMothers({ page, limit });
+      res.json(okPaged(mothers, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/mothers/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(ok(await listAdminMothers()));
+    res.json(ok(await getAdminMother(routeParam(req.params.id))));
   } catch (err) {
     next(err);
   }

@@ -1,8 +1,11 @@
 import type {
   AdminBooking,
+  AdminBookingDetail,
   AdminBookingStatusFilter,
+  AdminListQuery,
   AdminMother,
   AdminNanny,
+  AdminNannyDetail,
   AdminNannyStatusFilter,
   AdminUser,
   Camera,
@@ -14,6 +17,7 @@ import type {
   DurationRule,
   NannyOption,
   PlatformConfig,
+  PaginationMeta,
   PriceBreakdown,
   PricePreviewInput,
   PromoCode,
@@ -31,6 +35,10 @@ import type {
 import { apiClient } from './api-client';
 
 type ApiEnvelope<T> = { data: T; error: string | null };
+type PagedEnvelope<T> = { data: T; error: string | null; meta: PaginationMeta };
+
+/** A page of records plus its pagination metadata. */
+export type Paged<T> = { data: T; meta: PaginationMeta };
 
 export async function fetchPromoCodes(): Promise<PromoCode[]> {
   const res = await apiClient.get<ApiEnvelope<PromoCode[]>>('/admin/promo-codes');
@@ -176,10 +184,16 @@ export async function calculatePricePreview(
 
 export async function fetchBookings(
   status: AdminBookingStatusFilter,
-): Promise<AdminBooking[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminBooking[]>>('/admin/bookings', {
-    params: { status },
+  { page, limit }: AdminListQuery,
+): Promise<Paged<AdminBooking[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminBooking[]>>('/admin/bookings', {
+    params: { status, page, limit },
   });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchBooking(id: string): Promise<AdminBookingDetail> {
+  const res = await apiClient.get<ApiEnvelope<AdminBookingDetail>>(`/admin/bookings/${id}`);
   return res.data.data;
 }
 
@@ -222,10 +236,16 @@ export async function updateBookingTimes(
 
 export async function fetchNannies(
   status: AdminNannyStatusFilter,
-): Promise<AdminNanny[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminNanny[]>>('/admin/nannies', {
-    params: { status },
+  { page, limit }: AdminListQuery,
+): Promise<Paged<AdminNanny[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminNanny[]>>('/admin/nannies', {
+    params: { status, page, limit },
   });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchNanny(id: string): Promise<AdminNannyDetail> {
+  const res = await apiClient.get<ApiEnvelope<AdminNannyDetail>>(`/admin/nannies/${id}`);
   return res.data.data;
 }
 
@@ -244,8 +264,17 @@ export async function rejectNanny(id: string, reason?: string): Promise<AdminNan
   return res.data.data;
 }
 
-export async function fetchMothers(): Promise<AdminMother[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminMother[]>>('/admin/mothers');
+export async function fetchMothers(
+  { page, limit }: AdminListQuery,
+): Promise<Paged<AdminMother[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
+    params: { page, limit },
+  });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchMother(id: string): Promise<AdminMother> {
+  const res = await apiClient.get<ApiEnvelope<AdminMother>>(`/admin/mothers/${id}`);
   return res.data.data;
 }
 

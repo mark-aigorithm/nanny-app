@@ -13,19 +13,20 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Only the pending counts are needed — fetch a single row and read meta.total.
   const { data: pendingNannies } = useQuery({
-    queryKey: ['admin-nannies', 'PENDING_REVIEW'],
-    queryFn: () => fetchNannies('PENDING_REVIEW'),
+    queryKey: ['admin-nannies', 'PENDING_REVIEW', 'count'],
+    queryFn: () => fetchNannies('PENDING_REVIEW', { page: 1, limit: 1 }),
     refetchInterval: POLL_MS,
   });
   const { data: pendingBookings } = useQuery({
-    queryKey: ['bookings', 'PENDING'],
-    queryFn: () => fetchBookings('PENDING'),
+    queryKey: ['bookings', 'PENDING', 'count'],
+    queryFn: () => fetchBookings('PENDING', { page: 1, limit: 1 }),
     refetchInterval: POLL_MS,
   });
 
-  const nannyCount = pendingNannies?.length ?? 0;
-  const bookingCount = pendingBookings?.length ?? 0;
+  const nannyCount = pendingNannies?.meta.total ?? 0;
+  const bookingCount = pendingBookings?.meta.total ?? 0;
   const total = nannyCount + bookingCount;
 
   // Dismiss the dropdown on outside click or Escape.

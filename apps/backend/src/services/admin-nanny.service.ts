@@ -1,8 +1,11 @@
-import { NannyApprovalStatus, Prisma } from '@prisma/client';
+import { BookingStatus, NannyApprovalStatus, Prisma } from '@prisma/client';
 
 import type {
+  AdminListQuery,
   AdminNanny,
+  AdminNannyDetail,
   AdminNannyStatusFilter,
+  PaginationMeta,
   RejectNannyInput,
   SetNannySkillsInput,
 } from '@nanny-app/shared';
@@ -71,18 +74,55 @@ function toDto(row: AdminNannyRow): AdminNanny {
 
 export async function listAdminNannies(
   status: AdminNannyStatusFilter,
-): Promise<AdminNanny[]> {
-  const rows = await prisma.nannyProfile.findMany({
+  { page, limit }: AdminListQuery,
+): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
+  const where: Prisma.NannyProfileWhereInput = {
+    deletedAt: null,
+    user: { deletedAt: null },
+    ...(status !== 'ALL' ? { approvalStatus: status as NannyApprovalStatus } : {}),
+  };
+
+  const [total, rows] = await prisma.$transaction([
+    prisma.nannyProfile.count({ where }),
+    prisma.nannyProfile.findMany({
+      where,
+      include: nannyInclude,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
+
+  return {
+    nannies: rows.map(toDto),
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+/**
+ * Full detail for a single nanny (admin detail page): profile + skills, the
+ * underlying User id, and lifetime earnings ("amount gained") aggregated from
+ * `nannyAmount` across her COMPLETED bookings.
+ */
+export async function getAdminNanny(id: string): Promise<AdminNannyDetail> {
+  const profile = await findReviewableNanny(id);
+
+  const earnings = await prisma.booking.aggregate({
     where: {
+      nannyProfileId: id,
+      status: BookingStatus.COMPLETED,
       deletedAt: null,
-      user: { deletedAt: null },
-      ...(status !== 'ALL' ? { approvalStatus: status as NannyApprovalStatus } : {}),
     },
-    include: nannyInclude,
-    orderBy: { createdAt: 'desc' },
-    take: 200,
+    _sum: { nannyAmount: true },
+    _count: true,
   });
-  return rows.map(toDto);
+
+  return {
+    ...toDto(profile),
+    userId: profile.user.id,
+    amountGained: earnings._sum.nannyAmount?.toNumber() ?? 0,
+    completedBookings: earnings._count,
+  };
 }
 
 async function findReviewableNanny(id: string): Promise<AdminNannyRow> {

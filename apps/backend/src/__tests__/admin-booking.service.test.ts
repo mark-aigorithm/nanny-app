@@ -5,7 +5,13 @@ import { AppError } from '@backend/lib/errors';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findFirst: jest.fn() },
-    booking: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    booking: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
 
@@ -26,6 +32,7 @@ import { prisma } from '@backend/db/prisma';
 import { createInAppNotification } from '@backend/services/notification.service';
 import {
   approveBooking,
+  getAdminBooking,
   listAdminBookings,
   rejectBooking,
   setBookingStatus,
@@ -34,7 +41,12 @@ import {
 
 const mockPrisma = prisma as unknown as {
   user: { findFirst: jest.Mock };
-  booking: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+  booking: {
+    findFirst: jest.Mock;
+    findMany: jest.Mock;
+    update: jest.Mock;
+    count: jest.Mock;
+  };
 };
 const mockNotify = createInAppNotification as jest.Mock;
 
@@ -57,10 +69,21 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     baseRate: dec(100),
     effectiveHourlyRate: dec(100),
     subtotal: dec(300),
+    durationMultiplier: dec(1),
     serviceFeePercent: dec(6),
     serviceFeeAmount: dec(18),
     totalAmount: dec(318),
+    nannyAmount: dec(254),
+    platformAmount: dec(64),
     discountAmount: dec(0),
+    selectedSkillFees: [],
+    specialInstructions: null,
+    cancellationReason: null,
+    cancelledAt: null,
+    adminApprovedAt: null,
+    nannyDecidedAt: null,
+    nannyCheckedInAt: null,
+    nannyCheckedOutAt: null,
     promoCode: null,
     payment: { status: 'PENDING' },
     mother: { id: 'mother-1', firstName: 'Jane', lastName: 'Mom', phone: '+201000000000' },
@@ -70,6 +93,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
       user: { id: 'nanny-user-1', firstName: 'Elena', lastName: 'Nanny' },
     },
     createdAt: new Date('2026-07-12T00:00:00.000Z'),
+    updatedAt: new Date('2026-07-12T00:00:00.000Z'),
     ...overrides,
   };
 }
@@ -247,24 +271,93 @@ describe('updateBookingTimes', () => {
   });
 });
 
-describe('admin booking DTO promo fields', () => {
+describe('listAdminBookings (paginated)', () => {
   it('maps discountAmount and the applied promo code', async () => {
+    mockPrisma.booking.count.mockResolvedValue(1);
     mockPrisma.booking.findMany.mockResolvedValue([
       makeRow({ discountAmount: dec(50), promoCode: { code: 'SAVE50' } }),
     ]);
 
-    const [dto] = await listAdminBookings('ALL');
+    const { bookings } = await listAdminBookings('ALL', { page: 1, limit: 20 });
 
-    expect(dto.discountAmount).toBe(50);
-    expect(dto.promoCode).toBe('SAVE50');
+    expect(bookings[0]?.discountAmount).toBe(50);
+    expect(bookings[0]?.promoCode).toBe('SAVE50');
   });
 
   it('reports a null promo code when none was applied', async () => {
+    mockPrisma.booking.count.mockResolvedValue(1);
     mockPrisma.booking.findMany.mockResolvedValue([makeRow()]);
 
-    const [dto] = await listAdminBookings('ALL');
+    const { bookings } = await listAdminBookings('ALL', { page: 1, limit: 20 });
 
-    expect(dto.discountAmount).toBe(0);
-    expect(dto.promoCode).toBeNull();
+    expect(bookings[0]?.discountAmount).toBe(0);
+    expect(bookings[0]?.promoCode).toBeNull();
+  });
+
+  it('applies skip/take for the requested page and returns pagination meta', async () => {
+    mockPrisma.booking.count.mockResolvedValue(57);
+    mockPrisma.booking.findMany.mockResolvedValue([makeRow()]);
+
+    const { meta } = await listAdminBookings('ALL', { page: 3, limit: 10 });
+
+    expect(mockPrisma.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 10 }),
+    );
+    expect(meta).toEqual({ page: 3, limit: 10, total: 57, totalPages: 6 });
+  });
+});
+
+describe('getAdminBooking (detail)', () => {
+  it('returns the full breakdown, payment record, and a null pointsRedeemed', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({
+        mother: {
+          id: 'mother-1',
+          firstName: 'Jane',
+          lastName: 'Mom',
+          email: 'jane@example.com',
+          phone: '+201000000000',
+        },
+        nannyProfile: {
+          id: 'np-1',
+          user: {
+            id: 'nanny-user-1',
+            firstName: 'Elena',
+            lastName: 'Nanny',
+            email: 'elena@example.com',
+            phone: '+201111111111',
+          },
+        },
+        selectedSkillFees: [],
+        nannyAmount: dec(254),
+        platformAmount: dec(64),
+        payment: {
+          status: 'CAPTURED',
+          method: 'CARD',
+          amount: dec(318),
+          currency: 'EGP',
+          paymobOrderId: 'ord-1',
+          paymobTransactionId: 'txn-1',
+          paymobIntentionId: 'int-1',
+          failureReason: null,
+          refundedAmount: dec(0),
+          refundedAt: null,
+        },
+      }),
+    );
+
+    const dto = await getAdminBooking('booking-1');
+
+    expect(dto.mother.email).toBe('jane@example.com');
+    expect(dto.nanny?.email).toBe('elena@example.com');
+    expect(dto.nannyAmount).toBe(254);
+    expect(dto.platformAmount).toBe(64);
+    expect(dto.payment).toMatchObject({ status: 'CAPTURED', method: 'CARD', amount: 318 });
+    expect(dto.pointsRedeemed).toBeNull();
+  });
+
+  it('throws when the booking does not exist', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(null);
+    await expect(getAdminBooking('missing')).rejects.toThrow(AppError);
   });
 });

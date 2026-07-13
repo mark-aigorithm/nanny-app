@@ -4,6 +4,8 @@ export { Card } from './card';
 export { Feedback } from './feedback';
 export { Field } from './field';
 export { PageHeader } from './page-header';
+export { DetailHeader } from './detail-header';
+export { DescriptionList, type DescriptionItem } from './description-list';
 
 // Icons
 export * from './icon';
@@ -19,6 +21,7 @@ export { Input } from './input';
 
 // Data display
 export { Table, type Column } from './table';
+export { Pagination } from './pagination';
 
 // Loading
 export { Spinner } from './spinner';

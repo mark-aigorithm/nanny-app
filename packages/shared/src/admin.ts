@@ -1,8 +1,39 @@
 import { z } from 'zod';
 
-import { BookingStatusSchema, NannyBookingDecisionSchema } from './booking';
+import {
+  AppliedSkillFeeSchema,
+  BookingStatusSchema,
+  NannyBookingDecisionSchema,
+  PaginationMetaSchema,
+} from './booking';
 import { NannyApprovalStatusSchema } from './nanny';
 import { PublicSkillSchema } from './skill';
+
+// Re-export the shared pagination meta so admin consumers can import it alongside
+// the admin list/detail schemas.
+export { PaginationMetaSchema };
+export type { PaginationMeta } from './booking';
+
+// ──────────────────────────────────────────────────────────────
+// Admin list pagination (shared by every paginated admin table)
+// ──────────────────────────────────────────────────────────────
+
+/** Predefined "records per page" choices offered by the admin table footer. */
+export const ADMIN_PAGE_SIZES = [10, 20, 50, 100] as const;
+export const ADMIN_DEFAULT_PAGE_SIZE = 20;
+/**
+ * Hard ceiling on a single page. The UI only offers ADMIN_PAGE_SIZES, but
+ * internal aggregate callers (e.g. the dashboard, which sums client-side) may
+ * request a larger page — capped here to bound the query.
+ */
+export const ADMIN_MAX_PAGE_SIZE = 200;
+
+/** Base page/limit query for any paginated admin list endpoint. */
+export const AdminListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(ADMIN_MAX_PAGE_SIZE).default(ADMIN_DEFAULT_PAGE_SIZE),
+});
+export type AdminListQuery = z.infer<typeof AdminListQuerySchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Promo codes
@@ -155,6 +186,74 @@ export const AdminBookingSchema = z.object({
 });
 export type AdminBooking = z.infer<typeof AdminBookingSchema>;
 
+/** Paginated booking list query (GET /admin/bookings). */
+export const AdminBookingListQuerySchema = AdminListQuerySchema.extend({
+  status: AdminBookingStatusFilterSchema.catch('ALL').default('ALL'),
+});
+export type AdminBookingListQuery = z.infer<typeof AdminBookingListQuerySchema>;
+
+/** Full payment record for the admin booking detail page. */
+export const AdminBookingPaymentSchema = z.object({
+  status: z.string(),
+  method: z.string().nullable(),
+  amount: z.number().nullable(),
+  currency: z.string().nullable(),
+  paymobOrderId: z.string().nullable(),
+  paymobTransactionId: z.string().nullable(),
+  paymobIntentionId: z.string().nullable(),
+  failureReason: z.string().nullable(),
+  refundedAmount: z.number(),
+  refundedAt: z.string().nullable(),
+});
+export type AdminBookingPayment = z.infer<typeof AdminBookingPaymentSchema>;
+
+/**
+ * Everything the admin booking detail page shows (GET /admin/bookings/:id):
+ * the list fields plus the full pricing breakdown, payment record, promo/discount,
+ * special instructions, lifecycle timestamps, and a future-ready loyalty field.
+ */
+export const AdminBookingDetailSchema = AdminBookingSchema.extend({
+  // Enriched parties.
+  mother: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+  }),
+  nanny: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+    })
+    .nullable(),
+  // Pricing breakdown snapshot.
+  baseRate: z.number(),
+  effectiveHourlyRate: z.number(),
+  skillAddOns: z.array(AppliedSkillFeeSchema),
+  subtotal: z.number(),
+  durationMultiplier: z.number(),
+  serviceFeePercent: z.number(),
+  serviceFeeAmount: z.number(),
+  nannyAmount: z.number(),
+  platformAmount: z.number(),
+  // Full payment record (supersedes the list's flat `paymentStatus`).
+  payment: AdminBookingPaymentSchema.nullable(),
+  // Notes & lifecycle.
+  specialInstructions: z.string().nullable(),
+  cancellationReason: z.string().nullable(),
+  cancelledAt: z.string().nullable(),
+  adminApprovedAt: z.string().nullable(),
+  nannyDecidedAt: z.string().nullable(),
+  nannyCheckedInAt: z.string().nullable(),
+  nannyCheckedOutAt: z.string().nullable(),
+  updatedAt: z.string(),
+  /** Loyalty points redeemed against this booking. Not yet implemented — always null for now. */
+  pointsRedeemed: z.number().nullable(),
+});
+export type AdminBookingDetail = z.infer<typeof AdminBookingDetailSchema>;
+
 /** Admin rejects a booking request (→ CANCELLED). Optional operator note. */
 export const RejectAdminBookingSchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
@@ -214,6 +313,26 @@ export const AdminNannySchema = z.object({
   createdAt: z.string(),
 });
 export type AdminNanny = z.infer<typeof AdminNannySchema>;
+
+/** Paginated nanny list query (GET /admin/nannies). */
+export const AdminNannyListQuerySchema = AdminListQuerySchema.extend({
+  status: AdminNannyStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
+});
+export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
+
+/**
+ * Nanny detail page (GET /admin/nannies/:id): the list fields plus the underlying
+ * User id and the nanny's lifetime earnings ("amount gained").
+ */
+export const AdminNannyDetailSchema = AdminNannySchema.extend({
+  /** The underlying User id — distinct from `id`, which is the NannyProfile id. */
+  userId: z.string(),
+  /** Lifetime earnings: sum of `nannyAmount` across the nanny's COMPLETED bookings (EGP). */
+  amountGained: z.number(),
+  /** Number of COMPLETED bookings contributing to `amountGained`. */
+  completedBookings: z.number().int(),
+});
+export type AdminNannyDetail = z.infer<typeof AdminNannyDetailSchema>;
 
 export const RejectNannySchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
