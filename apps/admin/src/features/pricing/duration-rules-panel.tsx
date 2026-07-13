@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 
 import { CreateDurationRuleSchema, type DurationRule, type UpdateDurationRuleInput } from '@nanny-app/shared';
 
-import { Badge, Button, Card, Feedback, Field, Select, type SelectOption } from '@admin/components/ui';
+import { Badge, Button, Card, Feedback, Field, Select, TableSkeleton, type SelectOption } from '@admin/components/ui';
 import {
   createDurationRule,
   deleteDurationRule,
@@ -187,7 +187,7 @@ export function DurationRulesPanel() {
   return (
     <>
       <CreateRuleForm />
-      {isLoading && <p>Loading tiers…</p>}
+      {isLoading && <TableSkeleton rows={4} columns={6} />}
       {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
       {rules && rules.length === 0 && (
         <Card>

@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
-import { Card, Feedback } from '@admin/components/ui';
+import { Card, Feedback, Skeleton } from '@admin/components/ui';
 import { calculatePricePreview, fetchSkills } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatAmount } from '@admin/lib/format';
@@ -99,7 +99,7 @@ export function CalculatorPanel() {
 
       <Card title="What everyone sees">
         {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
-        {!breakdown && !error && <p>Calculating…</p>}
+        {!breakdown && !error && <BreakdownSkeleton />}
         {breakdown && (
           <div className={`breakdown${isFetching ? ' breakdown--stale' : ''}`}>
             <div className="breakdown-row">
@@ -190,6 +190,29 @@ export function CalculatorPanel() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+/** Placeholder shaped like the price breakdown while the preview loads. */
+function BreakdownSkeleton() {
+  return (
+    <div className="calc-skeleton" role="status" aria-label="Calculating price…">
+      {[70, 55, 62].map((labelWidth, i) => (
+        <div className="calc-skeleton-row" key={i}>
+          <Skeleton width={`${labelWidth}%`} height={13} />
+          <Skeleton width={64} height={13} />
+        </div>
+      ))}
+      <div className="calc-skeleton-row calc-skeleton-row--total">
+        <Skeleton width="45%" height={20} />
+        <Skeleton width={96} height={20} />
+      </div>
+      <Skeleton className="calc-skeleton-bar" height={38} radius="999px" />
+      <div className="calc-skeleton-row">
+        <Skeleton width={110} height={13} />
+        <Skeleton width={110} height={13} />
+      </div>
     </div>
   );
 }

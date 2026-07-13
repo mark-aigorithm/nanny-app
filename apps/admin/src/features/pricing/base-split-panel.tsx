@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Button, Card, Feedback, Field } from '@admin/components/ui';
+import { Button, Card, Feedback, Field, Skeleton } from '@admin/components/ui';
 import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatAmount } from '@admin/lib/format';
@@ -61,20 +61,19 @@ export function BaseSplitPanel() {
   }
 
   if (isLoading || !ready) {
-    return (
+    return error != null ? (
       <Card>
-        {error != null ? (
-          <Feedback tone="error">{apiErrorMessage(error)}</Feedback>
-        ) : (
-          <p>Loading pricing…</p>
-        )}
+        <Feedback tone="error">{apiErrorMessage(error)}</Feedback>
       </Card>
+    ) : (
+      <BaseSplitSkeleton />
     );
   }
 
   return (
     <form onSubmit={handleSubmit}>
-      <Card title="Base hourly rate">
+      <div className="pricing-cols">
+        <Card title="Base hourly rate">
         <p className="panel-lead">
           The starting price every booking is built from, before skill add-ons and
           duration discounts. Charged per hour, in EGP.
@@ -146,7 +145,8 @@ export function BaseSplitPanel() {
             <strong className="text-platform">EGP {formatAmount(samplePlatform)}</strong>.
           </p>
         </div>
-      </Card>
+        </Card>
+      </div>
 
       {formError && <Feedback tone="error">{formError}</Feedback>}
       {saved && <Feedback tone="success">Pricing saved.</Feedback>}
@@ -154,5 +154,33 @@ export function BaseSplitPanel() {
         {saveMutation.isPending ? 'Saving…' : 'Save base & split'}
       </Button>
     </form>
+  );
+}
+
+/** Placeholder shaped like the base-rate and revenue-split cards while config loads. */
+function BaseSplitSkeleton() {
+  return (
+    <div className="pricing-cols" role="status" aria-label="Loading pricing…">
+      <div className="card">
+        <Skeleton width={150} height={17} />
+        <div className="skeleton-lines">
+          <Skeleton width="90%" height={11} />
+          <Skeleton width="70%" height={11} />
+        </div>
+        <Skeleton width={200} height={52} radius="var(--radius-sm)" />
+      </div>
+      <div className="card">
+        <Skeleton width={130} height={17} />
+        <div className="skeleton-lines">
+          <Skeleton width="95%" height={11} />
+          <Skeleton width="60%" height={11} />
+        </div>
+        <Skeleton height={38} radius="999px" style={{ marginTop: '0.5rem' }} />
+        <div className="calc-skeleton-row" style={{ marginTop: '1rem' }}>
+          <Skeleton width={120} height={12} />
+          <Skeleton width={120} height={12} />
+        </div>
+      </div>
+    </div>
   );
 }

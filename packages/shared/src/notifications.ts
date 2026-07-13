@@ -13,6 +13,9 @@ export const NotificationTypeSchema = z.enum([
   'care_log_entry',
   'nanny_approved',
   'nanny_rejected',
+  'points_earned',
+  'points_granted',
+  'points_redeemed',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
