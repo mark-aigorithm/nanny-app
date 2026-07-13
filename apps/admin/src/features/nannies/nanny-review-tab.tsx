@@ -16,7 +16,6 @@ import {
   MenuItem,
   MenuSeparator,
   Modal,
-  PageHeader,
   PromptDialog,
   Table,
   TableSkeleton,
@@ -59,7 +58,7 @@ function initials(name: string): string {
 
 const EMPTY = <span className="table-empty">—</span>;
 
-export function NanniesPage() {
+export function NannyReviewTab() {
   const [status, setStatus] = useState<AdminNannyStatusFilter>('PENDING_REVIEW');
   // Nanny whose ID document is open in the viewer modal (null = closed).
   const [idViewNanny, setIdViewNanny] = useState<AdminNanny | null>(null);
@@ -155,28 +154,6 @@ export function NanniesPage() {
       ),
     },
     {
-      key: 'rate',
-      header: 'Rate (EGP/h)',
-      align: 'right',
-      render: (nanny) => (nanny.hourlyRate !== null ? nanny.hourlyRate.toFixed(2) : EMPTY),
-    },
-    {
-      key: 'skills',
-      header: 'Skills',
-      render: (nanny) =>
-        nanny.skills.length > 0 ? (
-          <div className="skill-chips">
-            {nanny.skills.map((skill) => (
-              <Badge key={skill.id} tone="neutral">
-                {skill.name}
-              </Badge>
-            ))}
-          </div>
-        ) : (
-          EMPTY
-        ),
-    },
-    {
       key: 'registered',
       header: 'Registered',
       nowrap: true,
@@ -238,11 +215,11 @@ export function NanniesPage() {
   ];
 
   return (
-    <section>
-      <PageHeader
-        title="New Nannies"
-        subtitle="New nanny registrations wait here until reviewed — contact them for KYC, then approve or reject. Approving notifies the nanny and lets her into the app."
-      />
+    <>
+      <p className="panel-lead">
+        New nanny registrations wait here until reviewed — contact them for KYC, then approve or
+        reject. Approving notifies the nanny and lets her into the app.
+      </p>
       <div className="filter-bar">
         <FilterSelect
           label="Status"
@@ -251,7 +228,7 @@ export function NanniesPage() {
           onChange={(value) => setStatus(value as AdminNannyStatusFilter)}
         />
       </div>
-      {isLoading && <TableSkeleton columns={9} />}
+      {isLoading && <TableSkeleton columns={7} />}
       {error != null && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -294,7 +271,7 @@ export function NanniesPage() {
       )}
 
       {idViewNanny && <IdDocumentModal nanny={idViewNanny} onClose={() => setIdViewNanny(null)} />}
-    </section>
+    </>
   );
 }
 

@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
   Ticket,
-  UserPlus,
+  Users,
   Video,
   Wallet,
 } from './ui';
@@ -31,7 +31,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon };
 const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/bookings', label: 'Bookings', icon: CalendarClock },
-  { to: '/nannies', label: 'Nannies', icon: UserPlus },
+  { to: '/users', label: 'Users', icon: Users },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket },
   { to: '/skills', label: 'Nanny Skills', icon: Sparkles },
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet },

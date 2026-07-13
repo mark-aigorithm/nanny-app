@@ -1,4 +1,4 @@
-import type { AdminUser, CreateAdminInput } from '@nanny-app/shared';
+import type { AdminMother, AdminUser, CreateAdminInput } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -56,6 +56,43 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
     orderBy: { createdAt: 'asc' },
   });
   return rows.map((row) => toDto(row as AdminUserRow));
+}
+
+/** Read-only directory of mother (parent) accounts for the admin Users page. */
+export async function listAdminMothers(): Promise<AdminMother[]> {
+  const rows = await prisma.user.findMany({
+    where: { role: 'MOTHER', deletedAt: null },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      avatarUrl: true,
+      address: true,
+      isEmailVerified: true,
+      isPhoneVerified: true,
+      isActive: true,
+      createdAt: true,
+      _count: { select: { bookingsAsMother: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: `${row.firstName} ${row.lastName === '-' ? '' : row.lastName}`.trim(),
+    email: row.email,
+    phone: row.phone,
+    avatarUrl: row.avatarUrl,
+    // Home location lives on the user row (single source of truth).
+    location: row.address,
+    isEmailVerified: row.isEmailVerified,
+    isPhoneVerified: row.isPhoneVerified,
+    isActive: row.isActive,
+    bookingCount: row._count.bookingsAsMother,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 /** Superuser creates an admin: Firebase Auth account + ADMIN user row. */

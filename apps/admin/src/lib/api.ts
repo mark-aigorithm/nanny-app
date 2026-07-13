@@ -1,6 +1,7 @@
 import type {
   AdminBooking,
   AdminBookingStatusFilter,
+  AdminMother,
   AdminNanny,
   AdminNannyStatusFilter,
   AdminUser,
@@ -240,6 +241,11 @@ export async function rejectNanny(id: string, reason?: string): Promise<AdminNan
     `/admin/nannies/${id}/reject`,
     reason ? { reason } : {},
   );
+  return res.data.data;
+}
+
+export async function fetchMothers(): Promise<AdminMother[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminMother[]>>('/admin/mothers');
   return res.data.data;
 }
 

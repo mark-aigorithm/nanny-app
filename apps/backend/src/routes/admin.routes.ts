@@ -43,6 +43,7 @@ import {
 import {
   createAdminUser,
   getAdminProfile,
+  listAdminMothers,
   listAdminUsers,
 } from '@backend/services/admin-user.service';
 import {
@@ -206,6 +207,16 @@ adminRouter.put(
     }
   },
 );
+
+// ── Mothers directory (read-only list of parent accounts) ──────
+
+adminRouter.get('/mothers', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listAdminMothers()));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Admin accounts (superuser only) ────────────────────────────
 
