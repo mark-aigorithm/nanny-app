@@ -20,6 +20,7 @@ import {
   dispatchPush,
 } from '@backend/services/notification.service';
 import { getRevenueSplit } from '@backend/services/app-settings.service';
+import { awardPointsForBooking } from '@backend/services/reward.service';
 import { listActiveDurationRules } from '@backend/services/duration-rule.service';
 import {
   calculatePriceBreakdown,
@@ -334,6 +335,24 @@ export async function setBookingStatus(
         `A booking for ${dateLabel} was approved and is awaiting the parent's payment.`,
         updated.id,
       );
+    }
+  }
+
+  // An admin force-completing a booking earns the parent Care Points too.
+  // Best-effort + idempotent (mirrors the nanny checkout path).
+  if (next === BookingStatus.COMPLETED) {
+    try {
+      await awardPointsForBooking({
+        bookingId: updated.id,
+        motherId: updated.mother.id,
+        durationHours: updated.durationHours.toNumber(),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[rewards] failed to award points on admin completion', {
+        bookingId: updated.id,
+        err,
+      });
     }
   }
 

@@ -7,6 +7,7 @@ import {
   CreateCareLogSchema,
   CreatePaymobIntentionSchema,
   MockPayBookingSchema,
+  RedeemBookingPointsSchema,
   ValidateBookingPromoSchema,
 } from '@nanny-app/shared';
 
@@ -26,6 +27,8 @@ import {
   listAvailableBookings,
   listBookings,
   mockPayBooking,
+  redeemBookingPoints,
+  refundBookingPoints,
   validateBookingPromo,
 } from '@backend/services/booking.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
@@ -106,6 +109,31 @@ bookingRouter.get(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       const booking = await getBooking(req.firebaseUser, String(req.params['id']));
+      res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/redeem-points',
+  requireAuth,
+  validateBody(RedeemBookingPointsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const booking = await redeemBookingPoints(req.firebaseUser, String(req.params['id']), req.body);
+      res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/redeem-points/refund',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const booking = await refundBookingPoints(req.firebaseUser, String(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },

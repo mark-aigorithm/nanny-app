@@ -8,7 +8,9 @@ import {
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
   CreateSkillSchema,
+  GrantPointsSchema,
   PricePreviewSchema,
+  RewardHistoryQuerySchema,
   RejectAdminBookingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
@@ -18,6 +20,7 @@ import {
   UpdateDurationRuleSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
+  UpdateRewardConfigSchema,
   UpdateSkillSchema,
 } from '@nanny-app/shared';
 
@@ -76,6 +79,14 @@ import {
   listSkills,
   updateSkill,
 } from '@backend/services/skill.service';
+import {
+  getRewardConfig,
+  getWalletHistory,
+  getWalletSummary,
+  grantPoints,
+  listWallets,
+  updateRewardConfig,
+} from '@backend/services/reward.service';
 
 export const adminRouter = Router();
 
@@ -467,6 +478,92 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await previewBreakdown(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Care Points (rewards) ──────────────────────────────────────
+
+adminRouter.get(
+  '/rewards/config',
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await getRewardConfig()));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.put(
+  '/rewards/config',
+  validateBody(UpdateRewardConfigSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateRewardConfig(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get(
+  '/rewards/wallets',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+      res.json(ok(await listWallets(search)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Registered before '/rewards/wallets/:userId' — the extra segment makes it
+// distinct, but keep the more specific path first for clarity.
+adminRouter.get(
+  '/rewards/wallets/:userId/history',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = RewardHistoryQuerySchema.parse(req.query);
+      const result = await getWalletHistory(routeParam(req.params.userId), query);
+      res.json({ data: result.entries, error: null, meta: result.meta });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get(
+  '/rewards/wallets/:userId',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await getWalletSummary(routeParam(req.params.userId))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/rewards/wallets/:userId/grant',
+  validateBody(GrantPointsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const admin = await getAdminProfile(req.firebaseUser.uid);
+      res.json(
+        ok(
+          await grantPoints({
+            userId: routeParam(req.params.userId),
+            points: req.body.points,
+            reason: req.body.reason,
+            adminId: admin.id,
+          }),
+        ),
+      );
     } catch (err) {
       next(err);
     }
