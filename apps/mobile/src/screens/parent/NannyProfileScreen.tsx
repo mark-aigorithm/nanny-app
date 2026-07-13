@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, borderRadius } from '@mobile/theme';
 import { Avatar, Card } from '@mobile/components/ui';
 import { useNannyPublicProfile } from '@mobile/hooks/useNannies';
-import { formatHourlyRate } from '@mobile/lib/formatMoney';
 import { styles } from './styles/nanny-profile-screen.styles';
 import type { ReviewSummary } from '@nanny-app/shared';
 
@@ -106,9 +105,6 @@ export default function NannyProfileScreen() {
             <View style={styles.nameVerified}>
               <Text style={styles.nannyName}>{fullName}</Text>
             </View>
-            <Text style={styles.hourlyRate}>
-              {formatHourlyRate(nanny.hourlyRate, 'Rate TBD')}
-            </Text>
           </View>
 
           {/* Rating row */}
@@ -158,7 +154,6 @@ export default function NannyProfileScreen() {
                     nannyId: nanny.nannyProfileId,
                     nannyName: `${nanny.firstName} ${nanny.lastName}`,
                     nannyPhoto: nanny.avatarUrl ?? '',
-                    nannyRate: String(nanny.hourlyRate ?? 0),
                   },
                 } as never)
               }

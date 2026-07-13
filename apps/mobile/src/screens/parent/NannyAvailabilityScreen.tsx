@@ -36,11 +36,10 @@ function getDayAvailability(
 
 export default function NannyAvailabilityScreen() {
   const router = useRouter();
-  const { nannyId, nannyName, nannyPhoto, nannyRate } = useLocalSearchParams<{
+  const { nannyId, nannyName, nannyPhoto } = useLocalSearchParams<{
     nannyId: string;
     nannyName?: string;
     nannyPhoto?: string;
-    nannyRate?: string;
   }>();
 
   const { data: nanny, isLoading } = useNannyPublicProfile(nannyId);
@@ -126,7 +125,6 @@ export default function NannyAvailabilityScreen() {
                   nannyId: nannyId ?? nanny?.nannyProfileId ?? '',
                   nannyName: nannyName ?? `${nanny?.firstName ?? ''} ${nanny?.lastName ?? ''}`.trim(),
                   ...(resolvedPhoto ? { nannyPhoto: resolvedPhoto } : {}),
-                  nannyRate: nannyRate ?? String(nanny?.hourlyRate ?? 0),
                 },
               } as never);
             }}

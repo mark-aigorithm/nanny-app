@@ -13,7 +13,6 @@ export interface NannyBookingRequest {
   duration: number;
   childrenCount: number;
   location: string;
-  hourlyRate: number;
   totalAmount: number;
   status: 'accepted' | 'declined';
   requestedAt: string;
@@ -37,7 +36,6 @@ export interface NannyAvailabilitySlot {
 export interface NannyProfileEdit {
   name: string;
   bio: string;
-  hourlyRate: number;
   certifications: string[];
   ageRange: string;
   image: string;

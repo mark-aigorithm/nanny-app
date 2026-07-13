@@ -67,7 +67,7 @@ export default function BookingDatePickerScreen() {
   const isUnavailable = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    // Standard bookings cannot be same-day; only emergency bookings allow today.
+    // Same-day booking isn't allowed.
     return date <= todayStart;
   };
 

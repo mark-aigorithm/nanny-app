@@ -11,7 +11,6 @@ export type BookingFlowParams = {
   endTimeIso?: string;
   nannyName?: string;
   nannyPhoto?: string;
-  nannyRate?: string;
   instructions?: string;
   promoCode?: string;
   /** Comma-separated skill ids the parent selected as paid add-ons. */
@@ -66,7 +65,6 @@ export function bookingFlowRetryParams(
     endTimeIso: params.endTimeIso,
     nannyName: params.nannyName,
     nannyPhoto: params.nannyPhoto,
-    nannyRate: params.nannyRate,
     instructions: params.instructions,
     promoCode: params.promoCode,
   };
@@ -92,16 +90,4 @@ export function payBookingParams(booking: BookingResponse): BookingFlowParams {
     ...(booking.nanny?.avatarUrl ? { nannyPhoto: booking.nanny.avatarUrl } : {}),
     ...(booking.specialInstructions ? { instructions: booking.specialInstructions } : {}),
   };
-}
-
-export function resolveNannyRate(
-  params: BookingFlowParams,
-  profileHourlyRate?: number | null,
-): number | null {
-  if (params.nannyRate) {
-    const parsed = Number(params.nannyRate);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }
-  if (profileHourlyRate != null && profileHourlyRate > 0) return profileHourlyRate;
-  return null;
 }

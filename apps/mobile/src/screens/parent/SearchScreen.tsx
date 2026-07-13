@@ -15,7 +15,6 @@ import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabSearchStrip from '@mobile/components/ParentTabSearchStrip';
 import { colors } from '@mobile/theme';
 import { useNannyList, useSkillCatalog } from '@mobile/hooks/useNannies';
-import { formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import { styles } from './styles/search-screen.styles';
 import type { NannyListItem } from '@nanny-app/shared';
 
@@ -69,10 +68,6 @@ function NannyCard({ nanny, onViewProfile }: { nanny: NannyListItem; onViewProfi
           </View>
         )}
         <View style={styles.nannyPriceRow}>
-          <Text style={styles.nannyPrice}>
-            <Text style={styles.nannyPriceAmount}>{formatHourlyRateAmount(nanny.hourlyRate)}</Text>
-            {nanny.hourlyRate != null && <Text style={styles.nannyPriceUnit}>/hr</Text>}
-          </Text>
           <Pressable style={styles.viewProfileButton} onPress={() => onViewProfile(nanny.nannyProfileId)}>
             <Text style={styles.viewProfileText}>View Profile</Text>
           </Pressable>

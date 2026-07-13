@@ -98,30 +98,6 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlignVertical: 'top',
   },
-  rateInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  ratePrefix: {
-    ...typeScale.headingLg,
-    color: colors.textPrimary,
-  },
-  rateInput: {
-    flex: 1,
-    height: 56,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.bold,
-    fontSize: 20,
-    color: colors.textPrimary,
-  },
-  rateUnit: {
-    ...typeScale.bodyMd,
-    color: colors.textMuted,
-  },
-
   // Certifications
   certsRow: {
     flexDirection: 'row',

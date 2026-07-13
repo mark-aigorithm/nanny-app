@@ -92,11 +92,6 @@ export const styles = StyleSheet.create({
     lineHeight: 28,
     color: colors.textPrimary,
   },
-  hourlyRate: {
-    ...typeScale.headingMd,
-    lineHeight: 28,
-    color: colors.primaryDark,
-  },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',

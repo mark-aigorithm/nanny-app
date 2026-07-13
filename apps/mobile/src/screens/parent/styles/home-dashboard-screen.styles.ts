@@ -235,12 +235,6 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     color: colors.textDark,
   },
-  nannyPrice: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: spacing.xxs,
-  },
 
   // Favourites
   favouritesList: {

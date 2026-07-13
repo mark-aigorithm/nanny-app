@@ -4,7 +4,6 @@ export interface NannyBase {
   id: string;
   name: string;
   rating: number;
-  hourlyRate: number;
   image: string;
   verified: boolean;
 }
@@ -31,14 +30,13 @@ export interface NannyResult {
   rating: number;
   distance: string;
   experience: string;
-  hourlyRate: number;
   verified: boolean;
   /** 0-1 opacity; defaults to 1 */
   opacity?: number;
 }
 
 /** HomeDashboardScreen — compact preview */
-export type NannyPreview = Pick<NannyBase, 'id' | 'name' | 'rating' | 'hourlyRate' | 'image'>;
+export type NannyPreview = Pick<NannyBase, 'id' | 'name' | 'rating' | 'image'>;
 
 /** HomeDashboardScreen — favourites */
 export type FavouriteNanny = Pick<NannyBase, 'id' | 'name' | 'image'>;
@@ -47,7 +45,6 @@ export type FavouriteNanny = Pick<NannyBase, 'id' | 'name' | 'image'>;
 export interface NannyProfile {
   id: string;
   name: string;
-  hourlyRate: number;
   rating: number;
   reviewCount: number;
   location: string;
@@ -81,6 +78,5 @@ export interface NannyReview {
 export interface NannyBookingSummary {
   name: string;
   rating: number;
-  hourlyRate: number;
   image: string;
 }

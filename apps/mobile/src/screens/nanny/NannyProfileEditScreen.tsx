@@ -15,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { CURRENCY_CODE, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
@@ -91,7 +90,6 @@ export default function NannyProfileEditScreen() {
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [experience, setExperience] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('');
   const [certifications, setCertifications] = useState<string[]>([]);
   const [newCert, setNewCert] = useState('');
   const [showCertInput, setShowCertInput] = useState(false);
@@ -111,7 +109,6 @@ export default function NannyProfileEditScreen() {
     setBio(nannyProfile.bio ?? '');
     setLocation(nannyProfile.location ?? '');
     setExperience(nannyProfile.yearsOfExperience?.toString() ?? '');
-    setHourlyRate(nannyProfile.hourlyRate?.toString() ?? '');
     setCertifications(nannyProfile.certifications);
     setSelectedAgeRanges(nannyProfile.ageRanges);
     setAvailabilityType(nannyProfile.availabilityType);
@@ -166,7 +163,6 @@ export default function NannyProfileEditScreen() {
         bio: bio || undefined,
         location: location || undefined,
         yearsOfExperience: experience ? parseInt(experience, 10) : undefined,
-        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
         certifications,
         ageRanges: selectedAgeRanges,
         availabilityType,
@@ -225,13 +221,11 @@ export default function NannyProfileEditScreen() {
   // ── Read-only view helpers ─────────────────────────────────────────────────
 
   const fullName = `${firstName} ${lastName}`.trim();
-  const rateValue = hourlyRate ? Number(hourlyRate) : null;
   const experienceValue = experience ? Number(experience) : null;
   const availabilityLabel =
     AVAILABILITY_OPTIONS.find((o) => o.value === availabilityType)?.label ?? '';
 
   const stats: { value: string; label: string }[] = [];
-  if (rateValue != null) stats.push({ value: formatHourlyRateAmount(rateValue), label: 'per hour' });
   if (experienceValue != null) {
     stats.push({ value: String(experienceValue), label: experienceValue === 1 ? 'year' : 'years' });
   }
@@ -321,19 +315,6 @@ export default function NannyProfileEditScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Years of experience</Text>
                 <TextInput style={styles.input} value={experience} onChangeText={setExperience} keyboardType="number-pad" />
-              </View>
-            </View>
-
-            {/* Rates */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Rates</Text>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Hourly rate</Text>
-                <View style={styles.rateInputRow}>
-                  <Text style={styles.ratePrefix}>{CURRENCY_CODE}</Text>
-                  <TextInput style={styles.rateInput} value={hourlyRate} onChangeText={setHourlyRate} keyboardType="decimal-pad" />
-                  <Text style={styles.rateUnit}>/hr</Text>
-                </View>
               </View>
             </View>
 

@@ -20,7 +20,6 @@ export const MOCK_NANNIES_HOME: NannyData[] = [
     distance: '2.4 miles',
     rating: 4.9,
     bio: 'Expert in Montessori education and newborn care. Certified in infant CPR and first aid...',
-    hourlyRate: 28,
     verified: true,
     image: IMG_ELENA_HOME,
   },
@@ -31,7 +30,6 @@ export const MOCK_NANNIES_HOME: NannyData[] = [
     distance: '0.8 miles',
     rating: 5.0,
     bio: 'Former preschool teacher specializing in early childhood development and creative play...',
-    hourlyRate: 32,
     verified: true,
     image: IMG_SARAH_HOME,
   },
@@ -44,7 +42,6 @@ export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
     experience: '8 years experience',
     type: 'Full-time',
     rating: 4.9,
-    hourlyRate: 25,
     image: IMG_NANNY_CLARA,
     verified: true,
     specialties: ['Newborn Care', 'Night Nurse'],
@@ -55,7 +52,6 @@ export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
     experience: '15 years experience',
     type: 'Part-time',
     rating: 5.0,
-    hourlyRate: 32,
     image: IMG_NANNY_ELENA_SEARCH,
     verified: true,
     specialties: ['Live-in', 'Special Needs'],
@@ -66,7 +62,6 @@ export const MOCK_NANNIES_SEARCH: NannyCardData[] = [
     experience: '5 years experience',
     type: 'Activity Specialist',
     rating: 4.8,
-    hourlyRate: 28,
     image: IMG_NANNY_MARCUS,
     verified: true,
     specialties: ['Newborn Care', 'Special Needs'],
@@ -81,7 +76,6 @@ export const MOCK_NANNIES_RESULTS: NannyResult[] = [
     rating: 4.9,
     distance: '1.2 mi',
     experience: '6y',
-    hourlyRate: 28,
     verified: false,
   },
   {
@@ -91,7 +85,6 @@ export const MOCK_NANNIES_RESULTS: NannyResult[] = [
     rating: 4.8,
     distance: '0.8 mi',
     experience: '4y',
-    hourlyRate: 30,
     verified: true,
   },
   {
@@ -101,7 +94,6 @@ export const MOCK_NANNIES_RESULTS: NannyResult[] = [
     rating: 5.0,
     distance: '2.1 mi',
     experience: '15y',
-    hourlyRate: 35,
     verified: true,
   },
   {
@@ -111,7 +103,6 @@ export const MOCK_NANNIES_RESULTS: NannyResult[] = [
     rating: 4.7,
     distance: '',
     experience: '',
-    hourlyRate: 26,
     verified: false,
     opacity: 0.6,
   },
@@ -120,6 +111,5 @@ export const MOCK_NANNIES_RESULTS: NannyResult[] = [
 export const MOCK_NANNY_BOOKING: NannyBookingSummary = {
   name: 'Elena Martinez',
   rating: 4.9,
-  hourlyRate: 28,
   image: IMG_ELENA_BOOKING,
 };

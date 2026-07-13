@@ -4,7 +4,6 @@ import { IMG_NANNY_HERO } from './images';
 export const MOCK_NANNY_PROFILE: NannyProfile = {
   id: '1',
   name: 'Elena Martinez',
-  hourlyRate: 28,
   rating: 4.9,
   reviewCount: 127,
   location: 'Brooklyn, NY',

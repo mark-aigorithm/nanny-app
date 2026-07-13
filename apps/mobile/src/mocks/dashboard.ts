@@ -28,15 +28,6 @@ export const QUICK_ACTIONS: QuickAction[] = [
     iconColor: colors.primary,
     route: '/(parent)/search',
   },
-  // Emergency quick action hidden — emergency booking flow is not exposed in the UI.
-  // {
-  //   id: 'emergency',
-  //   label: 'Emergency',
-  //   icon: 'alert-circle',
-  //   bgColor: 'rgba(192,99,74,0.12)',
-  //   iconColor: colors.error,
-  //   route: '/(parent)/search',
-  // },
   {
     id: 'community',
     label: 'Community',
@@ -60,21 +51,18 @@ export const RECOMMENDED_NANNIES: NannyPreview[] = [
     id: '1',
     name: 'Elena R.',
     rating: 4.9,
-    hourlyRate: 28,
     image: IMG_ELENA_HOME,
   },
   {
     id: '2',
     name: 'Sarah J.',
     rating: 5.0,
-    hourlyRate: 32,
     image: IMG_SARAH_HOME,
   },
   {
     id: '3',
     name: 'Maria L.',
     rating: 4.8,
-    hourlyRate: 25,
     image: IMG_SARAH_HOME,
   },
 ];

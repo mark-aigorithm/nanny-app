@@ -16,7 +16,6 @@ import { colors } from '@mobile/theme';
 import type { FilterChipData, SortOption, NannyResult } from '@mobile/types';
 import { SORT_OPTIONS, INITIAL_SEARCH_FILTERS } from '@mobile/constants';
 import { MOCK_NANNIES_RESULTS } from '@mobile/mocks';
-import { formatHourlyRate } from '@mobile/lib/formatMoney';
 import { styles } from './styles/search-results-screen.styles';
 
 function NannyResultCard({
@@ -63,7 +62,6 @@ function NannyResultCard({
       </View>
 
       <View style={styles.cardRight}>
-        <Text style={styles.price}>{formatHourlyRate(nanny.hourlyRate)}</Text>
         <Pressable style={styles.bookButton} onPress={() => onBook(nanny.id)}>
           <Text style={styles.bookButtonText}>Book</Text>
         </Pressable>
@@ -92,7 +90,6 @@ export default function SearchResultsScreen() {
       params: {
         nannyId,
         nannyName: nanny?.name ?? '',
-        nannyRate: nanny?.hourlyRate != null ? String(nanny.hourlyRate) : '',
       },
     } as never);
   };

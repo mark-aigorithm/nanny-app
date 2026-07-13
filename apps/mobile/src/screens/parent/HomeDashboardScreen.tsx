@@ -19,7 +19,6 @@ import { PROMO_CARDS, QUICK_ACTIONS, RECOMMENDED_NANNIES, FAVOURITE_NANNIES } fr
 import { IMG_HERO } from '@mobile/mocks/images';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { getGreeting } from '@mobile/lib/greeting';
-import { formatHourlyRate } from '@mobile/lib/formatMoney';
 
 const SHOW_PROMO_CAROUSEL = false;
 
@@ -163,7 +162,6 @@ export default function HomeDashboardScreen() {
                     <Ionicons name="star" size={12} color={colors.gold} />
                     <Text style={styles.nannyRating}>{item.rating.toFixed(1)}</Text>
                   </View>
-                  <Text style={styles.nannyPrice}>{formatHourlyRate(item.hourlyRate)}</Text>
                 </View>
               </Pressable>
             )}

@@ -47,7 +47,6 @@ export interface BookingDetail {
   location: string;
   specialInstructions: string;
   totalCharged: string;
-  hourlyRate: number;
   platformFee: string;
   paymentMethod: string;
 }

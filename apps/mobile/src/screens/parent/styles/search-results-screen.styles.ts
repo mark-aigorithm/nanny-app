@@ -163,11 +163,6 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: spacing.sm,
   },
-  price: {
-    fontFamily: fontFamily.bold,
-    fontSize: 15,
-    color: colors.primary,
-  },
   bookButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,

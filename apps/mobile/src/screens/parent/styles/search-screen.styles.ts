@@ -165,20 +165,8 @@ export const styles = StyleSheet.create({
   nannyPriceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingTop: spacing.sm,
-  },
-  nannyPrice: {
-    lineHeight: 27,
-  },
-  nannyPriceAmount: {
-    fontFamily: fontFamily.extraBold,
-    fontSize: 18,
-    color: colors.goldWarm,
-  },
-  nannyPriceUnit: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
   },
   viewProfileButton: {
     backgroundColor: colors.primary,

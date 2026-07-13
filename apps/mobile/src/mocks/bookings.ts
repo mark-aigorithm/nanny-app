@@ -63,7 +63,6 @@ export const MOCK_BOOKING_DETAIL: BookingDetail = {
   location: 'Upper West Side, New York',
   specialInstructions: 'Liam is allergic to peanuts. Please use the sunscreen in the diaper bag if going outside.',
   totalCharged: '$237.44',
-  hourlyRate: 28,
   platformFee: '$13.44',
   paymentMethod: 'Visa ending in 4242',
 };
