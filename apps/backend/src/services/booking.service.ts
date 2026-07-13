@@ -8,6 +8,7 @@ import {
   type BookingResponse,
   type CancelBookingRequest,
   type CreateBookingRequest,
+  type GenerateStartPinResponse,
   isStandardBookingDateAllowed,
   STANDARD_BOOKING_SAME_DAY_MESSAGE,
   type MockPayBookingRequest,
@@ -28,6 +29,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { hashPin, randomStartPin } from '@backend/lib/pin';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -45,6 +47,12 @@ import {
 
 /** Minutes before scheduled start when nanny may check in. */
 export const CHECK_IN_EARLY_MINUTES = 15;
+
+/** How long a parent-generated start PIN stays valid (covers the early window + slack). */
+export const START_PIN_TTL_MINUTES = 20;
+
+/** Max wrong PIN attempts before the parent must regenerate. */
+export const START_PIN_MAX_ATTEMPTS = 5;
 
 /** Round to 2 decimals for money/hour math. */
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -118,6 +126,8 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
     nannyCheckedInAt: b.nannyCheckedInAt?.toISOString() ?? null,
     nannyCheckedOutAt: b.nannyCheckedOutAt?.toISOString() ?? null,
+    startPinActive:
+      b.startPinExpiresAt != null && b.startPinExpiresAt.getTime() > Date.now(),
     payment: b.payment
       ? {
           id: b.payment.id,
@@ -954,10 +964,69 @@ export async function refundBookingPoints(
   return toBookingResponse(updated ?? booking);
 }
 
-/** Nanny checks in — marks booking IN_PROGRESS. Allowed from CHECK_IN_EARLY_MINUTES before start until end. */
+/**
+ * Parent generates the 4-digit start PIN — the hand-off gate for check-in. Only
+ * the mother who owns the booking may call this, and only inside the check-in
+ * window. Returns the plaintext PIN once (never persisted or returned again);
+ * only the sha-256 hash is stored. Calling again regenerates and resets attempts.
+ */
+export async function generateStartPin(
+  decoded: DecodedIdToken,
+  bookingId: string,
+): Promise<GenerateStartPinResponse> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) {
+    throw errors.forbidden('Only the parent can start this booking.');
+  }
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: bookingInclude,
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.motherId !== user.id) throw errors.forbidden('This is not your booking.');
+
+  if (booking.status !== BookingStatus.CONFIRMED) {
+    throw errors.badRequest(`Cannot start a booking in status ${booking.status}.`);
+  }
+
+  const now = new Date();
+  const earliestStart = new Date(
+    booking.startTime.getTime() - CHECK_IN_EARLY_MINUTES * 60_000,
+  );
+  if (now < earliestStart) {
+    throw errors.badRequest(
+      `You can start this booking ${CHECK_IN_EARLY_MINUTES} minutes before the scheduled start time.`,
+    );
+  }
+  if (now > booking.endTime) {
+    throw errors.badRequest('This booking has already ended.');
+  }
+
+  const pin = randomStartPin();
+  const expiresAt = new Date(now.getTime() + START_PIN_TTL_MINUTES * 60_000);
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      startPinHash: hashPin(pin),
+      startPinGeneratedAt: now,
+      startPinExpiresAt: expiresAt,
+      startPinAttempts: 0,
+    },
+  });
+
+  return { pin, expiresAt: expiresAt.toISOString() };
+}
+
+/**
+ * Nanny checks in — marks booking IN_PROGRESS. Allowed from CHECK_IN_EARLY_MINUTES
+ * before start until end, and only with the correct start PIN the parent revealed.
+ */
 export async function checkInBooking(
   decoded: DecodedIdToken,
   bookingId: string,
+  pin: string,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies can check in.');
@@ -986,6 +1055,28 @@ export async function checkInBooking(
     throw errors.badRequest('This booking has already ended.');
   }
 
+  // Start-PIN gate — the parent must have revealed a still-valid PIN and the
+  // nanny must enter it correctly. Wrong guesses are counted and capped.
+  if (!booking.startPinHash || !booking.startPinExpiresAt) {
+    throw errors.badRequest('The parent has not started this booking yet. Ask them to tap Start.');
+  }
+  if (now > booking.startPinExpiresAt) {
+    throw errors.badRequest('The start PIN has expired. Ask the parent to start again.');
+  }
+  if (booking.startPinAttempts >= START_PIN_MAX_ATTEMPTS) {
+    throw errors.badRequest('Too many incorrect attempts. Ask the parent to start again.');
+  }
+  if (hashPin(pin) !== booking.startPinHash) {
+    // Atomically bump the attempt count only while it still matches what we read,
+    // so a burst of parallel guesses can't slip past the cap (updateMany allows
+    // the non-unique guard in the where clause).
+    await prisma.booking.updateMany({
+      where: { id: bookingId, startPinAttempts: booking.startPinAttempts },
+      data: { startPinAttempts: { increment: 1 } },
+    });
+    throw errors.badRequest('Incorrect PIN.');
+  }
+
   validateStatusTransition(booking.status, BookingStatus.IN_PROGRESS);
 
   const updated = await prisma.booking.update({
@@ -993,6 +1084,10 @@ export async function checkInBooking(
     data: {
       status: BookingStatus.IN_PROGRESS,
       nannyCheckedInAt: now,
+      // Clear the PIN so the code can't be reused.
+      startPinHash: null,
+      startPinExpiresAt: null,
+      startPinAttempts: 0,
     },
     include: bookingInclude,
   });

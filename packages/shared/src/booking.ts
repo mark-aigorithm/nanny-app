@@ -146,6 +146,12 @@ export const BookingResponseSchema = z.object({
   cancelledAt: z.string().nullable(),
   nannyCheckedInAt: z.string().nullable(),
   nannyCheckedOutAt: z.string().nullable(),
+  /**
+   * True when the parent has generated a still-valid start PIN. Lets the nanny
+   * UI show "waiting for the parent" vs "enter the PIN". Never carries the PIN
+   * itself — the raw code is only returned by POST /bookings/:id/start-pin.
+   */
+  startPinActive: z.boolean(),
   payment: BookingPaymentSummarySchema.nullable(),
   myReview: BookingMyReviewSchema.nullable(),
   createdAt: z.string(),
@@ -225,6 +231,19 @@ export const CancelBookingSchema = z.object({
 });
 export type CancelBookingRequest = z.infer<typeof CancelBookingSchema>;
 
+/** Nanny check-in body — the 4-digit start PIN the parent revealed. */
+export const CheckInBookingSchema = z.object({
+  pin: z.string().regex(/^\d{4}$/, 'PIN must be 4 digits'),
+});
+export type CheckInBookingRequest = z.infer<typeof CheckInBookingSchema>;
+
+/** Parent-only response from POST /bookings/:id/start-pin — the plaintext PIN, returned once. */
+export const GenerateStartPinResponseSchema = z.object({
+  pin: z.string(),
+  expiresAt: z.string(),
+});
+export type GenerateStartPinResponse = z.infer<typeof GenerateStartPinResponseSchema>;
+
 /** Demo-only: simulates payment success or failure without a real payment provider. */
 export const MockPayBookingSchema = z.object({
   method: PaymentMethodSchema,
@@ -250,6 +269,9 @@ export type CreatePaymobIntentionRequest = z.infer<typeof CreatePaymobIntentionS
 
 /** Minutes before scheduled start when nanny may check in (must match backend). */
 export const CHECK_IN_EARLY_MINUTES = 15;
+
+/** How long a parent-generated start PIN stays valid (must match backend). */
+export const START_PIN_TTL_MINUTES = 20;
 
 export const BookingListQuerySchema = z.object({
   /** Comma-separated statuses, e.g. "CONFIRMED,IN_PROGRESS" */

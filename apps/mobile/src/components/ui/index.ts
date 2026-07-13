@@ -1,6 +1,7 @@
 export { default as ScreenContainer } from './screen-container';
 export { default as Button } from './button';
 export { default as TextInputField } from './text-input';
+export { default as PinInput } from './pin-input';
 export { default as Card } from './card';
 export { default as Chip } from './chip';
 export { default as IconCircle } from './icon-circle';

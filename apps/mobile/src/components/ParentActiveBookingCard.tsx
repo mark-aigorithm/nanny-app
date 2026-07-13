@@ -6,6 +6,7 @@ import type { BookingResponse } from '@nanny-app/shared';
 
 import { colors, fontFamily, spacing, borderRadius, shadows } from '@mobile/theme';
 import { useBookingList, fmtBookingDate } from '@mobile/hooks/useBookings';
+import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
 
 // The mother's live order, Uber-style: always visible on Home so she can jump
 // back to "finding a nanny", pay the moment one accepts, or track the visit.
@@ -119,6 +120,7 @@ export default function ParentActiveBookingCard() {
   const subColor = look.dark ? colors.white : colors.textSecondary;
 
   return (
+    <View style={styles.wrap}>
     <Pressable
       style={({ pressed }) => [
         styles.container,
@@ -160,10 +162,16 @@ export default function ParentActiveBookingCard() {
         <Ionicons name="chevron-forward" size={18} color={look.dark ? colors.white : colors.primary} />
       </View>
     </Pressable>
+
+      <ParentStartPinCard booking={active} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    gap: spacing.md,
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',

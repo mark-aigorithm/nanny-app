@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BookingResponse } from '@nanny-app/shared';
 
@@ -10,11 +10,11 @@ import {
   borderRadius,
   shadows,
 } from '@mobile/theme';
-import { useCheckIn, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import {
   showConfirmEndPrompt,
-  showConfirmStartPrompt,
+  showEnterPinPrompt,
   showShiftErrorPrompt,
 } from '@mobile/store/nannyShiftPromptStore';
 
@@ -22,17 +22,12 @@ interface Props {
   bookings: BookingResponse[];
 }
 
-export function confirmStartShift(
-  booking: BookingResponse,
-  checkIn: ReturnType<typeof useCheckIn>,
-  onSuccess?: () => void,
-): void {
-  showConfirmStartPrompt(booking, () => {
-    checkIn.mutate(booking.id, {
-      onSuccess,
-      onError: (err) => showShiftErrorPrompt('Could not start shift', err.message),
-    });
-  });
+/**
+ * Opens the parent-PIN entry so the nanny can start the shift. The actual
+ * check-in mutation runs inside the PIN modal once the correct code is entered.
+ */
+export function confirmStartShift(booking: BookingResponse): void {
+  showEnterPinPrompt(booking);
 }
 
 export function confirmEndShift(
@@ -48,7 +43,6 @@ export function confirmEndShift(
   });
 }
 export default function UpcomingShiftBanner({ bookings }: Props) {
-  const checkIn = useCheckIn();
   const { nearestBooking, phase, countdownLabel, canCheckIn } = useBookingShiftTimer(bookings);
 
   if (!nearestBooking || phase === 'idle' || phase === 'in_progress') {
@@ -86,16 +80,11 @@ export default function UpcomingShiftBanner({ bookings }: Props) {
       {canCheckIn ? (
         <Pressable
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-          onPress={() => confirmStartShift(nearestBooking, checkIn)}
-          disabled={checkIn.isPending}
+          onPress={() => confirmStartShift(nearestBooking)}
           accessibilityRole="button"
           accessibilityLabel={`Start shift with ${motherName}`}
         >
-          {checkIn.isPending ? (
-            <ActivityIndicator color={colors.white} size="small" />
-          ) : (
-            <Text style={styles.ctaText}>Start</Text>
-          )}
+          <Text style={styles.ctaText}>Start</Text>
         </Pressable>
       ) : null}
     </View>

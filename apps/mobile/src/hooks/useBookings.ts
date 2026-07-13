@@ -3,6 +3,7 @@ import type {
   BookingListQuery,
   BookingResponse,
   CreateBookingRequest,
+  GenerateStartPinResponse,
   MockPayBookingRequest,
   PricingConfig,
   ValidateBookingPromoRequest,
@@ -196,10 +197,22 @@ export function useDeclineBooking() {
   });
 }
 
+/**
+ * Parent reveals the 4-digit start PIN for a booking within the check-in window.
+ * The plaintext PIN is only ever returned here — never on the booking itself.
+ */
+export function useGenerateStartPin() {
+  const qc = useQueryClient();
+  return useMutation<GenerateStartPinResponse, Error, string>({
+    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/start-pin`)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
 export function useCheckIn() {
   const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, string>({
-    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/check-in`)),
+  return useMutation<BookingResponse, Error, { id: string; pin: string }>({
+    mutationFn: ({ id, pin }) => unwrap(api.post(`/bookings/${id}/check-in`, { pin })),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
 }

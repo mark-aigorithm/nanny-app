@@ -3,6 +3,8 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import {
   BookingListQuerySchema,
   CancelBookingSchema,
+  type CheckInBookingRequest,
+  CheckInBookingSchema,
   CreateBookingSchema,
   CreateCareLogSchema,
   CreatePaymobIntentionSchema,
@@ -22,6 +24,7 @@ import {
   checkOutBooking,
   createBooking,
   declineBooking,
+  generateStartPin,
   getBooking,
   getBookingPricingConfig,
   listAvailableBookings,
@@ -220,13 +223,32 @@ bookingRouter.post(
   },
 );
 
+// Parent reveals the 4-digit start PIN. Mother-only; enforced in the service.
 bookingRouter.post(
-  '/:id/check-in',
+  '/:id/start-pin',
   requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await checkInBooking(req.firebaseUser, String(req.params['id']));
+      const result = await generateStartPin(req.firebaseUser, String(req.params['id']));
+      res.json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/check-in',
+  requireAuth,
+  validateBody(CheckInBookingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const { pin } = req.body as CheckInBookingRequest;
+      const booking = await checkInBooking(
+        req.firebaseUser,
+        String(req.params['id']),
+        pin,
+      );
       res.json(ok(booking));
     } catch (err) { next(err); }
   },

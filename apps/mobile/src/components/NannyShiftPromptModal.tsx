@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Button } from '@mobile/components/ui';
+import { Button, PinInput } from '@mobile/components/ui';
 import { fmtBookingDate, fmtBookingTime, useCheckIn } from '@mobile/hooks/useBookings';
 import {
   colors,
@@ -20,9 +20,12 @@ import {
   typeScale,
 } from '@mobile/theme';
 import {
+  showEnterPinPrompt,
   useNannyShiftPromptStore,
   type ShiftPromptState,
 } from '@mobile/store/nannyShiftPromptStore';
+
+const PIN_LENGTH = 4;
 
 function PromptIcon({ prompt }: { prompt: ShiftPromptState }) {
   if (prompt.kind === 'confirm_end') {
@@ -37,6 +40,14 @@ function PromptIcon({ prompt }: { prompt: ShiftPromptState }) {
     return (
       <View style={[styles.iconCircle, { backgroundColor: colors.errorLight }]}>
         <Ionicons name="alert-circle-outline" size={28} color={colors.error} />
+      </View>
+    );
+  }
+
+  if (prompt.kind === 'enter_pin') {
+    return (
+      <View style={[styles.iconCircle, { backgroundColor: colors.primaryMuted }]}>
+        <Ionicons name="keypad-outline" size={28} color={colors.primary} />
       </View>
     );
   }
@@ -63,27 +74,51 @@ export default function NannyShiftPromptModal() {
   const dismissPrompt = useNannyShiftPromptStore((s) => s.dismissPrompt);
   const checkIn = useCheckIn();
 
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  // Reset the PIN entry whenever a new prompt opens (or it closes).
+  const promptKey = prompt ? `${prompt.kind}:${prompt.booking?.id ?? ''}` : null;
+  useEffect(() => {
+    setPin('');
+    setPinError(null);
+  }, [promptKey]);
+
   if (!prompt) return null;
+
+  const isPinPrompt = prompt.kind === 'enter_pin';
 
   const bookingMeta =
     prompt.booking != null
       ? `${fmtBookingDate(prompt.booking.date)} · ${fmtBookingTime(prompt.booking.startTime, prompt.booking.endTime)}`
       : null;
 
-  const handleConfirm = () => {
-    if (prompt.kind === 'shift_window' && prompt.booking) {
-      checkIn.mutate(prompt.booking.id, {
+  const submitPin = (code: string) => {
+    if (!prompt.booking || code.length !== PIN_LENGTH || checkIn.isPending) return;
+    setPinError(null);
+    checkIn.mutate(
+      { id: prompt.booking.id, pin: code },
+      {
         onSuccess: () => dismissPrompt(),
         onError: (err) => {
-          dismissPrompt();
-          useNannyShiftPromptStore.getState().showPrompt({
-            kind: 'error',
-            title: 'Could not start shift',
-            message: err.message,
-            confirmLabel: 'OK',
-          });
+          // Keep the modal open so the nanny can retry the code.
+          setPin('');
+          setPinError(err.message);
         },
-      });
+      },
+    );
+  };
+
+  const handleConfirm = () => {
+    // The parent must reveal the PIN before the nanny can start — the auto shift
+    // prompt now hands off to the PIN entry instead of checking in directly.
+    if (prompt.kind === 'shift_window' && prompt.booking) {
+      showEnterPinPrompt(prompt.booking);
+      return;
+    }
+
+    if (prompt.kind === 'enter_pin') {
+      submitPin(pin);
       return;
     }
 
@@ -103,7 +138,8 @@ export default function NannyShiftPromptModal() {
   const showSecondary = prompt.kind !== 'error';
   const confirmVariant =
     prompt.kind === 'confirm_end' ? 'destructive' : 'primary';
-  const isLoading = prompt.kind === 'shift_window' && checkIn.isPending;
+  const isLoading = isPinPrompt && checkIn.isPending;
+  const confirmDisabled = isPinPrompt && (pin.length !== PIN_LENGTH || checkIn.isPending);
 
   return (
     <Modal
@@ -133,13 +169,29 @@ export default function NannyShiftPromptModal() {
 
           {bookingMeta ? <Text style={styles.meta}>{bookingMeta}</Text> : null}
 
+          {isPinPrompt ? (
+            <View style={styles.pinWrap}>
+              <PinInput
+                value={pin}
+                onChangeText={(v) => {
+                  setPin(v);
+                  if (pinError) setPinError(null);
+                }}
+                length={PIN_LENGTH}
+                error={pinError != null}
+                onComplete={submitPin}
+              />
+              {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
+            </View>
+          ) : null}
+
           <View style={styles.actions}>
             <Button
               title={prompt.confirmLabel ?? 'Confirm'}
               onPress={handleConfirm}
               variant={confirmVariant}
               loading={isLoading}
-              disabled={isLoading}
+              disabled={isLoading || confirmDisabled}
             />
 
             {showSecondary ? (
@@ -227,6 +279,18 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.xxs,
+  },
+  pinWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  pinError: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    color: colors.error,
+    textAlign: 'center',
   },
   actions: {
     width: '100%',

@@ -482,6 +482,13 @@ model Booking {
   cancelledAt             DateTime?     @map("cancelled_at")
   nannyCheckedInAt        DateTime?     @map("nanny_checked_in_at")
   nannyCheckedOutAt       DateTime?     @map("nanny_checked_out_at")
+  /// Parent-generated hand-off PIN gating nanny check-in. The parent reveals a
+  /// 4-digit code within the check-in window; the nanny must enter it to start.
+  /// Stored hashed (sha-256) and cleared on successful check-in. See booking.service.
+  startPinHash            String?       @map("start_pin_hash")
+  startPinGeneratedAt     DateTime?     @map("start_pin_generated_at")
+  startPinExpiresAt       DateTime?     @map("start_pin_expires_at")
+  startPinAttempts        Int           @default(0) @map("start_pin_attempts")
   replacementForBookingId String?       @map("replacement_for_booking_id")
   replacementForBooking   Booking?      @relation("BookingReplacement",  fields: [replacementForBookingId], references: [id])
   replacementBookings     Booking[]     @relation("BookingReplacement")

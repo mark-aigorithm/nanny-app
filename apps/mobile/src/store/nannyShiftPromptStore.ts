@@ -5,6 +5,7 @@ export type ShiftPromptKind =
   | 'shift_window'
   | 'confirm_start'
   | 'confirm_end'
+  | 'enter_pin'
   | 'error';
 
 export interface ShiftPromptState {
@@ -65,6 +66,21 @@ export function showConfirmStartPrompt(
     message: `Start shift with ${motherName}? She will be notified that care has begun.`,
     confirmLabel: 'Start shift',
     onConfirm,
+  });
+}
+
+/**
+ * Opens the 4-digit PIN entry so the nanny can start the shift. The parent must
+ * have revealed the code on her phone; the nanny types it here to check in.
+ */
+export function showEnterPinPrompt(booking: BookingResponse): void {
+  const motherName = `${booking.motherFirstName} ${booking.motherLastName}`;
+  useNannyShiftPromptStore.getState().showPrompt({
+    kind: 'enter_pin',
+    booking,
+    title: 'Enter start PIN',
+    message: `Ask ${motherName} for the 4-digit code on her phone, then enter it to start the shift.`,
+    confirmLabel: 'Start shift',
   });
 }
 

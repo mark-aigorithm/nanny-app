@@ -17,7 +17,6 @@ import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import {
   useAvailableBookings,
   useBookingList,
-  useCheckIn,
   useCheckOut,
   useAcceptBooking,
   fmtBookingDate,
@@ -76,7 +75,6 @@ export default function NannyRequestsScreen() {
   const refetch = isRequestsTab ? available.refetch : owned.refetch;
 
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
-  const checkIn = useCheckIn();
   const checkOut = useCheckOut();
   const acceptBooking = useAcceptBooking();
   const { nearestBooking, canCheckIn, canCheckOut } = useBookingShiftTimer(
@@ -171,8 +169,7 @@ export default function NannyRequestsScreen() {
             {showStart ? (
               <Pressable
                 style={styles.acceptButton}
-                onPress={() => confirmStartShift(booking, checkIn)}
-                disabled={checkIn.isPending}
+                onPress={() => confirmStartShift(booking)}
               >
                 <Text style={styles.acceptButtonText}>Start shift</Text>
               </Pressable>
