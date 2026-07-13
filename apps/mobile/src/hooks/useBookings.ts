@@ -52,6 +52,30 @@ export function useBooking(id: string | undefined, pollWhilePending = false) {
   });
 }
 
+/** Apply Care Points to an approved booking before payment (lowers the total). */
+export function useRedeemBookingPoints() {
+  const queryClient = useQueryClient();
+  return useMutation<BookingResponse, Error, { id: string; hours: number }>({
+    mutationFn: ({ id, hours }) => unwrap(api.post(`/bookings/${id}/redeem-points`, { hours })),
+    onSuccess: (booking) => {
+      queryClient.setQueryData([BOOKINGS_KEY, booking.id], booking);
+      void queryClient.invalidateQueries({ queryKey: ['rewards'] });
+    },
+  });
+}
+
+/** Remove/refund Care Points applied to a booking (also used on payment failure). */
+export function useRefundBookingPoints() {
+  const queryClient = useQueryClient();
+  return useMutation<BookingResponse, Error, string>({
+    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/redeem-points/refund`)),
+    onSuccess: (booking) => {
+      queryClient.setQueryData([BOOKINGS_KEY, booking.id], booking);
+      void queryClient.invalidateQueries({ queryKey: ['rewards'] });
+    },
+  });
+}
+
 /**
  * The open broadcast pool a nanny can claim: unassigned PENDING requests she is
  * eligible for. First nanny to accept wins.
