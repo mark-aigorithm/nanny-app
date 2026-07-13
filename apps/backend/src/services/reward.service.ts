@@ -7,6 +7,7 @@ import type {
   RewardHistoryResponse,
   RewardLedgerEntry,
   RewardWallet,
+  RewardWalletListQuery,
   RewardWalletSummary,
   UpdateRewardConfigInput,
 } from '@nanny-app/shared';
@@ -412,42 +413,50 @@ export async function grantPoints(input: {
 // ── Admin: wallet directory + history ──────────────────────────
 
 /** Parent accounts with their Care Points balances (admin User Wallets tab). */
-export async function listWallets(search?: string): Promise<RewardWalletSummary[]> {
+export async function listWallets(
+  { page, limit, search }: RewardWalletListQuery,
+): Promise<{ wallets: RewardWalletSummary[]; meta: PaginationMeta }> {
   const trimmed = search?.trim();
-  const rows = await prisma.user.findMany({
-    where: {
-      role: 'MOTHER',
-      deletedAt: null,
-      ...(trimmed
-        ? {
-            OR: [
-              { firstName: { contains: trimmed, mode: 'insensitive' } },
-              { lastName: { contains: trimmed, mode: 'insensitive' } },
-              { email: { contains: trimmed, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      avatarUrl: true,
-      rewardWallet: {
-        select: {
-          userId: true,
-          pointsBalance: true,
-          lifetimeEarned: true,
-          lifetimeRedeemed: true,
+  const where: Prisma.UserWhereInput = {
+    role: 'MOTHER',
+    deletedAt: null,
+    ...(trimmed
+      ? {
+          OR: [
+            { firstName: { contains: trimmed, mode: 'insensitive' } },
+            { lastName: { contains: trimmed, mode: 'insensitive' } },
+            { email: { contains: trimmed, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [total, rows] = await prisma.$transaction([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        avatarUrl: true,
+        rewardWallet: {
+          select: {
+            userId: true,
+            pointsBalance: true,
+            lifetimeEarned: true,
+            lifetimeRedeemed: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 200,
-  });
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
 
-  return rows.map((row) => ({
+  const wallets = rows.map((row) => ({
     userId: row.id,
     name: displayName(row.firstName, row.lastName),
     email: row.email,
@@ -456,6 +465,11 @@ export async function listWallets(search?: string): Promise<RewardWalletSummary[
     lifetimeEarned: row.rewardWallet?.lifetimeEarned ?? 0,
     lifetimeRedeemed: row.rewardWallet?.lifetimeRedeemed ?? 0,
   }));
+
+  return {
+    wallets,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
+  };
 }
 
 /** Single user's wallet summary (admin drill-in header). */

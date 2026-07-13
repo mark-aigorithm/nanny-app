@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import type { RewardWalletSummary } from '@nanny-app/shared';
+import { ADMIN_PAGE_SIZES, type RewardWalletSummary } from '@nanny-app/shared';
 
 import {
   ActionMenu,
@@ -12,11 +12,13 @@ import {
   ICON_SIZE,
   Input,
   MenuItem,
+  Pagination,
   Table,
   TableSkeleton,
 } from '@admin/components/ui';
 import { fetchRewardWallets } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { usePagination } from '@admin/lib/use-pagination';
 
 import { GrantPointsModal } from './grant-points-modal';
 import { WalletHistoryModal } from './wallet-history-modal';
@@ -31,23 +33,27 @@ function initials(name: string): string {
 }
 
 export function RewardWalletsTab() {
-  const { data: wallets, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['reward-wallets'],
-    queryFn: fetchRewardWallets,
-  });
-
+  const { page, limit, setPage, setLimit } = usePagination();
   const [search, setSearch] = useState('');
+  // Server-side search, debounced so we don't refetch on every keystroke.
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [historyFor, setHistoryFor] = useState<RewardWalletSummary | null>(null);
   const [grantFor, setGrantFor] = useState<RewardWalletSummary | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!wallets) return wallets;
-    const q = search.trim().toLowerCase();
-    if (!q) return wallets;
-    return wallets.filter(
-      (w) => w.name.toLowerCase().includes(q) || w.email.toLowerCase().includes(q),
-    );
-  }, [wallets, search]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedSearch(search.trim());
+      setPage(1); // A new search starts from the first page.
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, setPage]);
+
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['reward-wallets', page, limit, appliedSearch],
+    queryFn: () => fetchRewardWallets({ page, limit, search: appliedSearch || undefined }),
+  });
+  const wallets = data?.data;
+  const meta = data?.meta;
 
   const columns: Column<RewardWalletSummary>[] = [
     {
@@ -125,7 +131,7 @@ export function RewardWalletsTab() {
         />
       </div>
 
-      {isLoading && <TableSkeleton columns={6} />}
+      {isLoading && <TableSkeleton columns={5} />}
       {error != null && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -133,12 +139,24 @@ export function RewardWalletsTab() {
           retrying={isFetching}
         />
       )}
-      {filtered && (
+      {wallets && (
         <Table
           columns={columns}
-          rows={filtered}
+          rows={wallets}
           rowKey={(w) => w.userId}
-          empty={search ? 'No parents match your search.' : 'No parent wallets yet.'}
+          empty={appliedSearch ? 'No parents match your search.' : 'No parent wallets yet.'}
+        />
+      )}
+      {wallets && meta && (
+        <Pagination
+          page={meta.page}
+          totalPages={meta.totalPages}
+          total={meta.total}
+          limit={meta.limit}
+          onPageChange={setPage}
+          limitOptions={ADMIN_PAGE_SIZES}
+          onLimitChange={setLimit}
+          label="wallets"
         />
       )}
 

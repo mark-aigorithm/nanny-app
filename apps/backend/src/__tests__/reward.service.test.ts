@@ -8,7 +8,7 @@ jest.mock('@backend/db/prisma', () => ({
       count: jest.fn(),
       findMany: jest.fn(),
     },
-    user: { findFirst: jest.fn(), findMany: jest.fn() },
+    user: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -28,6 +28,7 @@ import {
   awardPointsForBooking,
   getRewardConfig,
   grantPoints,
+  listWallets,
   refundBookingRedemption,
   updateRewardConfig,
 } from '@backend/services/reward.service';
@@ -41,7 +42,7 @@ const mockPrisma = prisma as unknown as {
     count: jest.Mock;
     findMany: jest.Mock;
   };
-  user: { findFirst: jest.Mock; findMany: jest.Mock };
+  user: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
   $transaction: jest.Mock;
 };
 
@@ -338,5 +339,77 @@ describe('refundBookingRedemption', () => {
       points: 0,
     });
     expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('listWallets (paginated)', () => {
+  function makeUserRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'user-1',
+      firstName: 'Nour',
+      lastName: 'Ibrahim',
+      email: 'nour@example.com',
+      avatarUrl: null,
+      rewardWallet: {
+        userId: 'user-1',
+        pointsBalance: 120,
+        lifetimeEarned: 200,
+        lifetimeRedeemed: 80,
+      },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    // listWallets uses the array form of $transaction.
+    mockPrisma.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
+  });
+
+  it('applies skip/take for the page and returns the wallet DTOs + meta', async () => {
+    mockPrisma.user.count.mockResolvedValue(42);
+    mockPrisma.user.findMany.mockResolvedValue([makeUserRow()]);
+
+    const { wallets, meta } = await listWallets({ page: 2, limit: 10 });
+
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 }),
+    );
+    expect(wallets[0]).toEqual({
+      userId: 'user-1',
+      name: 'Nour Ibrahim',
+      email: 'nour@example.com',
+      avatarUrl: null,
+      pointsBalance: 120,
+      lifetimeEarned: 200,
+      lifetimeRedeemed: 80,
+    });
+    expect(meta).toEqual({ page: 2, limit: 10, total: 42, totalPages: 5 });
+  });
+
+  it('passes a case-insensitive name/email search into the where clause', async () => {
+    mockPrisma.user.count.mockResolvedValue(1);
+    mockPrisma.user.findMany.mockResolvedValue([makeUserRow()]);
+
+    await listWallets({ page: 1, limit: 20, search: 'nour' });
+
+    const where = mockPrisma.user.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([
+      { firstName: { contains: 'nour', mode: 'insensitive' } },
+      { lastName: { contains: 'nour', mode: 'insensitive' } },
+      { email: { contains: 'nour', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('defaults a wallet-less parent to zeroed balances', async () => {
+    mockPrisma.user.count.mockResolvedValue(1);
+    mockPrisma.user.findMany.mockResolvedValue([makeUserRow({ rewardWallet: null })]);
+
+    const { wallets } = await listWallets({ page: 1, limit: 20 });
+
+    expect(wallets[0]).toMatchObject({
+      pointsBalance: 0,
+      lifetimeEarned: 0,
+      lifetimeRedeemed: 0,
+    });
   });
 });

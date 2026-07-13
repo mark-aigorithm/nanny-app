@@ -59,9 +59,13 @@ export async function updateRewardConfig(
   return res.data.data;
 }
 
-export async function fetchRewardWallets(): Promise<RewardWalletSummary[]> {
-  const res = await apiClient.get<ApiEnvelope<RewardWalletSummary[]>>('/admin/rewards/wallets');
-  return res.data.data;
+export async function fetchRewardWallets(
+  { page, limit, search }: { page: number; limit: number; search?: string },
+): Promise<Paged<RewardWalletSummary[]>> {
+  const res = await apiClient.get<PagedEnvelope<RewardWalletSummary[]>>('/admin/rewards/wallets', {
+    params: { page, limit, ...(search ? { search } : {}) },
+  });
+  return { data: res.data.data, meta: res.data.meta };
 }
 
 export async function fetchWalletHistory(userId: string): Promise<RewardLedgerEntry[]> {

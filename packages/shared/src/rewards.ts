@@ -104,3 +104,12 @@ export const RewardHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(20),
 });
 export type RewardHistoryQuery = z.infer<typeof RewardHistoryQuerySchema>;
+
+/** Paginated + searchable query for the admin User Wallets list. */
+export const RewardWalletListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(200).default(20),
+  /** Case-insensitive match against the parent's name or email. */
+  search: z.string().trim().max(200).optional(),
+});
+export type RewardWalletListQuery = z.infer<typeof RewardWalletListQuerySchema>;

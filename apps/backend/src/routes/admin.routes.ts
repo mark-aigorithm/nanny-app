@@ -15,6 +15,8 @@ import {
   GrantPointsSchema,
   PricePreviewSchema,
   RewardHistoryQuerySchema,
+  RewardWalletListQuerySchema,
+  type RewardWalletListQuery,
   RejectAdminBookingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
@@ -557,10 +559,12 @@ adminRouter.put(
 
 adminRouter.get(
   '/rewards/wallets',
-  async (req: Request, res: Response, next: NextFunction) => {
+  validateQuery(RewardWalletListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const search = typeof req.query.search === 'string' ? req.query.search : undefined;
-      res.json(ok(await listWallets(search)));
+      const { page, limit, search } = res.locals['validatedQuery'] as RewardWalletListQuery;
+      const { wallets, meta } = await listWallets({ page, limit, search });
+      res.json(okPaged(wallets, meta));
     } catch (err) {
       next(err);
     }
