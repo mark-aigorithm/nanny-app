@@ -3,7 +3,16 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { UpdatePlatformConfigSchema } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field, PageHeader } from '@admin/components/ui';
+import {
+  Button,
+  Card,
+  ErrorState,
+  Feedback,
+  Field,
+  LoadingState,
+  PageHeader,
+  useToast,
+} from '@admin/components/ui';
 import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
@@ -46,14 +55,14 @@ const FIELDS: ConfigField[] = [
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
-  const { data: config, isLoading, error } = useQuery({
+  const toast = useToast();
+  const { data: config, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['platform-config'],
     queryFn: fetchPlatformConfig,
   });
 
   const [form, setForm] = useState<Record<BookingLimitKey, string> | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (config && form === null) {
@@ -71,15 +80,14 @@ export function SettingsPage() {
     onSuccess: (updated) => {
       queryClient.setQueryData(['platform-config'], updated);
       setFormError(null);
-      setSaved(true);
+      toast.success('Settings saved', 'New values apply to every new booking.');
     },
-    onError: (err) => setFormError(apiErrorMessage(err)),
+    onError: (err) => toast.error('Couldn’t save settings', apiErrorMessage(err)),
   });
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!form) return;
-    setSaved(false);
     const parsed = UpdatePlatformConfigSchema.safeParse({
       maxBookingHours: Number(form.maxBookingHours),
       minBookingHours: Number(form.minBookingHours),
@@ -95,6 +103,7 @@ export function SettingsPage() {
       setFormError('Min booking hours cannot exceed max booking hours');
       return;
     }
+    setFormError(null);
     saveMutation.mutate(parsed.data);
   }
 
@@ -104,14 +113,17 @@ export function SettingsPage() {
         title="Configuration"
         subtitle="Booking-window limits applied to every new booking. Rates and fees live on the Pricing & Fees page."
       />
-      {(isLoading || !form) && (
+      {isLoading && (
         <Card>
-          {error != null ? (
-            <Feedback tone="error">{apiErrorMessage(error)}</Feedback>
-          ) : (
-            <p>Loading configuration…</p>
-          )}
+          <LoadingState label="Loading configuration…" />
         </Card>
+      )}
+      {error != null && (
+        <ErrorState
+          message={apiErrorMessage(error)}
+          onRetry={() => void refetch()}
+          retrying={isFetching}
+        />
       )}
       {form && (
         <Card>
@@ -124,17 +136,13 @@ export function SettingsPage() {
                     min="0"
                     step={field.step ?? '1'}
                     value={form[field.key]}
-                    onChange={(e) => {
-                      setSaved(false);
-                      setForm({ ...form, [field.key]: e.target.value });
-                    }}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
                     required
                   />
                 </Field>
               ))}
             </div>
             {formError && <Feedback tone="error">{formError}</Feedback>}
-            {saved && <Feedback tone="success">Settings saved.</Feedback>}
             <Button type="submit" disabled={saveMutation.isPending}>
               {saveMutation.isPending ? 'Saving…' : 'Save settings'}
             </Button>

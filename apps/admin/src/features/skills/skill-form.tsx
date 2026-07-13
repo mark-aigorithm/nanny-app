@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 
 import { CreateSkillSchema } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field } from '@admin/components/ui';
+import { Button, Card, Feedback, Field, Select } from '@admin/components/ui';
 import { createSkill } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
@@ -60,15 +60,18 @@ export function SkillForm() {
               placeholder="Fluent French for bilingual households"
             />
           </Field>
-          <Field label="Status" hint="Inactive skills can't be assigned or filtered on.">
-            <select
+          <div className="field">
+            <span className="field-label">Status</span>
+            <Select
               value={isActive ? 'active' : 'inactive'}
-              onChange={(e) => setIsActive(e.target.value === 'active')}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </Field>
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ]}
+              onChange={(value) => setIsActive(value === 'active')}
+            />
+            <span className="field-hint">Inactive skills can't be assigned or filtered on.</span>
+          </div>
         </div>
         {formError && <Feedback tone="error">{formError}</Feedback>}
         <Button type="submit" disabled={createMutation.isPending}>

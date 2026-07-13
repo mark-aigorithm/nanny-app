@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 
 import { CreateCameraSchema, UpdateCameraSchema, type Camera } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field } from '@admin/components/ui';
+import { Button, Card, Feedback, Field, Select } from '@admin/components/ui';
 import { createCamera, fetchNannyOptions, updateCamera } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
@@ -86,19 +86,22 @@ export function CameraForm({ editing, onDone }: CameraFormProps) {
               required
             />
           </Field>
-          <Field label="Assigned nanny" hint="Leave unassigned if not linked to a nanny.">
-            <select
+          <div className="field">
+            <span className="field-label">Assigned nanny</span>
+            <Select
               value={nannyUserId}
-              onChange={(e) => setNannyUserId(e.target.value)}
-            >
-              <option value="">Unassigned</option>
-              {nannyOptions?.map((option) => (
-                <option key={option.userId} value={option.userId}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+              placeholder="Unassigned"
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...(nannyOptions?.map((option) => ({
+                  value: option.userId,
+                  label: option.name,
+                })) ?? []),
+              ]}
+              onChange={setNannyUserId}
+            />
+            <span className="field-hint">Leave unassigned if not linked to a nanny.</span>
+          </div>
         </div>
         {formError && <Feedback tone="error">{formError}</Feedback>}
         <div className="row-actions">

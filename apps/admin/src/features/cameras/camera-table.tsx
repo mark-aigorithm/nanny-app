@@ -1,9 +1,23 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import type { Camera } from '@nanny-app/shared';
 
-import { Badge, Button, Card } from '@admin/components/ui';
+import {
+  ActionMenu,
+  Badge,
+  type Column,
+  ConfirmDialog,
+  ICON_SIZE,
+  MenuItem,
+  MenuSeparator,
+  Pencil,
+  Table,
+  Trash2,
+  useToast,
+} from '@admin/components/ui';
 import { deleteCamera } from '@admin/lib/api';
+import { apiErrorMessage } from '@admin/lib/api-error';
 
 type CameraTableProps = {
   cameras: Camera[];
@@ -12,74 +26,80 @@ type CameraTableProps = {
 
 export function CameraTable({ cameras, onEdit }: CameraTableProps) {
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const [deleting, setDeleting] = useState<Camera | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: deleteCamera,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cameras'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['cameras'] });
+      setDeleting(null);
+      toast.success('Camera deleted');
+    },
+    onError: (err) => toast.error('Couldn’t delete camera', apiErrorMessage(err)),
   });
 
-  if (cameras.length === 0) {
-    return (
-      <Card>
-        <p className="empty-state">No cameras yet — add the first one above.</p>
-      </Card>
-    );
-  }
+  const columns: Column<Camera>[] = [
+    { key: 'name', header: 'Name', render: (camera) => camera.name },
+    {
+      key: 'stream',
+      header: 'Stream URL',
+      render: (camera) => (
+        <a href={camera.streamUrl} target="_blank" rel="noreferrer">
+          {camera.streamUrl}
+        </a>
+      ),
+    },
+    {
+      key: 'nanny',
+      header: 'Nanny',
+      render: (camera) =>
+        camera.nannyName ? camera.nannyName : <Badge tone="neutral">Unassigned</Badge>,
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      nowrap: true,
+      render: (camera) => new Date(camera.createdAt).toLocaleDateString(),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (camera) => (
+        <ActionMenu label={`Actions for ${camera.name}`}>
+          <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => onEdit(camera)}>
+            Edit
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(camera)}>
+            Delete
+          </MenuItem>
+        </ActionMenu>
+      ),
+    },
+  ];
 
   return (
-    <Card flush>
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Stream URL</th>
-              <th>Nanny</th>
-              <th>Created</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {cameras.map((camera) => (
-              <tr key={camera.id}>
-                <td>{camera.name}</td>
-                <td>
-                  <a href={camera.streamUrl} target="_blank" rel="noreferrer">
-                    {camera.streamUrl}
-                  </a>
-                </td>
-                <td>
-                  {camera.nannyName ? (
-                    camera.nannyName
-                  ) : (
-                    <Badge tone="neutral">Unassigned</Badge>
-                  )}
-                </td>
-                <td>{new Date(camera.createdAt).toLocaleDateString()}</td>
-                <td>
-                  <div className="row-actions">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(camera)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => {
-                        if (window.confirm(`Delete camera ${camera.name}?`)) {
-                          deleteMutation.mutate(camera.id);
-                        }
-                      }}
-                      disabled={deleteMutation.isPending}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <>
+      <Table
+        columns={columns}
+        rows={cameras}
+        rowKey={(camera) => camera.id}
+        empty="No cameras yet — add the first one above."
+      />
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete camera"
+          message={`Delete “${deleting.name}”? Its stream will stop being available. This can’t be undone.`}
+          confirmLabel="Delete camera"
+          danger
+          busy={deleteMutation.isPending}
+          onConfirm={() => deleteMutation.mutate(deleting.id)}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
+    </>
   );
 }
