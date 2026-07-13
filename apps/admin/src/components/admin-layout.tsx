@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
   { to: '/bookings', label: 'Bookings', icon: CalendarClock },
   { to: '/nannies', label: 'Nannies', icon: UserPlus },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket },
-  { to: '/skills', label: 'Skills', icon: Sparkles },
+  { to: '/skills', label: 'Nanny Skills', icon: Sparkles },
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet },
   { to: '/cameras', label: 'Cameras', icon: Video },
   { to: '/settings', label: 'Configuration', icon: Settings },

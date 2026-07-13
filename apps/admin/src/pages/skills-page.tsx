@@ -15,7 +15,7 @@ export function SkillsPage() {
   return (
     <section>
       <PageHeader
-        title="Skills"
+        title="Nanny Skills"
         subtitle="Curate the specialties nannies can be tagged with (e.g. French speaker, works with disabilities). Assign them to nannies from the New Nannies page."
       />
       <SkillForm />
