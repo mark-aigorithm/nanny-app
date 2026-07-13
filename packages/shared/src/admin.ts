@@ -68,14 +68,19 @@ export type PromoCode = z.infer<typeof PromoCodeSchema>;
 // ──────────────────────────────────────────────────────────────
 
 export const PlatformConfigSchema = z.object({
-  /** Platform service fee taken on each booking, in percent. */
+  /** Legacy platform service fee — retained for back-compat; superseded by the split. */
   serviceFeePercent: z.number().min(0).max(100),
   /**
-   * Fixed hourly rate (EGP) charged for every booking. Bookings no longer use a
-   * per-nanny rate — the mother sees this price up front and any nanny who
-   * claims the request is paid against it.
+   * Base hourly rate (EGP) charged for every booking before any per-skill
+   * add-ons or duration adjustments. Bookings no longer use a per-nanny rate —
+   * the mother sees this price up front and any nanny who claims the request is
+   * paid against it.
    */
   standardHourlyRate: z.number().positive().max(100000),
+  /** Nanny's share of each booking total, in percent. */
+  nannyPercent: z.number().min(0).max(100),
+  /** Platform's share of each booking total, in percent. */
+  platformPercent: z.number().min(0).max(100),
   /** Maximum hours a mother can reserve in a single booking. */
   maxBookingHours: z.number().int().min(1).max(24),
   /** Minimum hours a mother can reserve in a single booking. */
@@ -87,11 +92,29 @@ export const PlatformConfigSchema = z.object({
 });
 export type PlatformConfig = z.infer<typeof PlatformConfigSchema>;
 
-export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial().refine(
-  (v) => Object.keys(v).length > 0,
-  { message: 'Provide at least one setting to update' },
-);
+export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial()
+  .refine((v) => Object.keys(v).length > 0, {
+    message: 'Provide at least one setting to update',
+  })
+  .refine(
+    (v) =>
+      v.nannyPercent === undefined ||
+      v.platformPercent === undefined ||
+      Math.round((v.nannyPercent + v.platformPercent) * 100) === 10000,
+    {
+      message: 'Nanny and platform percentages must add up to 100',
+      path: ['nannyPercent'],
+    },
+  );
 export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchema>;
+
+/** Admin pricing calculator input — previews a full breakdown for a scenario. */
+export const PricePreviewSchema = z.object({
+  durationHours: z.number().positive().max(24),
+  skillIds: z.array(z.string()).default([]),
+  discountAmount: z.number().min(0).optional(),
+});
+export type PricePreviewInput = z.infer<typeof PricePreviewSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Bookings (admin booking review queue)

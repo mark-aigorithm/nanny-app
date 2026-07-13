@@ -1,32 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { PlatformConfigSchema, type PlatformConfig } from '@nanny-app/shared';
+import { UpdatePlatformConfigSchema } from '@nanny-app/shared';
 
 import { Button, Card, Feedback, Field, PageHeader } from '@admin/components/ui';
 import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
+/** Only the booking-window limits live here — pricing lives on Pricing & Fees. */
+type BookingLimitKey =
+  | 'maxBookingHours'
+  | 'minBookingHours'
+  | 'minAdvanceBookingHours'
+  | 'cancellationWindowHours';
+
 type ConfigField = {
-  key: keyof PlatformConfig;
+  key: BookingLimitKey;
   label: string;
   hint: string;
   step?: string;
 };
 
 const FIELDS: ConfigField[] = [
-  {
-    key: 'serviceFeePercent',
-    label: 'Service fee (%)',
-    hint: 'Platform fee taken on each booking.',
-    step: '0.1',
-  },
-  {
-    key: 'standardHourlyRate',
-    label: 'Standard hourly rate (EGP)',
-    hint: 'Fixed hourly rate charged for every booking (parents no longer pick a nanny).',
-    step: '0.5',
-  },
   {
     key: 'maxBookingHours',
     label: 'Max booking hours',
@@ -56,15 +51,13 @@ export function SettingsPage() {
     queryFn: fetchPlatformConfig,
   });
 
-  const [form, setForm] = useState<Record<keyof PlatformConfig, string> | null>(null);
+  const [form, setForm] = useState<Record<BookingLimitKey, string> | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (config && form === null) {
       setForm({
-        serviceFeePercent: String(config.serviceFeePercent),
-        standardHourlyRate: String(config.standardHourlyRate),
         maxBookingHours: String(config.maxBookingHours),
         minBookingHours: String(config.minBookingHours),
         minAdvanceBookingHours: String(config.minAdvanceBookingHours),
@@ -87,9 +80,7 @@ export function SettingsPage() {
     event.preventDefault();
     if (!form) return;
     setSaved(false);
-    const parsed = PlatformConfigSchema.safeParse({
-      serviceFeePercent: Number(form.serviceFeePercent),
-      standardHourlyRate: Number(form.standardHourlyRate),
+    const parsed = UpdatePlatformConfigSchema.safeParse({
       maxBookingHours: Number(form.maxBookingHours),
       minBookingHours: Number(form.minBookingHours),
       minAdvanceBookingHours: Number(form.minAdvanceBookingHours),
@@ -100,7 +91,7 @@ export function SettingsPage() {
       setFormError(issue ? `${issue.path.join('.')}: ${issue.message}` : 'Invalid input');
       return;
     }
-    if (parsed.data.minBookingHours > parsed.data.maxBookingHours) {
+    if (Number(form.minBookingHours) > Number(form.maxBookingHours)) {
       setFormError('Min booking hours cannot exceed max booking hours');
       return;
     }
@@ -111,7 +102,7 @@ export function SettingsPage() {
     <section>
       <PageHeader
         title="Configuration"
-        subtitle="Platform-wide settings applied to every new booking."
+        subtitle="Booking-window limits applied to every new booking. Rates and fees live on the Pricing & Fees page."
       />
       {(isLoading || !form) && (
         <Card>

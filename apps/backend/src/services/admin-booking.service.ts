@@ -19,7 +19,12 @@ import {
   createInAppNotification,
   dispatchPush,
 } from '@backend/services/notification.service';
-import { calculatePriceBreakdown } from '@backend/services/pricing.service';
+import { getRevenueSplit } from '@backend/services/app-settings.service';
+import { listActiveDurationRules } from '@backend/services/duration-rule.service';
+import {
+  calculatePriceBreakdown,
+  resolveDurationMultiplier,
+} from '@backend/services/pricing.service';
 
 const bookingInclude = {
   mother: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -373,11 +378,23 @@ export async function updateBookingTimes(
     await assertNoConflict(booking.nannyProfileId, startTime, endTime, id);
   }
 
+  // Re-price on the new duration using the per-hour rate already snapshotted on
+  // the booking (base rate + any selected skill add-ons), the current duration
+  // tiers and revenue split. selectedSkillFees / effectiveHourlyRate are kept
+  // as-is. Legacy bookings created before effectiveHourlyRate fall back to baseRate.
+  const [split, durationRules] = await Promise.all([
+    getRevenueSplit(),
+    listActiveDurationRules(),
+  ]);
+  const perHour = booking.effectiveHourlyRate.toNumber() || booking.baseRate.toNumber();
+  const durationMultiplier = resolveDurationMultiplier(durationHours, durationRules);
   const breakdown = calculatePriceBreakdown({
-    baseRate: booking.baseRate.toNumber(),
+    baseRate: perHour,
     durationHours,
+    durationMultiplier,
     discountAmount: booking.discountAmount.toNumber(),
-    serviceFeePercent: booking.serviceFeePercent.toNumber(),
+    nannyPercent: split.nannyPercent,
+    platformPercent: split.platformPercent,
   });
 
   const updated = await prisma.booking.update({
@@ -387,9 +404,12 @@ export async function updateBookingTimes(
       endTime,
       durationHours: breakdown.durationHours,
       subtotal: breakdown.subtotal,
+      durationMultiplier: breakdown.durationMultiplier,
       discountAmount: breakdown.discountAmount,
       serviceFeeAmount: breakdown.serviceFeeAmount,
       totalAmount: breakdown.totalAmount,
+      nannyAmount: breakdown.nannyAmount,
+      platformAmount: breakdown.platformAmount,
       adminActionBy: { connect: { id: adminId } },
       adminActionAt: new Date(),
     },

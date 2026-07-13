@@ -1,4 +1,4 @@
-import type { NannyProfile, User } from '@prisma/client';
+import type { DiscountType, NannyProfile, Prisma as PrismaTypes, User } from '@prisma/client';
 import { NannyApprovalStatus, Prisma } from '@prisma/client';
 import {
   BookingStatus,
@@ -35,13 +35,20 @@ const nannySkillsInclude = {
   },
 } as const;
 
-type NannySkillWithSkill = { skill: { id: string; name: string } };
+type NannySkillWithSkill = {
+  skill: { id: string; name: string; feeType: DiscountType | null; feeValue: PrismaTypes.Decimal };
+};
 type ProfileWithSkills = NannyProfile & { nannySkills: NannySkillWithSkill[] };
 type ProfileWithUserAndSkills = ProfileWithSkills & { user: User };
 
-/** Flatten the join rows into the lightweight `{ id, name }` shape clients use. */
+/** Flatten the join rows into the lightweight PublicSkill shape clients use. */
 function toPublicSkills(nannySkills: NannySkillWithSkill[]): PublicSkill[] {
-  return nannySkills.map((ns) => ({ id: ns.skill.id, name: ns.skill.name }));
+  return nannySkills.map((ns) => ({
+    id: ns.skill.id,
+    name: ns.skill.name,
+    feeType: ns.skill.feeType,
+    feeValue: Number(ns.skill.feeValue),
+  }));
 }
 
 function toNannyProfileResponse(
@@ -405,15 +412,15 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
     allBookings,
     repeatClientsRaw,
   ] = await Promise.all([
-    // Nanny earnings are her hourly rate × hours (subtotal) — the service
-    // fee on top belongs to the platform, so totalAmount must not be used.
+    // Nanny earnings are her share of the total under the revenue split
+    // (nannyAmount) — the platform's share must not be counted.
     prisma.booking.aggregate({
       where: { ...baseWhere, status: BookingStatus.COMPLETED, date: { gte: weekStart } },
-      _sum: { subtotal: true },
+      _sum: { nannyAmount: true },
     }),
     prisma.booking.aggregate({
       where: { ...baseWhere, status: BookingStatus.COMPLETED, date: { gte: monthStart } },
-      _sum: { subtotal: true },
+      _sum: { nannyAmount: true },
     }),
     prisma.booking.count({
       where: { ...baseWhere, status: { in: [BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED] } },
@@ -433,8 +440,8 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
   const responseRate = allBookings.length > 0 ? Math.round((responded / allBookings.length) * 100) : 100;
 
   return {
-    earningsThisWeek: Number(weekEarningsAgg._sum.subtotal ?? 0),
-    earningsThisMonth: Number(monthEarningsAgg._sum.subtotal ?? 0),
+    earningsThisWeek: Number(weekEarningsAgg._sum.nannyAmount ?? 0),
+    earningsThisMonth: Number(monthEarningsAgg._sum.nannyAmount ?? 0),
     totalBookings,
     repeatClients: repeatClientsRaw.length,
     averageRating: Number(user.nannyProfile.rating),

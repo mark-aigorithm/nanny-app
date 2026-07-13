@@ -1,0 +1,195 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+
+import { Card, Feedback } from '@admin/components/ui';
+import { calculatePricePreview, fetchSkills } from '@admin/lib/api';
+import { apiErrorMessage } from '@admin/lib/api-error';
+import { formatAmount } from '@admin/lib/format';
+
+const HOUR_PRESETS = [1, 2, 3, 4, 6, 8];
+
+function feeLabel(feeType: 'FLAT' | 'PERCENTAGE' | null, feeValue: number): string {
+  if (feeType === 'FLAT') return `+EGP ${formatAmount(feeValue)}/hr`;
+  if (feeType === 'PERCENTAGE') return `+${feeValue}%`;
+  return 'included';
+}
+
+export function CalculatorPanel() {
+  const { data: skills } = useQuery({ queryKey: ['skills'], queryFn: fetchSkills });
+  const activeSkills = useMemo(
+    () => (skills ?? []).filter((s) => s.isActive),
+    [skills],
+  );
+
+  const [hours, setHours] = useState(3);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const skillIds = useMemo(() => [...selected].sort(), [selected]);
+
+  const {
+    data: breakdown,
+    isFetching,
+    error,
+  } = useQuery({
+    queryKey: ['price-preview', hours, skillIds],
+    queryFn: () => calculatePricePreview({ durationHours: hours, skillIds }),
+    placeholderData: keepPreviousData,
+  });
+
+  function toggleSkill(id: string) {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  }
+
+  return (
+    <div className="calc-grid">
+      <Card title="Scenario">
+        <div className="calc-field">
+          <span className="field-label">Hours booked</span>
+          <div className="hour-presets">
+            {HOUR_PRESETS.map((h) => (
+              <button
+                key={h}
+                type="button"
+                className={`hour-chip${hours === h ? ' selected' : ''}`}
+                onClick={() => setHours(h)}
+              >
+                {h}h
+              </button>
+            ))}
+            <input
+              type="number"
+              min="1"
+              max="24"
+              step="0.5"
+              value={hours}
+              onChange={(e) => setHours(Math.max(1, Number(e.target.value) || 1))}
+              className="hour-input"
+              aria-label="Custom hours"
+            />
+          </div>
+        </div>
+
+        <div className="calc-field">
+          <span className="field-label">Skill add-ons</span>
+          {activeSkills.length === 0 ? (
+            <p className="field-hint">No active skills. Add some on the Skills page.</p>
+          ) : (
+            <div className="addon-list">
+              {activeSkills.map((skill) => {
+                const on = selected.includes(skill.id);
+                return (
+                  <button
+                    key={skill.id}
+                    type="button"
+                    className={`addon-chip${on ? ' selected' : ''}`}
+                    onClick={() => toggleSkill(skill.id)}
+                    aria-pressed={on}
+                  >
+                    <span className="addon-name">{skill.name}</span>
+                    <span className="addon-fee">{feeLabel(skill.feeType, skill.feeValue)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card title="What everyone sees">
+        {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
+        {!breakdown && !error && <p>Calculating…</p>}
+        {breakdown && (
+          <div className={`breakdown${isFetching ? ' breakdown--stale' : ''}`}>
+            <div className="breakdown-row">
+              <span>Base rate</span>
+              <span>EGP {formatAmount(breakdown.baseRate)} / hr</span>
+            </div>
+
+            {breakdown.skillAddOns.map((addon) => (
+              <div className="breakdown-row breakdown-row--addon" key={addon.id}>
+                <span>+ {addon.name}</span>
+                <span>+EGP {formatAmount(addon.amountPerHour)} / hr</span>
+              </div>
+            ))}
+
+            <div className="breakdown-row breakdown-row--sub">
+              <span>Effective rate</span>
+              <span>EGP {formatAmount(breakdown.effectiveHourlyRate)} / hr</span>
+            </div>
+
+            <div className="breakdown-row">
+              <span>× {formatAmount(breakdown.durationHours)} hours</span>
+              <span>EGP {formatAmount(breakdown.effectiveHourlyRate * breakdown.durationHours)}</span>
+            </div>
+
+            {breakdown.durationMultiplier !== 1 && (
+              <div className="breakdown-row breakdown-row--discount">
+                <span>
+                  Duration tier · ×{breakdown.durationMultiplier}
+                </span>
+                <span>
+                  −EGP{' '}
+                  {formatAmount(
+                    breakdown.effectiveHourlyRate * breakdown.durationHours -
+                      breakdown.subtotal,
+                  )}
+                </span>
+              </div>
+            )}
+
+            {breakdown.discountAmount > 0 && (
+              <div className="breakdown-row breakdown-row--discount">
+                <span>Promo discount</span>
+                <span>−EGP {formatAmount(breakdown.discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="breakdown-total">
+              <span>The parent pays</span>
+              <strong>EGP {formatAmount(breakdown.totalAmount)}</strong>
+            </div>
+
+            <div className="split-viz">
+              <div
+                className="split-bar"
+                role="img"
+                aria-label={`Nanny earns ${breakdown.nannyPercent}%, platform keeps ${breakdown.platformPercent}%`}
+              >
+                <div className="split-bar-nanny" style={{ width: `${breakdown.nannyPercent}%` }}>
+                  {breakdown.nannyPercent >= 12 && <span>{breakdown.nannyPercent}%</span>}
+                </div>
+                <div
+                  className="split-bar-platform"
+                  style={{ width: `${breakdown.platformPercent}%` }}
+                >
+                  {breakdown.platformPercent >= 12 && <span>{breakdown.platformPercent}%</span>}
+                </div>
+              </div>
+              <div className="split-amounts">
+                <div className="split-amount">
+                  <span className="split-amount-label">
+                    <span className="dot dot--nanny" /> Nanny earns
+                  </span>
+                  <strong className="text-nanny">EGP {formatAmount(breakdown.nannyAmount)}</strong>
+                </div>
+                <div className="split-amount split-amount--right">
+                  <span className="split-amount-label">
+                    <span className="dot dot--platform" /> Platform keeps
+                  </span>
+                  <strong className="text-platform">
+                    EGP {formatAmount(breakdown.platformAmount)}
+                  </strong>
+                </div>
+              </div>
+              <p className="split-note">
+                The nanny only sees her earnings. The parent sees the full breakdown above.
+              </p>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}

@@ -147,7 +147,7 @@ export default function NannyDashboardScreen() {
                     <Text style={styles.bookingMeta}>{fmtBookingDate(booking.date)}</Text>
                     <Text style={styles.bookingMeta}>{fmtBookingTime(booking.startTime, booking.endTime)}</Text>
                   </View>
-                  <Text style={styles.bookingAmount}>{formatMoney(booking.totalAmount)}</Text>
+                  <Text style={styles.bookingAmount}>{formatMoney(booking.nannyAmount)}</Text>
                 </View>
               ))
             )}

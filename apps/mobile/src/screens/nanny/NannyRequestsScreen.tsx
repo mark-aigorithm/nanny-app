@@ -112,7 +112,7 @@ export default function NannyRequestsScreen() {
             <Text style={styles.requestedAt}>{new Date(booking.createdAt).toLocaleDateString()}</Text>
           </View>
           <View style={styles.amountBadge}>
-            <Text style={styles.amountText}>{formatMoney(booking.totalAmount)}</Text>
+            <Text style={styles.amountText}>{formatMoney(booking.nannyAmount)}</Text>
           </View>
         </View>
 

@@ -107,7 +107,7 @@ function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
       isEmailVerified: true,
       isPhoneVerified: false,
     },
-    nannySkills: skills.map((s) => ({ skill: s })),
+    nannySkills: skills.map((s) => ({ skill: { feeType: null, feeValue: 0, ...s } })),
   };
 }
 
@@ -192,9 +192,9 @@ describe('setNannySkills', () => {
     expect(tx.nannySkill.update).toHaveBeenCalledTimes(1);
 
     expect(result.skills).toEqual([
-      { id: 's1', name: 'A' },
-      { id: 's2', name: 'B' },
-      { id: 's3', name: 'C' },
+      { id: 's1', name: 'A', feeType: null, feeValue: 0 },
+      { id: 's2', name: 'B', feeType: null, feeValue: 0 },
+      { id: 's3', name: 'C', feeType: null, feeValue: 0 },
     ]);
   });
 

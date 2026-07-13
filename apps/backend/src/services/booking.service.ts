@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import {
+  type AppliedSkillFee,
   BookingStatus,
   BookingType,
   PaymentStatus,
@@ -29,9 +30,14 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
-import { getServiceFeePercent, getStandardHourlyRate } from './app-settings.service';
+import { getRevenueSplit } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import { calculatePriceBreakdown } from './pricing.service';
+import {
+  buildBreakdown,
+  getPricingConfig,
+  getPricingInputs,
+} from './pricing-config.service';
 import { redeemPromoCode, validatePromoCode } from './promo-code.service';
 
 /** Minutes before scheduled start when nanny may check in. */
@@ -54,6 +60,11 @@ async function getUserByUid(uid: string) {
   const user = await prisma.user.findUnique({ where: { firebaseUid: uid } });
   if (!user || user.deletedAt) throw errors.unauthorized();
   return user;
+}
+
+/** Reads the persisted skill add-on snapshot back into typed form. */
+function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
+  return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
 }
 
 function toBookingResponse(b: BookingWithRelations): BookingResponse {
@@ -84,11 +95,16 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
     endTime: b.endTime.toISOString(),
     durationHours: Number(b.durationHours),
     baseRate: Number(b.baseRate),
+    effectiveHourlyRate: Number(b.effectiveHourlyRate),
+    skillAddOns: parseSkillAddOns(b.selectedSkillFees),
     subtotal: Number(b.subtotal),
+    durationMultiplier: Number(b.durationMultiplier),
     discountAmount: Number(b.discountAmount),
     serviceFeePercent: Number(b.serviceFeePercent),
     serviceFeeAmount: Number(b.serviceFeeAmount),
     totalAmount: Number(b.totalAmount),
+    nannyAmount: Number(b.nannyAmount),
+    platformAmount: Number(b.platformAmount),
     specialInstructions: b.specialInstructions,
     cancellationReason: b.cancellationReason,
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
@@ -397,26 +413,23 @@ export async function createBooking(
     return toBookingResponse(existingPending);
   }
 
-  const serviceFeePercent = await getServiceFeePercent();
-  const hourlyRate = await getStandardHourlyRate();
+  // Load base rate, revenue split, add-on skills and duration tiers once, then
+  // price the booking including any selected skill add-ons and duration discount.
+  const pricingInputs = await getPricingInputs();
+  const skillIds = body.skillIds ?? [];
 
+  // Validate the promo against the priced subtotal (add-ons + duration tier
+  // applied, before discount) so the discount can't exceed what's owed.
   let promoCodeId: string | null = null;
   let discountAmount = 0;
   if (body.promoCode) {
-    const subtotal = hourlyRate * durationHours;
-    const serviceFeeAmount = subtotal * (serviceFeePercent / 100);
-    const grossTotal = subtotal + serviceFeeAmount;
-    const validated = await validatePromoCode(body.promoCode, grossTotal, user.id);
+    const preDiscount = buildBreakdown(pricingInputs, { durationHours, skillIds });
+    const validated = await validatePromoCode(body.promoCode, preDiscount.subtotal, user.id);
     promoCodeId = validated.promoCodeId;
     discountAmount = validated.discountAmount;
   }
 
-  const breakdown = calculatePriceBreakdown({
-    baseRate: hourlyRate,
-    durationHours,
-    discountAmount,
-    serviceFeePercent,
-  });
+  const breakdown = buildBreakdown(pricingInputs, { durationHours, skillIds, discountAmount });
 
   const data: Prisma.BookingUncheckedCreateInput = {
     motherId: user.id,
@@ -428,11 +441,16 @@ export async function createBooking(
     endTime,
     durationHours: breakdown.durationHours,
     baseRate: breakdown.baseRate,
+    effectiveHourlyRate: breakdown.effectiveHourlyRate,
     subtotal: breakdown.subtotal,
+    durationMultiplier: breakdown.durationMultiplier,
     discountAmount: breakdown.discountAmount,
     serviceFeePercent: breakdown.serviceFeePercent,
     serviceFeeAmount: breakdown.serviceFeeAmount,
     totalAmount: breakdown.totalAmount,
+    nannyAmount: breakdown.nannyAmount,
+    platformAmount: breakdown.platformAmount,
+    selectedSkillFees: breakdown.skillAddOns as unknown as Prisma.InputJsonValue,
     ...(promoCodeId ? { promoCodeId } : {}),
     ...(body.specialInstructions ? { specialInstructions: body.specialInstructions } : {}),
   };
@@ -469,11 +487,7 @@ export async function createBooking(
  * these (they're not secret) so the mother sees her total before requesting.
  */
 export async function getBookingPricingConfig(): Promise<PricingConfig> {
-  const [standardHourlyRate, serviceFeePercent] = await Promise.all([
-    getStandardHourlyRate(),
-    getServiceFeePercent(),
-  ]);
-  return { standardHourlyRate, serviceFeePercent };
+  return getPricingConfig();
 }
 
 export async function validateBookingPromo(
@@ -483,9 +497,9 @@ export async function validateBookingPromo(
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can apply promo codes.');
 
-  const serviceFeePercent = await getServiceFeePercent();
-  const grossTotal = body.subtotal + body.subtotal * (serviceFeePercent / 100);
-  const { discountAmount } = await validatePromoCode(body.code, grossTotal, user.id);
+  // The client sends the priced subtotal (rate × hours × duration tier, add-ons
+  // included). Under the revenue-split model there is no fee added on top.
+  const { discountAmount } = await validatePromoCode(body.code, body.subtotal, user.id);
   return { discountAmount };
 }
 
@@ -533,8 +547,7 @@ export async function createEmergencyBooking(
   if (durationHours < 1) throw errors.badRequest('Minimum booking duration is 1 hour.');
   if (durationHours > 12) throw errors.badRequest('Maximum booking duration is 12 hours.');
 
-  const serviceFeePercent = await getServiceFeePercent();
-
+  // Emergency requests carry no price until a nanny claims and re-prices them.
   const booking = await prisma.booking.create({
     data: {
       motherId: user.id,
@@ -546,11 +559,14 @@ export async function createEmergencyBooking(
       endTime,
       durationHours,
       baseRate: 0,
+      effectiveHourlyRate: 0,
       subtotal: 0,
       discountAmount: 0,
-      serviceFeePercent,
+      serviceFeePercent: 0,
       serviceFeeAmount: 0,
       totalAmount: 0,
+      nannyAmount: 0,
+      platformAmount: 0,
     },
     include: bookingInclude,
   });
@@ -830,24 +846,29 @@ async function applyNannyDecision(
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
 
       // Emergency requests carry no price until claimed — re-price at the
-      // claiming nanny's rate. Standard requests keep their fixed platform price.
+      // claiming nanny's rate (no skill add-ons or duration tiers apply to the
+      // per-nanny emergency rate). Standard requests keep their fixed platform price.
       let repriceData: Prisma.BookingUpdateInput = {};
       if (booking.type === BookingType.EMERGENCY) {
         if (!nannyProfile.hourlyRate) {
           throw errors.badRequest('Set your hourly rate before claiming emergency requests.');
         }
-        const serviceFeePercent = await getServiceFeePercent();
+        const split = await getRevenueSplit();
         const breakdown = calculatePriceBreakdown({
           baseRate: Number(nannyProfile.hourlyRate),
           durationHours: Number(booking.durationHours),
-          serviceFeePercent,
+          nannyPercent: split.nannyPercent,
+          platformPercent: split.platformPercent,
         });
         repriceData = {
           baseRate: breakdown.baseRate,
+          effectiveHourlyRate: breakdown.effectiveHourlyRate,
           subtotal: breakdown.subtotal,
           serviceFeePercent: breakdown.serviceFeePercent,
           serviceFeeAmount: breakdown.serviceFeeAmount,
           totalAmount: breakdown.totalAmount,
+          nannyAmount: breakdown.nannyAmount,
+          platformAmount: breakdown.platformAmount,
         };
       }
 

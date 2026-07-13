@@ -14,6 +14,8 @@ export type BookingFlowParams = {
   nannyRate?: string;
   instructions?: string;
   promoCode?: string;
+  /** Comma-separated skill ids the parent selected as paid add-ons. */
+  skillIds?: string;
   bookingId?: string;
   retry?: string;
 };

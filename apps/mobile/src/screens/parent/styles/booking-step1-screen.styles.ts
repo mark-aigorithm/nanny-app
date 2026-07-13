@@ -201,6 +201,36 @@ export const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
+  // Skill add-ons
+  addOnSection: {
+    gap: spacing.sm,
+  },
+  addOnTitle: {
+    ...typeScale.labelMd,
+    color: colors.textTertiary,
+  },
+  addOnHint: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+  addOnChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  addOnRowLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: 14,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  addOnRowValue: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 14,
+    color: colors.bronze,
+  },
+
   // Price Card
   priceCard: {
     backgroundColor: colors.surface,
