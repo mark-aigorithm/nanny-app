@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Fragment, useState, type ChangeEvent } from 'react';
+import { useState } from 'react';
 
 import {
   BookingStatusSchema,
@@ -9,7 +9,26 @@ import {
   type NannyBookingDecision,
 } from '@nanny-app/shared';
 
-import { Badge, Button, Card, Feedback, PageHeader } from '@admin/components/ui';
+import {
+  ActionMenu,
+  Badge,
+  Ban,
+  Button,
+  Check,
+  type Column,
+  ErrorState,
+  FilterSelect,
+  ICON_SIZE,
+  MenuItem,
+  MenuSeparator,
+  PageHeader,
+  Pencil,
+  PromptDialog,
+  Select,
+  Table,
+  TableSkeleton,
+  useToast,
+} from '@admin/components/ui';
 import {
   approveBooking,
   fetchBookings,
@@ -68,9 +87,11 @@ function nannyDecisionLabel(decision: NannyBookingDecision): string {
 export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
   const [editing, setEditing] = useState<{ id: string; start: string; end: string } | null>(null);
+  const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
   const queryClient = useQueryClient();
+  const toast = useToast();
 
-  const { data: bookings, isLoading, error } = useQuery({
+  const { data: bookings, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['bookings', status],
     queryFn: () => fetchBookings(status),
   });
@@ -79,12 +100,21 @@ export function BookingsPage() {
 
   const approveMutation = useMutation({
     mutationFn: approveBooking,
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Booking approved');
+    },
+    onError: (err) => toast.error('Couldn’t approve booking', apiErrorMessage(err)),
   });
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => rejectBooking(id, reason),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setRejecting(null);
+      toast.success('Booking rejected');
+    },
+    onError: (err) => toast.error('Couldn’t reject booking', apiErrorMessage(err)),
   });
 
   const statusMutation = useMutation({
@@ -92,7 +122,11 @@ export function BookingsPage() {
       const parsed = SetBookingStatusSchema.parse({ status: next });
       return setBookingStatus(id, parsed.status);
     },
-    onSuccess: invalidate,
+    onSuccess: (updated) => {
+      invalidate();
+      toast.success('Status updated', statusLabel(updated.status));
+    },
+    onError: (err) => toast.error('Couldn’t update status', apiErrorMessage(err)),
   });
 
   const timesMutation = useMutation({
@@ -101,7 +135,9 @@ export function BookingsPage() {
     onSuccess: () => {
       invalidate();
       setEditing(null);
+      toast.success('Times updated');
     },
+    onError: (err) => toast.error('Couldn’t update times', apiErrorMessage(err)),
   });
 
   function saveEdit() {
@@ -116,27 +152,136 @@ export function BookingsPage() {
     });
   }
 
-  function handleReject(booking: AdminBooking) {
-    const reason = window.prompt(
-      `Reject this booking for ${booking.mother.name}?\n\nOptional reason (shown to the mother):`,
-    );
-    if (reason === null) return; // cancelled
-    rejectMutation.mutate({ id: booking.id, reason: reason.trim() || undefined });
-  }
-
-  function handleOverride(booking: AdminBooking, event: ChangeEvent<HTMLSelectElement>) {
-    const next = event.target.value;
-    if (next === booking.status) return;
-    statusMutation.mutate({ id: booking.id, status: next });
-  }
-
-  const mutationError =
-    approveMutation.error ?? rejectMutation.error ?? statusMutation.error ?? timesMutation.error;
   const mutating =
     approveMutation.isPending ||
     rejectMutation.isPending ||
     statusMutation.isPending ||
     timesMutation.isPending;
+
+  const columns: Column<AdminBooking>[] = [
+    {
+      key: 'mother',
+      header: 'Mother',
+      render: (booking) => (
+        <>
+          {booking.mother.name}
+          {booking.mother.phone && <div className="table-subtext">{booking.mother.phone}</div>}
+        </>
+      ),
+    },
+    {
+      key: 'nanny',
+      header: 'Nanny',
+      render: (booking) => (
+        <>
+          {booking.nanny?.name ?? '—'}
+          <div className="table-subtext">Nanny: {nannyDecisionLabel(booking.nannyDecision)}</div>
+        </>
+      ),
+    },
+    { key: 'starts', header: 'Starts', nowrap: true, render: (b) => formatDateTime(b.startTime) },
+    { key: 'ends', header: 'Ends', nowrap: true, render: (b) => formatDateTime(b.endTime) },
+    {
+      key: 'total',
+      header: 'Total (EGP)',
+      align: 'right',
+      render: (b) => b.totalAmount.toFixed(2),
+    },
+    {
+      key: 'promo',
+      header: 'Promo',
+      render: (b) =>
+        b.promoCode ? (
+          `${b.promoCode} (−${b.discountAmount.toFixed(2)})`
+        ) : (
+          <span className="table-empty">—</span>
+        ),
+    },
+    {
+      key: 'payment',
+      header: 'Payment',
+      render: (b) =>
+        b.paymentStatus ? statusLabel(b.paymentStatus) : <span className="table-empty">—</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (b) => <Badge tone={statusTone(b.status)}>{statusLabel(b.status)}</Badge>,
+    },
+    {
+      key: 'override',
+      header: 'Override',
+      render: (booking) => {
+        const isCompleted = booking.status === 'COMPLETED';
+        const options = OVERRIDE_STATUSES.some((s) => s === booking.status)
+          ? OVERRIDE_STATUSES
+          : [booking.status, ...OVERRIDE_STATUSES];
+        return (
+          <Select
+            compact
+            value={booking.status}
+            disabled={mutating || isCompleted}
+            title={isCompleted ? 'Completed bookings are locked' : 'Override booking status'}
+            aria-label={`Override status for ${booking.mother.name}'s booking`}
+            options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
+            onChange={(next) =>
+              statusMutation.mutate({ id: booking.id, status: next as AdminBooking['status'] })
+            }
+          />
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (booking) => {
+        const isPending = booking.status === 'PENDING';
+        const isTerminal = TERMINAL_STATUSES.has(booking.status);
+        if (!isPending && isTerminal) {
+          return <span className="table-empty">—</span>;
+        }
+        return (
+          <ActionMenu label={`Actions for ${booking.mother.name}'s booking`} disabled={mutating}>
+            {isPending && (
+              <MenuItem
+                icon={<Check size={ICON_SIZE.menu} />}
+                onSelect={() => approveMutation.mutate(booking.id)}
+              >
+                Approve
+              </MenuItem>
+            )}
+            {!isTerminal && (
+              <MenuItem
+                icon={<Pencil size={ICON_SIZE.menu} />}
+                onSelect={() =>
+                  setEditing({
+                    id: booking.id,
+                    start: toDateTimeLocal(booking.startTime),
+                    end: toDateTimeLocal(booking.endTime),
+                  })
+                }
+              >
+                Edit times
+              </MenuItem>
+            )}
+            {isPending && (
+              <>
+                <MenuSeparator />
+                <MenuItem
+                  danger
+                  icon={<Ban size={ICON_SIZE.menu} />}
+                  onSelect={() => setRejecting(booking)}
+                >
+                  Reject
+                </MenuItem>
+              </>
+            )}
+          </ActionMenu>
+        );
+      },
+    },
+  ];
 
   return (
     <section>
@@ -144,183 +289,77 @@ export function BookingsPage() {
         title="Bookings"
         subtitle="Requests are broadcast to all nannies; the first to accept claims a booking and the parent pays. Edit a booking's times or override its status here."
       />
-      <div className="filter-row">
-        {STATUS_FILTERS.map((filter) => (
-          <Button
-            key={filter.value}
-            size="sm"
-            variant={filter.value === status ? 'primary' : 'ghost'}
-            onClick={() => setStatus(filter.value)}
-          >
-            {filter.label}
-          </Button>
-        ))}
+      <div className="filter-bar">
+        <FilterSelect
+          label="Status"
+          value={status}
+          options={STATUS_FILTERS}
+          onChange={(value) => setStatus(value as AdminBookingStatusFilter)}
+        />
       </div>
-      {isLoading && <p>Loading bookings…</p>}
-      {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
-      {mutationError != null && (
-        <Feedback tone="error">{apiErrorMessage(mutationError)}</Feedback>
+      {isLoading && <TableSkeleton columns={9} />}
+      {error != null && (
+        <ErrorState
+          message={apiErrorMessage(error)}
+          onRetry={() => void refetch()}
+          retrying={isFetching}
+        />
       )}
-      {bookings && bookings.length === 0 && (
-        <Card>
-          <p className="empty-state">No bookings with this status.</p>
-        </Card>
+      {bookings && (
+        <Table
+          columns={columns}
+          rows={bookings}
+          rowKey={(booking) => booking.id}
+          empty="No bookings with this status."
+          renderExpanded={(booking) =>
+            editing?.id === booking.id ? (
+              <div className="times-editor">
+                <label>
+                  Starts
+                  <input
+                    type="datetime-local"
+                    value={editing.start}
+                    onChange={(e) => setEditing({ ...editing, start: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Ends
+                  <input
+                    type="datetime-local"
+                    value={editing.end}
+                    onChange={(e) => setEditing({ ...editing, end: e.target.value })}
+                  />
+                </label>
+                <Button size="sm" disabled={mutating} onClick={saveEdit}>
+                  Save times
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={mutating}
+                  onClick={() => setEditing(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : null
+          }
+        />
       )}
-      {bookings && bookings.length > 0 && (
-        <Card flush>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Mother</th>
-                  <th>Nanny</th>
-                  <th>Starts</th>
-                  <th>Ends</th>
-                  <th>Total (EGP)</th>
-                  <th>Promo</th>
-                  <th>Payment</th>
-                  <th>Status</th>
-                  <th>Override</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((booking: AdminBooking) => {
-                  const isCompleted = booking.status === 'COMPLETED';
-                  const isTerminal = TERMINAL_STATUSES.has(booking.status);
-                  const isEditing = editing?.id === booking.id;
-                  const options = OVERRIDE_STATUSES.some((s) => s === booking.status)
-                    ? OVERRIDE_STATUSES
-                    : [booking.status, ...OVERRIDE_STATUSES];
-                  return (
-                    <Fragment key={booking.id}>
-                    <tr>
-                      <td>
-                        {booking.mother.name}
-                        {booking.mother.phone && (
-                          <div className="table-subtext">{booking.mother.phone}</div>
-                        )}
-                      </td>
-                      <td>
-                        {booking.nanny?.name ?? '—'}
-                        <div className="table-subtext">
-                          Nanny: {nannyDecisionLabel(booking.nannyDecision)}
-                        </div>
-                      </td>
-                      <td>{formatDateTime(booking.startTime)}</td>
-                      <td>{formatDateTime(booking.endTime)}</td>
-                      <td>{booking.totalAmount.toFixed(2)}</td>
-                      <td>
-                        {booking.promoCode
-                          ? `${booking.promoCode} (−${booking.discountAmount.toFixed(2)})`
-                          : '—'}
-                      </td>
-                      <td>{booking.paymentStatus ? statusLabel(booking.paymentStatus) : '—'}</td>
-                      <td>
-                        <Badge tone={statusTone(booking.status)}>
-                          {statusLabel(booking.status)}
-                        </Badge>
-                      </td>
-                      <td>
-                        <select
-                          className="status-select"
-                          value={booking.status}
-                          disabled={mutating || isCompleted}
-                          title={
-                            isCompleted ? 'Completed bookings are locked' : 'Override booking status'
-                          }
-                          aria-label={`Override status for ${booking.mother.name}'s booking`}
-                          onChange={(event) => handleOverride(booking, event)}
-                        >
-                          {options.map((option) => (
-                            <option key={option} value={option}>
-                              {statusLabel(option)}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <div className="table-actions">
-                          {booking.status === 'PENDING' && (
-                            <>
-                              <Button
-                                size="sm"
-                                disabled={mutating}
-                                onClick={() => approveMutation.mutate(booking.id)}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                disabled={mutating}
-                                onClick={() => handleReject(booking)}
-                              >
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                          {!isTerminal && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={mutating}
-                              onClick={() =>
-                                setEditing({
-                                  id: booking.id,
-                                  start: toDateTimeLocal(booking.startTime),
-                                  end: toDateTimeLocal(booking.endTime),
-                                })
-                              }
-                            >
-                              Edit times
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {isEditing && editing && (
-                      <tr>
-                        <td colSpan={10}>
-                          <div className="times-editor">
-                            <label>
-                              Starts
-                              <input
-                                type="datetime-local"
-                                value={editing.start}
-                                onChange={(e) => setEditing({ ...editing, start: e.target.value })}
-                              />
-                            </label>
-                            <label>
-                              Ends
-                              <input
-                                type="datetime-local"
-                                value={editing.end}
-                                onChange={(e) => setEditing({ ...editing, end: e.target.value })}
-                              />
-                            </label>
-                            <Button size="sm" disabled={mutating} onClick={saveEdit}>
-                              Save times
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={mutating}
-                              onClick={() => setEditing(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+
+      {rejecting && (
+        <PromptDialog
+          title="Reject booking"
+          message={`Reject this booking for ${rejecting.mother.name}?`}
+          label="Reason (optional — shown to the mother)"
+          placeholder="e.g. No nanny available for this time"
+          confirmLabel="Reject booking"
+          danger
+          multiline
+          busy={rejectMutation.isPending}
+          onSubmit={(reason) => rejectMutation.mutate({ id: rejecting.id, reason: reason || undefined })}
+          onCancel={() => setRejecting(null)}
+        />
       )}
     </section>
   );

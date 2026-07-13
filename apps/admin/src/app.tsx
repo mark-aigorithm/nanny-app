@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AdminLayout } from './components/admin-layout';
+import { ToastProvider } from './components/ui';
 import { AuthProvider, RequireAuth } from './lib/auth';
 import { AdminsPage } from './pages/admins-page';
 import { CamerasPage } from './pages/cameras-page';
@@ -25,9 +26,10 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
+      <ToastProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
             <Route path="login" element={<LoginPage />} />
             <Route
               element={
@@ -46,9 +48,10 @@ export function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

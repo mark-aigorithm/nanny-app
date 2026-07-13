@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 
 import { CreatePromoCodeSchema, type DiscountType } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field } from '@admin/components/ui';
+import { Button, Card, Feedback, Field, Select } from '@admin/components/ui';
 import { createPromoCode } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
@@ -64,15 +64,17 @@ export function PromoCodeForm() {
               required
             />
           </Field>
-          <Field label="Type">
-            <select
+          <div className="field">
+            <span className="field-label">Type</span>
+            <Select
               value={discountType}
-              onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-            >
-              <option value="PERCENTAGE">Percentage (%)</option>
-              <option value="FLAT">Flat amount (EGP)</option>
-            </select>
-          </Field>
+              options={[
+                { value: 'PERCENTAGE', label: 'Percentage (%)' },
+                { value: 'FLAT', label: 'Flat amount (EGP)' },
+              ]}
+              onChange={(value) => setDiscountType(value as DiscountType)}
+            />
+          </div>
           <Field label={discountType === 'PERCENTAGE' ? 'Discount %' : 'Amount (EGP)'}>
             <input
               type="number"
@@ -108,15 +110,18 @@ export function PromoCodeForm() {
               onChange={(e) => setExpiresAt(e.target.value)}
             />
           </Field>
-          <Field label="Status" hint="Paused codes cannot be redeemed until activated.">
-            <select
+          <div className="field">
+            <span className="field-label">Status</span>
+            <Select
               value={isActive ? 'active' : 'paused'}
-              onChange={(e) => setIsActive(e.target.value === 'active')}
-            >
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-            </select>
-          </Field>
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'paused', label: 'Paused' },
+              ]}
+              onChange={(value) => setIsActive(value === 'active')}
+            />
+            <span className="field-hint">Paused codes cannot be redeemed until activated.</span>
+          </div>
         </div>
         {formError && <Feedback tone="error">{formError}</Feedback>}
         <Button type="submit" disabled={createMutation.isPending}>
