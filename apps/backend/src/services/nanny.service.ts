@@ -65,7 +65,6 @@ function toNannyProfileResponse(
     latitude: user.latitude !== null ? Number(user.latitude) : null,
     longitude: user.longitude !== null ? Number(user.longitude) : null,
     yearsOfExperience: profile.yearsOfExperience,
-    hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
     ageRanges: profile.ageRanges,
     skills: toPublicSkills(profile.nannySkills),
@@ -87,7 +86,6 @@ function toNannyListItem(profile: ProfileWithUserAndSkills): NannyListItem {
     // Home location lives on the user row (single source of truth).
     location: profile.user.address,
     yearsOfExperience: profile.yearsOfExperience,
-    hourlyRate: profile.hourlyRate !== null ? Number(profile.hourlyRate) : null,
     certifications: profile.certifications,
     ageRanges: profile.ageRanges,
     skills: toPublicSkills(profile.nannySkills),
@@ -171,19 +169,12 @@ export async function updateNannyProfile(
       profileFields.yearsOfExperience !== undefined
         ? profileFields.yearsOfExperience
         : existing?.yearsOfExperience;
-    const mergedRate =
-      profileFields.hourlyRate !== undefined
-        ? profileFields.hourlyRate
-        : existing?.hourlyRate !== null && existing?.hourlyRate !== undefined
-          ? Number(existing.hourlyRate)
-          : undefined;
 
     const isProfileComplete =
       getMissingNannyProfileFields({
         bio: mergedBio ?? null,
         location: mergedLocation ?? null,
         yearsOfExperience: mergedYears ?? null,
-        hourlyRate: mergedRate ?? null,
       }).length === 0;
 
     const p = await tx.nannyProfile.upsert({

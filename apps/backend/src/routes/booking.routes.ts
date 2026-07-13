@@ -5,7 +5,6 @@ import {
   CancelBookingSchema,
   CreateBookingSchema,
   CreateCareLogSchema,
-  CreateEmergencyBookingSchema,
   CreatePaymobIntentionSchema,
   MockPayBookingSchema,
   ValidateBookingPromoSchema,
@@ -21,7 +20,6 @@ import {
   checkInBooking,
   checkOutBooking,
   createBooking,
-  createEmergencyBooking,
   declineBooking,
   getBooking,
   getBookingPricingConfig,
@@ -37,22 +35,6 @@ import {
 } from '@backend/services/paymob.service';
 
 export const bookingRouter = Router();
-
-// POST /bookings/emergency must be declared BEFORE /bookings/:id routes
-// so Express doesn't treat "emergency" as a booking ID.
-
-bookingRouter.post(
-  '/emergency',
-  requireAuth,
-  validateBody(CreateEmergencyBookingSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await createEmergencyBooking(req.firebaseUser, req.body);
-      res.status(201).json(ok(result));
-    } catch (err) { next(err); }
-  },
-);
 
 bookingRouter.get(
   '/pricing',

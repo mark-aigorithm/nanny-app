@@ -61,7 +61,6 @@ enum NannyBookingDecision {
 
 enum BookingType {
   STANDARD
-  EMERGENCY
 
   @@map("booking_type")
 }
@@ -139,7 +138,7 @@ model User {
   termsAcceptedVersion String?   @map("terms_accepted_version")
   /// Street address + home coordinates captured by the registration map
   /// picker. Single source of truth for location — proximity search and
-  /// distance sorting (nanny listing + emergency booking) read lat/lng here.
+  /// distance sorting (nanny listing + booking broadcast) read lat/lng here.
   address              String?
   latitude             Decimal?  @db.Decimal(10, 7)
   longitude            Decimal?  @db.Decimal(10, 7)
@@ -182,7 +181,6 @@ model NannyProfile {
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio               String?   @db.Text
   yearsOfExperience Int?      @map("years_of_experience")
-  hourlyRate        Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
   certifications    String[]
   ageRanges         String[]  @map("age_ranges")
   specialties       String[]  @default([])
@@ -350,7 +348,7 @@ model Booking {
   id                      String        @id @default(cuid())
   motherId                String        @map("mother_id")
   mother                  User          @relation("BookingMother",      fields: [motherId],     references: [id])
-  /// Null for EMERGENCY bookings until a nanny accepts.
+  /// Null while a broadcast request is unclaimed, until a nanny accepts.
   nannyProfileId          String?       @map("nanny_profile_id")
   nannyProfile            NannyProfile? @relation(fields: [nannyProfileId], references: [id])
   promoCodeId             String?       @map("promo_code_id")

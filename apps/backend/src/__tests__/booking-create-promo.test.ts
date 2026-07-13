@@ -65,7 +65,6 @@ function makeBookingRow(overrides: Record<string, unknown> = {}) {
     nannyProfileId: 'np-1',
     nannyProfile: {
       id: 'np-1',
-      hourlyRate: 100,
       user: { id: 'nanny-user-1', firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
     },
     status: 'PENDING',

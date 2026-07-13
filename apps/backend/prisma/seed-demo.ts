@@ -167,7 +167,6 @@ const SEED_NANNIES = [
     latitude: '30.0614',
     longitude: '31.2197',
     yearsOfExperience: 8,
-    hourlyRate: '180.00',
     certifications: ['CPR', 'First Aid', 'Newborn Care'],
     ageRanges: ['0-1', '1-3'],
     specialties: ['Newborn Care', 'Sleep Training'],
@@ -189,7 +188,6 @@ const SEED_NANNIES = [
     latitude: '29.9602',
     longitude: '31.2569',
     yearsOfExperience: 5,
-    hourlyRate: '150.00',
     certifications: ['CPR', 'Early Childhood Education'],
     ageRanges: ['1-3', '3-5'],
     specialties: ['Toddler Care', 'Educational Play'],
@@ -211,7 +209,6 @@ const SEED_NANNIES = [
     latitude: '30.0074',
     longitude: '31.4913',
     yearsOfExperience: 10,
-    hourlyRate: '200.00',
     certifications: ['CPR', 'Montessori'],
     ageRanges: ['3-5', '5+'],
     specialties: ['Homework Help', 'Bilingual'],
@@ -233,7 +230,6 @@ const SEED_NANNIES = [
     latitude: '30.0880',
     longitude: '31.3230',
     yearsOfExperience: 3,
-    hourlyRate: '120.00',
     certifications: ['CPR'],
     ageRanges: ['0-1', '1-3', '3-5'],
     specialties: ['Weekend Care', 'Date Night'],
@@ -409,7 +405,6 @@ async function seedNannies() {
         userId: n.userId,
         bio: n.bio,
         yearsOfExperience: n.yearsOfExperience,
-        hourlyRate: new Prisma.Decimal(n.hourlyRate),
         certifications: [...n.certifications],
         ageRanges: [...n.ageRanges],
         specialties: [...n.specialties],
@@ -425,7 +420,6 @@ async function seedNannies() {
       update: {
         bio: n.bio,
         schedule: FULL_WEEK_SCHEDULE,
-        hourlyRate: new Prisma.Decimal(n.hourlyRate),
         rating: new Prisma.Decimal(n.rating),
         reviewCount: n.reviewCount,
         isProfileComplete: true,
@@ -736,14 +730,14 @@ async function seedMessaging(
 
 async function seedBookings(
   motherId: string,
-  nannyProfiles: { id: string; hourlyRate: Prisma.Decimal | null }[],
+  nannyProfiles: { id: string }[],
 ) {
   const [elena, maya, claire, sandra] = nannyProfiles;
   const serviceFeePercent = new Prisma.Decimal('6.00');
 
   const upcoming = bookingWindow(5, 9, 17);
   const durationUpcoming = 8;
-  const rateUpcoming = Number(elena.hourlyRate ?? 180);
+  const rateUpcoming = 180;
   const subtotalUpcoming = rateUpcoming * durationUpcoming;
   const feeUpcoming = subtotalUpcoming * 0.06;
   const totalUpcoming = subtotalUpcoming + feeUpcoming;
@@ -777,7 +771,7 @@ async function seedBookings(
 
   const past = bookingWindow(-14, 10, 16);
   const durationPast = 6;
-  const ratePast = Number(maya.hourlyRate ?? 150);
+  const ratePast = 150;
   const subtotalPast = ratePast * durationPast;
   const feePast = subtotalPast * 0.06;
   const totalPast = subtotalPast + feePast;
@@ -822,14 +816,14 @@ async function seedBookings(
 
   const past2 = bookingWindow(-30, 9, 13);
   const durationPast2 = 4;
-  const ratePast2 = Number(claire.hourlyRate ?? 200);
+  const ratePast2 = 200;
   const subtotalPast2 = ratePast2 * durationPast2;
   const feePast2 = subtotalPast2 * 0.06;
   const totalPast2 = subtotalPast2 + feePast2;
 
   const cancelled = bookingWindow(3, 18, 22);
   const durationCancelled = 4;
-  const rateCancelled = Number(sandra.hourlyRate ?? 120);
+  const rateCancelled = 120;
   const subtotalCancelled = rateCancelled * durationCancelled;
   const feeCancelled = subtotalCancelled * 0.06;
   const totalCancelled = subtotalCancelled + feeCancelled;

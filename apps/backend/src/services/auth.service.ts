@@ -123,7 +123,7 @@ export async function registerUser(
       // New nannies always start PENDING_REVIEW (schema default) — an admin
       // must vet them before they can use the app. Home location (address +
       // coordinates) lives solely on the user row now; proximity search and
-      // emergency booking read it from there, so nothing is mirrored here.
+      // the booking broadcast read it from there, so nothing is mirrored here.
       await tx.nannyProfile.create({
         data: {
           userId: user.id,

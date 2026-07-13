@@ -51,7 +51,6 @@ function toDto(row: AdminNannyRow): AdminNanny {
     // Home location lives on the user row (single source of truth).
     location: row.user.address,
     yearsOfExperience: row.yearsOfExperience,
-    hourlyRate: row.hourlyRate?.toNumber() ?? null,
     certifications: row.certifications,
     skills: row.nannySkills.map((ns) => ({
       id: ns.skill.id,

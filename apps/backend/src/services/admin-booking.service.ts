@@ -154,7 +154,7 @@ export async function approveBooking(
   // This mirrors the invariant enforced by the payment paths.
   if (!booking.nannyProfileId) {
     throw errors.badRequest(
-      'Assign a nanny to this emergency request before approving it.',
+      'Assign a nanny to this unclaimed request before approving it.',
     );
   }
   validateStatusTransition(booking.status, BookingStatus.APPROVED);
@@ -267,7 +267,7 @@ export async function setBookingStatus(
   // Same invariant as approveBooking: never approve a booking with no nanny.
   if (next === BookingStatus.APPROVED && !booking.nannyProfileId) {
     throw errors.badRequest(
-      'Assign a nanny to this emergency request before approving it.',
+      'Assign a nanny to this unclaimed request before approving it.',
     );
   }
 

@@ -23,7 +23,7 @@ export const NannyBookingDecisionSchema = z.enum(['PENDING', 'ACCEPTED', 'DECLIN
 export const NannyBookingDecision = NannyBookingDecisionSchema.enum;
 export type NannyBookingDecision = z.infer<typeof NannyBookingDecisionSchema>;
 
-export const BookingTypeSchema = z.enum(['STANDARD', 'EMERGENCY']);
+export const BookingTypeSchema = z.enum(['STANDARD']);
 export const BookingType = BookingTypeSchema.enum;
 export type BookingType = z.infer<typeof BookingTypeSchema>;
 
@@ -81,23 +81,9 @@ export const NannySummarySchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   avatarUrl: z.string().nullable(),
-  hourlyRate: z.number().nullable(),
   location: z.string().nullable(),
 });
 export type NannySummary = z.infer<typeof NannySummarySchema>;
-
-export const NearbyNannySchema = z.object({
-  nannyProfileId: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
-  avatarUrl: z.string().nullable(),
-  hourlyRate: z.number().nullable(),
-  location: z.string().nullable(),
-  distanceKm: z.number(),
-  ageRanges: z.array(z.string()),
-  yearsOfExperience: z.number().nullable(),
-});
-export type NearbyNanny = z.infer<typeof NearbyNannySchema>;
 
 // ── Booking response ─────────────────────────────────────────────────────────
 
@@ -161,12 +147,6 @@ export const BookingResponseSchema = z.object({
   createdAt: z.string(),
 });
 export type BookingResponse = z.infer<typeof BookingResponseSchema>;
-
-export const EmergencyBookingResponseSchema = z.object({
-  booking: BookingResponseSchema,
-  nearbyNannies: z.array(NearbyNannySchema),
-});
-export type EmergencyBookingResponse = z.infer<typeof EmergencyBookingResponseSchema>;
 
 // ── Request schemas ──────────────────────────────────────────────────────────
 
@@ -234,16 +214,7 @@ export function isStandardBookingDateAllowed(dateIso: string, now: Date = new Da
 }
 
 export const STANDARD_BOOKING_SAME_DAY_MESSAGE =
-  'Standard bookings must be scheduled at least one day in advance. Use emergency booking for same-day care.';
-
-export const CreateEmergencyBookingSchema = z.object({
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
-  startTime: z.string().datetime({ offset: true }),
-  endTime: z.string().datetime({ offset: true }),
-});
-export type CreateEmergencyBookingRequest = z.infer<typeof CreateEmergencyBookingSchema>;
+  'Bookings must be scheduled at least one day in advance.';
 
 export const CancelBookingSchema = z.object({
   reason: z.string().min(1).max(500),

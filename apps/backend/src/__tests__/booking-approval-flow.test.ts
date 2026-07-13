@@ -91,7 +91,6 @@ const nannyProfileRel = {
   id: 'np-1',
   userId: nannyUser.id,
   user: { id: nannyUser.id, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
-  hourlyRate: 100,
 };
 
 function makeBooking(overrides: Record<string, unknown> = {}) {
@@ -231,7 +230,6 @@ describe('claim (unassigned request)', () => {
     mockPrisma.nannyProfile.findUnique.mockResolvedValue({
       id: nannyProfileRel.id,
       userId: nannyUser.id,
-      hourlyRate: 100,
       deletedAt: null,
     });
   });
@@ -279,7 +277,6 @@ describe('nanny decision', () => {
     mockPrisma.nannyProfile.findUnique.mockResolvedValue({
       id: nannyProfileRel.id,
       userId: nannyUser.id,
-      hourlyRate: 100,
       deletedAt: null,
     });
   });

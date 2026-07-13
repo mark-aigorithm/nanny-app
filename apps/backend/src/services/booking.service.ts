@@ -8,12 +8,9 @@ import {
   type BookingResponse,
   type CancelBookingRequest,
   type CreateBookingRequest,
-  type CreateEmergencyBookingRequest,
-  type EmergencyBookingResponse,
   isStandardBookingDateAllowed,
   STANDARD_BOOKING_SAME_DAY_MESSAGE,
   type MockPayBookingRequest,
-  type NearbyNanny,
   type PaginationMeta,
   type PricingConfig,
   type ValidateBookingPromoRequest,
@@ -30,9 +27,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
-import { getRevenueSplit } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
-import { calculatePriceBreakdown } from './pricing.service';
 import {
   buildBreakdown,
   getPricingConfig,
@@ -81,7 +76,6 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
           firstName: b.nannyProfile.user.firstName,
           lastName: b.nannyProfile.user.lastName,
           avatarUrl: b.nannyProfile.user.avatarUrl,
-          hourlyRate: b.nannyProfile.hourlyRate !== null ? Number(b.nannyProfile.hourlyRate) : null,
           location: b.nannyProfile.user.address,
         }
       : null,
@@ -367,9 +361,9 @@ export async function assertNoConflict(
  * Create a booking request — the primary "broadcast" flow. The mother does NOT
  * pick a nanny: the request is created unassigned (nannyProfileId = null) and
  * broadcast to every eligible nanny, and the first to accept claims it
- * (applyNannyDecision). Unlike the emergency track, the price is known up front
- * because it uses the FIXED platform hourly rate, so the mother sees her total
- * immediately. The nanny time-conflict check happens at claim time, not here.
+ * (applyNannyDecision). The price is known up front because it uses the FIXED
+ * platform hourly rate, so the mother sees her total immediately. The nanny
+ * time-conflict check happens at claim time, not here.
  */
 export async function createBooking(
   decoded: DecodedIdToken,
@@ -501,145 +495,6 @@ export async function validateBookingPromo(
   // included). Under the revenue-split model there is no fee added on top.
   const { discountAmount } = await validatePromoCode(body.code, body.subtotal, user.id);
   return { discountAmount };
-}
-
-/**
- * EMERGENCY BOOKING FLOW — same-day care with no pre-selected nanny.
- *
- * Standard bookings require choosing a specific nanny and must be scheduled at
- * least a day ahead (see isStandardBookingDateAllowed). The emergency track
- * covers same-day needs where the mother can't wait to browse and pick: the
- * request is broadcast, and the first eligible nanny to accept "claims" it.
- *
- * End-to-end lifecycle:
- *
- *   1. MOTHER creates the request (this function). No nanny is assigned
- *      (nannyProfileId = null) and no price is known yet, so every money field
- *      is created as 0. Status starts at PENDING. Admins are notified; the
- *      response also hands the mother the 5 nearest available nannies so the
- *      app can show who might pick it up.
- *
- *   2. NANNY claims it (applyNannyDecision, ACCEPTED branch). The first nanny to
- *      accept is assigned to the booking AND the booking is (re)priced at HER
- *      hourly rate — the price is not known until this moment. A transaction +
- *      status re-check prevents two nannies claiming the same request at once.
- *      The booking stays PENDING: claiming is not approval.
- *
- *   3. ADMIN approves (admin-booking.service). Approval is authoritative, but an
- *      emergency request cannot be approved while unclaimed — a nanny must be
- *      assigned first. Approval moves it to APPROVED, then the mother pays and
- *      it becomes CONFIRMED, identical to the standard track from here on.
- *
- * This function is step 1 (the mother's side).
- */
-export async function createEmergencyBooking(
-  decoded: DecodedIdToken,
-  body: CreateEmergencyBookingRequest,
-): Promise<EmergencyBookingResponse> {
-  const user = await getUserByUid(decoded.uid);
-  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
-
-  const startTime = new Date(body.startTime);
-  const endTime = new Date(body.endTime);
-  if (startTime >= endTime) throw errors.badRequest('startTime must be before endTime.');
-
-  const durationHours = computeDurationHours(startTime, endTime);
-  if (durationHours < 1) throw errors.badRequest('Minimum booking duration is 1 hour.');
-  if (durationHours > 12) throw errors.badRequest('Maximum booking duration is 12 hours.');
-
-  // Emergency requests carry no price until a nanny claims and re-prices them.
-  const booking = await prisma.booking.create({
-    data: {
-      motherId: user.id,
-      nannyProfileId: null,
-      status: BookingStatus.PENDING,
-      type: BookingType.EMERGENCY,
-      date: new Date(body.date),
-      startTime,
-      endTime,
-      durationHours,
-      baseRate: 0,
-      effectiveHourlyRate: 0,
-      subtotal: 0,
-      discountAmount: 0,
-      serviceFeePercent: 0,
-      serviceFeeAmount: 0,
-      totalAmount: 0,
-      nannyAmount: 0,
-      platformAmount: 0,
-    },
-    include: bookingInclude,
-  });
-
-  // Broadcast the unclaimed request to every eligible nanny (and the admins);
-  // the first to accept claims and prices it.
-  await notifyBookingBroadcast(booking);
-
-  // Find 5 nearest available nannies. Coordinates + address live on the user
-  // row (single source of truth); distance is computed in PostGIS
-  // (ST_DistanceSphere → metres, converted to km) for consistency with the
-  // recommended-nanny listing. `ST_MakePoint(lon, lat)` order is required.
-  type RawRow = {
-    nannyProfileId: string;
-    firstName: string;
-    lastName: string;
-    avatarUrl: string | null;
-    hourlyRate: string | null;
-    location: string | null;
-    ageRanges: string[] | string;
-    yearsOfExperience: number | null;
-    distanceKm: number;
-  };
-
-  const rows = await prisma.$queryRaw<RawRow[]>(Prisma.sql`
-    SELECT
-      np.id                                AS "nannyProfileId",
-      u.first_name                         AS "firstName",
-      u.last_name                          AS "lastName",
-      u.avatar_url                         AS "avatarUrl",
-      np.hourly_rate::text                 AS "hourlyRate",
-      u.address                            AS "location",
-      np.age_ranges                        AS "ageRanges",
-      np.years_of_experience               AS "yearsOfExperience",
-      (
-        ST_DistanceSphere(
-          ST_MakePoint(u.longitude::float8, u.latitude::float8),
-          ST_MakePoint(${body.longitude}::float8, ${body.latitude}::float8)
-        ) / 1000
-      ) AS "distanceKm"
-    FROM nanny_profiles np
-    JOIN users u ON u.id = np.user_id
-    WHERE np.deleted_at IS NULL
-      AND u.deleted_at   IS NULL
-      AND u.latitude     IS NOT NULL
-      AND u.longitude    IS NOT NULL
-      AND np.is_profile_complete = true
-      AND np.approval_status::text = 'APPROVED'
-      AND NOT EXISTS (
-        SELECT 1 FROM bookings b
-        WHERE b.nanny_profile_id = np.id
-          AND b.deleted_at IS NULL
-          AND b.status NOT IN ('CANCELLED', 'REFUNDED')
-          AND b.start_time < ${endTime}
-          AND b.end_time   > ${startTime}
-      )
-    ORDER BY "distanceKm" ASC
-    LIMIT 5
-  `);
-
-  const nearbyNannies: NearbyNanny[] = rows.map((r) => ({
-    nannyProfileId: r.nannyProfileId,
-    firstName: r.firstName,
-    lastName: r.lastName,
-    avatarUrl: r.avatarUrl,
-    hourlyRate: r.hourlyRate !== null ? parseFloat(r.hourlyRate) : null,
-    location: r.location,
-    distanceKm: Number(r.distanceKm),
-    ageRanges: Array.isArray(r.ageRanges) ? r.ageRanges : [],
-    yearsOfExperience: r.yearsOfExperience,
-  }));
-
-  return { booking: toBookingResponse(booking), nearbyNannies };
 }
 
 export async function listBookings(
@@ -796,14 +651,12 @@ export async function cancelBooking(
 /**
  * Nanny responds to a booking request.
  *
- * For an UNCLAIMED request (nannyProfileId = null, either STANDARD or
- * EMERGENCY), ACCEPT *claims* it: the nanny is assigned and the booking moves
- * PENDING → APPROVED so it becomes payable immediately — there is no admin
- * approval gate. First to accept wins; a transaction + status re-check prevents
- * two nannies claiming the same request. You can't decline an unclaimed request
- * (it isn't yours) — you simply don't claim it. Emergency requests are re-priced
- * at the claiming nanny's rate (their price is unknown until a nanny claims);
- * standard requests keep the fixed platform price they were created with.
+ * For an UNCLAIMED request (nannyProfileId = null), ACCEPT *claims* it: the
+ * nanny is assigned and the booking moves PENDING → APPROVED so it becomes
+ * payable immediately — there is no admin approval gate. First to accept wins;
+ * a transaction + status re-check prevents two nannies claiming the same
+ * request. You can't decline an unclaimed request (it isn't yours) — you simply
+ * don't claim it. The request keeps the fixed platform price it was created with.
  *
  * For a request already ASSIGNED to this nanny, accept/decline just records
  * nannyDecision + nannyDecidedAt (informational).
@@ -845,40 +698,12 @@ async function applyNannyDecision(
 
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
 
-      // Emergency requests carry no price until claimed — re-price at the
-      // claiming nanny's rate (no skill add-ons or duration tiers apply to the
-      // per-nanny emergency rate). Standard requests keep their fixed platform price.
-      let repriceData: Prisma.BookingUpdateInput = {};
-      if (booking.type === BookingType.EMERGENCY) {
-        if (!nannyProfile.hourlyRate) {
-          throw errors.badRequest('Set your hourly rate before claiming emergency requests.');
-        }
-        const split = await getRevenueSplit();
-        const breakdown = calculatePriceBreakdown({
-          baseRate: Number(nannyProfile.hourlyRate),
-          durationHours: Number(booking.durationHours),
-          nannyPercent: split.nannyPercent,
-          platformPercent: split.platformPercent,
-        });
-        repriceData = {
-          baseRate: breakdown.baseRate,
-          effectiveHourlyRate: breakdown.effectiveHourlyRate,
-          subtotal: breakdown.subtotal,
-          serviceFeePercent: breakdown.serviceFeePercent,
-          serviceFeeAmount: breakdown.serviceFeeAmount,
-          totalAmount: breakdown.totalAmount,
-          nannyAmount: breakdown.nannyAmount,
-          platformAmount: breakdown.platformAmount,
-        };
-      }
-
       validateStatusTransition(booking.status, BookingStatus.APPROVED);
       claimed = true;
 
       return tx.booking.update({
         where: { id: bookingId },
         data: {
-          ...repriceData,
           nannyProfile: { connect: { id: nannyProfile.id } },
           status: BookingStatus.APPROVED,
           nannyDecision: decisionValue,
@@ -888,8 +713,8 @@ async function applyNannyDecision(
       });
     }
 
-    // Assigned booking (an emergency already claimed by this nanny, or a booking
-    // routed to her): record the informational decision only.
+    // Assigned booking (already claimed by this nanny, or a booking routed to
+    // her): record the informational decision only.
     if (booking.nannyProfileId !== nannyProfile.id) {
       throw errors.forbidden('This booking is not assigned to you.');
     }

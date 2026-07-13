@@ -201,7 +201,6 @@ export const AdminNannySchema = z.object({
   bio: z.string().nullable(),
   location: z.string().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   skills: z.array(PublicSkillSchema),
   isEmailVerified: z.boolean(),
@@ -220,6 +219,28 @@ export const RejectNannySchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
 });
 export type RejectNannyInput = z.infer<typeof RejectNannySchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Mothers directory (admin read-only list of parent accounts)
+// ──────────────────────────────────────────────────────────────
+
+export const AdminMotherSchema = z.object({
+  /** User id. */
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  /** Home address captured at registration (single source of truth). */
+  location: z.string().nullable(),
+  isEmailVerified: z.boolean(),
+  isPhoneVerified: z.boolean(),
+  isActive: z.boolean(),
+  /** Number of bookings this mother has placed. */
+  bookingCount: z.number().int(),
+  createdAt: z.string(),
+});
+export type AdminMother = z.infer<typeof AdminMotherSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)

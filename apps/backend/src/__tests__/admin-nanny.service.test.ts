@@ -30,14 +30,11 @@ const mockPrisma = prisma as unknown as {
   $transaction: jest.Mock;
 };
 
-const dec = (n: number) => ({ toNumber: () => n });
-
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'nanny-1',
     bio: 'Loves kids',
     yearsOfExperience: 4,
-    hourlyRate: dec(80),
     certifications: ['CPR'],
     approvalStatus: NannyApprovalStatus.PENDING_REVIEW,
     rejectionReason: null,
@@ -87,7 +84,6 @@ function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
     id: 'np-1',
     bio: null,
     yearsOfExperience: null,
-    hourlyRate: null,
     certifications: [],
     approvalStatus: 'APPROVED',
     rejectionReason: null,

@@ -105,9 +105,9 @@ describe('approveBooking', () => {
     );
   });
 
-  it('rejects approving an unclaimed emergency booking (no nanny assigned)', async () => {
+  it('rejects approving an unclaimed booking (no nanny assigned)', async () => {
     mockPrisma.booking.findFirst.mockResolvedValue(
-      makeRow({ type: 'EMERGENCY', nannyProfileId: null, nannyProfile: null }),
+      makeRow({ nannyProfileId: null, nannyProfile: null }),
     );
 
     await expect(approveBooking('booking-1', ADMIN_UID)).rejects.toThrow(

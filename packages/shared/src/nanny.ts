@@ -127,7 +127,6 @@ export const NannyProfileResponseSchema = z.object({
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   ageRanges: z.array(z.string()),
   skills: z.array(PublicSkillSchema),
@@ -151,7 +150,6 @@ export const NANNY_VISIBILITY_REQUIRED_FIELDS = [
   { key: 'bio', label: 'Bio' },
   { key: 'location', label: 'Location' },
   { key: 'yearsOfExperience', label: 'Years of experience' },
-  { key: 'hourlyRate', label: 'Hourly rate' },
 ] as const;
 
 /** Union of the field keys that gate profile visibility. */
@@ -173,8 +171,8 @@ export type NannyProfileCompletenessInput = Pick<
  *
  * Truthiness rules (must match the backend's historical behaviour exactly):
  * - `bio` / `location`: missing when falsy (null, undefined or empty string).
- * - `yearsOfExperience` / `hourlyRate`: missing only when null/undefined — a
- *   value of `0` counts as present.
+ * - `yearsOfExperience`: missing only when null/undefined — a value of `0`
+ *   counts as present.
  */
 export function getMissingNannyProfileFields(
   profile: NannyProfileCompletenessInput,
@@ -202,7 +200,6 @@ export const NannyListItemSchema = z.object({
   bio: z.string().nullable(),
   location: z.string().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  hourlyRate: z.number().nullable(),
   certifications: z.array(z.string()),
   ageRanges: z.array(z.string()),
   skills: z.array(PublicSkillSchema),
@@ -264,7 +261,6 @@ export const UpdateNannyProfileRequestSchema = z.object({
   // truth); coordinates are edited via PATCH /auth/me, not here.
   location: z.string().trim().max(200).optional(),
   yearsOfExperience: z.number().int().min(0).max(60).optional(),
-  hourlyRate: z.number().min(0).optional(),
   certifications: z.array(z.string().max(100)).optional(),
   ageRanges: z.array(z.string()).optional(),
   schedule: WeeklyScheduleSchema.optional(),

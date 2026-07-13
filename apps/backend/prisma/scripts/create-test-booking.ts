@@ -49,7 +49,8 @@ async function main() {
   date.setUTCHours(0, 0, 0, 0);
 
   const hours = 4;
-  const rate = Number(nannyProfile.hourlyRate ?? 180);
+  // Per-nanny rates were removed; bookings price from the platform standard rate.
+  const rate = 180;
   const subtotal = rate * hours;
   const fee = subtotal * 0.06;
   const total = subtotal + fee;
