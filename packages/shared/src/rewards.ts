@@ -14,6 +14,7 @@ import { PaginationMetaSchema } from './booking';
 export const RewardEntryTypeSchema = z.enum([
   'EARN',
   'REDEEM',
+  'REFUND',
   'ADMIN_GRANT',
   'ADMIN_REVOKE',
 ]);
@@ -49,8 +50,6 @@ export type UpdateRewardConfigInput = z.infer<typeof UpdateRewardConfigSchema>;
 export const RewardWalletSchema = z.object({
   userId: z.string(),
   pointsBalance: z.number().int(),
-  /** Redeemed, not-yet-applied free care hours. */
-  creditHours: z.number(),
   lifetimeEarned: z.number().int(),
   lifetimeRedeemed: z.number().int(),
 });
@@ -98,12 +97,6 @@ export const GrantPointsSchema = z.object({
   reason: z.string().trim().min(1).max(200),
 });
 export type GrantPointsInput = z.infer<typeof GrantPointsSchema>;
-
-/** Parent redeems points for this many free care hours. */
-export const RedeemPointsSchema = z.object({
-  hours: z.number().int().min(1).max(1000),
-});
-export type RedeemPointsInput = z.infer<typeof RedeemPointsSchema>;
 
 /** Pagination query for a wallet's ledger history. */
 export const RewardHistoryQuerySchema = z.object({
