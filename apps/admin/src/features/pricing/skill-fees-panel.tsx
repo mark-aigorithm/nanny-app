@@ -3,11 +3,17 @@ import { useState } from 'react';
 
 import type { Skill, SkillFeeType, UpdateSkillInput } from '@nanny-app/shared';
 
-import { Badge, Button, Card, Feedback } from '@admin/components/ui';
+import { Badge, Button, Card, Feedback, Select, type SelectOption } from '@admin/components/ui';
 import { fetchSkills, updateSkill } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 type FeeChoice = 'NONE' | SkillFeeType;
+
+const FEE_CHOICES: SelectOption[] = [
+  { value: 'NONE', label: 'No fee' },
+  { value: 'FLAT', label: 'Flat (EGP/hr)' },
+  { value: 'PERCENTAGE', label: 'Percent of base' },
+];
 
 function SkillFeeRow({ skill }: { skill: Skill }) {
   const queryClient = useQueryClient();
@@ -37,15 +43,13 @@ function SkillFeeRow({ skill }: { skill: Skill }) {
         {!skill.isActive && <Badge tone="neutral">Inactive</Badge>}
       </td>
       <td>
-        <select
-          className="status-select"
+        <Select
+          compact
           value={choice}
-          onChange={(e) => setChoice(e.target.value as FeeChoice)}
-        >
-          <option value="NONE">No fee</option>
-          <option value="FLAT">Flat (EGP/hr)</option>
-          <option value="PERCENTAGE">Percent of base</option>
-        </select>
+          options={FEE_CHOICES}
+          onChange={(next) => setChoice(next as FeeChoice)}
+          aria-label={`${skill.name} fee type`}
+        />
       </td>
       <td>
         <div className="fee-value-cell">
