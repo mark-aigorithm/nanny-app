@@ -44,6 +44,10 @@ export {
   Wallet,
   Users,
   ClipboardList,
+  // Care Points
+  Gift,
+  Coins,
+  History,
 } from 'lucide-react';
 
 /** Standard icon sizes (px). */

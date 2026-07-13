@@ -8,6 +8,7 @@ import { NotificationBell } from './notification-bell';
 import {
   CalendarClock,
   ChevronsUpDown,
+  Gift,
   ICON_SIZE,
   LayoutDashboard,
   LogOut,
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { to: '/users', label: 'Users', icon: Users },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket },
   { to: '/skills', label: 'Nanny Skills', icon: Sparkles },
+  { to: '/rewards', label: 'Care Points', icon: Gift },
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet },
   { to: '/cameras', label: 'Cameras', icon: Video },
   { to: '/settings', label: 'Configuration', icon: Settings },

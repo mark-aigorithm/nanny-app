@@ -2156,3 +2156,206 @@ h3 {
     flex-wrap: wrap;
   }
 }
+
+/* ============================================================
+   Care Points (rewards)
+   ============================================================ */
+.reward-toggle {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  margin-bottom: 1.25rem;
+  cursor: pointer;
+}
+.reward-toggle input {
+  margin-top: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary-dark);
+}
+.reward-toggle-title {
+  display: block;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.reward-toggle-hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-top: 0.15rem;
+}
+.reward-rate-preview {
+  margin: 1rem 0 1.25rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--color-warm-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+.reward-modal-lead {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin: 0 0 1rem;
+}
+.reward-pill {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--color-warm-subtle);
+  border: 1px solid var(--color-warm-border);
+  color: var(--color-bronze);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* History modal */
+.reward-history-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+}
+.reward-history-balance {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+.reward-history-balance-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+.reward-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+.reward-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.reward-history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-warm-border);
+}
+.reward-history-row:last-child {
+  border-bottom: none;
+}
+.reward-history-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.reward-history-icon--pos {
+  background: var(--color-success-light);
+  color: var(--color-success-text);
+}
+.reward-history-icon--neg {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+.reward-history-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.reward-history-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+.reward-history-reason {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.reward-history-date {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.1rem;
+}
+.reward-history-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.reward-points {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+.reward-points--pos {
+  color: var(--color-success-text);
+}
+.reward-points--neg {
+  color: var(--color-error);
+}
+.reward-history-after {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Care Points row inside the pricing calculator */
+.calc-reward {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-warm-subtle);
+}
+.calc-reward-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-bronze);
+  flex-shrink: 0;
+}
+.calc-reward-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.calc-reward-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+.calc-reward-sub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.calc-reward-points {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-bronze);
+}
