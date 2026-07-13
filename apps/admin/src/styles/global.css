@@ -1248,6 +1248,27 @@ h3 {
   margin-left: auto;
 }
 
+/* Desktop: the topbar carries only the notification bell (the hamburger is
+   hidden above 1024px), so letting it hold a full row leaves an empty band
+   above the page title. Pin it into the content's top-right corner instead so
+   it lines up with the page title and the header rises to the top. */
+@media (min-width: 1025px) {
+  .admin-content {
+    position: relative;
+  }
+  .admin-topbar {
+    position: absolute;
+    top: 2.5rem;
+    right: 3rem;
+    margin-bottom: 0;
+    z-index: 5;
+  }
+  /* Reserve room so long subtitle copy never runs under the pinned bell. */
+  .page-header {
+    padding-right: 3.5rem;
+  }
+}
+
 /* Backdrop behind the mobile drawer. */
 .sidebar-backdrop {
   position: fixed;
