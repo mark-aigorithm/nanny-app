@@ -11,6 +11,9 @@ const KEYS = {
   MIN_BOOKING_HOURS: 'min_booking_hours',
   MIN_ADVANCE_BOOKING_HOURS: 'min_advance_booking_hours',
   CANCELLATION_WINDOW_HOURS: 'cancellation_window_hours',
+  BROADCAST_RADIUS_KM: 'broadcast_radius_km',
+  PENDING_WARNING_MINUTES: 'pending_warning_minutes',
+  PENDING_CRITICAL_MINUTES: 'pending_critical_minutes',
 } as const;
 
 const DEFAULTS: PlatformConfig = {
@@ -22,6 +25,9 @@ const DEFAULTS: PlatformConfig = {
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
+  broadcastRadiusKm: 10,
+  pendingWarningMinutes: 15,
+  pendingCriticalMinutes: 30,
 };
 
 /** Maps each PlatformConfig field to its app_settings key. */
@@ -34,6 +40,9 @@ const FIELD_TO_KEY: Record<keyof PlatformConfig, string> = {
   minBookingHours: KEYS.MIN_BOOKING_HOURS,
   minAdvanceBookingHours: KEYS.MIN_ADVANCE_BOOKING_HOURS,
   cancellationWindowHours: KEYS.CANCELLATION_WINDOW_HOURS,
+  broadcastRadiusKm: KEYS.BROADCAST_RADIUS_KM,
+  pendingWarningMinutes: KEYS.PENDING_WARNING_MINUTES,
+  pendingCriticalMinutes: KEYS.PENDING_CRITICAL_MINUTES,
 };
 
 /** Returns the platform service fee % from app_settings (default 6 if not seeded). */
@@ -75,6 +84,19 @@ export async function getRevenueSplit(): Promise<{ nannyPercent: number; platfor
     nannyPercent: parse(KEYS.NANNY_PERCENT, DEFAULTS.nannyPercent),
     platformPercent: parse(KEYS.PLATFORM_PERCENT, DEFAULTS.platformPercent),
   };
+}
+
+/**
+ * Radius (km) for broadcasting new booking requests to nearby nannies.
+ * 0 means no distance filter — every eligible nanny is notified.
+ */
+export async function getBroadcastRadiusKm(): Promise<number> {
+  const row = await prisma.appSettings.findUnique({
+    where: { key: KEYS.BROADCAST_RADIUS_KM },
+  });
+  if (!row) return DEFAULTS.broadcastRadiusKm;
+  const parsed = parseFloat(row.value);
+  return Number.isNaN(parsed) ? DEFAULTS.broadcastRadiusKm : parsed;
 }
 
 /** Returns the full platform config, falling back to defaults for unseeded keys. */
