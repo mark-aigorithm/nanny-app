@@ -91,8 +91,8 @@ export async function getRevenueSplit(): Promise<{ nannyPercent: number; platfor
  * 0 means no distance filter — every eligible nanny is notified.
  */
 export async function getBroadcastRadiusKm(): Promise<number> {
-  const row = await prisma.appSettings.findUnique({
-    where: { key: KEYS.BROADCAST_RADIUS_KM },
+  const row = await prisma.appSettings.findFirst({
+    where: { key: KEYS.BROADCAST_RADIUS_KM, deletedAt: null },
   });
   if (!row) return DEFAULTS.broadcastRadiusKm;
   const parsed = parseFloat(row.value);

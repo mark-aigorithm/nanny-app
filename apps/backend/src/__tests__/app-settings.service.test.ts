@@ -1,5 +1,10 @@
 jest.mock('@backend/db/prisma', () => {
-  const appSettings = { findUnique: jest.fn(), findMany: jest.fn(), upsert: jest.fn() };
+  const appSettings = {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    upsert: jest.fn(),
+  };
   return {
     prisma: {
       appSettings,
@@ -17,7 +22,12 @@ import {
 } from '@backend/services/app-settings.service';
 
 const mockPrisma = prisma as unknown as {
-  appSettings: { findUnique: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
+  appSettings: {
+    findUnique: jest.Mock;
+    findFirst: jest.Mock;
+    findMany: jest.Mock;
+    upsert: jest.Mock;
+  };
 };
 
 beforeEach(() => {
@@ -26,12 +36,15 @@ beforeEach(() => {
 
 describe('getBroadcastRadiusKm', () => {
   it('returns the default (10) when the key is not seeded', async () => {
-    mockPrisma.appSettings.findUnique.mockResolvedValue(null);
+    mockPrisma.appSettings.findFirst.mockResolvedValue(null);
     await expect(getBroadcastRadiusKm()).resolves.toBe(10);
+    expect(mockPrisma.appSettings.findFirst).toHaveBeenCalledWith({
+      where: { key: 'broadcast_radius_km', deletedAt: null },
+    });
   });
 
   it('parses the stored value', async () => {
-    mockPrisma.appSettings.findUnique.mockResolvedValue({
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
       key: 'broadcast_radius_km',
       value: '25.5',
     });
@@ -39,7 +52,7 @@ describe('getBroadcastRadiusKm', () => {
   });
 
   it('falls back to the default on a malformed value', async () => {
-    mockPrisma.appSettings.findUnique.mockResolvedValue({
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
       key: 'broadcast_radius_km',
       value: 'not-a-number',
     });
