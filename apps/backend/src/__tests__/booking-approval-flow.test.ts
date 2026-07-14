@@ -76,6 +76,8 @@ const motherUser = {
   id: 'mother-1',
   firebaseUid: 'fb-mother',
   role: Role.MOTHER,
+  latitude: 30.0444,
+  longitude: 31.2357,
   deletedAt: null,
 };
 
@@ -206,6 +208,10 @@ describe('createBooking (broadcast)', () => {
     const createData = mockPrisma.booking.create.mock.calls[0][0].data;
     expect(createData.status).toBe(BookingStatus.PENDING);
     expect(createData.nannyProfileId).toBeNull();
+    // Location snapshot: the mother's coordinates are copied onto the booking
+    // so radius filtering stays stable if she later edits her address.
+    expect(createData.latitude).toBe(30.0444);
+    expect(createData.longitude).toBe(31.2357);
     // Priced from the base platform rate (100) × 3 hrs, split 80/20, no fee on top.
     expect(createData.baseRate).toBe(100);
     expect(createData.subtotal).toBe(300);

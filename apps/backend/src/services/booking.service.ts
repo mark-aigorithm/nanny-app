@@ -460,6 +460,10 @@ export async function createBooking(
     date: new Date(body.date),
     startTime,
     endTime,
+    // Snapshot the mother's location so the broadcast radius is computed
+    // against where the booking was requested, even if she later moves.
+    latitude: user.latitude,
+    longitude: user.longitude,
     durationHours: breakdown.durationHours,
     baseRate: breakdown.baseRate,
     effectiveHourlyRate: breakdown.effectiveHourlyRate,
