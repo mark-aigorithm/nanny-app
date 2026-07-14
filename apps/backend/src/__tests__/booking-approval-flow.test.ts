@@ -42,6 +42,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+  getBroadcastRadiusKm: jest.fn().mockResolvedValue(10),
 }));
 
 import { prisma } from '@backend/db/prisma';
@@ -187,7 +188,9 @@ describe('createBooking (broadcast)', () => {
     mockPrisma.skill.findMany.mockResolvedValue([]);
     mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
     // Broadcast fan-out: one eligible nanny + two admins.
-    mockPrisma.nannyProfile.findMany.mockResolvedValue([{ userId: nannyUser.id }]);
+    mockPrisma.nannyProfile.findMany.mockResolvedValue([
+      { userId: nannyUser.id, user: { latitude: null, longitude: null } },
+    ]);
     mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
 
     // Future, timezone-safe request window (avoids a hard-coded date time-bomb).

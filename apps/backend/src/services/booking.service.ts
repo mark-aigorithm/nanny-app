@@ -29,7 +29,9 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { isWithinRadius, toLatLng } from '@backend/lib/geo';
 import { hashPin, randomStartPin } from '@backend/lib/pin';
+import { getBroadcastRadiusKm } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -250,30 +252,44 @@ async function notifyUserBookingEvent(
  * Broadcast a new, unclaimed booking request to every eligible nanny and to
  * every admin at once. No nanny is assigned yet — the request is offered to the
  * whole pool and the first nanny to accept claims it. "Eligible" means an
- * approved nanny with a complete profile who is free for the requested window.
+ * approved nanny with a complete profile who is free for the requested window
+ * and within the configured broadcast radius of the booking's location (nannies
+ * or bookings without coordinates always match, and radius 0 disables the
+ * distance filter — see AppSettings broadcast_radius_km).
  * No payment has been taken; the mother pays once a nanny claims the request.
  */
 async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<void> {
   const dateLabel = booking.date.toISOString().slice(0, 10);
 
-  const nannies = await prisma.nannyProfile.findMany({
-    where: {
-      deletedAt: null,
-      isProfileComplete: true,
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      // Exclude nannies already booked for an overlapping window — they can't
-      // take this one anyway.
-      bookings: {
-        none: {
-          deletedAt: null,
-          status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
-          startTime: { lt: booking.endTime },
-          endTime: { gt: booking.startTime },
+  const [radiusKm, candidates] = await Promise.all([
+    getBroadcastRadiusKm(),
+    prisma.nannyProfile.findMany({
+      where: {
+        deletedAt: null,
+        isProfileComplete: true,
+        approvalStatus: NannyApprovalStatus.APPROVED,
+        // Exclude nannies already booked for an overlapping window — they can't
+        // take this one anyway.
+        bookings: {
+          none: {
+            deletedAt: null,
+            status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
+            startTime: { lt: booking.endTime },
+            endTime: { gt: booking.startTime },
+          },
         },
       },
-    },
-    select: { userId: true },
-  });
+      select: {
+        userId: true,
+        user: { select: { latitude: true, longitude: true } },
+      },
+    }),
+  ]);
+
+  const bookingPoint = toLatLng(booking.latitude, booking.longitude);
+  const nannies = candidates.filter((n) =>
+    isWithinRadius(bookingPoint, toLatLng(n.user.latitude, n.user.longitude), radiusKm),
+  );
 
   const admins = await prisma.user.findMany({
     where: { deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },

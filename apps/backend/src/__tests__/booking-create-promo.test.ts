@@ -17,6 +17,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn(),
   getStandardHourlyRate: jest.fn(),
   getRevenueSplit: jest.fn(),
+  getBroadcastRadiusKm: jest.fn(),
 }));
 
 jest.mock('@backend/services/notification.service', () => ({
@@ -26,6 +27,7 @@ jest.mock('@backend/services/notification.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import {
+  getBroadcastRadiusKm,
   getRevenueSplit,
   getServiceFeePercent,
   getStandardHourlyRate,
@@ -45,6 +47,7 @@ const mockPrisma = prisma as unknown as {
 const mockFee = getServiceFeePercent as jest.Mock;
 const mockRate = getStandardHourlyRate as jest.Mock;
 const mockSplit = getRevenueSplit as jest.Mock;
+const mockRadius = getBroadcastRadiusKm as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
 
@@ -106,6 +109,7 @@ beforeEach(() => {
   mockFee.mockResolvedValue(6);
   mockRate.mockResolvedValue(100);
   mockSplit.mockResolvedValue({ nannyPercent: 80, platformPercent: 20 });
+  mockRadius.mockResolvedValue(10);
 });
 
 describe('createBooking (promo wiring)', () => {
