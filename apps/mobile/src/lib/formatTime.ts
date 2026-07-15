@@ -1,14 +1,22 @@
-export function formatTimeUtc(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'UTC',
-  });
+/**
+ * Formats a booking time from the API, e.g. "2026-07-20T09:00:00+03:00" → "9:00 AM".
+ *
+ * The API sends booking times as platform wall-clock plus their offset, so the
+ * hours and minutes in the string are already the time the parent picked. We
+ * read them straight off it rather than parsing to a Date and formatting: that
+ * would need a timezone database on the device, and React Native's JS engine
+ * can't be relied on to ship one.
+ *
+ * Only for `startTime`/`endTime`. Other API timestamps (createdAt, checked-in
+ * at, …) are plain UTC instants with no wall-clock meaning — format those from
+ * a Date.
+ */
+export function formatBookingTime(iso: string): string {
+  return formatHhMm(iso.slice(11, 16));
 }
 
-export function formatTimeRangeUtc(startIso: string, endIso: string): string {
-  return `${formatTimeUtc(startIso)} - ${formatTimeUtc(endIso)}`;
+export function formatBookingTimeRange(startIso: string, endIso: string): string {
+  return `${formatBookingTime(startIso)} - ${formatBookingTime(endIso)}`;
 }
 
 /** Formats a 24h clock hour (0–23) as a 12h label, e.g. 13 → "1:00 PM". */

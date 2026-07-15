@@ -161,15 +161,36 @@ export type BookingResponse = z.infer<typeof BookingResponseSchema>;
 // ── Request schemas ──────────────────────────────────────────────────────────
 
 /**
+ * A wall-clock instant with no timezone: "2026-07-20T09:00:00". Deliberately a
+ * regex rather than `z.string().datetime({ local: true })` — this must REJECT a
+ * trailing offset. An older mobile build sending `…+00:00` was silently booking
+ * 2-3 hours off; a hard 400 is the point.
+ */
+export const WALL_CLOCK_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+
+/** A wall-clock field named for its owner, so the 400 says which one is wrong. */
+export function wallClockField(name: string): z.ZodString {
+  return z
+    .string()
+    .regex(
+      WALL_CLOCK_REGEX,
+      `${name} must be a wall-clock time (YYYY-MM-DDTHH:mm:ss) with no timezone offset`,
+    );
+}
+
+/**
  * Create a booking request. The mother no longer picks a nanny — the request is
  * broadcast to every eligible nanny and the first to accept claims it. Price is
  * known up front from the fixed platform rate, not a per-nanny rate. Optional
  * coordinates let the server order the broadcast pool by proximity.
+ *
+ * Times are wall-clock in `PLATFORM_TIMEZONE` — the literal time the parent
+ * picked. The server converts to UTC and derives the booking's `date` from the
+ * start, so the client cannot send a `date` that disagrees with `startTime`.
  */
 export const CreateBookingSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
-  startTime: z.string().datetime({ offset: true }),
-  endTime: z.string().datetime({ offset: true }),
+  startTime: wallClockField('startTime'),
+  endTime: wallClockField('endTime'),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   specialInstructions: z.string().trim().max(1000).optional(),
@@ -210,21 +231,207 @@ export const PricingConfigSchema = z.object({
 });
 export type PricingConfig = z.infer<typeof PricingConfigSchema>;
 
-/** YYYY-MM-DD in local calendar time for the given instant. */
-export function toLocalDateIso(date: Date = new Date()): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+/**
+ * What the booking date/time picker needs to decide which slots to offer. Kept
+ * separate from PricingConfig: these aren't pricing inputs, PricingConfig is
+ * also served to the admin's pricing calculator, and the picker needs these one
+ * step before the pricing screen needs those.
+ */
+export const BookingOptionsSchema = z.object({
+  /** First hour care may start, and the hour it must end by. See bookingWindowLengthHours. */
+  bookingWindowStartHour: z.number().int().min(0).max(23),
+  bookingWindowEndHour: z.number().int().min(0).max(23),
+  minBookingHours: z.number().int(),
+  maxBookingHours: z.number().int(),
+  minAdvanceBookingHours: z.number().int(),
+  /** IANA zone every wall-clock time on this payload is expressed in. */
+  timezone: z.string(),
+  /** Server "now" as a wall-clock time, e.g. "2026-07-15T14:32:07". */
+  nowWallClock: z.string(),
+  /**
+   * `now + minAdvanceBookingHours` as wall-clock, UNROUNDED. A slot is bookable
+   * iff `slotStartWall >= earliestStartWallClock` — fixed-width wall-clock
+   * strings compare lexicographically, so the client needs no timezone database
+   * and never has to trust the device clock. Leaving it unrounded is
+   * conservative (16:37 excludes the 16:00 slot, offers 17:00), and the server
+   * re-checks real instants regardless.
+   */
+  earliestStartWallClock: z.string(),
+});
+export type BookingOptions = z.infer<typeof BookingOptionsSchema>;
+
+// ── Daily booking window ─────────────────────────────────────────────────────
+// The admin configures the hours of the day care may be booked. Both bounds are
+// wall-clock hours in PLATFORM_TIMEZONE. These checks are pure wall-clock
+// arithmetic — no timezone database, no instants — so the backend runs them on
+// the raw request strings before converting, and the mobile picker uses the very
+// same rules to decide what to offer. Modelled on the availability-window
+// helpers in `nanny.ts`.
+
+const MINUTES_PER_DAY = 1440;
+const MS_PER_DAY = 86_400_000;
+
+function isWindowHour(hour: number): boolean {
+  return Number.isInteger(hour) && hour >= 0 && hour <= 23;
 }
 
-/** Standard bookings must be on a future calendar day — not today. */
-export function isStandardBookingDateAllowed(dateIso: string, now: Date = new Date()): boolean {
-  return dateIso > toLocalDateIso(now);
+/**
+ * How many hours the daily window spans.
+ *
+ * `endHour <= startHour` means the window runs past midnight and closes on the
+ * NEXT day — 8 → 2 is 08:00 to 02:00 (18 hours). `endHour === startHour` is the
+ * full 24-hour case, i.e. no restriction.
+ */
+export function bookingWindowLengthHours(startHour: number, endHour: number): number {
+  return endHour > startHour ? endHour - startHour : endHour + 24 - startHour;
 }
 
-export const STANDARD_BOOKING_SAME_DAY_MESSAGE =
-  'Bookings must be scheduled at least one day in advance.';
+type WallClockParts = {
+  /** Whole days since the epoch — lets us diff dates without touching offsets. */
+  dayEpoch: number;
+  /** Minutes from that day's midnight. */
+  minutes: number;
+};
+
+/** Parses "YYYY-MM-DDTHH:mm:ss", or null when malformed or not a real date. */
+function parseWallClock(wall: string): WallClockParts | null {
+  if (!WALL_CLOCK_REGEX.test(wall)) return null;
+  const year = Number(wall.slice(0, 4));
+  const month = Number(wall.slice(5, 7));
+  const day = Number(wall.slice(8, 10));
+  const hours = Number(wall.slice(11, 13));
+  const minutes = Number(wall.slice(14, 16));
+  if (hours > 23 || minutes > 59) return null;
+
+  const utcMs = Date.UTC(year, month - 1, day);
+  const back = new Date(utcMs);
+  // Date.UTC rolls over (Feb 30 → Mar 2); round-trip so we reject impossible dates.
+  if (
+    back.getUTCFullYear() !== year ||
+    back.getUTCMonth() !== month - 1 ||
+    back.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return { dayEpoch: utcMs / MS_PER_DAY, minutes: hours * 60 + minutes };
+}
+
+/**
+ * True when a booking running `startWall` → `endWall` fits inside the daily
+ * window. Both are wall-clock strings; `endWall` carries its own date, so a
+ * booking that ends after midnight is expressed naturally.
+ *
+ * Everything is measured in minutes from the CARE-DAY's midnight, which is what
+ * makes the cross-midnight case fall out: a booking starting before the window
+ * opens belongs to the previous care-day, so it's shifted forward a day and then
+ * compared against the same bounds. Fails closed on malformed input.
+ */
+export function isBookingWithinDailyWindow(
+  startWall: string,
+  endWall: string,
+  startHour: number,
+  endHour: number,
+): boolean {
+  const start = parseWallClock(startWall);
+  const end = parseWallClock(endWall);
+  if (!start || !end) return false;
+  if (!isWindowHour(startHour) || !isWindowHour(endHour)) return false;
+
+  const windowStart = startHour * 60;
+  const windowMinutes = bookingWindowLengthHours(startHour, endHour) * 60;
+
+  let offsetStart = start.minutes;
+  let offsetEnd = (end.dayEpoch - start.dayEpoch) * MINUTES_PER_DAY + end.minutes;
+  if (offsetEnd <= offsetStart) return false;
+
+  // A full-24h window restricts nothing beyond ordering.
+  if (windowMinutes >= MINUTES_PER_DAY) return true;
+
+  if (offsetStart < windowStart) {
+    offsetStart += MINUTES_PER_DAY;
+    offsetEnd += MINUTES_PER_DAY;
+  }
+  return offsetStart >= windowStart && offsetEnd <= windowStart + windowMinutes;
+}
+
+function formatWindowHour(hour: number): string {
+  const suffix = hour < 12 ? 'am' : 'pm';
+  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelve}${suffix}`;
+}
+
+/** Rejection message when a booking falls outside the configured daily window. */
+export function bookingWindowMessage(startHour: number, endHour: number): string {
+  return `Bookings must run between ${formatWindowHour(startHour)} and ${formatWindowHour(endHour)}.`;
+}
+
+/** Rejection message when a booking doesn't meet the configured lead time. */
+export function bookingLeadTimeMessage(minAdvanceHours: number): string {
+  if (minAdvanceHours <= 0) return 'Cannot book in the past.';
+  const plural = minAdvanceHours === 1 ? 'hour' : 'hours';
+  return `Bookings must be made at least ${minAdvanceHours} ${plural} in advance.`;
+}
+
+// ── Care-day slots ───────────────────────────────────────────────────────────
+
+/** YYYY-MM-DD shifted by whole days. UTC arithmetic, so DST can't skew it. */
+export function addDaysIso(dateIso: string, days: number): string {
+  const year = Number(dateIso.slice(0, 4));
+  const month = Number(dateIso.slice(5, 7));
+  const day = Number(dateIso.slice(8, 10));
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * The wall-clock time `absHour` hours after `careDayIso` 00:00. `absHour` may
+ * exceed 23, in which case the result lands on a later date — that's how an
+ * after-midnight slot gets the next day's date while still being offered under
+ * the care-day the parent tapped.
+ */
+export function careDayWallClock(careDayIso: string, absHour: number): string {
+  const dateIso = addDaysIso(careDayIso, Math.floor(absHour / 24));
+  const hour = ((absHour % 24) + 24) % 24;
+  return `${dateIso}T${String(hour).padStart(2, '0')}:00:00`;
+}
+
+/**
+ * A bookable start time offered under a care-day. `absHour` is hours since the
+ * care-day's midnight (so it sorts correctly and can exceed 23); `hour` is the
+ * wall-clock hour to label it with; `dateIso` is the calendar date it truly
+ * falls on, which for a late-night slot is the day AFTER the one tapped.
+ */
+export type CareDaySlot = {
+  absHour: number;
+  hour: number;
+  dateIso: string;
+  startWall: string;
+};
+
+/**
+ * Every start time offered for a care-day, in chronological order. A slot is
+ * only offered if the shortest permitted booking still fits before the window
+ * closes, so the last few hours of the window never appear as dead options.
+ */
+export function generateCareDaySlots(
+  careDayIso: string,
+  startHour: number,
+  endHour: number,
+  minBookingHours: number,
+): CareDaySlot[] {
+  if (!isWindowHour(startHour) || !isWindowHour(endHour)) return [];
+  const windowLength = bookingWindowLengthHours(startHour, endHour);
+  const slots: CareDaySlot[] = [];
+  for (let offset = 0; offset + minBookingHours <= windowLength; offset++) {
+    const absHour = startHour + offset;
+    slots.push({
+      absHour,
+      hour: absHour % 24,
+      dateIso: addDaysIso(careDayIso, Math.floor(absHour / 24)),
+      startWall: careDayWallClock(careDayIso, absHour),
+    });
+  }
+  return slots;
+}
 
 export const CancelBookingSchema = z.object({
   reason: z.string().min(1).max(500),

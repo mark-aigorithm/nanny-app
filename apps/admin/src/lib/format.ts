@@ -1,3 +1,36 @@
+import { PLATFORM_TIMEZONE } from '@nanny-app/shared';
+
+/**
+ * Format an API timestamp for display, always in the platform's timezone.
+ *
+ * Pinned to PLATFORM_TIMEZONE rather than the browser's: an admin working from
+ * another timezone must still read the times the parents and nannies see, or
+ * they'd reschedule a booking to the wrong hour.
+ */
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: PLATFORM_TIMEZONE,
+  });
+}
+
+/**
+ * Booking `startTime`/`endTime` → a value for <input type="datetime-local">.
+ *
+ * The API sends platform wall-clock plus its offset, and the input wants bare
+ * wall-clock, so this is a slice — no Date, no timezone conversion. Going
+ * through a Date would re-interpret the time in the browser's zone.
+ */
+export function toDateTimeLocalInput(iso: string): string {
+  return iso.slice(0, 16);
+}
+
+/** <input type="datetime-local"> value → the wall-clock the API expects. */
+export function fromDateTimeLocalInput(value: string): string {
+  return `${value}:00`;
+}
+
 /** Format an EGP amount for the admin UI, e.g. 410.4 → "EGP 410.40". */
 export function formatEgp(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', {

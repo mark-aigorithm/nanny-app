@@ -4,13 +4,16 @@ import {
   BookingStatus,
   BookingType,
   PaymentStatus,
+  bookingLeadTimeMessage,
+  bookingWindowMessage,
+  isBookingWithinDailyWindow,
+  PLATFORM_TIMEZONE,
   type BookingListQuery,
+  type BookingOptions,
   type BookingResponse,
   type CancelBookingRequest,
   type CreateBookingRequest,
   type GenerateStartPinResponse,
-  isStandardBookingDateAllowed,
-  STANDARD_BOOKING_SAME_DAY_MESSAGE,
   type MockPayBookingRequest,
   type PaginationMeta,
   type PricingConfig,
@@ -30,6 +33,14 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
 import { hashPin, randomStartPin } from '@backend/lib/pin';
+import {
+  assertWallClock,
+  toPlatformDateColumn,
+  toPlatformIso,
+  toPlatformWallClock,
+  wallClockToUtc,
+} from '@backend/lib/platform-time';
+import { getPlatformConfig } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -104,8 +115,14 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
     adminApprovedAt: b.adminApprovedAt?.toISOString() ?? null,
     type: b.type,
     date: b.date.toISOString().slice(0, 10),
-    startTime: b.startTime.toISOString(),
-    endTime: b.endTime.toISOString(),
+    // startTime/endTime are the only wall-clock-meaningful fields on this
+    // payload — a booking happens at "9am Cairo", so they carry the platform
+    // offset and the client reads the wall-clock straight off the string. Every
+    // other timestamp here (nannyDecidedAt, createdAt, checked-in/out, payment)
+    // is an INSTANT with no wall-clock meaning, so plain UTC is correct for
+    // those. Don't "fix" them to match.
+    startTime: toPlatformIso(b.startTime),
+    endTime: toPlatformIso(b.endTime),
     durationHours: Number(b.durationHours),
     baseRate: Number(b.baseRate),
     effectiveHourlyRate: Number(b.effectiveHourlyRate),
@@ -396,17 +413,59 @@ export async function createBooking(
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
 
-  const startTime = new Date(body.startTime);
-  const endTime = new Date(body.endTime);
-  if (startTime >= endTime) throw errors.badRequest('startTime must be before endTime.');
-  if (startTime < new Date()) throw errors.badRequest('Cannot book in the past.');
-  if (!isStandardBookingDateAllowed(body.date)) {
-    throw errors.badRequest(STANDARD_BOOKING_SAME_DAY_MESSAGE);
+  const config = await getPlatformConfig();
+
+  // Shape first, so the checks below can trust the strings. Zod already enforces
+  // this at the route; without it here, an offset-bearing time from an outdated
+  // client would fail the window check (which fails closed on anything it can't
+  // parse) and get told the window is shut rather than that its format is wrong.
+  assertWallClock(body.startTime, 'startTime');
+  assertWallClock(body.endTime, 'endTime');
+
+  // Ordering, on the raw wall-clock strings. They're fixed-width, so comparing
+  // them lexicographically is comparing them chronologically, and endTime
+  // carries its own date — a booking ending after midnight needs no special case.
+  if (body.endTime <= body.startTime) {
+    throw errors.badRequest('startTime must be before endTime.');
   }
 
+  // The daily window is pure wall-clock arithmetic, so it's checked before any
+  // timezone is involved. It comes before the lead-time check so a parent asking
+  // for 3am is told the window is closed, not that they should book earlier.
+  if (
+    !isBookingWithinDailyWindow(
+      body.startTime,
+      body.endTime,
+      config.bookingWindowStartHour,
+      config.bookingWindowEndHour,
+    )
+  ) {
+    throw errors.badRequest(
+      bookingWindowMessage(config.bookingWindowStartHour, config.bookingWindowEndHour),
+    );
+  }
+
+  // Wall-clock → the real instants we store and compare against. Throws a 400 if
+  // the parent picked a time that doesn't exist on a DST spring-forward night.
+  const startTime = wallClockToUtc(body.startTime);
+  const endTime = wallClockToUtc(body.endTime);
+
+  // Duration is real elapsed time, not the wall-clock difference: on a DST night
+  // an "8 hour" pick is genuinely 7 or 9 hours of care, and that's what the nanny
+  // works and the mother pays for.
   const durationHours = computeDurationHours(startTime, endTime);
-  if (durationHours < 1) throw errors.badRequest('Minimum booking duration is 1 hour.');
-  if (durationHours > 12) throw errors.badRequest('Maximum booking duration is 12 hours.');
+  if (durationHours < config.minBookingHours) {
+    throw errors.badRequest(`Minimum booking duration is ${config.minBookingHours} hours.`);
+  }
+  if (durationHours > config.maxBookingHours) {
+    throw errors.badRequest(`Maximum booking duration is ${config.maxBookingHours} hours.`);
+  }
+
+  // Lead time. Subsumes the old "cannot book in the past" check — at a 0-hour
+  // minimum this is exactly that, which is why the message says so.
+  if (startTime.getTime() < Date.now() + config.minAdvanceBookingHours * 3_600_000) {
+    throw errors.badRequest(bookingLeadTimeMessage(config.minAdvanceBookingHours));
+  }
 
   // Idempotency: a double-tapped "Request care" must not create two broadcasts.
   // Reuse an existing unclaimed request for the same mother and time window.
@@ -457,7 +516,10 @@ export async function createBooking(
     nannyProfileId: null,
     status: BookingStatus.PENDING,
     type: BookingType.STANDARD,
-    date: new Date(body.date),
+    // Derived from the start, never sent by the client. For a booking that runs
+    // past midnight this is the day it STARTS, keeping `date` in agreement with
+    // `startTime` — which getNannyBookedSlots and the dashboard aggregates rely on.
+    date: toPlatformDateColumn(startTime),
     startTime,
     endTime,
     durationHours: breakdown.durationHours,
@@ -509,6 +571,31 @@ export async function createBooking(
  */
 export async function getBookingPricingConfig(): Promise<PricingConfig> {
   return getPricingConfig();
+}
+
+/**
+ * What the date/time picker needs to decide which slots to offer.
+ *
+ * `earliestStartWallClock` is computed here, from the server's clock, rather
+ * than on the device: the client then filters slots with a plain string compare
+ * and needs neither a timezone database nor a trustworthy clock. It's a hint —
+ * `createBooking` re-checks the real instant regardless.
+ */
+export async function getBookingOptions(): Promise<BookingOptions> {
+  const config = await getPlatformConfig();
+  const now = new Date();
+  return {
+    bookingWindowStartHour: config.bookingWindowStartHour,
+    bookingWindowEndHour: config.bookingWindowEndHour,
+    minBookingHours: config.minBookingHours,
+    maxBookingHours: config.maxBookingHours,
+    minAdvanceBookingHours: config.minAdvanceBookingHours,
+    timezone: PLATFORM_TIMEZONE,
+    nowWallClock: toPlatformWallClock(now),
+    earliestStartWallClock: toPlatformWallClock(
+      new Date(now.getTime() + config.minAdvanceBookingHours * 3_600_000),
+    ),
+  };
 }
 
 export async function validateBookingPromo(

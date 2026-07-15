@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   BookingListQuery,
+  BookingOptions,
   BookingResponse,
   CreateBookingRequest,
   GenerateStartPinResponse,
@@ -12,7 +13,7 @@ import type {
 import { PaymentMethod } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
-import { formatTimeRangeUtc } from '@mobile/lib/formatTime';
+import { formatBookingTimeRange } from '@mobile/lib/formatTime';
 import { NANNIES_KEY } from '@mobile/hooks/useNannies';
 
 const BOOKINGS_KEY = 'bookings';
@@ -99,6 +100,25 @@ export function usePricingConfig() {
     queryKey: ['pricing-config'],
     queryFn: () => unwrap(api.get('/bookings/pricing')),
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * The scheduling rules the date/time picker needs: the daily booking window, the
+ * duration limits, and the earliest start the minimum advance notice allows.
+ *
+ * Short staleTime with a refetch on focus because `earliestStartWallClock` is a
+ * point in time and goes off — a parent who leaves the picker open would
+ * otherwise be offered a slot that has since fallen inside the lead time. The
+ * server re-checks on submit regardless, so the worst case is a rejected
+ * booking, not a wrong one.
+ */
+export function useBookingOptions() {
+  return useQuery<BookingOptions>({
+    queryKey: ['booking-options'],
+    queryFn: () => unwrap(api.get('/bookings/options')),
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -245,5 +265,5 @@ export function fmtBookingDate(isoDate: string): string {
 }
 
 export function fmtBookingTime(startIso: string, endIso: string): string {
-  return formatTimeRangeUtc(startIso, endIso);
+  return formatBookingTimeRange(startIso, endIso);
 }

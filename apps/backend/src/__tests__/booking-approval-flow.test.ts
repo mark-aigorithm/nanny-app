@@ -42,6 +42,19 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+  // Wide-open window: this suite is about the approval flow, not scheduling rules.
+  getPlatformConfig: jest.fn().mockResolvedValue({
+    serviceFeePercent: 6,
+    standardHourlyRate: 100,
+    nannyPercent: 80,
+    platformPercent: 20,
+    maxBookingHours: 12,
+    minBookingHours: 1,
+    minAdvanceBookingHours: 0,
+    cancellationWindowHours: 24,
+    bookingWindowStartHour: 0,
+    bookingWindowEndHour: 0,
+  }),
 }));
 
 import { prisma } from '@backend/db/prisma';
@@ -188,16 +201,13 @@ describe('createBooking (broadcast)', () => {
     mockPrisma.nannyProfile.findMany.mockResolvedValue([{ userId: nannyUser.id }]);
     mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
 
-    // Future, timezone-safe request window (avoids a hard-coded date time-bomb).
-    const start = new Date(Date.now() + 20 * 24 * 3_600_000);
-    start.setUTCHours(10, 0, 0, 0);
-    const end = new Date(start.getTime() + 3 * 3_600_000);
-    const dateIso = start.toISOString().slice(0, 10);
+    // A wall-clock window 20 days out — far enough ahead that the lead-time check
+    // passes without hard-coding a date that eventually goes stale.
+    const dateIso = new Date(Date.now() + 20 * 24 * 3_600_000).toISOString().slice(0, 10);
 
     const result = await createBooking({ uid: 'fb-mother' } as never, {
-      date: dateIso,
-      startTime: start.toISOString(),
-      endTime: end.toISOString(),
+      startTime: `${dateIso}T10:00:00`,
+      endTime: `${dateIso}T13:00:00`,
       skillIds: [],
     });
 

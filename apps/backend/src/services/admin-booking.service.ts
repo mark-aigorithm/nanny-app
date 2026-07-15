@@ -15,6 +15,11 @@ import type {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import {
+  toPlatformDateColumn,
+  toPlatformIso,
+  wallClockToUtc,
+} from '@backend/lib/platform-time';
+import {
   assertNoConflict,
   computeDurationHours,
   validateStatusTransition,
@@ -74,9 +79,12 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     status: row.status,
     nannyDecision: row.nannyDecision,
     type: row.type,
-    date: row.date.toISOString(),
-    startTime: row.startTime.toISOString(),
-    endTime: row.endTime.toISOString(),
+    // A date-only column, so a date-only string — matching toBookingResponse.
+    date: row.date.toISOString().slice(0, 10),
+    // Platform wall-clock + offset. Every other timestamp on this payload is a
+    // plain instant and correctly stays UTC — see the note in booking.service.ts.
+    startTime: toPlatformIso(row.startTime),
+    endTime: toPlatformIso(row.endTime),
     durationHours: row.durationHours.toNumber(),
     totalAmount: row.totalAmount.toNumber(),
     discountAmount: row.discountAmount.toNumber(),
@@ -139,9 +147,12 @@ function toDto(row: AdminBookingRow): AdminBooking {
     status: row.status,
     nannyDecision: row.nannyDecision,
     type: row.type,
-    date: row.date.toISOString(),
-    startTime: row.startTime.toISOString(),
-    endTime: row.endTime.toISOString(),
+    // A date-only column, so a date-only string — matching toBookingResponse.
+    date: row.date.toISOString().slice(0, 10),
+    // Platform wall-clock + offset. Every other timestamp on this payload is a
+    // plain instant and correctly stays UTC — see the note in booking.service.ts.
+    startTime: toPlatformIso(row.startTime),
+    endTime: toPlatformIso(row.endTime),
     durationHours: row.durationHours.toNumber(),
     totalAmount: row.totalAmount.toNumber(),
     discountAmount: row.discountAmount.toNumber(),
@@ -497,8 +508,14 @@ export async function updateBookingTimes(
     );
   }
 
-  const startTime = new Date(input.startTime);
-  const endTime = new Date(input.endTime);
+  // Wall-clock in the platform timezone, same contract as the mobile create
+  // flow — the admin's browser timezone must not decide what a time means.
+  //
+  // Deliberately NOT subject to the daily booking window or the minimum advance
+  // notice: an admin fixing up a late-running or in-progress booking has to be
+  // able to set times a parent couldn't have requested.
+  const startTime = wallClockToUtc(input.startTime);
+  const endTime = wallClockToUtc(input.endTime);
   if (startTime >= endTime) throw errors.badRequest('startTime must be before endTime.');
 
   const durationHours = computeDurationHours(startTime, endTime);
@@ -534,6 +551,10 @@ export async function updateBookingTimes(
     data: {
       startTime,
       endTime,
+      // Must move with startTime. Left stale, an admin rescheduling to another
+      // day would hide the booking from the nanny's booked-slots lookup, which
+      // queries on `date`.
+      date: toPlatformDateColumn(startTime),
       durationHours: breakdown.durationHours,
       subtotal: breakdown.subtotal,
       durationMultiplier: breakdown.durationMultiplier,

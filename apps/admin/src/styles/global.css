@@ -450,6 +450,12 @@ h3 {
   color: var(--color-text-muted);
 }
 
+.times-editor-hint {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 .nanny-cell {
   display: flex;
   align-items: center;

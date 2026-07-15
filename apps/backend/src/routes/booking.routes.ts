@@ -26,6 +26,7 @@ import {
   declineBooking,
   generateStartPin,
   getBooking,
+  getBookingOptions,
   getBookingPricingConfig,
   listAvailableBookings,
   listBookings,
@@ -48,6 +49,18 @@ bookingRouter.get(
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await getBookingPricingConfig()));
+    } catch (err) { next(err); }
+  },
+);
+
+// Like /pricing and /available, this must stay above /bookings/:id so Express
+// doesn't read "options" as a booking ID.
+bookingRouter.get(
+  '/options',
+  requireAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await getBookingOptions()));
     } catch (err) { next(err); }
   },
 );
