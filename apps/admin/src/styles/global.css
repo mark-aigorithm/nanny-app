@@ -272,6 +272,13 @@ h3 {
   margin-bottom: 1.25rem;
 }
 
+.form-section-title {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
 .field {
   display: flex;
   flex-direction: column;
