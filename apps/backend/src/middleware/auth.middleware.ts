@@ -43,3 +43,22 @@ export async function requireAuth(
     next(err);
   }
 }
+
+/**
+ * Like `requireAuth`, but a request with no `Authorization` header continues
+ * anonymously (`req.firebaseUser` stays undefined) — used by public read
+ * endpoints that guest (not-yet-registered) users may browse. A header that
+ * is present but malformed/invalid still fails with 401 so client auth bugs
+ * surface instead of silently downgrading to anonymous data.
+ */
+export async function optionalAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.headers.authorization) {
+    next();
+    return;
+  }
+  await requireAuth(req, res, next);
+}
