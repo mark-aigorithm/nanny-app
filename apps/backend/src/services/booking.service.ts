@@ -715,10 +715,13 @@ export async function cancelBooking(
  *
  * For an UNCLAIMED request (nannyProfileId = null), ACCEPT *claims* it: the
  * nanny is assigned and the booking moves PENDING → APPROVED so it becomes
- * payable immediately — there is no admin approval gate. First to accept wins;
- * a transaction + status re-check prevents two nannies claiming the same
- * request. You can't decline an unclaimed request (it isn't yours) — you simply
- * don't claim it. The request keeps the fixed platform price it was created with.
+ * payable immediately — there is no admin approval gate. First to accept wins:
+ * the claim is a conditional updateMany guarded on
+ * (status = PENDING AND nannyProfileId IS NULL), so the database itself
+ * guarantees exactly one winner under concurrent accepts — the loser's write
+ * matches no row and gets a conflict error. You can't decline an unclaimed
+ * request (it isn't yours) — you simply don't claim it. The request keeps the
+ * fixed platform price it was created with.
  *
  * For a request already ASSIGNED to this nanny, accept/decline just records
  * nannyDecision + nannyDecidedAt (informational).
@@ -761,16 +764,32 @@ async function applyNannyDecision(
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
 
       validateStatusTransition(booking.status, BookingStatus.APPROVED);
-      claimed = true;
 
-      return tx.booking.update({
-        where: { id: bookingId },
+      // Atomic first-to-accept guard: the write only matches a row that is
+      // still an unclaimed PENDING request at commit time. If a concurrent
+      // claim won, count is 0 and this nanny loses cleanly. (Same guarded-
+      // updateMany pattern as the check-in PIN validation.)
+      const claim = await tx.booking.updateMany({
+        where: {
+          id: bookingId,
+          status: BookingStatus.PENDING,
+          nannyProfileId: null,
+          deletedAt: null,
+        },
         data: {
-          nannyProfile: { connect: { id: nannyProfile.id } },
+          nannyProfileId: nannyProfile.id,
           status: BookingStatus.APPROVED,
           nannyDecision: decisionValue,
           nannyDecidedAt: new Date(),
         },
+      });
+      if (claim.count === 0) {
+        throw errors.conflict('This request was already accepted by another nanny.');
+      }
+      claimed = true;
+
+      return tx.booking.findUniqueOrThrow({
+        where: { id: bookingId },
         include: bookingInclude,
       });
     }
