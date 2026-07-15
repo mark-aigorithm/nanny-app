@@ -589,8 +589,10 @@ export async function listBookings(
 /**
  * The open broadcast pool a nanny can claim: unassigned PENDING requests that
  * start in the future and don't overlap any booking the nanny already holds.
- * Soonest-starting first. Any nanny may claim any of these (first to accept
- * wins), so this is intentionally not distance-filtered.
+ * Soonest-starting first. Filtered to the configured broadcast radius around
+ * each request's location — the pool matches what the nanny was notified
+ * about. Requests or nannies without coordinates, or radius 0, bypass the
+ * distance filter (never hide work because a profile is incomplete).
  */
 export async function listAvailableBookings(
   decoded: DecodedIdToken,
@@ -602,11 +604,12 @@ export async function listAvailableBookings(
 
   const nannyProfile = await prisma.nannyProfile.findUnique({
     where: { userId: user.id, deletedAt: null },
-    select: { id: true },
+    select: { id: true, user: { select: { latitude: true, longitude: true } } },
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
-  const [busy, open] = await Promise.all([
+  const [radiusKm, busy, open] = await Promise.all([
+    getBroadcastRadiusKm(),
     prisma.booking.findMany({
       where: {
         nannyProfileId: nannyProfile.id,
@@ -628,8 +631,11 @@ export async function listAvailableBookings(
     }),
   ]);
 
+  const nannyPoint = toLatLng(nannyProfile.user.latitude, nannyProfile.user.longitude);
   const available = open.filter(
-    (b) => !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime),
+    (b) =>
+      !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime) &&
+      isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm),
   );
 
   return available.map(toBookingResponse);

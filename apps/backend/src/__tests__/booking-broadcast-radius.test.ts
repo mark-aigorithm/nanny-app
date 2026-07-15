@@ -176,3 +176,47 @@ describe('notifyBookingBroadcast — radius filter', () => {
     expect(notified).toEqual(['admin-1', 'nanny-far', 'nanny-near', 'nanny-nocoords']);
   });
 });
+
+describe('listAvailableBookings — radius filter', () => {
+  const nannyUser = {
+    id: 'nanny-user-1',
+    firebaseUid: 'fb-nanny',
+    role: Role.NANNY,
+    deletedAt: null,
+  };
+
+  function mockPool(nannyCoords: { latitude: number | null; longitude: number | null }) {
+    mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
+    mockPrisma.nannyProfile.findUnique.mockResolvedValue({
+      id: 'np-1',
+      user: nannyCoords,
+    });
+    // First findMany call = the nanny's busy slots; second = the open pool.
+    mockPrisma.booking.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        makeBooking({ id: 'near-booking', ...BOOKING_COORDS }),
+        makeBooking({ id: 'far-booking', ...FAR }),
+        makeBooking({ id: 'nocoords-booking', latitude: null, longitude: null }),
+      ]);
+  }
+
+  it('shows only in-radius and coordinate-less requests to a located nanny', async () => {
+    mockPool({ latitude: 30.05, longitude: 31.24 }); // near Cairo
+    const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
+    expect(result.map((b) => b.id).sort()).toEqual(['near-booking', 'nocoords-booking']);
+  });
+
+  it('shows the full pool to a nanny without coordinates', async () => {
+    mockPool({ latitude: null, longitude: null });
+    const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
+    expect(result).toHaveLength(3);
+  });
+
+  it('shows the full pool when the radius is 0', async () => {
+    mockRadius.mockResolvedValue(0);
+    mockPool({ latitude: 30.05, longitude: 31.24 });
+    const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
+    expect(result).toHaveLength(3);
+  });
+});
