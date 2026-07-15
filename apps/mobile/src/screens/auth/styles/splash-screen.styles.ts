@@ -85,4 +85,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primaryDark,
     ...shadows.sm,
   },
+  guestButton: {
+    marginTop: spacing.sm,
+  },
 });

@@ -16,6 +16,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { queryClient } from '@mobile/lib/queryClient';
 import { auth } from '@mobile/lib/firebase';
 import { useAuthStore } from '@mobile/store/authStore';
+import { useGuestStore } from '@mobile/store/guestStore';
 import { useMe } from '@mobile/hooks/useMe';
 import { usePushNotifications } from '@mobile/hooks/usePushNotifications';
 
@@ -54,6 +55,9 @@ export default function RootLayout() {
         queryClient.clear();
       }
       lastUid = user?.uid ?? null;
+      // Signing in (from the register prompt or anywhere else) always ends
+      // guest browsing — the role-based router takes over from here.
+      if (user) useGuestStore.getState().exitGuestMode();
       useAuthStore.getState().setUser(user);
       useAuthStore.getState().markHydrated();
     });

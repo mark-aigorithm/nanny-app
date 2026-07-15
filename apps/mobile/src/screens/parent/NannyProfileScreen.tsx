@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors, borderRadius } from '@mobile/theme';
 import { Avatar, Card } from '@mobile/components/ui';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useNannyPublicProfile } from '@mobile/hooks/useNannies';
 import { styles } from './styles/nanny-profile-screen.styles';
 import type { ReviewSummary } from '@nanny-app/shared';
@@ -42,6 +43,7 @@ function timeAgo(isoDate: string): string {
 
 export default function NannyProfileScreen() {
   const router = useRouter();
+  const { gate } = useGuestGate();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [aboutExpanded, setAboutExpanded] = useState(false);
 
@@ -252,7 +254,10 @@ export default function NannyProfileScreen() {
         <TouchableOpacity
           style={styles.bookButton}
           activeOpacity={0.85}
-          onPress={() => router.push('/(parent)/book/booking-date-picker')}
+          onPress={gate(
+            () => router.push('/(parent)/book/booking-date-picker'),
+            'Create your free account to book trusted, vetted nannies.',
+          )}
         >
           <Text style={styles.bookButtonText}>Request care</Text>
         </TouchableOpacity>

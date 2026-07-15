@@ -20,6 +20,7 @@ import {
   useToggleEventRsvp,
   useTogglePostLike,
 } from '@mobile/hooks/useCommunity';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { filterPillToType, filterPostsBySearch } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
@@ -52,6 +53,7 @@ export default function CommunityFeedScreen() {
     isFetchingNextPage,
   } = useCommunityPosts(typeFilter);
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
+  const { gate } = useGuestGate();
   const toggleLike = useTogglePostLike();
   const toggleRsvp = useToggleEventRsvp();
 
@@ -191,23 +193,31 @@ export default function CommunityFeedScreen() {
                 },
               })
             }
-            onLikePress={() => toggleLike.mutate(item.id)}
-            onRsvpPress={() => toggleRsvp.mutate(item.id)}
+            onLikePress={gate(
+              () => toggleLike.mutate(item.id),
+              'Create your free account to like posts.',
+            )}
+            onRsvpPress={gate(
+              () => toggleRsvp.mutate(item.id),
+              'Create your free account to RSVP to events.',
+            )}
           />
         )}
       />
 
       <Pressable
         style={styles.fab}
-        onPress={() =>
-          router.push({
-            pathname: '/(parent)/create-post',
-            params: {
-              returnTo: 'community-feed',
-              ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
-            },
-          } as never)
-        }
+        onPress={gate(
+          () =>
+            router.push({
+              pathname: '/(parent)/create-post',
+              params: {
+                returnTo: 'community-feed',
+                ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
+              },
+            } as never),
+          'Create your free account to post in the community.',
+        )}
       >
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>

@@ -5,6 +5,9 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentActiveBookingCard from '@mobile/components/ParentActiveBookingCard';
+import { Button } from '@mobile/components/ui';
+import { APP_NAME } from '@mobile/constants';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 
@@ -35,6 +38,7 @@ const STEPS: {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { isGuest, gate } = useGuestGate();
 
   return (
     <View style={styles.container}>
@@ -45,13 +49,33 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Live order: finding a nanny / pay now / upcoming / in progress */}
-        <ParentActiveBookingCard />
+        {/* Live order: finding a nanny / pay now / upcoming / in progress.
+            Guests have no bookings — they get the welcome card instead. */}
+        {isGuest ? (
+          <View style={styles.guestWelcomeCard}>
+            <Text style={styles.guestWelcomeTitle}>Welcome to {APP_NAME}</Text>
+            <Text style={styles.guestWelcomeBody}>
+              You&apos;re browsing as a guest. Look around, meet our vetted nannies and
+              explore the community — then create a free account to book care.
+            </Text>
+            <Button
+              title="Create free account"
+              variant="primary"
+              fullWidth
+              onPress={() => router.push('/(auth)/role-selection')}
+            />
+          </View>
+        ) : (
+          <ParentActiveBookingCard />
+        )}
 
         {/* Primary action: request care (broadcast to all available nannies) */}
         <Pressable
           style={styles.bookCareCard}
-          onPress={() => router.push('/(parent)/book/booking-date-picker')}
+          onPress={gate(
+            () => router.push('/(parent)/book/booking-date-picker'),
+            'Create your free account to book trusted, vetted nannies.',
+          )}
         >
           <View style={styles.bookCareIcon}>
             <Ionicons name="add" size={24} color={colors.white} />
@@ -62,6 +86,26 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.primary} />
         </Pressable>
+
+        {/* Guest teaser: the nanny directory is the strongest conversion hook,
+            so surface it where a signed-in mother sees her live booking. */}
+        {isGuest && (
+          <Pressable
+            style={styles.meetNanniesCard}
+            onPress={() => router.push('/(parent)/search')}
+          >
+            <View style={styles.meetNanniesIcon}>
+              <Ionicons name="people-outline" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bookCareTitle}>Meet our nannies</Text>
+              <Text style={styles.bookCareSubtitle}>
+                Browse trusted, vetted profiles near you
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+          </Pressable>
+        )}
 
         {/* How it works */}
         <View style={styles.section}>

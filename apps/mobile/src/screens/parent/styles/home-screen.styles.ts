@@ -28,6 +28,41 @@ export const styles = StyleSheet.create({
     gap: spacing['2xl'],
   },
 
+  // Guest browsing
+  guestWelcomeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  guestWelcomeTitle: {
+    ...typeScale.headingMd,
+    color: colors.textPrimary,
+  },
+  guestWelcomeBody: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  meetNanniesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.sm,
+  },
+  meetNanniesIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   // Book care entry
   bookCareCard: {
     flexDirection: 'row',

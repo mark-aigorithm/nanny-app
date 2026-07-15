@@ -3,8 +3,15 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, fontFamily, BOTTOM_NAV_HEIGHT } from '@mobile/theme';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 
 export type BottomNavTab = 'home' | 'bookings' | 'community' | 'messages';
+
+// Account-bound tabs open the register prompt for guests instead of navigating.
+const GUEST_GATE_MESSAGES: Partial<Record<BottomNavTab, string>> = {
+  bookings: 'Create your free account to book and manage care.',
+  messages: 'Create your free account to chat with nannies and sellers.',
+};
 
 interface Props {
   activeTab: BottomNavTab;
@@ -50,16 +57,19 @@ const TABS: {
 
 export default function BottomNav({ activeTab, messagesBadge }: Props) {
   const router = useRouter();
+  const { gate } = useGuestGate();
 
   return (
     <View style={styles.container}>
       {TABS.map(tab => {
         const isActive = tab.key === activeTab;
+        const guestMessage = GUEST_GATE_MESSAGES[tab.key];
+        const navigate = () => router.push(tab.href);
         return (
           <Pressable
             key={tab.key}
             style={styles.navItem}
-            onPress={() => router.push(tab.href)}
+            onPress={guestMessage ? gate(navigate, guestMessage) : navigate}
           >
             <View style={styles.iconWrapper}>
               <Ionicons

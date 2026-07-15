@@ -21,6 +21,7 @@ import {
   useToggleEventRsvp,
   useTogglePostLike,
 } from '@mobile/hooks/useCommunity';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { filterPillToType } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
@@ -50,6 +51,7 @@ export default function CommunityScreen() {
     isFetchingNextPage,
   } = useCommunityPosts(typeFilter);
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
+  const { gate } = useGuestGate();
   const toggleLike = useTogglePostLike();
   const toggleRsvp = useToggleEventRsvp();
 
@@ -62,12 +64,12 @@ export default function CommunityScreen() {
     });
   };
 
-  const openCreatePost = () => {
+  const openCreatePost = gate(() => {
     router.push({
       pathname: '/(parent)/create-post',
       params: { returnTo: 'community', filter: activeFilter },
     } as never);
-  };
+  }, 'Create your free account to post in the community.');
 
   return (
     <View style={styles.container}>
@@ -148,8 +150,14 @@ export default function CommunityScreen() {
             post={item}
             compact
             onPress={() => openPostDetail(item.id)}
-            onLikePress={() => toggleLike.mutate(item.id)}
-            onRsvpPress={() => toggleRsvp.mutate(item.id)}
+            onLikePress={gate(
+              () => toggleLike.mutate(item.id),
+              'Create your free account to like posts.',
+            )}
+            onRsvpPress={gate(
+              () => toggleRsvp.mutate(item.id),
+              'Create your free account to RSVP to events.',
+            )}
           />
         )}
       />

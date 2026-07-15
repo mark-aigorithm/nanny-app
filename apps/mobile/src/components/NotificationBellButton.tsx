@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { Badge } from '@mobile/components/ui';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadNotificationCount } from '@mobile/hooks/useNotifications';
 import { colors } from '@mobile/theme';
 
@@ -24,6 +25,7 @@ export default function NotificationBellButton({
   route = '/(parent)/notifications',
 }: Props) {
   const router = useRouter();
+  const { gate } = useGuestGate();
   const { data } = useUnreadNotificationCount();
   const unreadCount = data?.unreadCount ?? 0;
 
@@ -31,7 +33,10 @@ export default function NotificationBellButton({
     <Pressable
       style={[styles.button, style]}
       hitSlop={hitSlop}
-      onPress={() => router.push(route)}
+      onPress={gate(
+        () => router.push(route),
+        'Create your free account to get booking and community notifications.',
+      )}
     >
       <Ionicons name="notifications-outline" size={iconSize} color={iconColor} />
       {unreadCount > 0 && (
