@@ -744,8 +744,8 @@ async function applyNannyDecision(
 
   let claimed = false;
 
-  // Serializable-ish: read-then-update in a transaction to guard against
-  // two nannies claiming the same request simultaneously.
+  // The claim runs in a transaction; the atomic status-guarded updateMany
+  // below is what prevents two nannies claiming the same request.
   const updated = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: bookingId, deletedAt: null },
