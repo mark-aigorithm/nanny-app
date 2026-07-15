@@ -36,6 +36,11 @@ type TableProps<T> = {
    * their own click so they don't also trigger the row click.
    */
   onRowClick?: (row: T) => void;
+  /**
+   * Optional per-row class (e.g. SLA highlighting). Return undefined for rows
+   * that need no extra styling.
+   */
+  rowClassName?: (row: T) => string | undefined;
 };
 
 /**
@@ -50,6 +55,7 @@ export function Table<T>({
   wrap = true,
   renderExpanded,
   onRowClick,
+  rowClassName,
 }: TableProps<T>) {
   if (rows.length === 0) {
     return (
@@ -90,6 +96,7 @@ export function Table<T>({
               return (
                 <Fragment key={rowKey(row)}>
                   <tr
+                    className={rowClassName?.(row)}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     onKeyDown={clickable ? (event) => handleKeyDown(event, row) : undefined}
                     tabIndex={clickable ? 0 : undefined}

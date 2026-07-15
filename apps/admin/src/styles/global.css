@@ -381,6 +381,15 @@ h3 {
   overflow-x: auto;
 }
 
+/* SLA row highlighting — pending bookings past the warning/critical age. */
+.table-row--warning td {
+  background: var(--color-warning-light);
+}
+
+.table-row--danger td {
+  background: var(--color-error-light);
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -712,6 +721,11 @@ h3 {
 .badge--danger {
   background: var(--color-error-light);
   color: var(--color-error);
+}
+
+.badge--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
 }
 
 .feedback {
