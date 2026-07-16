@@ -41,6 +41,22 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
   getBroadcastRadiusKm: jest.fn().mockResolvedValue(10),
+  // Wide-open window: this suite is about the broadcast radius, not scheduling rules.
+  getPlatformConfig: jest.fn().mockResolvedValue({
+    serviceFeePercent: 6,
+    standardHourlyRate: 100,
+    nannyPercent: 80,
+    platformPercent: 20,
+    maxBookingHours: 12,
+    minBookingHours: 1,
+    minAdvanceBookingHours: 0,
+    cancellationWindowHours: 24,
+    broadcastRadiusKm: 10,
+    pendingWarningMinutes: 15,
+    pendingCriticalMinutes: 30,
+    bookingWindowStartHour: 0,
+    bookingWindowEndHour: 0,
+  }),
 }));
 
 import { prisma } from '@backend/db/prisma';
@@ -135,14 +151,10 @@ async function runBroadcast(options: {
   ]);
   mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }]);
 
-  const start = new Date(Date.now() + 20 * 24 * 3_600_000);
-  start.setUTCHours(10, 0, 0, 0);
-  const end = new Date(start.getTime() + 3 * 3_600_000);
-
+  // Wall-clock, no offset, and a far-future date so the lead-time check is happy.
   await createBooking({ uid: 'fb-mother' } as never, {
-    date: start.toISOString().slice(0, 10),
-    startTime: start.toISOString(),
-    endTime: end.toISOString(),
+    startTime: '2099-01-01T10:00:00',
+    endTime: '2099-01-01T13:00:00',
     skillIds: [],
   });
 

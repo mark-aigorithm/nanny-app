@@ -1,17 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { BOOKING_DURATION_OPTIONS } from '@mobile/constants';
 import {
-  isStandardBookingDateAllowed,
-  STANDARD_BOOKING_SAME_DAY_MESSAGE,
+  bookingWindowLengthHours,
+  careDayWallClock,
+  generateCareDaySlots,
+  type BookingOptions,
+  type CareDaySlot,
 } from '@nanny-app/shared';
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
+import { fmtBookingDate, useBookingOptions } from '@mobile/hooks/useBookings';
 import { formatHour24 } from '@mobile/lib/formatTime';
 import { styles } from './styles/booking-date-picker-screen.styles';
-import type { TimeSlot } from '@mobile/types';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
@@ -19,10 +21,19 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Care can be requested for any hour of the day. The broadcast goes to every
-// eligible nanny, so slots aren't limited by a single nanny's schedule.
-const DAY_START_HOUR = 6;
-const DAY_END_HOUR = 22;
+/**
+ * Slots are grouped by time of day for scanning. Which groups appear, and in
+ * what order, follows the configured window rather than this list — see
+ * groupSlots.
+ */
+const PERIODS = [
+  { label: 'Late night', from: 0, to: 5 },
+  { label: 'Morning', from: 6, to: 11 },
+  { label: 'Afternoon', from: 12, to: 16 },
+  { label: 'Evening', from: 17, to: 23 },
+] as const;
+
+type SlotGroup = { key: string; label: string; slots: CareDaySlot[] };
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -32,43 +43,157 @@ function getFirstDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
-function generateDaySlots(): TimeSlot[] {
-  const slots: TimeSlot[] = [];
-  for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) {
-    const hh = String(h).padStart(2, '0');
-    const nextHh = String(h + 1).padStart(2, '0');
-    slots.push({
-      id: `${hh}:00`,
-      label: formatHour24(h),
-      startTime: `${hh}:00`,
-      endTime: `${nextHh}:00`,
-      available: true,
+function toDateIso(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * A slot can be offered only once the minimum advance notice has passed. Both
+ * sides are fixed-width platform wall-clock, so comparing the strings compares
+ * the times — no timezone maths on the device, and no reliance on its clock.
+ */
+function isSlotBookable(slot: CareDaySlot, options: BookingOptions): boolean {
+  return slot.startWall >= options.earliestStartWallClock;
+}
+
+function careDaySlots(dateIso: string, options: BookingOptions): CareDaySlot[] {
+  return generateCareDaySlots(
+    dateIso,
+    options.bookingWindowStartHour,
+    options.bookingWindowEndHour,
+    options.minBookingHours,
+  );
+}
+
+/**
+ * Buckets slots by date and time of day, in chronological order.
+ *
+ * Keyed on the date as well as the period because a window that runs past
+ * midnight puts some slots on the following day: those must read as "Late night
+ * (Tue, Jul 21)" and sit at the BOTTOM of the list, even though 00:00 is the
+ * lowest wall-clock hour on the screen. Slots arrive ordered by `absHour` —
+ * hours since the care-day began — so first-appearance order is already right
+ * and nothing needs sorting.
+ */
+function groupSlots(slots: CareDaySlot[], careDayIso: string): SlotGroup[] {
+  const groups: SlotGroup[] = [];
+  for (const slot of slots) {
+    const period = PERIODS.find((p) => slot.hour >= p.from && slot.hour <= p.to);
+    if (!period) continue;
+    const key = `${slot.dateIso}|${period.label}`;
+    const existing = groups.find((g) => g.key === key);
+    if (existing) {
+      existing.slots.push(slot);
+      continue;
+    }
+    groups.push({
+      key,
+      // Spell out the date when a slot isn't on the day the parent tapped.
+      label:
+        slot.dateIso === careDayIso
+          ? period.label
+          : `${period.label} (${fmtBookingDate(slot.dateIso)})`,
+      slots: [slot],
     });
   }
-  return slots;
+  return groups;
 }
 
 export default function BookingDatePickerScreen() {
   const router = useRouter();
+  const { data: options, isLoading, error } = useBookingOptions();
 
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
-  const [selectedDuration, setSelectedDuration] = useState<number>(4);
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
 
-  const daysInMonth = useMemo(() => getDaysInMonth(currentYear, currentMonth), [currentYear, currentMonth]);
-  const firstDay = useMemo(() => getFirstDayOfMonth(currentYear, currentMonth), [currentYear, currentMonth]);
+  const daysInMonth = useMemo(
+    () => getDaysInMonth(currentYear, currentMonth),
+    [currentYear, currentMonth],
+  );
+  const firstDay = useMemo(
+    () => getFirstDayOfMonth(currentYear, currentMonth),
+    [currentYear, currentMonth],
+  );
+
+  const windowLength = options
+    ? bookingWindowLengthHours(options.bookingWindowStartHour, options.bookingWindowEndHour)
+    : 0;
 
   const isToday = (day: number) =>
-    day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+    day === today.getDate() &&
+    currentMonth === today.getMonth() &&
+    currentYear === today.getFullYear();
 
-  const isUnavailable = (day: number) => {
-    const date = new Date(currentYear, currentMonth, day);
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    // Same-day booking isn't allowed.
-    return date <= todayStart;
+  /**
+   * Which days in this month have at least one slot left. Today is now
+   * genuinely bookable once the lead time allows it — and with a window that
+   * runs past midnight, so is YESTERDAY late at night, because its after-midnight
+   * slots are still in the future.
+   */
+  const bookableDays = useMemo(() => {
+    const days = new Set<number>();
+    if (!options) return days;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateIso = toDateIso(currentYear, currentMonth, day);
+      if (careDaySlots(dateIso, options).some((slot) => isSlotBookable(slot, options))) {
+        days.add(day);
+      }
+    }
+    return days;
+  }, [options, currentYear, currentMonth, daysInMonth]);
+
+  const selectedDateIso =
+    selectedDay === null ? null : toDateIso(currentYear, currentMonth, selectedDay);
+
+  const slotGroups = useMemo(() => {
+    if (!options || !selectedDateIso) return [];
+    return groupSlots(careDaySlots(selectedDateIso, options), selectedDateIso);
+  }, [options, selectedDateIso]);
+
+  const selectedSlot = useMemo(() => {
+    if (selectedSlotId === null) return null;
+    for (const group of slotGroups) {
+      const found = group.slots.find((s) => s.absHour === selectedSlotId);
+      if (found) return found;
+    }
+    return null;
+  }, [slotGroups, selectedSlotId]);
+
+  /** Every booking length the configured limits allow, before the slot narrows it. */
+  const durationOptions = useMemo(() => {
+    if (!options) return [];
+    const longest = Math.min(options.maxBookingHours, windowLength);
+    const list: number[] = [];
+    for (let hours = options.minBookingHours; hours <= longest; hours++) list.push(hours);
+    return list;
+  }, [options, windowLength]);
+
+  /** Of those, the ones that still end before the window closes from this slot. */
+  const availableDurations = useMemo(() => {
+    if (!options || !selectedSlot) return durationOptions;
+    const offset = selectedSlot.absHour - options.bookingWindowStartHour;
+    return durationOptions.filter((hours) => offset + hours <= windowLength);
+  }, [durationOptions, options, selectedSlot, windowLength]);
+
+  /**
+   * Falls back when the chosen length no longer fits — picking a late slot with
+   * "8 hours" already selected would otherwise just disable Continue with no
+   * explanation. Prefers 4 hours, as the old picker defaulted to.
+   */
+  const duration = useMemo(() => {
+    if (selectedDuration !== null && availableDurations.includes(selectedDuration)) {
+      return selectedDuration;
+    }
+    return availableDurations.find((h) => h === 4) ?? availableDurations[0] ?? null;
+  }, [selectedDuration, availableDurations]);
+
+  const resetSelection = () => {
+    setSelectedDay(null);
+    setSelectedSlotId(null);
   };
 
   const handlePrevMonth = () => {
@@ -78,8 +203,7 @@ export default function BookingDatePickerScreen() {
     } else {
       setCurrentMonth((m) => m - 1);
     }
-    setSelectedDay(null);
-    setSelectedTimeSlot(null);
+    resetSelection();
   };
 
   const handleNextMonth = () => {
@@ -89,188 +213,215 @@ export default function BookingDatePickerScreen() {
     } else {
       setCurrentMonth((m) => m + 1);
     }
-    setSelectedDay(null);
-    setSelectedTimeSlot(null);
+    resetSelection();
   };
 
-  const availableSlots = useMemo(() => (selectedDay === null ? [] : generateDaySlots()), [selectedDay]);
-
-  const morningSlots = availableSlots.filter((s) => parseInt(s.startTime) < 12);
-  const afternoonSlots = availableSlots.filter((s) => parseInt(s.startTime) >= 12 && parseInt(s.startTime) < 17);
-  const eveningSlots = availableSlots.filter((s) => parseInt(s.startTime) >= 17);
-
-  // A duration fits as long as it ends by the close of the care day.
-  const selectedSlot = useMemo(
-    () => availableSlots.find((s) => s.id === selectedTimeSlot) ?? null,
-    [availableSlots, selectedTimeSlot],
-  );
-
-  const isDurationAvailable = (hrs: number): boolean => {
-    if (!selectedSlot) return true;
-    const startH = parseInt(selectedSlot.startTime.split(':')[0] ?? '0', 10);
-    return startH + hrs <= DAY_END_HOUR;
-  };
-
-  const canContinue =
-    selectedDay !== null && selectedTimeSlot !== null && isDurationAvailable(selectedDuration);
+  // `duration` is always drawn from availableDurations, so it can't be a length
+  // that doesn't fit — there's nothing further to check here.
+  const canContinue = !!options && !!selectedSlot && !!selectedDateIso && duration !== null;
 
   const handleContinue = () => {
-    if (!canContinue || selectedDay === null) return;
-    const dateIso = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
-    if (!isStandardBookingDateAllowed(dateIso)) return;
+    if (!canContinue || !selectedSlot || !selectedDateIso || duration === null) return;
 
-    const slot = availableSlots.find((s) => s.id === selectedTimeSlot);
-    if (!slot) return;
+    // Both built from the care-day + hours-since-it-began, so a slot that runs
+    // past midnight lands on the next date automatically and an end at midnight
+    // comes out as T00:00:00 the following day rather than T24:00:00.
+    const startTimeWall = selectedSlot.startWall;
+    const endTimeWall = careDayWallClock(selectedDateIso, selectedSlot.absHour + duration);
 
-    const [startHH, startMM] = slot.startTime.split(':');
-    const endHour = parseInt(startHH ?? '0', 10) + selectedDuration;
-    const endMinute = parseInt(startMM ?? '0', 10);
-    const endTimeStr = `${String(endHour).padStart(2, '0')}:${startMM ?? '00'}`;
-    const startTimeIso = `${dateIso}T${slot.startTime}:00+00:00`;
-    const endTimeIso = `${dateIso}T${endTimeStr}:00+00:00`;
     router.push({
       pathname: '/(parent)/book/booking-step-1',
       params: {
-        date: `${MONTHS[currentMonth].slice(0, 3)} ${selectedDay}`,
-        startTime: slot.label,
-        endTime: formatHour24(endHour, endMinute),
-        dateIso,
-        startTimeIso,
-        endTimeIso,
+        // The date the booking actually STARTS — which for a late-night slot is
+        // the day after the one tapped. The server derives its own from the
+        // start time; this is only for display.
+        dateIso: selectedSlot.dateIso,
+        startTimeWall,
+        endTimeWall,
+        durationHours: String(duration),
       },
     } as never);
   };
 
-  const renderTimeSlotGroup = (label: string, slots: TimeSlot[]) => {
-    if (slots.length === 0) return null;
-    return (
-      <View style={styles.timeSlotSection}>
-        <Text style={styles.timePeriodLabel}>{label}</Text>
-        <View style={styles.timeSlotsRow}>
-          {slots.map((slot) => {
-            const isSelected = selectedTimeSlot === slot.id;
-            return (
-              <Pressable
-                key={slot.id}
-                style={[styles.timeSlot, isSelected && styles.timeSlotSelected]}
-                onPress={() => setSelectedTimeSlot(slot.id)}
-              >
-                <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextSelected]}>
-                  {slot.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+  const renderSlotGroup = (group: SlotGroup) => (
+    <View key={group.key} style={styles.timeSlotSection}>
+      <Text style={styles.timePeriodLabel}>{group.label}</Text>
+      <View style={styles.timeSlotsRow}>
+        {group.slots.map((slot) => {
+          const isSelected = selectedSlotId === slot.absHour;
+          const disabled = !options || !isSlotBookable(slot, options);
+          return (
+            <Pressable
+              key={slot.absHour}
+              style={[
+                styles.timeSlot,
+                isSelected && styles.timeSlotSelected,
+                disabled && styles.timeSlotDisabled,
+              ]}
+              onPress={() => setSelectedSlotId(slot.absHour)}
+              disabled={disabled}
+            >
+              <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextSelected]}>
+                {formatHour24(slot.hour)}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
-    );
+    </View>
+  );
+
+  const renderSlots = () => {
+    if (selectedDay === null) {
+      return <Text style={styles.slotsPlaceholder}>Select a date to see available times</Text>;
+    }
+    if (slotGroups.length === 0) {
+      return <Text style={styles.slotsPlaceholder}>No times are available on this date.</Text>;
+    }
+    return <>{slotGroups.map(renderSlotGroup)}</>;
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <BookingStepProgress step={1} title="When do you need care?" centered />
 
-        <Text style={styles.advanceNotice}>{STANDARD_BOOKING_SAME_DAY_MESSAGE}</Text>
+        {isLoading && <ActivityIndicator color={colors.primary} />}
+        {error != null && (
+          <Text style={styles.availabilityError}>
+            Couldn’t load available times. Pull back and try again.
+          </Text>
+        )}
 
-        {/* Calendar */}
-        <View>
-          <View style={styles.calendarHeader}>
-            <Pressable style={styles.calendarNavButton} onPress={handlePrevMonth}>
-              <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.calendarMonth}>{MONTHS[currentMonth]} {currentYear}</Text>
-            <Pressable style={styles.calendarNavButton} onPress={handleNextMonth}>
-              <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
-
-          <View style={styles.weekdayRow}>
-            {WEEKDAYS.map((d) => (
-              <Text key={d} style={styles.weekdayLabel}>{d}</Text>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <View key={`empty-${i}`} style={styles.dayCell} />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const unavailable = isUnavailable(day);
-              const selected = selectedDay === day;
-              const todayMark = isToday(day);
-              return (
-                <Pressable
-                  key={day}
-                  style={styles.dayCell}
-                  onPress={() => {
-                    if (!unavailable) {
-                      setSelectedDay(day);
-                      setSelectedTimeSlot(null);
-                    }
-                  }}
-                  disabled={unavailable}
-                >
-                  <View style={[selected && styles.daySelected, todayMark && !selected && !unavailable && styles.dayToday]}>
-                    <Text style={[styles.dayText, unavailable && styles.dayTextDisabled, selected && styles.dayTextSelected]}>
-                      {day}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Time Slots */}
-        <View>
-          <Text style={styles.sectionTitle}>Select time</Text>
-          {selectedDay === null ? (
-            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 16 }}>
-              Select a date to see available times
+        {options && (
+          <>
+            <Text style={styles.advanceNotice}>
+              {options.minAdvanceBookingHours > 0
+                ? `Book at least ${options.minAdvanceBookingHours} ${
+                    options.minAdvanceBookingHours === 1 ? 'hour' : 'hours'
+                  } ahead. Care runs ${formatHour24(options.bookingWindowStartHour)} to ${formatHour24(
+                    options.bookingWindowEndHour,
+                  )}.`
+                : `Care runs ${formatHour24(options.bookingWindowStartHour)} to ${formatHour24(
+                    options.bookingWindowEndHour,
+                  )}.`}
             </Text>
-          ) : (
-            <>
-              {renderTimeSlotGroup('Morning', morningSlots)}
-              {renderTimeSlotGroup('Afternoon', afternoonSlots)}
-              {renderTimeSlotGroup('Evening', eveningSlots)}
-            </>
-          )}
-        </View>
 
-        {/* Duration */}
-        <View>
-          <Text style={styles.sectionTitle}>Duration</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.durationRow}>
-              {BOOKING_DURATION_OPTIONS.map((hrs) => {
-                const isSelected = selectedDuration === hrs;
-                const disabled = !isDurationAvailable(hrs);
-                return (
-                  <Pressable
-                    key={hrs}
-                    style={[
-                      styles.durationChip,
-                      isSelected && styles.durationChipSelected,
-                      disabled && styles.durationChipDisabled,
-                    ]}
-                    onPress={() => {
-                      if (!disabled) setSelectedDuration(hrs);
-                    }}
-                    disabled={disabled}
-                  >
-                    <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
-                      {hrs} hours
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            {/* Calendar */}
+            <View>
+              <View style={styles.calendarHeader}>
+                <Pressable style={styles.calendarNavButton} onPress={handlePrevMonth}>
+                  <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Text style={styles.calendarMonth}>
+                  {MONTHS[currentMonth]} {currentYear}
+                </Text>
+                <Pressable style={styles.calendarNavButton} onPress={handleNextMonth}>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+                </Pressable>
+              </View>
+
+              <View style={styles.weekdayRow}>
+                {WEEKDAYS.map((d) => (
+                  <Text key={d} style={styles.weekdayLabel}>
+                    {d}
+                  </Text>
+                ))}
+              </View>
+
+              <View style={styles.calendarGrid}>
+                {Array.from({ length: firstDay }).map((_, i) => (
+                  <View key={`empty-${i}`} style={styles.dayCell} />
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const unavailable = !bookableDays.has(day);
+                  const selected = selectedDay === day;
+                  const todayMark = isToday(day);
+                  return (
+                    <Pressable
+                      key={day}
+                      style={styles.dayCell}
+                      onPress={() => {
+                        if (unavailable) return;
+                        setSelectedDay(day);
+                        setSelectedSlotId(null);
+                      }}
+                      disabled={unavailable}
+                    >
+                      <View
+                        style={[
+                          selected && styles.daySelected,
+                          todayMark && !selected && !unavailable && styles.dayToday,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.dayText,
+                            unavailable && styles.dayTextDisabled,
+                            selected && styles.dayTextSelected,
+                          ]}
+                        >
+                          {day}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          </ScrollView>
-        </View>
+
+            {/* Time Slots */}
+            <View>
+              <Text style={styles.sectionTitle}>Select time</Text>
+              {renderSlots()}
+            </View>
+
+            {/* Duration */}
+            <View>
+              <Text style={styles.sectionTitle}>Duration</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.durationRow}>
+                  {durationOptions.map((hrs) => {
+                    const isSelected = duration === hrs;
+                    // Shown but greyed out, so it stays visible that a longer
+                    // booking exists and is simply too late in the day for it.
+                    const disabled = !availableDurations.includes(hrs);
+                    return (
+                      <Pressable
+                        key={hrs}
+                        style={[
+                          styles.durationChip,
+                          isSelected && styles.durationChipSelected,
+                          disabled && styles.durationChipDisabled,
+                        ]}
+                        onPress={() => {
+                          if (!disabled) setSelectedDuration(hrs);
+                        }}
+                        disabled={disabled}
+                      >
+                        <Text
+                          style={[
+                            styles.durationChipText,
+                            isSelected && styles.durationChipTextSelected,
+                          ]}
+                        >
+                          {hrs} hours
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Header */}

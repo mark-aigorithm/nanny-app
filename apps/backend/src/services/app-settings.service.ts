@@ -1,6 +1,8 @@
+import { bookingWindowLengthHours } from '@nanny-app/shared';
 import type { PlatformConfig, UpdatePlatformConfigInput } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
+import { errors } from '@backend/lib/errors';
 
 const KEYS = {
   SERVICE_FEE_PERCENT: 'service_fee_percent',
@@ -14,6 +16,8 @@ const KEYS = {
   BROADCAST_RADIUS_KM: 'broadcast_radius_km',
   PENDING_WARNING_MINUTES: 'pending_warning_minutes',
   PENDING_CRITICAL_MINUTES: 'pending_critical_minutes',
+  BOOKING_WINDOW_START_HOUR: 'booking_window_start_hour',
+  BOOKING_WINDOW_END_HOUR: 'booking_window_end_hour',
 } as const;
 
 const DEFAULTS: PlatformConfig = {
@@ -28,6 +32,10 @@ const DEFAULTS: PlatformConfig = {
   broadcastRadiusKm: 10,
   pendingWarningMinutes: 15,
   pendingCriticalMinutes: 30,
+  // Mirrors the hours the booking picker offered when they were hardcoded, so
+  // enforcing the window for the first time changes nothing until an admin edits it.
+  bookingWindowStartHour: 6,
+  bookingWindowEndHour: 22,
 };
 
 /** Maps each PlatformConfig field to its app_settings key. */
@@ -43,6 +51,8 @@ const FIELD_TO_KEY: Record<keyof PlatformConfig, string> = {
   broadcastRadiusKm: KEYS.BROADCAST_RADIUS_KM,
   pendingWarningMinutes: KEYS.PENDING_WARNING_MINUTES,
   pendingCriticalMinutes: KEYS.PENDING_CRITICAL_MINUTES,
+  bookingWindowStartHour: KEYS.BOOKING_WINDOW_START_HOUR,
+  bookingWindowEndHour: KEYS.BOOKING_WINDOW_END_HOUR,
 };
 
 /** Returns the platform service fee % from app_settings (default 6 if not seeded). */
@@ -117,10 +127,39 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
   return config;
 }
 
+/**
+ * Rejects a config that would leave nothing bookable.
+ *
+ * These are cross-field rules, so they can't live in `UpdatePlatformConfigSchema`
+ * — it's `.partial()`, and a refine there can only see the fields the admin
+ * actually sent. Raising the minimum alone would sail past it. They belong here,
+ * where the saved values are merged over the current ones.
+ *
+ * This matters more than it used to: these limits are now enforced on every
+ * booking, so an impossible combination doesn't just look odd in the admin, it
+ * blocks every new booking.
+ */
+function assertCoherentConfig(next: PlatformConfig): void {
+  if (next.minBookingHours > next.maxBookingHours) {
+    throw errors.badRequest('Min booking hours cannot exceed max booking hours.');
+  }
+  const windowLength = bookingWindowLengthHours(
+    next.bookingWindowStartHour,
+    next.bookingWindowEndHour,
+  );
+  if (next.minBookingHours > windowLength) {
+    throw errors.badRequest(
+      `The booking window is only ${windowLength} hours long, which is shorter than the ${next.minBookingHours}-hour minimum booking.`,
+    );
+  }
+}
+
 /** Upserts the provided settings and returns the resulting full config. */
 export async function updatePlatformConfig(
   input: UpdatePlatformConfigInput,
 ): Promise<PlatformConfig> {
+  assertCoherentConfig({ ...(await getPlatformConfig()), ...input });
+
   const writes = (Object.keys(input) as (keyof PlatformConfig)[])
     .filter((field) => input[field] !== undefined)
     .map((field) => {

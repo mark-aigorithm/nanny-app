@@ -102,6 +102,12 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
+  slotsPlaceholder: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginVertical: spacing.lg,
+  },
   timeSlotSection: {
     gap: spacing.md,
   },

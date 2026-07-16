@@ -117,8 +117,9 @@ export default function BookingStep1Screen() {
       params: {
         date: dateDisplay,
         dateIso: params.dateIso,
-        startTimeIso: params.startTimeIso,
-        endTimeIso: params.endTimeIso,
+        startTimeWall: params.startTimeWall,
+        endTimeWall: params.endTimeWall,
+        durationHours: params.durationHours,
         total: total.toFixed(2),
         ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
         ...(instructions.trim() ? { instructions: instructions.trim() } : {}),

@@ -11,7 +11,7 @@ import {
 import { ok } from '@backend/lib/api-response';
 import { routeParam } from '@backend/lib/route-param';
 import { errors } from '@backend/lib/errors';
-import { requireAuth } from '@backend/middleware/auth.middleware';
+import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import {
   createComment,
@@ -29,17 +29,18 @@ import { contactSeller } from '@backend/services/conversation.service';
 
 export const communityRouter = Router();
 
+// Feed reads use optionalAuth: guests (no account yet) may browse the feed
+// read-only; signed-in users get their own likedByMe/rsvpdByMe flags.
 communityRouter.get(
   '/posts',
-  requireAuth,
+  optionalAuth,
   validateQuery(CommunityFeedQuerySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.firebaseUser) throw errors.unauthorized();
       const query = res.locals['validatedQuery'] as ReturnType<
         typeof CommunityFeedQuerySchema.parse
       >;
-      const result = await listPosts(req.firebaseUser, query);
+      const result = await listPosts(req.firebaseUser ?? null, query);
       res.json({ data: result.posts, error: null, meta: result.meta });
     } catch (err) {
       next(err);
@@ -64,11 +65,10 @@ communityRouter.post(
 
 communityRouter.get(
   '/posts/:id',
-  requireAuth,
+  optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.firebaseUser) throw errors.unauthorized();
-      const post = await getPost(req.firebaseUser, routeParam(req.params.id));
+      const post = await getPost(req.firebaseUser ?? null, routeParam(req.params.id));
       res.json(ok(post));
     } catch (err) {
       next(err);
@@ -135,15 +135,14 @@ communityRouter.post(
 
 communityRouter.get(
   '/posts/:id/comments',
-  requireAuth,
+  optionalAuth,
   validateQuery(CommentListQuerySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.firebaseUser) throw errors.unauthorized();
       const query = res.locals['validatedQuery'] as ReturnType<
         typeof CommentListQuerySchema.parse
       >;
-      const result = await listComments(req.firebaseUser, routeParam(req.params.id), query);
+      const result = await listComments(req.firebaseUser ?? null, routeParam(req.params.id), query);
       res.json({ data: result.comments, error: null, meta: result.meta });
     } catch (err) {
       next(err);

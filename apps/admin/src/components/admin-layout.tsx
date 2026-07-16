@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
   { to: '/rewards', label: 'Care Points', icon: Gift },
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet },
   { to: '/cameras', label: 'Cameras', icon: Video },
-  { to: '/settings', label: 'Configuration', icon: Settings },
+  { to: '/settings', label: 'Booking Options', icon: Settings },
 ];
 
 const COLLAPSE_KEY = 'admin-sidebar-collapsed';

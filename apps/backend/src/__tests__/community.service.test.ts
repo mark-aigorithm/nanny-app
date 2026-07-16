@@ -4,6 +4,8 @@ import { CommunityPostType as PrismaCommunityPostType } from '@prisma/client';
 import { AppError } from '@backend/lib/errors';
 import {
   createPost,
+  getPost,
+  listComments,
   listPosts,
   toggleEventRsvp,
   togglePostLike,
@@ -32,6 +34,13 @@ jest.mock('@backend/db/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    comment: {
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
+    commentLike: {
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -59,6 +68,13 @@ const mockPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+  };
+  comment: {
+    count: jest.Mock;
+    findMany: jest.Mock;
+  };
+  commentLike: {
+    findMany: jest.Mock;
   };
   $transaction: jest.Mock;
 };
@@ -128,6 +144,71 @@ describe('community.service', () => {
     expect(result.type).toBe('qa');
     expect(result.body).toBe('Hello community');
     expect(mockPrisma.communityPost.create).toHaveBeenCalled();
+  });
+
+  it('lists posts anonymously (guest) without a user lookup and with engagement flags false', async () => {
+    mockPrisma.communityPost.count.mockResolvedValue(1);
+    mockPrisma.communityPost.findMany.mockResolvedValue([samplePost] as never);
+
+    const result = await listPosts(null, { page: 1, limit: 20 });
+
+    expect(result.posts).toHaveLength(1);
+    expect(result.posts[0]?.likedByMe).toBe(false);
+    expect(result.posts[0]?.rsvpdByMe).toBe(false);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.postLike.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.eventRsvp.findMany).not.toHaveBeenCalled();
+  });
+
+  it('gets a post anonymously (guest) with engagement flags false', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue(samplePost as never);
+
+    const result = await getPost(null, 'post-1');
+
+    expect(result.id).toBe('post-1');
+    expect(result.likedByMe).toBe(false);
+    expect(result.rsvpdByMe).toBe(false);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.postLike.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.eventRsvp.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('lists comments anonymously (guest) without a like lookup', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue(samplePost as never);
+    mockPrisma.comment.count.mockResolvedValue(1);
+    mockPrisma.comment.findMany.mockResolvedValue([
+      {
+        id: 'comment-1',
+        postId: 'post-1',
+        parentCommentId: null,
+        body: 'Welcome!',
+        likeCount: 0,
+        createdAt: new Date('2026-01-02T12:00:00Z'),
+        updatedAt: new Date('2026-01-02T12:00:00Z'),
+        deletedAt: null,
+        author: motherUser,
+        replies: [],
+      },
+    ] as never);
+
+    const result = await listComments(null, 'post-1', { page: 1, limit: 20 });
+
+    expect(result.comments).toHaveLength(1);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.commentLike.findMany).not.toHaveBeenCalled();
+  });
+
+  it('still forbids signed-in nannies from reading the feed', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...motherUser,
+      role: Role.NANNY,
+    } as never);
+
+    await expect(getPost(decoded, 'post-1')).rejects.toEqual(
+      expect.objectContaining<Partial<AppError>>({
+        statusCode: 403,
+      }),
+    );
   });
 
   it('lists posts with pagination meta', async () => {

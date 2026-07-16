@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ADMIN_PAGE_SIZES,
   BookingStatusSchema,
+  PLATFORM_TIMEZONE,
   SetBookingStatusSchema,
   type AdminBooking,
   type AdminBookingStatusFilter,
@@ -41,16 +42,14 @@ import {
   updateBookingTimes,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import {
+  formatDateTime,
+  fromDateTimeLocalInput,
+  toDateTimeLocalInput,
+} from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
 
 const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'REFUNDED']);
-
-/** ISO instant → value for a <input type="datetime-local"> (local wall time). */
-function toDateTimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 const STATUS_FILTERS: { value: AdminBookingStatusFilter; label: string }[] = [
   { value: 'PENDING', label: 'Pending approval' },
@@ -65,13 +64,6 @@ const STATUS_FILTERS: { value: AdminBookingStatusFilter; label: string }[] = [
 // Statuses an admin may override to. Mirrors SetBookingStatusSchema on the
 // server (REFUNDED is owned by payments, never an admin-settable target).
 const OVERRIDE_STATUSES = BookingStatusSchema.options.filter((s) => s !== 'REFUNDED');
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
@@ -194,13 +186,13 @@ export function BookingsPage() {
 
   function saveEdit() {
     if (!editing) return;
-    const start = new Date(editing.start);
-    const end = new Date(editing.end);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+    if (!editing.start || !editing.end) return;
+    // Sent as wall-clock; the server reads it in the platform timezone. No Date
+    // round-trip, so the admin's own timezone never enters into it.
     timesMutation.mutate({
       id: editing.id,
-      startTime: start.toISOString(),
-      endTime: end.toISOString(),
+      startTime: fromDateTimeLocalInput(editing.start),
+      endTime: fromDateTimeLocalInput(editing.end),
     });
   }
 
@@ -325,8 +317,8 @@ export function BookingsPage() {
                 onSelect={() =>
                   setEditing({
                     id: booking.id,
-                    start: toDateTimeLocal(booking.startTime),
-                    end: toDateTimeLocal(booking.endTime),
+                    start: toDateTimeLocalInput(booking.startTime),
+                    end: toDateTimeLocalInput(booking.endTime),
                   })
                 }
               >
@@ -391,6 +383,11 @@ export function BookingsPage() {
           renderExpanded={(booking) =>
             editing?.id === booking.id ? (
               <div className="times-editor">
+                <p className="times-editor-hint">
+                  Times are {PLATFORM_TIMEZONE.split('/')[1]} local time, the same clock the parent
+                  and nanny see. The booking window and advance-notice rules don’t apply to admin
+                  edits.
+                </p>
                 <label>
                   Starts
                   <input

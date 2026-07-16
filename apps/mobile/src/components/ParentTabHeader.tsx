@@ -8,6 +8,7 @@ import { getReturnToFromSegments } from '@mobile/lib/profileUtils';
 import NotificationBellButton from '@mobile/components/NotificationBellButton';
 import { APP_NAME } from '@mobile/constants';
 import { Avatar } from '@mobile/components/ui';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import {
   colors,
@@ -28,6 +29,7 @@ export default function ParentTabHeader({ bottomContent }: ParentTabHeaderProps)
   const router = useRouter();
   const segments = useSegments();
   const profile = useUserProfileStore((s) => s.profile);
+  const { gate } = useGuestGate();
 
   const openProfile = () => {
     router.push({
@@ -42,7 +44,9 @@ export default function ParentTabHeader({ bottomContent }: ParentTabHeaderProps)
         <Text style={styles.logoText}>{APP_NAME}</Text>
         <View style={styles.headerRight}>
           <NotificationBellButton iconSize={20} iconColor={colors.textPrimary} />
-          <Pressable onPress={openProfile}>
+          <Pressable
+            onPress={gate(openProfile, 'Create your free account to set up your profile.')}
+          >
             <Avatar
               uri={profile?.avatarUrl ?? undefined}
               size="sm"

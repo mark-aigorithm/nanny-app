@@ -20,6 +20,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { platformHour, toPlatformDateIso } from '@backend/lib/platform-time';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -354,12 +355,16 @@ export async function getNannyBookedSlots(
   query: NannyBookedSlotsQuery,
 ): Promise<string[]> {
   const date = new Date(query.date); // YYYY-MM-DD → midnight UTC
+  const dayBefore = new Date(date.getTime() - 86_400_000);
 
+  // `date` is the day a booking STARTS, so one that runs past midnight keeps the
+  // previous day's date while occupying hours on this one. Pull both days in and
+  // let the hour arithmetic below place them.
   const bookings = await prisma.booking.findMany({
     where: {
       nannyProfileId,
       deletedAt: null,
-      date,
+      date: { in: [date, dayBefore] },
       status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
     },
     select: { startTime: true, endTime: true },
@@ -367,9 +372,20 @@ export async function getNannyBookedSlots(
 
   const bookedSlots = new Set<string>();
   for (const b of bookings) {
-    const startH = b.startTime.getUTCHours();
-    const endH = b.endTime.getUTCHours();
-    for (let h = startH; h < endH; h++) {
+    // Platform hours, not UTC: these labels are shown against wall-clock slots.
+    const startHour = platformHour(b.startTime);
+    const endHour = platformHour(b.endTime);
+    // An end at or before the start means the booking ran past midnight.
+    const endHourAbsolute = endHour <= startHour ? endHour + 24 : endHour;
+
+    // Re-base onto the requested day: a booking that started yesterday only
+    // occupies today's early hours, and one starting today that runs past
+    // midnight only occupies today's hours up to it. Without this, yesterday's
+    // ordinary midday booking would blank out today's midday slots.
+    const shift = toPlatformDateIso(b.startTime) === query.date ? 0 : -24;
+    const from = Math.max(startHour + shift, 0);
+    const to = Math.min(endHourAbsolute + shift, 24);
+    for (let h = from; h < to; h++) {
       bookedSlots.add(`${String(h).padStart(2, '0')}:00`);
     }
   }

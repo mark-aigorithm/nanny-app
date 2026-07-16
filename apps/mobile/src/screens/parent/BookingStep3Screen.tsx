@@ -56,7 +56,6 @@ import {
 
 import { getApiErrorMessage } from '@mobile/lib/api';
 import { buildPaymobCheckoutUrl } from '@mobile/lib/paymobCheckout';
-import { isStandardBookingDateAllowed, STANDARD_BOOKING_SAME_DAY_MESSAGE } from '@nanny-app/shared';
 
 import { extractBookingIdFromRedirect, isPaymobPaymentRedirect } from '@mobile/lib/paymobRedirect';
 
@@ -344,7 +343,7 @@ export default function BookingStep3Screen() {
   // claimed it and it becomes APPROVED (see resumeCheckout / retry mode).
   const submitBookingRequest = useCallback(async () => {
 
-    if (!params.dateIso || !params.startTimeIso || !params.endTimeIso) {
+    if (!params.dateIso || !params.startTimeWall || !params.endTimeWall) {
 
       setLoadError('Missing booking details. Go back and try again.');
 
@@ -354,13 +353,9 @@ export default function BookingStep3Screen() {
 
     }
 
-    if (!isStandardBookingDateAllowed(params.dateIso)) {
-      setLoadError(STANDARD_BOOKING_SAME_DAY_MESSAGE);
-      setIsStarting(false);
-      return;
-    }
-
-
+    // The booking window and the minimum advance notice are enforced by the
+    // server, which owns the config and the clock. It returns a specific message
+    // when a request breaks either, surfaced below — don't second-guess it here.
 
     setIsStarting(true);
 
@@ -372,11 +367,9 @@ export default function BookingStep3Screen() {
 
       const created = await createBooking.mutateAsync({
 
-        date: params.dateIso,
+        startTime: params.startTimeWall,
 
-        startTime: params.startTimeIso,
-
-        endTime: params.endTimeIso,
+        endTime: params.endTimeWall,
 
         ...(params.instructions?.trim()
 

@@ -170,12 +170,23 @@ function mapCreateInput(body: CreateCommunityPostRequest, authorId: string) {
   }
 }
 
-export async function listPosts(
-  decoded: DecodedIdToken,
-  query: CommunityFeedQuery,
-): Promise<CommunityFeedResponse> {
+/**
+ * Resolves the reading user for feed endpoints. `null` means an anonymous
+ * guest browsing the public feed — allowed for reads, with all `…ByMe`
+ * engagement flags reported as false. Signed-in readers must still be mothers.
+ */
+async function getFeedReader(decoded: DecodedIdToken | null): Promise<User | null> {
+  if (!decoded) return null;
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
+  return user;
+}
+
+export async function listPosts(
+  decoded: DecodedIdToken | null,
+  query: CommunityFeedQuery,
+): Promise<CommunityFeedResponse> {
+  const user = await getFeedReader(decoded);
 
   const { page, limit, type, tag } = query;
   const where: Prisma.CommunityPostWhereInput = {
@@ -196,16 +207,18 @@ export async function listPosts(
   ]);
 
   const postIds = rows.map((p) => p.id);
-  const [likes, rsvps] = await Promise.all([
-    prisma.postLike.findMany({
-      where: { postId: { in: postIds }, userId: user.id, deletedAt: null },
-      select: { postId: true },
-    }),
-    prisma.eventRsvp.findMany({
-      where: { postId: { in: postIds }, userId: user.id, deletedAt: null },
-      select: { postId: true },
-    }),
-  ]);
+  const [likes, rsvps] = user
+    ? await Promise.all([
+        prisma.postLike.findMany({
+          where: { postId: { in: postIds }, userId: user.id, deletedAt: null },
+          select: { postId: true },
+        }),
+        prisma.eventRsvp.findMany({
+          where: { postId: { in: postIds }, userId: user.id, deletedAt: null },
+          select: { postId: true },
+        }),
+      ])
+    : [[], []];
 
   const likedSet = new Set(likes.map((l) => l.postId));
   const rsvpdSet = new Set(rsvps.map((r) => r.postId));
@@ -219,14 +232,15 @@ export async function listPosts(
 }
 
 export async function getPost(
-  decoded: DecodedIdToken,
+  decoded: DecodedIdToken | null,
   postId: string,
 ): Promise<CommunityPostResponse> {
-  const user = await getUserByUid(decoded.uid);
-  requireMother(user);
+  const user = await getFeedReader(decoded);
 
   const post = await loadPostOrThrow(postId);
-  const flags = await getEngagementFlags(user.id, postId);
+  const flags = user
+    ? await getEngagementFlags(user.id, postId)
+    : { likedByMe: false, rsvpdByMe: false };
   return toPostResponse(post, flags.likedByMe, flags.rsvpdByMe);
 }
 
@@ -383,12 +397,11 @@ function toCommentResponse(comment: CommentWithReplies, likedCommentIds: Set<str
 }
 
 export async function listComments(
-  decoded: DecodedIdToken,
+  decoded: DecodedIdToken | null,
   postId: string,
   query: CommentListQuery,
 ): Promise<CommentListResponse> {
-  const user = await getUserByUid(decoded.uid);
-  requireMother(user);
+  const user = await getFeedReader(decoded);
   await loadPostOrThrow(postId);
 
   const { page, limit } = query;
@@ -422,7 +435,7 @@ export async function listComments(
     ...rows.flatMap((c) => c.replies.map((r) => r.id)),
   ];
 
-  const likes = commentIds.length
+  const likes = user && commentIds.length
     ? await prisma.commentLike.findMany({
         where: { commentId: { in: commentIds }, userId: user.id, deletedAt: null },
         select: { commentId: true },

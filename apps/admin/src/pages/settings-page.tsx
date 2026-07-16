@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { UpdatePlatformConfigSchema } from '@nanny-app/shared';
+import { bookingWindowLengthHours, UpdatePlatformConfigSchema } from '@nanny-app/shared';
 
 import {
   Button,
@@ -18,6 +18,8 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 
 /** Booking-window limits + matching/SLA settings — pricing lives on Pricing & Fees. */
 type SettingsKey =
+  | 'bookingWindowStartHour'
+  | 'bookingWindowEndHour'
   | 'maxBookingHours'
   | 'minBookingHours'
   | 'minAdvanceBookingHours'
@@ -30,10 +32,26 @@ type ConfigField = {
   key: SettingsKey;
   label: string;
   hint: string;
+  min?: string;
+  max?: string;
   step?: string;
 };
 
 const BOOKING_FIELDS: ConfigField[] = [
+  {
+    key: 'bookingWindowStartHour',
+    label: 'Care starts from (hour)',
+    hint: 'Earliest hour of the day care can start, 0–23. 8 means no booking may start before 8am.',
+    max: '23',
+  },
+  {
+    key: 'bookingWindowEndHour',
+    label: 'Care ends by (hour)',
+    hint:
+      'Hour of the day care must finish by, 0–23. Set it at or before the start hour to run past ' +
+      'midnight — 8 and 2 together mean 8am to 2am the next day.',
+    max: '23',
+  },
   {
     key: 'maxBookingHours',
     label: 'Max booking hours',
@@ -42,12 +60,12 @@ const BOOKING_FIELDS: ConfigField[] = [
   {
     key: 'minBookingHours',
     label: 'Min booking hours',
-    hint: 'Minimum hours a mother can reserve in one booking.',
+    hint: 'Minimum hours a mother can reserve in one booking. Cannot exceed the window’s length.',
   },
   {
     key: 'minAdvanceBookingHours',
     label: 'Min advance notice (hours)',
-    hint: 'Minimum lead time before a booking can start.',
+    hint: 'Minimum lead time before a booking can start. 0 allows booking right up to the start time.',
   },
   {
     key: 'cancellationWindowHours',
@@ -89,6 +107,8 @@ export function SettingsPage() {
   useEffect(() => {
     if (config && form === null) {
       setForm({
+        bookingWindowStartHour: String(config.bookingWindowStartHour),
+        bookingWindowEndHour: String(config.bookingWindowEndHour),
         maxBookingHours: String(config.maxBookingHours),
         minBookingHours: String(config.minBookingHours),
         minAdvanceBookingHours: String(config.minAdvanceBookingHours),
@@ -114,6 +134,8 @@ export function SettingsPage() {
     event.preventDefault();
     if (!form) return;
     const parsed = UpdatePlatformConfigSchema.safeParse({
+      bookingWindowStartHour: Number(form.bookingWindowStartHour),
+      bookingWindowEndHour: Number(form.bookingWindowEndHour),
       maxBookingHours: Number(form.maxBookingHours),
       minBookingHours: Number(form.minBookingHours),
       minAdvanceBookingHours: Number(form.minAdvanceBookingHours),
@@ -127,8 +149,21 @@ export function SettingsPage() {
       setFormError(issue ? `${issue.path.join('.')}: ${issue.message}` : 'Invalid input');
       return;
     }
+    // Fail fast on the combinations that would leave nothing bookable. The
+    // server enforces these too — it's the one that can see un-sent fields —
+    // but catching them here saves a round trip.
     if (Number(form.minBookingHours) > Number(form.maxBookingHours)) {
       setFormError('Min booking hours cannot exceed max booking hours');
+      return;
+    }
+    const windowLength = bookingWindowLengthHours(
+      Number(form.bookingWindowStartHour),
+      Number(form.bookingWindowEndHour),
+    );
+    if (Number(form.minBookingHours) > windowLength) {
+      setFormError(
+        `The booking window is only ${windowLength} hours long, which is shorter than the ${form.minBookingHours}-hour minimum booking`,
+      );
       return;
     }
     setFormError(null);
@@ -139,11 +174,11 @@ export function SettingsPage() {
     <section>
       <PageHeader
         title="Configuration"
-        subtitle="Booking-window limits, nanny-matching radius, and pending-booking SLA thresholds. Rates and fees live on the Pricing & Fees page."
+        subtitle="When care can be booked and for how long, the nanny-matching radius, and pending-booking SLA thresholds. Hours are local time. Rates and fees live on the Pricing & Fees page."
       />
       {isLoading && (
         <Card>
-          <LoadingState label="Loading configuration…" />
+          <LoadingState label="Loading booking options…" />
         </Card>
       )}
       {error != null && (
@@ -176,7 +211,8 @@ export function SettingsPage() {
                 <Field key={field.key} label={field.label} hint={field.hint}>
                   <input
                     type="number"
-                    min="0"
+                    min={field.min ?? '0'}
+                    {...(field.max ? { max: field.max } : {})}
                     step={field.step ?? '1'}
                     value={form[field.key]}
                     onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}

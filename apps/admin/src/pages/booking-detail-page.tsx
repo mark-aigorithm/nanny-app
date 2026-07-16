@@ -14,13 +14,10 @@ import {
 } from '@admin/components/ui';
 import { fetchBooking } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { formatDateTime } from '@admin/lib/format';
 
 function money(n: number): string {
   return `EGP ${n.toFixed(2)}`;
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function statusLabel(status: string): string {

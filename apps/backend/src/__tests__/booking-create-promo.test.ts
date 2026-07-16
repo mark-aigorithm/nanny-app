@@ -18,6 +18,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getStandardHourlyRate: jest.fn(),
   getRevenueSplit: jest.fn(),
   getBroadcastRadiusKm: jest.fn(),
+  getPlatformConfig: jest.fn(),
 }));
 
 jest.mock('@backend/services/notification.service', () => ({
@@ -28,6 +29,7 @@ jest.mock('@backend/services/notification.service', () => ({
 import { prisma } from '@backend/db/prisma';
 import {
   getBroadcastRadiusKm,
+  getPlatformConfig,
   getRevenueSplit,
   getServiceFeePercent,
   getStandardHourlyRate,
@@ -48,15 +50,32 @@ const mockFee = getServiceFeePercent as jest.Mock;
 const mockRate = getStandardHourlyRate as jest.Mock;
 const mockSplit = getRevenueSplit as jest.Mock;
 const mockRadius = getBroadcastRadiusKm as jest.Mock;
+const mockConfig = getPlatformConfig as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
 
-// A far-future date keeps isStandardBookingDateAllowed + "not in the past" happy.
+/** Wide-open window so these promo tests only exercise pricing, not scheduling. */
+const PLATFORM_CONFIG = {
+  serviceFeePercent: 6,
+  standardHourlyRate: 100,
+  nannyPercent: 80,
+  platformPercent: 20,
+  maxBookingHours: 12,
+  minBookingHours: 1,
+  minAdvanceBookingHours: 0,
+  cancellationWindowHours: 24,
+  broadcastRadiusKm: 10,
+  pendingWarningMinutes: 15,
+  pendingCriticalMinutes: 30,
+  bookingWindowStartHour: 0,
+  bookingWindowEndHour: 0,
+};
+
+// Wall-clock, no offset, and a far-future date so the lead-time check is happy.
 // The request is nanny-less — the fixed platform rate prices it.
 const baseBody = {
-  date: '2099-01-01',
-  startTime: '2099-01-01T10:00:00.000Z',
-  endTime: '2099-01-01T12:00:00.000Z',
+  startTime: '2099-01-01T10:00:00',
+  endTime: '2099-01-01T12:00:00',
 };
 
 function makeBookingRow(overrides: Record<string, unknown> = {}) {
@@ -110,6 +129,7 @@ beforeEach(() => {
   mockRate.mockResolvedValue(100);
   mockSplit.mockResolvedValue({ nannyPercent: 80, platformPercent: 20 });
   mockRadius.mockResolvedValue(10);
+  mockConfig.mockResolvedValue(PLATFORM_CONFIG);
 });
 
 describe('createBooking (promo wiring)', () => {

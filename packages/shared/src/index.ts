@@ -1,5 +1,6 @@
 export * from './admin';
 export * from './auth';
+export * from './platform';
 export * from './camera';
 export * from './skill';
 export * from './duration-rule';

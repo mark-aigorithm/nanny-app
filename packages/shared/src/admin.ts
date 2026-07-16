@@ -5,6 +5,7 @@ import {
   BookingStatusSchema,
   NannyBookingDecisionSchema,
   PaginationMetaSchema,
+  wallClockField,
 } from './booking';
 import { NannyApprovalStatusSchema } from './nanny';
 import { PublicSkillSchema } from './skill';
@@ -136,6 +137,14 @@ export const PlatformConfigSchema = z.object({
    * as critical (red). Must be greater than the warning threshold.
    */
   pendingCriticalMinutes: z.number().int().min(1).max(10080),
+  /**
+   * Daily booking window, as wall-clock hours in PLATFORM_TIMEZONE. Deliberately
+   * NOT refined to `end > start`: `end <= start` is the legal cross-midnight case
+   * (8 → 2 means 08:00 to 02:00 the next day) and `end === start` is the legal
+   * full-24h case. See `bookingWindowLengthHours`.
+   */
+  bookingWindowStartHour: z.number().int().min(0).max(23),
+  bookingWindowEndHour: z.number().int().min(0).max(23),
 });
 export type PlatformConfig = z.infer<typeof PlatformConfigSchema>;
 
@@ -299,10 +308,13 @@ export type SetBookingStatusInput = z.infer<typeof SetBookingStatusSchema>;
 /**
  * Admin edits a booking's scheduled window (PATCH /admin/bookings/:id/times).
  * The server recomputes duration and the price breakdown from the new window.
+ *
+ * Wall-clock in PLATFORM_TIMEZONE, same contract as CreateBookingSchema — the
+ * admin's browser timezone must not decide what a booking time means.
  */
 export const UpdateBookingTimesSchema = z.object({
-  startTime: z.string().datetime({ offset: true }),
-  endTime: z.string().datetime({ offset: true }),
+  startTime: wallClockField('startTime'),
+  endTime: wallClockField('endTime'),
 });
 export type UpdateBookingTimesInput = z.infer<typeof UpdateBookingTimesSchema>;
 

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
 
 import { useAuthStore } from '@mobile/store/authStore';
+import { useGuestStore } from '@mobile/store/guestStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
@@ -10,6 +11,7 @@ import { NannyApprovalStatus } from '@shared/nanny';
 
 export default function Index() {
   const user = useAuthStore((s) => s.user);
+  const isGuest = useGuestStore((s) => s.isGuest);
   const profile = useUserProfileStore((s) => s.profile);
   const meQuery = useMe();
   const signOut = useSignOut();
@@ -31,8 +33,13 @@ export default function Index() {
     }
   }, [user, profile, meQuery.isError, meQuery.isFetching, signOut.isPending, signOut]);
 
-  // No Firebase user — go to the auth flow.
-  if (!user) return <Redirect href="/(auth)/splash" />;
+  // No Firebase user — guests browse the read-only parent experience,
+  // everyone else goes to the auth flow.
+  if (!user) {
+    return isGuest
+      ? <Redirect href="/(parent)/home" />
+      : <Redirect href="/(auth)/splash" />;
+  }
 
   // Firebase user but profile fetch in flight — keep the splash up.
   if (meQuery.isFetching && !profile) return null;

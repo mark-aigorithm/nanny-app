@@ -225,12 +225,14 @@ describe('updateBookingTimes', () => {
     );
 
     await updateBookingTimes('booking-1', ADMIN_UID, {
-      startTime: '2026-08-02T10:00:00.000Z',
-      endTime: '2026-08-02T14:00:00.000Z', // 4 hours
+      startTime: '2026-08-02T10:00:00',
+      endTime: '2026-08-02T14:00:00', // 4 hours
     });
 
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
-    expect(updateData.startTime).toEqual(new Date('2026-08-02T10:00:00.000Z'));
+    // 10:00 Cairo in August is +03:00, so the stored instant is 07:00Z.
+    expect(updateData.startTime).toEqual(new Date('2026-08-02T07:00:00.000Z'));
+    expect(updateData.date).toEqual(new Date('2026-08-02T00:00:00.000Z'));
     expect(updateData.durationHours).toBe(4);
     // rate 100 × 4h = 400 subtotal; split 80/20, no fee on top.
     expect(updateData.subtotal).toBe(400);
@@ -251,8 +253,8 @@ describe('updateBookingTimes', () => {
 
     await expect(
       updateBookingTimes('booking-1', ADMIN_UID, {
-        startTime: '2026-08-02T10:00:00.000Z',
-        endTime: '2026-08-02T14:00:00.000Z',
+        startTime: '2026-08-02T10:00:00',
+        endTime: '2026-08-02T14:00:00',
       }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
@@ -263,8 +265,8 @@ describe('updateBookingTimes', () => {
 
     await expect(
       updateBookingTimes('booking-1', ADMIN_UID, {
-        startTime: '2026-08-02T10:00:00.000Z',
-        endTime: '2026-08-02T10:30:00.000Z', // 0.5 h
+        startTime: '2026-08-02T10:00:00',
+        endTime: '2026-08-02T10:30:00', // 0.5 h
       }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();

@@ -7,8 +7,15 @@ export type BookingFlowParams = {
   nannyProfileId?: string;
   date?: string;
   dateIso?: string;
-  startTimeIso?: string;
-  endTimeIso?: string;
+  /**
+   * Platform wall-clock, "2026-07-20T09:00:00" — never carries an offset. Named
+   * for the format so it stays obvious that these go straight to the API, which
+   * expects wall-clock and does the timezone conversion itself.
+   */
+  startTimeWall?: string;
+  endTimeWall?: string;
+  /** Carried from the picker, which already knows it. */
+  durationHours?: string;
   nannyName?: string;
   nannyPhoto?: string;
   instructions?: string;
@@ -22,7 +29,7 @@ export type BookingFlowParams = {
 export function hasRequiredBookingDraft(params: BookingFlowParams): boolean {
   // Broadcast flow: a request no longer needs a nanny chosen up front — just a
   // date and window. A nanny claims it later.
-  return !!(params.dateIso && params.startTimeIso && params.endTimeIso);
+  return !!(params.dateIso && params.startTimeWall && params.endTimeWall);
 }
 
 export function getBookingDateDisplay(params: BookingFlowParams): string {
@@ -32,15 +39,15 @@ export function getBookingDateDisplay(params: BookingFlowParams): string {
 }
 
 export function getBookingTimeDisplay(params: BookingFlowParams): string {
-  if (!params.startTimeIso || !params.endTimeIso) return '';
-  return fmtBookingTime(params.startTimeIso, params.endTimeIso);
+  if (!params.startTimeWall || !params.endTimeWall) return '';
+  return fmtBookingTime(params.startTimeWall, params.endTimeWall);
 }
 
 export function getBookingDurationHours(params: BookingFlowParams): number {
-  if (!params.startTimeIso || !params.endTimeIso) return 0;
-  return Math.round(
-    (new Date(params.endTimeIso).getTime() - new Date(params.startTimeIso).getTime()) / 3_600_000,
-  );
+  // Carried through from the picker rather than recomputed. Subtracting two
+  // wall-clock strings via Date parses them in the DEVICE's timezone, which
+  // gives the wrong answer if that timezone has a DST jump inside the window.
+  return params.durationHours ? Number(params.durationHours) : 0;
 }
 
 export function resolveNannyPhoto(
@@ -61,8 +68,9 @@ export function bookingFlowRetryParams(
     nannyProfileId: params.nannyProfileId,
     date: params.date,
     dateIso: params.dateIso,
-    startTimeIso: params.startTimeIso,
-    endTimeIso: params.endTimeIso,
+    startTimeWall: params.startTimeWall,
+    endTimeWall: params.endTimeWall,
+    durationHours: params.durationHours,
     nannyName: params.nannyName,
     nannyPhoto: params.nannyPhoto,
     instructions: params.instructions,
@@ -84,8 +92,11 @@ export function payBookingParams(booking: BookingResponse): BookingFlowParams {
     retry: '1',
     ...(booking.nannyProfileId ? { nannyProfileId: booking.nannyProfileId } : {}),
     dateIso: booking.date,
-    startTimeIso: booking.startTime,
-    endTimeIso: booking.endTime,
+    // The API sends "…T09:00:00+03:00"; drop the offset so this field holds one
+    // format regardless of whether it came from the picker or from a booking.
+    startTimeWall: booking.startTime.slice(0, 19),
+    endTimeWall: booking.endTime.slice(0, 19),
+    durationHours: String(booking.durationHours),
     ...(nannyName ? { nannyName } : {}),
     ...(booking.nanny?.avatarUrl ? { nannyPhoto: booking.nanny.avatarUrl } : {}),
     ...(booking.specialInstructions ? { instructions: booking.specialInstructions } : {}),
