@@ -11,3 +11,4 @@ export { default as Badge } from './badge';
 export { default as Avatar } from './avatar';
 export { default as SectionHeader } from './section-header';
 export { default as Divider } from './divider';
+export { default as StarRatingInput, RATING_LABELS } from './star-rating-input';

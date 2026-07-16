@@ -16,9 +16,9 @@ import { colors } from '@mobile/theme';
 import { useBooking } from '@mobile/hooks/useBookings';
 import { useCreateReview } from '@mobile/hooks/useNannies';
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { StarRatingInput } from '@mobile/components/ui';
 import { styles } from './styles/review-screen.styles';
 
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
 const MAX_CHARS = 500;
 
 export default function ReviewScreen() {
@@ -105,18 +105,7 @@ export default function ReviewScreen() {
         </View>
 
         <View style={styles.starsSection}>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Pressable key={star} style={styles.starButton} onPress={() => setRating(star)}>
-                <Ionicons
-                  name={star <= rating ? 'star' : 'star-outline'}
-                  size={36}
-                  color={star <= rating ? colors.gold : colors.taupe}
-                />
-              </Pressable>
-            ))}
-          </View>
-          {rating > 0 ? <Text style={styles.ratingLabel}>{RATING_LABELS[rating]}</Text> : null}
+          <StarRatingInput rating={rating} onChange={setRating} />
         </View>
 
         <View style={styles.reviewSection}>
