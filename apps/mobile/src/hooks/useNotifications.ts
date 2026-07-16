@@ -9,6 +9,7 @@ import type {
 
 import { api, unwrap, unwrapPaginated } from '@mobile/lib/api';
 import type { NotificationFilter } from '@mobile/lib/notificationUtils';
+import { useAuthStore } from '@mobile/store/authStore';
 
 const NOTIFICATIONS_KEY = 'notifications';
 
@@ -50,8 +51,13 @@ export function useNotifications(filter: NotificationFilter = 'all', limit = 20)
 }
 
 export function useUnreadNotificationCount() {
+  // The bell renders for guests too — never poll an account-bound endpoint
+  // without a signed-in Firebase user.
+  const firebaseUser = useAuthStore((s) => s.user);
+
   return useQuery({
     queryKey: [NOTIFICATIONS_KEY, 'unread-count'],
+    enabled: !!firebaseUser,
     queryFn: async () =>
       unwrap<UnreadNotificationCountResponse>(api.get('/notifications/unread-count')),
     refetchInterval: 15_000,

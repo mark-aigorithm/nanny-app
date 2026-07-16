@@ -11,9 +11,10 @@ import { styles } from './styles/splash-screen.styles';
 
 interface Props {
   onGetStarted?: () => void;
+  onContinueAsGuest?: () => void;
 }
 
-export default function SplashScreen({ onGetStarted }: Props) {
+export default function SplashScreen({ onGetStarted, onContinueAsGuest }: Props) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -44,6 +45,13 @@ export default function SplashScreen({ onGetStarted }: Props) {
           variant="primary"
           fullWidth
           style={styles.getStartedButton}
+        />
+        <Button
+          title="Continue as guest"
+          onPress={onContinueAsGuest ?? (() => {})}
+          variant="text"
+          fullWidth
+          style={styles.guestButton}
         />
       </View>
     </View>

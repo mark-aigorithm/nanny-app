@@ -24,6 +24,7 @@ import {
   useTogglePostLike,
 } from '@mobile/hooks/useCommunity';
 import { useContactSeller } from '@mobile/hooks/useMessaging';
+import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { getCommunityReturnHref } from '@mobile/lib/communityUtils';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { postDetailTheme, styles } from './styles/post-detail-screen.styles';
@@ -49,6 +50,7 @@ export default function PostDetailScreen() {
   } = useComments(postId);
 
   const currentUserId = useUserProfileStore((s) => s.profile?.id);
+  const { gate } = useGuestGate();
   const toggleLike = useTogglePostLike();
   const toggleRsvp = useToggleEventRsvp();
   const toggleCommentLike = useToggleCommentLike();
@@ -136,14 +138,23 @@ export default function PostDetailScreen() {
       >
         <PostCard
           post={post}
-          onLikePress={() => toggleLike.mutate(post.id)}
-          onRsvpPress={() => toggleRsvp.mutate(post.id)}
+          onLikePress={gate(
+            () => toggleLike.mutate(post.id),
+            'Create your free account to like posts.',
+          )}
+          onRsvpPress={gate(
+            () => toggleRsvp.mutate(post.id),
+            'Create your free account to RSVP to events.',
+          )}
         />
 
         {canMessageSeller ? (
           <Pressable
             style={styles.messageSellerButton}
-            onPress={handleMessageSeller}
+            onPress={gate(
+              handleMessageSeller,
+              'Create your free account to message sellers.',
+            )}
             disabled={contactSeller.isPending}
           >
             <Ionicons name="chatbubble-outline" size={18} color={postDetailTheme.white} />
@@ -162,9 +173,11 @@ export default function PostDetailScreen() {
               <CommentThread
                 key={comment.id}
                 comment={comment}
-                onLikePress={(commentId) =>
-                  toggleCommentLike.mutate({ commentId, postId: post.id })
-                }
+                onLikePress={gate(
+                  (commentId: string) =>
+                    toggleCommentLike.mutate({ commentId, postId: post.id }),
+                  'Create your free account to like comments.',
+                )}
                 onReplyPress={handleReplyPress}
               />
             ))
@@ -201,7 +214,10 @@ export default function PostDetailScreen() {
           <Pressable
             style={[styles.sendButton, !replyText.trim() && styles.sendButtonDisabled]}
             disabled={!replyText.trim() || createComment.isPending}
-            onPress={handleSubmitComment}
+            onPress={gate(
+              handleSubmitComment,
+              'Create your free account to join the conversation.',
+            )}
           >
             <Ionicons name="send" size={16} color={postDetailTheme.white} />
           </Pressable>

@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 
 import { CreateReviewSchema, NannyBookedSlotsQuerySchema, NannyListQuerySchema, UpdateNannyProfileRequestSchema } from '@nanny-app/shared';
 
-import { requireAuth } from '@backend/middleware/auth.middleware';
+import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import { requireApprovedNanny } from '@backend/middleware/nanny.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
@@ -64,9 +64,11 @@ nannyRouter.put(
 
 // ── Skill catalog (active skills, for the search filter) ──────────────────────
 
+// The skill catalog and the nanny directory below are public reads: guests
+// browsing without an account may see them (optionalAuth, no user data read).
 nannyRouter.get(
   '/skills',
-  requireAuth,
+  optionalAuth,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await listActiveSkills()));
@@ -78,7 +80,7 @@ nannyRouter.get(
 
 nannyRouter.get(
   '/nannies',
-  requireAuth,
+  optionalAuth,
   validateQuery(NannyListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
@@ -90,7 +92,7 @@ nannyRouter.get(
 
 nannyRouter.get(
   '/nannies/:nannyProfileId',
-  requireAuth,
+  optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const profile = await getNannyPublicProfile(String(req.params['nannyProfileId']));
@@ -101,7 +103,7 @@ nannyRouter.get(
 
 nannyRouter.get(
   '/nannies/:nannyProfileId/booked-slots',
-  requireAuth,
+  optionalAuth,
   validateQuery(NannyBookedSlotsQuerySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
