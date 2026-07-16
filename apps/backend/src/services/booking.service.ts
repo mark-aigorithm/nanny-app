@@ -32,6 +32,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { isWithinRadius, toLatLng } from '@backend/lib/geo';
 import { hashPin, randomStartPin } from '@backend/lib/pin';
 import {
   assertWallClock,
@@ -40,7 +41,7 @@ import {
   toPlatformWallClock,
   wallClockToUtc,
 } from '@backend/lib/platform-time';
-import { getPlatformConfig } from './app-settings.service';
+import { getBroadcastRadiusKm, getPlatformConfig } from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -267,30 +268,44 @@ async function notifyUserBookingEvent(
  * Broadcast a new, unclaimed booking request to every eligible nanny and to
  * every admin at once. No nanny is assigned yet — the request is offered to the
  * whole pool and the first nanny to accept claims it. "Eligible" means an
- * approved nanny with a complete profile who is free for the requested window.
+ * approved nanny with a complete profile who is free for the requested window
+ * and within the configured broadcast radius of the booking's location (nannies
+ * or bookings without coordinates always match, and radius 0 disables the
+ * distance filter — see AppSettings broadcast_radius_km).
  * No payment has been taken; the mother pays once a nanny claims the request.
  */
 async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<void> {
   const dateLabel = booking.date.toISOString().slice(0, 10);
 
-  const nannies = await prisma.nannyProfile.findMany({
-    where: {
-      deletedAt: null,
-      isProfileComplete: true,
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      // Exclude nannies already booked for an overlapping window — they can't
-      // take this one anyway.
-      bookings: {
-        none: {
-          deletedAt: null,
-          status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
-          startTime: { lt: booking.endTime },
-          endTime: { gt: booking.startTime },
+  const [radiusKm, candidates] = await Promise.all([
+    getBroadcastRadiusKm(),
+    prisma.nannyProfile.findMany({
+      where: {
+        deletedAt: null,
+        isProfileComplete: true,
+        approvalStatus: NannyApprovalStatus.APPROVED,
+        // Exclude nannies already booked for an overlapping window — they can't
+        // take this one anyway.
+        bookings: {
+          none: {
+            deletedAt: null,
+            status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
+            startTime: { lt: booking.endTime },
+            endTime: { gt: booking.startTime },
+          },
         },
       },
-    },
-    select: { userId: true },
-  });
+      select: {
+        userId: true,
+        user: { select: { latitude: true, longitude: true } },
+      },
+    }),
+  ]);
+
+  const bookingPoint = toLatLng(booking.latitude, booking.longitude);
+  const nannies = candidates.filter((n) =>
+    isWithinRadius(bookingPoint, toLatLng(n.user.latitude, n.user.longitude), radiusKm),
+  );
 
   const admins = await prisma.user.findMany({
     where: { deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
@@ -522,6 +537,10 @@ export async function createBooking(
     date: toPlatformDateColumn(startTime),
     startTime,
     endTime,
+    // Snapshot the mother's location so the broadcast radius is computed
+    // against where the booking was requested, even if she later moves.
+    latitude: user.latitude,
+    longitude: user.longitude,
     durationHours: breakdown.durationHours,
     baseRate: breakdown.baseRate,
     effectiveHourlyRate: breakdown.effectiveHourlyRate,
@@ -656,8 +675,10 @@ export async function listBookings(
 /**
  * The open broadcast pool a nanny can claim: unassigned PENDING requests that
  * start in the future and don't overlap any booking the nanny already holds.
- * Soonest-starting first. Any nanny may claim any of these (first to accept
- * wins), so this is intentionally not distance-filtered.
+ * Soonest-starting first. Filtered to the configured broadcast radius around
+ * each request's location — the pool matches what the nanny was notified
+ * about. Requests or nannies without coordinates, or radius 0, bypass the
+ * distance filter (never hide work because a profile is incomplete).
  */
 export async function listAvailableBookings(
   decoded: DecodedIdToken,
@@ -669,11 +690,12 @@ export async function listAvailableBookings(
 
   const nannyProfile = await prisma.nannyProfile.findUnique({
     where: { userId: user.id, deletedAt: null },
-    select: { id: true },
+    select: { id: true, user: { select: { latitude: true, longitude: true } } },
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
-  const [busy, open] = await Promise.all([
+  const [radiusKm, busy, open] = await Promise.all([
+    getBroadcastRadiusKm(),
     prisma.booking.findMany({
       where: {
         nannyProfileId: nannyProfile.id,
@@ -695,8 +717,11 @@ export async function listAvailableBookings(
     }),
   ]);
 
+  const nannyPoint = toLatLng(nannyProfile.user.latitude, nannyProfile.user.longitude);
   const available = open.filter(
-    (b) => !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime),
+    (b) =>
+      !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime) &&
+      isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm),
   );
 
   return available.map(toBookingResponse);
@@ -776,10 +801,13 @@ export async function cancelBooking(
  *
  * For an UNCLAIMED request (nannyProfileId = null), ACCEPT *claims* it: the
  * nanny is assigned and the booking moves PENDING → APPROVED so it becomes
- * payable immediately — there is no admin approval gate. First to accept wins;
- * a transaction + status re-check prevents two nannies claiming the same
- * request. You can't decline an unclaimed request (it isn't yours) — you simply
- * don't claim it. The request keeps the fixed platform price it was created with.
+ * payable immediately — there is no admin approval gate. First to accept wins:
+ * the claim is a conditional updateMany guarded on
+ * (status = PENDING AND nannyProfileId IS NULL), so the database itself
+ * guarantees exactly one winner under concurrent accepts — the loser's write
+ * matches no row and gets a conflict error. You can't decline an unclaimed
+ * request (it isn't yours) — you simply don't claim it. The request keeps the
+ * fixed platform price it was created with.
  *
  * For a request already ASSIGNED to this nanny, accept/decline just records
  * nannyDecision + nannyDecidedAt (informational).
@@ -802,8 +830,8 @@ async function applyNannyDecision(
 
   let claimed = false;
 
-  // Serializable-ish: read-then-update in a transaction to guard against
-  // two nannies claiming the same request simultaneously.
+  // The claim runs in a transaction; the atomic status-guarded updateMany
+  // below is what prevents two nannies claiming the same request.
   const updated = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: bookingId, deletedAt: null },
@@ -822,16 +850,32 @@ async function applyNannyDecision(
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
 
       validateStatusTransition(booking.status, BookingStatus.APPROVED);
-      claimed = true;
 
-      return tx.booking.update({
-        where: { id: bookingId },
+      // Atomic first-to-accept guard: the write only matches a row that is
+      // still an unclaimed PENDING request at commit time. If a concurrent
+      // claim won, count is 0 and this nanny loses cleanly. (Same guarded-
+      // updateMany pattern as the check-in PIN validation.)
+      const claim = await tx.booking.updateMany({
+        where: {
+          id: bookingId,
+          status: BookingStatus.PENDING,
+          nannyProfileId: null,
+          deletedAt: null,
+        },
         data: {
-          nannyProfile: { connect: { id: nannyProfile.id } },
+          nannyProfileId: nannyProfile.id,
           status: BookingStatus.APPROVED,
           nannyDecision: decisionValue,
           nannyDecidedAt: new Date(),
         },
+      });
+      if (claim.count === 0) {
+        throw errors.conflict('This request was already accepted by another nanny.');
+      }
+      claimed = true;
+
+      return tx.booking.findUniqueOrThrow({
+        where: { id: bookingId },
         include: bookingInclude,
       });
     }

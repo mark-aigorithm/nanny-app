@@ -122,6 +122,22 @@ export const PlatformConfigSchema = z.object({
   /** Hours before start time after which cancellation incurs a fee. */
   cancellationWindowHours: z.number().int().min(0).max(168),
   /**
+   * Radius (km) around the booking's location within which nannies are
+   * notified of a new request (and see it in their Requests pool). 0 disables
+   * distance filtering — every eligible nanny is notified.
+   */
+  broadcastRadiusKm: z.number().min(0).max(500),
+  /**
+   * Minutes a booking may sit PENDING (no nanny accepted) before the admin
+   * bookings list flags it as a warning (yellow).
+   */
+  pendingWarningMinutes: z.number().int().min(1).max(10080),
+  /**
+   * Minutes a booking may sit PENDING before the admin bookings list flags it
+   * as critical (red). Must be greater than the warning threshold.
+   */
+  pendingCriticalMinutes: z.number().int().min(1).max(10080),
+  /**
    * Daily booking window, as wall-clock hours in PLATFORM_TIMEZONE. Deliberately
    * NOT refined to `end > start`: `end <= start` is the legal cross-midnight case
    * (8 → 2 means 08:00 to 02:00 the next day) and `end === start` is the legal
@@ -144,6 +160,16 @@ export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial()
     {
       message: 'Nanny and platform percentages must add up to 100',
       path: ['nannyPercent'],
+    },
+  )
+  .refine(
+    (v) =>
+      v.pendingWarningMinutes === undefined ||
+      v.pendingCriticalMinutes === undefined ||
+      v.pendingWarningMinutes < v.pendingCriticalMinutes,
+    {
+      message: 'Pending warning threshold must be below the critical threshold',
+      path: ['pendingWarningMinutes'],
     },
   );
 export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchema>;

@@ -6,9 +6,11 @@ import { AppError } from '@backend/lib/errors';
 jest.mock('@backend/db/prisma', () => {
   const booking = {
     findUnique: jest.fn(),
+    findUniqueOrThrow: jest.fn(),
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     count: jest.fn(),
   };
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
@@ -42,6 +44,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+  getBroadcastRadiusKm: jest.fn().mockResolvedValue(10),
   // Wide-open window: this suite is about the approval flow, not scheduling rules.
   getPlatformConfig: jest.fn().mockResolvedValue({
     serviceFeePercent: 6,
@@ -52,6 +55,9 @@ jest.mock('@backend/services/app-settings.service', () => ({
     minBookingHours: 1,
     minAdvanceBookingHours: 0,
     cancellationWindowHours: 24,
+    broadcastRadiusKm: 10,
+    pendingWarningMinutes: 15,
+    pendingCriticalMinutes: 30,
     bookingWindowStartHour: 0,
     bookingWindowEndHour: 0,
   }),
@@ -71,9 +77,11 @@ import {
 const mockPrisma = prisma as unknown as {
   booking: {
     findUnique: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    updateMany: jest.Mock;
     count: jest.Mock;
   };
   user: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
@@ -89,6 +97,8 @@ const motherUser = {
   id: 'mother-1',
   firebaseUid: 'fb-mother',
   role: Role.MOTHER,
+  latitude: 30.0444,
+  longitude: 31.2357,
   deletedAt: null,
 };
 
@@ -198,7 +208,9 @@ describe('createBooking (broadcast)', () => {
     mockPrisma.skill.findMany.mockResolvedValue([]);
     mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
     // Broadcast fan-out: one eligible nanny + two admins.
-    mockPrisma.nannyProfile.findMany.mockResolvedValue([{ userId: nannyUser.id }]);
+    mockPrisma.nannyProfile.findMany.mockResolvedValue([
+      { userId: nannyUser.id, user: { latitude: null, longitude: null } },
+    ]);
     mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
 
     // A wall-clock window 20 days out — far enough ahead that the lead-time check
@@ -216,6 +228,10 @@ describe('createBooking (broadcast)', () => {
     const createData = mockPrisma.booking.create.mock.calls[0][0].data;
     expect(createData.status).toBe(BookingStatus.PENDING);
     expect(createData.nannyProfileId).toBeNull();
+    // Location snapshot: the mother's coordinates are copied onto the booking
+    // so radius filtering stays stable if she later edits her address.
+    expect(createData.latitude).toBe(30.0444);
+    expect(createData.longitude).toBe(31.2357);
     // Priced from the base platform rate (100) × 3 hrs, split 80/20, no fee on top.
     expect(createData.baseRate).toBe(100);
     expect(createData.subtotal).toBe(300);
@@ -244,28 +260,59 @@ describe('claim (unassigned request)', () => {
     });
   });
 
-  it('assigns the nanny and moves the booking PENDING → APPROVED, prompting the mother to pay', async () => {
+  it('claims atomically: guarded updateMany assigns the nanny and moves PENDING → APPROVED, prompting the mother to pay', async () => {
     mockPrisma.booking.findUnique.mockResolvedValue(
       makeBooking({ nannyProfileId: null, nannyProfile: null, type: 'STANDARD' }),
     );
     // assertNoConflict finds no overlapping booking.
     mockPrisma.booking.findFirst.mockResolvedValue(null);
-    mockPrisma.booking.update.mockResolvedValue(
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.booking.findUniqueOrThrow.mockResolvedValue(
       makeBooking({ status: PrismaBookingStatus.APPROVED, nannyDecision: NannyBookingDecision.ACCEPTED }),
     );
 
     const result = await acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1');
 
     expect(result.status).toBe(BookingStatus.APPROVED);
-    const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
-    expect(updateData.status).toBe(BookingStatus.APPROVED);
-    expect(updateData.nannyProfile).toEqual({ connect: { id: nannyProfileRel.id } });
-    expect(updateData.nannyDecision).toBe(NannyBookingDecision.ACCEPTED);
+
+    // The conditional write is what makes first-to-accept race-safe: it only
+    // matches a row that is still an unclaimed PENDING request.
+    const claimCall = mockPrisma.booking.updateMany.mock.calls[0][0];
+    expect(claimCall.where).toEqual(
+      expect.objectContaining({
+        id: 'booking-1',
+        status: PrismaBookingStatus.PENDING,
+        nannyProfileId: null,
+        deletedAt: null,
+      }),
+    );
+    expect(claimCall.data).toEqual(
+      expect.objectContaining({
+        nannyProfileId: nannyProfileRel.id,
+        status: PrismaBookingStatus.APPROVED,
+        nannyDecision: NannyBookingDecision.ACCEPTED,
+      }),
+    );
 
     // Mother is told a nanny accepted (reuses BOOKING_APPROVED).
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({ userId: motherUser.id, type: 'BOOKING_APPROVED' }),
     );
+  });
+
+  it('rejects the loser of a simultaneous claim race (updateMany matched no row)', async () => {
+    // The pre-read still sees an unclaimed PENDING request…
+    mockPrisma.booking.findUnique.mockResolvedValue(
+      makeBooking({ nannyProfileId: null, nannyProfile: null }),
+    );
+    mockPrisma.booking.findFirst.mockResolvedValue(null);
+    // …but another nanny's claim commits first, so the guarded write misses.
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1')).rejects.toThrow(
+      /already accepted/i,
+    );
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 
   it('rejects a second nanny once the request is already claimed (double-claim guard)', async () => {

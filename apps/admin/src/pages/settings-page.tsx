@@ -16,17 +16,20 @@ import {
 import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
-/** Only the booking rules live here — pricing lives on Pricing & Fees. */
-type BookingLimitKey =
+/** Booking-window limits + matching/SLA settings — pricing lives on Pricing & Fees. */
+type SettingsKey =
   | 'bookingWindowStartHour'
   | 'bookingWindowEndHour'
   | 'maxBookingHours'
   | 'minBookingHours'
   | 'minAdvanceBookingHours'
-  | 'cancellationWindowHours';
+  | 'cancellationWindowHours'
+  | 'broadcastRadiusKm'
+  | 'pendingWarningMinutes'
+  | 'pendingCriticalMinutes';
 
 type ConfigField = {
-  key: BookingLimitKey;
+  key: SettingsKey;
   label: string;
   hint: string;
   min?: string;
@@ -34,7 +37,7 @@ type ConfigField = {
   step?: string;
 };
 
-const FIELDS: ConfigField[] = [
+const BOOKING_FIELDS: ConfigField[] = [
   {
     key: 'bookingWindowStartHour',
     label: 'Care starts from (hour)',
@@ -71,6 +74,25 @@ const FIELDS: ConfigField[] = [
   },
 ];
 
+const MATCHING_FIELDS: ConfigField[] = [
+  {
+    key: 'broadcastRadiusKm',
+    label: 'Broadcast radius (km)',
+    hint: 'Only nannies within this distance of the family are notified of new requests. 0 notifies everyone.',
+    step: '0.5',
+  },
+  {
+    key: 'pendingWarningMinutes',
+    label: 'Pending warning threshold (min)',
+    hint: 'Pending bookings older than this are highlighted yellow on the Bookings page.',
+  },
+  {
+    key: 'pendingCriticalMinutes',
+    label: 'Pending critical threshold (min)',
+    hint: 'Pending bookings older than this are highlighted red on the Bookings page.',
+  },
+];
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -79,7 +101,7 @@ export function SettingsPage() {
     queryFn: fetchPlatformConfig,
   });
 
-  const [form, setForm] = useState<Record<BookingLimitKey, string> | null>(null);
+  const [form, setForm] = useState<Record<SettingsKey, string> | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,6 +113,9 @@ export function SettingsPage() {
         minBookingHours: String(config.minBookingHours),
         minAdvanceBookingHours: String(config.minAdvanceBookingHours),
         cancellationWindowHours: String(config.cancellationWindowHours),
+        broadcastRadiusKm: String(config.broadcastRadiusKm),
+        pendingWarningMinutes: String(config.pendingWarningMinutes),
+        pendingCriticalMinutes: String(config.pendingCriticalMinutes),
       });
     }
   }, [config, form]);
@@ -115,6 +140,9 @@ export function SettingsPage() {
       minBookingHours: Number(form.minBookingHours),
       minAdvanceBookingHours: Number(form.minAdvanceBookingHours),
       cancellationWindowHours: Number(form.cancellationWindowHours),
+      broadcastRadiusKm: Number(form.broadcastRadiusKm),
+      pendingWarningMinutes: Number(form.pendingWarningMinutes),
+      pendingCriticalMinutes: Number(form.pendingCriticalMinutes),
     });
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
@@ -145,8 +173,8 @@ export function SettingsPage() {
   return (
     <section>
       <PageHeader
-        title="Booking Options"
-        subtitle="When care can be booked, and for how long. Applied to every new booking. Hours are local time. Rates and fees live on the Pricing & Fees page."
+        title="Configuration"
+        subtitle="When care can be booked and for how long, the nanny-matching radius, and pending-booking SLA thresholds. Hours are local time. Rates and fees live on the Pricing & Fees page."
       />
       {isLoading && (
         <Card>
@@ -164,7 +192,22 @@ export function SettingsPage() {
         <Card>
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
-              {FIELDS.map((field) => (
+              {BOOKING_FIELDS.map((field) => (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <input
+                    type="number"
+                    min="0"
+                    step={field.step ?? '1'}
+                    value={form[field.key]}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                    required
+                  />
+                </Field>
+              ))}
+            </div>
+            <h2 className="form-section-title">Matching &amp; SLA</h2>
+            <div className="form-grid">
+              {MATCHING_FIELDS.map((field) => (
                 <Field key={field.key} label={field.label} hint={field.hint}>
                   <input
                     type="number"

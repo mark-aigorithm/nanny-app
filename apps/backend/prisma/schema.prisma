@@ -476,6 +476,11 @@ model Booking {
   /// Snapshot of the selected skill add-ons for the price breakdown display.
   selectedSkillFees       Json?         @map("selected_skill_fees")
   specialInstructions     String?       @map("special_instructions") @db.Text
+  /// Location snapshot copied from the mother's profile at creation time —
+  /// used to radius-filter the nanny broadcast (see notifyBookingBroadcast).
+  /// Null (mother has no saved location) → the request broadcasts to everyone.
+  latitude                Decimal?      @db.Decimal(10, 7)
+  longitude               Decimal?      @db.Decimal(10, 7)
   cancellationReason      String?       @map("cancellation_reason")
   cancelledById           String?       @map("cancelled_by_id")
   cancelledBy             User?         @relation("BookingCancelledBy", fields: [cancelledById], references: [id])

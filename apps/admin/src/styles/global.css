@@ -272,6 +272,13 @@ h3 {
   margin-bottom: 1.25rem;
 }
 
+.form-section-title {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -372,6 +379,15 @@ h3 {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+/* SLA row highlighting — pending bookings past the warning/critical age. */
+.table-row--warning td {
+  background: var(--color-warning-light);
+}
+
+.table-row--danger td {
+  background: var(--color-error-light);
 }
 
 .table {
@@ -711,6 +727,11 @@ h3 {
 .badge--danger {
   background: var(--color-error-light);
   color: var(--color-error);
+}
+
+.badge--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
 }
 
 .feedback {

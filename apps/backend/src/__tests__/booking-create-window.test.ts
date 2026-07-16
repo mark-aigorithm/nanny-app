@@ -14,6 +14,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+  getBroadcastRadiusKm: jest.fn().mockResolvedValue(10),
   getPlatformConfig: jest.fn(),
 }));
 

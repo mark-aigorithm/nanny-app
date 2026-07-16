@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -36,6 +36,7 @@ import {
 import {
   approveBooking,
   fetchBookings,
+  fetchPlatformConfig,
   rejectBooking,
   setBookingStatus,
   updateBookingTimes,
@@ -80,6 +81,28 @@ function nannyDecisionLabel(decision: NannyBookingDecision): string {
   return 'No response';
 }
 
+/** Whole minutes elapsed since an ISO timestamp (never negative). */
+function minutesSince(iso: string, now: number): number {
+  return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
+}
+
+/** Compact waiting-time label: "8m", "1h 24m", "2d 3h". */
+function formatWaiting(mins: number): string {
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ${mins % 60}m`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
+type SlaThresholds = { pendingWarningMinutes: number; pendingCriticalMinutes: number };
+
+/** SLA tone for a pending booking's age against the configured thresholds. */
+function pendingTone(mins: number, sla: SlaThresholds): 'neutral' | 'warning' | 'danger' {
+  if (mins >= sla.pendingCriticalMinutes) return 'danger';
+  if (mins >= sla.pendingWarningMinutes) return 'warning';
+  return 'neutral';
+}
+
 export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
   const [editing, setEditing] = useState<{ id: string; start: string; end: string } | null>(null);
@@ -95,6 +118,22 @@ export function BookingsPage() {
   });
   const bookings = data?.data;
   const meta = data?.meta;
+
+  const { data: platformConfig } = useQuery({
+    queryKey: ['platform-config'],
+    queryFn: fetchPlatformConfig,
+  });
+  const sla: SlaThresholds = {
+    pendingWarningMinutes: platformConfig?.pendingWarningMinutes ?? 15,
+    pendingCriticalMinutes: platformConfig?.pendingCriticalMinutes ?? 30,
+  };
+
+  // Re-render every 30s so waiting times and SLA colors stay live.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   function changeStatus(next: AdminBookingStatusFilter) {
     setStatus(next);
@@ -214,6 +253,19 @@ export function BookingsPage() {
       render: (b) => <Badge tone={statusTone(b.status)}>{statusLabel(b.status)}</Badge>,
     },
     {
+      key: 'waiting',
+      header: 'Waiting',
+      nowrap: true,
+      render: (b) =>
+        b.status === 'PENDING' ? (
+          <Badge tone={pendingTone(minutesSince(b.createdAt, now), sla)}>
+            {formatWaiting(minutesSince(b.createdAt, now))}
+          </Badge>
+        ) : (
+          <span className="table-empty">—</span>
+        ),
+    },
+    {
       key: 'override',
       header: 'Override',
       render: (booking) => {
@@ -296,7 +348,7 @@ export function BookingsPage() {
     <section>
       <PageHeader
         title="Bookings"
-        subtitle="Requests are broadcast to all nannies; the first to accept claims a booking and the parent pays. Edit a booking's times or override its status here."
+        subtitle="Requests are broadcast to nearby nannies (radius set in Configuration); the first to accept claims a booking and the parent pays. Edit a booking's times or override its status here."
       />
       <div className="filter-bar">
         <FilterSelect
@@ -306,7 +358,7 @@ export function BookingsPage() {
           onChange={(value) => changeStatus(value as AdminBookingStatusFilter)}
         />
       </div>
-      {isLoading && <TableSkeleton columns={9} />}
+      {isLoading && <TableSkeleton columns={10} />}
       {error != null && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -321,6 +373,13 @@ export function BookingsPage() {
           rowKey={(booking) => booking.id}
           empty="No bookings with this status."
           onRowClick={(booking) => navigate(`/bookings/${booking.id}`)}
+          rowClassName={(b) => {
+            if (b.status !== 'PENDING') return undefined;
+            const tone = pendingTone(minutesSince(b.createdAt, now), sla);
+            if (tone === 'danger') return 'table-row--danger';
+            if (tone === 'warning') return 'table-row--warning';
+            return undefined;
+          }}
           renderExpanded={(booking) =>
             editing?.id === booking.id ? (
               <div className="times-editor">

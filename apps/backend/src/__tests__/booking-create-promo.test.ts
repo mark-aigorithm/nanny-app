@@ -17,6 +17,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn(),
   getStandardHourlyRate: jest.fn(),
   getRevenueSplit: jest.fn(),
+  getBroadcastRadiusKm: jest.fn(),
   getPlatformConfig: jest.fn(),
 }));
 
@@ -27,6 +28,7 @@ jest.mock('@backend/services/notification.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import {
+  getBroadcastRadiusKm,
   getPlatformConfig,
   getRevenueSplit,
   getServiceFeePercent,
@@ -47,6 +49,7 @@ const mockPrisma = prisma as unknown as {
 const mockFee = getServiceFeePercent as jest.Mock;
 const mockRate = getStandardHourlyRate as jest.Mock;
 const mockSplit = getRevenueSplit as jest.Mock;
+const mockRadius = getBroadcastRadiusKm as jest.Mock;
 const mockConfig = getPlatformConfig as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
@@ -61,6 +64,9 @@ const PLATFORM_CONFIG = {
   minBookingHours: 1,
   minAdvanceBookingHours: 0,
   cancellationWindowHours: 24,
+  broadcastRadiusKm: 10,
+  pendingWarningMinutes: 15,
+  pendingCriticalMinutes: 30,
   bookingWindowStartHour: 0,
   bookingWindowEndHour: 0,
 };
@@ -122,6 +128,7 @@ beforeEach(() => {
   mockFee.mockResolvedValue(6);
   mockRate.mockResolvedValue(100);
   mockSplit.mockResolvedValue({ nannyPercent: 80, platformPercent: 20 });
+  mockRadius.mockResolvedValue(10);
   mockConfig.mockResolvedValue(PLATFORM_CONFIG);
 });
 

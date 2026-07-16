@@ -1,16 +1,35 @@
-jest.mock('@backend/db/prisma', () => ({
-  prisma: {
-    appSettings: { findMany: jest.fn(), upsert: jest.fn() },
-    $transaction: jest.fn().mockResolvedValue([]),
-  },
-}));
+jest.mock('@backend/db/prisma', () => {
+  const appSettings = {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    upsert: jest.fn(),
+  };
+  return {
+    prisma: {
+      appSettings,
+      $transaction: jest.fn(async (arg: unknown) =>
+        Array.isArray(arg) ? Promise.all(arg) : (arg as () => unknown)(),
+      ),
+    },
+  };
+});
 
 import { prisma } from '@backend/db/prisma';
 import { AppError } from '@backend/lib/errors';
-import { getPlatformConfig, updatePlatformConfig } from '@backend/services/app-settings.service';
+import {
+  getBroadcastRadiusKm,
+  getPlatformConfig,
+  updatePlatformConfig,
+} from '@backend/services/app-settings.service';
 
 const mockPrisma = prisma as unknown as {
-  appSettings: { findMany: jest.Mock; upsert: jest.Mock };
+  appSettings: {
+    findUnique: jest.Mock;
+    findFirst: jest.Mock;
+    findMany: jest.Mock;
+    upsert: jest.Mock;
+  };
   $transaction: jest.Mock;
 };
 
@@ -21,7 +40,32 @@ const rows = (values: Record<string, string>) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockPrisma.appSettings.findMany.mockResolvedValue([]);
-  mockPrisma.$transaction.mockResolvedValue([]);
+});
+
+describe('getBroadcastRadiusKm', () => {
+  it('returns the default (10) when the key is not seeded', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue(null);
+    await expect(getBroadcastRadiusKm()).resolves.toBe(10);
+    expect(mockPrisma.appSettings.findFirst).toHaveBeenCalledWith({
+      where: { key: 'broadcast_radius_km', deletedAt: null },
+    });
+  });
+
+  it('parses the stored value', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
+      key: 'broadcast_radius_km',
+      value: '25.5',
+    });
+    await expect(getBroadcastRadiusKm()).resolves.toBe(25.5);
+  });
+
+  it('falls back to the default on a malformed value', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
+      key: 'broadcast_radius_km',
+      value: 'not-a-number',
+    });
+    await expect(getBroadcastRadiusKm()).resolves.toBe(10);
+  });
 });
 
 describe('getPlatformConfig', () => {
@@ -53,11 +97,31 @@ describe('getPlatformConfig', () => {
     mockPrisma.appSettings.findMany.mockResolvedValue(rows({ booking_window_start_hour: 'abc' }));
     expect((await getPlatformConfig()).bookingWindowStartHour).toBe(6);
   });
+
+  it('includes matching/SLA defaults for unseeded keys', async () => {
+    const config = await getPlatformConfig();
+    expect(config.broadcastRadiusKm).toBe(10);
+    expect(config.pendingWarningMinutes).toBe(15);
+    expect(config.pendingCriticalMinutes).toBe(30);
+  });
+
+  it('reads seeded matching/SLA values', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(
+      rows({
+        broadcast_radius_km: '5',
+        pending_warning_minutes: '20',
+        pending_critical_minutes: '45',
+      }),
+    );
+    const config = await getPlatformConfig();
+    expect(config.broadcastRadiusKm).toBe(5);
+    expect(config.pendingWarningMinutes).toBe(20);
+    expect(config.pendingCriticalMinutes).toBe(45);
+  });
 });
 
 describe('updatePlatformConfig — coherence guard', () => {
   it('accepts a coherent change', async () => {
-    mockPrisma.appSettings.findMany.mockResolvedValue([]);
     await expect(updatePlatformConfig({ bookingWindowStartHour: 8 })).resolves.toBeDefined();
     expect(mockPrisma.$transaction).toHaveBeenCalled();
   });
