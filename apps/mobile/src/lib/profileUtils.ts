@@ -2,7 +2,6 @@ import type { BottomNavTab } from '@mobile/components/BottomNav';
 
 export type ProfileReturnTo =
   | BottomNavTab
-  | 'home-dashboard'
   | 'customer-support'
   | 'events-meetups'
   | 'mother-profile';
@@ -12,7 +11,6 @@ const RETURN_HREF: Record<ProfileReturnTo, string> = {
   bookings: '/(parent)/bookings',
   community: '/(parent)/community',
   messages: '/(parent)/messages',
-  'home-dashboard': '/(parent)/home-dashboard',
   'customer-support': '/(parent)/customer-support',
   'events-meetups': '/(parent)/events-meetups',
   'mother-profile': '/(parent)/mother-profile',
@@ -33,7 +31,6 @@ export function getReturnToFromSegments(segments: string[]): ProfileReturnTo {
   );
   if (tab) return tab;
 
-  if (segments.includes('home-dashboard')) return 'home-dashboard';
   if (segments.includes('customer-support')) return 'customer-support';
   if (segments.includes('events-meetups')) return 'events-meetups';
 

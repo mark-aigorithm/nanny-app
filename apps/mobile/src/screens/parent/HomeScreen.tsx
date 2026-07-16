@@ -55,8 +55,8 @@ export default function HomeScreen() {
           <View style={styles.guestWelcomeCard}>
             <Text style={styles.guestWelcomeTitle}>Welcome to {APP_NAME}</Text>
             <Text style={styles.guestWelcomeBody}>
-              You&apos;re browsing as a guest. Look around, meet our vetted nannies and
-              explore the community — then create a free account to book care.
+              You&apos;re browsing as a guest. See how care works, explore the community —
+              then create a free account to book a trusted, vetted nanny.
             </Text>
             <Button
               title="Create free account"
@@ -86,26 +86,6 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.primary} />
         </Pressable>
-
-        {/* Guest teaser: the nanny directory is the strongest conversion hook,
-            so surface it where a signed-in mother sees her live booking. */}
-        {isGuest && (
-          <Pressable
-            style={styles.meetNanniesCard}
-            onPress={() => router.push('/(parent)/search')}
-          >
-            <View style={styles.meetNanniesIcon}>
-              <Ionicons name="people-outline" size={22} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bookCareTitle}>Meet our nannies</Text>
-              <Text style={styles.bookCareSubtitle}>
-                Browse trusted, vetted profiles near you
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-          </Pressable>
-        )}
 
         {/* How it works */}
         <View style={styles.section}>

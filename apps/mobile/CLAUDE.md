@@ -164,7 +164,6 @@ All placeholder/mock data lives in `src/mocks/`, organized by domain:
 | `nannies.ts` | `MOCK_NANNIES_HOME`, `MOCK_NANNIES_SEARCH`, `MOCK_NANNIES_RESULTS`, `MOCK_NANNY_BOOKING` |
 | `nanny-profile.ts` | `MOCK_NANNY_PROFILE` |
 | `bookings.ts` | `MOCK_BOOKING`, `MOCK_UPCOMING_BOOKINGS`, `MOCK_PAST_BOOKINGS` |
-| `dashboard.ts` | `PROMO_CARDS`, `QUICK_ACTIONS`, `RECOMMENDED_NANNIES`, `FAVOURITE_NANNIES` |
 | `community.ts` | `MOCK_POSTS` |
 | `events.ts` | `MOCK_EVENTS` |
 | `marketplace.ts` | `MOCK_PRODUCTS` |
