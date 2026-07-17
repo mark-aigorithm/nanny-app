@@ -31,7 +31,7 @@ export default function NannyBookingDetailScreen() {
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
 
-  const { data: booking, isLoading } = useBooking(bookingId);
+  const { data: booking, isLoading } = useBooking(bookingId ? Number(bookingId) : undefined);
   const canViewCareLog =
     booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED';
 
@@ -122,7 +122,7 @@ export default function NannyBookingDetailScreen() {
         </View>
 
         {/* Care Log */}
-        {canViewCareLog && bookingId ? <BookingCareLogSection bookingId={bookingId} /> : null}
+        {canViewCareLog && bookingId ? <BookingCareLogSection bookingId={Number(bookingId)} /> : null}
 
         {/* Rating & Review */}
         {booking.status === 'COMPLETED' ? (

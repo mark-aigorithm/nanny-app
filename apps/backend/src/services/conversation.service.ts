@@ -62,7 +62,7 @@ function toAuthor(user: User) {
 }
 
 function toListingContext(post: {
-  id: string;
+  id: number;
   title: string | null;
   price: Prisma.Decimal | null;
   imageUrls: string[];
@@ -76,8 +76,8 @@ function toListingContext(post: {
 }
 
 function toMessageResponse(message: {
-  id: string;
-  conversationId: string;
+  id: number;
+  conversationId: number;
   type: MessageType;
   content: string;
   createdAt: Date;
@@ -94,8 +94,8 @@ function toMessageResponse(message: {
 }
 
 async function countUnread(
-  conversationId: string,
-  userId: string,
+  conversationId: number,
+  userId: number,
   lastReadAt: Date | null,
 ): Promise<number> {
   return prisma.message.count({
@@ -110,7 +110,7 @@ async function countUnread(
 
 function getOtherParticipant(
   conversation: ConversationWithRelations,
-  currentUserId: string,
+  currentUserId: number,
 ): User {
   const participant = conversation.participants.find((p) => p.userId !== currentUserId);
   if (!participant) throw errors.notFound('Conversation participant not found');
@@ -119,7 +119,7 @@ function getOtherParticipant(
 
 async function toConversationResponse(
   conversation: ConversationWithRelations,
-  currentUserId: string,
+  currentUserId: number,
 ): Promise<ConversationResponse> {
   const myParticipant = conversation.participants.find((p) => p.userId === currentUserId);
   const unreadCount = await countUnread(
@@ -144,8 +144,8 @@ async function toConversationResponse(
 }
 
 async function getConversationForUser(
-  userId: string,
-  conversationId: string,
+  userId: number,
+  conversationId: number,
 ): Promise<ConversationWithRelations> {
   const conversation = await prisma.conversation.findFirst({
     where: {
@@ -164,7 +164,7 @@ async function getConversationForUser(
 
 export async function contactSeller(
   decoded: DecodedIdToken,
-  postId: string,
+  postId: number,
 ): Promise<ConversationResponse> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
@@ -250,7 +250,7 @@ export async function listConversations(
 
 export async function getConversation(
   decoded: DecodedIdToken,
-  conversationId: string,
+  conversationId: number,
 ): Promise<ConversationResponse> {
   const user = await getUserByUid(decoded.uid);
 
@@ -260,7 +260,7 @@ export async function getConversation(
 
 export async function listMessages(
   decoded: DecodedIdToken,
-  conversationId: string,
+  conversationId: number,
   query: MessageHistoryQuery,
 ): Promise<MessageListResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -287,7 +287,7 @@ export async function listMessages(
 
 export async function sendMessage(
   decoded: DecodedIdToken,
-  conversationId: string,
+  conversationId: number,
   body: SendMessageRequest,
 ): Promise<MessageResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -341,8 +341,8 @@ export async function sendMessage(
       body: notificationBody,
       data: {
         type: 'MARKETPLACE_MESSAGE',
-        conversationId,
-        communityPostId: conversation.communityPostId,
+        conversationId: String(conversationId),
+        communityPostId: String(conversation.communityPostId),
         title: notificationTitle,
       },
     });
@@ -353,7 +353,7 @@ export async function sendMessage(
 
 export async function markConversationRead(
   decoded: DecodedIdToken,
-  conversationId: string,
+  conversationId: number,
 ): Promise<{ read: true }> {
   const user = await getUserByUid(decoded.uid);
 

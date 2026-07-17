@@ -2,7 +2,7 @@ import type { Router } from 'expo-router';
 
 export function navigateToBookingDetail(
   router: Router,
-  bookingId: string,
+  bookingId: number,
   options?: { focusCareLog?: boolean },
 ): void {
   router.push({

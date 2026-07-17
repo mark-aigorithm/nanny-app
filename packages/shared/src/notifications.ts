@@ -23,12 +23,12 @@ export const NotificationReferenceTypeSchema = z.enum(['conversation', 'booking'
 export type NotificationReferenceType = z.infer<typeof NotificationReferenceTypeSchema>;
 
 export const NotificationResponseSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   type: NotificationTypeSchema,
   title: z.string(),
   body: z.string(),
   isRead: z.boolean(),
-  referenceId: z.string().nullable(),
+  referenceId: z.number().int().nullable(),
   referenceType: NotificationReferenceTypeSchema.nullable(),
   createdAt: z.string(),
 });

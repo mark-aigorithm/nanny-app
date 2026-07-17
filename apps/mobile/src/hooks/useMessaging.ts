@@ -19,7 +19,7 @@ export function useContactSeller() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (postId: string) =>
+    mutationFn: async (postId: number) =>
       unwrap<ContactSellerResponse>(api.post(`/community/posts/${postId}/contact`)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [MESSAGING_KEY] });
@@ -44,7 +44,7 @@ export function useConversations(query: ConversationListQuery = { page: 1, limit
   });
 }
 
-export function useConversation(conversationId: string | undefined) {
+export function useConversation(conversationId: number | undefined) {
   return useQuery({
     queryKey: [MESSAGING_KEY, 'conversation', conversationId],
     queryFn: async () =>
@@ -53,7 +53,7 @@ export function useConversation(conversationId: string | undefined) {
   });
 }
 
-export function useMessages(conversationId: string | undefined) {
+export function useMessages(conversationId: number | undefined) {
   const isFocused = useIsFocused();
 
   return useQuery({
@@ -68,7 +68,7 @@ export function useMessages(conversationId: string | undefined) {
   });
 }
 
-export function useSendMessage(conversationId: string | undefined) {
+export function useSendMessage(conversationId: number | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -86,7 +86,7 @@ export function useMarkConversationRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (conversationId: string) =>
+    mutationFn: async (conversationId: number) =>
       unwrap(api.post(`/conversations/${conversationId}/read`)),
     onSuccess: (_data, conversationId) => {
       queryClient.invalidateQueries({ queryKey: [MESSAGING_KEY, 'conversation', conversationId] });

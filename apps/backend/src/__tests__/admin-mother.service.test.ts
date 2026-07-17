@@ -25,7 +25,7 @@ const mockPrisma = prisma as unknown as {
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'user-1',
+    id: 29,
     firstName: 'Nour',
     lastName: 'Ibrahim',
     email: 'nour@example.com',
@@ -70,7 +70,7 @@ describe('listAdminMothers', () => {
     const { mothers } = await listAdminMothers({ page: 1, limit: 20 });
 
     expect(mothers[0]).toEqual({
-      id: 'user-1',
+      id: 29,
       name: 'Nour Ibrahim',
       email: 'nour@example.com',
       phone: '+201000000000',
@@ -102,19 +102,19 @@ describe('getAdminMother', () => {
   it('returns the mother DTO for an existing account', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(makeRow());
 
-    const mother = await getAdminMother('user-1');
+    const mother = await getAdminMother(29);
 
-    expect(mother.id).toBe('user-1');
+    expect(mother.id).toBe(29);
     expect(mother.name).toBe('Nour Ibrahim');
     expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'user-1', role: 'MOTHER', deletedAt: null },
+        where: { id: 29, role: 'MOTHER', deletedAt: null },
       }),
     );
   });
 
   it('throws when the mother does not exist', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
-    await expect(getAdminMother('missing')).rejects.toThrow(AppError);
+    await expect(getAdminMother(999)).rejects.toThrow(AppError);
   });
 });

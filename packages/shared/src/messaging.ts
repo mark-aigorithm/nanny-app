@@ -10,7 +10,7 @@ export const MessageTypeSchema = z.enum(['text']);
 export type MessageType = z.infer<typeof MessageTypeSchema>;
 
 export const ListingContextSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   title: z.string().nullable(),
   price: z.number().nullable(),
   imageUrl: z.string().nullable(),
@@ -19,8 +19,8 @@ export const ListingContextSchema = z.object({
 export type ListingContext = z.infer<typeof ListingContextSchema>;
 
 export const MessageResponseSchema = z.object({
-  id: z.string(),
-  conversationId: z.string(),
+  id: z.number().int(),
+  conversationId: z.number().int(),
   type: MessageTypeSchema,
   content: z.string(),
   sender: CommunityAuthorSchema,
@@ -30,7 +30,7 @@ export const MessageResponseSchema = z.object({
 export type MessageResponse = z.infer<typeof MessageResponseSchema>;
 
 export const ConversationResponseSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   type: ConversationTypeSchema,
   listingContext: ListingContextSchema,
   otherParticipant: CommunityAuthorSchema,

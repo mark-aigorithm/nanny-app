@@ -30,8 +30,9 @@ export default function CareActivityFeedScreen() {
   const { bookingId, returnTo } = useLocalSearchParams<{ bookingId?: string; returnTo?: string }>();
   const [activeFilter, setActiveFilter] = useState<CareLogFilterPill>('All');
 
-  const { data: booking, isLoading: bookingLoading } = useBooking(bookingId);
-  const { data: careLogs = [], isLoading: logsLoading } = useCareLogs(bookingId);
+  const numericBookingId = bookingId ? Number(bookingId) : undefined;
+  const { data: booking, isLoading: bookingLoading } = useBooking(numericBookingId);
+  const { data: careLogs = [], isLoading: logsLoading } = useCareLogs(numericBookingId);
 
   const filteredLogs = useMemo(
     () => filterCareLogs(careLogs, activeFilter),

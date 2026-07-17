@@ -39,7 +39,7 @@ function ConversationItem({
   const participantAvatar = resolveImageUri(conversation.otherParticipant.avatarUrl);
 
   return (
-    <Pressable style={styles.chatItem} onPress={() => onPress(conversation.id)}>
+    <Pressable style={styles.chatItem} onPress={() => onPress(String(conversation.id))}>
       <View style={styles.chatAvatarWrapper}>
         <View style={styles.chatAvatarBg}>
           {participantAvatar ? (

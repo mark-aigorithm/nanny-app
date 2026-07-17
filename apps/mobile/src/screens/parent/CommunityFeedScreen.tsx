@@ -145,7 +145,7 @@ export default function CommunityFeedScreen() {
       <FlatList
         style={styles.scroll}
         data={visiblePosts}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[
           styles.scrollContent,
           (isLoading || visiblePosts.length === 0) && styles.scrollContentEmpty,

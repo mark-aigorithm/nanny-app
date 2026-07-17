@@ -51,7 +51,7 @@ const mockPush = dispatchPush as jest.Mock;
 
 function makeConfig(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'cfg-1',
+    id: 6,
     enabled: true,
     pointsPerBookedHour: 10,
     redemptionPointsPerHour: 100,
@@ -62,8 +62,8 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
 
 function makeWallet(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'wallet-1',
-    userId: 'user-1',
+    id: 30,
+    userId: 29,
     pointsBalance: 0,
     lifetimeEarned: 0,
     lifetimeRedeemed: 0,
@@ -121,7 +121,7 @@ describe('updateRewardConfig', () => {
     mockPrisma.rewardConfig.update.mockResolvedValue(makeConfig(input));
     await updateRewardConfig(input);
     expect(mockPrisma.rewardConfig.update).toHaveBeenCalledWith({
-      where: { id: 'cfg-1' },
+      where: { id: 6 },
       data: input,
     });
   });
@@ -135,29 +135,29 @@ describe('awardPointsForBooking', () => {
     mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet());
     mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
 
-    await awardPointsForBooking({ bookingId: 'b1', motherId: 'user-1', durationHours: 3 });
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 3 });
 
     // 3h * 10 = 30 points on top of the existing 5 → balance 35.
     expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
-      where: { id: 'wallet-1' },
+      where: { id: 30 },
       data: { pointsBalance: 35, lifetimeEarned: { increment: 30 } },
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: 'EARN', points: 30, balanceAfter: 35, bookingId: 'b1' }),
+        data: expect.objectContaining({ type: 'EARN', points: 30, balanceAfter: 35, bookingId: 101 }),
       }),
     );
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'user-1', type: 'POINTS_EARNED' }),
+      expect.objectContaining({ userId: 29, type: 'POINTS_EARNED' }),
     );
     expect(mockPush).toHaveBeenCalled();
   });
 
   it('is idempotent — no-op when an EARN entry already exists for the booking', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
-    mockPrisma.rewardLedgerEntry.findFirst.mockResolvedValue({ id: 'existing' });
+    mockPrisma.rewardLedgerEntry.findFirst.mockResolvedValue({ id: 301 });
 
-    await awardPointsForBooking({ bookingId: 'b1', motherId: 'user-1', durationHours: 3 });
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 3 });
 
     expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
     expect(mockPrisma.rewardLedgerEntry.create).not.toHaveBeenCalled();
@@ -166,14 +166,14 @@ describe('awardPointsForBooking', () => {
 
   it('does nothing when the program is disabled', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig({ enabled: false }));
-    await awardPointsForBooking({ bookingId: 'b1', motherId: 'user-1', durationHours: 3 });
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 3 });
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });
 
 describe('grantPoints', () => {
   const user = {
-    id: 'user-1',
+    id: 29,
     firstName: 'Sarah',
     lastName: 'Jones',
     email: 's@example.com',
@@ -189,10 +189,10 @@ describe('grantPoints', () => {
     mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
 
     const summary = await grantPoints({
-      userId: 'user-1',
+      userId: 29,
       points: 20,
       reason: 'Goodwill',
-      adminId: 'admin-1',
+      adminId: 1,
     });
 
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
@@ -201,12 +201,12 @@ describe('grantPoints', () => {
           type: 'ADMIN_GRANT',
           points: 20,
           balanceAfter: 70,
-          adminId: 'admin-1',
+          adminId: 1,
           reason: 'Goodwill',
         }),
       }),
     );
-    expect(summary).toMatchObject({ userId: 'user-1', pointsBalance: 70, name: 'Sarah Jones' });
+    expect(summary).toMatchObject({ userId: 29, pointsBalance: 70, name: 'Sarah Jones' });
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'POINTS_GRANTED' }),
     );
@@ -218,7 +218,7 @@ describe('grantPoints', () => {
     mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet({ pointsBalance: 0 }));
     mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
 
-    await grantPoints({ userId: 'user-1', points: -50, reason: 'Correction', adminId: 'admin-1' });
+    await grantPoints({ userId: 29, points: -50, reason: 'Correction', adminId: 1 });
 
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -231,20 +231,20 @@ describe('grantPoints', () => {
     mockPrisma.user.findFirst.mockResolvedValue(user);
     mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 0 }));
     await expect(
-      grantPoints({ userId: 'user-1', points: -5, reason: 'x', adminId: 'admin-1' }),
+      grantPoints({ userId: 29, points: -5, reason: 'x', adminId: 1 }),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('throws 404 when the target user does not exist', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
     await expect(
-      grantPoints({ userId: 'nope', points: 10, reason: 'x', adminId: 'admin-1' }),
+      grantPoints({ userId: 999, points: 10, reason: 'x', adminId: 1 }),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
 describe('applyBookingRedemption', () => {
-  const params = { userId: 'user-1', bookingId: 'b1', redeemHours: 2, perHour: 50, durationHours: 3 };
+  const params = { userId: 29, bookingId: 101, redeemHours: 2, perHour: 50, durationHours: 3 };
 
   it('deducts points, records a REDEEM entry, and returns the discount', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
@@ -257,12 +257,12 @@ describe('applyBookingRedemption', () => {
 
     expect(result).toEqual({ hours: 2, pointsCost: 200, discount: 100 });
     expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
-      where: { id: 'wallet-1' },
+      where: { id: 30 },
       data: { pointsBalance: 100, lifetimeRedeemed: { increment: 200 } },
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: 'REDEEM', points: -200, balanceAfter: 100, bookingId: 'b1' }),
+        data: expect.objectContaining({ type: 'REDEEM', points: -200, balanceAfter: 100, bookingId: 101 }),
       }),
     );
   });
@@ -316,26 +316,26 @@ describe('refundBookingRedemption', () => {
     mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
 
     await refundBookingRedemption(mockPrisma as never, {
-      userId: 'user-1',
-      bookingId: 'b1',
+      userId: 29,
+      bookingId: 101,
       points: 200,
     });
 
     expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
-      where: { id: 'wallet-1' },
+      where: { id: 30 },
       data: { pointsBalance: 300, lifetimeRedeemed: { decrement: 200 } },
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: 'REFUND', points: 200, balanceAfter: 300, bookingId: 'b1' }),
+        data: expect.objectContaining({ type: 'REFUND', points: 200, balanceAfter: 300, bookingId: 101 }),
       }),
     );
   });
 
   it('is a no-op when there are no points to refund', async () => {
     await refundBookingRedemption(mockPrisma as never, {
-      userId: 'user-1',
-      bookingId: 'b1',
+      userId: 29,
+      bookingId: 101,
       points: 0,
     });
     expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
@@ -345,13 +345,13 @@ describe('refundBookingRedemption', () => {
 describe('listWallets (paginated)', () => {
   function makeUserRow(overrides: Record<string, unknown> = {}) {
     return {
-      id: 'user-1',
+      id: 29,
       firstName: 'Nour',
       lastName: 'Ibrahim',
       email: 'nour@example.com',
       avatarUrl: null,
       rewardWallet: {
-        userId: 'user-1',
+        userId: 29,
         pointsBalance: 120,
         lifetimeEarned: 200,
         lifetimeRedeemed: 80,
@@ -375,7 +375,7 @@ describe('listWallets (paginated)', () => {
       expect.objectContaining({ skip: 10, take: 10 }),
     );
     expect(wallets[0]).toEqual({
-      userId: 'user-1',
+      userId: 29,
       name: 'Nour Ibrahim',
       email: 'nour@example.com',
       avatarUrl: null,

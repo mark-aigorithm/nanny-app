@@ -9,8 +9,8 @@ import { colors, spacing, borderRadius, typeScale } from '@mobile/theme';
 
 type Props = {
   comment: CommentResponse;
-  onLikePress?: (commentId: string) => void;
-  onReplyPress?: (commentId: string) => void;
+  onLikePress?: (commentId: number) => void;
+  onReplyPress?: (commentId: number) => void;
 };
 
 function CommentItem({

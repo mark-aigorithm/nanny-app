@@ -272,14 +272,14 @@ function BookingCard({
       <View style={styles.cardDivider} />
 
       <View style={styles.cardActions}>
-        <TouchableOpacity activeOpacity={0.7} onPress={() => onViewDetails(booking.id)}>
+        <TouchableOpacity activeOpacity={0.7} onPress={() => onViewDetails(String(booking.id))}>
           <Text style={styles.viewDetailsText}>View details</Text>
         </TouchableOpacity>
         {onLeaveReview && isCompleted && !booking.myReview ? (
           <TouchableOpacity
             style={styles.leaveReviewRow}
             activeOpacity={0.7}
-            onPress={() => onLeaveReview(booking.id)}
+            onPress={() => onLeaveReview(String(booking.id))}
           >
             <Ionicons name="star" size={14} color={colors.gold} />
             <Text style={styles.leaveReviewText}>Leave review</Text>

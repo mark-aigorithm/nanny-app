@@ -53,9 +53,10 @@ export default function ChatThreadScreen() {
   const [messageText, setMessageText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const { data: conversation, isLoading: conversationLoading } = useConversation(conversationId);
-  const { data: messagesData, isLoading: messagesLoading } = useMessages(conversationId);
-  const sendMessage = useSendMessage(conversationId);
+  const numericConversationId = Number(conversationId);
+  const { data: conversation, isLoading: conversationLoading } = useConversation(numericConversationId);
+  const { data: messagesData, isLoading: messagesLoading } = useMessages(numericConversationId);
+  const sendMessage = useSendMessage(numericConversationId);
   const markRead = useMarkConversationRead();
 
   const messages = messagesData?.messages ?? [];
@@ -63,7 +64,7 @@ export default function ChatThreadScreen() {
   useEffect(() => {
     if (!conversationId) return;
     setActiveConversationId(conversationId);
-    void markRead.mutate(conversationId);
+    void markRead.mutate(numericConversationId);
     return () => setActiveConversationId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, setActiveConversationId]);

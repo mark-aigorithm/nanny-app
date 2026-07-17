@@ -6,9 +6,9 @@ jest.mock('@backend/services/app-settings.service', () => ({
 
 jest.mock('@backend/services/skill.service', () => ({
   listActiveSkills: jest.fn().mockResolvedValue([
-    { id: 's1', name: 'French speaker', feeType: 'FLAT', feeValue: 20 },
-    { id: 's2', name: 'Special needs', feeType: 'PERCENTAGE', feeValue: 10 },
-    { id: 's3', name: 'First aid', feeType: null, feeValue: 0 },
+    { id: 201, name: 'French speaker', feeType: 'FLAT', feeValue: 20 },
+    { id: 202, name: 'Special needs', feeType: 'PERCENTAGE', feeValue: 10 },
+    { id: 203, name: 'First aid', feeType: null, feeValue: 0 },
   ]),
 }));
 
@@ -38,7 +38,7 @@ describe('buildBreakdown', () => {
   it('prices selected add-ons with the matching duration tier and split', async () => {
     const inputs = await getPricingInputs();
     // (120 + 20 French + 12 special) × 3h × 0.9 = 410.4
-    const b = buildBreakdown(inputs, { durationHours: 3, skillIds: ['s1', 's2'] });
+    const b = buildBreakdown(inputs, { durationHours: 3, skillIds: [201, 202] });
     expect(b.effectiveHourlyRate).toBe(152);
     expect(b.durationMultiplier).toBe(0.9);
     expect(b.subtotal).toBe(410.4);
@@ -47,7 +47,7 @@ describe('buildBreakdown', () => {
 
   it('rejects an unknown skill id', async () => {
     const inputs = await getPricingInputs();
-    expect(() => buildBreakdown(inputs, { durationHours: 2, skillIds: ['nope'] })).toThrow();
+    expect(() => buildBreakdown(inputs, { durationHours: 2, skillIds: [999] })).toThrow();
   });
 });
 

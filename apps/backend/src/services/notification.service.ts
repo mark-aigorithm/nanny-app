@@ -69,12 +69,12 @@ function toApiReferenceType(
 }
 
 function toNotificationResponse(row: {
-  id: string;
+  id: number;
   type: NotificationType;
   title: string;
   body: string;
   isRead: boolean;
-  referenceId: string | null;
+  referenceId: number | null;
   referenceType: NotificationReferenceType | null;
   createdAt: Date;
 }): NotificationResponse {
@@ -91,11 +91,11 @@ function toNotificationResponse(row: {
 }
 
 export interface CreateNotificationInput {
-  userId: string;
+  userId: number;
   type: NotificationType;
   title: string;
   body: string;
-  referenceId?: string;
+  referenceId?: number;
   referenceType?: NotificationReferenceType;
 }
 
@@ -122,7 +122,7 @@ export interface PushPayload {
   data: Record<string, string>;
 }
 
-export async function dispatchPush(userId: string, payload: PushPayload): Promise<void> {
+export async function dispatchPush(userId: number, payload: PushPayload): Promise<void> {
   const tokens = await prisma.deviceToken.findMany({
     where: { userId, deletedAt: null },
     select: { token: true },
@@ -214,7 +214,7 @@ export async function getUnreadNotificationCount(
 
 export async function markNotificationRead(
   decoded: DecodedIdToken,
-  notificationId: string,
+  notificationId: number,
 ): Promise<NotificationResponse> {
   const user = await getUserByUid(decoded.uid);
 

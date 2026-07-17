@@ -5,7 +5,7 @@ import { api, unwrap } from '@mobile/lib/api';
 
 const CARE_LOGS_KEY = 'care-logs';
 
-export function useCareLogs(bookingId: string | undefined) {
+export function useCareLogs(bookingId: number | undefined) {
   return useQuery<CareLogResponse[]>({
     queryKey: [CARE_LOGS_KEY, bookingId],
     queryFn: () => unwrap(api.get(`/bookings/${bookingId}/care-logs`)),
@@ -13,7 +13,7 @@ export function useCareLogs(bookingId: string | undefined) {
   });
 }
 
-export function useCreateCareLog(bookingId: string | undefined) {
+export function useCreateCareLog(bookingId: number | undefined) {
   const qc = useQueryClient();
   return useMutation<CareLogResponse, Error, CreateCareLogRequest>({
     mutationFn: (body) =>

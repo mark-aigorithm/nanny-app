@@ -17,7 +17,10 @@ import { config } from '../../src/lib/config';
 
 const MOTHER_PHONE = '+2011000000000';
 const NANNY_PHONE = '+201055512340';
-const BOOKING_ID = 'seed-demo-booking-night-test';
+// Ids are now autoincrement integers, so this run is made idempotent by tagging
+// the booking with a stable marker in special_instructions (a plain string
+// column) and cleaning up any prior run keyed off that marker.
+const BOOKING_MARKER = 'seed-demo-booking-night-test';
 
 const adapter = new PrismaPg({ connectionString: config.databaseUrl });
 const prisma = new PrismaClient({ adapter });
@@ -55,12 +58,19 @@ async function main() {
   const fee = subtotal * 0.06;
   const total = subtotal + fee;
 
-  await prisma.payment.deleteMany({ where: { bookingId: BOOKING_ID } });
-  await prisma.booking.deleteMany({ where: { id: BOOKING_ID } });
+  const prior = await prisma.booking.findMany({
+    where: { specialInstructions: BOOKING_MARKER },
+    select: { id: true },
+  });
+  const priorIds = prior.map((b) => b.id);
+  if (priorIds.length > 0) {
+    await prisma.payment.deleteMany({ where: { bookingId: { in: priorIds } } });
+    await prisma.booking.deleteMany({ where: { id: { in: priorIds } } });
+  }
 
   const booking = await prisma.booking.create({
     data: {
-      id: BOOKING_ID,
+      specialInstructions: BOOKING_MARKER,
       motherId: mother.id,
       nannyProfileId: nannyProfile.id,
       status: BookingStatus.CONFIRMED,
@@ -75,7 +85,6 @@ async function main() {
       totalAmount: new Prisma.Decimal(String(total)),
       payment: {
         create: {
-          id: `${BOOKING_ID}-payment`,
           motherId: mother.id,
           amount: new Prisma.Decimal(String(total)),
           method: PaymentMethod.CARD,

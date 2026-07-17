@@ -193,7 +193,7 @@ export const isNannyProfileComplete = (profile: NannyProfileCompletenessInput): 
 // ── Public nanny listing (used by GET /nannies) ──────────────────────────────
 
 export const NannyListItemSchema = z.object({
-  nannyProfileId: z.string(),
+  nannyProfileId: z.number().int(),
   firstName: z.string(),
   lastName: z.string(),
   avatarUrl: z.string().nullable(),
@@ -216,7 +216,7 @@ export const NannyListItemSchema = z.object({
 export type NannyListItem = z.infer<typeof NannyListItemSchema>;
 
 export const ReviewSummarySchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   motherFirstName: z.string(),
   motherLastName: z.string(),
   motherAvatarUrl: z.string().nullable(),
@@ -237,7 +237,7 @@ export type NannyPublicProfile = z.infer<typeof NannyPublicProfileSchema>;
 export const NannyListQuerySchema = z.object({
   availabilityType: AvailabilityTypeSchema.optional(),
   name: z.string().trim().optional(),
-  skillId: z.string().trim().optional(),
+  skillId: z.coerce.number().int().positive().optional(),
   /**
    * Caller (mother) coordinates. When both are provided, results are ranked
    * "recommended"-style: closest first, then highest-rated. Must be sent

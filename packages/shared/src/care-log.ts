@@ -15,9 +15,9 @@ export const CareLogType = CareLogTypeSchema.enum;
 export type CareLogType = z.infer<typeof CareLogTypeSchema>;
 
 export const CareLogResponseSchema = z.object({
-  id: z.string(),
-  bookingId: z.string(),
-  nannyProfileId: z.string(),
+  id: z.number().int(),
+  bookingId: z.number().int(),
+  nannyProfileId: z.number().int(),
   type: CareLogTypeSchema,
   customLabel: z.string().nullable(),
   notes: z.string().nullable(),
