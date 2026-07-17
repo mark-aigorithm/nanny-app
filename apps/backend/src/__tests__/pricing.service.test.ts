@@ -5,22 +5,22 @@ import {
   type SkillAddOnInput,
 } from '@backend/services/pricing.service';
 
-const FRENCH: SkillAddOnInput = { id: 's1', name: 'French speaker', feeType: 'FLAT', feeValue: 20 };
+const FRENCH: SkillAddOnInput = { id: 1, name: 'French speaker', feeType: 'FLAT', feeValue: 20 };
 const SPECIAL: SkillAddOnInput = {
-  id: 's2',
+  id: 2,
   name: 'Special needs',
   feeType: 'PERCENTAGE',
   feeValue: 10,
 };
-const FREE: SkillAddOnInput = { id: 's3', name: 'First aid', feeType: null, feeValue: 0 };
+const FREE: SkillAddOnInput = { id: 3, name: 'First aid', feeType: null, feeValue: 0 };
 
 describe('resolveEffectiveRate', () => {
   it('adds flat and percentage skill fees on top of the base rate', () => {
     const { effectiveHourlyRate, applied } = resolveEffectiveRate(120, [FRENCH, SPECIAL]);
     // 120 + 20 (flat) + 12 (10% of 120) = 152
     expect(effectiveHourlyRate).toBe(152);
-    expect(applied.find((a) => a.id === 's1')?.amountPerHour).toBe(20);
-    expect(applied.find((a) => a.id === 's2')?.amountPerHour).toBe(12);
+    expect(applied.find((a) => a.id === 1)?.amountPerHour).toBe(20);
+    expect(applied.find((a) => a.id === 2)?.amountPerHour).toBe(12);
   });
 
   it('treats a null-fee skill as a zero surcharge', () => {

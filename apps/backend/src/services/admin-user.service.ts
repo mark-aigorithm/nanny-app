@@ -47,7 +47,7 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
 }
 
 type AdminUserRow = {
-  id: string;
+  id: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -124,7 +124,7 @@ export async function listAdminMothers(
 }
 
 /** Full detail for a single mother account (read-only admin detail page). */
-export async function getAdminMother(id: string): Promise<AdminMother> {
+export async function getAdminMother(id: number): Promise<AdminMother> {
   const row = await prisma.user.findFirst({
     where: { id, role: 'MOTHER', deletedAt: null },
     select: motherSelect,

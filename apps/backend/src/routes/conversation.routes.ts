@@ -7,7 +7,7 @@ import {
 } from '@nanny-app/shared';
 
 import { ok } from '@backend/lib/api-response';
-import { routeParam } from '@backend/lib/route-param';
+import { routeIdParam } from '@backend/lib/route-param';
 import { errors } from '@backend/lib/errors';
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
@@ -60,7 +60,7 @@ conversationRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const conversation = await getConversation(req.firebaseUser, routeParam(req.params.id));
+      const conversation = await getConversation(req.firebaseUser, routeIdParam(req.params.id));
       res.json(ok(conversation));
     } catch (err) {
       next(err);
@@ -78,7 +78,7 @@ conversationRouter.get(
       const query = res.locals['validatedQuery'] as ReturnType<
         typeof MessageHistoryQuerySchema.parse
       >;
-      const result = await listMessages(req.firebaseUser, routeParam(req.params.id), query);
+      const result = await listMessages(req.firebaseUser, routeIdParam(req.params.id), query);
       res.json(ok(result));
     } catch (err) {
       next(err);
@@ -93,7 +93,7 @@ conversationRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const message = await sendMessage(req.firebaseUser, routeParam(req.params.id), req.body);
+      const message = await sendMessage(req.firebaseUser, routeIdParam(req.params.id), req.body);
       res.status(201).json(ok(message));
     } catch (err) {
       next(err);
@@ -107,7 +107,7 @@ conversationRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await markConversationRead(req.firebaseUser, routeParam(req.params.id));
+      const result = await markConversationRead(req.firebaseUser, routeIdParam(req.params.id));
       res.json(ok(result));
     } catch (err) {
       next(err);

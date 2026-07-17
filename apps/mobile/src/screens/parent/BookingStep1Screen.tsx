@@ -42,7 +42,7 @@ export default function BookingStep1Screen() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
   const [instructions, setInstructions] = useState('');
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
   const validatePromo = useValidatePromo();
 
   const draftReady = hasRequiredBookingDraft(params);
@@ -80,7 +80,7 @@ export default function BookingStep1Screen() {
 
   const canProceed = draftReady && hourlyRate != null && hours > 0 && !isPricingLoading;
 
-  const toggleSkill = (id: string) => {
+  const toggleSkill = (id: number) => {
     setAppliedPromo(null); // add-ons change the price → re-validate any promo
     setSelectedSkillIds((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],

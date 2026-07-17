@@ -24,7 +24,6 @@ const prisma = new PrismaClient({ adapter });
 
 const SEED_USERS = [
   {
-    id: `${SEED_PREFIX}user-sarah`,
     firebaseUid: `${SEED_PREFIX}sarah`,
     email: 'seed.sarah@nanny-app.local',
     firstName: 'Sarah',
@@ -32,7 +31,6 @@ const SEED_USERS = [
     avatarUrl: 'https://i.pravatar.cc/150?u=seed-sarah',
   },
   {
-    id: `${SEED_PREFIX}user-elena`,
     firebaseUid: `${SEED_PREFIX}elena`,
     email: 'seed.elena@nanny-app.local',
     firstName: 'Elena',
@@ -40,7 +38,6 @@ const SEED_USERS = [
     avatarUrl: 'https://i.pravatar.cc/150?u=seed-elena',
   },
   {
-    id: `${SEED_PREFIX}user-nadia`,
     firebaseUid: `${SEED_PREFIX}nadia`,
     email: 'seed.nadia@nanny-app.local',
     firstName: 'Nadia',
@@ -74,7 +71,6 @@ async function ensureSeedUsers() {
     const user = await prisma.user.upsert({
       where: { firebaseUid: seed.firebaseUid },
       create: {
-        id: seed.id,
         firebaseUid: seed.firebaseUid,
         email: seed.email,
         firstName: seed.firstName,
@@ -108,7 +104,6 @@ async function seedCommunityData() {
   const posts = await prisma.$transaction(async (tx) => {
     const qaPost1 = await tx.communityPost.create({
       data: {
-        id: `${SEED_PREFIX}post-qa-sleep`,
         authorId: sarah.id,
         type: CommunityPostType.QA,
         body: 'My 8-month-old wakes every 2 hours at night. We tried a consistent bedtime routine but nothing sticks. What worked for your little ones?',
@@ -121,7 +116,6 @@ async function seedCommunityData() {
 
     const qaPost2 = await tx.communityPost.create({
       data: {
-        id: `${SEED_PREFIX}post-qa-feeding`,
         authorId: elena.id,
         type: CommunityPostType.QA,
         title: 'Starting solids — where to begin?',
@@ -135,7 +129,6 @@ async function seedCommunityData() {
 
     const marketplacePost1 = await tx.communityPost.create({
       data: {
-        id: `${SEED_PREFIX}post-market-stroller`,
         authorId: nadia.id,
         type: CommunityPostType.MARKETPLACE,
         title: 'Chicco Liteway Stroller',
@@ -151,7 +144,6 @@ async function seedCommunityData() {
 
     const marketplacePost2 = await tx.communityPost.create({
       data: {
-        id: `${SEED_PREFIX}post-market-clothes`,
         authorId: sarah.id,
         type: CommunityPostType.MARKETPLACE,
         title: '0–12 month clothes bundle',
@@ -170,7 +162,6 @@ async function seedCommunityData() {
 
     const eventPost1 = await tx.communityPost.create({
       data: {
-        id: `${SEED_PREFIX}post-event-coffee`,
         authorId: elena.id,
         type: CommunityPostType.EVENT,
         title: 'New moms coffee morning',
@@ -188,7 +179,6 @@ async function seedCommunityData() {
 
     const eventPost2 = await tx.communityPost.create({
       data: {
-        id: `${SEED_PREFIX}post-event-playground`,
         authorId: nadia.id,
         type: CommunityPostType.EVENT,
         title: 'Weekend playground playdate',
@@ -224,7 +214,6 @@ async function seedCommunityData() {
     // Comments on qaPost1
     const comment1 = await tx.comment.create({
       data: {
-        id: `${SEED_PREFIX}comment-1`,
         postId: qaPost1.id,
         authorId: elena.id,
         body: 'We moved bedtime 30 minutes earlier and it helped a lot. Also a white noise machine was a game changer.',
@@ -235,7 +224,6 @@ async function seedCommunityData() {
 
     await tx.comment.create({
       data: {
-        id: `${SEED_PREFIX}comment-1-reply`,
         postId: qaPost1.id,
         authorId: sarah.id,
         parentCommentId: comment1.id,
@@ -247,7 +235,6 @@ async function seedCommunityData() {
 
     await tx.comment.create({
       data: {
-        id: `${SEED_PREFIX}comment-2`,
         postId: qaPost1.id,
         authorId: nadia.id,
         body: 'Hang in there — the 8-month regression is real. It usually passes in a couple of weeks.',
@@ -263,7 +250,6 @@ async function seedCommunityData() {
     // Comment on qaPost2
     await tx.comment.create({
       data: {
-        id: `${SEED_PREFIX}comment-3`,
         postId: qaPost2.id,
         authorId: nadia.id,
         body: 'We started with mashed avocado and soft pear. Keep portions tiny at first!',
@@ -275,7 +261,6 @@ async function seedCommunityData() {
     // Comment on event
     await tx.comment.create({
       data: {
-        id: `${SEED_PREFIX}comment-4`,
         postId: eventPost1.id,
         authorId: sarah.id,
         body: 'Sounds lovely — is there parking nearby?',

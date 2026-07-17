@@ -9,7 +9,7 @@ import {
 } from '@nanny-app/shared';
 
 import { ok } from '@backend/lib/api-response';
-import { routeParam } from '@backend/lib/route-param';
+import { routeIdParam } from '@backend/lib/route-param';
 import { errors } from '@backend/lib/errors';
 import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
@@ -68,7 +68,7 @@ communityRouter.get(
   optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const post = await getPost(req.firebaseUser ?? null, routeParam(req.params.id));
+      const post = await getPost(req.firebaseUser ?? null, routeIdParam(req.params.id));
       res.json(ok(post));
     } catch (err) {
       next(err);
@@ -83,7 +83,7 @@ communityRouter.patch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const post = await updatePost(req.firebaseUser, routeParam(req.params.id), req.body);
+      const post = await updatePost(req.firebaseUser, routeIdParam(req.params.id), req.body);
       res.json(ok(post));
     } catch (err) {
       next(err);
@@ -97,7 +97,7 @@ communityRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      await deletePost(req.firebaseUser, routeParam(req.params.id));
+      await deletePost(req.firebaseUser, routeIdParam(req.params.id));
       res.json(ok({ deleted: true }));
     } catch (err) {
       next(err);
@@ -111,7 +111,7 @@ communityRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const conversation = await contactSeller(req.firebaseUser, routeParam(req.params.id));
+      const conversation = await contactSeller(req.firebaseUser, routeIdParam(req.params.id));
       res.status(201).json(ok({ conversation }));
     } catch (err) {
       next(err);
@@ -125,7 +125,7 @@ communityRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await togglePostLike(req.firebaseUser, routeParam(req.params.id));
+      const result = await togglePostLike(req.firebaseUser, routeIdParam(req.params.id));
       res.json(ok(result));
     } catch (err) {
       next(err);
@@ -142,7 +142,7 @@ communityRouter.get(
       const query = res.locals['validatedQuery'] as ReturnType<
         typeof CommentListQuerySchema.parse
       >;
-      const result = await listComments(req.firebaseUser ?? null, routeParam(req.params.id), query);
+      const result = await listComments(req.firebaseUser ?? null, routeIdParam(req.params.id), query);
       res.json({ data: result.comments, error: null, meta: result.meta });
     } catch (err) {
       next(err);
@@ -157,7 +157,7 @@ communityRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const comment = await createComment(req.firebaseUser, routeParam(req.params.id), req.body);
+      const comment = await createComment(req.firebaseUser, routeIdParam(req.params.id), req.body);
       res.status(201).json(ok(comment));
     } catch (err) {
       next(err);
@@ -171,7 +171,7 @@ communityRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await toggleCommentLike(req.firebaseUser, routeParam(req.params.id));
+      const result = await toggleCommentLike(req.firebaseUser, routeIdParam(req.params.id));
       res.json(ok(result));
     } catch (err) {
       next(err);
@@ -185,7 +185,7 @@ communityRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await toggleEventRsvp(req.firebaseUser, routeParam(req.params.id));
+      const result = await toggleEventRsvp(req.firebaseUser, routeIdParam(req.params.id));
       res.json(ok(result));
     } catch (err) {
       next(err);

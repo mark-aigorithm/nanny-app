@@ -43,7 +43,7 @@ const dec = (n: number) => ({ toNumber: () => n });
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'nanny-1',
+    id: 1,
     bio: 'Loves kids',
     yearsOfExperience: 4,
     certifications: ['CPR'],
@@ -54,7 +54,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
     user: {
-      id: 'user-1',
+      id: 10,
       firstName: 'Amira',
       lastName: 'Hassan',
       email: 'amira@example.com',
@@ -90,9 +90,9 @@ function makeTx(existingRows: Array<Record<string, unknown>>): TxMock {
   };
 }
 
-function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
+function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
   return {
-    id: 'np-1',
+    id: 1,
     bio: null,
     yearsOfExperience: null,
     certifications: [],
@@ -103,7 +103,7 @@ function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
     idDocumentBackUrl: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     user: {
-      id: 'user-1',
+      id: 10,
       firstName: 'Amira',
       lastName: 'N',
       email: 'a@x.com',
@@ -120,7 +120,7 @@ function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockPrisma.nannyProfile.findFirst.mockResolvedValue({ id: 'np-1' });
+  mockPrisma.nannyProfile.findFirst.mockResolvedValue({ id: 1 });
 });
 
 describe('listAdminNannies', () => {
@@ -163,14 +163,14 @@ describe('getAdminNanny (detail)', () => {
       _count: 7,
     });
 
-    const dto = await getAdminNanny('nanny-1');
+    const dto = await getAdminNanny(12);
 
-    expect(dto.userId).toBe('user-1');
+    expect(dto.userId).toBe(10);
     expect(dto.amountGained).toBe(1240);
     expect(dto.completedBookings).toBe(7);
     expect(mockPrisma.booking.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ nannyProfileId: 'nanny-1', status: 'COMPLETED' }),
+        where: expect.objectContaining({ nannyProfileId: 12, status: 'COMPLETED' }),
       }),
     );
   });
@@ -179,7 +179,7 @@ describe('getAdminNanny (detail)', () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
     mockPrisma.booking.aggregate.mockResolvedValue({ _sum: { nannyAmount: null }, _count: 0 });
 
-    const dto = await getAdminNanny('nanny-1');
+    const dto = await getAdminNanny(12);
 
     expect(dto.amountGained).toBe(0);
     expect(dto.completedBookings).toBe(0);
@@ -187,21 +187,21 @@ describe('getAdminNanny (detail)', () => {
 
   it('throws when the nanny does not exist', async () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(null);
-    await expect(getAdminNanny('missing')).rejects.toThrow(AppError);
+    await expect(getAdminNanny(999)).rejects.toThrow(AppError);
   });
 });
 
 describe('setNannySkills', () => {
   it('throws notFound (404) when the nanny does not exist', async () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(null);
-    await expect(setNannySkills('np-1', { skillIds: ['s1'] })).rejects.toMatchObject({
+    await expect(setNannySkills(19, { skillIds: [1] })).rejects.toMatchObject({
       statusCode: 404,
     });
   });
 
   it('throws badRequest (400) when a skill id is unknown or inactive', async () => {
-    mockPrisma.skill.findMany.mockResolvedValue([{ id: 's1' }]); // only 1 of 2 valid
-    await expect(setNannySkills('np-1', { skillIds: ['s1', 's2'] })).rejects.toMatchObject({
+    mockPrisma.skill.findMany.mockResolvedValue([{ id: 1 }]); // only 1 of 2 valid
+    await expect(setNannySkills(19, { skillIds: [1, 2] })).rejects.toMatchObject({
       statusCode: 400,
     });
   });
@@ -209,35 +209,35 @@ describe('setNannySkills', () => {
   it('creates new links, reactivates soft-deleted, and removes unwanted', async () => {
     // Desired: s1 (already active), s2 (soft-deleted → reactivate), s3 (new).
     // Existing s4 is active but not desired → soft-delete.
-    mockPrisma.skill.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }, { id: 's3' }]);
+    mockPrisma.skill.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
     const tx = makeTx([
-      { id: 'ns1', skillId: 's1', deletedAt: null },
-      { id: 'ns2', skillId: 's2', deletedAt: new Date() },
-      { id: 'ns4', skillId: 's4', deletedAt: null },
+      { id: 11, skillId: 1, deletedAt: null },
+      { id: 12, skillId: 2, deletedAt: new Date() },
+      { id: 14, skillId: 4, deletedAt: null },
     ]);
     mockPrisma.$transaction.mockImplementation((cb: (tx: TxMock) => unknown) => cb(tx));
     mockPrisma.nannyProfile.findUniqueOrThrow.mockResolvedValue(
       stubProfileRow([
-        { id: 's1', name: 'A' },
-        { id: 's2', name: 'B' },
-        { id: 's3', name: 'C' },
+        { id: 1, name: 'A' },
+        { id: 2, name: 'B' },
+        { id: 3, name: 'C' },
       ]),
     );
 
-    const result = await setNannySkills('np-1', { skillIds: ['s1', 's2', 's3'] });
+    const result = await setNannySkills(19, { skillIds: [1, 2, 3] });
 
     // s4 soft-deleted
     expect(tx.nannySkill.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['ns4'] } },
+      where: { id: { in: [14] } },
       data: { deletedAt: expect.any(Date) },
     });
     // s3 created
     expect(tx.nannySkill.create).toHaveBeenCalledWith({
-      data: { nannyProfileId: 'np-1', skillId: 's3' },
+      data: { nannyProfileId: 19, skillId: 3 },
     });
     // s2 reactivated
     expect(tx.nannySkill.update).toHaveBeenCalledWith({
-      where: { id: 'ns2' },
+      where: { id: 12 },
       data: { deletedAt: null },
     });
     // s1 untouched (already active) — only one create, one update
@@ -245,22 +245,22 @@ describe('setNannySkills', () => {
     expect(tx.nannySkill.update).toHaveBeenCalledTimes(1);
 
     expect(result.skills).toEqual([
-      { id: 's1', name: 'A', feeType: null, feeValue: 0 },
-      { id: 's2', name: 'B', feeType: null, feeValue: 0 },
-      { id: 's3', name: 'C', feeType: null, feeValue: 0 },
+      { id: 1, name: 'A', feeType: null, feeValue: 0 },
+      { id: 2, name: 'B', feeType: null, feeValue: 0 },
+      { id: 3, name: 'C', feeType: null, feeValue: 0 },
     ]);
   });
 
   it('clearing all skills soft-deletes every active link and creates none', async () => {
-    const tx = makeTx([{ id: 'ns1', skillId: 's1', deletedAt: null }]);
+    const tx = makeTx([{ id: 11, skillId: 1, deletedAt: null }]);
     mockPrisma.$transaction.mockImplementation((cb: (tx: TxMock) => unknown) => cb(tx));
     mockPrisma.nannyProfile.findUniqueOrThrow.mockResolvedValue(stubProfileRow([]));
 
-    const result = await setNannySkills('np-1', { skillIds: [] });
+    const result = await setNannySkills(19, { skillIds: [] });
 
     expect(mockPrisma.skill.findMany).not.toHaveBeenCalled(); // no ids to validate
     expect(tx.nannySkill.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['ns1'] } },
+      where: { id: { in: [11] } },
       data: { deletedAt: expect.any(Date) },
     });
     expect(tx.nannySkill.create).not.toHaveBeenCalled();

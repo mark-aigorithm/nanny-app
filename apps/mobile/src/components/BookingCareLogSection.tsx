@@ -23,7 +23,7 @@ import {
 import { styles } from './styles/booking-care-log-section.styles';
 
 interface BookingCareLogSectionProps {
-  bookingId: string;
+  bookingId: number;
 }
 
 export default function BookingCareLogSection({ bookingId }: BookingCareLogSectionProps) {

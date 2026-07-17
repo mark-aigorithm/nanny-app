@@ -39,7 +39,7 @@ async function getUserByUid(uid: string) {
 }
 
 /** Caller must be either the assigned nanny or the booking's mother. */
-async function loadAuthorizedBooking(decoded: DecodedIdToken, bookingId: string) {
+async function loadAuthorizedBooking(decoded: DecodedIdToken, bookingId: number) {
   const user = await getUserByUid(decoded.uid);
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId, deletedAt: null },
@@ -72,8 +72,8 @@ function careLogEntrySummary(type: CareLogType, customLabel: string | null): str
 }
 
 async function notifyMotherCareLogEntry(
-  bookingId: string,
-  motherId: string,
+  bookingId: number,
+  motherId: number,
   nannyFirstName: string,
   nannyLastName: string,
   entryType: CareLogType,
@@ -97,7 +97,7 @@ async function notifyMotherCareLogEntry(
     body,
     data: {
       type: 'CARE_LOG_ENTRY',
-      bookingId,
+      bookingId: String(bookingId),
       focusCareLog: '1',
     },
   });
@@ -105,7 +105,7 @@ async function notifyMotherCareLogEntry(
 
 export async function listCareLogs(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<CareLogResponse[]> {
   await loadAuthorizedBooking(decoded, bookingId);
   const rows = await prisma.careLog.findMany({
@@ -117,7 +117,7 @@ export async function listCareLogs(
 
 export async function createCareLog(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   body: CreateCareLogRequest,
 ): Promise<CareLogResponse> {
   const user = await getUserByUid(decoded.uid);

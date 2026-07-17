@@ -11,7 +11,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 
 type SkillRow = {
-  id: string;
+  id: number;
   name: string;
   description: string | null;
   isActive: boolean;
@@ -73,7 +73,7 @@ export async function createSkill(input: CreateSkillInput): Promise<Skill> {
   return toDto(row);
 }
 
-export async function updateSkill(id: string, input: UpdateSkillInput): Promise<Skill> {
+export async function updateSkill(id: number, input: UpdateSkillInput): Promise<Skill> {
   const existing = await prisma.skill.findFirst({ where: { id, deletedAt: null } });
   if (!existing) throw errors.notFound('Skill not found');
 
@@ -98,7 +98,7 @@ export async function updateSkill(id: string, input: UpdateSkillInput): Promise<
   return toDto(row);
 }
 
-export async function deleteSkill(id: string): Promise<{ id: string }> {
+export async function deleteSkill(id: number): Promise<{ id: number }> {
   const existing = await prisma.skill.findFirst({ where: { id, deletedAt: null } });
   if (!existing) throw errors.notFound('Skill not found');
   await prisma.skill.update({ where: { id }, data: { deletedAt: new Date() } });

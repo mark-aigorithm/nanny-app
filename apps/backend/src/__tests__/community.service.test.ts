@@ -80,7 +80,7 @@ const mockPrisma = prisma as unknown as {
 };
 
 const motherUser = {
-  id: 'user-1',
+  id: 29,
   firebaseUid: 'firebase-1',
   role: Role.MOTHER,
   deletedAt: null,
@@ -92,8 +92,8 @@ const motherUser = {
 const decoded = { uid: 'firebase-1' } as import('@backend/lib/firebase').DecodedIdToken;
 
 const samplePost = {
-  id: 'post-1',
-  authorId: 'user-1',
+  id: 22,
+  authorId: 29,
   type: PrismaCommunityPostType.QA,
   title: null,
   body: 'Hello community',
@@ -163,9 +163,9 @@ describe('community.service', () => {
   it('gets a post anonymously (guest) with engagement flags false', async () => {
     mockPrisma.communityPost.findFirst.mockResolvedValue(samplePost as never);
 
-    const result = await getPost(null, 'post-1');
+    const result = await getPost(null, 22);
 
-    expect(result.id).toBe('post-1');
+    expect(result.id).toBe(22);
     expect(result.likedByMe).toBe(false);
     expect(result.rsvpdByMe).toBe(false);
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
@@ -178,8 +178,8 @@ describe('community.service', () => {
     mockPrisma.comment.count.mockResolvedValue(1);
     mockPrisma.comment.findMany.mockResolvedValue([
       {
-        id: 'comment-1',
-        postId: 'post-1',
+        id: 7,
+        postId: 22,
         parentCommentId: null,
         body: 'Welcome!',
         likeCount: 0,
@@ -191,7 +191,7 @@ describe('community.service', () => {
       },
     ] as never);
 
-    const result = await listComments(null, 'post-1', { page: 1, limit: 20 });
+    const result = await listComments(null, 22, { page: 1, limit: 20 });
 
     expect(result.comments).toHaveLength(1);
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe('community.service', () => {
       role: Role.NANNY,
     } as never);
 
-    await expect(getPost(decoded, 'post-1')).rejects.toEqual(
+    await expect(getPost(decoded, 22)).rejects.toEqual(
       expect.objectContaining<Partial<AppError>>({
         statusCode: 403,
       }),
@@ -243,7 +243,7 @@ describe('community.service', () => {
       return fn(tx as never);
     });
 
-    const result = await togglePostLike(decoded, 'post-1');
+    const result = await togglePostLike(decoded, 22);
     expect(result.liked).toBe(true);
     expect(result.likeCount).toBe(1);
   });
@@ -251,7 +251,7 @@ describe('community.service', () => {
   it('rejects RSVP on non-event posts', async () => {
     mockPrisma.communityPost.findFirst.mockResolvedValue(samplePost as never);
 
-    await expect(toggleEventRsvp(decoded, 'post-1')).rejects.toEqual(
+    await expect(toggleEventRsvp(decoded, 22)).rejects.toEqual(
       expect.objectContaining<Partial<AppError>>({
         statusCode: 400,
       }),

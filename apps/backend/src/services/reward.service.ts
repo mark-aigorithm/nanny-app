@@ -35,7 +35,7 @@ function round2(value: number): number {
 // ── Config ─────────────────────────────────────────────────────
 
 type ConfigRow = {
-  id: string;
+  id: number;
   enabled: boolean;
   pointsPerBookedHour: number;
   redemptionPointsPerHour: number;
@@ -78,8 +78,8 @@ export async function updateRewardConfig(
 // ── Wallet helpers ─────────────────────────────────────────────
 
 type WalletRow = {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   pointsBalance: number;
   lifetimeEarned: number;
   lifetimeRedeemed: number;
@@ -100,7 +100,7 @@ function displayName(firstName: string, lastName: string): string {
 }
 
 /** Fetch or lazily create a zeroed wallet for a user (race-safe via upsert). */
-export async function getOrCreateWallet(userId: string, db: Db = prisma): Promise<WalletRow> {
+export async function getOrCreateWallet(userId: number, db: Db = prisma): Promise<WalletRow> {
   return db.rewardWallet.upsert({
     where: { userId },
     update: {},
@@ -111,12 +111,12 @@ export async function getOrCreateWallet(userId: string, db: Db = prisma): Promis
 // ── Ledger DTO ─────────────────────────────────────────────────
 
 type LedgerRow = {
-  id: string;
+  id: number;
   type: RewardEntryType;
   points: number;
   balanceAfter: number;
   reason: string | null;
-  bookingId: string | null;
+  bookingId: number | null;
   createdAt: Date;
 };
 
@@ -141,7 +141,7 @@ const PUSH_TYPE: Record<string, string> = {
 };
 
 async function notifyPoints(
-  userId: string,
+  userId: number,
   type: NotificationType,
   title: string,
   body: string,
@@ -163,8 +163,8 @@ async function notifyPoints(
  * transaction; the wallet + ledger write is atomic on its own.
  */
 export async function awardPointsForBooking(input: {
-  bookingId: string;
-  motherId: string;
+  bookingId: number;
+  motherId: number;
   durationHours: number;
 }): Promise<void> {
   const config = await getRewardConfig();
@@ -221,8 +221,8 @@ export async function awardPointsForBooking(input: {
 export async function applyBookingRedemption(
   db: Db,
   params: {
-    userId: string;
-    bookingId: string;
+    userId: number;
+    bookingId: number;
     redeemHours: number;
     perHour: number;
     durationHours: number;
@@ -267,7 +267,7 @@ export async function applyBookingRedemption(
 
 /** Fire the "points redeemed" notification (best-effort). */
 export async function notifyPointsRedeemed(
-  userId: string,
+  userId: number,
   pointsCost: number,
   hours: number,
 ): Promise<void> {
@@ -286,7 +286,7 @@ export async function notifyPointsRedeemed(
  */
 export async function refundBookingRedemption(
   db: Db,
-  params: { userId: string; bookingId: string; points: number },
+  params: { userId: number; bookingId: number; points: number },
 ): Promise<void> {
   if (params.points <= 0) return;
   const wallet = await getOrCreateWallet(params.userId, db);
@@ -309,7 +309,7 @@ export async function refundBookingRedemption(
 }
 
 /** Fire the "points refunded" notification (best-effort). */
-export async function notifyPointsRefunded(userId: string, points: number): Promise<void> {
+export async function notifyPointsRefunded(userId: number, points: number): Promise<void> {
   await notifyPoints(
     userId,
     NotificationType.POINTS_GRANTED,
@@ -319,13 +319,13 @@ export async function notifyPointsRefunded(userId: string, points: number): Prom
 }
 
 /** Caller's own wallet (mobile). */
-export async function getWalletForUser(userId: string): Promise<RewardWallet> {
+export async function getWalletForUser(userId: number): Promise<RewardWallet> {
   const wallet = await getOrCreateWallet(userId);
   return toWalletDto(wallet);
 }
 
 /** Resolve an internal user id from a Firebase uid (mobile-facing helpers). */
-async function resolveUserId(firebaseUid: string): Promise<string> {
+async function resolveUserId(firebaseUid: string): Promise<number> {
   const user = await prisma.user.findFirst({
     where: { firebaseUid, deletedAt: null },
     select: { id: true },
@@ -352,10 +352,10 @@ export async function getMyHistory(
 
 /** Admin credits (positive) or debits (negative) a user's points balance. */
 export async function grantPoints(input: {
-  userId: string;
+  userId: number;
   points: number;
   reason: string;
-  adminId: string;
+  adminId: number;
 }): Promise<RewardWalletSummary> {
   const user = await prisma.user.findFirst({
     where: { id: input.userId, deletedAt: null },
@@ -473,7 +473,7 @@ export async function listWallets(
 }
 
 /** Single user's wallet summary (admin drill-in header). */
-export async function getWalletSummary(userId: string): Promise<RewardWalletSummary> {
+export async function getWalletSummary(userId: number): Promise<RewardWalletSummary> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
     select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
@@ -490,7 +490,7 @@ export async function getWalletSummary(userId: string): Promise<RewardWalletSumm
 
 /** Paginated grant/redemption history for a user (admin drill-in + mobile). */
 export async function getWalletHistory(
-  userId: string,
+  userId: number,
   query: RewardHistoryQuery,
 ): Promise<RewardHistoryResponse> {
   const where = { userId, deletedAt: null };

@@ -60,10 +60,10 @@ export function resolveNannyPhoto(
 /** Params needed to reopen checkout for an existing pending booking. */
 export function bookingFlowRetryParams(
   params: BookingFlowParams,
-  bookingId: string,
+  bookingId: number,
 ): BookingFlowParams {
   return {
-    bookingId,
+    bookingId: String(bookingId),
     retry: '1',
     nannyProfileId: params.nannyProfileId,
     date: params.date,
@@ -88,9 +88,9 @@ export function payBookingParams(booking: BookingResponse): BookingFlowParams {
     ? `${booking.nanny.firstName} ${booking.nanny.lastName}`.trim()
     : undefined;
   return {
-    bookingId: booking.id,
+    bookingId: String(booking.id),
     retry: '1',
-    ...(booking.nannyProfileId ? { nannyProfileId: booking.nannyProfileId } : {}),
+    ...(booking.nannyProfileId ? { nannyProfileId: String(booking.nannyProfileId) } : {}),
     dateIso: booking.date,
     // The API sends "…T09:00:00+03:00"; drop the offset so this field holds one
     // format regardless of whether it came from the picker or from a booking.

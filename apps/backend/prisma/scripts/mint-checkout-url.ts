@@ -11,7 +11,9 @@ import { createPaymobIntentionForBooking } from '../../src/services/paymob.servi
 
 const MOTHER_PHONE = '+2011000000000';
 const NANNY_PHONE = '+201055512340';
-const BOOKING_ID = 'seed-demo-booking-checkout-debug';
+// Ids autoincrement now; idempotency keys off a stable marker in the string
+// special_instructions column instead of an explicit id.
+const BOOKING_MARKER = 'seed-demo-booking-checkout-debug';
 
 const adapter = new PrismaPg({ connectionString: config.databaseUrl });
 const prisma = new PrismaClient({ adapter });
@@ -29,11 +31,18 @@ async function main() {
   const date = new Date(start);
   date.setUTCHours(0, 0, 0, 0);
 
-  await prisma.payment.deleteMany({ where: { bookingId: BOOKING_ID } });
-  await prisma.booking.deleteMany({ where: { id: BOOKING_ID } });
-  await prisma.booking.create({
+  const prior = await prisma.booking.findMany({
+    where: { specialInstructions: BOOKING_MARKER },
+    select: { id: true },
+  });
+  const priorIds = prior.map((b) => b.id);
+  if (priorIds.length > 0) {
+    await prisma.payment.deleteMany({ where: { bookingId: { in: priorIds } } });
+    await prisma.booking.deleteMany({ where: { id: { in: priorIds } } });
+  }
+  const booking = await prisma.booking.create({
     data: {
-      id: BOOKING_ID,
+      specialInstructions: BOOKING_MARKER,
       motherId: mother.id,
       nannyProfileId: nannyProfile.id,
       status: BookingStatus.PENDING,
@@ -50,7 +59,7 @@ async function main() {
   });
 
   const decoded = { uid: mother.firebaseUid } as DecodedIdToken;
-  const result = await createPaymobIntentionForBooking(decoded, BOOKING_ID, {
+  const result = await createPaymobIntentionForBooking(decoded, booking.id, {
     method: 'CARD',
   } as never);
 

@@ -87,20 +87,20 @@ const NEAR = { latitude: 30.05, longitude: 31.24 };
 const FAR = { latitude: 31.2001, longitude: 29.9187 };
 
 const motherUser = {
-  id: 'mother-1',
+  id: 10,
   firebaseUid: 'fb-mother',
   role: Role.MOTHER,
   ...BOOKING_COORDS,
   deletedAt: null,
 };
 
-const mother = { id: 'mother-1', firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
+const mother = { id: 10, firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
 
 function makeBooking(overrides: Record<string, unknown> = {}) {
   const startTime = new Date(Date.now() + 20 * 24 * 3_600_000);
   const endTime = new Date(startTime.getTime() + 3 * 3_600_000);
   return {
-    id: 'booking-1',
+    id: 4,
     motherId: mother.id,
     mother,
     nannyProfileId: null,
@@ -145,11 +145,11 @@ async function runBroadcast(options: {
   mockPrisma.skill.findMany.mockResolvedValue([]);
   mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([
-    { userId: 'nanny-near', user: { ...NEAR } },
-    { userId: 'nanny-far', user: { ...FAR } },
-    { userId: 'nanny-nocoords', user: { latitude: null, longitude: null } },
+    { userId: 14, user: { ...NEAR } },
+    { userId: 13, user: { ...FAR } },
+    { userId: 15, user: { latitude: null, longitude: null } },
   ]);
-  mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }]);
+  mockPrisma.user.findMany.mockResolvedValue([{ id: 1 }]);
 
   // Wall-clock, no offset, and a far-future date so the lead-time check is happy.
   await createBooking({ uid: 'fb-mother' } as never, {
@@ -172,26 +172,26 @@ beforeEach(() => {
 describe('notifyBookingBroadcast — radius filter', () => {
   it('notifies only in-radius and coordinate-less nannies (plus admins)', async () => {
     const notified = await runBroadcast({});
-    expect(notified).toEqual(['admin-1', 'nanny-near', 'nanny-nocoords']);
+    expect(notified).toEqual([1, 14, 15]);
   });
 
   it('notifies everyone when the booking has no coordinates', async () => {
     const notified = await runBroadcast({
       bookingOverrides: { latitude: null, longitude: null },
     });
-    expect(notified).toEqual(['admin-1', 'nanny-far', 'nanny-near', 'nanny-nocoords']);
+    expect(notified).toEqual([1, 13, 14, 15]);
   });
 
   it('notifies everyone when the radius is 0 (filtering disabled)', async () => {
     mockRadius.mockResolvedValue(0);
     const notified = await runBroadcast({});
-    expect(notified).toEqual(['admin-1', 'nanny-far', 'nanny-near', 'nanny-nocoords']);
+    expect(notified).toEqual([1, 13, 14, 15]);
   });
 });
 
 describe('listAvailableBookings — radius filter', () => {
   const nannyUser = {
-    id: 'nanny-user-1',
+    id: 16,
     firebaseUid: 'fb-nanny',
     role: Role.NANNY,
     deletedAt: null,
@@ -200,23 +200,23 @@ describe('listAvailableBookings — radius filter', () => {
   function mockPool(nannyCoords: { latitude: number | null; longitude: number | null }) {
     mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
     mockPrisma.nannyProfile.findUnique.mockResolvedValue({
-      id: 'np-1',
+      id: 19,
       user: nannyCoords,
     });
     // First findMany call = the nanny's busy slots; second = the open pool.
     mockPrisma.booking.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        makeBooking({ id: 'near-booking', ...BOOKING_COORDS }),
-        makeBooking({ id: 'far-booking', ...FAR }),
-        makeBooking({ id: 'nocoords-booking', latitude: null, longitude: null }),
+        makeBooking({ id: 17, ...BOOKING_COORDS }),
+        makeBooking({ id: 9, ...FAR }),
+        makeBooking({ id: 18, latitude: null, longitude: null }),
       ]);
   }
 
   it('shows only in-radius and coordinate-less requests to a located nanny', async () => {
     mockPool({ latitude: 30.05, longitude: 31.24 }); // near Cairo
     const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
-    expect(result.map((b) => b.id).sort()).toEqual(['near-booking', 'nocoords-booking']);
+    expect(result.map((b) => b.id).sort()).toEqual([17, 18]);
   });
 
   it('shows the full pool to a nanny without coordinates', async () => {

@@ -52,7 +52,7 @@ export async function getPricingInputs(): Promise<PricingInputs> {
  */
 export function buildBreakdown(
   inputs: PricingInputs,
-  opts: { durationHours: number; skillIds: string[]; discountAmount?: number },
+  opts: { durationHours: number; skillIds: number[]; discountAmount?: number },
 ): PriceBreakdown {
   const uniqueIds = Array.from(new Set(opts.skillIds));
   const selected: SkillAddOnInput[] = uniqueIds.map((id) => {
@@ -97,7 +97,7 @@ export async function getPricingConfig(): Promise<PricingConfig> {
 /** One-shot preview used by the admin calculator. */
 export async function previewBreakdown(opts: {
   durationHours: number;
-  skillIds: string[];
+  skillIds: number[];
   discountAmount?: number;
 }): Promise<PriceBreakdown> {
   const inputs = await getPricingInputs();

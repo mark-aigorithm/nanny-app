@@ -33,7 +33,7 @@ export default function BookingConfirmationScreen() {
 
   // Poll while the request is still unclaimed so the screen flips to
   // "nanny accepted — pay" on its own the moment a nanny claims it.
-  const { data: booking, isLoading } = useBooking(bookingId, true);
+  const { data: booking, isLoading } = useBooking(Number(bookingId), true);
   const cancelBooking = useCancelBooking();
 
   // Gentle pulse while we're still searching for a nanny.

@@ -19,7 +19,7 @@ const dec = (n: number) => ({ toNumber: () => n });
 
 function makeCode(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'promo-1',
+    id: 23,
     code: 'SAVE10',
     discountType: 'PERCENTAGE',
     value: dec(10),
@@ -41,47 +41,47 @@ beforeEach(() => {
 describe('validatePromoCode', () => {
   it('throws notFound (404) when the code does not exist', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(null);
-    await expect(validatePromoCode('NOPE', 100, 'user-1')).rejects.toMatchObject({ statusCode: 404 });
+    await expect(validatePromoCode('NOPE', 100, 29)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('throws badRequest (400) when inactive', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ isActive: false }));
-    await expect(validatePromoCode('SAVE10', 100, 'user-1')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(validatePromoCode('SAVE10', 100, 29)).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('throws badRequest (400) when expired', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(
       makeCode({ expiresAt: new Date('2000-01-01T00:00:00.000Z') }),
     );
-    await expect(validatePromoCode('SAVE10', 100, 'user-1')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(validatePromoCode('SAVE10', 100, 29)).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('throws badRequest (400) when maxUsage is reached', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ maxUsage: 5, usageCount: 5 }));
-    await expect(validatePromoCode('SAVE10', 100, 'user-1')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(validatePromoCode('SAVE10', 100, 29)).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('throws badRequest (400) when the per-user limit is reached', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ maxUsagePerUser: 1 }));
     mockPrisma.promoCodeRedemption.count.mockResolvedValue(1);
-    await expect(validatePromoCode('SAVE10', 100, 'user-1')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(validatePromoCode('SAVE10', 100, 29)).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('returns the flat value for a FLAT code', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ discountType: 'FLAT', value: dec(50) }));
-    const r = await validatePromoCode('SAVE10', 200, 'user-1');
-    expect(r).toEqual({ promoCodeId: 'promo-1', discountAmount: 50 });
+    const r = await validatePromoCode('SAVE10', 200, 29);
+    expect(r).toEqual({ promoCodeId: 23, discountAmount: 50 });
   });
 
   it('returns applicableAmount * value / 100 for a PERCENTAGE code', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ discountType: 'PERCENTAGE', value: dec(10) }));
-    const r = await validatePromoCode('SAVE10', 212, 'user-1');
+    const r = await validatePromoCode('SAVE10', 212, 29);
     expect(r.discountAmount).toBeCloseTo(21.2);
   });
 
   it('caps the discount at the applicable amount', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ discountType: 'FLAT', value: dec(500) }));
-    const r = await validatePromoCode('SAVE10', 100, 'user-1');
+    const r = await validatePromoCode('SAVE10', 100, 29);
     expect(r.discountAmount).toBe(100);
   });
 });
@@ -93,14 +93,14 @@ describe('redeemPromoCode', () => {
       promoCodeRedemption: { create: jest.fn().mockResolvedValue({}) },
     } as unknown as Prisma.TransactionClient;
 
-    await redeemPromoCode(tx, { promoCodeId: 'promo-1', userId: 'user-1', bookingId: 'booking-1' });
+    await redeemPromoCode(tx, { promoCodeId: 23, userId: 29, bookingId: 4 });
 
     expect((tx.promoCode.update as jest.Mock).mock.calls[0][0]).toEqual({
-      where: { id: 'promo-1' },
+      where: { id: 23 },
       data: { usageCount: { increment: 1 } },
     });
     expect((tx.promoCodeRedemption.create as jest.Mock).mock.calls[0][0]).toEqual({
-      data: { promoCodeId: 'promo-1', userId: 'user-1', bookingId: 'booking-1' },
+      data: { promoCodeId: 23, userId: 29, bookingId: 4 },
     });
   });
 });

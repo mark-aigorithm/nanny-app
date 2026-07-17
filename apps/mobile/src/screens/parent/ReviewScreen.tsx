@@ -28,8 +28,9 @@ export default function ReviewScreen() {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
 
-  const { data: booking, isLoading } = useBooking(bookingId);
-  const createReview = useCreateReview(bookingId ?? '');
+  const numericBookingId = bookingId ? Number(bookingId) : undefined;
+  const { data: booking, isLoading } = useBooking(numericBookingId);
+  const createReview = useCreateReview(numericBookingId ?? 0);
 
   const nannyName = booking?.nanny
     ? `${booking.nanny.firstName} ${booking.nanny.lastName}`

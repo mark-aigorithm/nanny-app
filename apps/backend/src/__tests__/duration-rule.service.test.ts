@@ -29,7 +29,7 @@ const mockPrisma = prisma as unknown as {
 
 function makeRule(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'rule-1',
+    id: 24,
     minHours: 3,
     multiplier: 0.9,
     label: 'Half day',
@@ -52,7 +52,7 @@ describe('listDurationRules', () => {
     });
     expect(rows).toEqual([
       {
-        id: 'rule-1',
+        id: 24,
         minHours: 3,
         multiplier: 0.9,
         label: 'Half day',
@@ -88,7 +88,7 @@ describe('createDurationRule', () => {
       label: 'Half day',
       isActive: true,
     });
-    expect(created.id).toBe('rule-1');
+    expect(created.id).toBe(24);
   });
 
   it('throws conflict (409) when a tier for the same minHours exists', async () => {
@@ -103,7 +103,7 @@ describe('createDurationRule', () => {
 describe('updateDurationRule', () => {
   it('throws notFound (404) when the rule is missing', async () => {
     mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(null);
-    await expect(updateDurationRule('nope', { multiplier: 0.8 })).rejects.toMatchObject({
+    await expect(updateDurationRule(999, { multiplier: 0.8 })).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -111,7 +111,7 @@ describe('updateDurationRule', () => {
   it('updates provided fields', async () => {
     mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(makeRule());
     mockPrisma.durationMultiplierRule.update.mockResolvedValue(makeRule({ multiplier: 0.8 }));
-    const updated = await updateDurationRule('rule-1', { multiplier: 0.8 });
+    const updated = await updateDurationRule(24, { multiplier: 0.8 });
     expect(updated.multiplier).toBe(0.8);
   });
 });
@@ -120,10 +120,10 @@ describe('deleteDurationRule', () => {
   it('soft-deletes an existing rule', async () => {
     mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(makeRule());
     mockPrisma.durationMultiplierRule.update.mockResolvedValue(makeRule({ deletedAt: new Date() }));
-    const res = await deleteDurationRule('rule-1');
-    expect(res).toEqual({ id: 'rule-1' });
+    const res = await deleteDurationRule(24);
+    expect(res).toEqual({ id: 24 });
     expect(mockPrisma.durationMultiplierRule.update).toHaveBeenCalledWith({
-      where: { id: 'rule-1' },
+      where: { id: 24 },
       data: { deletedAt: expect.any(Date) },
     });
   });

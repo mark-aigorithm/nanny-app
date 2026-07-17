@@ -49,7 +49,7 @@ export function useSkillCatalog() {
   });
 }
 
-export function useNannyPublicProfile(nannyProfileId: string | undefined) {
+export function useNannyPublicProfile(nannyProfileId: number | undefined) {
   return useQuery<NannyPublicProfile>({
     queryKey: [NANNIES_KEY, nannyProfileId],
     queryFn: () => unwrap(api.get(`/nanny/nannies/${nannyProfileId}`)),
@@ -57,7 +57,7 @@ export function useNannyPublicProfile(nannyProfileId: string | undefined) {
   });
 }
 
-export function useNannyBookedSlots(nannyProfileId: string | undefined, date: string | null) {
+export function useNannyBookedSlots(nannyProfileId: number | undefined, date: string | null) {
   return useQuery<string[]>({
     queryKey: [NANNIES_KEY, nannyProfileId, 'booked-slots', date],
     queryFn: () => unwrap(api.get(`/nanny/nannies/${nannyProfileId}/booked-slots`, { params: { date } })),
@@ -74,7 +74,7 @@ export function useNannyDashboard() {
   });
 }
 
-export function useCreateReview(bookingId: string) {
+export function useCreateReview(bookingId: number) {
   const qc = useQueryClient();
   return useMutation<ReviewSummary, Error, CreateReviewRequest>({
     mutationFn: (body) =>

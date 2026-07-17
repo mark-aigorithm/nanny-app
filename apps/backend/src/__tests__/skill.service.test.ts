@@ -31,7 +31,7 @@ const mockPrisma = prisma as unknown as {
 
 function makeSkill(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'skill-1',
+    id: 26,
     name: 'French speaker',
     description: null,
     isActive: true,
@@ -57,7 +57,7 @@ describe('listSkills', () => {
     });
     expect(rows).toEqual([
       {
-        id: 'skill-1',
+        id: 26,
         name: 'French speaker',
         description: null,
         isActive: true,
@@ -72,7 +72,7 @@ describe('listSkills', () => {
 describe('listActiveSkills', () => {
   it('queries only active, non-deleted skills and returns the public shape', async () => {
     mockPrisma.skill.findMany.mockResolvedValue([
-      { id: 'skill-1', name: 'French speaker', feeType: 'FLAT', feeValue: 20 },
+      { id: 26, name: 'French speaker', feeType: 'FLAT', feeValue: 20 },
     ]);
     const rows = await listActiveSkills();
     expect(mockPrisma.skill.findMany).toHaveBeenCalledWith({
@@ -81,7 +81,7 @@ describe('listActiveSkills', () => {
       select: { id: true, name: true, feeType: true, feeValue: true },
     });
     expect(rows).toEqual([
-      { id: 'skill-1', name: 'French speaker', feeType: 'FLAT', feeValue: 20 },
+      { id: 26, name: 'French speaker', feeType: 'FLAT', feeValue: 20 },
     ]);
   });
 });
@@ -99,7 +99,7 @@ describe('createSkill', () => {
     expect(mockPrisma.skill.create).toHaveBeenCalledWith({
       data: { name: 'French speaker', description: null, isActive: true, feeType: 'FLAT', feeValue: 20 },
     });
-    expect(created.id).toBe('skill-1');
+    expect(created.id).toBe(26);
   });
 
   it('throws conflict (409) when a live skill with the same name exists', async () => {
@@ -124,7 +124,7 @@ describe('createSkill', () => {
 describe('updateSkill', () => {
   it('throws notFound (404) when the skill is missing', async () => {
     mockPrisma.skill.findFirst.mockResolvedValue(null);
-    await expect(updateSkill('nope', { isActive: false })).rejects.toMatchObject({
+    await expect(updateSkill(999, { isActive: false })).rejects.toMatchObject({
       statusCode: 404,
     });
   });
@@ -132,9 +132,9 @@ describe('updateSkill', () => {
   it('updates only provided fields', async () => {
     mockPrisma.skill.findFirst.mockResolvedValue(makeSkill());
     mockPrisma.skill.update.mockResolvedValue(makeSkill({ isActive: false }));
-    const updated = await updateSkill('skill-1', { isActive: false });
+    const updated = await updateSkill(26, { isActive: false });
     expect(mockPrisma.skill.update).toHaveBeenCalledWith({
-      where: { id: 'skill-1' },
+      where: { id: 26 },
       data: { isActive: false },
     });
     expect(updated.isActive).toBe(false);
@@ -142,8 +142,8 @@ describe('updateSkill', () => {
 
   it('throws conflict (409) when renaming onto another live skill', async () => {
     mockPrisma.skill.findFirst.mockResolvedValue(makeSkill({ name: 'Old name' }));
-    mockPrisma.skill.findUnique.mockResolvedValue(makeSkill({ id: 'skill-2', name: 'Taken' }));
-    await expect(updateSkill('skill-1', { name: 'Taken' })).rejects.toMatchObject({
+    mockPrisma.skill.findUnique.mockResolvedValue(makeSkill({ id: 27, name: 'Taken' }));
+    await expect(updateSkill(26, { name: 'Taken' })).rejects.toMatchObject({
       statusCode: 409,
     });
     expect(mockPrisma.skill.update).not.toHaveBeenCalled();
@@ -153,17 +153,17 @@ describe('updateSkill', () => {
 describe('deleteSkill', () => {
   it('throws notFound (404) when the skill is missing', async () => {
     mockPrisma.skill.findFirst.mockResolvedValue(null);
-    await expect(deleteSkill('nope')).rejects.toMatchObject({ statusCode: 404 });
+    await expect(deleteSkill(999)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('soft-deletes and returns the id', async () => {
     mockPrisma.skill.findFirst.mockResolvedValue(makeSkill());
     mockPrisma.skill.update.mockResolvedValue(makeSkill({ deletedAt: new Date() }));
-    const result = await deleteSkill('skill-1');
+    const result = await deleteSkill(26);
     expect(mockPrisma.skill.update).toHaveBeenCalledWith({
-      where: { id: 'skill-1' },
+      where: { id: 26 },
       data: { deletedAt: expect.any(Date) },
     });
-    expect(result).toEqual({ id: 'skill-1' });
+    expect(result).toEqual({ id: 26 });
   });
 });
