@@ -21,9 +21,12 @@ Mothers are currently read-only end-to-end (only `GET /admin/mothers` and
 ### Editable
 - **Name** — stored as `firstName` + `lastName` on the `User` row.
 - **Account status** — the app-level `isActive` flag (active / deactivated).
-- **Address** — the `address` string only (see "Address decision" below).
 
 ### Not editable (left read-only)
+- **Address** — displayed in the Contact section but not editable. It is the origin
+  for booking-broadcast matching (tied to `latitude`/`longitude`), and there is no
+  server-side geocoding to keep the text and coordinates in sync — so editing is out
+  of scope (see "Address is read-only" below).
 - **Email** and **Phone** — both `@unique` and backed by Firebase Auth. These are
   phone-auth accounts (email is a synthetic `<phone>@phone.nannyapp.local`).
   Changing them means mutating the Firebase Auth identity — out of scope.
@@ -33,19 +36,17 @@ Mothers are currently read-only end-to-end (only `GET /admin/mothers` and
 ### Removed from view
 - **User ID** row.
 
-## Address decision
+## Address is read-only
 
 There is **no server-side geocoding**. The mobile registration map picker captures
 `address` + `latitude` + `longitude` together, and a mother's lat/lng is the
 **origin for booking broadcast** (finding nearby nannies) — see
 [auth.service.ts:198](../../../apps/backend/src/services/auth.service.ts:198).
 
-**Decision (approved):** the admin edits the **address text only**; `latitude` /
-`longitude` are left untouched. The edit modal shows helper text:
-> "Editing the address updates the label only; the map location used for matching isn't changed."
-
-A true "relocate" (admin map picker that re-captures coordinates) is explicitly a
-**future, separate piece** — not in this spec.
+Editing the address text alone would desync it from the coordinates used for matching.
+Rather than ship that inconsistency, **address stays read-only** in this spec. A true
+"relocate" (admin map picker that re-captures the address *and* coordinates together)
+is a **future, separate piece**.
 
 ## Backend
 
@@ -59,7 +60,6 @@ A true "relocate" (admin map picker that re-captures coordinates) is explicitly 
   z.object({
     firstName: z.string().trim().min(1).max(100).optional(),
     lastName:  z.string().trim().max(100).optional(),   // '' allowed → stored as '-'
-    address:   z.string().trim().max(500).nullable().optional(),
     isActive:  z.boolean().optional(),
   })
   ```
@@ -110,9 +110,8 @@ Polished restyle reusing existing UI components (`Card`, `DescriptionList`, `Bad
 
 ### Edit modal (`apps/admin/src/features/users/mother-edit-form.tsx`)
 - New feature component rendered inside `Modal` (title "Edit parent", Save / Cancel).
-- Controlled fields: `Field`+`Input` for First name, Last name, Address; `Select` for
-  status (Active / Deactivated). Address field shows the helper text from the Address
-  decision.
+- Controlled fields: `Field`+`Input` for First name and Last name; `Select` for
+  status (Active / Deactivated). Address is **not** in the form (read-only on the page).
 - Client-side validate with `UpdateAdminMotherSchema.safeParse` (mirrors `skill-form`).
 - `useMutation(updateMother)`: on success close modal, `useToast` success, invalidate
   `['mother', id]` and `['admin-mothers']`; on error surface via `Feedback` /
@@ -120,7 +119,7 @@ Polished restyle reusing existing UI components (`Card`, `DescriptionList`, `Bad
 - Initial values seeded from the fetched `AdminMotherDetail`.
 
 ## Non-goals
-- Editing email, phone, or verification flags.
+- Editing address, email, phone, or verification flags.
 - Re-geocoding / admin map picker for relocation.
 - Any change to the mothers **list/table** view (that was a separate change).
 
