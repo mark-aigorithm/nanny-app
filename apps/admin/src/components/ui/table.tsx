@@ -15,7 +15,7 @@ export type Column<T> = {
 type TableProps<T> = {
   columns: Column<T>[];
   rows: T[];
-  rowKey: (row: T) => string;
+  rowKey: (row: T) => string | number;
   /** Shown (inside a Card) when there are no rows. */
   empty?: ReactNode;
   /**

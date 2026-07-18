@@ -16,7 +16,7 @@ type NannySkillsEditorProps = {
 
 export function NannySkillsEditor({ nanny, skills, onDone }: NannySkillsEditorProps) {
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Set<string>>(
+  const [selected, setSelected] = useState<Set<number>>(
     () => new Set(nanny.skills.map((s) => s.id)),
   );
 
@@ -30,7 +30,7 @@ export function NannySkillsEditor({ nanny, skills, onDone }: NannySkillsEditorPr
     },
   });
 
-  function toggle(id: string) {
+  function toggle(id: number) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

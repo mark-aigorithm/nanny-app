@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 
 import { CreateCameraSchema, UpdateCameraSchema, type Camera } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field, Select } from '@admin/components/ui';
+import { Button, Card, Feedback, Field, Select, type SelectOption } from '@admin/components/ui';
 import { createCamera, fetchNannyOptions, updateCamera } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
@@ -19,7 +19,7 @@ export function CameraForm({ editing, onDone }: CameraFormProps) {
 
   const [name, setName] = useState(editing?.name ?? '');
   const [streamUrl, setStreamUrl] = useState(editing?.streamUrl ?? '');
-  const [nannyUserId, setNannyUserId] = useState(editing?.nannyUserId ?? '');
+  const [nannyUserId, setNannyUserId] = useState<number | ''>(editing?.nannyUserId ?? '');
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: nannyOptions } = useQuery({
@@ -32,7 +32,7 @@ export function CameraForm({ editing, onDone }: CameraFormProps) {
   };
 
   const mutation = useMutation({
-    mutationFn: (input: { name: string; streamUrl: string; nannyUserId: string | null }) =>
+    mutationFn: (input: { name: string; streamUrl: string; nannyUserId: number | null }) =>
       isEditing ? updateCamera(editing.id, input) : createCamera(input),
     onSuccess: () => {
       setFormError(null);
@@ -88,15 +88,17 @@ export function CameraForm({ editing, onDone }: CameraFormProps) {
           </Field>
           <div className="field">
             <span className="field-label">Assigned nanny</span>
-            <Select
+            <Select<number | ''>
               value={nannyUserId}
               placeholder="Unassigned"
               options={[
                 { value: '', label: 'Unassigned' },
-                ...(nannyOptions?.map((option) => ({
-                  value: option.userId,
-                  label: option.name,
-                })) ?? []),
+                ...(nannyOptions?.map(
+                  (option): SelectOption<number | ''> => ({
+                    value: option.userId,
+                    label: option.name,
+                  }),
+                ) ?? []),
               ]}
               onChange={setNannyUserId}
             />
