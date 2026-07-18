@@ -21,6 +21,7 @@ import {
   RejectNannySchema,
   SetBookingStatusSchema,
   SetNannySkillsSchema,
+  UpdateAdminMotherSchema,
   UpdateBookingTimesSchema,
   UpdateCameraSchema,
   UpdateDurationRuleSchema,
@@ -59,6 +60,7 @@ import {
   listAdminMothers,
   listAdminUsers,
   rejectMother,
+  updateAdminMother,
 } from '@backend/services/admin-user.service';
 import {
   getPlatformConfig,
@@ -255,7 +257,7 @@ adminRouter.put(
   },
 );
 
-// ── Mothers directory (parent accounts + ID review) ────────────
+// ── Mothers directory (parent accounts: list, detail, edit + ID review) ────
 
 adminRouter.get(
   '/mothers',
@@ -278,6 +280,18 @@ adminRouter.get('/mothers/:id', async (req: Request, res: Response, next: NextFu
     next(err);
   }
 });
+
+adminRouter.patch(
+  '/mothers/:id',
+  validateBody(UpdateAdminMotherSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateAdminMother(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 adminRouter.post(
   '/mothers/:id/approve',

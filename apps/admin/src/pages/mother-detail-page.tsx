@@ -7,16 +7,22 @@ import type { AdminMother } from '@nanny-app/shared';
 import {
   Badge,
   Button,
+  CalendarClock,
   Card,
+  ClipboardList,
   DescriptionList,
   type DescriptionItem,
   DetailHeader,
   ErrorState,
+  ICON_SIZE,
   LoadingState,
+  Pencil,
   PromptDialog,
+  StatCard,
   useToast,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
+import { MotherEditForm } from '@admin/features/users/mother-edit-form';
 import { approveMother, fetchMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
@@ -40,6 +46,7 @@ const DASH = <span className="table-empty">—</span>;
 
 export function MotherDetailPage() {
   const { id = '' } = useParams();
+  const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [idOpen, setIdOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -81,6 +88,13 @@ export function MotherDetailPage() {
 
   const actions = mother ? (
     <>
+      <Badge tone={mother.isActive ? 'success' : 'danger'}>
+        {mother.isActive ? 'active' : 'deactivated'}
+      </Badge>
+      <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+        <Pencil size={ICON_SIZE.inline} aria-hidden />
+        Edit
+      </Button>
       {hasId && (
         <Button variant="ghost" size="sm" onClick={() => setIdOpen(true)}>
           View ID
@@ -99,9 +113,31 @@ export function MotherDetailPage() {
     </>
   ) : undefined;
 
-  const profile: DescriptionItem[] = mother
+  const contact: DescriptionItem[] = mother
     ? [
-        { label: 'Name', value: mother.name },
+        { label: 'Email', value: mother.email },
+        { label: 'Phone', value: mother.phone ?? DASH },
+        { label: 'Address', value: mother.location ?? DASH, wide: true },
+      ]
+    : [];
+
+  const account: DescriptionItem[] = mother
+    ? [
+        {
+          label: 'Status',
+          value: (
+            <Badge tone={mother.isActive ? 'success' : 'danger'}>
+              {mother.isActive ? 'active' : 'deactivated'}
+            </Badge>
+          ),
+        },
+        {
+          label: 'Verification',
+          value:
+            [mother.isEmailVerified ? 'email' : null, mother.isPhoneVerified ? 'phone' : null]
+              .filter(Boolean)
+              .join(' & ') || 'none',
+        },
         {
           label: 'ID status',
           value: mother.idVerificationStatus ? (
@@ -117,26 +153,6 @@ export function MotherDetailPage() {
             DASH
           ),
         },
-        { label: 'Email', value: mother.email },
-        { label: 'Phone', value: mother.phone ?? DASH },
-        { label: 'Location', value: mother.location ?? DASH },
-        {
-          label: 'Account',
-          value: (
-            <Badge tone={mother.isActive ? 'success' : 'danger'}>
-              {mother.isActive ? 'active' : 'deactivated'}
-            </Badge>
-          ),
-        },
-        {
-          label: 'Verification',
-          value:
-            [mother.isEmailVerified ? 'email' : null, mother.isPhoneVerified ? 'phone' : null]
-              .filter(Boolean)
-              .join(' & ') || 'none',
-        },
-        { label: 'Bookings placed', value: mother.bookingCount },
-        { label: 'Registered', value: formatDate(mother.createdAt) },
         { label: 'Reviewed at', value: mother.reviewedAt ? formatDate(mother.reviewedAt) : DASH },
         { label: 'User ID', value: <code>{mother.id}</code> },
       ]
@@ -148,7 +164,7 @@ export function MotherDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={mother ? mother.name : 'Mommy details'}
-        subtitle={mother?.idVerificationStatus ? statusLabel(mother.idVerificationStatus) : undefined}
+        subtitle={mother?.idVerificationStatus ? statusLabel(mother.idVerificationStatus) : 'Parent account'}
         actions={actions}
       />
 
@@ -161,9 +177,33 @@ export function MotherDetailPage() {
         />
       )}
       {mother && (
-        <Card title="Profile">
-          <DescriptionList items={profile} />
-        </Card>
+        <>
+          <div className="stat-grid">
+            <StatCard
+              label="Bookings placed"
+              value={mother.bookingCount}
+              icon={<ClipboardList size={ICON_SIZE.stat} aria-hidden />}
+            />
+            <StatCard
+              label="Registered"
+              value={formatDate(mother.createdAt)}
+              icon={<CalendarClock size={ICON_SIZE.stat} aria-hidden />}
+              iconTone="gold"
+            />
+          </div>
+
+          <Card title="Contact">
+            <DescriptionList items={contact} />
+          </Card>
+
+          <Card title="Account">
+            <DescriptionList items={account} />
+          </Card>
+        </>
+      )}
+
+      {editing && mother && (
+        <MotherEditForm mother={mother} onClose={() => setEditing(false)} />
       )}
 
       {rejecting && mother && (

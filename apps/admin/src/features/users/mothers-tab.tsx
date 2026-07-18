@@ -45,15 +45,6 @@ function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
-}
-
 const EMPTY = <span className="table-empty">—</span>;
 
 export function MothersTab() {
@@ -76,17 +67,7 @@ export function MothersTab() {
     {
       key: 'mother',
       header: 'Mommy',
-      render: (mother) => (
-        <div className="nanny-cell">
-          <span className="nanny-avatar" aria-hidden>
-            {initials(mother.name)}
-          </span>
-          <div>
-            <div className="nanny-name">{mother.name}</div>
-            {!mother.isActive && <div className="table-subtext">deactivated</div>}
-          </div>
-        </div>
-      ),
+      render: (mother) => <span className="nanny-name">{mother.name}</span>,
     },
     {
       key: 'phone',
@@ -107,6 +88,16 @@ export function MothersTab() {
       ),
     },
     { key: 'location', header: 'Location', render: (mother) => mother.location ?? EMPTY },
+    { key: 'email', header: 'Email', render: (mother) => mother.email },
+    {
+      key: 'active',
+      header: 'Status',
+      render: (mother) => (
+        <Badge tone={mother.isActive ? 'success' : 'neutral'}>
+          {mother.isActive ? 'Active' : 'Deactivated'}
+        </Badge>
+      ),
+    },
     {
       key: 'status',
       header: 'ID status',
@@ -157,7 +148,7 @@ export function MothersTab() {
           onChange={(value) => changeStatus(value as AdminMotherStatusFilter)}
         />
       </div>
-      {isLoading && <TableSkeleton columns={6} />}
+      {isLoading && <TableSkeleton columns={8} />}
       {error != null && (
         <ErrorState
           message={apiErrorMessage(error)}

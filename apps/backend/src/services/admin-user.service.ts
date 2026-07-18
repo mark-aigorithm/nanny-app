@@ -3,11 +3,13 @@ import { IdVerificationStatus, type Prisma } from '@prisma/client';
 import type {
   AdminListQuery,
   AdminMother,
+  AdminMotherDetail,
   AdminMotherStatusFilter,
   AdminUser,
   CreateAdminInput,
   PaginationMeta,
   RejectNannyInput,
+  UpdateAdminMotherInput,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
@@ -74,6 +76,15 @@ async function findReviewableMother(id: number): Promise<AdminMotherRow> {
   });
   if (!row) throw errors.notFound('Mother not found');
   return row;
+}
+
+/** Detail DTO: the list fields plus the raw first/last name split for the edit form. */
+function toMotherDetailDto(row: AdminMotherRow): AdminMotherDetail {
+  return {
+    ...toMotherDto(row),
+    firstName: row.firstName,
+    lastName: row.lastName,
+  };
 }
 
 type AdminUserRow = {
@@ -159,8 +170,8 @@ export async function listAdminMothers(
 }
 
 /** Full detail for a single mother account (admin detail page). */
-export async function getAdminMother(id: number): Promise<AdminMother> {
-  return toMotherDto(await findReviewableMother(id));
+export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
+  return toMotherDetailDto(await findReviewableMother(id));
 }
 
 /**
@@ -222,6 +233,38 @@ export async function rejectMother(id: number, input: RejectNannyInput): Promise
   await dispatchPush(id, { title, body, data: { type: 'id_rejected', title } });
 
   return toMotherDto(await findReviewableMother(id));
+}
+
+/**
+ * Partial update of a mother account from the admin console. Only name and the
+ * `isActive` flag are editable — email/phone (Firebase Auth identity),
+ * verification flags, and address (tied to matching coordinates) are not touched.
+ */
+export async function updateAdminMother(
+  id: number,
+  input: UpdateAdminMotherInput,
+): Promise<AdminMotherDetail> {
+  // Guard existence + role here: prisma.update can only filter by unique id, so it
+  // can't scope to MOTHER / non-deleted on its own.
+  const existing = await prisma.user.findFirst({
+    where: { id, role: 'MOTHER', deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) throw errors.notFound('Mother not found');
+
+  const row = await prisma.user.update({
+    where: { id },
+    data: {
+      ...(input.firstName !== undefined && { firstName: input.firstName }),
+      // Empty last name → '-' placeholder (the display name drops it — see toMotherDto).
+      ...(input.lastName !== undefined && {
+        lastName: input.lastName === '' ? '-' : input.lastName,
+      }),
+      ...(input.isActive !== undefined && { isActive: input.isActive }),
+    },
+    select: motherSelect,
+  });
+  return toMotherDetailDto(row);
 }
 
 /** Superuser creates an admin: Firebase Auth account + ADMIN user row. */

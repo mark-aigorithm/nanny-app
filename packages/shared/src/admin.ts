@@ -420,6 +420,36 @@ export const AdminMotherListQuerySchema = AdminListQuerySchema.extend({
 });
 export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
 
+/**
+ * Mother detail page (GET /admin/mothers/:id): the list fields plus the raw
+ * first/last name split so the edit form can bind them without re-parsing the
+ * combined `name`. Mirrors the AdminNannyDetail precedent.
+ */
+export const AdminMotherDetailSchema = AdminMotherSchema.extend({
+  firstName: z.string(),
+  /** May be the '-' placeholder when the account has no last name. */
+  lastName: z.string(),
+});
+export type AdminMotherDetail = z.infer<typeof AdminMotherDetailSchema>;
+
+/**
+ * Partial update for a mother account (PATCH /admin/mothers/:id). Only these
+ * fields are editable from the admin console — email/phone (Firebase Auth
+ * identity), verification flags, and address (tied to matching coordinates)
+ * are intentionally omitted.
+ */
+export const UpdateAdminMotherSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(100).optional(),
+    /** Empty string is allowed; the service stores '-' as the "no last name" placeholder. */
+    lastName: z.string().trim().max(100).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'At least one field must be provided',
+  });
+export type UpdateAdminMotherInput = z.infer<typeof UpdateAdminMotherSchema>;
+
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)
 // ──────────────────────────────────────────────────────────────

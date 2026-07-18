@@ -4,6 +4,7 @@ import type {
   AdminBookingStatusFilter,
   AdminListQuery,
   AdminMother,
+  AdminMotherDetail,
   AdminMotherStatusFilter,
   AdminNanny,
   AdminNannyDetail,
@@ -29,6 +30,7 @@ import type {
   SetBookingStatusInput,
   SetNannySkillsInput,
   Skill,
+  UpdateAdminMotherInput,
   UpdateBookingTimesInput,
   UpdateCameraInput,
   UpdateDurationRuleInput,
@@ -322,8 +324,19 @@ export async function fetchMothers(
   return { data: res.data.data, meta: res.data.meta };
 }
 
-export async function fetchMother(id: string): Promise<AdminMother> {
-  const res = await apiClient.get<ApiEnvelope<AdminMother>>(`/admin/mothers/${id}`);
+export async function fetchMother(id: string): Promise<AdminMotherDetail> {
+  const res = await apiClient.get<ApiEnvelope<AdminMotherDetail>>(`/admin/mothers/${id}`);
+  return res.data.data;
+}
+
+export async function updateMother(
+  id: string,
+  input: UpdateAdminMotherInput,
+): Promise<AdminMotherDetail> {
+  const res = await apiClient.patch<ApiEnvelope<AdminMotherDetail>>(
+    `/admin/mothers/${id}`,
+    input,
+  );
   return res.data.data;
 }
 
