@@ -3,7 +3,6 @@ import type { BookingResponse } from '@nanny-app/shared';
 
 export type ShiftPromptKind =
   | 'shift_window'
-  | 'confirm_start'
   | 'confirm_end'
   | 'enter_pin'
   | 'error';
@@ -51,21 +50,6 @@ export function showShiftWindowPrompt(
       ? `Your booking with ${motherName} was scheduled to start. Start your shift when you arrive — she will be notified.`
       : `Your shift with ${motherName} can begin now. Start when you arrive — she will be notified.`,
     confirmLabel: 'Start shift',
-  });
-}
-
-export function showConfirmStartPrompt(
-  booking: BookingResponse,
-  onConfirm: () => void,
-): void {
-  const motherName = `${booking.motherFirstName} ${booking.motherLastName}`;
-  useNannyShiftPromptStore.getState().showPrompt({
-    kind: 'confirm_start',
-    booking,
-    title: 'Start shift',
-    message: `Start shift with ${motherName}? She will be notified that care has begun.`,
-    confirmLabel: 'Start shift',
-    onConfirm,
   });
 }
 
