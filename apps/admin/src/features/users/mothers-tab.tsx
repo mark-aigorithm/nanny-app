@@ -19,15 +19,6 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
-}
-
 const EMPTY = <span className="table-empty">—</span>;
 
 export function MothersTab() {
@@ -44,17 +35,7 @@ export function MothersTab() {
     {
       key: 'mother',
       header: 'Mommy',
-      render: (mother) => (
-        <div className="nanny-cell">
-          <span className="nanny-avatar" aria-hidden>
-            {initials(mother.name)}
-          </span>
-          <div>
-            <div className="nanny-name">{mother.name}</div>
-            {!mother.isActive && <div className="table-subtext">deactivated</div>}
-          </div>
-        </div>
-      ),
+      render: (mother) => <span className="nanny-name">{mother.name}</span>,
     },
     {
       key: 'phone',
@@ -75,7 +56,15 @@ export function MothersTab() {
       ),
     },
     { key: 'email', header: 'Email', render: (mother) => mother.email },
-    { key: 'location', header: 'Location', render: (mother) => mother.location ?? EMPTY },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (mother) => (
+        <Badge tone={mother.isActive ? 'success' : 'neutral'}>
+          {mother.isActive ? 'Active' : 'Deactivated'}
+        </Badge>
+      ),
+    },
     {
       key: 'bookings',
       header: 'Bookings',

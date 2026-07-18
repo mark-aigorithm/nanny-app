@@ -4,6 +4,7 @@ jest.mock('@backend/db/prisma', () => ({
       findMany: jest.fn(),
       findFirst: jest.fn(),
       count: jest.fn(),
+      update: jest.fn(),
     },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
@@ -17,10 +18,14 @@ jest.mock('@backend/lib/firebase', () => ({
 
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
-import { getAdminMother, listAdminMothers } from '@backend/services/admin-user.service';
+import {
+  getAdminMother,
+  listAdminMothers,
+  updateAdminMother,
+} from '@backend/services/admin-user.service';
 
 const mockPrisma = prisma as unknown as {
-  user: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock };
+  user: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock; update: jest.Mock };
 };
 
 function makeRow(overrides: Record<string, unknown> = {}) {
@@ -113,8 +118,81 @@ describe('getAdminMother', () => {
     );
   });
 
+  it('includes the raw first/last name split for the edit form', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+
+    const mother = await getAdminMother('user-1');
+
+    expect(mother.firstName).toBe('Nour');
+    expect(mother.lastName).toBe('Ibrahim');
+  });
+
   it('throws when the mother does not exist', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
     await expect(getAdminMother('missing')).rejects.toThrow(AppError);
+  });
+});
+
+describe('updateAdminMother', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('updates the provided fields and returns the detail DTO', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.user.update.mockResolvedValue(
+      makeRow({ firstName: 'Salma', lastName: 'Adel', isActive: false }),
+    );
+
+    const result = await updateAdminMother('user-1', {
+      firstName: 'Salma',
+      lastName: 'Adel',
+      isActive: false,
+    });
+
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'user-1', role: 'MOTHER', deletedAt: null } }),
+    );
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-1' },
+        data: { firstName: 'Salma', lastName: 'Adel', isActive: false },
+      }),
+    );
+    expect(result).toMatchObject({
+      name: 'Salma Adel',
+      firstName: 'Salma',
+      lastName: 'Adel',
+      isActive: false,
+    });
+  });
+
+  it('stores an empty last name as the "-" placeholder', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.user.update.mockResolvedValue(makeRow({ lastName: '-' }));
+
+    await updateAdminMother('user-1', { lastName: '' });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'user-1' }, data: { lastName: '-' } }),
+    );
+  });
+
+  it('writes only the fields that were provided', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.user.update.mockResolvedValue(makeRow({ isActive: false }));
+
+    await updateAdminMother('user-1', { isActive: false });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'user-1' }, data: { isActive: false } }),
+    );
+  });
+
+  it('throws and does not write when the mother does not exist', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(updateAdminMother('missing', { isActive: false })).rejects.toThrow(AppError);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });
