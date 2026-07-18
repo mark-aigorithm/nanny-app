@@ -16,6 +16,9 @@ const ConfigSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
   FIREBASE_CLIENT_EMAIL: z.string().email('FIREBASE_CLIENT_EMAIL must be an email'),
   FIREBASE_PRIVATE_KEY: z.string().min(1, 'FIREBASE_PRIVATE_KEY is required'),
+  // Firebase Storage bucket that holds uploaded ID documents / photos. Used
+  // server-side to delete rejected ID images. Defaults to the app's bucket.
+  FIREBASE_STORAGE_BUCKET: z.string().min(1).default('nanny-now-d8518.firebasestorage.app'),
 
   // Paymob unified (intention) API — all optional; feature enabled only when complete.
   PAYMOB_SECRET_KEY: z.string().optional(),
@@ -92,6 +95,7 @@ export const config = {
     // Convert literal `\n` sequences (as stored in .env / Secrets Manager)
     // into real newlines for the Firebase SDK.
     privateKey: raw.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    storageBucket: raw.FIREBASE_STORAGE_BUCKET,
   },
   paymob: buildPaymobConfig(),
 } as const;

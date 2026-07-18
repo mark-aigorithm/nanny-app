@@ -113,6 +113,38 @@ export const NannyApprovalStatusSchema = z.enum(['PENDING_REVIEW', 'APPROVED', '
 export const NannyApprovalStatus = NannyApprovalStatusSchema.enum;
 export type NannyApprovalStatus = z.infer<typeof NannyApprovalStatusSchema>;
 
+/**
+ * Identity-verification state, shared by nannies AND mothers (lives on `users`).
+ * - PENDING_ID: no usable ID on file — the user must (re)upload one.
+ * - PENDING_REVIEW: ID uploaded, awaiting admin KYC review.
+ * - APPROVED: admin verified the ID.
+ * - REJECTED: admin rejected it; images were deleted and a reason stored.
+ * Gate predicate (both roles): needs (re)upload when status is PENDING_ID or REJECTED.
+ */
+export const IdVerificationStatusSchema = z.enum([
+  'PENDING_ID',
+  'PENDING_REVIEW',
+  'APPROVED',
+  'REJECTED',
+]);
+/** Enum-like const for value comparisons: `IdVerificationStatus.APPROVED`, … */
+export const IdVerificationStatus = IdVerificationStatusSchema.enum;
+export type IdVerificationStatus = z.infer<typeof IdVerificationStatusSchema>;
+
+/**
+ * Kind of government ID a user uploaded. A PASSPORT needs only the front image;
+ * a NATIONAL_ID needs both front and back.
+ */
+export const IdDocumentTypeSchema = z.enum(['PASSPORT', 'NATIONAL_ID']);
+/** Enum-like const for value comparisons: `IdDocumentType.PASSPORT`, … */
+export const IdDocumentType = IdDocumentTypeSchema.enum;
+export type IdDocumentType = z.infer<typeof IdDocumentTypeSchema>;
+
+/** True when the ID document type requires a back image (national ID, not passport). */
+export function idTypeRequiresBack(type: IdDocumentType): boolean {
+  return type === 'NATIONAL_ID';
+}
+
 export const AvailabilityTypeSchema = z.enum(['FULL_TIME', 'PART_TIME', 'OCCASIONAL']);
 export const AvailabilityType = AvailabilityTypeSchema.enum;
 export type AvailabilityType = z.infer<typeof AvailabilityTypeSchema>;

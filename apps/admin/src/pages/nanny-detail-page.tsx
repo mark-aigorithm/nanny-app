@@ -33,7 +33,9 @@ function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
 }
 
-function statusTone(status: AdminNannyDetail['approvalStatus']): 'success' | 'danger' | 'neutral' {
+function statusTone(
+  status: AdminNannyDetail['idVerificationStatus'],
+): 'success' | 'danger' | 'neutral' {
   if (status === 'APPROVED') return 'success';
   if (status === 'REJECTED') return 'danger';
   return 'neutral';
@@ -92,7 +94,7 @@ export function NannyDetailPage() {
           View ID
         </Button>
       )}
-      {nanny.approvalStatus !== 'APPROVED' && (
+      {nanny.idVerificationStatus !== 'APPROVED' && (
         <Button
           size="sm"
           disabled={mutating}
@@ -101,7 +103,7 @@ export function NannyDetailPage() {
           Approve
         </Button>
       )}
-      {nanny.approvalStatus === 'PENDING_REVIEW' && (
+      {nanny.idVerificationStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
           Reject
         </Button>
@@ -115,7 +117,7 @@ export function NannyDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={nanny ? nanny.name : 'Nanny details'}
-        subtitle={nanny ? statusLabel(nanny.approvalStatus) : undefined}
+        subtitle={nanny ? statusLabel(nanny.idVerificationStatus) : undefined}
         actions={actions}
       />
 
@@ -196,7 +198,7 @@ export function NannyDetailPage() {
         />
       )}
 
-      {idOpen && nanny && <IdDocumentModal nanny={nanny} onClose={() => setIdOpen(false)} />}
+      {idOpen && nanny && <IdDocumentModal subject={nanny} onClose={() => setIdOpen(false)} />}
     </section>
   );
 }
@@ -207,7 +209,9 @@ function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
       label: 'Status',
       value: (
         <>
-          <Badge tone={statusTone(nanny.approvalStatus)}>{statusLabel(nanny.approvalStatus)}</Badge>
+          <Badge tone={statusTone(nanny.idVerificationStatus)}>
+            {statusLabel(nanny.idVerificationStatus)}
+          </Badge>
           {nanny.rejectionReason && <div className="table-subtext">{nanny.rejectionReason}</div>}
         </>
       ),

@@ -92,6 +92,25 @@ enum NannyApprovalStatus {
   @@map("nanny_approval_status")
 }
 
+/// Identity-verification state shared by nannies AND mothers (lives on `users`).
+/// PENDING_ID = must (re)upload; PENDING_REVIEW = awaiting admin; APPROVED / REJECTED.
+enum IdVerificationStatus {
+  PENDING_ID
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+
+  @@map("id_verification_status")
+}
+
+/// Government ID kind. PASSPORT needs only the front image; NATIONAL_ID needs both.
+enum IdDocumentType {
+  PASSPORT
+  NATIONAL_ID
+
+  @@map("id_document_type")
+}
+
 enum AvailabilityType {
   FULL_TIME
   PART_TIME
@@ -142,6 +161,15 @@ model User {
   address              String?
   latitude             Decimal?  @db.Decimal(10, 7)
   longitude            Decimal?  @db.Decimal(10, 7)
+  /// Identity documents + KYC state, for BOTH nannies and mothers. Nannies must
+  /// be APPROVED to appear in search / use the app; mothers must have uploaded
+  /// an ID (not PENDING_ID/REJECTED) before booking. Null for admins/role-less.
+  idVerificationStatus IdVerificationStatus? @map("id_verification_status")
+  idDocumentType       IdDocumentType?       @map("id_document_type")
+  idDocumentFrontUrl   String?               @map("id_document_front_url")
+  idDocumentBackUrl    String?               @map("id_document_back_url")
+  idReviewedAt         DateTime?             @map("id_reviewed_at")
+  idRejectionReason    String?               @map("id_rejection_reason")
   // Soft-delete grace window (AUTH-14): 30-day window before PII is purged.
   deletionRequestedAt  DateTime? @map("deletion_requested_at")
   createdAt            DateTime  @default(now()) @map("created_at")
@@ -173,6 +201,7 @@ model User {
 
   @@index([role])
   @@index([deletedAt])
+  @@index([idVerificationStatus])
   @@map("users")
 }
 

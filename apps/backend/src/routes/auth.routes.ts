@@ -1,12 +1,16 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 
-import { RegisterRequestSchema, UpdateProfileRequestSchema } from '@nanny-app/shared';
+import {
+  RegisterRequestSchema,
+  SubmitIdRequestSchema,
+  UpdateProfileRequestSchema,
+} from '@nanny-app/shared';
 
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
-import { registerUser, getMe, updateProfile } from '@backend/services/auth.service';
+import { registerUser, getMe, submitId, updateProfile } from '@backend/services/auth.service';
 
 export const authRouter = Router();
 
@@ -47,6 +51,27 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response, next: Nex
     next(err);
   }
 });
+
+/**
+ * POST /auth/id
+ * A user (re)submits their identity document outside of registration: a nanny
+ * re-uploading after a reject, or a mother uploading before her first booking.
+ * Moves the account to PENDING_REVIEW for admin KYC.
+ */
+authRouter.post(
+  '/id',
+  requireAuth,
+  validateBody(SubmitIdRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const user = await submitId(req.firebaseUser, req.body);
+      res.json(ok(user));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 /**
  * PATCH /auth/me

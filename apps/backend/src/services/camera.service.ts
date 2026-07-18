@@ -1,4 +1,4 @@
-import { NannyApprovalStatus, Prisma } from '@prisma/client';
+import { IdVerificationStatus, Prisma } from '@prisma/client';
 
 import type {
   Camera,
@@ -35,8 +35,7 @@ async function assertApprovedNanny(userId: string): Promise<void> {
     where: {
       userId,
       deletedAt: null,
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      user: { deletedAt: null },
+      user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
     },
     select: { id: true },
   });
@@ -98,8 +97,7 @@ export async function listNannyOptions(): Promise<NannyOption[]> {
   const rows = await prisma.nannyProfile.findMany({
     where: {
       deletedAt: null,
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      user: { deletedAt: null },
+      user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
     },
     include: { user: { select: { id: true, firstName: true, lastName: true } } },
     orderBy: { createdAt: 'desc' },

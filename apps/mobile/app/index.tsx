@@ -7,7 +7,7 @@ import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { Role } from '@shared/auth';
-import { NannyApprovalStatus } from '@shared/nanny';
+import { IdVerificationStatus } from '@shared/nanny';
 
 export default function Index() {
   const user = useAuthStore((s) => s.user);
@@ -47,10 +47,18 @@ export default function Index() {
   // Firebase user + backend profile — route by role.
   if (profile) {
     if (profile.role === Role.NANNY) {
-      // Nannies are vetted by an admin before they can use the app.
-      return profile.nannyApprovalStatus === NannyApprovalStatus.APPROVED
-        ? <Redirect href="/(nanny)/dashboard" />
-        : <Redirect href="/(auth)/pending-review" />;
+      // Nannies are vetted by an admin before they can use the app. If their ID
+      // is missing (PENDING_ID) or was rejected (REJECTED), force a re-upload;
+      // once uploaded (PENDING_REVIEW) they wait; APPROVED lets them in.
+      switch (profile.idVerificationStatus) {
+        case IdVerificationStatus.APPROVED:
+          return <Redirect href="/(nanny)/dashboard" />;
+        case IdVerificationStatus.PENDING_ID:
+        case IdVerificationStatus.REJECTED:
+          return <Redirect href="/(auth)/upload-id" />;
+        default:
+          return <Redirect href="/(auth)/pending-review" />;
+      }
     }
     return <Redirect href="/(parent)/home" />;
   }

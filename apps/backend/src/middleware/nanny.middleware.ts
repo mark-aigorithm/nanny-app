@@ -20,7 +20,8 @@ export async function requireApprovedNanny(
       select: {
         role: true,
         deletedAt: true,
-        nannyProfile: { select: { approvalStatus: true, deletedAt: true } },
+        idVerificationStatus: true,
+        nannyProfile: { select: { deletedAt: true } },
       },
     });
     if (!user || user.deletedAt !== null || user.role !== 'NANNY' || !user.nannyProfile) {
@@ -28,7 +29,7 @@ export async function requireApprovedNanny(
     }
     if (
       user.nannyProfile.deletedAt !== null ||
-      user.nannyProfile.approvalStatus !== 'APPROVED'
+      user.idVerificationStatus !== 'APPROVED'
     ) {
       throw errors.forbidden('Your nanny profile has not been approved yet.');
     }

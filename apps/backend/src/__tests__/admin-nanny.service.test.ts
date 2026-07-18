@@ -1,5 +1,3 @@
-import { NannyApprovalStatus } from '@prisma/client';
-
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     nannyProfile: {
@@ -8,6 +6,7 @@ jest.mock('@backend/db/prisma', () => ({
       findUniqueOrThrow: jest.fn(),
       count: jest.fn(),
     },
+    user: { update: jest.fn() },
     booking: { aggregate: jest.fn() },
     skill: { findMany: jest.fn() },
     $transaction: jest.fn(),
@@ -19,11 +18,18 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@backend/lib/storage', () => ({
+  deleteStorageObjectByUrl: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
+import { deleteStorageObjectByUrl } from '@backend/lib/storage';
 import {
+  approveNanny,
   getAdminNanny,
   listAdminNannies,
+  rejectNanny,
   setNannySkills,
 } from '@backend/services/admin-nanny.service';
 
@@ -34,24 +40,26 @@ const mockPrisma = prisma as unknown as {
     findUniqueOrThrow: jest.Mock;
     count: jest.Mock;
   };
+  user: { update: jest.Mock };
   booking: { aggregate: jest.Mock };
   skill: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
+const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
 
 const dec = (n: number) => ({ toNumber: () => n });
 
-function makeRow(overrides: Record<string, unknown> = {}) {
+// Identity verification now lives on the user row, so status/ID fields are
+// nested under `user`. `userOverrides` merges into that nested object.
+function makeRow(
+  overrides: Record<string, unknown> = {},
+  userOverrides: Record<string, unknown> = {},
+) {
   return {
     id: 'nanny-1',
     bio: 'Loves kids',
     yearsOfExperience: 4,
     certifications: ['CPR'],
-    approvalStatus: NannyApprovalStatus.PENDING_REVIEW,
-    rejectionReason: null,
-    reviewedAt: null,
-    idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
-    idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
     user: {
       id: 'user-1',
@@ -64,6 +72,13 @@ function makeRow(overrides: Record<string, unknown> = {}) {
       address: 'Cairo',
       isEmailVerified: true,
       isPhoneVerified: false,
+      idVerificationStatus: 'PENDING_REVIEW',
+      idDocumentType: 'NATIONAL_ID',
+      idRejectionReason: null,
+      idReviewedAt: null,
+      idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
+      idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
+      ...userOverrides,
     },
     nannySkills: [],
     ...overrides,
@@ -96,11 +111,6 @@ function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
     bio: null,
     yearsOfExperience: null,
     certifications: [],
-    approvalStatus: 'APPROVED',
-    rejectionReason: null,
-    reviewedAt: null,
-    idDocumentFrontUrl: null,
-    idDocumentBackUrl: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     user: {
       id: 'user-1',
@@ -113,6 +123,12 @@ function stubProfileRow(skills: Array<{ id: string; name: string }> = []) {
       address: null,
       isEmailVerified: true,
       isPhoneVerified: false,
+      idVerificationStatus: 'APPROVED',
+      idDocumentType: null,
+      idRejectionReason: null,
+      idReviewedAt: null,
+      idDocumentFrontUrl: null,
+      idDocumentBackUrl: null,
     },
     nannySkills: skills.map((s) => ({ skill: { feeType: null, feeValue: 0, ...s } })),
   };
@@ -145,7 +161,7 @@ describe('listAdminNannies', () => {
   it('returns null ID urls when the nanny has not uploaded documents', async () => {
     mockPrisma.nannyProfile.count.mockResolvedValue(1);
     mockPrisma.nannyProfile.findMany.mockResolvedValue([
-      makeRow({ idDocumentFrontUrl: null, idDocumentBackUrl: null }),
+      makeRow({}, { idDocumentFrontUrl: null, idDocumentBackUrl: null }),
     ]);
 
     const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20 });
@@ -188,6 +204,80 @@ describe('getAdminNanny (detail)', () => {
   it('throws when the nanny does not exist', async () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(null);
     await expect(getAdminNanny('missing')).rejects.toThrow(AppError);
+  });
+});
+
+describe('approveNanny', () => {
+  it('flips the user status to APPROVED and clears the rejection reason', async () => {
+    mockPrisma.nannyProfile.findFirst
+      .mockResolvedValueOnce(makeRow({}, { idVerificationStatus: 'PENDING_REVIEW' }))
+      .mockResolvedValueOnce(makeRow({}, { idVerificationStatus: 'APPROVED' }));
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const dto = await approveNanny('nanny-1');
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({
+          idVerificationStatus: 'APPROVED',
+          idRejectionReason: null,
+        }),
+      }),
+    );
+    expect(dto.idVerificationStatus).toBe('APPROVED');
+  });
+
+  it('rejects approving an already approved nanny', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(
+      makeRow({}, { idVerificationStatus: 'APPROVED' }),
+    );
+    await expect(approveNanny('nanny-1')).rejects.toThrow(AppError);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('rejectNanny', () => {
+  it('nulls the ID urls, deletes the Storage files, and stores the reason', async () => {
+    const front = 'https://storage.example/o/nanny-ids%2Fuser-1%2Ffront.jpg?alt=media';
+    const back = 'https://storage.example/o/nanny-ids%2Fuser-1%2Fback.jpg?alt=media';
+    mockPrisma.nannyProfile.findFirst
+      .mockResolvedValueOnce(
+        makeRow(
+          {},
+          {
+            idVerificationStatus: 'PENDING_REVIEW',
+            idDocumentFrontUrl: front,
+            idDocumentBackUrl: back,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(makeRow({}, { idVerificationStatus: 'REJECTED' }));
+    mockPrisma.user.update.mockResolvedValue({});
+
+    await rejectNanny('nanny-1', { reason: 'ID does not match name' });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({
+          idVerificationStatus: 'REJECTED',
+          idRejectionReason: 'ID does not match name',
+          idDocumentFrontUrl: null,
+          idDocumentBackUrl: null,
+        }),
+      }),
+    );
+    expect(mockDeleteStorage).toHaveBeenCalledWith(front);
+    expect(mockDeleteStorage).toHaveBeenCalledWith(back);
+  });
+
+  it('rejects re-rejecting an already rejected nanny', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(
+      makeRow({}, { idVerificationStatus: 'REJECTED' }),
+    );
+    await expect(rejectNanny('nanny-1', {})).rejects.toThrow(AppError);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });
 

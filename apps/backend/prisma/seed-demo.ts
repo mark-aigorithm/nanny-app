@@ -299,6 +299,8 @@ async function resolveDemoMother() {
         address: linked.address ?? FALLBACK_DEMO_MOTHER.address,
         latitude: linked.latitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
         longitude: linked.longitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
+        // Pre-verify so the demo booking flow isn't blocked by the ID gate.
+        idVerificationStatus: 'APPROVED',
       },
     });
     return linked;
@@ -316,6 +318,7 @@ async function resolveDemoMother() {
       role: Role.MOTHER,
       isEmailVerified: true,
       isPhoneVerified: true,
+      idVerificationStatus: 'APPROVED',
     },
     update: {
       firstName: FALLBACK_DEMO_MOTHER.firstName,
@@ -327,6 +330,7 @@ async function resolveDemoMother() {
       address: FALLBACK_DEMO_MOTHER.address,
       latitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
       longitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
+      idVerificationStatus: 'APPROVED',
     },
   });
 }
@@ -344,6 +348,7 @@ async function ensureSeedMothers() {
           role: Role.MOTHER,
           isEmailVerified: true,
           isPhoneVerified: true,
+          idVerificationStatus: 'APPROVED',
         },
         update: {
           firebaseUid: uid,
@@ -355,6 +360,7 @@ async function ensureSeedMothers() {
           address: seed.address,
           latitude: new Prisma.Decimal(seed.latitude),
           longitude: new Prisma.Decimal(seed.longitude),
+          idVerificationStatus: 'APPROVED',
         },
       }),
     );
@@ -384,6 +390,9 @@ async function seedNannies() {
         address: n.location,
         latitude: new Prisma.Decimal(n.latitude),
         longitude: new Prisma.Decimal(n.longitude),
+        // Demo nannies are pre-vetted so they appear in search — the KYC gate
+        // now lives on the user row (default PENDING_ID/PENDING_REVIEW is hidden).
+        idVerificationStatus: 'APPROVED',
       },
       update: {
         firstName: n.firstName,
@@ -395,6 +404,7 @@ async function seedNannies() {
         address: n.location,
         latitude: new Prisma.Decimal(n.latitude),
         longitude: new Prisma.Decimal(n.longitude),
+        idVerificationStatus: 'APPROVED',
       },
     });
 

@@ -7,7 +7,7 @@ import {
   PaginationMetaSchema,
   wallClockField,
 } from './booking';
-import { NannyApprovalStatusSchema } from './nanny';
+import { IdDocumentTypeSchema, IdVerificationStatusSchema } from './nanny';
 import { PublicSkillSchema } from './skill';
 
 // Re-export the shared pagination meta so admin consumers can import it alongside
@@ -323,7 +323,7 @@ export type UpdateBookingTimesInput = z.infer<typeof UpdateBookingTimesSchema>;
 // ──────────────────────────────────────────────────────────────
 
 export const AdminNannyStatusFilterSchema = z.enum([
-  'ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
 ]);
 export type AdminNannyStatusFilter = z.infer<typeof AdminNannyStatusFilterSchema>;
 
@@ -342,7 +342,9 @@ export const AdminNannySchema = z.object({
   skills: z.array(PublicSkillSchema),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
-  approvalStatus: NannyApprovalStatusSchema,
+  idVerificationStatus: IdVerificationStatusSchema,
+  /** Kind of ID on file (passport → front only); null until uploaded. */
+  idDocumentType: IdDocumentTypeSchema.nullable(),
   rejectionReason: z.string().nullable(),
   reviewedAt: z.string().nullable(),
   /** Both sides of the nanny's uploaded ID document, for admin KYC review. */
@@ -381,6 +383,11 @@ export type RejectNannyInput = z.infer<typeof RejectNannySchema>;
 // Mothers directory (admin read-only list of parent accounts)
 // ──────────────────────────────────────────────────────────────
 
+export const AdminMotherStatusFilterSchema = z.enum([
+  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+]);
+export type AdminMotherStatusFilter = z.infer<typeof AdminMotherStatusFilterSchema>;
+
 export const AdminMotherSchema = z.object({
   /** User id. */
   id: z.string(),
@@ -393,11 +400,25 @@ export const AdminMotherSchema = z.object({
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   isActive: z.boolean(),
+  /** ID verification state — mothers are reviewed the same way as nannies. */
+  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  idDocumentType: IdDocumentTypeSchema.nullable(),
+  rejectionReason: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  /** Both sides of the mother's uploaded ID document, for admin KYC review. */
+  idDocumentFrontUrl: z.string().nullable(),
+  idDocumentBackUrl: z.string().nullable(),
   /** Number of bookings this mother has placed. */
   bookingCount: z.number().int(),
   createdAt: z.string(),
 });
 export type AdminMother = z.infer<typeof AdminMotherSchema>;
+
+/** Paginated mother list query (GET /admin/mothers). */
+export const AdminMotherListQuerySchema = AdminListQuerySchema.extend({
+  status: AdminMotherStatusFilterSchema.catch('ALL').default('ALL'),
+});
+export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)

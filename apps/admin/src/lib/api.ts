@@ -4,6 +4,7 @@ import type {
   AdminBookingStatusFilter,
   AdminListQuery,
   AdminMother,
+  AdminMotherStatusFilter,
   AdminNanny,
   AdminNannyDetail,
   AdminNannyStatusFilter,
@@ -312,16 +313,30 @@ export async function rejectNanny(id: string, reason?: string): Promise<AdminNan
 }
 
 export async function fetchMothers(
+  status: AdminMotherStatusFilter,
   { page, limit }: AdminListQuery,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
-    params: { page, limit },
+    params: { status, page, limit },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
 
 export async function fetchMother(id: string): Promise<AdminMother> {
   const res = await apiClient.get<ApiEnvelope<AdminMother>>(`/admin/mothers/${id}`);
+  return res.data.data;
+}
+
+export async function approveMother(id: string): Promise<AdminMother> {
+  const res = await apiClient.post<ApiEnvelope<AdminMother>>(`/admin/mothers/${id}/approve`);
+  return res.data.data;
+}
+
+export async function rejectMother(id: string, reason?: string): Promise<AdminMother> {
+  const res = await apiClient.post<ApiEnvelope<AdminMother>>(
+    `/admin/mothers/${id}/reject`,
+    reason ? { reason } : {},
+  );
   return res.data.data;
 }
 

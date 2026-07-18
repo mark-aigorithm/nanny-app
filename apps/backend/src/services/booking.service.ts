@@ -23,7 +23,7 @@ import {
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
-  NannyApprovalStatus,
+  IdVerificationStatus,
   NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
@@ -283,7 +283,8 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       where: {
         deletedAt: null,
         isProfileComplete: true,
-        approvalStatus: NannyApprovalStatus.APPROVED,
+        // KYC gate now lives on the user row.
+        user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
         // Exclude nannies already booked for an overlapping window — they can't
         // take this one anyway.
         bookings: {
@@ -427,6 +428,16 @@ export async function createBooking(
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
+
+  // Identity gate: a mother must have an ID on file before booking. She may book
+  // while it is still PENDING_REVIEW (upload-then-book), but not when she has
+  // never uploaded (PENDING_ID) or was rejected (REJECTED) and must re-upload.
+  if (
+    user.idVerificationStatus === IdVerificationStatus.PENDING_ID ||
+    user.idVerificationStatus === IdVerificationStatus.REJECTED
+  ) {
+    throw errors.forbidden('Please upload your ID before booking.');
+  }
 
   const config = await getPlatformConfig();
 

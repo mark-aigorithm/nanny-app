@@ -38,10 +38,11 @@ const BOOKING_STATUS_ORDER: { key: AdminBooking['status']; label: string }[] = [
   { key: 'REFUNDED', label: 'Refunded' },
 ];
 
-const NANNY_STATUS_ORDER: { key: AdminNanny['approvalStatus']; label: string }[] = [
+const NANNY_STATUS_ORDER: { key: AdminNanny['idVerificationStatus']; label: string }[] = [
   { key: 'PENDING_REVIEW', label: 'Pending review' },
   { key: 'APPROVED', label: 'Approved' },
   { key: 'REJECTED', label: 'Rejected' },
+  { key: 'PENDING_ID', label: 'Awaiting ID' },
 ];
 
 const DAYS_IN_TREND = 14;
@@ -101,7 +102,7 @@ export function useDashboardStats() {
 
   const data: DashboardData = useMemo(() => {
     const bookingCounts = countBy(bookings, (b) => b.status);
-    const nannyCounts = countBy(nannies, (n) => n.approvalStatus);
+    const nannyCounts = countBy(nannies, (n) => n.idVerificationStatus);
 
     const grossRevenue = bookings
       .filter((b) => b.status === 'COMPLETED')

@@ -8,6 +8,7 @@ import ParentActiveBookingCard from '@mobile/components/ParentActiveBookingCard'
 import { Button } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
+import { useIdGate } from '@mobile/hooks/useIdGate';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 
@@ -39,6 +40,7 @@ const STEPS: {
 export default function HomeScreen() {
   const router = useRouter();
   const { isGuest, gate } = useGuestGate();
+  const { gate: idGate } = useIdGate();
 
   return (
     <View style={styles.container}>
@@ -69,11 +71,13 @@ export default function HomeScreen() {
           <ParentActiveBookingCard />
         )}
 
-        {/* Primary action: request care (broadcast to all available nannies) */}
+        {/* Primary action: request care (broadcast to all available nannies).
+            Guests are prompted to register; signed-in mothers without a verified
+            ID are prompted to upload one (upload-then-book) before proceeding. */}
         <Pressable
           style={styles.bookCareCard}
           onPress={gate(
-            () => router.push('/(parent)/book/booking-date-picker'),
+            idGate(() => router.push('/(parent)/book/booking-date-picker')),
             'Create your free account to book trusted, vetted nannies.',
           )}
         >

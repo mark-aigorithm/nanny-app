@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { idTypeRequiresBack } from '@shared/nanny';
 import { colors } from '@mobile/theme';
 import { OTP_LENGTH, BYPASS_OTP, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
@@ -97,23 +98,26 @@ export default function RegistrationStep3Screen() {
           // Mobile uses 'parent' / 'nanny'; backend enum is 'MOTHER' / 'NANNY'.
           const apiRole = localRole === 'parent' ? 'MOTHER' : 'NANNY';
 
-          // Nannies must supply both sides of their ID. Upload happens here,
-          // after the Firebase account exists (uploadImageToFirebase needs the
-          // signed-in uid) and before the profile is saved so the resulting
-          // URLs go out with the register request.
+          // Nannies must supply their ID (both sides for a national ID, front
+          // only for a passport). Upload happens here, after the Firebase
+          // account exists (uploadImageToFirebase needs the signed-in uid) and
+          // before the profile is saved so the resulting URLs go out with the
+          // register request.
           let idDocumentFrontUrl: string | undefined;
           let idDocumentBackUrl: string | undefined;
+          const idDocumentType = draft.idDocumentType ?? undefined;
           if (apiRole === 'NANNY') {
-            if (!draft.idFrontUri || !draft.idBackUri) {
-              setFormError('Your ID is missing. Please go back and upload both sides.');
+            const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
+            if (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri)) {
+              setFormError('Your ID is missing. Please go back and upload it.');
               return;
             }
             try {
               setIsUploadingId(true);
-              [idDocumentFrontUrl, idDocumentBackUrl] = await Promise.all([
-                uploadImageToFirebase(draft.idFrontUri, 'nanny-ids'),
-                uploadImageToFirebase(draft.idBackUri, 'nanny-ids'),
-              ]);
+              idDocumentFrontUrl = await uploadImageToFirebase(draft.idFrontUri, 'nanny-ids');
+              if (needsBack && draft.idBackUri) {
+                idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
+              }
             } catch (err) {
               setFormError(
                 err instanceof Error
@@ -138,6 +142,7 @@ export default function RegistrationStep3Screen() {
               address: draft.address || undefined,
               latitude,
               longitude,
+              idDocumentType,
               idDocumentFrontUrl,
               idDocumentBackUrl,
             },

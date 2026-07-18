@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { NannyApprovalStatusSchema } from './nanny';
+import { IdDocumentTypeSchema, IdVerificationStatusSchema, idTypeRequiresBack } from './nanny';
 
 // ──────────────────────────────────────────────────────────────
 // Auth — shared Zod schemas
@@ -35,20 +35,43 @@ export const RegisterRequestSchema = z
     // proximity search / distance sorting work for every account.
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
-    // Both sides of the nanny's ID document (Firebase Storage download URLs),
+    // The nanny's ID document (Firebase Storage download URLs) + its type,
     // captured at registration for admin KYC review. Mothers omit these; the
-    // refine below makes them mandatory for nannies.
+    // refine below makes them mandatory for nannies. A passport needs only the
+    // front image; a national ID needs both sides.
+    idDocumentType: IdDocumentTypeSchema.optional(),
     idDocumentFrontUrl: z.string().url().optional(),
     idDocumentBackUrl: z.string().url().optional(),
   })
   .refine(
-    (v) => v.role !== 'NANNY' || (!!v.idDocumentFrontUrl && !!v.idDocumentBackUrl),
+    (v) =>
+      v.role !== 'NANNY' ||
+      (!!v.idDocumentType &&
+        !!v.idDocumentFrontUrl &&
+        (!idTypeRequiresBack(v.idDocumentType) || !!v.idDocumentBackUrl)),
     {
-      message: 'Nannies must upload both sides of their ID',
+      message: 'Nannies must upload a valid ID (both sides for a national ID).',
       path: ['idDocumentFrontUrl'],
     },
   );
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
+
+/**
+ * Body for POST /auth/id — a user (re)submits their identity document outside of
+ * registration: a nanny re-uploading after a reject, or a mother uploading before
+ * her first booking. Moves the account to PENDING_REVIEW for admin KYC.
+ */
+export const SubmitIdRequestSchema = z
+  .object({
+    idDocumentType: IdDocumentTypeSchema,
+    idDocumentFrontUrl: z.string().url(),
+    idDocumentBackUrl: z.string().url().optional(),
+  })
+  .refine((v) => !idTypeRequiresBack(v.idDocumentType) || !!v.idDocumentBackUrl, {
+    message: 'A national ID requires both sides.',
+    path: ['idDocumentBackUrl'],
+  });
+export type SubmitIdRequest = z.infer<typeof SubmitIdRequestSchema>;
 
 /** Shape returned by /auth/me and /auth/register. Mirrors Prisma `User` minus internal fields. */
 export const UserResponseSchema = z.object({
@@ -63,8 +86,12 @@ export const UserResponseSchema = z.object({
   role: RoleSchema.nullable(),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
-  /** Vetting state of the nanny profile; null for non-nanny users. */
-  nannyApprovalStatus: NannyApprovalStatusSchema.nullable(),
+  /** Identity-verification state (nannies and mothers). Null for admins/role-less. */
+  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  /** Kind of ID on file, if any. Null until the user uploads one. */
+  idDocumentType: IdDocumentTypeSchema.nullable(),
+  /** Reason an admin rejected the last ID, surfaced in the forced re-upload prompt. */
+  idRejectionReason: z.string().nullable(),
   address: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),

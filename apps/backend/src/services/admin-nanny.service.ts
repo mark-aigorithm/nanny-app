@@ -1,4 +1,4 @@
-import { BookingStatus, NannyApprovalStatus, Prisma } from '@prisma/client';
+import { BookingStatus, IdVerificationStatus, Prisma } from '@prisma/client';
 
 import type {
   AdminListQuery,
@@ -12,6 +12,7 @@ import type {
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
+import { deleteStorageObjectByUrl } from '@backend/lib/storage';
 import {
   createInAppNotification,
   dispatchPush,
@@ -30,6 +31,13 @@ const nannyInclude = {
       address: true,
       isEmailVerified: true,
       isPhoneVerified: true,
+      // Identity verification now lives on the user row.
+      idVerificationStatus: true,
+      idDocumentType: true,
+      idRejectionReason: true,
+      idReviewedAt: true,
+      idDocumentFrontUrl: true,
+      idDocumentBackUrl: true,
     },
   },
   nannySkills: {
@@ -63,11 +71,12 @@ function toDto(row: AdminNannyRow): AdminNanny {
     })),
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
-    approvalStatus: row.approvalStatus,
-    rejectionReason: row.rejectionReason,
-    reviewedAt: row.reviewedAt?.toISOString() ?? null,
-    idDocumentFrontUrl: row.idDocumentFrontUrl,
-    idDocumentBackUrl: row.idDocumentBackUrl,
+    idVerificationStatus: row.user.idVerificationStatus ?? IdVerificationStatus.PENDING_REVIEW,
+    idDocumentType: row.user.idDocumentType,
+    rejectionReason: row.user.idRejectionReason,
+    reviewedAt: row.user.idReviewedAt?.toISOString() ?? null,
+    idDocumentFrontUrl: row.user.idDocumentFrontUrl,
+    idDocumentBackUrl: row.user.idDocumentBackUrl,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -78,8 +87,10 @@ export async function listAdminNannies(
 ): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
   const where: Prisma.NannyProfileWhereInput = {
     deletedAt: null,
-    user: { deletedAt: null },
-    ...(status !== 'ALL' ? { approvalStatus: status as NannyApprovalStatus } : {}),
+    user: {
+      deletedAt: null,
+      ...(status !== 'ALL' ? { idVerificationStatus: status as IdVerificationStatus } : {}),
+    },
   };
 
   const [total, rows] = await prisma.$transaction([
@@ -141,35 +152,34 @@ async function findReviewableNanny(id: string): Promise<AdminNannyRow> {
  */
 export async function approveNanny(id: string): Promise<AdminNanny> {
   const profile = await findReviewableNanny(id);
-  if (profile.approvalStatus === NannyApprovalStatus.APPROVED) {
+  if (profile.user.idVerificationStatus === IdVerificationStatus.APPROVED) {
     throw errors.badRequest('This nanny is already approved.');
   }
 
-  const updated = await prisma.nannyProfile.update({
-    where: { id },
+  await prisma.user.update({
+    where: { id: profile.user.id },
     data: {
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      reviewedAt: new Date(),
-      rejectionReason: null,
+      idVerificationStatus: IdVerificationStatus.APPROVED,
+      idReviewedAt: new Date(),
+      idRejectionReason: null,
     },
-    include: nannyInclude,
   });
 
   const title = 'Your profile is approved!';
   const body = 'Welcome to NannyNow — you can now sign in and start receiving bookings.';
   await createInAppNotification({
-    userId: updated.user.id,
+    userId: profile.user.id,
     type: 'NANNY_APPROVED',
     title,
     body,
   });
-  await dispatchPush(updated.user.id, {
+  await dispatchPush(profile.user.id, {
     title,
     body,
     data: { type: 'nanny_approved', title },
   });
 
-  return toDto(updated);
+  return toDto(await findReviewableNanny(id));
 }
 
 /**
@@ -178,37 +188,43 @@ export async function approveNanny(id: string): Promise<AdminNanny> {
  */
 export async function rejectNanny(id: string, input: RejectNannyInput): Promise<AdminNanny> {
   const profile = await findReviewableNanny(id);
-  if (profile.approvalStatus === NannyApprovalStatus.REJECTED) {
+  if (profile.user.idVerificationStatus === IdVerificationStatus.REJECTED) {
     throw errors.badRequest('This nanny is already rejected.');
   }
 
-  const updated = await prisma.nannyProfile.update({
-    where: { id },
+  // Clear the ID: null the URLs (in the same write as the status) and best-effort
+  // delete the underlying Storage files so the nanny must re-upload.
+  const { idDocumentFrontUrl, idDocumentBackUrl } = profile.user;
+  await prisma.user.update({
+    where: { id: profile.user.id },
     data: {
-      approvalStatus: NannyApprovalStatus.REJECTED,
-      reviewedAt: new Date(),
-      rejectionReason: input.reason ?? null,
+      idVerificationStatus: IdVerificationStatus.REJECTED,
+      idReviewedAt: new Date(),
+      idRejectionReason: input.reason ?? null,
+      idDocumentFrontUrl: null,
+      idDocumentBackUrl: null,
     },
-    include: nannyInclude,
   });
+  await deleteStorageObjectByUrl(idDocumentFrontUrl);
+  await deleteStorageObjectByUrl(idDocumentBackUrl);
 
   const title = 'Update on your application';
   const body = input.reason
     ? `Your nanny application was not approved: ${input.reason}`
     : 'Your nanny application was not approved. Please contact support for details.';
   await createInAppNotification({
-    userId: updated.user.id,
+    userId: profile.user.id,
     type: 'NANNY_REJECTED',
     title,
     body,
   });
-  await dispatchPush(updated.user.id, {
+  await dispatchPush(profile.user.id, {
     title,
     body,
     data: { type: 'nanny_rejected', title },
   });
 
-  return toDto(updated);
+  return toDto(await findReviewableNanny(id));
 }
 
 /**

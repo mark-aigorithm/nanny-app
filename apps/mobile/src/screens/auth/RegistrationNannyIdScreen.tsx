@@ -7,25 +7,23 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Image,
-  Alert,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
+import { IdDocumentType, idTypeRequiresBack } from '@shared/nanny';
 import { colors } from '@mobile/theme';
 import { APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
+import IdCaptureFields from '@mobile/components/IdCaptureFields';
+import { pickImageFromLibrary } from '@mobile/lib/pickImage';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-id-screen.styles';
 
-type IdSide = 'front' | 'back';
-
-// Nanny-only step: capture both sides of the government ID so an admin can
-// verify identity (KYC) before approving the profile. The images are only
-// local URIs here — they're uploaded to Firebase Storage at final submit
-// (RegistrationStep3Screen), once the Firebase account exists.
+// Nanny-only step: capture the government ID so an admin can verify identity
+// (KYC) before approving the profile. The images are only local URIs here —
+// they're uploaded to Firebase Storage at final submit (RegistrationStep3Screen),
+// once the Firebase account exists.
 export default function RegistrationNannyIdScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
@@ -39,37 +37,30 @@ export default function RegistrationNannyIdScreen() {
     router.back();
   }
 
-  async function handlePickId(side: IdSide) {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          'Please allow photo library access to upload your ID.',
-        );
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        const uri = result.assets[0].uri;
-        patch(side === 'front' ? { idFrontUri: uri } : { idBackUri: uri });
-        if (formError) setFormError(null);
-      }
-    } catch (err) {
-      Alert.alert(
-        'Could not open photos',
-        err instanceof Error ? err.message : 'Something went wrong.',
-      );
+  function handleChangeType(idDocumentType: IdDocumentType) {
+    patch({ idDocumentType });
+    if (formError) setFormError(null);
+  }
+
+  async function handlePickId(side: 'front' | 'back') {
+    const uri = await pickImageFromLibrary();
+    if (uri) {
+      patch(side === 'front' ? { idFrontUri: uri } : { idBackUri: uri });
+      if (formError) setFormError(null);
     }
   }
 
   function handleContinue() {
-    if (!draft.idFrontUri || !draft.idBackUri) {
-      setFormError('Please upload both the front and back of your ID.');
+    if (!draft.idDocumentType) {
+      setFormError('Please choose your ID type.');
+      return;
+    }
+    if (!draft.idFrontUri) {
+      setFormError('Please upload the front of your ID.');
+      return;
+    }
+    if (idTypeRequiresBack(draft.idDocumentType) && !draft.idBackUri) {
+      setFormError('Please upload the back of your ID.');
       return;
     }
     setFormError(null);
@@ -115,25 +106,19 @@ export default function RegistrationNannyIdScreen() {
           {/* Section title */}
           <Text style={styles.sectionTitle}>Upload your ID</Text>
           <Text style={styles.sectionSubtitle}>
-            Families trust verified nannies. Upload clear photos of the front and
-            back of your government ID. Only our review team can see them.
+            Families trust verified nannies. Choose your ID type and upload a clear
+            photo of your government ID. Only our review team can see it.
           </Text>
 
-          {/* Upload cards */}
-          <View style={styles.uploadGroup}>
-            <IdUploadCard
-              label="Front of ID"
-              uri={draft.idFrontUri}
-              onPress={() => handlePickId('front')}
-            />
-            <IdUploadCard
-              label="Back of ID"
-              uri={draft.idBackUri}
-              onPress={() => handlePickId('back')}
-            />
-          </View>
-
-          {formError && <Text style={styles.errorText}>{formError}</Text>}
+          <IdCaptureFields
+            idType={draft.idDocumentType}
+            onChangeType={handleChangeType}
+            frontUri={draft.idFrontUri}
+            backUri={draft.idBackUri}
+            onPickFront={() => handlePickId('front')}
+            onPickBack={() => handlePickId('back')}
+            error={formError}
+          />
         </ScrollView>
 
         {/* Fixed footer */}
@@ -142,44 +127,5 @@ export default function RegistrationNannyIdScreen() {
         </View>
       </View>
     </KeyboardAvoidingView>
-  );
-}
-
-function IdUploadCard({
-  label,
-  uri,
-  onPress,
-}: {
-  label: string;
-  uri: string | null;
-  onPress: () => void;
-}) {
-  if (uri) {
-    return (
-      <Pressable
-        style={[styles.uploadCard, styles.uploadCardFilled]}
-        onPress={onPress}
-      >
-        <Image source={{ uri }} style={styles.previewImage} resizeMode="cover" />
-        <View style={styles.previewBadge}>
-          <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-          <Text style={styles.previewBadgeText}>{label}</Text>
-        </View>
-        <View style={styles.previewOverlay}>
-          <Ionicons name="camera-outline" size={14} color={colors.white} />
-          <Text style={styles.previewOverlayText}>Change</Text>
-        </View>
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable style={styles.uploadCard} onPress={onPress}>
-      <View style={styles.uploadIconCircle}>
-        <Ionicons name="card-outline" size={24} color={colors.primaryDark} />
-      </View>
-      <Text style={styles.uploadTitle}>{label}</Text>
-      <Text style={styles.uploadHint}>Tap to upload a photo</Text>
-    </Pressable>
   );
 }

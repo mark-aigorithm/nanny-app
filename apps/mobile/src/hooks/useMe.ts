@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UpdateProfileRequest, UserResponse } from '@nanny-app/shared';
+import type { SubmitIdRequest, UpdateProfileRequest, UserResponse } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { useAuthStore } from '@mobile/store/authStore';
@@ -59,6 +59,26 @@ export function useUpdateProfile() {
 
   return useMutation<UserResponse, Error, UpdateProfileRequest>({
     mutationFn: (body) => unwrap(api.patch('/auth/me', body)),
+    onSuccess: (updated) => {
+      setProfile(updated);
+      queryClient.setQueryData(['auth', 'me', firebaseUser?.uid], updated);
+    },
+  });
+}
+
+/**
+ * Submits (or re-submits) the user's identity document to `POST /auth/id`.
+ * Used by both the nanny forced re-upload screen and the mother booking-gate
+ * modal. The response moves the account to PENDING_REVIEW; mirror it into the
+ * profile store so gating recomputes immediately.
+ */
+export function useSubmitId() {
+  const queryClient = useQueryClient();
+  const firebaseUser = useAuthStore((s) => s.user);
+  const setProfile = useUserProfileStore((s) => s.setProfile);
+
+  return useMutation<UserResponse, Error, SubmitIdRequest>({
+    mutationFn: (body) => unwrap(api.post('/auth/id', body)),
     onSuccess: (updated) => {
       setProfile(updated);
       queryClient.setQueryData(['auth', 'me', firebaseUser?.uid], updated);

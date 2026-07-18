@@ -3,8 +3,8 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import {
   AdminBookingListQuerySchema,
   type AdminBookingListQuery,
-  AdminListQuerySchema,
-  type AdminListQuery,
+  AdminMotherListQuerySchema,
+  type AdminMotherListQuery,
   AdminNannyListQuerySchema,
   type AdminNannyListQuery,
   CreateAdminSchema,
@@ -52,11 +52,13 @@ import {
   setNannySkills,
 } from '@backend/services/admin-nanny.service';
 import {
+  approveMother,
   createAdminUser,
   getAdminMother,
   getAdminProfile,
   listAdminMothers,
   listAdminUsers,
+  rejectMother,
 } from '@backend/services/admin-user.service';
 import {
   getPlatformConfig,
@@ -253,15 +255,15 @@ adminRouter.put(
   },
 );
 
-// ── Mothers directory (read-only list of parent accounts) ──────
+// ── Mothers directory (parent accounts + ID review) ────────────
 
 adminRouter.get(
   '/mothers',
-  validateQuery(AdminListQuerySchema),
+  validateQuery(AdminMotherListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { page, limit } = res.locals['validatedQuery'] as AdminListQuery;
-      const { mothers, meta } = await listAdminMothers({ page, limit });
+      const { status, page, limit } = res.locals['validatedQuery'] as AdminMotherListQuery;
+      const { mothers, meta } = await listAdminMothers(status, { page, limit });
       res.json(okPaged(mothers, meta));
     } catch (err) {
       next(err);
@@ -276,6 +278,29 @@ adminRouter.get('/mothers/:id', async (req: Request, res: Response, next: NextFu
     next(err);
   }
 });
+
+adminRouter.post(
+  '/mothers/:id/approve',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await approveMother(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/mothers/:id/reject',
+  validateBody(RejectNannySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await rejectMother(routeParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── Admin accounts (superuser only) ────────────────────────────
 

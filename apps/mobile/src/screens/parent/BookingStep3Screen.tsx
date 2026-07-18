@@ -55,6 +55,7 @@ import {
 } from '@mobile/lib/bookingDraft';
 
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { useIdGateStore } from '@mobile/store/idGateStore';
 import { buildPaymobCheckoutUrl } from '@mobile/lib/paymobCheckout';
 
 import { extractBookingIdFromRedirect, isPaymobPaymentRedirect } from '@mobile/lib/paymobRedirect';
@@ -391,7 +392,18 @@ export default function BookingStep3Screen() {
 
     } catch (err) {
 
-      setLoadError(getApiErrorMessage(err, 'Could not submit your request. Please try again.'));
+      const message = getApiErrorMessage(err, 'Could not submit your request. Please try again.');
+
+      // Backstop: if the server gated the booking on a missing ID (a mother who
+      // slipped past the home-screen gate, e.g. stale profile), prompt her to
+      // upload rather than showing a dead-end error.
+      if (message.toLowerCase().includes('upload your id')) {
+
+        useIdGateStore.getState().openIdGate();
+
+      }
+
+      setLoadError(message);
 
     } finally {
 

@@ -21,6 +21,7 @@ const STATUS_FILTERS: { value: AdminNannyStatusFilter; label: string }[] = [
   { value: 'PENDING_REVIEW', label: 'Pending review' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
+  { value: 'PENDING_ID', label: 'Awaiting ID' },
   { value: 'ALL', label: 'All' },
 ];
 
@@ -28,7 +29,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-function statusTone(status: AdminNanny['approvalStatus']): 'success' | 'danger' | 'neutral' {
+function statusTone(status: AdminNanny['idVerificationStatus']): 'success' | 'danger' | 'neutral' {
   if (status === 'APPROVED') return 'success';
   if (status === 'REJECTED') return 'danger';
   return 'neutral';
@@ -126,7 +127,9 @@ export function NannyReviewTab() {
       header: 'Status',
       render: (nanny) => (
         <>
-          <Badge tone={statusTone(nanny.approvalStatus)}>{statusLabel(nanny.approvalStatus)}</Badge>
+          <Badge tone={statusTone(nanny.idVerificationStatus)}>
+            {statusLabel(nanny.idVerificationStatus)}
+          </Badge>
           {nanny.rejectionReason && <div className="table-subtext">{nanny.rejectionReason}</div>}
         </>
       ),

@@ -1,11 +1,13 @@
 import { Tabs } from 'expo-router';
 
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
+import IdUploadModal from '@mobile/components/IdUploadModal';
 
 export default function ParentLayout() {
   return (
     <>
       <RegisterPromptModal />
+      <IdUploadModal />
       <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
         <Tabs.Screen name="home" options={{ title: 'Home' }} />
         <Tabs.Screen name="community" options={{ title: 'Community' }} />
