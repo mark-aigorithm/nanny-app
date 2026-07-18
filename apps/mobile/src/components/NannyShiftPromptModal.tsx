@@ -122,7 +122,7 @@ export default function NannyShiftPromptModal() {
       return;
     }
 
-    if (prompt.kind === 'confirm_start' || prompt.kind === 'confirm_end') {
+    if (prompt.kind === 'confirm_end') {
       dismissPrompt();
       prompt.onConfirm?.();
       return;
