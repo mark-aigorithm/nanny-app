@@ -267,7 +267,7 @@ export default function BookingStep3Screen() {
 
           bookingId: id,
 
-          ...bookingFlowRetryParams(params, id),
+          ...bookingFlowRetryParams(params, Number(id)),
 
         },
 
@@ -285,7 +285,7 @@ export default function BookingStep3Screen() {
 
     async (id: string) => {
 
-      const session = await paymobCheckout.mutateAsync({ bookingId: id });
+      const session = await paymobCheckout.mutateAsync({ bookingId: Number(id) });
 
       setCheckoutUrl(buildPaymobCheckoutUrl(session.publicKey, session.clientSecret));
 
@@ -381,14 +381,17 @@ export default function BookingStep3Screen() {
         ...(params.promoCode?.trim() ? { promoCode: params.promoCode.trim() } : {}),
 
         skillIds: params.skillIds?.trim()
-          ? params.skillIds.split(',').map((s) => s.trim()).filter(Boolean)
+          ? params.skillIds
+              .split(',')
+              .map((s) => Number(s.trim()))
+              .filter((n) => Number.isInteger(n))
           : [],
 
       });
 
       // Route straight to the confirmation screen, which reads a PENDING
       // booking as "request submitted — awaiting approval".
-      goToConfirmation(created.id);
+      goToConfirmation(String(created.id));
 
     } catch (err) {
 

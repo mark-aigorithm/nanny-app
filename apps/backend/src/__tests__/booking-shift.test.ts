@@ -40,21 +40,21 @@ const mockPush = dispatchPush as jest.Mock;
 const DEFAULT_PIN = '1234';
 
 const nannyUser = {
-  id: 'nanny-user-1',
+  id: 16,
   firebaseUid: 'firebase-nanny',
   role: Role.NANNY,
   deletedAt: null,
 };
 
 const motherUser = {
-  id: 'mother-1',
+  id: 10,
   firebaseUid: 'firebase-mother',
   role: Role.MOTHER,
   deletedAt: null,
 };
 
 const mother = {
-  id: 'mother-1',
+  id: 10,
   firstName: 'Jane',
   lastName: 'Mom',
   avatarUrl: null,
@@ -78,7 +78,7 @@ function makeBooking(overrides: Partial<{
   const startTime = overrides.startTime ?? new Date(Date.now() + 10 * 60_000);
   const endTime = overrides.endTime ?? new Date(startTime.getTime() + 3 * 3_600_000);
   return {
-    id: 'booking-1',
+    id: 4,
     motherId: mother.id,
     status: overrides.status ?? PrismaBookingStatus.CONFIRMED,
     startTime,
@@ -86,7 +86,7 @@ function makeBooking(overrides: Partial<{
     date: startTime,
     mother,
     nannyProfile: {
-      id: 'np-1',
+      id: 19,
       userId: nannyUser.id,
       user: nannyProfileUser,
     },
@@ -132,7 +132,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
       mockPrisma.booking.update.mockResolvedValue(booking);
 
-      const result = await generateStartPin({ uid: 'firebase-mother' } as never, 'booking-1');
+      const result = await generateStartPin({ uid: 'firebase-mother' } as never, 4);
 
       expect(result.pin).toMatch(/^\d{4}$/);
       expect(typeof result.expiresAt).toBe('string');
@@ -147,7 +147,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(makeBooking());
 
       await expect(
-        generateStartPin({ uid: 'firebase-nanny' } as never, 'booking-1'),
+        generateStartPin({ uid: 'firebase-nanny' } as never, 4),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
@@ -155,11 +155,11 @@ describe('booking shift transitions', () => {
     it('rejects a mother who does not own the booking', async () => {
       mockPrisma.booking.findUnique.mockResolvedValue({
         ...makeBooking(),
-        motherId: 'someone-else',
+        motherId: 28,
       });
 
       await expect(
-        generateStartPin({ uid: 'firebase-mother' } as never, 'booking-1'),
+        generateStartPin({ uid: 'firebase-mother' } as never, 4),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
@@ -170,7 +170,7 @@ describe('booking shift transitions', () => {
       );
 
       await expect(
-        generateStartPin({ uid: 'firebase-mother' } as never, 'booking-1'),
+        generateStartPin({ uid: 'firebase-mother' } as never, 4),
       ).rejects.toThrow(AppError);
     });
 
@@ -180,7 +180,7 @@ describe('booking shift transitions', () => {
       );
 
       await expect(
-        generateStartPin({ uid: 'firebase-mother' } as never, 'booking-1'),
+        generateStartPin({ uid: 'firebase-mother' } as never, 4),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
@@ -197,7 +197,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
       mockPrisma.booking.update.mockResolvedValue(updated);
 
-      const result = await checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', DEFAULT_PIN);
+      const result = await checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN);
 
       expect(result.status).toBe(BookingStatus.IN_PROGRESS);
       const data = mockPrisma.booking.update.mock.calls[0][0].data;
@@ -210,7 +210,8 @@ describe('booking shift transitions', () => {
       expect(mockPush).toHaveBeenCalledWith(
         mother.id,
         expect.objectContaining({
-          data: expect.objectContaining({ bookingId: 'booking-1' }),
+          // FCM push data is always Record<string,string>, so the id is stringified.
+          data: expect.objectContaining({ bookingId: '4' }),
         }),
       );
     });
@@ -221,7 +222,7 @@ describe('booking shift transitions', () => {
       );
 
       await expect(
-        checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', DEFAULT_PIN),
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
@@ -232,7 +233,7 @@ describe('booking shift transitions', () => {
       );
 
       await expect(
-        checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', DEFAULT_PIN),
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
@@ -241,7 +242,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(makeBooking());
 
       await expect(
-        checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', '9999'),
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, '9999'),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -257,7 +258,7 @@ describe('booking shift transitions', () => {
       );
 
       await expect(
-        checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', DEFAULT_PIN),
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
       ).rejects.toThrow(AppError);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
@@ -269,7 +270,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
 
       await expect(
-        checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', DEFAULT_PIN),
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
       ).rejects.toThrow(AppError);
 
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
@@ -280,7 +281,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
 
       await expect(
-        checkInBooking({ uid: 'firebase-nanny' } as never, 'booking-1', DEFAULT_PIN),
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
       ).rejects.toThrow(AppError);
     });
   });
@@ -296,7 +297,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
       mockPrisma.booking.update.mockResolvedValue(updated);
 
-      const result = await checkOutBooking({ uid: 'firebase-nanny' } as never, 'booking-1');
+      const result = await checkOutBooking({ uid: 'firebase-nanny' } as never, 4);
 
       expect(result.status).toBe(BookingStatus.COMPLETED);
       expect(mockNotify).toHaveBeenCalledWith(
@@ -312,7 +313,7 @@ describe('booking shift transitions', () => {
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
 
       await expect(
-        checkOutBooking({ uid: 'firebase-nanny' } as never, 'booking-1'),
+        checkOutBooking({ uid: 'firebase-nanny' } as never, 4),
       ).rejects.toThrow(AppError);
 
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();

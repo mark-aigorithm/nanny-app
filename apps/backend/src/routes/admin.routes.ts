@@ -32,7 +32,7 @@ import {
 
 import { ok, okPaged } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
-import { routeParam } from '@backend/lib/route-param';
+import { routeIdParam } from '@backend/lib/route-param';
 import { requireAdmin, requireSuperuser } from '@backend/middleware/admin.middleware';
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
@@ -132,7 +132,7 @@ adminRouter.get(
 
 adminRouter.get('/bookings/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(ok(await getAdminBooking(routeParam(req.params.id))));
+    res.json(ok(await getAdminBooking(routeIdParam(req.params.id))));
   } catch (err) {
     next(err);
   }
@@ -143,7 +143,7 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      res.json(ok(await approveBooking(routeParam(req.params.id), req.firebaseUser.uid)));
+      res.json(ok(await approveBooking(routeIdParam(req.params.id), req.firebaseUser.uid)));
     } catch (err) {
       next(err);
     }
@@ -157,7 +157,7 @@ adminRouter.post(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       res.json(
-        ok(await rejectBooking(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+        ok(await rejectBooking(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
       );
     } catch (err) {
       next(err);
@@ -172,7 +172,7 @@ adminRouter.patch(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       res.json(
-        ok(await setBookingStatus(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+        ok(await setBookingStatus(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
       );
     } catch (err) {
       next(err);
@@ -187,7 +187,7 @@ adminRouter.patch(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       res.json(
-        ok(await updateBookingTimes(routeParam(req.params.id), req.firebaseUser.uid, req.body)),
+        ok(await updateBookingTimes(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
       );
     } catch (err) {
       next(err);
@@ -214,7 +214,7 @@ adminRouter.get(
 // Literal detail route registered before the parameterised action routes below.
 adminRouter.get('/nannies/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(ok(await getAdminNanny(routeParam(req.params.id))));
+    res.json(ok(await getAdminNanny(routeIdParam(req.params.id))));
   } catch (err) {
     next(err);
   }
@@ -224,7 +224,7 @@ adminRouter.post(
   '/nannies/:id/approve',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await approveNanny(routeParam(req.params.id))));
+      res.json(ok(await approveNanny(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
@@ -236,7 +236,7 @@ adminRouter.post(
   validateBody(RejectNannySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await rejectNanny(routeParam(req.params.id), req.body)));
+      res.json(ok(await rejectNanny(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -248,7 +248,7 @@ adminRouter.put(
   validateBody(SetNannySkillsSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await setNannySkills(routeParam(req.params.id), req.body)));
+      res.json(ok(await setNannySkills(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -273,7 +273,7 @@ adminRouter.get(
 
 adminRouter.get('/mothers/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(ok(await getAdminMother(routeParam(req.params.id))));
+    res.json(ok(await getAdminMother(routeIdParam(req.params.id))));
   } catch (err) {
     next(err);
   }
@@ -283,7 +283,7 @@ adminRouter.post(
   '/mothers/:id/approve',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await approveMother(routeParam(req.params.id))));
+      res.json(ok(await approveMother(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
@@ -295,7 +295,7 @@ adminRouter.post(
   validateBody(RejectNannySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await rejectMother(routeParam(req.params.id), req.body)));
+      res.json(ok(await rejectMother(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -356,7 +356,7 @@ adminRouter.patch(
   validateBody(UpdatePromoCodeSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await updatePromoCode(routeParam(req.params.id), req.body)));
+      res.json(ok(await updatePromoCode(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -367,7 +367,7 @@ adminRouter.delete(
   '/promo-codes/:id',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await deletePromoCode(routeParam(req.params.id))));
+      res.json(ok(await deletePromoCode(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
@@ -401,7 +401,7 @@ adminRouter.patch(
   validateBody(UpdateSkillSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await updateSkill(routeParam(req.params.id), req.body)));
+      res.json(ok(await updateSkill(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -412,7 +412,7 @@ adminRouter.delete(
   '/skills/:id',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await deleteSkill(routeParam(req.params.id))));
+      res.json(ok(await deleteSkill(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
@@ -458,7 +458,7 @@ adminRouter.patch(
   validateBody(UpdateCameraSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await updateCamera(routeParam(req.params.id), req.body)));
+      res.json(ok(await updateCamera(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -469,7 +469,7 @@ adminRouter.delete(
   '/cameras/:id',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await deleteCamera(routeParam(req.params.id))));
+      res.json(ok(await deleteCamera(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
@@ -525,7 +525,7 @@ adminRouter.patch(
   validateBody(UpdateDurationRuleSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await updateDurationRule(routeParam(req.params.id), req.body)));
+      res.json(ok(await updateDurationRule(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -536,7 +536,7 @@ adminRouter.delete(
   '/duration-rules/:id',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await deleteDurationRule(routeParam(req.params.id))));
+      res.json(ok(await deleteDurationRule(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
@@ -603,7 +603,7 @@ adminRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = RewardHistoryQuerySchema.parse(req.query);
-      const result = await getWalletHistory(routeParam(req.params.userId), query);
+      const result = await getWalletHistory(routeIdParam(req.params.userId), query);
       res.json({ data: result.entries, error: null, meta: result.meta });
     } catch (err) {
       next(err);
@@ -615,7 +615,7 @@ adminRouter.get(
   '/rewards/wallets/:userId',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await getWalletSummary(routeParam(req.params.userId))));
+      res.json(ok(await getWalletSummary(routeIdParam(req.params.userId))));
     } catch (err) {
       next(err);
     }
@@ -632,7 +632,7 @@ adminRouter.post(
       res.json(
         ok(
           await grantPoints({
-            userId: routeParam(req.params.userId),
+            userId: routeIdParam(req.params.userId),
             points: req.body.points,
             reason: req.body.reason,
             adminId: admin.id,

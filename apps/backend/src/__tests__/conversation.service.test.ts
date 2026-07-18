@@ -66,7 +66,7 @@ const mockPrisma = prisma as unknown as {
 };
 
 const buyer = {
-  id: 'buyer-1',
+  id: 5,
   firebaseUid: 'firebase-buyer',
   role: Role.MOTHER,
   deletedAt: null,
@@ -76,7 +76,7 @@ const buyer = {
 };
 
 const seller = {
-  id: 'seller-1',
+  id: 25,
   firebaseUid: 'firebase-seller',
   role: Role.MOTHER,
   deletedAt: null,
@@ -86,7 +86,7 @@ const seller = {
 };
 
 const marketplacePost = {
-  id: 'post-1',
+  id: 22,
   authorId: seller.id,
   type: CommunityPostType.MARKETPLACE,
   title: 'Stroller',
@@ -100,9 +100,9 @@ const marketplacePost = {
 const decoded = { uid: 'firebase-buyer' } as import('@backend/lib/firebase').DecodedIdToken;
 
 const sampleConversation = {
-  id: 'conv-1',
+  id: 8,
   type: ConversationType.MARKETPLACE,
-  communityPostId: 'post-1',
+  communityPostId: 22,
   initiatorId: buyer.id,
   createdAt: new Date('2026-01-01T12:00:00Z'),
   updatedAt: new Date('2026-01-01T12:00:00Z'),
@@ -128,7 +128,7 @@ describe('conversation.service', () => {
       role: Role.NANNY,
     } as never);
 
-    await expect(contactSeller(decoded, 'post-1')).rejects.toEqual(
+    await expect(contactSeller(decoded, 22)).rejects.toEqual(
       expect.objectContaining<Partial<AppError>>({ statusCode: 403 }),
     );
   });
@@ -140,7 +140,7 @@ describe('conversation.service', () => {
       author: buyer,
     } as never);
 
-    await expect(contactSeller(decoded, 'post-1')).rejects.toEqual(
+    await expect(contactSeller(decoded, 22)).rejects.toEqual(
       expect.objectContaining<Partial<AppError>>({ statusCode: 400 }),
     );
   });
@@ -149,9 +149,9 @@ describe('conversation.service', () => {
     mockPrisma.communityPost.findFirst.mockResolvedValue(marketplacePost as never);
     mockPrisma.conversation.findFirst.mockResolvedValue(sampleConversation as never);
 
-    const result = await contactSeller(decoded, 'post-1');
+    const result = await contactSeller(decoded, 22);
 
-    expect(result.id).toBe('conv-1');
+    expect(result.id).toBe(8);
     expect(result.listingContext.title).toBe('Stroller');
     expect(mockPrisma.conversation.create).not.toHaveBeenCalled();
   });
@@ -161,9 +161,9 @@ describe('conversation.service', () => {
     mockPrisma.conversation.findFirst.mockResolvedValue(null);
     mockPrisma.conversation.create.mockResolvedValue(sampleConversation as never);
 
-    const result = await contactSeller(decoded, 'post-1');
+    const result = await contactSeller(decoded, 22);
 
-    expect(result.otherParticipant.id).toBe('seller-1');
+    expect(result.otherParticipant.id).toBe(25);
     expect(mockPrisma.conversation.create).toHaveBeenCalled();
   });
 
@@ -183,8 +183,8 @@ describe('conversation.service', () => {
       const tx = {
         message: {
           create: jest.fn().mockResolvedValue({
-            id: 'msg-1',
-            conversationId: 'conv-1',
+            id: 11,
+            conversationId: 8,
             type: MessageType.TEXT,
             content: 'Hello',
             createdAt: new Date('2026-01-01T12:05:00Z'),
@@ -197,10 +197,10 @@ describe('conversation.service', () => {
       return fn(tx as never);
     });
 
-    const result = await sendMessage(decoded, 'conv-1', { content: 'Hello' });
+    const result = await sendMessage(decoded, 8, { content: 'Hello' });
 
     expect(result.content).toBe('Hello');
-    expect(result.sender.id).toBe('buyer-1');
+    expect(result.sender.id).toBe(5);
   });
 
   const mockSendTransaction = () =>
@@ -208,8 +208,8 @@ describe('conversation.service', () => {
       const tx = {
         message: {
           create: jest.fn().mockResolvedValue({
-            id: 'msg-1',
-            conversationId: 'conv-1',
+            id: 11,
+            conversationId: 8,
             type: MessageType.TEXT,
             content: 'Hello',
             createdAt: new Date('2026-01-01T12:05:00Z'),
@@ -226,7 +226,7 @@ describe('conversation.service', () => {
     mockPrisma.conversation.findFirst.mockResolvedValue(sampleConversation as never);
     mockSendTransaction();
 
-    await sendMessage(decoded, 'conv-1', { content: 'Hello' });
+    await sendMessage(decoded, 8, { content: 'Hello' });
 
     expect(mockNotify).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledTimes(1);
@@ -242,7 +242,7 @@ describe('conversation.service', () => {
     } as never);
     mockSendTransaction();
 
-    await sendMessage(decoded, 'conv-1', { content: 'Hello' });
+    await sendMessage(decoded, 8, { content: 'Hello' });
 
     expect(mockNotify).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
@@ -250,7 +250,7 @@ describe('conversation.service', () => {
 
   it('returns total unread message count', async () => {
     mockPrisma.conversationParticipant.findMany.mockResolvedValue([
-      { conversationId: 'conv-1', lastReadAt: null },
+      { conversationId: 8, lastReadAt: null },
     ] as never);
     mockPrisma.message.count.mockResolvedValue(2);
 

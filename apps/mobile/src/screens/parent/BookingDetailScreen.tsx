@@ -41,7 +41,7 @@ export default function BookingDetailScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const careLogScrollY = useRef(0);
 
-  const { data: booking, isLoading } = useBooking(bookingId);
+  const { data: booking, isLoading } = useBooking(bookingId ? Number(bookingId) : undefined);
   const canViewCareLog =
     booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED';
   const cancelBooking = useCancelBooking();
@@ -91,7 +91,7 @@ export default function BookingDetailScreen() {
           style: 'destructive',
           onPress: () => {
             cancelBooking.mutate(
-              { id: bookingId, reason: 'Cancelled by parent' },
+              { id: Number(bookingId), reason: 'Cancelled by parent' },
               {
                 onSuccess: () => handleBack(),
                 onError: (err) => Alert.alert('Error', err.message),
@@ -232,7 +232,7 @@ export default function BookingDetailScreen() {
               careLogScrollY.current = event.nativeEvent.layout.y;
             }}
           >
-            <BookingCareLogSection bookingId={bookingId} />
+            <BookingCareLogSection bookingId={Number(bookingId)} />
           </View>
         ) : null}
 

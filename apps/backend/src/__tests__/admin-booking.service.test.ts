@@ -51,14 +51,14 @@ const mockPrisma = prisma as unknown as {
 const mockNotify = createInAppNotification as jest.Mock;
 
 const ADMIN_UID = 'fb-admin';
-const ADMIN_ID = 'admin-9';
+const ADMIN_ID = 3;
 
 const dec = (n: number) => ({ toNumber: () => n });
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   const start = new Date('2026-08-01T10:00:00.000Z');
   return {
-    id: 'booking-1',
+    id: 4,
     status: PrismaBookingStatus.PENDING,
     nannyDecision: 'PENDING',
     type: 'STANDARD',
@@ -86,11 +86,11 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     nannyCheckedOutAt: null,
     promoCode: null,
     payment: { status: 'PENDING' },
-    mother: { id: 'mother-1', firstName: 'Jane', lastName: 'Mom', phone: '+201000000000' },
-    nannyProfileId: 'np-1',
+    mother: { id: 10, firstName: 'Jane', lastName: 'Mom', phone: '+201000000000' },
+    nannyProfileId: 19,
     nannyProfile: {
-      id: 'np-1',
-      user: { id: 'nanny-user-1', firstName: 'Elena', lastName: 'Nanny' },
+      id: 19,
+      user: { id: 16, firstName: 'Elena', lastName: 'Nanny' },
     },
     createdAt: new Date('2026-07-12T00:00:00.000Z'),
     updatedAt: new Date('2026-07-12T00:00:00.000Z'),
@@ -112,7 +112,7 @@ describe('approveBooking', () => {
       makeRow({ status: PrismaBookingStatus.APPROVED, nannyDecision: 'DECLINED' }),
     );
 
-    const result = await approveBooking('booking-1', ADMIN_UID);
+    const result = await approveBooking(4, ADMIN_UID);
 
     expect(result.status).toBe('APPROVED');
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
@@ -122,10 +122,10 @@ describe('approveBooking', () => {
 
     // Mother is prompted to pay; nanny is informed.
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'mother-1', type: 'BOOKING_APPROVED' }),
+      expect.objectContaining({ userId: 10, type: 'BOOKING_APPROVED' }),
     );
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'nanny-user-1', type: 'BOOKING_APPROVED' }),
+      expect.objectContaining({ userId: 16, type: 'BOOKING_APPROVED' }),
     );
   });
 
@@ -134,7 +134,7 @@ describe('approveBooking', () => {
       makeRow({ nannyProfileId: null, nannyProfile: null }),
     );
 
-    await expect(approveBooking('booking-1', ADMIN_UID)).rejects.toThrow(
+    await expect(approveBooking(4, ADMIN_UID)).rejects.toThrow(
       /Assign a nanny/i,
     );
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe('approveBooking', () => {
       makeRow({ status: PrismaBookingStatus.APPROVED }),
     );
 
-    await expect(approveBooking('booking-1', ADMIN_UID)).rejects.toThrow(AppError);
+    await expect(approveBooking(4, ADMIN_UID)).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 });
@@ -157,7 +157,7 @@ describe('rejectBooking', () => {
       makeRow({ status: PrismaBookingStatus.CANCELLED }),
     );
 
-    const result = await rejectBooking('booking-1', ADMIN_UID, { reason: 'Fully booked' });
+    const result = await rejectBooking(4, ADMIN_UID, { reason: 'Fully booked' });
 
     expect(result.status).toBe('CANCELLED');
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
@@ -166,7 +166,7 @@ describe('rejectBooking', () => {
     expect(updateData.cancelledById).toBe(ADMIN_ID);
     expect(updateData.adminActionById).toBe(ADMIN_ID);
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'mother-1', type: 'BOOKING_CANCELLED' }),
+      expect.objectContaining({ userId: 10, type: 'BOOKING_CANCELLED' }),
     );
   });
 });
@@ -178,7 +178,7 @@ describe('setBookingStatus', () => {
     );
 
     await expect(
-      setBookingStatus('booking-1', ADMIN_UID, { status: 'CANCELLED' }),
+      setBookingStatus(4, ADMIN_UID, { status: 'CANCELLED' }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe('setBookingStatus', () => {
       makeRow({ status: PrismaBookingStatus.CANCELLED }),
     );
 
-    const result = await setBookingStatus('booking-1', ADMIN_UID, { status: 'CANCELLED' });
+    const result = await setBookingStatus(4, ADMIN_UID, { status: 'CANCELLED' });
 
     expect(result.status).toBe('CANCELLED');
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
@@ -199,7 +199,7 @@ describe('setBookingStatus', () => {
     expect(updateData.adminActionBy).toEqual({ connect: { id: ADMIN_ID } });
     expect(updateData.cancelledBy).toEqual({ connect: { id: ADMIN_ID } });
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'mother-1', type: 'BOOKING_CANCELLED' }),
+      expect.objectContaining({ userId: 10, type: 'BOOKING_CANCELLED' }),
     );
   });
 
@@ -209,7 +209,7 @@ describe('setBookingStatus', () => {
     );
 
     await expect(
-      setBookingStatus('booking-1', ADMIN_UID, { status: 'IN_PROGRESS' }),
+      setBookingStatus(4, ADMIN_UID, { status: 'IN_PROGRESS' }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
@@ -224,7 +224,7 @@ describe('updateBookingTimes', () => {
       makeRow({ durationHours: dec(4), totalAmount: dec(424) }),
     );
 
-    await updateBookingTimes('booking-1', ADMIN_UID, {
+    await updateBookingTimes(4, ADMIN_UID, {
       startTime: '2026-08-02T10:00:00',
       endTime: '2026-08-02T14:00:00', // 4 hours
     });
@@ -242,7 +242,7 @@ describe('updateBookingTimes', () => {
     expect(updateData.platformAmount).toBe(80);
     expect(updateData.adminActionBy).toEqual({ connect: { id: ADMIN_ID } });
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'mother-1' }),
+      expect.objectContaining({ userId: 10 }),
     );
   });
 
@@ -252,7 +252,7 @@ describe('updateBookingTimes', () => {
     );
 
     await expect(
-      updateBookingTimes('booking-1', ADMIN_UID, {
+      updateBookingTimes(4, ADMIN_UID, {
         startTime: '2026-08-02T10:00:00',
         endTime: '2026-08-02T14:00:00',
       }),
@@ -264,7 +264,7 @@ describe('updateBookingTimes', () => {
     mockPrisma.booking.findFirst.mockResolvedValueOnce(makeRow());
 
     await expect(
-      updateBookingTimes('booking-1', ADMIN_UID, {
+      updateBookingTimes(4, ADMIN_UID, {
         startTime: '2026-08-02T10:00:00',
         endTime: '2026-08-02T10:30:00', // 0.5 h
       }),
@@ -314,16 +314,16 @@ describe('getAdminBooking (detail)', () => {
     mockPrisma.booking.findFirst.mockResolvedValue(
       makeRow({
         mother: {
-          id: 'mother-1',
+          id: 10,
           firstName: 'Jane',
           lastName: 'Mom',
           email: 'jane@example.com',
           phone: '+201000000000',
         },
         nannyProfile: {
-          id: 'np-1',
+          id: 19,
           user: {
-            id: 'nanny-user-1',
+            id: 16,
             firstName: 'Elena',
             lastName: 'Nanny',
             email: 'elena@example.com',
@@ -348,7 +348,7 @@ describe('getAdminBooking (detail)', () => {
       }),
     );
 
-    const dto = await getAdminBooking('booking-1');
+    const dto = await getAdminBooking(4);
 
     expect(dto.mother.email).toBe('jane@example.com');
     expect(dto.nanny?.email).toBe('elena@example.com');
@@ -360,6 +360,6 @@ describe('getAdminBooking (detail)', () => {
 
   it('throws when the booking does not exist', async () => {
     mockPrisma.booking.findFirst.mockResolvedValue(null);
-    await expect(getAdminBooking('missing')).rejects.toThrow(AppError);
+    await expect(getAdminBooking(999)).rejects.toThrow(AppError);
   });
 });

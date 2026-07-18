@@ -53,7 +53,7 @@ function failureReasonFromTxn(txn: PaymobTransactionDto): string {
   return txn.data?.message || 'Payment declined';
 }
 
-async function finalizePaymentCaptured(paymentId: string, paymobTransactionId: string | null) {
+async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: string | null) {
   // Pay-after-approval: the admin already approved (status APPROVED), so a
   // successful capture is the FINAL step and confirms the booking outright.
   const confirmedBooking = await prisma.$transaction(async (tx) => {
@@ -105,7 +105,7 @@ async function finalizePaymentCaptured(paymentId: string, paymobTransactionId: s
   }
 }
 
-async function finalizePaymentFailed(paymentId: string, reason: string) {
+async function finalizePaymentFailed(paymentId: number, reason: string) {
   await prisma.payment.updateMany({
     where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
     data: {
@@ -117,7 +117,7 @@ async function finalizePaymentFailed(paymentId: string, reason: string) {
   });
 }
 
-async function finalizePaymentTimeout(paymentId: string) {
+async function finalizePaymentTimeout(paymentId: number) {
   await finalizePaymentFailed(
     paymentId,
     'Payment timed out waiting for Paymob confirmation.',
@@ -125,17 +125,17 @@ async function finalizePaymentTimeout(paymentId: string) {
 }
 
 /** Paymob merchant order id — payment row id on first attempt, suffixed on retries. */
-function buildPaymobMerchantOrderId(paymentId: string, attempt: number): string {
-  if (attempt <= 1) return paymentId;
+function buildPaymobMerchantOrderId(paymentId: number, attempt: number): string {
+  if (attempt <= 1) return `${paymentId}`;
   return `${paymentId}-r${attempt}`;
 }
 
 export async function createPaymobIntentionForBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   body: CreatePaymobIntentionRequest,
 ): Promise<{
-  paymentId: string;
+  paymentId: number;
   clientSecret: string;
   publicKey: string;
   intentionId: string;
@@ -254,7 +254,7 @@ export async function createPaymobIntentionForBooking(
       special_reference: merchantOrderId,
       notification_url: notificationUrl,
       redirection_url: redirectionUrl,
-      extras: { payment_id: payment.id },
+      extras: { payment_id: String(payment.id) },
     });
 
     await prisma.payment.update({
@@ -290,7 +290,7 @@ export async function createPaymobIntentionForBooking(
 /** Poll Paymob for the latest intention state after the customer returns from checkout. */
 export async function syncPaymobPaymentForBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<void> {
   if (!config.paymob.enabled) return;
 

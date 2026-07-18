@@ -104,7 +104,7 @@ function toPostResponse(
   };
 }
 
-async function loadPostOrThrow(postId: string): Promise<PostWithAuthor> {
+async function loadPostOrThrow(postId: number): Promise<PostWithAuthor> {
   const post = await prisma.communityPost.findFirst({
     where: { id: postId, deletedAt: null },
     include: postInclude,
@@ -113,7 +113,7 @@ async function loadPostOrThrow(postId: string): Promise<PostWithAuthor> {
   return post;
 }
 
-async function getEngagementFlags(userId: string, postId: string) {
+async function getEngagementFlags(userId: number, postId: number) {
   const [like, rsvp] = await Promise.all([
     prisma.postLike.findFirst({
       where: { postId, userId, deletedAt: null },
@@ -134,7 +134,7 @@ function buildPaginationMeta(page: number, limit: number, total: number): Pagina
   };
 }
 
-function mapCreateInput(body: CreateCommunityPostRequest, authorId: string) {
+function mapCreateInput(body: CreateCommunityPostRequest, authorId: number) {
   const base = {
     authorId,
     type: toPrismaPostType(body.type),
@@ -233,7 +233,7 @@ export async function listPosts(
 
 export async function getPost(
   decoded: DecodedIdToken | null,
-  postId: string,
+  postId: number,
 ): Promise<CommunityPostResponse> {
   const user = await getFeedReader(decoded);
 
@@ -261,7 +261,7 @@ export async function createPost(
 
 export async function updatePost(
   decoded: DecodedIdToken,
-  postId: string,
+  postId: number,
   body: UpdateCommunityPostRequest,
 ): Promise<CommunityPostResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -293,7 +293,7 @@ export async function updatePost(
   return toPostResponse(post, flags.likedByMe, flags.rsvpdByMe);
 }
 
-export async function deletePost(decoded: DecodedIdToken, postId: string): Promise<void> {
+export async function deletePost(decoded: DecodedIdToken, postId: number): Promise<void> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
 
@@ -317,7 +317,7 @@ export async function deletePost(decoded: DecodedIdToken, postId: string): Promi
 
 export async function togglePostLike(
   decoded: DecodedIdToken,
-  postId: string,
+  postId: number,
 ): Promise<ToggleLikeResponse> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
@@ -367,7 +367,7 @@ type CommentWithReplies = Prisma.CommentGetPayload<{
   include: { author: true; replies: { include: { author: true } } };
 }>;
 
-function toCommentResponse(comment: CommentWithReplies, likedCommentIds: Set<string>): CommentResponse {
+function toCommentResponse(comment: CommentWithReplies, likedCommentIds: Set<number>): CommentResponse {
   return {
     id: comment.id,
     postId: comment.postId,
@@ -398,7 +398,7 @@ function toCommentResponse(comment: CommentWithReplies, likedCommentIds: Set<str
 
 export async function listComments(
   decoded: DecodedIdToken | null,
-  postId: string,
+  postId: number,
   query: CommentListQuery,
 ): Promise<CommentListResponse> {
   const user = await getFeedReader(decoded);
@@ -452,7 +452,7 @@ export async function listComments(
 
 export async function createComment(
   decoded: DecodedIdToken,
-  postId: string,
+  postId: number,
   body: CreateCommentRequest,
 ): Promise<CommentResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -492,7 +492,7 @@ export async function createComment(
 
 export async function toggleCommentLike(
   decoded: DecodedIdToken,
-  commentId: string,
+  commentId: number,
 ): Promise<ToggleLikeResponse> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
@@ -544,7 +544,7 @@ export async function toggleCommentLike(
 
 export async function toggleEventRsvp(
   decoded: DecodedIdToken,
-  postId: string,
+  postId: number,
 ): Promise<ToggleRsvpResponse> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);

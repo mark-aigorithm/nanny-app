@@ -43,7 +43,7 @@ const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'user-1',
+    id: 29,
     firstName: 'Nour',
     lastName: 'Ibrahim',
     email: 'nour@example.com',
@@ -113,7 +113,7 @@ describe('listAdminMothers', () => {
     const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20 });
 
     expect(mothers[0]).toEqual({
-      id: 'user-1',
+      id: 29,
       name: 'Nour Ibrahim',
       email: 'nour@example.com',
       phone: '+201000000000',
@@ -151,20 +151,20 @@ describe('getAdminMother', () => {
   it('returns the mother DTO for an existing account', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(makeRow());
 
-    const mother = await getAdminMother('user-1');
+    const mother = await getAdminMother(29);
 
-    expect(mother.id).toBe('user-1');
+    expect(mother.id).toBe(29);
     expect(mother.name).toBe('Nour Ibrahim');
     expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'user-1', role: 'MOTHER', deletedAt: null },
+        where: { id: 29, role: 'MOTHER', deletedAt: null },
       }),
     );
   });
 
   it('throws when the mother does not exist', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
-    await expect(getAdminMother('missing')).rejects.toThrow(AppError);
+    await expect(getAdminMother(999)).rejects.toThrow(AppError);
   });
 });
 
@@ -179,11 +179,11 @@ describe('approveMother', () => {
       .mockResolvedValueOnce(makeRow({ idVerificationStatus: 'APPROVED' }));
     mockPrisma.user.update.mockResolvedValue(makeRow({ idVerificationStatus: 'APPROVED' }));
 
-    const mother = await approveMother('user-1');
+    const mother = await approveMother(29);
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'user-1' },
+        where: { id: 29 },
         data: expect.objectContaining({
           idVerificationStatus: 'APPROVED',
           idRejectionReason: null,
@@ -195,7 +195,7 @@ describe('approveMother', () => {
 
   it('rejects re-approving an already approved mother', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(makeRow({ idVerificationStatus: 'APPROVED' }));
-    await expect(approveMother('user-1')).rejects.toThrow(AppError);
+    await expect(approveMother(29)).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });
@@ -219,11 +219,11 @@ describe('rejectMother', () => {
       .mockResolvedValueOnce(makeRow({ idVerificationStatus: 'REJECTED' }));
     mockPrisma.user.update.mockResolvedValue(makeRow({ idVerificationStatus: 'REJECTED' }));
 
-    await rejectMother('user-1', { reason: 'Blurry photo' });
+    await rejectMother(29, { reason: 'Blurry photo' });
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'user-1' },
+        where: { id: 29 },
         data: expect.objectContaining({
           idVerificationStatus: 'REJECTED',
           idRejectionReason: 'Blurry photo',
@@ -238,7 +238,7 @@ describe('rejectMother', () => {
 
   it('rejects re-rejecting an already rejected mother', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(makeRow({ idVerificationStatus: 'REJECTED' }));
-    await expect(rejectMother('user-1', {})).rejects.toThrow(AppError);
+    await expect(rejectMother(29, {})).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });

@@ -7,10 +7,10 @@ import { z } from 'zod';
 /** Camera as returned by the API. `nannyName` is the resolved display name of
  *  the assigned nanny user, or null when the camera is unassigned. */
 export const CameraSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   streamUrl: z.string(),
-  nannyUserId: z.string().nullable(),
+  nannyUserId: z.number().int().nullable(),
   nannyName: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -20,7 +20,7 @@ export const CreateCameraSchema = z.object({
   name: z.string().trim().min(1).max(100),
   streamUrl: z.string().url(),
   /** Nanny user id to assign. Omit or null to leave unassigned. */
-  nannyUserId: z.string().nullable().optional(),
+  nannyUserId: z.number().int().nullable().optional(),
 });
 export type CreateCameraInput = z.infer<typeof CreateCameraSchema>;
 
@@ -32,7 +32,7 @@ export type UpdateCameraInput = z.infer<typeof UpdateCameraSchema>;
 
 /** Option for the admin nanny-assignment dropdown. */
 export const NannyOptionSchema = z.object({
-  userId: z.string(),
+  userId: z.number().int(),
   name: z.string(),
 });
 export type NannyOption = z.infer<typeof NannyOptionSchema>;

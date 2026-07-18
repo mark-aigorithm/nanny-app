@@ -13,7 +13,7 @@ function round2(n: number): number {
 
 /** A selectable skill add-on and its configured fee (null feeType = no fee). */
 export interface SkillAddOnInput {
-  id: string;
+  id: number;
   name: string;
   feeType: SkillFeeType | null;
   feeValue: number;

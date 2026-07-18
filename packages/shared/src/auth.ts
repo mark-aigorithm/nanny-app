@@ -75,7 +75,7 @@ export type SubmitIdRequest = z.infer<typeof SubmitIdRequestSchema>;
 
 /** Shape returned by /auth/me and /auth/register. Mirrors Prisma `User` minus internal fields. */
 export const UserResponseSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   firebaseUid: z.string(),
   email: z.string().email(),
   phone: z.string().nullable(),

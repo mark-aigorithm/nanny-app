@@ -109,7 +109,7 @@ export default function CommunityScreen() {
       <FlatList
         style={styles.list}
         data={posts}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[
           styles.listContent,
           (isLoading || posts.length === 0) && styles.listContentEmpty,
@@ -149,7 +149,7 @@ export default function CommunityScreen() {
           <PostCard
             post={item}
             compact
-            onPress={() => openPostDetail(item.id)}
+            onPress={() => openPostDetail(String(item.id))}
             onLikePress={gate(
               () => toggleLike.mutate(item.id),
               'Create your free account to like posts.',

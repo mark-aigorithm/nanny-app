@@ -41,7 +41,7 @@ const NOW_UTC = new Date('2026-07-20T07:00:00.000Z'); // 10:00 Cairo
 const VALID_BODY = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
-  skillIds: [] as string[],
+  skillIds: [] as number[],
 };
 
 const BASE_CONFIG = {

@@ -115,7 +115,7 @@ export async function listAdminNannies(
  * underlying User id, and lifetime earnings ("amount gained") aggregated from
  * `nannyAmount` across her COMPLETED bookings.
  */
-export async function getAdminNanny(id: string): Promise<AdminNannyDetail> {
+export async function getAdminNanny(id: number): Promise<AdminNannyDetail> {
   const profile = await findReviewableNanny(id);
 
   const earnings = await prisma.booking.aggregate({
@@ -136,7 +136,7 @@ export async function getAdminNanny(id: string): Promise<AdminNannyDetail> {
   };
 }
 
-async function findReviewableNanny(id: string): Promise<AdminNannyRow> {
+async function findReviewableNanny(id: number): Promise<AdminNannyRow> {
   const profile = await prisma.nannyProfile.findFirst({
     where: { id, deletedAt: null, user: { deletedAt: null } },
     include: nannyInclude,
@@ -150,7 +150,7 @@ async function findReviewableNanny(id: string): Promise<AdminNannyRow> {
  * REJECTED → APPROVED, then notifies her (in-app + push) that she can start
  * using the app.
  */
-export async function approveNanny(id: string): Promise<AdminNanny> {
+export async function approveNanny(id: number): Promise<AdminNanny> {
   const profile = await findReviewableNanny(id);
   if (profile.user.idVerificationStatus === IdVerificationStatus.APPROVED) {
     throw errors.badRequest('This nanny is already approved.');
@@ -186,7 +186,7 @@ export async function approveNanny(id: string): Promise<AdminNanny> {
  * Admin rejects a nanny application. The optional reason is stored and shown
  * to the nanny on her pending-review screen.
  */
-export async function rejectNanny(id: string, input: RejectNannyInput): Promise<AdminNanny> {
+export async function rejectNanny(id: number, input: RejectNannyInput): Promise<AdminNanny> {
   const profile = await findReviewableNanny(id);
   if (profile.user.idVerificationStatus === IdVerificationStatus.REJECTED) {
     throw errors.badRequest('This nanny is already rejected.');
@@ -236,7 +236,7 @@ export async function rejectNanny(id: string, input: RejectNannyInput): Promise<
  * rejected so the assignment can never reference a skill parents can't see.
  */
 export async function setNannySkills(
-  nannyProfileId: string,
+  nannyProfileId: number,
   input: SetNannySkillsInput,
 ): Promise<AdminNanny> {
   const nanny = await prisma.nannyProfile.findFirst({

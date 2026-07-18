@@ -30,7 +30,7 @@ export const useNannyShiftPromptStore = create<NannyShiftPromptStore>((set) => (
   dismissPrompt: () => set({ prompt: null }),
 }));
 
-const alertedBookingIds = new Set<string>();
+const alertedBookingIds = new Set<number>();
 
 export function showShiftWindowPrompt(
   booking: BookingResponse,

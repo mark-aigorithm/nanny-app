@@ -16,6 +16,7 @@ import {
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
+import { routeIdParam } from '@backend/lib/route-param';
 import { errors } from '@backend/lib/errors';
 import {
   acceptBooking,
@@ -124,7 +125,7 @@ bookingRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await getBooking(req.firebaseUser, String(req.params['id']));
+      const booking = await getBooking(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },
@@ -137,7 +138,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await redeemBookingPoints(req.firebaseUser, String(req.params['id']), req.body);
+      const booking = await redeemBookingPoints(req.firebaseUser, routeIdParam(req.params['id']), req.body);
       res.json(ok(booking));
     } catch (err) { next(err); }
   },
@@ -149,7 +150,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await refundBookingPoints(req.firebaseUser, String(req.params['id']));
+      const booking = await refundBookingPoints(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },
@@ -162,7 +163,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await mockPayBooking(req.firebaseUser, String(req.params['id']), req.body);
+      const result = await mockPayBooking(req.firebaseUser, routeIdParam(req.params['id']), req.body);
       res.json(ok(result));
     } catch (err) { next(err); }
   },
@@ -177,7 +178,7 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const result = await createPaymobIntentionForBooking(
         req.firebaseUser,
-        String(req.params['id']),
+        routeIdParam(req.params['id']),
         req.body,
       );
       res.status(201).json(ok(result));
@@ -191,7 +192,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const bookingId = String(req.params['id']);
+      const bookingId = routeIdParam(req.params['id']);
       await syncPaymobPaymentForBooking(req.firebaseUser, bookingId);
       const booking = await getBooking(req.firebaseUser, bookingId);
       res.json(ok(booking));
@@ -206,7 +207,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await cancelBooking(req.firebaseUser, String(req.params['id']), req.body);
+      const result = await cancelBooking(req.firebaseUser, routeIdParam(req.params['id']), req.body);
       res.json(ok(result));
     } catch (err) { next(err); }
   },
@@ -218,7 +219,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await acceptBooking(req.firebaseUser, String(req.params['id']));
+      const booking = await acceptBooking(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },
@@ -230,7 +231,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await declineBooking(req.firebaseUser, String(req.params['id']));
+      const booking = await declineBooking(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },
@@ -243,7 +244,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const result = await generateStartPin(req.firebaseUser, String(req.params['id']));
+      const result = await generateStartPin(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(result));
     } catch (err) { next(err); }
   },
@@ -259,7 +260,7 @@ bookingRouter.post(
       const { pin } = req.body as CheckInBookingRequest;
       const booking = await checkInBooking(
         req.firebaseUser,
-        String(req.params['id']),
+        routeIdParam(req.params['id']),
         pin,
       );
       res.json(ok(booking));
@@ -273,7 +274,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const booking = await checkOutBooking(req.firebaseUser, String(req.params['id']));
+      const booking = await checkOutBooking(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
     } catch (err) { next(err); }
   },
@@ -285,7 +286,7 @@ bookingRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const logs = await listCareLogs(req.firebaseUser, String(req.params['id']));
+      const logs = await listCareLogs(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(logs));
     } catch (err) { next(err); }
   },
@@ -298,7 +299,7 @@ bookingRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const log = await createCareLog(req.firebaseUser, String(req.params['id']), req.body);
+      const log = await createCareLog(req.firebaseUser, routeIdParam(req.params['id']), req.body);
       res.status(201).json(ok(log));
     } catch (err) { next(err); }
   },

@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 /** Admin DTO returned by the duration-rule endpoints. */
 export const DurationRuleSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   /** Inclusive lower bound in hours for this tier to apply. */
   minHours: z.number().int(),
   /** Factor applied to the subtotal (0.90 = 10% discount, 1.10 = 10% surcharge). */

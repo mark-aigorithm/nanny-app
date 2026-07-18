@@ -86,7 +86,7 @@ export const CommunityFeedQuerySchema = z.object({
 export type CommunityFeedQuery = z.infer<typeof CommunityFeedQuerySchema>;
 
 export const CommunityAuthorSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   firstName: z.string(),
   lastName: z.string(),
   avatarUrl: z.string().nullable(),
@@ -95,7 +95,7 @@ export const CommunityAuthorSchema = z.object({
 export type CommunityAuthor = z.infer<typeof CommunityAuthorSchema>;
 
 export const CommunityPostResponseSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   type: CommunityPostTypeSchema,
   title: z.string().nullable(),
   body: z.string().nullable(),
@@ -126,7 +126,7 @@ export type CommunityFeedResponse = z.infer<typeof CommunityFeedResponseSchema>;
 
 export const CreateCommentSchema = z.object({
   body: z.string().trim().min(1, 'Comment cannot be empty').max(1000),
-  parentCommentId: z.string().optional(),
+  parentCommentId: z.number().int().optional(),
 });
 
 export type CreateCommentRequest = z.infer<typeof CreateCommentSchema>;
@@ -140,13 +140,13 @@ export type CommentListQuery = z.infer<typeof CommentListQuerySchema>;
 
 export const CommentResponseSchema: z.ZodType<CommentResponse> = z.lazy(() =>
   z.object({
-    id: z.string(),
-    postId: z.string(),
+    id: z.number().int(),
+    postId: z.number().int(),
     body: z.string(),
     likeCount: z.number(),
     likedByMe: z.boolean(),
     author: CommunityAuthorSchema,
-    parentCommentId: z.string().nullable(),
+    parentCommentId: z.number().int().nullable(),
     replies: z.array(CommentResponseSchema),
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -154,13 +154,13 @@ export const CommentResponseSchema: z.ZodType<CommentResponse> = z.lazy(() =>
 );
 
 export interface CommentResponse {
-  id: string;
-  postId: string;
+  id: number;
+  postId: number;
   body: string;
   likeCount: number;
   likedByMe: boolean;
   author: CommunityAuthor;
-  parentCommentId: string | null;
+  parentCommentId: number | null;
   replies: CommentResponse[];
   createdAt: string;
   updatedAt: string;

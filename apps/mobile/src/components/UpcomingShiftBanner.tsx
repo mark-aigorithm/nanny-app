@@ -32,7 +32,7 @@ export function confirmStartShift(booking: BookingResponse): void {
 
 export function confirmEndShift(
   booking: BookingResponse,
-  checkOut: { mutate: (id: string, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => void; isPending: boolean },
+  checkOut: { mutate: (id: number, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => void; isPending: boolean },
   onSuccess?: () => void,
 ): void {
   showConfirmEndPrompt(booking, () => {

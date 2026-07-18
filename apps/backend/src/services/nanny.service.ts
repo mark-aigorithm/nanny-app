@@ -37,7 +37,7 @@ const nannySkillsInclude = {
 } as const;
 
 type NannySkillWithSkill = {
-  skill: { id: string; name: string; feeType: DiscountType | null; feeValue: PrismaTypes.Decimal };
+  skill: { id: number; name: string; feeType: DiscountType | null; feeValue: PrismaTypes.Decimal };
 };
 type ProfileWithSkills = NannyProfile & { nannySkills: NannySkillWithSkill[] };
 type ProfileWithUserAndSkills = ProfileWithSkills & { user: User };
@@ -97,7 +97,7 @@ function toNannyListItem(profile: ProfileWithUserAndSkills): NannyListItem {
 }
 
 type ReviewWithMother = {
-  id: string;
+  id: number;
   rating: number;
   comment: string | null;
   createdAt: Date;
@@ -292,7 +292,7 @@ export async function listNannies(
 
   const [total, rows] = await Promise.all([
     prisma.nannyProfile.count({ where }),
-    prisma.$queryRaw<Array<{ id: string; distance_m: number | null }>>(Prisma.sql`
+    prisma.$queryRaw<Array<{ id: number; distance_m: number | null }>>(Prisma.sql`
       SELECT np.id AS id, ${distanceSql} AS distance_m
       FROM nanny_profiles np
       JOIN users u ON u.id = np.user_id
@@ -320,7 +320,7 @@ export async function listNannies(
   return { nannies, total };
 }
 
-export async function getNannyPublicProfile(nannyProfileId: string): Promise<NannyPublicProfile> {
+export async function getNannyPublicProfile(nannyProfileId: number): Promise<NannyPublicProfile> {
   // findFirst (not findUnique) so we can filter on the related user's KYC state,
   // which is where identity verification now lives.
   const profile = await prisma.nannyProfile.findFirst({
@@ -354,7 +354,7 @@ export async function getNannyPublicProfile(nannyProfileId: string): Promise<Nan
 // ── Booked slots ──────────────────────────────────────────────────────────────
 
 export async function getNannyBookedSlots(
-  nannyProfileId: string,
+  nannyProfileId: number,
   query: NannyBookedSlotsQuery,
 ): Promise<string[]> {
   const date = new Date(query.date); // YYYY-MM-DD → midnight UTC
@@ -463,7 +463,7 @@ export async function getNannyDashboard(decoded: DecodedIdToken): Promise<NannyD
 
 export async function createReview(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   body: CreateReviewRequest,
 ): Promise<ReviewSummary> {
   const user = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });

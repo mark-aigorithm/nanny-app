@@ -65,7 +65,7 @@ export function useCommunityPostsByType(type: CommunityPostType, limit = 3) {
   });
 }
 
-export function useCommunityPost(id: string | undefined) {
+export function useCommunityPost(id: number | undefined) {
   return useQuery<CommunityPostResponse>({
     queryKey: [COMMUNITY_KEY, 'post', id],
     queryFn: () => unwrap(api.get(`/community/posts/${id}`)),
@@ -85,7 +85,7 @@ export function useCreatePost() {
 
 export function useTogglePostLike() {
   const qc = useQueryClient();
-  return useMutation<ToggleLikeResponse, Error, string>({
+  return useMutation<ToggleLikeResponse, Error, number>({
     mutationFn: (postId) => unwrap(api.post(`/community/posts/${postId}/like`)),
     onSuccess: (_data, postId) => {
       qc.invalidateQueries({ queryKey: [COMMUNITY_KEY, 'post', postId] });
@@ -95,7 +95,7 @@ export function useTogglePostLike() {
   });
 }
 
-export function useComments(postId: string | undefined) {
+export function useComments(postId: number | undefined) {
   return useInfiniteQuery<CommentsPage>({
     queryKey: [COMMUNITY_KEY, 'comments', postId],
     initialPageParam: 1,
@@ -118,7 +118,7 @@ export function useCreateComment() {
   return useMutation<
     CommentResponse,
     Error,
-    { postId: string; body: CreateCommentRequest }
+    { postId: number; body: CreateCommentRequest }
   >({
     mutationFn: ({ postId, body }) =>
       unwrap(api.post(`/community/posts/${postId}/comments`, body)),
@@ -132,7 +132,7 @@ export function useCreateComment() {
 
 export function useToggleCommentLike() {
   const qc = useQueryClient();
-  return useMutation<ToggleLikeResponse, Error, { commentId: string; postId: string }>({
+  return useMutation<ToggleLikeResponse, Error, { commentId: number; postId: number }>({
     mutationFn: ({ commentId }) => unwrap(api.post(`/community/comments/${commentId}/like`)),
     onSuccess: (_data, { postId }) => {
       qc.invalidateQueries({ queryKey: [COMMUNITY_KEY, 'comments', postId] });
@@ -142,7 +142,7 @@ export function useToggleCommentLike() {
 
 export function useToggleEventRsvp() {
   const qc = useQueryClient();
-  return useMutation<ToggleRsvpResponse, Error, string>({
+  return useMutation<ToggleRsvpResponse, Error, number>({
     mutationFn: (postId) => unwrap(api.post(`/community/posts/${postId}/rsvp`)),
     onSuccess: (_data, postId) => {
       qc.invalidateQueries({ queryKey: [COMMUNITY_KEY, 'post', postId] });

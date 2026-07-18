@@ -33,7 +33,7 @@ export default function BookingPaymentResultScreen() {
   const syncedRef = useRef(false);
   const [outcome, setOutcome] = useState<Outcome>('loading');
 
-  const { data: booking, refetch, isError } = useBooking(bookingId);
+  const { data: booking, refetch, isError } = useBooking(Number(bookingId));
 
   // Sync the Paymob capture once, then fall back to polling the booking.
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function BookingPaymentResultScreen() {
 
     (async () => {
       try {
-        await syncPaymob.mutateAsync(bookingId);
+        await syncPaymob.mutateAsync(Number(bookingId));
       } catch {
         // Ignore — we still poll the booking we already have below.
       }
@@ -137,7 +137,7 @@ export default function BookingPaymentResultScreen() {
     if (!bookingId) return;
     router.replace({
       pathname: '/(parent)/book/booking-step-3',
-      params: bookingFlowRetryParams(params, bookingId) as never,
+      params: bookingFlowRetryParams(params, Number(bookingId)) as never,
     } as never);
   };
 

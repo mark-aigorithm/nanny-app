@@ -65,8 +65,8 @@ const config = (overrides: Partial<typeof BASE_CONFIG> = {}) => ({ ...BASE_CONFI
 
 function bookingRow(start: Date, end: Date) {
   return {
-    id: 'booking-1',
-    motherId: 'mother-1',
+    id: 4,
+    motherId: 10,
     mother: { firstName: 'Jane', lastName: 'Mom', avatarUrl: null },
     nannyProfileId: null,
     nannyProfile: null,
@@ -126,7 +126,7 @@ afterAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockPrisma.user.findUnique.mockResolvedValue({
-    id: 'mother-1',
+    id: 10,
     role: Role.MOTHER,
     deletedAt: null,
   });

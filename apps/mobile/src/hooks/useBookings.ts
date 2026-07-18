@@ -41,7 +41,7 @@ export function useBookingList(
   });
 }
 
-export function useBooking(id: string | undefined, pollWhilePending = false) {
+export function useBooking(id: number | undefined, pollWhilePending = false) {
   return useQuery<BookingResponse>({
     queryKey: [BOOKINGS_KEY, id],
     queryFn: () => unwrap(api.get(`/bookings/${id}`)),
@@ -57,7 +57,7 @@ export function useBooking(id: string | undefined, pollWhilePending = false) {
 /** Apply Care Points to an approved booking before payment (lowers the total). */
 export function useRedeemBookingPoints() {
   const queryClient = useQueryClient();
-  return useMutation<BookingResponse, Error, { id: string; hours: number }>({
+  return useMutation<BookingResponse, Error, { id: number; hours: number }>({
     mutationFn: ({ id, hours }) => unwrap(api.post(`/bookings/${id}/redeem-points`, { hours })),
     onSuccess: (booking) => {
       queryClient.setQueryData([BOOKINGS_KEY, booking.id], booking);
@@ -69,7 +69,7 @@ export function useRedeemBookingPoints() {
 /** Remove/refund Care Points applied to a booking (also used on payment failure). */
 export function useRefundBookingPoints() {
   const queryClient = useQueryClient();
-  return useMutation<BookingResponse, Error, string>({
+  return useMutation<BookingResponse, Error, number>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/redeem-points/refund`)),
     onSuccess: (booking) => {
       queryClient.setQueryData([BOOKINGS_KEY, booking.id], booking);
@@ -148,7 +148,7 @@ export function usePaymobCheckout() {
   return useMutation<
     PaymobCheckoutSession,
     Error,
-    { bookingId: string; method?: MockPayBookingRequest['method'] }
+    { bookingId: number; method?: MockPayBookingRequest['method'] }
   >({
     mutationFn: ({ bookingId, method = PaymentMethod.CARD }) =>
       unwrap(api.post(`/bookings/${bookingId}/pay/paymob`, { method })),
@@ -158,7 +158,7 @@ export function usePaymobCheckout() {
 
 export function useSyncPaymobPayment() {
   const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, string>({
+  return useMutation<BookingResponse, Error, number>({
     mutationFn: (bookingId) => unwrap(api.post(`/bookings/${bookingId}/pay/paymob/sync`)),
     onSuccess: (booking) => {
       qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
@@ -172,7 +172,7 @@ export function useMockPay() {
   return useMutation<
     { booking: BookingResponse; payment: object },
     Error,
-    { id: string; body: MockPayBookingRequest }
+    { id: number; body: MockPayBookingRequest }
   >({
     mutationFn: ({ id, body }) =>
       unwrap(api.post(`/bookings/${id}/pay`, body)),
@@ -185,7 +185,7 @@ export function useCancelBooking() {
   return useMutation<
     { booking: BookingResponse; refundAmount: number },
     Error,
-    { id: string; reason: string }
+    { id: number; reason: string }
   >({
     mutationFn: ({ id, reason }) =>
       unwrap(api.post(`/bookings/${id}/cancel`, { reason })),
@@ -199,7 +199,7 @@ export function useCancelBooking() {
  */
 export function useAcceptBooking() {
   const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, string>({
+  return useMutation<BookingResponse, Error, number>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/accept`)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
@@ -211,7 +211,7 @@ export function useAcceptBooking() {
  */
 export function useDeclineBooking() {
   const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, string>({
+  return useMutation<BookingResponse, Error, number>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/decline`)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
@@ -223,7 +223,7 @@ export function useDeclineBooking() {
  */
 export function useGenerateStartPin() {
   const qc = useQueryClient();
-  return useMutation<GenerateStartPinResponse, Error, string>({
+  return useMutation<GenerateStartPinResponse, Error, number>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/start-pin`)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
@@ -231,7 +231,7 @@ export function useGenerateStartPin() {
 
 export function useCheckIn() {
   const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, { id: string; pin: string }>({
+  return useMutation<BookingResponse, Error, { id: number; pin: string }>({
     mutationFn: ({ id, pin }) => unwrap(api.post(`/bookings/${id}/check-in`, { pin })),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
@@ -239,7 +239,7 @@ export function useCheckIn() {
 
 export function useCheckOut() {
   const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, string>({
+  return useMutation<BookingResponse, Error, number>({
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/check-out`)),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });

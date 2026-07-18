@@ -82,7 +82,7 @@ export const UpdatePromoCodeSchema = z
 export type UpdatePromoCodeInput = z.infer<typeof UpdatePromoCodeSchema>;
 
 export const PromoCodeSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   code: z.string(),
   discountType: DiscountTypeSchema,
   value: z.number(),
@@ -177,7 +177,7 @@ export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchem
 /** Admin pricing calculator input — previews a full breakdown for a scenario. */
 export const PricePreviewSchema = z.object({
   durationHours: z.number().positive().max(24),
-  skillIds: z.array(z.string()).default([]),
+  skillIds: z.array(z.number().int()).default([]),
   discountAmount: z.number().min(0).optional(),
 });
 export type PricePreviewInput = z.infer<typeof PricePreviewSchema>;
@@ -193,7 +193,7 @@ export const AdminBookingStatusFilterSchema = z.enum([
 export type AdminBookingStatusFilter = z.infer<typeof AdminBookingStatusFilterSchema>;
 
 export const AdminBookingSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   status: z.string(),
   /** Nanny's advisory accept/decline — admin sees "accepted / declined / no response". */
   nannyDecision: NannyBookingDecisionSchema,
@@ -207,13 +207,13 @@ export const AdminBookingSchema = z.object({
   promoCode: z.string().nullable(),
   paymentStatus: z.string().nullable(),
   mother: z.object({
-    id: z.string(),
+    id: z.number().int(),
     name: z.string(),
     phone: z.string().nullable(),
   }),
   nanny: z
     .object({
-      id: z.string(),
+      id: z.number().int(),
       name: z.string(),
     })
     .nullable(),
@@ -250,14 +250,14 @@ export type AdminBookingPayment = z.infer<typeof AdminBookingPaymentSchema>;
 export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   // Enriched parties.
   mother: z.object({
-    id: z.string(),
+    id: z.number().int(),
     name: z.string(),
     email: z.string().nullable(),
     phone: z.string().nullable(),
   }),
   nanny: z
     .object({
-      id: z.string(),
+      id: z.number().int(),
       name: z.string(),
       email: z.string().nullable(),
       phone: z.string().nullable(),
@@ -329,7 +329,7 @@ export type AdminNannyStatusFilter = z.infer<typeof AdminNannyStatusFilterSchema
 
 export const AdminNannySchema = z.object({
   /** NannyProfile id (used by approve/reject endpoints). */
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   email: z.string(),
   phone: z.string().nullable(),
@@ -366,7 +366,7 @@ export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
  */
 export const AdminNannyDetailSchema = AdminNannySchema.extend({
   /** The underlying User id — distinct from `id`, which is the NannyProfile id. */
-  userId: z.string(),
+  userId: z.number().int(),
   /** Lifetime earnings: sum of `nannyAmount` across the nanny's COMPLETED bookings (EGP). */
   amountGained: z.number(),
   /** Number of COMPLETED bookings contributing to `amountGained`. */
@@ -390,7 +390,7 @@ export type AdminMotherStatusFilter = z.infer<typeof AdminMotherStatusFilterSche
 
 export const AdminMotherSchema = z.object({
   /** User id. */
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   email: z.string(),
   phone: z.string().nullable(),
@@ -432,7 +432,7 @@ export const CreateAdminSchema = z.object({
 export type CreateAdminInput = z.infer<typeof CreateAdminSchema>;
 
 export const AdminUserSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   email: z.string(),
   role: z.enum(['ADMIN', 'SUPERUSER']),

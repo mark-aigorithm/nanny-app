@@ -19,7 +19,7 @@ export type SkillFeeType = z.infer<typeof SkillFeeTypeSchema>;
 
 /** Lightweight skill shape embedded in nanny profile/listing responses. */
 export const PublicSkillSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   /** null = no add-on fee. FLAT = EGP/hour; PERCENTAGE = % of base rate/hour. */
   feeType: SkillFeeTypeSchema.nullable(),
@@ -29,7 +29,7 @@ export type PublicSkill = z.infer<typeof PublicSkillSchema>;
 
 /** Full admin DTO returned by the admin Skills endpoints. */
 export const SkillSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   description: z.string().nullable(),
   isActive: z.boolean(),
@@ -73,6 +73,6 @@ export type UpdateSkillInput = z.infer<typeof UpdateSkillSchema>;
 
 /** Admin assignment payload — the full desired set of skill ids for a nanny. */
 export const SetNannySkillsSchema = z.object({
-  skillIds: z.array(z.string()),
+  skillIds: z.array(z.number().int()),
 });
 export type SetNannySkillsInput = z.infer<typeof SetNannySkillsSchema>;

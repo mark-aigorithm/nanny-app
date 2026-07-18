@@ -3,7 +3,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { NotificationListQuerySchema } from '@nanny-app/shared';
 
 import { ok } from '@backend/lib/api-response';
-import { routeParam } from '@backend/lib/route-param';
+import { routeIdParam } from '@backend/lib/route-param';
 import { errors } from '@backend/lib/errors';
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateQuery } from '@backend/middleware/validate.middleware';
@@ -70,7 +70,7 @@ notificationRouter.patch(
       if (!req.firebaseUser) throw errors.unauthorized();
       const notification = await markNotificationRead(
         req.firebaseUser,
-        routeParam(req.params.id),
+        routeIdParam(req.params.id),
       );
       res.json(ok(notification));
     } catch (err) {

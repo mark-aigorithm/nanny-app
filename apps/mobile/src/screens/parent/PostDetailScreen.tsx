@@ -37,17 +37,17 @@ export default function PostDetailScreen() {
     filter?: string;
   }>();
   const [replyText, setReplyText] = useState('');
-  const [replyToId, setReplyToId] = useState<string | undefined>();
+  const [replyToId, setReplyToId] = useState<number | undefined>();
   const inputRef = useRef<TextInput>(null);
 
-  const { data: post, isLoading: postLoading } = useCommunityPost(postId);
+  const { data: post, isLoading: postLoading } = useCommunityPost(Number(postId));
   const {
     data: commentsData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     isLoading: commentsLoading,
-  } = useComments(postId);
+  } = useComments(Number(postId));
 
   const currentUserId = useUserProfileStore((s) => s.profile?.id);
   const { gate } = useGuestGate();
@@ -71,7 +71,7 @@ export default function PostDetailScreen() {
     }
   }, [replyToId]);
 
-  const handleReplyPress = (commentId: string) => {
+  const handleReplyPress = (commentId: number) => {
     setReplyToId(commentId);
     inputRef.current?.focus();
   };
@@ -83,7 +83,7 @@ export default function PostDetailScreen() {
   const handleSubmitComment = async () => {
     if (!postId || !replyText.trim()) return;
     await createComment.mutateAsync({
-      postId,
+      postId: Number(postId),
       body: { body: replyText.trim(), parentCommentId: replyToId },
     });
     setReplyText('');
@@ -92,7 +92,7 @@ export default function PostDetailScreen() {
 
   const handleMessageSeller = async () => {
     if (!postId || contactSeller.isPending) return;
-    const result = await contactSeller.mutateAsync(postId);
+    const result = await contactSeller.mutateAsync(Number(postId));
     router.push({
       pathname: '/(parent)/chat/messaging',
       params: { conversationId: result.conversation.id },
@@ -174,7 +174,7 @@ export default function PostDetailScreen() {
                 key={comment.id}
                 comment={comment}
                 onLikePress={gate(
-                  (commentId: string) =>
+                  (commentId: number) =>
                     toggleCommentLike.mutate({ commentId, postId: post.id }),
                   'Create your free account to like comments.',
                 )}

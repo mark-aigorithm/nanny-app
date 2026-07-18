@@ -67,7 +67,7 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
 }
 
 /** Loads a reviewable mother row (existing, not soft-deleted) or throws 404. */
-async function findReviewableMother(id: string): Promise<AdminMotherRow> {
+async function findReviewableMother(id: number): Promise<AdminMotherRow> {
   const row = await prisma.user.findFirst({
     where: { id, role: 'MOTHER', deletedAt: null },
     select: motherSelect,
@@ -77,7 +77,7 @@ async function findReviewableMother(id: string): Promise<AdminMotherRow> {
 }
 
 type AdminUserRow = {
-  id: string;
+  id: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -159,7 +159,7 @@ export async function listAdminMothers(
 }
 
 /** Full detail for a single mother account (admin detail page). */
-export async function getAdminMother(id: string): Promise<AdminMother> {
+export async function getAdminMother(id: number): Promise<AdminMother> {
   return toMotherDto(await findReviewableMother(id));
 }
 
@@ -167,7 +167,7 @@ export async function getAdminMother(id: string): Promise<AdminMother> {
  * Admin approves a mother's ID after review. Since mothers can already book
  * while PENDING_REVIEW, this is confirmatory: PENDING_REVIEW/REJECTED → APPROVED.
  */
-export async function approveMother(id: string): Promise<AdminMother> {
+export async function approveMother(id: number): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
   if (mother.idVerificationStatus === IdVerificationStatus.APPROVED) {
     throw errors.badRequest('This mother is already approved.');
@@ -194,7 +194,7 @@ export async function approveMother(id: string): Promise<AdminMother> {
  * Admin rejects a mother's ID: clears the images (URLs + Storage files) and sets
  * REJECTED so she is prompted to re-upload before her next booking.
  */
-export async function rejectMother(id: string, input: RejectNannyInput): Promise<AdminMother> {
+export async function rejectMother(id: number, input: RejectNannyInput): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
   if (mother.idVerificationStatus === IdVerificationStatus.REJECTED) {
     throw errors.badRequest('This mother is already rejected.');

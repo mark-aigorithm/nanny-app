@@ -174,7 +174,7 @@ function toDto(row: AdminBookingRow): AdminBooking {
 }
 
 /** Resolve the calling admin's internal user id from their Firebase uid. */
-async function resolveAdminId(adminFirebaseUid: string): Promise<string> {
+async function resolveAdminId(adminFirebaseUid: string): Promise<number> {
   const admin = await prisma.user.findFirst({
     where: {
       firebaseUid: adminFirebaseUid,
@@ -188,12 +188,12 @@ async function resolveAdminId(adminFirebaseUid: string): Promise<string> {
 }
 
 async function notifyBookingParty(
-  userId: string,
+  userId: number,
   type: NotificationType,
   pushType: string,
   title: string,
   body: string,
-  bookingId: string,
+  bookingId: number,
 ): Promise<void> {
   await createInAppNotification({
     userId,
@@ -206,11 +206,11 @@ async function notifyBookingParty(
   await dispatchPush(userId, {
     title,
     body,
-    data: { type: pushType, bookingId, title },
+    data: { type: pushType, bookingId: String(bookingId), title },
   });
 }
 
-async function findAdminBooking(id: string): Promise<AdminBookingRow> {
+async function findAdminBooking(id: number): Promise<AdminBookingRow> {
   const booking = await prisma.booking.findFirst({
     where: { id, deletedAt: null },
     include: bookingInclude,
@@ -246,7 +246,7 @@ export async function listAdminBookings(
 }
 
 /** Full detail for a single booking (admin detail page). */
-export async function getAdminBooking(id: string): Promise<AdminBookingDetail> {
+export async function getAdminBooking(id: number): Promise<AdminBookingDetail> {
   const row = await prisma.booking.findFirst({
     where: { id, deletedAt: null },
     include: bookingDetailInclude,
@@ -262,7 +262,7 @@ export async function getAdminBooking(id: string): Promise<AdminBookingDetail> {
  * nanny.
  */
 export async function approveBooking(
-  id: string,
+  id: number,
   adminFirebaseUid: string,
 ): Promise<AdminBooking> {
   const adminId = await resolveAdminId(adminFirebaseUid);
@@ -322,7 +322,7 @@ export async function approveBooking(
  * Notifies both parties.
  */
 export async function rejectBooking(
-  id: string,
+  id: number,
   adminFirebaseUid: string,
   input: RejectAdminBookingInput,
 ): Promise<AdminBooking> {
@@ -375,7 +375,7 @@ export async function rejectBooking(
  * are recorded in the admin audit trail.
  */
 export async function setBookingStatus(
-  id: string,
+  id: number,
   adminFirebaseUid: string,
   input: SetBookingStatusInput,
 ): Promise<AdminBooking> {
@@ -491,7 +491,7 @@ export async function setBookingStatus(
  * A COMPLETED or CANCELLED booking is locked.
  */
 export async function updateBookingTimes(
-  id: string,
+  id: number,
   adminFirebaseUid: string,
   input: UpdateBookingTimesInput,
 ): Promise<AdminBooking> {
