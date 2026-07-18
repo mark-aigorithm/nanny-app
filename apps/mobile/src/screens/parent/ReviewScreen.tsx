@@ -4,8 +4,6 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Image,
-  TextInput,
   StatusBar,
   Alert,
   ActivityIndicator,
@@ -16,10 +14,8 @@ import { colors } from '@mobile/theme';
 import { useBooking } from '@mobile/hooks/useBookings';
 import { useCreateReview } from '@mobile/hooks/useNannies';
 import { getApiErrorMessage } from '@mobile/lib/api';
+import ReviewForm from '@mobile/components/ReviewForm';
 import { styles } from './styles/review-screen.styles';
-
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
-const MAX_CHARS = 500;
 
 export default function ReviewScreen() {
   const router = useRouter();
@@ -94,57 +90,17 @@ export default function ReviewScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.nannySection}>
-          {nannyPhoto ? (
-            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
-          ) : (
-            <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, alignItems: 'center', justifyContent: 'center' }]}>
-              <Ionicons name="person" size={40} color={colors.primary} />
-            </View>
-          )}
-          <Text style={styles.nannyName}>{nannyName}</Text>
-        </View>
-
-        <View style={styles.starsSection}>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Pressable key={star} style={styles.starButton} onPress={() => setRating(star)}>
-                <Ionicons
-                  name={star <= rating ? 'star' : 'star-outline'}
-                  size={36}
-                  color={star <= rating ? colors.gold : colors.taupe}
-                />
-              </Pressable>
-            ))}
-          </View>
-          {rating > 0 ? <Text style={styles.ratingLabel}>{RATING_LABELS[rating]}</Text> : null}
-        </View>
-
-        <View style={styles.reviewSection}>
-          <Text style={styles.reviewLabel}>Your review</Text>
-          <TextInput
-            style={styles.reviewInput}
-            placeholder="Share your experience with the nanny..."
-            placeholderTextColor={colors.textPlaceholder}
-            value={reviewText}
-            onChangeText={(text) => setReviewText(text.slice(0, MAX_CHARS))}
-            multiline
-            textAlignVertical="top"
-          />
-          <Text style={styles.charCount}>{reviewText.length}/{MAX_CHARS}</Text>
-        </View>
-
-        <Pressable
-          style={[styles.submitButton, !canSubmit && { opacity: 0.5 }]}
-          onPress={handleSubmit}
-          disabled={!canSubmit}
-        >
-          {createReview.isPending ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Text style={styles.submitButtonText}>Submit review</Text>
-          )}
-        </Pressable>
+        <ReviewForm
+          nannyName={nannyName}
+          nannyPhoto={nannyPhoto}
+          rating={rating}
+          onRate={setRating}
+          comment={reviewText}
+          onChangeComment={setReviewText}
+          onSubmit={handleSubmit}
+          submitting={createReview.isPending}
+          canSubmit={canSubmit}
+        />
       </ScrollView>
 
       <View style={styles.header} pointerEvents="box-none">

@@ -24,6 +24,7 @@ export function useBookingList(
   statusFilter?: string,
   options?: BookingListOptions,
   refetchIntervalMs?: number,
+  enabled = true,
 ) {
   return useQuery<BookingResponse[]>({
     queryKey: [BOOKINGS_KEY, statusFilter, options?.sortBy, options?.sortDir],
@@ -37,6 +38,7 @@ export function useBookingList(
           },
         }),
       ),
+    enabled,
     ...(refetchIntervalMs ? { refetchInterval: refetchIntervalMs } : {}),
   });
 }
