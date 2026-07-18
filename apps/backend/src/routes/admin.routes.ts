@@ -9,6 +9,7 @@ import {
   type AdminNannyListQuery,
   CreateAdminSchema,
   CreateCameraSchema,
+  CreateCertificationSchema,
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
   CreateSkillSchema,
@@ -26,6 +27,7 @@ import {
   UpdateDurationRuleSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
+  UpdateCertificationSchema,
   UpdateRewardConfigSchema,
   UpdateSkillSchema,
 } from '@nanny-app/shared';
@@ -88,6 +90,12 @@ import {
   listSkills,
   updateSkill,
 } from '@backend/services/skill.service';
+import {
+  createCertification,
+  deleteCertification,
+  listCertifications,
+  updateCertification,
+} from '@backend/services/certification.service';
 import {
   getRewardConfig,
   getWalletHistory,
@@ -388,6 +396,51 @@ adminRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await deleteSkill(routeParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Certifications (nanny credential catalog) ──────────────────
+
+adminRouter.get('/certifications', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listCertifications()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/certifications',
+  validateBody(CreateCertificationSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createCertification(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/certifications/:id',
+  validateBody(UpdateCertificationSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateCertification(routeParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/certifications/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await deleteCertification(routeParam(req.params.id))));
     } catch (err) {
       next(err);
     }

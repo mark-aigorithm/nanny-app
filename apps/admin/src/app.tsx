@@ -18,6 +18,7 @@ import { PromoCodesPage } from './pages/promo-codes-page';
 import { RewardsPage } from './pages/rewards-page';
 import { SettingsPage } from './pages/settings-page';
 import { SkillsPage } from './pages/skills-page';
+import { CertificationsPage } from './pages/certifications-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,7 @@ export function App() {
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
               <Route path="skills" element={<SkillsPage />} />
+              <Route path="certifications" element={<CertificationsPage />} />
               <Route path="rewards" element={<RewardsPage />} />
               <Route path="pricing" element={<PricingFeesPage />} />
               <Route path="cameras" element={<CamerasPage />} />

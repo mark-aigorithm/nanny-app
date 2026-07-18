@@ -7,6 +7,7 @@ import {
   PaginationMetaSchema,
   wallClockField,
 } from './booking';
+import { PublicCertificationSchema } from './certification';
 import { NannyApprovalStatusSchema } from './nanny';
 import { PublicSkillSchema } from './skill';
 
@@ -338,7 +339,7 @@ export const AdminNannySchema = z.object({
   bio: z.string().nullable(),
   location: z.string().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  certifications: z.array(z.string()),
+  certifications: z.array(PublicCertificationSchema),
   skills: z.array(PublicSkillSchema),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),

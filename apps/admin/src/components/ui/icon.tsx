@@ -12,6 +12,7 @@ export {
   UserPlus,
   Ticket,
   Sparkles,
+  BadgeCheck,
   Video,
   Settings,
   ShieldCheck,

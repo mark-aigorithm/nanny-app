@@ -9,8 +9,10 @@ import type {
   AdminNannyStatusFilter,
   AdminUser,
   Camera,
+  Certification,
   CreateAdminInput,
   CreateCameraInput,
+  CreateCertificationInput,
   CreateDurationRuleInput,
   CreatePromoCodeInput,
   CreateSkillInput,
@@ -30,6 +32,7 @@ import type {
   Skill,
   UpdateBookingTimesInput,
   UpdateCameraInput,
+  UpdateCertificationInput,
   UpdateDurationRuleInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
@@ -140,6 +143,33 @@ export async function setNannySkills(
     input,
   );
   return res.data.data;
+}
+
+export async function fetchCertifications(): Promise<Certification[]> {
+  const res = await apiClient.get<ApiEnvelope<Certification[]>>('/admin/certifications');
+  return res.data.data;
+}
+
+export async function createCertification(
+  input: CreateCertificationInput,
+): Promise<Certification> {
+  const res = await apiClient.post<ApiEnvelope<Certification>>('/admin/certifications', input);
+  return res.data.data;
+}
+
+export async function updateCertification(
+  id: string,
+  input: UpdateCertificationInput,
+): Promise<Certification> {
+  const res = await apiClient.patch<ApiEnvelope<Certification>>(
+    `/admin/certifications/${id}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function deleteCertification(id: string): Promise<void> {
+  await apiClient.delete(`/admin/certifications/${id}`);
 }
 
 export async function fetchCameras(): Promise<Camera[]> {

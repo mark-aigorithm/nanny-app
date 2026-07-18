@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
 import { useNannyProfile, useUpdateNannyProfile } from '@mobile/hooks/useNannyProfile';
+import { useCertificationCatalog } from '@mobile/hooks/useNannies';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { AvailabilityType } from '@nanny-app/shared';
 import type { AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
@@ -81,6 +82,7 @@ export default function NannyProfileEditScreen() {
   const router = useRouter();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { data: nannyProfile, isLoading } = useNannyProfile();
+  const { data: certCatalog } = useCertificationCatalog();
   const updateProfile = useUpdateNannyProfile();
   const signOut = useSignOut();
 
@@ -90,9 +92,7 @@ export default function NannyProfileEditScreen() {
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [experience, setExperience] = useState('');
-  const [certifications, setCertifications] = useState<string[]>([]);
-  const [newCert, setNewCert] = useState('');
-  const [showCertInput, setShowCertInput] = useState(false);
+  const [selectedCertificationIds, setSelectedCertificationIds] = useState<string[]>([]);
   const [selectedAgeRanges, setSelectedAgeRanges] = useState<string[]>([]);
   const [availabilityType, setAvailabilityType] = useState<AvailabilityTypeValue>(AvailabilityType.OCCASIONAL);
 
@@ -100,6 +100,18 @@ export default function NannyProfileEditScreen() {
     () => structuredClone(DEFAULT_SCHEDULE),
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+
+  // Certification chips = the active catalog, plus any the nanny already holds
+  // that are no longer active (so a deactivated tag stays visible/removable and
+  // never silently disappears from her profile).
+  const certificationOptions = useMemo(() => {
+    const options = [...(certCatalog ?? [])];
+    const known = new Set(options.map((c) => c.id));
+    for (const held of nannyProfile?.certifications ?? []) {
+      if (!known.has(held.id)) options.push(held);
+    }
+    return options;
+  }, [certCatalog, nannyProfile]);
 
   // Populate form from the loaded profile (also used to discard edits on cancel)
   const resetFields = () => {
@@ -109,7 +121,7 @@ export default function NannyProfileEditScreen() {
     setBio(nannyProfile.bio ?? '');
     setLocation(nannyProfile.location ?? '');
     setExperience(nannyProfile.yearsOfExperience?.toString() ?? '');
-    setCertifications(nannyProfile.certifications);
+    setSelectedCertificationIds(nannyProfile.certifications.map((c) => c.id));
     setSelectedAgeRanges(nannyProfile.ageRanges);
     setAvailabilityType(nannyProfile.availabilityType);
     setSchedule(apiScheduleToUi(nannyProfile.schedule));
@@ -136,17 +148,10 @@ export default function NannyProfileEditScreen() {
     setIsEditing((prev) => !prev);
   };
 
-  const handleRemoveCert = (cert: string) => {
-    setCertifications((prev) => prev.filter((c) => c !== cert));
-  };
-
-  const handleAddCert = () => {
-    const trimmed = newCert.trim();
-    if (trimmed && !certifications.includes(trimmed)) {
-      setCertifications((prev) => [...prev, trimmed]);
-    }
-    setNewCert('');
-    setShowCertInput(false);
+  const toggleCertification = (id: string) => {
+    setSelectedCertificationIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
   };
 
   const toggleAgeRange = (range: string) => {
@@ -163,7 +168,7 @@ export default function NannyProfileEditScreen() {
         bio: bio || undefined,
         location: location || undefined,
         yearsOfExperience: experience ? parseInt(experience, 10) : undefined,
-        certifications,
+        certificationIds: selectedCertificationIds,
         ageRanges: selectedAgeRanges,
         availabilityType,
         schedule: uiScheduleToApi(schedule),
@@ -321,36 +326,26 @@ export default function NannyProfileEditScreen() {
             {/* Certifications */}
             <View style={styles.formSection}>
               <Text style={styles.sectionLabel}>Certifications</Text>
-              <View style={styles.certsRow}>
-                {certifications.map((cert) => (
-                  <View key={cert} style={styles.certChip}>
-                    <Text style={styles.certChipText}>{cert}</Text>
-                    <Pressable onPress={() => handleRemoveCert(cert)} hitSlop={4}>
-                      <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-                    </Pressable>
-                  </View>
-                ))}
-                {showCertInput ? (
-                  <View style={styles.certChip}>
-                    <TextInput
-                      autoFocus
-                      style={[styles.certChipText, { minWidth: 80 }]}
-                      value={newCert}
-                      onChangeText={setNewCert}
-                      onSubmitEditing={handleAddCert}
-                      onBlur={handleAddCert}
-                      placeholder="Type & press enter"
-                      placeholderTextColor={colors.textPlaceholder}
-                      returnKeyType="done"
-                    />
-                  </View>
-                ) : (
-                  <Pressable style={styles.addCertButton} onPress={() => setShowCertInput(true)}>
-                    <Ionicons name="add" size={14} color={colors.primary} />
-                    <Text style={styles.addCertText}>Add</Text>
-                  </Pressable>
-                )}
-              </View>
+              {certificationOptions.length > 0 ? (
+                <View style={styles.certsRow}>
+                  {certificationOptions.map((cert) => {
+                    const isSelected = selectedCertificationIds.includes(cert.id);
+                    return (
+                      <Pressable
+                        key={cert.id}
+                        style={[styles.ageChip, isSelected && styles.ageChipSelected]}
+                        onPress={() => toggleCertification(cert.id)}
+                      >
+                        <Text style={[styles.ageChipText, isSelected && styles.ageChipTextSelected]}>
+                          {cert.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={styles.certChipText}>No certifications available yet.</Text>
+              )}
             </View>
 
             {/* Age Range */}
@@ -502,13 +497,13 @@ export default function NannyProfileEditScreen() {
             ) : null}
 
             {/* Certifications */}
-            {certifications.length > 0 ? (
+            {nannyProfile && nannyProfile.certifications.length > 0 ? (
               <View style={styles.formSection}>
                 <Text style={styles.sectionLabel}>Certifications</Text>
                 <View style={styles.certsRow}>
-                  {certifications.map((cert) => (
-                    <View key={cert} style={styles.certChip}>
-                      <Text style={styles.certChipText}>{cert}</Text>
+                  {nannyProfile.certifications.map((cert) => (
+                    <View key={cert.id} style={styles.certChip}>
+                      <Text style={styles.certChipText}>{cert.name}</Text>
                     </View>
                   ))}
                 </View>

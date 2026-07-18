@@ -184,7 +184,6 @@ model NannyProfile {
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio               String?   @db.Text
   yearsOfExperience Int?      @map("years_of_experience")
-  certifications    String[]
   ageRanges         String[]  @map("age_ranges")
   specialties       String[]  @default([])
   /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
@@ -207,6 +206,7 @@ model NannyProfile {
   reviews           Review[]
   careLogs          CareLog[]
   nannySkills       NannySkill[]
+  nannyCertifications NannyCertification[]
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   deletedAt         DateTime? @map("deleted_at")
@@ -255,6 +255,42 @@ model NannySkill {
   @@index([nannyProfileId])
   @@index([skillId])
   @@map("nanny_skills")
+}
+
+/// Admin-curated catalog of nanny certifications (e.g. "CPR", "First Aid").
+/// Controlled replacement for the free-text NannyProfile.certifications array.
+/// Linked to nannies via NannyCertification. Unlike Skill, a certification
+/// carries no fee — it never affects booking price.
+model Certification {
+  id                  String               @id @default(cuid())
+  name                String               @unique
+  description         String?              @db.Text
+  isActive            Boolean              @default(true) @map("is_active")
+  nannyCertifications NannyCertification[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  deletedAt           DateTime?            @map("deleted_at")
+
+  @@index([deletedAt])
+  @@map("certifications")
+}
+
+/// Many-to-many join between a nanny and a certification. Selected by the
+/// nanny herself from the active catalog (self-service).
+model NannyCertification {
+  id              String        @id @default(cuid())
+  nannyProfileId  String        @map("nanny_profile_id")
+  nannyProfile    NannyProfile  @relation(fields: [nannyProfileId], references: [id], onDelete: Cascade)
+  certificationId String        @map("certification_id")
+  certification   Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  @@unique([nannyProfileId, certificationId])
+  @@index([nannyProfileId])
+  @@index([certificationId])
+  @@map("nanny_certifications")
 }
 
 // ──────────────────────────────────────────────────────────────

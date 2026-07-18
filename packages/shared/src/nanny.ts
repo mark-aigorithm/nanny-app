@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { PublicCertificationSchema } from './certification';
 import { PublicSkillSchema } from './skill';
 
 // ──────────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ export const NannyProfileResponseSchema = z.object({
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  certifications: z.array(z.string()),
+  certifications: z.array(PublicCertificationSchema),
   ageRanges: z.array(z.string()),
   skills: z.array(PublicSkillSchema),
   schedule: WeeklyScheduleSchema.nullable(),
@@ -200,7 +201,7 @@ export const NannyListItemSchema = z.object({
   bio: z.string().nullable(),
   location: z.string().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  certifications: z.array(z.string()),
+  certifications: z.array(PublicCertificationSchema),
   ageRanges: z.array(z.string()),
   skills: z.array(PublicSkillSchema),
   availabilityType: AvailabilityTypeSchema,
@@ -261,7 +262,9 @@ export const UpdateNannyProfileRequestSchema = z.object({
   // truth); coordinates are edited via PATCH /auth/me, not here.
   location: z.string().trim().max(200).optional(),
   yearsOfExperience: z.number().int().min(0).max(60).optional(),
-  certifications: z.array(z.string().max(100)).optional(),
+  // Ids of admin-configured certifications the nanny selects for her profile.
+  // Replaces the former free-text certifications array.
+  certificationIds: z.array(z.string()).optional(),
   ageRanges: z.array(z.string()).optional(),
   schedule: WeeklyScheduleSchema.optional(),
   availabilityType: AvailabilityTypeSchema.optional(),

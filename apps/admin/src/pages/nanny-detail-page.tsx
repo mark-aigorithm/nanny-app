@@ -222,7 +222,10 @@ function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
     },
     {
       label: 'Certifications',
-      value: nanny.certifications.length > 0 ? nanny.certifications.join(', ') : DASH,
+      value:
+        nanny.certifications.length > 0
+          ? nanny.certifications.map((c) => c.name).join(', ')
+          : DASH,
       wide: true,
     },
     { label: 'Bio', value: nanny.bio ?? DASH, wide: true },

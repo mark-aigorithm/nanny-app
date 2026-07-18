@@ -17,6 +17,7 @@ import {
   updateNannyProfile,
 } from '@backend/services/nanny.service';
 import { listActiveSkills } from '@backend/services/skill.service';
+import { listActiveCertifications } from '@backend/services/certification.service';
 
 export const nannyRouter = Router();
 
@@ -72,6 +73,18 @@ nannyRouter.get(
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await listActiveSkills()));
+    } catch (err) { next(err); }
+  },
+);
+
+// Active certification catalog — powers the nanny's self-service picker. Public
+// read (optionalAuth) like the skill catalog above.
+nannyRouter.get(
+  '/certifications',
+  optionalAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listActiveCertifications()));
     } catch (err) { next(err); }
   },
 );

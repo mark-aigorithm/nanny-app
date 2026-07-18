@@ -363,6 +363,21 @@ async function ensureSeedMothers() {
 }
 
 async function seedNannies() {
+  // Certifications are now an admin-curated catalog joined to nannies. Upsert the
+  // union of the demo certification names by their unique name, then link each
+  // nanny below via nanny_certifications.
+  const certByName = new Map<string, string>();
+  const allCertNames = [...new Set(SEED_NANNIES.flatMap((n) => n.certifications))];
+  for (const name of allCertNames) {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const cert = await prisma.certification.upsert({
+      where: { name },
+      create: { id: `${PREFIX}cert-${slug}`, name, isActive: true },
+      update: { isActive: true, deletedAt: null },
+    });
+    certByName.set(name, cert.id);
+  }
+
   const profiles = [];
   for (const n of SEED_NANNIES) {
     const uid = await ensureAuthUser(n.email, `${n.firstName} ${n.lastName}`);
@@ -405,7 +420,6 @@ async function seedNannies() {
         userId: n.userId,
         bio: n.bio,
         yearsOfExperience: n.yearsOfExperience,
-        certifications: [...n.certifications],
         ageRanges: [...n.ageRanges],
         specialties: [...n.specialties],
         availabilityType: n.availabilityType,
@@ -427,6 +441,17 @@ async function seedNannies() {
         deletedAt: null,
       },
     });
+
+    // Reconcile the nanny's certification links from the seeded catalog
+    // (idempotent — replace the full set each run).
+    await prisma.nannyCertification.deleteMany({ where: { nannyProfileId: profile.id } });
+    await prisma.nannyCertification.createMany({
+      data: n.certifications.map((certName) => ({
+        nannyProfileId: profile.id,
+        certificationId: certByName.get(certName)!,
+      })),
+    });
+
     profiles.push(profile);
   }
   return profiles;
