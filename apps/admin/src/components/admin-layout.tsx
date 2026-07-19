@@ -6,6 +6,7 @@ import { fetchAdminMe } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { NotificationBell } from './notification-bell';
 import {
+  BadgeCheck,
   CalendarClock,
   ChevronsUpDown,
   Gift,
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { to: '/users', label: 'Users', icon: Users },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket },
   { to: '/skills', label: 'Nanny Skills', icon: Sparkles },
+  { to: '/certifications', label: 'Certifications', icon: BadgeCheck },
   { to: '/rewards', label: 'Care Points', icon: Gift },
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet },
   { to: '/cameras', label: 'Cameras', icon: Video },

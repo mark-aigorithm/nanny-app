@@ -44,6 +44,10 @@ const nannyInclude = {
     where: { deletedAt: null },
     include: { skill: true },
   },
+  nannyCertifications: {
+    where: { deletedAt: null },
+    include: { certification: true },
+  },
 } satisfies Prisma.NannyProfileInclude;
 
 type AdminNannyRow = Prisma.NannyProfileGetPayload<{ include: typeof nannyInclude }>;
@@ -62,7 +66,10 @@ function toDto(row: AdminNannyRow): AdminNanny {
     // Home location lives on the user row (single source of truth).
     location: row.user.address,
     yearsOfExperience: row.yearsOfExperience,
-    certifications: row.certifications,
+    certifications: row.nannyCertifications.map((nc) => ({
+      id: nc.certification.id,
+      name: nc.certification.name,
+    })),
     skills: row.nannySkills.map((ns) => ({
       id: ns.skill.id,
       name: ns.skill.name,

@@ -22,6 +22,8 @@ jest.mock('@backend/lib/storage', () => ({
   deleteStorageObjectByUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
+import { NannyApprovalStatus } from '@nanny-app/shared';
+
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
@@ -59,7 +61,12 @@ function makeRow(
     id: 1,
     bio: 'Loves kids',
     yearsOfExperience: 4,
-    certifications: ['CPR'],
+    nannyCertifications: [{ certification: { id: 1, name: 'CPR' } }],
+    approvalStatus: NannyApprovalStatus.PENDING_REVIEW,
+    rejectionReason: null,
+    reviewedAt: null,
+    idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
+    idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
     user: {
       id: 10,
@@ -110,7 +117,12 @@ function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
     id: 1,
     bio: null,
     yearsOfExperience: null,
-    certifications: [],
+    nannyCertifications: [],
+    approvalStatus: 'APPROVED',
+    rejectionReason: null,
+    reviewedAt: null,
+    idDocumentFrontUrl: null,
+    idDocumentBackUrl: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     user: {
       id: 10,

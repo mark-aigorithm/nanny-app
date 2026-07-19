@@ -11,6 +11,7 @@ import {
   type NannyListQuery,
   type NannyProfileResponse,
   type NannyPublicProfile,
+  type PublicCertification,
   type PublicSkill,
   type ReviewSummary,
   type UpdateNannyProfileRequest,
@@ -21,6 +22,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
 import { platformHour, toPlatformDateIso } from '@backend/lib/platform-time';
+import { reconcileNannyCertifications } from '@backend/services/certification.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,11 +38,36 @@ const nannySkillsInclude = {
   },
 } as const;
 
+/**
+ * Prisma `include` for a nanny's active certifications, joined through the
+ * NannyCertification join table to the Certification catalog. Reused by every
+ * read path that returns a nanny so responses always carry the `certifications`
+ * array. Certifications carry no fee, unlike skills.
+ */
+const nannyCertificationsInclude = {
+  nannyCertifications: {
+    where: { deletedAt: null },
+    include: { certification: true },
+  },
+} as const;
+
+/** Both catalog joins, spread into a single `include` for the common read paths. */
+const nannyTagsInclude = {
+  ...nannySkillsInclude,
+  ...nannyCertificationsInclude,
+} as const;
+
 type NannySkillWithSkill = {
   skill: { id: number; name: string; feeType: DiscountType | null; feeValue: PrismaTypes.Decimal };
 };
-type ProfileWithSkills = NannyProfile & { nannySkills: NannySkillWithSkill[] };
-type ProfileWithUserAndSkills = ProfileWithSkills & { user: User };
+type NannyCertificationWithCert = {
+  certification: { id: number; name: string };
+};
+type ProfileWithTags = NannyProfile & {
+  nannySkills: NannySkillWithSkill[];
+  nannyCertifications: NannyCertificationWithCert[];
+};
+type ProfileWithUserAndTags = ProfileWithTags & { user: User };
 
 /** Flatten the join rows into the lightweight PublicSkill shape clients use. */
 function toPublicSkills(nannySkills: NannySkillWithSkill[]): PublicSkill[] {
@@ -52,9 +79,19 @@ function toPublicSkills(nannySkills: NannySkillWithSkill[]): PublicSkill[] {
   }));
 }
 
+/** Flatten the join rows into the lightweight PublicCertification shape clients use. */
+function toPublicCertifications(
+  nannyCertifications: NannyCertificationWithCert[],
+): PublicCertification[] {
+  return nannyCertifications.map((nc) => ({
+    id: nc.certification.id,
+    name: nc.certification.name,
+  }));
+}
+
 function toNannyProfileResponse(
   user: User,
-  profile: ProfileWithSkills,
+  profile: ProfileWithTags,
 ): NannyProfileResponse {
   return {
     firstName: user.firstName,
@@ -66,7 +103,7 @@ function toNannyProfileResponse(
     latitude: user.latitude !== null ? Number(user.latitude) : null,
     longitude: user.longitude !== null ? Number(user.longitude) : null,
     yearsOfExperience: profile.yearsOfExperience,
-    certifications: profile.certifications,
+    certifications: toPublicCertifications(profile.nannyCertifications),
     ageRanges: profile.ageRanges,
     skills: toPublicSkills(profile.nannySkills),
     schedule: (profile.schedule as WeeklySchedule) ?? null,
@@ -77,7 +114,7 @@ function toNannyProfileResponse(
   };
 }
 
-function toNannyListItem(profile: ProfileWithUserAndSkills): NannyListItem {
+function toNannyListItem(profile: ProfileWithUserAndTags): NannyListItem {
   return {
     nannyProfileId: profile.id,
     firstName: profile.user.firstName,
@@ -87,7 +124,7 @@ function toNannyListItem(profile: ProfileWithUserAndSkills): NannyListItem {
     // Home location lives on the user row (single source of truth).
     location: profile.user.address,
     yearsOfExperience: profile.yearsOfExperience,
-    certifications: profile.certifications,
+    certifications: toPublicCertifications(profile.nannyCertifications),
     ageRanges: profile.ageRanges,
     skills: toPublicSkills(profile.nannySkills),
     availabilityType: profile.availabilityType,
@@ -119,7 +156,7 @@ function toReviewSummary(r: ReviewWithMother): ReviewSummary {
 async function requireNannyUser(uid: string) {
   const user = await prisma.user.findUnique({
     where: { firebaseUid: uid },
-    include: { nannyProfile: { include: nannySkillsInclude } },
+    include: { nannyProfile: { include: nannyTagsInclude } },
   });
   if (!user || user.deletedAt) throw errors.notFound('User not found.');
   if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies have a nanny profile.');
@@ -143,7 +180,9 @@ export async function updateNannyProfile(
   // `location` is the nanny's free-text home label. It now lives on the user
   // row (users.address), the single source of truth for proximity search, so
   // it is pulled out of the nanny-profile write path and applied to the user.
-  const { firstName, lastName, avatarUrl, location, ...profileFields } = body;
+  // `certificationIds` are reconciled into the NannyCertification join, not
+  // written as a scalar column, so they are pulled out too.
+  const { firstName, lastName, avatarUrl, location, certificationIds, ...profileFields } = body;
 
   const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx) => {
     const u =
@@ -178,11 +217,24 @@ export async function updateNannyProfile(
         yearsOfExperience: mergedYears ?? null,
       }).length === 0;
 
-    const p = await tx.nannyProfile.upsert({
+    const upserted = await tx.nannyProfile.upsert({
       where: { userId: user.id },
       create: { userId: user.id, ...profileFields, isProfileComplete },
       update: { ...profileFields, isProfileComplete },
-      include: nannySkillsInclude,
+      select: { id: true },
+    });
+
+    // Reconcile the certification links (nanny self-service) inside the same
+    // transaction so the profile write and its tags stay atomic.
+    if (certificationIds !== undefined) {
+      await reconcileNannyCertifications(tx, upserted.id, certificationIds);
+    }
+
+    // Re-read with the tag joins so the response reflects the reconciled
+    // certifications (the upsert snapshot predates the reconcile above).
+    const p = await tx.nannyProfile.findUniqueOrThrow({
+      where: { id: upserted.id },
+      include: nannyTagsInclude,
     });
 
     return [u, p] as const;
@@ -263,7 +315,7 @@ export async function listNannies(
       prisma.nannyProfile.count({ where }),
       prisma.nannyProfile.findMany({
         where,
-        include: { user: true, ...nannySkillsInclude },
+        include: { user: true, ...nannyTagsInclude },
         orderBy: { rating: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -305,7 +357,7 @@ export async function listNannies(
   const distanceById = new Map(rows.map((r) => [r.id, r.distance_m]));
   const profiles = await prisma.nannyProfile.findMany({
     where: { id: { in: rows.map((r) => r.id) } },
-    include: { user: true, ...nannySkillsInclude },
+    include: { user: true, ...nannyTagsInclude },
   });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
 
@@ -331,7 +383,7 @@ export async function getNannyPublicProfile(nannyProfileId: number): Promise<Nan
     },
     include: {
       user: true,
-      ...nannySkillsInclude,
+      ...nannyTagsInclude,
       reviews: {
         where: { deletedAt: null },
         include: { mother: true },

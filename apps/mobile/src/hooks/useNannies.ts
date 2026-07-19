@@ -5,6 +5,7 @@ import type {
   NannyDashboard,
   NannyListItem,
   NannyPublicProfile,
+  PublicCertification,
   PublicSkill,
   ReviewSummary,
 } from '@nanny-app/shared';
@@ -14,6 +15,7 @@ import { useAuthStore } from '@mobile/store/authStore';
 
 export const NANNIES_KEY = 'nannies';
 export const SKILLS_KEY = 'skills';
+export const CERTIFICATIONS_KEY = 'certifications';
 
 interface NannyListParams {
   availabilityType?: AvailabilityType;
@@ -46,6 +48,14 @@ export function useSkillCatalog() {
   return useQuery<PublicSkill[]>({
     queryKey: [SKILLS_KEY, 'catalog'],
     queryFn: () => unwrap(api.get('/nanny/skills')),
+  });
+}
+
+/** Active certification catalog — powers the nanny profile self-service picker. */
+export function useCertificationCatalog() {
+  return useQuery<PublicCertification[]>({
+    queryKey: [CERTIFICATIONS_KEY, 'catalog'],
+    queryFn: () => unwrap(api.get('/nanny/certifications')),
   });
 }
 
