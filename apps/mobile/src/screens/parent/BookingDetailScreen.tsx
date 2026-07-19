@@ -122,6 +122,11 @@ export default function BookingDetailScreen() {
   const canCancel =
     booking.status === 'CONFIRMED' || booking.status === 'PENDING' || isApproved;
 
+  // The backend folds redeemed Care Points into discountAmount alongside the
+  // promo, so split them back out to show each as its own line.
+  const carePointsDiscount = booking.rewardCreditAmount;
+  const promoDiscount = Math.round((booking.discountAmount - carePointsDiscount) * 100) / 100;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -207,10 +212,18 @@ export default function BookingDetailScreen() {
               </Text>
             </View>
           )}
-          {booking.discountAmount > 0 && (
+          {carePointsDiscount > 0.005 && (
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>
+                Care Points · {booking.rewardCreditHoursApplied}h
+              </Text>
+              <Text style={styles.paymentValue}>–{formatMoney(carePointsDiscount)}</Text>
+            </View>
+          )}
+          {promoDiscount > 0.005 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Promo discount</Text>
-              <Text style={styles.paymentValue}>–{formatMoney(booking.discountAmount)}</Text>
+              <Text style={styles.paymentValue}>–{formatMoney(promoDiscount)}</Text>
             </View>
           )}
           <View style={styles.paymentDivider} />
