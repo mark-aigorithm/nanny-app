@@ -109,14 +109,28 @@ export async function redeemPackageHours(
   return { hoursApplied: round2(params.hoursNeeded - remaining), maxSkillsAllowed, purchaseIds };
 }
 
-/** Reverse a booking's redemption into the originating buckets (skips buckets that have since expired). */
+/**
+ * Reverse a booking's redemption into the originating buckets (skips buckets that have since
+ * expired). Idempotent: a REDEMPTION row that already has a matching REFUND row for this
+ * bookingId + purchaseId is skipped, so calling this twice for the same booking (client retry,
+ * an admin/user cancel race, a webhook replay) only refunds once. The ledger itself is the guard
+ * — no separate "already refunded" flag is needed.
+ */
 export async function refundPackageHours(db: Db, bookingId: number): Promise<number> {
   const debits = await db.packageHoursLedger.findMany({
     where: { bookingId, type: 'REDEMPTION', deletedAt: null },
   });
+  if (debits.length === 0) return 0;
+
+  const existingRefunds = await db.packageHoursLedger.findMany({
+    where: { bookingId, type: 'REFUND', deletedAt: null },
+  });
+  const alreadyRefundedPurchaseIds = new Set(existingRefunds.map((r) => r.purchaseId));
 
   let refunded = 0;
   for (const d of debits) {
+    if (alreadyRefundedPurchaseIds.has(d.purchaseId)) continue;
+
     const purchase = await db.packagePurchase.findFirst({
       where: { id: d.purchaseId, deletedAt: null },
     });

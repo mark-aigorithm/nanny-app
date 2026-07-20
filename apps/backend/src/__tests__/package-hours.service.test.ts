@@ -39,6 +39,18 @@ function bucket(over: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * `packageHoursLedger.findMany` is called twice inside `refundPackageHours` — once for the
+ * REDEMPTION debits, once for the idempotency guard's existing REFUND rows — so a single
+ * blanket `mockResolvedValue` would (wrongly) answer both calls with the same array. This
+ * routes each call to the right fixture based on the query's `type` filter.
+ */
+function mockLedgerFindMany(debits: unknown[], existingRefunds: unknown[] = []) {
+  m.packageHoursLedger.findMany.mockImplementation(async ({ where }: { where: { type: string } }) =>
+    where.type === 'REDEMPTION' ? debits : existingRefunds,
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -192,9 +204,7 @@ describe('redeemPackageHours (FIFO)', () => {
 
 describe('refundPackageHours', () => {
   it('restores hours to the originating bucket and writes a REFUND row', async () => {
-    m.packageHoursLedger.findMany.mockResolvedValue([
-      { id: 10, purchaseId: 1, userId: 7, hours: '-3.00' },
-    ]);
+    mockLedgerFindMany([{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }]);
     m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 1, hoursRemaining: '1.00' }));
     m.packagePurchase.update.mockResolvedValue({});
     m.packageHoursLedger.create.mockResolvedValue({});
@@ -224,7 +234,7 @@ describe('refundPackageHours', () => {
   });
 
   it('sums refunds across multiple buckets that were drawn for the same booking', async () => {
-    m.packageHoursLedger.findMany.mockResolvedValue([
+    mockLedgerFindMany([
       { id: 10, purchaseId: 1, userId: 7, hours: '-4.00' },
       { id: 11, purchaseId: 2, userId: 7, hours: '-2.00' },
     ]);
@@ -241,9 +251,7 @@ describe('refundPackageHours', () => {
   });
 
   it('skips a bucket that has since expired', async () => {
-    m.packageHoursLedger.findMany.mockResolvedValue([
-      { id: 10, purchaseId: 1, userId: 7, hours: '-3.00' },
-    ]);
+    mockLedgerFindMany([{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }]);
     m.packagePurchase.findFirst.mockResolvedValue(
       bucket({ id: 1, status: 'EXPIRED', hoursRemaining: '0.00' }),
     );
@@ -257,6 +265,22 @@ describe('refundPackageHours', () => {
   it('returns 0 when there is nothing to refund for that booking', async () => {
     m.packageHoursLedger.findMany.mockResolvedValue([]);
     expect(await refundPackageHours(prisma as never, 42)).toBe(0);
+  });
+
+  it('is idempotent — a second call for the same bookingId is a no-op', async () => {
+    mockLedgerFindMany(
+      [{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }],
+      [{ id: 99, purchaseId: 1, userId: 7, hours: '3.00' }],
+    );
+    m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 1, hoursRemaining: '1.00' }));
+    m.packagePurchase.update.mockResolvedValue({});
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    const refunded = await refundPackageHours(prisma as never, 42);
+
+    expect(refunded).toBe(0);
+    expect(m.packagePurchase.update).not.toHaveBeenCalled();
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 });
 
