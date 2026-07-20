@@ -104,7 +104,7 @@ model PackageHoursLedger {
   @@index([userId, createdAt])
   @@index([purchaseId])
   @@index([bookingId])
-  @@map("package_hours_ledger")
+  @@map("package_hours_ledger_entries")
 }
 
 enum PackagePurchaseStatus {
