@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 
+import RatingPromptHost from '@mobile/components/RatingPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
 
 export default function ParentLayout() {
@@ -35,6 +36,7 @@ export default function ParentLayout() {
         <Tabs.Screen name="create-listing" options={{ headerShown: false }} />
         <Tabs.Screen name="nanny-selection-guide" options={{ headerShown: false }} />
       </Tabs>
+      <RatingPromptHost />
     </>
   );
 }
