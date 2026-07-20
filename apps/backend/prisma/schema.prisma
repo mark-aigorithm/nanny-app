@@ -87,6 +87,16 @@ enum PaymentMethod {
   @@map("payment_method")
 }
 
+/// What a Payment is settling: a Booking (default, existing behaviour) or a
+/// PackagePurchase. Disambiguates Payment's polymorphic bookingId /
+/// packagePurchaseId relations.
+enum PaymentPurpose {
+  BOOKING
+  PACKAGE
+
+  @@map("payment_purpose")
+}
+
 enum NannyApprovalStatus {
   PENDING_REVIEW
   APPROVED
@@ -139,31 +149,31 @@ enum CareLogType {
 /// `isEmailVerified` / `isPhoneVerified` — email can be re-verified on
 /// change independently of phone (AUTH-10).
 model User {
-  id                   Int       @id @default(autoincrement())
-  firebaseUid          String    @unique @map("firebase_uid")
-  email                String    @unique
-  phone                String?   @unique // E.164
-  firstName            String    @map("first_name")
-  lastName             String    @map("last_name")
-  dateOfBirth          DateTime? @map("date_of_birth") @db.Date
-  avatarUrl            String?   @map("avatar_url")
+  id                   Int                   @id @default(autoincrement())
+  firebaseUid          String                @unique @map("firebase_uid")
+  email                String                @unique
+  phone                String?               @unique // E.164
+  firstName            String                @map("first_name")
+  lastName             String                @map("last_name")
+  dateOfBirth          DateTime?             @map("date_of_birth") @db.Date
+  avatarUrl            String?               @map("avatar_url")
   // Nullable: social sign-in creates a User before the role is chosen;
   // `/auth/set-role` (AUTH-08) fills it in.
   role                 Role?
-  isEmailVerified      Boolean   @default(false) @map("is_email_verified")
-  isPhoneVerified      Boolean   @default(false) @map("is_phone_verified")
-  isActive             Boolean   @default(true) @map("is_active")
-  lastLoginAt          DateTime? @map("last_login_at")
-  emailVerifiedAt      DateTime? @map("email_verified_at")
-  phoneVerifiedAt      DateTime? @map("phone_verified_at")
-  termsAcceptedAt      DateTime? @map("terms_accepted_at")
-  termsAcceptedVersion String?   @map("terms_accepted_version")
+  isEmailVerified      Boolean               @default(false) @map("is_email_verified")
+  isPhoneVerified      Boolean               @default(false) @map("is_phone_verified")
+  isActive             Boolean               @default(true) @map("is_active")
+  lastLoginAt          DateTime?             @map("last_login_at")
+  emailVerifiedAt      DateTime?             @map("email_verified_at")
+  phoneVerifiedAt      DateTime?             @map("phone_verified_at")
+  termsAcceptedAt      DateTime?             @map("terms_accepted_at")
+  termsAcceptedVersion String?               @map("terms_accepted_version")
   /// Street address + home coordinates captured by the registration map
   /// picker. Single source of truth for location — proximity search and
   /// distance sorting (nanny listing + booking broadcast) read lat/lng here.
   address              String?
-  latitude             Decimal?  @db.Decimal(10, 7)
-  longitude            Decimal?  @db.Decimal(10, 7)
+  latitude             Decimal?              @db.Decimal(10, 7)
+  longitude            Decimal?              @db.Decimal(10, 7)
   /// Identity documents + KYC state, for BOTH nannies and mothers. Nannies must
   /// be APPROVED to appear in search / use the app; mothers must have uploaded
   /// an ID (not PENDING_ID/REJECTED) before booking. Null for admins/role-less.
@@ -175,12 +185,12 @@ model User {
   idRejectionReason    String?               @map("id_rejection_reason")
   /// This user's personal referral code (e.g. SARAH-4K2P). Generated lazily on
   /// first request rather than at signup, so existing users need no backfill.
-  referralCode         String?   @unique @map("referral_code")
+  referralCode         String?               @unique @map("referral_code")
   // Soft-delete grace window (AUTH-14): 30-day window before PII is purged.
-  deletionRequestedAt  DateTime? @map("deletion_requested_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-  deletedAt            DateTime? @map("deleted_at")
+  deletionRequestedAt  DateTime?             @map("deletion_requested_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  deletedAt            DateTime?             @map("deleted_at")
 
   nannyProfile             NannyProfile?
   bookingsAsMother         Booking[]                 @relation("BookingMother")
@@ -206,6 +216,9 @@ model User {
   rewardGrantsMade         RewardLedgerEntry[]       @relation("RewardGrantAdmin")
   referralsMade            Referral[]                @relation("ReferralsMade")
   referralReceived         Referral?                 @relation("ReferralReceived")
+  packagePurchases         PackagePurchase[]         @relation("PackagePurchaseUser")
+  packageHoursLedger       PackageHoursLedger[]      @relation("PackageHoursLedgerUser")
+  packageHoursGrants       PackageHoursLedger[]      @relation("PackageHoursLedgerAdmin")
 
   @@index([role])
   @@index([deletedAt])
@@ -216,37 +229,37 @@ model User {
 /// Nanny-specific extended profile. Created automatically when role = NANNY
 /// on /auth/register. One-to-one with User.
 model NannyProfile {
-  id                 Int                 @id @default(autoincrement())
-  userId             Int                 @unique @map("user_id")
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio                String?             @db.Text
-  yearsOfExperience  Int?                @map("years_of_experience")
-  ageRanges          String[]            @map("age_ranges")
-  specialties        String[]            @default([])
+  id                  Int                  @id @default(autoincrement())
+  userId              Int                  @unique @map("user_id")
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                 String?              @db.Text
+  yearsOfExperience   Int?                 @map("years_of_experience")
+  ageRanges           String[]             @map("age_ranges")
+  specialties         String[]             @default([])
   /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
-  schedule           Json?
-  isProfileComplete  Boolean             @default(false) @map("is_profile_complete")
+  schedule            Json?
+  isProfileComplete   Boolean              @default(false) @map("is_profile_complete")
   /// Admin vetting gate: new nannies start PENDING_REVIEW and cannot appear
   /// in search or use the app until an admin approves them (KYC).
-  approvalStatus     NannyApprovalStatus @default(PENDING_REVIEW) @map("approval_status")
-  reviewedAt         DateTime?           @map("reviewed_at")
-  rejectionReason    String?             @map("rejection_reason")
+  approvalStatus      NannyApprovalStatus  @default(PENDING_REVIEW) @map("approval_status")
+  reviewedAt          DateTime?            @map("reviewed_at")
+  rejectionReason     String?              @map("rejection_reason")
   /// Identity documents captured at registration for admin KYC review.
-  idDocumentFrontUrl String?             @map("id_document_front_url")
-  idDocumentBackUrl  String?             @map("id_document_back_url")
+  idDocumentFrontUrl  String?              @map("id_document_front_url")
+  idDocumentBackUrl   String?              @map("id_document_back_url")
   /// Availability type for filtering: FULL_TIME, PART_TIME, OCCASIONAL
-  availabilityType   AvailabilityType    @default(OCCASIONAL) @map("availability_type")
+  availabilityType    AvailabilityType     @default(OCCASIONAL) @map("availability_type")
   /// Denormalised rating cache — recomputed on every new review.
-  rating             Decimal             @default(0) @db.Decimal(3, 2)
-  reviewCount        Int                 @default(0) @map("review_count")
-  bookings           Booking[]
-  reviews            Review[]
-  careLogs           CareLog[]
-  nannySkills        NannySkill[]
+  rating              Decimal              @default(0) @db.Decimal(3, 2)
+  reviewCount         Int                  @default(0) @map("review_count")
+  bookings            Booking[]
+  reviews             Review[]
+  careLogs            CareLog[]
+  nannySkills         NannySkill[]
   nannyCertifications NannyCertification[]
-  createdAt          DateTime            @default(now()) @map("created_at")
-  updatedAt          DateTime            @updatedAt @map("updated_at")
-  deletedAt          DateTime?           @map("deleted_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  deletedAt           DateTime?            @map("deleted_at")
 
   @@index([availabilityType])
   @@index([rating])
@@ -335,19 +348,99 @@ model NannyCertification {
 /// linked to bookings or parents. `expiresAt` is the catalog offer end date
 /// (null = never expires).
 model Package {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?   @db.Text
-  hours       Int
-  price       Decimal   @db.Decimal(10, 2)
-  isActive    Boolean   @default(true) @map("is_active")
-  expiresAt   DateTime? @map("expires_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  description  String?   @db.Text
+  hours        Int
+  price        Decimal   @db.Decimal(10, 2)
+  validityDays Int       @map("validity_days")
+  maxSkills    Int       @default(0) @map("max_skills")
+  isActive     Boolean   @default(true) @map("is_active")
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  purchases PackagePurchase[]
 
   @@index([deletedAt])
   @@map("packages")
+}
+
+/// A single purchase of a Package by a user — the hours "bucket" that gets
+/// drawn down by bookings via PackageHoursLedger. Snapshots the package's
+/// name/price/hours/maxSkills at purchase time so later catalog edits never
+/// rewrite the history of a past purchase.
+model PackagePurchase {
+  id                Int                   @id @default(autoincrement())
+  userId            Int                   @map("user_id")
+  user              User                  @relation("PackagePurchaseUser", fields: [userId], references: [id])
+  packageId         Int                   @map("package_id")
+  package           Package               @relation(fields: [packageId], references: [id])
+  nameSnapshot      String                @map("name_snapshot")
+  hoursPurchased    Int                   @map("hours_purchased")
+  pricePaid         Decimal               @map("price_paid") @db.Decimal(10, 2)
+  maxSkillsSnapshot Int                   @map("max_skills_snapshot")
+  hoursRemaining    Decimal               @default(0) @map("hours_remaining") @db.Decimal(6, 2)
+  status            PackagePurchaseStatus @default(PENDING_PAYMENT)
+  purchasedAt       DateTime?             @map("purchased_at")
+  expiresAt         DateTime?             @map("expires_at")
+  payment           Payment?
+  ledgerEntries     PackageHoursLedger[]
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
+  deletedAt         DateTime?             @map("deleted_at")
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@index([deletedAt])
+  @@map("package_purchases")
+}
+
+/// Append-only history of every hour movement against a PackagePurchase
+/// bucket (purchase credit, booking redemption, refund, expiry, admin
+/// adjustment) — mirrors RewardLedgerEntry's ledger pattern for Care Points.
+model PackageHoursLedger {
+  id           Int                   @id @default(autoincrement())
+  purchaseId   Int                   @map("purchase_id")
+  purchase     PackagePurchase       @relation(fields: [purchaseId], references: [id])
+  userId       Int                   @map("user_id")
+  user         User                  @relation("PackageHoursLedgerUser", fields: [userId], references: [id])
+  type         PackageHoursEntryType
+  hours        Decimal               @db.Decimal(6, 2)
+  balanceAfter Decimal               @map("balance_after") @db.Decimal(6, 2)
+  reason       String?
+  bookingId    Int?                  @map("booking_id")
+  booking      Booking?              @relation(fields: [bookingId], references: [id])
+  adminId      Int?                  @map("admin_id")
+  admin        User?                 @relation("PackageHoursLedgerAdmin", fields: [adminId], references: [id])
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+  deletedAt    DateTime?             @map("deleted_at")
+
+  @@index([userId, createdAt])
+  @@index([purchaseId])
+  @@index([bookingId])
+  @@map("package_hours_ledger")
+}
+
+enum PackagePurchaseStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  EXPIRED
+  REFUNDED
+
+  @@map("package_purchase_status")
+}
+
+enum PackageHoursEntryType {
+  PURCHASE
+  REDEMPTION
+  REFUND
+  EXPIRY
+  ADMIN_ADJUST
+
+  @@map("package_hours_entry_type")
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -611,6 +704,12 @@ model Booking {
   rewardCreditHoursApplied Decimal              @default(0) @map("reward_credit_hours_applied") @db.Decimal(6, 2)
   rewardCreditPoints       Int                  @default(0) @map("reward_credit_points")
   rewardCreditAmount       Decimal              @default(0) @map("reward_credit_amount") @db.Decimal(10, 2)
+  /// Package hours ("bucket") redeemed against this booking before payment,
+  /// the skill add-ons those hours covered, and their monetary value (folded
+  /// into discountAmount). See PackagePurchase / PackageHoursLedger.
+  packageHoursApplied      Decimal              @default(0) @map("package_hours_applied") @db.Decimal(6, 2)
+  packageSkillsCovered     Int                  @default(0) @map("package_skills_covered")
+  packageCreditAmount      Decimal              @default(0) @map("package_credit_amount") @db.Decimal(10, 2)
   /// Legacy platform service-fee snapshot. Superseded by the nanny/platform
   /// revenue split (nannyAmount / platformAmount); retained for old bookings.
   serviceFeePercent        Decimal              @map("service_fee_percent") @db.Decimal(5, 2)
@@ -649,8 +748,9 @@ model Booking {
   updatedAt                DateTime             @updatedAt @map("updated_at")
   deletedAt                DateTime?            @map("deleted_at")
 
-  review   Review?
-  careLogs CareLog[]
+  review             Review?
+  careLogs           CareLog[]
+  packageHoursLedger PackageHoursLedger[]
 
   @@index([motherId])
   @@index([nannyProfileId])
@@ -662,34 +762,40 @@ model Booking {
 }
 
 model Payment {
-  id                      Int           @id @default(autoincrement())
-  bookingId               Int           @unique @map("booking_id")
-  booking                 Booking       @relation(fields: [bookingId], references: [id])
-  motherId                Int           @map("mother_id")
-  mother                  User          @relation("PaymentMother", fields: [motherId], references: [id])
-  amount                  Decimal       @db.Decimal(10, 2)
-  currency                String        @default("EGP")
+  id                      Int              @id @default(autoincrement())
+  /// Nullable + polymorphic: a payment covers either a Booking or a
+  /// PackagePurchase (never both). `purpose` disambiguates which relation
+  /// is populated.
+  bookingId               Int?             @unique @map("booking_id")
+  booking                 Booking?         @relation(fields: [bookingId], references: [id])
+  packagePurchaseId       Int?             @unique @map("package_purchase_id")
+  packagePurchase         PackagePurchase? @relation(fields: [packagePurchaseId], references: [id])
+  purpose                 PaymentPurpose   @default(BOOKING)
+  motherId                Int              @map("mother_id")
+  mother                  User             @relation("PaymentMother", fields: [motherId], references: [id])
+  amount                  Decimal          @db.Decimal(10, 2)
+  currency                String           @default("EGP")
   method                  PaymentMethod
-  status                  PaymentStatus @default(PENDING)
-  paymobOrderId           String?       @map("paymob_order_id")
-  paymobTransactionId     String?       @map("paymob_transaction_id")
+  status                  PaymentStatus    @default(PENDING)
+  paymobOrderId           String?          @map("paymob_order_id")
+  paymobTransactionId     String?          @map("paymob_transaction_id")
   /// Paymob unified intention id (`id` from create-intention response).
-  paymobIntentionId       String?       @map("paymob_intention_id")
+  paymobIntentionId       String?          @map("paymob_intention_id")
   /// One-time client secret for Pixel / unified checkout and for server-side intention polling.
-  paymobClientSecret      String?       @map("paymob_client_secret") @db.Text
+  paymobClientSecret      String?          @map("paymob_client_secret") @db.Text
   /// Incremented each time a new Paymob intention is created (retry-safe merchant order ids).
-  paymobIntentionAttempt  Int           @default(0) @map("paymob_intention_attempt")
+  paymobIntentionAttempt  Int              @default(0) @map("paymob_intention_attempt")
   /// T0 for staggered reconciliation (usually intention creation time).
-  paymobReconcileAnchorAt DateTime?     @map("paymob_reconcile_anchor_at")
+  paymobReconcileAnchorAt DateTime?        @map("paymob_reconcile_anchor_at")
   /// Number of reconciliation polls already executed (0..PAYMOB_RECONCILE_OFFSETS_MS.length).
-  paymobReconcileAttempt  Int           @default(0) @map("paymob_reconcile_attempt")
-  paymobNextReconcileAt   DateTime?     @map("paymob_next_reconcile_at")
-  failureReason           String?       @map("failure_reason")
-  refundedAmount          Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
-  refundedAt              DateTime?     @map("refunded_at")
-  createdAt               DateTime      @default(now()) @map("created_at")
-  updatedAt               DateTime      @updatedAt @map("updated_at")
-  deletedAt               DateTime?     @map("deleted_at")
+  paymobReconcileAttempt  Int              @default(0) @map("paymob_reconcile_attempt")
+  paymobNextReconcileAt   DateTime?        @map("paymob_next_reconcile_at")
+  failureReason           String?          @map("failure_reason")
+  refundedAmount          Decimal          @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+  refundedAt              DateTime?        @map("refunded_at")
+  createdAt               DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
+  deletedAt               DateTime?        @map("deleted_at")
 
   @@index([paymobOrderId])
   @@index([paymobNextReconcileAt])
