@@ -16,12 +16,12 @@ export const useRatingPromptStore = create<RatingPromptStore>((set) => ({
 // Bookings the parent has already rated this session. Detection skips these so a
 // just-submitted rating can't immediately reopen the sheet before queries settle.
 // Cleared naturally on app relaunch (module reload).
-const resolvedBookingIds = new Set<string>();
+const resolvedBookingIds = new Set<number>();
 
-export function markRatingResolved(bookingId: string): void {
+export function markRatingResolved(bookingId: number): void {
   resolvedBookingIds.add(bookingId);
 }
 
-export function isRatingResolved(bookingId: string): boolean {
+export function isRatingResolved(bookingId: number): boolean {
   return resolvedBookingIds.has(bookingId);
 }

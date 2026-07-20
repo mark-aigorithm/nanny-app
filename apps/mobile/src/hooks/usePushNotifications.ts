@@ -108,7 +108,7 @@ function navigateFromNotification(
 
   const bookingId = data?.['bookingId'];
   if (bookingId) {
-    navigateToBookingDetail(router, bookingId, {
+    navigateToBookingDetail(router, Number(bookingId), {
       focusCareLog: shouldFocusCareLogFromPushData(data),
     });
     return;

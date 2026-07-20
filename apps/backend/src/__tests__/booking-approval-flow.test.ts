@@ -94,7 +94,7 @@ const mockPrisma = prisma as unknown as {
 const mockNotify = createInAppNotification as jest.Mock;
 
 const motherUser = {
-  id: 'mother-1',
+  id: 10,
   firebaseUid: 'fb-mother',
   role: Role.MOTHER,
   latitude: 30.0444,
@@ -103,15 +103,15 @@ const motherUser = {
 };
 
 const nannyUser = {
-  id: 'nanny-user-1',
+  id: 16,
   firebaseUid: 'fb-nanny',
   role: Role.NANNY,
   deletedAt: null,
 };
 
-const mother = { id: 'mother-1', firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
+const mother = { id: 10, firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
 const nannyProfileRel = {
-  id: 'np-1',
+  id: 19,
   userId: nannyUser.id,
   user: { id: nannyUser.id, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
 };
@@ -120,7 +120,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
   const startTime = new Date('2026-08-01T10:00:00.000Z');
   const endTime = new Date('2026-08-01T13:00:00.000Z');
   return {
-    id: 'booking-1',
+    id: 4,
     motherId: mother.id,
     mother,
     nannyProfileId: nannyProfileRel.id,
@@ -211,7 +211,7 @@ describe('createBooking (broadcast)', () => {
     mockPrisma.nannyProfile.findMany.mockResolvedValue([
       { userId: nannyUser.id, user: { latitude: null, longitude: null } },
     ]);
-    mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
 
     // A wall-clock window 20 days out — far enough ahead that the lead-time check
     // passes without hard-coding a date that eventually goes stale.
@@ -243,7 +243,7 @@ describe('createBooking (broadcast)', () => {
     const requested = mockNotify.mock.calls.filter((c) => c[0].type === 'BOOKING_REQUESTED');
     expect(requested).toHaveLength(3);
     expect(requested.map((c) => c[0].userId).sort()).toEqual(
-      ['admin-1', 'admin-2', nannyUser.id].sort(),
+      [1, 2, nannyUser.id].sort(),
     );
   });
 });
@@ -271,7 +271,7 @@ describe('claim (unassigned request)', () => {
       makeBooking({ status: PrismaBookingStatus.APPROVED, nannyDecision: NannyBookingDecision.ACCEPTED }),
     );
 
-    const result = await acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1');
+    const result = await acceptBooking({ uid: 'fb-nanny' } as never, 4);
 
     expect(result.status).toBe(BookingStatus.APPROVED);
 
@@ -280,7 +280,7 @@ describe('claim (unassigned request)', () => {
     const claimCall = mockPrisma.booking.updateMany.mock.calls[0][0];
     expect(claimCall.where).toEqual(
       expect.objectContaining({
-        id: 'booking-1',
+        id: 4,
         status: PrismaBookingStatus.PENDING,
         nannyProfileId: null,
         deletedAt: null,
@@ -309,7 +309,7 @@ describe('claim (unassigned request)', () => {
     // …but another nanny's claim commits first, so the guarded write misses.
     mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1')).rejects.toThrow(
+    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 4)).rejects.toThrow(
       /already accepted/i,
     );
     expect(mockNotify).not.toHaveBeenCalled();
@@ -318,10 +318,10 @@ describe('claim (unassigned request)', () => {
   it('rejects a second nanny once the request is already claimed (double-claim guard)', async () => {
     // The transaction re-reads the booking and finds it no longer PENDING.
     mockPrisma.booking.findUnique.mockResolvedValue(
-      makeBooking({ status: PrismaBookingStatus.APPROVED, nannyProfileId: 'np-other' }),
+      makeBooking({ status: PrismaBookingStatus.APPROVED, nannyProfileId: 20 }),
     );
 
-    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1')).rejects.toThrow(AppError);
+    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 4)).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 });
@@ -344,7 +344,7 @@ describe('nanny decision', () => {
       makeBooking({ nannyDecision: NannyBookingDecision.ACCEPTED, nannyDecidedAt: new Date() }),
     );
 
-    const result = await acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1');
+    const result = await acceptBooking({ uid: 'fb-nanny' } as never, 4);
 
     expect(result.nannyDecision).toBe(NannyBookingDecision.ACCEPTED);
     expect(result.status).toBe(BookingStatus.PENDING);
@@ -359,7 +359,7 @@ describe('nanny decision', () => {
       makeBooking({ nannyDecision: NannyBookingDecision.DECLINED, nannyDecidedAt: new Date() }),
     );
 
-    const result = await declineBooking({ uid: 'fb-nanny' } as never, 'booking-1');
+    const result = await declineBooking({ uid: 'fb-nanny' } as never, 4);
 
     expect(result.nannyDecision).toBe(NannyBookingDecision.DECLINED);
     expect(result.status).toBe(BookingStatus.PENDING);
@@ -373,7 +373,7 @@ describe('nanny decision', () => {
       makeBooking({ status: PrismaBookingStatus.APPROVED }),
     );
 
-    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 'booking-1')).rejects.toThrow(AppError);
+    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 4)).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 });
@@ -389,12 +389,12 @@ describe('mockPayBooking', () => {
     mockPrisma.booking.findUnique.mockResolvedValue(
       makeBooking({ status: PrismaBookingStatus.APPROVED }),
     );
-    mockPrisma.payment.create.mockResolvedValue({ id: 'pay-1', status: 'CAPTURED' });
+    mockPrisma.payment.create.mockResolvedValue({ id: 21, status: 'CAPTURED' });
     mockPrisma.booking.update.mockResolvedValue(
       makeBooking({ status: PrismaBookingStatus.CONFIRMED }),
     );
 
-    const result = await mockPayBooking({ uid: 'fb-mother' } as never, 'booking-1', {
+    const result = await mockPayBooking({ uid: 'fb-mother' } as never, 4, {
       method: 'CARD',
       succeed: true,
     });
@@ -413,7 +413,7 @@ describe('mockPayBooking', () => {
     );
 
     await expect(
-      mockPayBooking({ uid: 'fb-mother' } as never, 'booking-1', { method: 'CARD', succeed: true }),
+      mockPayBooking({ uid: 'fb-mother' } as never, 4, { method: 'CARD', succeed: true }),
     ).rejects.toThrow(AppError);
     expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
@@ -422,12 +422,12 @@ describe('mockPayBooking', () => {
     mockPrisma.booking.findUnique.mockResolvedValue(
       makeBooking({ status: PrismaBookingStatus.APPROVED }),
     );
-    mockPrisma.payment.create.mockResolvedValue({ id: 'pay-1', status: 'FAILED' });
+    mockPrisma.payment.create.mockResolvedValue({ id: 21, status: 'FAILED' });
     mockPrisma.booking.update.mockResolvedValue(
       makeBooking({ status: PrismaBookingStatus.APPROVED }),
     );
 
-    const result = await mockPayBooking({ uid: 'fb-mother' } as never, 'booking-1', {
+    const result = await mockPayBooking({ uid: 'fb-mother' } as never, 4, {
       method: 'CARD',
       succeed: false,
     });

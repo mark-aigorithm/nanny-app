@@ -102,7 +102,6 @@ function phoneToPlaceholderEmail(phoneE164: string): string {
 
 const SEED_MOTHERS = [
   {
-    id: `${PREFIX}user-sarah`,
     firebaseUid: `${PREFIX}sarah`,
     phone: '+201001234567',
     email: phoneToPlaceholderEmail('+201001234567'),
@@ -114,7 +113,6 @@ const SEED_MOTHERS = [
     longitude: '31.2243',
   },
   {
-    id: `${PREFIX}user-elena`,
     firebaseUid: `${PREFIX}elena`,
     phone: '+201112345678',
     email: phoneToPlaceholderEmail('+201112345678'),
@@ -126,7 +124,6 @@ const SEED_MOTHERS = [
     longitude: '31.2200',
   },
   {
-    id: `${PREFIX}user-nadia`,
     firebaseUid: `${PREFIX}nadia`,
     phone: '+201223456789',
     email: phoneToPlaceholderEmail('+201223456789'),
@@ -140,7 +137,6 @@ const SEED_MOTHERS = [
 ] as const;
 
 const FALLBACK_DEMO_MOTHER = {
-  id: `${PREFIX}user-mother`,
   firebaseUid: `${PREFIX}mother`,
   phone: '+201004455667',
   email: phoneToPlaceholderEmail('+201004455667'),
@@ -154,8 +150,6 @@ const FALLBACK_DEMO_MOTHER = {
 
 const SEED_NANNIES = [
   {
-    userId: `${PREFIX}user-nanny-elena`,
-    profileId: `${PREFIX}nanny-elena`,
     firebaseUid: `${PREFIX}nanny-elena`,
     phone: '+201055512340',
     email: phoneToPlaceholderEmail('+201055512340'),
@@ -175,8 +169,6 @@ const SEED_NANNIES = [
     reviewCount: 24,
   },
   {
-    userId: `${PREFIX}user-nanny-maya`,
-    profileId: `${PREFIX}nanny-maya`,
     firebaseUid: `${PREFIX}nanny-maya`,
     phone: '+201155512341',
     email: phoneToPlaceholderEmail('+201155512341'),
@@ -196,8 +188,6 @@ const SEED_NANNIES = [
     reviewCount: 18,
   },
   {
-    userId: `${PREFIX}user-nanny-claire`,
-    profileId: `${PREFIX}nanny-claire`,
     firebaseUid: `${PREFIX}nanny-claire`,
     phone: '+201255512342',
     email: phoneToPlaceholderEmail('+201255512342'),
@@ -217,8 +207,6 @@ const SEED_NANNIES = [
     reviewCount: 31,
   },
   {
-    userId: `${PREFIX}user-nanny-sandra`,
-    profileId: `${PREFIX}nanny-sandra`,
     firebaseUid: `${PREFIX}nanny-sandra`,
     phone: '+201555512343',
     email: phoneToPlaceholderEmail('+201555512343'),
@@ -239,15 +227,36 @@ const SEED_NANNIES = [
   },
 ] as const;
 
-async function clearPreviousDemoData(linkedMotherId: string | null) {
-  await prisma.notification.deleteMany({ where: { id: { startsWith: PREFIX } } });
+async function clearPreviousDemoData(linkedMotherId: number | null) {
+  // Ids are now autoincrement integers, so demo rows are identified by their
+  // owner's seed-demo- firebase_uid (users) or by relation, rather than an
+  // id prefix. The optional linked mother is a real account whose
+  // demo-attached rows are cleared too (that account is treated as disposable).
+  const demoUser = { firebaseUid: { startsWith: PREFIX } };
 
-  await prisma.conversation.deleteMany({ where: { id: { startsWith: PREFIX } } });
+  await prisma.notification.deleteMany({
+    where: {
+      OR: [
+        { user: demoUser },
+        ...(linkedMotherId ? [{ userId: linkedMotherId }] : []),
+      ],
+    },
+  });
+
+  // Deleting a conversation cascades its participants and messages.
+  await prisma.conversation.deleteMany({
+    where: {
+      OR: [
+        { initiator: demoUser },
+        ...(linkedMotherId ? [{ initiatorId: linkedMotherId }] : []),
+      ],
+    },
+  });
 
   const demoBookings = await prisma.booking.findMany({
     where: {
       OR: [
-        { id: { startsWith: PREFIX } },
+        { mother: demoUser },
         ...(linkedMotherId ? [{ motherId: linkedMotherId }] : []),
       ],
     },
@@ -262,19 +271,18 @@ async function clearPreviousDemoData(linkedMotherId: string | null) {
     await prisma.booking.deleteMany({ where: { id: { in: bookingIds } } });
   }
 
-  await prisma.postLike.deleteMany({ where: { id: { startsWith: PREFIX } } });
-  await prisma.comment.deleteMany({ where: { id: { startsWith: PREFIX } } });
-  await prisma.eventRsvp.deleteMany({
-    where: { post: { id: { startsWith: PREFIX } } },
-  });
-  await prisma.communityPost.deleteMany({ where: { id: { startsWith: PREFIX } } });
-
-  await prisma.nannyProfile.deleteMany({ where: { id: { startsWith: PREFIX } } });
-  await prisma.user.deleteMany({
+  // Deleting a community post cascades its likes, comments and RSVPs.
+  await prisma.communityPost.deleteMany({
     where: {
-      OR: [{ firebaseUid: { startsWith: PREFIX } }, { id: { startsWith: PREFIX } }],
+      OR: [
+        { author: demoUser },
+        ...(linkedMotherId ? [{ authorId: linkedMotherId }] : []),
+      ],
     },
   });
+
+  await prisma.nannyProfile.deleteMany({ where: { user: demoUser } });
+  await prisma.user.deleteMany({ where: demoUser });
 
   // eslint-disable-next-line no-console
   console.log('[seed-demo] Cleared previous demo data');
@@ -299,6 +307,8 @@ async function resolveDemoMother() {
         address: linked.address ?? FALLBACK_DEMO_MOTHER.address,
         latitude: linked.latitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
         longitude: linked.longitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
+        // Pre-verify so the demo booking flow isn't blocked by the ID gate.
+        idVerificationStatus: 'APPROVED',
       },
     });
     return linked;
@@ -316,6 +326,7 @@ async function resolveDemoMother() {
       role: Role.MOTHER,
       isEmailVerified: true,
       isPhoneVerified: true,
+      idVerificationStatus: 'APPROVED',
     },
     update: {
       firstName: FALLBACK_DEMO_MOTHER.firstName,
@@ -327,6 +338,7 @@ async function resolveDemoMother() {
       address: FALLBACK_DEMO_MOTHER.address,
       latitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
       longitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
+      idVerificationStatus: 'APPROVED',
     },
   });
 }
@@ -344,6 +356,7 @@ async function ensureSeedMothers() {
           role: Role.MOTHER,
           isEmailVerified: true,
           isPhoneVerified: true,
+          idVerificationStatus: 'APPROVED',
         },
         update: {
           firebaseUid: uid,
@@ -355,6 +368,7 @@ async function ensureSeedMothers() {
           address: seed.address,
           latitude: new Prisma.Decimal(seed.latitude),
           longitude: new Prisma.Decimal(seed.longitude),
+          idVerificationStatus: 'APPROVED',
         },
       }),
     );
@@ -363,15 +377,28 @@ async function ensureSeedMothers() {
 }
 
 async function seedNannies() {
+  // Certifications are now an admin-curated catalog joined to nannies. Upsert the
+  // union of the demo certification names by their unique name, then link each
+  // nanny below via nanny_certifications.
+  const certByName = new Map<string, number>();
+  const allCertNames = [...new Set(SEED_NANNIES.flatMap((n) => n.certifications))];
+  for (const name of allCertNames) {
+    const cert = await prisma.certification.upsert({
+      where: { name },
+      create: { name, isActive: true },
+      update: { isActive: true, deletedAt: null },
+    });
+    certByName.set(name, cert.id);
+  }
+
   const profiles = [];
   for (const n of SEED_NANNIES) {
     const uid = await ensureAuthUser(n.email, `${n.firstName} ${n.lastName}`);
     // Home location (address + distinct coordinates) lives on the user row —
     // the single source of truth proximity search reads.
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { email: n.email },
       create: {
-        id: n.userId,
         firebaseUid: uid,
         email: n.email,
         phone: n.phone,
@@ -384,6 +411,9 @@ async function seedNannies() {
         address: n.location,
         latitude: new Prisma.Decimal(n.latitude),
         longitude: new Prisma.Decimal(n.longitude),
+        // Demo nannies are pre-vetted so they appear in search — the KYC gate
+        // now lives on the user row (default PENDING_ID/PENDING_REVIEW is hidden).
+        idVerificationStatus: 'APPROVED',
       },
       update: {
         firstName: n.firstName,
@@ -395,17 +425,16 @@ async function seedNannies() {
         address: n.location,
         latitude: new Prisma.Decimal(n.latitude),
         longitude: new Prisma.Decimal(n.longitude),
+        idVerificationStatus: 'APPROVED',
       },
     });
 
     const profile = await prisma.nannyProfile.upsert({
-      where: { userId: n.userId },
+      where: { userId: user.id },
       create: {
-        id: n.profileId,
-        userId: n.userId,
+        userId: user.id,
         bio: n.bio,
         yearsOfExperience: n.yearsOfExperience,
-        certifications: [...n.certifications],
         ageRanges: [...n.ageRanges],
         specialties: [...n.specialties],
         availabilityType: n.availabilityType,
@@ -427,15 +456,25 @@ async function seedNannies() {
         deletedAt: null,
       },
     });
+
+    // Reconcile the nanny's certification links from the seeded catalog
+    // (idempotent — replace the full set each run).
+    await prisma.nannyCertification.deleteMany({ where: { nannyProfileId: profile.id } });
+    await prisma.nannyCertification.createMany({
+      data: n.certifications.map((certName) => ({
+        nannyProfileId: profile.id,
+        certificationId: certByName.get(certName)!,
+      })),
+    });
+
     profiles.push(profile);
   }
   return profiles;
 }
 
-async function seedCommunity(motherId: string, sarahId: string, elenaId: string, nadiaId: string) {
+async function seedCommunity(motherId: number, sarahId: number, elenaId: number, nadiaId: number) {
   const stroller = await prisma.communityPost.create({
     data: {
-      id: `${PREFIX}post-stroller`,
       authorId: nadiaId,
       type: CommunityPostType.MARKETPLACE,
       title: 'Chicco Liteway Stroller',
@@ -451,7 +490,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
 
   const clothes = await prisma.communityPost.create({
     data: {
-      id: `${PREFIX}post-clothes`,
       authorId: motherId,
       type: CommunityPostType.MARKETPLACE,
       title: '0–12 month clothes bundle',
@@ -470,7 +508,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
 
   const highChair = await prisma.communityPost.create({
     data: {
-      id: `${PREFIX}post-highchair`,
       authorId: elenaId,
       type: CommunityPostType.MARKETPLACE,
       title: 'IKEA Antilop High Chair',
@@ -486,7 +523,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
 
   const qaPost = await prisma.communityPost.create({
     data: {
-      id: `${PREFIX}post-qa-sleep`,
       authorId: sarahId,
       type: CommunityPostType.QA,
       body: 'My 8-month-old wakes every 2 hours. What helped your little ones sleep through the night?',
@@ -499,7 +535,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
 
   const eventPost = await prisma.communityPost.create({
     data: {
-      id: `${PREFIX}post-event-coffee`,
       authorId: elenaId,
       type: CommunityPostType.EVENT,
       title: 'New moms coffee morning',
@@ -517,11 +552,11 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
 
   await prisma.postLike.createMany({
     data: [
-      { id: `${PREFIX}like-1`, postId: stroller.id, userId: motherId },
-      { id: `${PREFIX}like-2`, postId: stroller.id, userId: sarahId },
-      { id: `${PREFIX}like-3`, postId: clothes.id, userId: elenaId },
-      { id: `${PREFIX}like-4`, postId: qaPost.id, userId: motherId },
-      { id: `${PREFIX}like-5`, postId: eventPost.id, userId: motherId },
+      { postId: stroller.id, userId: motherId },
+      { postId: stroller.id, userId: sarahId },
+      { postId: clothes.id, userId: elenaId },
+      { postId: qaPost.id, userId: motherId },
+      { postId: eventPost.id, userId: motherId },
     ],
     skipDuplicates: true,
   });
@@ -529,7 +564,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
   await prisma.comment.createMany({
     data: [
       {
-        id: `${PREFIX}comment-stroller`,
         postId: stroller.id,
         authorId: sarahId,
         body: 'Is this still available? Does it recline flat for naps?',
@@ -537,7 +571,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
         createdAt: daysAgo(1),
       },
       {
-        id: `${PREFIX}comment-qa-1`,
         postId: qaPost.id,
         authorId: elenaId,
         body: 'We moved bedtime earlier by 30 minutes — took about a week to settle.',
@@ -545,7 +578,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
         createdAt: daysAgo(2),
       },
       {
-        id: `${PREFIX}comment-qa-2`,
         postId: qaPost.id,
         authorId: nadiaId,
         body: 'White noise and a consistent routine helped us a lot at that age.',
@@ -553,7 +585,6 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
         createdAt: daysAgo(2),
       },
       {
-        id: `${PREFIX}comment-event`,
         postId: eventPost.id,
         authorId: sarahId,
         body: 'Count me in! Should we book a table or just show up?',
@@ -576,44 +607,40 @@ async function seedCommunity(motherId: string, sarahId: string, elenaId: string,
 }
 
 async function seedMessaging(
-  motherId: string,
+  motherId: number,
   motherName: string,
-  nadiaId: string,
+  nadiaId: number,
   nadiaName: string,
-  elenaId: string,
+  elenaId: number,
   elenaName: string,
-  strollerPostId: string,
-  clothesPostId: string,
+  strollerPostId: number,
+  clothesPostId: number,
 ) {
   const convStroller = await prisma.conversation.create({
     data: {
-      id: `${PREFIX}conv-stroller`,
       type: ConversationType.MARKETPLACE,
       communityPostId: strollerPostId,
       initiatorId: motherId,
       updatedAt: minutesAgo(12),
       participants: {
         create: [
-          { id: `${PREFIX}part-stroller-mother`, userId: motherId, lastReadAt: minutesAgo(5) },
-          { id: `${PREFIX}part-stroller-seller`, userId: nadiaId, lastReadAt: hoursAgo(2) },
+          { userId: motherId, lastReadAt: minutesAgo(5) },
+          { userId: nadiaId, lastReadAt: hoursAgo(2) },
         ],
       },
       messages: {
         create: [
           {
-            id: `${PREFIX}msg-stroller-1`,
             senderId: motherId,
             content: 'Hi! Is the stroller still available? Can you do EGP 2,200?',
             createdAt: hoursAgo(3),
           },
           {
-            id: `${PREFIX}msg-stroller-2`,
             senderId: nadiaId,
             content: 'Yes it is! I can do 2,350 — it is in great condition.',
             createdAt: hoursAgo(2),
           },
           {
-            id: `${PREFIX}msg-stroller-3`,
             senderId: motherId,
             content: 'Sounds good. Can I pick it up Saturday morning in New Cairo?',
             createdAt: minutesAgo(12),
@@ -625,16 +652,14 @@ async function seedMessaging(
 
   const convClothes = await prisma.conversation.create({
     data: {
-      id: `${PREFIX}conv-clothes`,
       type: ConversationType.MARKETPLACE,
       communityPostId: clothesPostId,
       initiatorId: elenaId,
       updatedAt: minutesAgo(45),
       participants: {
         create: [
-          { id: `${PREFIX}part-clothes-buyer`, userId: elenaId, lastReadAt: minutesAgo(40) },
+          { userId: elenaId, lastReadAt: minutesAgo(40) },
           {
-            id: `${PREFIX}part-clothes-seller`,
             userId: motherId,
             lastReadAt: null,
           },
@@ -643,19 +668,16 @@ async function seedMessaging(
       messages: {
         create: [
           {
-            id: `${PREFIX}msg-clothes-1`,
             senderId: elenaId,
             content: 'Hello! Interested in the clothes bundle — are any pieces 0–3M?',
             createdAt: hoursAgo(5),
           },
           {
-            id: `${PREFIX}msg-clothes-2`,
             senderId: motherId,
             content: 'Hi Elena! About half are 6–12M, a few 3–6M pieces too.',
             createdAt: hoursAgo(4),
           },
           {
-            id: `${PREFIX}msg-clothes-3`,
             senderId: elenaId,
             content: 'Perfect, I will take the bundle. Can we meet tomorrow?',
             createdAt: minutesAgo(45),
@@ -668,7 +690,6 @@ async function seedMessaging(
   await prisma.notification.createMany({
     data: [
       {
-        id: `${PREFIX}notif-1`,
         userId: motherId,
         type: NotificationType.MARKETPLACE_MESSAGE,
         title: 'New message',
@@ -679,7 +700,6 @@ async function seedMessaging(
         createdAt: hoursAgo(2),
       },
       {
-        id: `${PREFIX}notif-2`,
         userId: motherId,
         type: NotificationType.MARKETPLACE_MESSAGE,
         title: 'New message',
@@ -690,7 +710,6 @@ async function seedMessaging(
         createdAt: minutesAgo(45),
       },
       {
-        id: `${PREFIX}notif-3`,
         userId: nadiaId,
         type: NotificationType.MARKETPLACE_MESSAGE,
         title: 'New message',
@@ -701,7 +720,6 @@ async function seedMessaging(
         createdAt: minutesAgo(12),
       },
       {
-        id: `${PREFIX}notif-4`,
         userId: motherId,
         type: NotificationType.MARKETPLACE_MESSAGE,
         title: 'New message',
@@ -712,7 +730,6 @@ async function seedMessaging(
         createdAt: daysAgo(1),
       },
       {
-        id: `${PREFIX}notif-5`,
         userId: motherId,
         type: NotificationType.MARKETPLACE_MESSAGE,
         title: 'New message',
@@ -729,8 +746,8 @@ async function seedMessaging(
 }
 
 async function seedBookings(
-  motherId: string,
-  nannyProfiles: { id: string }[],
+  motherId: number,
+  nannyProfiles: { id: number }[],
 ) {
   const [elena, maya, claire, sandra] = nannyProfiles;
   const serviceFeePercent = new Prisma.Decimal('6.00');
@@ -744,7 +761,6 @@ async function seedBookings(
 
   const upcomingBooking = await prisma.booking.create({
     data: {
-      id: `${PREFIX}booking-upcoming`,
       motherId,
       nannyProfileId: elena.id,
       status: BookingStatus.CONFIRMED,
@@ -759,7 +775,6 @@ async function seedBookings(
       totalAmount: new Prisma.Decimal(String(totalUpcoming)),
       payment: {
         create: {
-          id: `${PREFIX}payment-upcoming`,
           motherId,
           amount: new Prisma.Decimal(String(totalUpcoming)),
           method: PaymentMethod.CARD,
@@ -778,7 +793,6 @@ async function seedBookings(
 
   const pastBooking = await prisma.booking.create({
     data: {
-      id: `${PREFIX}booking-past`,
       motherId,
       nannyProfileId: maya.id,
       status: BookingStatus.COMPLETED,
@@ -795,7 +809,6 @@ async function seedBookings(
       nannyCheckedOutAt: past.endTime,
       payment: {
         create: {
-          id: `${PREFIX}payment-past`,
           motherId,
           amount: new Prisma.Decimal(String(totalPast)),
           method: PaymentMethod.CARD,
@@ -804,7 +817,6 @@ async function seedBookings(
       },
       review: {
         create: {
-          id: `${PREFIX}review-past`,
           nannyProfileId: maya.id,
           motherId,
           rating: 5,
@@ -830,7 +842,6 @@ async function seedBookings(
 
   await prisma.booking.create({
     data: {
-      id: `${PREFIX}booking-cancelled`,
       motherId,
       nannyProfileId: sandra.id,
       status: BookingStatus.CANCELLED,
@@ -851,7 +862,6 @@ async function seedBookings(
 
   await prisma.booking.create({
     data: {
-      id: `${PREFIX}booking-past-2`,
       motherId,
       nannyProfileId: claire.id,
       status: BookingStatus.COMPLETED,
@@ -866,7 +876,6 @@ async function seedBookings(
       totalAmount: new Prisma.Decimal(String(totalPast2)),
       payment: {
         create: {
-          id: `${PREFIX}payment-past-2`,
           motherId,
           amount: new Prisma.Decimal(String(totalPast2)),
           method: PaymentMethod.WALLET,
@@ -875,7 +884,6 @@ async function seedBookings(
       },
       review: {
         create: {
-          id: `${PREFIX}review-past-2`,
           nannyProfileId: claire.id,
           motherId,
           rating: 5,

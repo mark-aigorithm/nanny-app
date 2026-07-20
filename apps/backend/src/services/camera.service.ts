@@ -1,4 +1,4 @@
-import { NannyApprovalStatus, Prisma } from '@prisma/client';
+import { IdVerificationStatus, Prisma } from '@prisma/client';
 
 import type {
   Camera,
@@ -30,13 +30,12 @@ function toDto(row: CameraRow): Camera {
 }
 
 /** Ensure the given user id belongs to an existing, approved nanny. */
-async function assertApprovedNanny(userId: string): Promise<void> {
+async function assertApprovedNanny(userId: number): Promise<void> {
   const profile = await prisma.nannyProfile.findFirst({
     where: {
       userId,
       deletedAt: null,
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      user: { deletedAt: null },
+      user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
     },
     select: { id: true },
   });
@@ -67,7 +66,7 @@ export async function createCamera(input: CreateCameraInput): Promise<Camera> {
 }
 
 export async function updateCamera(
-  id: string,
+  id: number,
   input: UpdateCameraInput,
 ): Promise<Camera> {
   const existing = await prisma.camera.findFirst({ where: { id, deletedAt: null } });
@@ -87,7 +86,7 @@ export async function updateCamera(
   return toDto(row);
 }
 
-export async function deleteCamera(id: string): Promise<{ id: string }> {
+export async function deleteCamera(id: number): Promise<{ id: number }> {
   const existing = await prisma.camera.findFirst({ where: { id, deletedAt: null } });
   if (!existing) throw errors.notFound('Camera not found');
   await prisma.camera.update({ where: { id }, data: { deletedAt: new Date() } });
@@ -98,8 +97,7 @@ export async function listNannyOptions(): Promise<NannyOption[]> {
   const rows = await prisma.nannyProfile.findMany({
     where: {
       deletedAt: null,
-      approvalStatus: NannyApprovalStatus.APPROVED,
-      user: { deletedAt: null },
+      user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
     },
     include: { user: { select: { id: true, firstName: true, lastName: true } } },
     orderBy: { createdAt: 'desc' },

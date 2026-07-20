@@ -41,7 +41,7 @@ export default function BookingDetailScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const careLogScrollY = useRef(0);
 
-  const { data: booking, isLoading } = useBooking(bookingId);
+  const { data: booking, isLoading } = useBooking(bookingId ? Number(bookingId) : undefined);
   const canViewCareLog =
     booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED';
   const cancelBooking = useCancelBooking();
@@ -91,7 +91,7 @@ export default function BookingDetailScreen() {
           style: 'destructive',
           onPress: () => {
             cancelBooking.mutate(
-              { id: bookingId, reason: 'Cancelled by parent' },
+              { id: Number(bookingId), reason: 'Cancelled by parent' },
               {
                 onSuccess: () => handleBack(),
                 onError: (err) => Alert.alert('Error', err.message),
@@ -121,6 +121,11 @@ export default function BookingDetailScreen() {
   const isApproved = booking.status === 'APPROVED';
   const canCancel =
     booking.status === 'CONFIRMED' || booking.status === 'PENDING' || isApproved;
+
+  // The backend folds redeemed Care Points into discountAmount alongside the
+  // promo, so split them back out to show each as its own line.
+  const carePointsDiscount = booking.rewardCreditAmount;
+  const promoDiscount = Math.round((booking.discountAmount - carePointsDiscount) * 100) / 100;
 
   return (
     <View style={styles.container}>
@@ -207,10 +212,18 @@ export default function BookingDetailScreen() {
               </Text>
             </View>
           )}
-          {booking.discountAmount > 0 && (
+          {carePointsDiscount > 0.005 && (
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>
+                Care Points · {booking.rewardCreditHoursApplied}h
+              </Text>
+              <Text style={styles.paymentValue}>–{formatMoney(carePointsDiscount)}</Text>
+            </View>
+          )}
+          {promoDiscount > 0.005 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Promo discount</Text>
-              <Text style={styles.paymentValue}>–{formatMoney(booking.discountAmount)}</Text>
+              <Text style={styles.paymentValue}>–{formatMoney(promoDiscount)}</Text>
             </View>
           )}
           <View style={styles.paymentDivider} />
@@ -232,7 +245,7 @@ export default function BookingDetailScreen() {
               careLogScrollY.current = event.nativeEvent.layout.y;
             }}
           >
-            <BookingCareLogSection bookingId={bookingId} />
+            <BookingCareLogSection bookingId={Number(bookingId)} />
           </View>
         ) : null}
 

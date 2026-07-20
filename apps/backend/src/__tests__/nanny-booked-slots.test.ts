@@ -28,7 +28,7 @@ describe('getNannyBookedSlots', () => {
     mockPrisma.booking.findMany.mockResolvedValue([
       booking('2026-07-20T07:00:00Z', '2026-07-20T11:00:00Z'),
     ]);
-    expect(await getNannyBookedSlots('np-1', { date: '2026-07-20' })).toEqual([
+    expect(await getNannyBookedSlots(19, { date: '2026-07-20' })).toEqual([
       '10:00',
       '11:00',
       '12:00',
@@ -41,7 +41,7 @@ describe('getNannyBookedSlots', () => {
     mockPrisma.booking.findMany.mockResolvedValue([
       booking('2026-07-20T19:00:00Z', '2026-07-20T22:00:00Z'),
     ]);
-    expect(await getNannyBookedSlots('np-1', { date: '2026-07-20' })).toEqual(['22:00', '23:00']);
+    expect(await getNannyBookedSlots(19, { date: '2026-07-20' })).toEqual(['22:00', '23:00']);
   });
 
   it('carries the post-midnight hours onto the following day', async () => {
@@ -49,7 +49,7 @@ describe('getNannyBookedSlots', () => {
     mockPrisma.booking.findMany.mockResolvedValue([
       booking('2026-07-20T19:00:00Z', '2026-07-20T22:00:00Z'),
     ]);
-    expect(await getNannyBookedSlots('np-1', { date: '2026-07-21' })).toEqual(['00:00']);
+    expect(await getNannyBookedSlots(19, { date: '2026-07-21' })).toEqual(['00:00']);
   });
 
   it('does not leak the previous day’s ordinary booking onto today', async () => {
@@ -58,12 +58,12 @@ describe('getNannyBookedSlots', () => {
     mockPrisma.booking.findMany.mockResolvedValue([
       booking('2026-07-19T07:00:00Z', '2026-07-19T11:00:00Z'),
     ]);
-    expect(await getNannyBookedSlots('np-1', { date: '2026-07-20' })).toEqual([]);
+    expect(await getNannyBookedSlots(19, { date: '2026-07-20' })).toEqual([]);
   });
 
   it('queries the requested day and the one before it', async () => {
     mockPrisma.booking.findMany.mockResolvedValue([]);
-    await getNannyBookedSlots('np-1', { date: '2026-07-20' });
+    await getNannyBookedSlots(19, { date: '2026-07-20' });
     expect(mockPrisma.booking.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -78,7 +78,7 @@ describe('getNannyBookedSlots', () => {
       booking('2026-07-20T07:00:00Z', '2026-07-20T09:00:00Z'), // 10:00–12:00
       booking('2026-07-20T08:00:00Z', '2026-07-20T10:00:00Z'), // 11:00–13:00
     ]);
-    expect(await getNannyBookedSlots('np-1', { date: '2026-07-20' })).toEqual([
+    expect(await getNannyBookedSlots(19, { date: '2026-07-20' })).toEqual([
       '10:00',
       '11:00',
       '12:00',
@@ -87,6 +87,6 @@ describe('getNannyBookedSlots', () => {
 
   it('returns nothing when the nanny has no bookings', async () => {
     mockPrisma.booking.findMany.mockResolvedValue([]);
-    expect(await getNannyBookedSlots('np-1', { date: '2026-07-20' })).toEqual([]);
+    expect(await getNannyBookedSlots(19, { date: '2026-07-20' })).toEqual([]);
   });
 });

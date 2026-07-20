@@ -5,6 +5,7 @@ import type {
   NannyDashboard,
   NannyListItem,
   NannyPublicProfile,
+  PublicCertification,
   PublicSkill,
   ReviewSummary,
 } from '@nanny-app/shared';
@@ -14,6 +15,7 @@ import { useAuthStore } from '@mobile/store/authStore';
 
 export const NANNIES_KEY = 'nannies';
 export const SKILLS_KEY = 'skills';
+export const CERTIFICATIONS_KEY = 'certifications';
 
 interface NannyListParams {
   availabilityType?: AvailabilityType;
@@ -49,7 +51,15 @@ export function useSkillCatalog() {
   });
 }
 
-export function useNannyPublicProfile(nannyProfileId: string | undefined) {
+/** Active certification catalog — powers the nanny profile self-service picker. */
+export function useCertificationCatalog() {
+  return useQuery<PublicCertification[]>({
+    queryKey: [CERTIFICATIONS_KEY, 'catalog'],
+    queryFn: () => unwrap(api.get('/nanny/certifications')),
+  });
+}
+
+export function useNannyPublicProfile(nannyProfileId: number | undefined) {
   return useQuery<NannyPublicProfile>({
     queryKey: [NANNIES_KEY, nannyProfileId],
     queryFn: () => unwrap(api.get(`/nanny/nannies/${nannyProfileId}`)),
@@ -57,7 +67,7 @@ export function useNannyPublicProfile(nannyProfileId: string | undefined) {
   });
 }
 
-export function useNannyBookedSlots(nannyProfileId: string | undefined, date: string | null) {
+export function useNannyBookedSlots(nannyProfileId: number | undefined, date: string | null) {
   return useQuery<string[]>({
     queryKey: [NANNIES_KEY, nannyProfileId, 'booked-slots', date],
     queryFn: () => unwrap(api.get(`/nanny/nannies/${nannyProfileId}/booked-slots`, { params: { date } })),
@@ -74,7 +84,7 @@ export function useNannyDashboard() {
   });
 }
 
-export function useCreateReview(bookingId: string) {
+export function useCreateReview(bookingId: number) {
   const qc = useQueryClient();
   return useMutation<ReviewSummary, Error, CreateReviewRequest>({
     mutationFn: (body) =>

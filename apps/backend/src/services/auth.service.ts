@@ -1,12 +1,12 @@
 import type {
   User,
-  NannyApprovalStatus,
   Role as PrismaRole,
 } from '@prisma/client';
 import {
   Role,
   type RegisterRequest,
   type Role as ApiRole,
+  type SubmitIdRequest,
   type UpdateProfileRequest,
   type UserResponse,
 } from '@nanny-app/shared';
@@ -28,18 +28,12 @@ function toApiRole(role: PrismaRole | null): ApiRole | null {
 /**
  * Convert a Prisma `User` row into the wire format defined by
  * `UserResponseSchema`. Strips internal columns (timestamps, soft-delete
- * markers) and serializes Date fields to ISO strings.
+ * markers) and serializes Date fields to ISO strings. Identity-verification
+ * state now lives directly on the user row, so no relation include is needed.
+ * The ID image URLs are intentionally NOT exposed here — they are KYC-sensitive
+ * and only returned by admin endpoints.
  */
-type UserWithApproval = User & {
-  nannyProfile: { approvalStatus: NannyApprovalStatus } | null;
-};
-
-/** Include clause every query in this file uses so the approval status is available. */
-const userInclude = {
-  nannyProfile: { select: { approvalStatus: true } },
-} as const;
-
-function toUserResponse(user: UserWithApproval): UserResponse {
+function toUserResponse(user: User): UserResponse {
   return {
     id: user.id,
     firebaseUid: user.firebaseUid,
@@ -52,7 +46,9 @@ function toUserResponse(user: UserWithApproval): UserResponse {
     role: toApiRole(user.role),
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
-    nannyApprovalStatus: user.nannyProfile?.approvalStatus ?? null,
+    idVerificationStatus: user.idVerificationStatus,
+    idDocumentType: user.idDocumentType,
+    idRejectionReason: user.idRejectionReason,
     address: user.address,
     latitude: user.latitude !== null ? Number(user.latitude) : null,
     longitude: user.longitude !== null ? Number(user.longitude) : null,
@@ -73,7 +69,6 @@ export async function registerUser(
 ): Promise<UserResponse> {
   const existing = await prisma.user.findUnique({
     where: { firebaseUid: decoded.uid },
-    include: userInclude,
   });
   if (existing) {
     if (existing.deletedAt) {
@@ -93,6 +88,7 @@ export async function registerUser(
   if (phoneOwner) {
     throw errors.conflict('An account with this phone number already exists.');
   }
+  const isNanny = body.role === Role.NANNY;
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -116,27 +112,27 @@ export async function registerUser(
         address: body.address ?? null,
         latitude: body.latitude,
         longitude: body.longitude,
+        // Identity verification lives on the user row for both roles. Nannies
+        // upload their ID at registration, so they start PENDING_REVIEW (awaiting
+        // admin KYC); mothers upload later (before booking), so they start
+        // PENDING_ID and are prompted when they try to book.
+        idVerificationStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
+        idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
+        idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
+        idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
       },
     });
 
-    if (body.role === Role.NANNY) {
-      // New nannies always start PENDING_REVIEW (schema default) — an admin
-      // must vet them before they can use the app. Home location (address +
-      // coordinates) lives solely on the user row now; proximity search and
-      // the booking broadcast read it from there, so nothing is mirrored here.
+    if (isNanny) {
+      // Home location (address + coordinates) lives solely on the user row now;
+      // proximity search and the booking broadcast read it from there, so
+      // nothing is mirrored onto the profile.
       await tx.nannyProfile.create({
-        data: {
-          userId: user.id,
-          idDocumentFrontUrl: body.idDocumentFrontUrl ?? null,
-          idDocumentBackUrl: body.idDocumentBackUrl ?? null,
-        },
+        data: { userId: user.id },
       });
     }
 
-    return tx.user.findUniqueOrThrow({
-      where: { id: user.id },
-      include: userInclude,
-    });
+    return user;
   });
 
   return toUserResponse(created);
@@ -161,7 +157,6 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
-    include: userInclude,
   });
 
   return toUserResponse(updated);
@@ -207,7 +202,39 @@ export async function updateProfile(
       ...(body.latitude !== undefined && { latitude: body.latitude }),
       ...(body.longitude !== undefined && { longitude: body.longitude }),
     },
-    include: userInclude,
+  });
+
+  return toUserResponse(updated);
+}
+
+/**
+ * A user (re)submits their identity document outside of registration: a nanny
+ * re-uploading after an admin reject, or a mother uploading before her first
+ * booking. Stores the document + type and moves the account to PENDING_REVIEW
+ * for admin KYC, clearing any prior rejection reason.
+ */
+export async function submitId(
+  decoded: DecodedIdToken,
+  body: SubmitIdRequest,
+): Promise<UserResponse> {
+  const user = await prisma.user.findUnique({
+    where: { firebaseUid: decoded.uid },
+  });
+  if (!user || user.deletedAt) {
+    throw errors.notFound('User profile not found. Please complete registration.');
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      idDocumentType: body.idDocumentType,
+      idDocumentFrontUrl: body.idDocumentFrontUrl,
+      // A passport has no back image — clear any stale value from a prior upload.
+      idDocumentBackUrl: body.idDocumentBackUrl ?? null,
+      idVerificationStatus: 'PENDING_REVIEW',
+      idRejectionReason: null,
+      idReviewedAt: null,
+    },
   });
 
   return toUserResponse(updated);

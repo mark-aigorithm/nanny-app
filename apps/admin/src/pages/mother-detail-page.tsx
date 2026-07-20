@@ -1,40 +1,130 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+
+import type { AdminMother } from '@nanny-app/shared';
 
 import {
   Badge,
+  Button,
+  CalendarClock,
   Card,
+  ClipboardList,
   DescriptionList,
   type DescriptionItem,
   DetailHeader,
   ErrorState,
+  ICON_SIZE,
   LoadingState,
+  Pencil,
+  PromptDialog,
+  StatCard,
+  useToast,
 } from '@admin/components/ui';
-import { fetchMother } from '@admin/lib/api';
+import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
+import { MotherEditForm } from '@admin/features/users/mother-edit-form';
+import { approveMother, fetchMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
+function statusLabel(status: string): string {
+  return status.replaceAll('_', ' ').toLowerCase();
+}
+
+function statusTone(
+  status: AdminMother['idVerificationStatus'],
+): 'success' | 'danger' | 'neutral' {
+  if (status === 'APPROVED') return 'success';
+  if (status === 'REJECTED') return 'danger';
+  return 'neutral';
+}
+
 const DASH = <span className="table-empty">—</span>;
 
 export function MotherDetailPage() {
   const { id = '' } = useParams();
+  const [editing, setEditing] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [idOpen, setIdOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
   const { data: mother, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['mother', id],
     queryFn: () => fetchMother(id),
     enabled: id !== '',
   });
 
-  const profile: DescriptionItem[] = mother
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['mother', id] });
+    void queryClient.invalidateQueries({ queryKey: ['admin-mothers'] });
+  };
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveMother(id),
+    onSuccess: (updated) => {
+      invalidate();
+      toast.success('ID verified', updated.name);
+    },
+    onError: (err) => toast.error('Couldn’t verify ID', apiErrorMessage(err)),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (reason?: string) => rejectMother(id, reason),
+    onSuccess: () => {
+      invalidate();
+      setRejecting(false);
+      toast.success('ID rejected');
+    },
+    onError: (err) => toast.error('Couldn’t reject ID', apiErrorMessage(err)),
+  });
+
+  const mutating = approveMutation.isPending || rejectMutation.isPending;
+  const hasId = Boolean(mother?.idDocumentFrontUrl || mother?.idDocumentBackUrl);
+  const canReview = mother?.idVerificationStatus === 'PENDING_REVIEW';
+
+  const actions = mother ? (
+    <>
+      <Badge tone={mother.isActive ? 'success' : 'danger'}>
+        {mother.isActive ? 'active' : 'deactivated'}
+      </Badge>
+      <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+        <Pencil size={ICON_SIZE.inline} aria-hidden />
+        Edit
+      </Button>
+      {hasId && (
+        <Button variant="ghost" size="sm" onClick={() => setIdOpen(true)}>
+          View ID
+        </Button>
+      )}
+      {canReview && (
+        <Button size="sm" disabled={mutating} onClick={() => approveMutation.mutate()}>
+          Approve
+        </Button>
+      )}
+      {canReview && (
+        <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
+          Reject
+        </Button>
+      )}
+    </>
+  ) : undefined;
+
+  const contact: DescriptionItem[] = mother
     ? [
-        { label: 'Name', value: mother.name },
         { label: 'Email', value: mother.email },
         { label: 'Phone', value: mother.phone ?? DASH },
-        { label: 'Location', value: mother.location ?? DASH },
+        { label: 'Address', value: mother.location ?? DASH, wide: true },
+      ]
+    : [];
+
+  const account: DescriptionItem[] = mother
+    ? [
         {
-          label: 'Account',
+          label: 'Status',
           value: (
             <Badge tone={mother.isActive ? 'success' : 'danger'}>
               {mother.isActive ? 'active' : 'deactivated'}
@@ -48,8 +138,22 @@ export function MotherDetailPage() {
               .filter(Boolean)
               .join(' & ') || 'none',
         },
-        { label: 'Bookings placed', value: mother.bookingCount },
-        { label: 'Registered', value: formatDate(mother.createdAt) },
+        {
+          label: 'ID status',
+          value: mother.idVerificationStatus ? (
+            <>
+              <Badge tone={statusTone(mother.idVerificationStatus)}>
+                {statusLabel(mother.idVerificationStatus)}
+              </Badge>
+              {mother.rejectionReason && (
+                <div className="table-subtext">{mother.rejectionReason}</div>
+              )}
+            </>
+          ) : (
+            DASH
+          ),
+        },
+        { label: 'Reviewed at', value: mother.reviewedAt ? formatDate(mother.reviewedAt) : DASH },
         { label: 'User ID', value: <code>{mother.id}</code> },
       ]
     : [];
@@ -60,7 +164,8 @@ export function MotherDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={mother ? mother.name : 'Mommy details'}
-        subtitle="Parent account — read only."
+        subtitle={mother?.idVerificationStatus ? statusLabel(mother.idVerificationStatus) : 'Parent account'}
+        actions={actions}
       />
 
       {isLoading && <LoadingState label="Loading account…" />}
@@ -72,10 +177,51 @@ export function MotherDetailPage() {
         />
       )}
       {mother && (
-        <Card title="Profile">
-          <DescriptionList items={profile} />
-        </Card>
+        <>
+          <div className="stat-grid">
+            <StatCard
+              label="Bookings placed"
+              value={mother.bookingCount}
+              icon={<ClipboardList size={ICON_SIZE.stat} aria-hidden />}
+            />
+            <StatCard
+              label="Registered"
+              value={formatDate(mother.createdAt)}
+              icon={<CalendarClock size={ICON_SIZE.stat} aria-hidden />}
+              iconTone="gold"
+            />
+          </div>
+
+          <Card title="Contact">
+            <DescriptionList items={contact} />
+          </Card>
+
+          <Card title="Account">
+            <DescriptionList items={account} />
+          </Card>
+        </>
       )}
+
+      {editing && mother && (
+        <MotherEditForm mother={mother} onClose={() => setEditing(false)} />
+      )}
+
+      {rejecting && mother && (
+        <PromptDialog
+          title="Reject ID"
+          message={`Reject ${mother.name}'s ID? Her photos will be removed and she'll be asked to upload a new one before booking.`}
+          label="Reason (optional — shown to the mother)"
+          placeholder="e.g. Photo was blurry"
+          confirmLabel="Reject ID"
+          danger
+          multiline
+          busy={rejectMutation.isPending}
+          onSubmit={(reason) => rejectMutation.mutate(reason || undefined)}
+          onCancel={() => setRejecting(false)}
+        />
+      )}
+
+      {idOpen && mother && <IdDocumentModal subject={mother} onClose={() => setIdOpen(false)} />}
     </section>
   );
 }

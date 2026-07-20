@@ -55,6 +55,7 @@ import {
 } from '@mobile/lib/bookingDraft';
 
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { useIdGateStore } from '@mobile/store/idGateStore';
 import { buildPaymobCheckoutUrl } from '@mobile/lib/paymobCheckout';
 
 import { extractBookingIdFromRedirect, isPaymobPaymentRedirect } from '@mobile/lib/paymobRedirect';
@@ -266,7 +267,7 @@ export default function BookingStep3Screen() {
 
           bookingId: id,
 
-          ...bookingFlowRetryParams(params, id),
+          ...bookingFlowRetryParams(params, Number(id)),
 
         },
 
@@ -284,7 +285,7 @@ export default function BookingStep3Screen() {
 
     async (id: string) => {
 
-      const session = await paymobCheckout.mutateAsync({ bookingId: id });
+      const session = await paymobCheckout.mutateAsync({ bookingId: Number(id) });
 
       setCheckoutUrl(buildPaymobCheckoutUrl(session.publicKey, session.clientSecret));
 
@@ -380,18 +381,32 @@ export default function BookingStep3Screen() {
         ...(params.promoCode?.trim() ? { promoCode: params.promoCode.trim() } : {}),
 
         skillIds: params.skillIds?.trim()
-          ? params.skillIds.split(',').map((s) => s.trim()).filter(Boolean)
+          ? params.skillIds
+              .split(',')
+              .map((s) => Number(s.trim()))
+              .filter((n) => Number.isInteger(n))
           : [],
 
       });
 
       // Route straight to the confirmation screen, which reads a PENDING
       // booking as "request submitted — awaiting approval".
-      goToConfirmation(created.id);
+      goToConfirmation(String(created.id));
 
     } catch (err) {
 
-      setLoadError(getApiErrorMessage(err, 'Could not submit your request. Please try again.'));
+      const message = getApiErrorMessage(err, 'Could not submit your request. Please try again.');
+
+      // Backstop: if the server gated the booking on a missing ID (a mother who
+      // slipped past the home-screen gate, e.g. stale profile), prompt her to
+      // upload rather than showing a dead-end error.
+      if (message.toLowerCase().includes('upload your id')) {
+
+        useIdGateStore.getState().openIdGate();
+
+      }
+
+      setLoadError(message);
 
     } finally {
 

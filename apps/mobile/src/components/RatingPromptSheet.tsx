@@ -37,7 +37,7 @@ export default function RatingPromptSheet() {
   const booking = useRatingPromptStore((s) => s.booking);
   const clearRatingPrompt = useRatingPromptStore((s) => s.clearRatingPrompt);
   const queryClient = useQueryClient();
-  const createReview = useCreateReview(booking?.id ?? '');
+  const createReview = useCreateReview(booking?.id ?? 0);
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');

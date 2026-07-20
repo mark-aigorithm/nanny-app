@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Check, ChevronDown, ICON_SIZE } from './icon';
 
-export type SelectOption = { value: string; label: string };
+export type SelectOption<V extends string | number = string> = { value: V; label: string };
 
-type SelectProps = {
-  value: string;
-  options: SelectOption[];
-  onChange: (value: string) => void;
+type SelectProps<V extends string | number = string> = {
+  value: V;
+  options: SelectOption<V>[];
+  onChange: (value: V) => void;
   /** Compact variant for use inside table rows. */
   compact?: boolean;
   disabled?: boolean;
@@ -22,7 +22,7 @@ type SelectProps = {
  * native <select> so it matches the app's menus. Closes on outside click,
  * Escape, or selection.
  */
-export function Select({
+export function Select<V extends string | number = string>({
   value,
   options,
   onChange,
@@ -32,7 +32,7 @@ export function Select({
   title,
   id,
   'aria-label': ariaLabel,
-}: SelectProps) {
+}: SelectProps<V>) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);

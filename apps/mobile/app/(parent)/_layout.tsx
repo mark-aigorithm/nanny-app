@@ -2,15 +2,17 @@ import { Tabs } from 'expo-router';
 
 import RatingPromptHost from '@mobile/components/RatingPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
+import IdUploadModal from '@mobile/components/IdUploadModal';
+import MandatoryReviewGate from '@mobile/components/MandatoryReviewGate';
 
 export default function ParentLayout() {
   return (
     <>
       <RegisterPromptModal />
+      <IdUploadModal />
+      <MandatoryReviewGate />
       <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
         <Tabs.Screen name="home" options={{ title: 'Home' }} />
-        <Tabs.Screen name="home-dashboard" options={{ headerShown: false }} />
-        <Tabs.Screen name="search" options={{ title: 'Search' }} />
         <Tabs.Screen name="community" options={{ title: 'Community' }} />
         <Tabs.Screen name="messages" options={{ title: 'Messages' }} />
         <Tabs.Screen name="bookings" options={{ title: 'Bookings' }} />
@@ -26,7 +28,6 @@ export default function ParentLayout() {
         <Tabs.Screen name="events-meetups" options={{ headerShown: false }} />
         <Tabs.Screen name="community-feed" options={{ headerShown: false }} />
         <Tabs.Screen name="booking-history" options={{ headerShown: false }} />
-        <Tabs.Screen name="search-results" options={{ headerShown: false }} />
         <Tabs.Screen name="account-details" options={{ headerShown: false }} />
         <Tabs.Screen name="payment-methods" options={{ headerShown: false }} />
         <Tabs.Screen name="create-post" options={{ headerShown: false }} />
@@ -34,7 +35,6 @@ export default function ParentLayout() {
         <Tabs.Screen name="create-event" options={{ headerShown: false }} />
         <Tabs.Screen name="marketplace-item-detail" options={{ headerShown: false }} />
         <Tabs.Screen name="create-listing" options={{ headerShown: false }} />
-        <Tabs.Screen name="nanny-selection-guide" options={{ headerShown: false }} />
       </Tabs>
       <RatingPromptHost />
     </>

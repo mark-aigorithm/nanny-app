@@ -4,13 +4,17 @@ import type {
   AdminBookingStatusFilter,
   AdminListQuery,
   AdminMother,
+  AdminMotherDetail,
+  AdminMotherStatusFilter,
   AdminNanny,
   AdminNannyDetail,
   AdminNannyStatusFilter,
   AdminUser,
   Camera,
+  Certification,
   CreateAdminInput,
   CreateCameraInput,
+  CreateCertificationInput,
   CreateDurationRuleInput,
   CreatePromoCodeInput,
   CreateSkillInput,
@@ -28,8 +32,10 @@ import type {
   SetBookingStatusInput,
   SetNannySkillsInput,
   Skill,
+  UpdateAdminMotherInput,
   UpdateBookingTimesInput,
   UpdateCameraInput,
+  UpdateCertificationInput,
   UpdateDurationRuleInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
@@ -68,7 +74,7 @@ export async function fetchRewardWallets(
   return { data: res.data.data, meta: res.data.meta };
 }
 
-export async function fetchWalletHistory(userId: string): Promise<RewardLedgerEntry[]> {
+export async function fetchWalletHistory(userId: number): Promise<RewardLedgerEntry[]> {
   const res = await apiClient.get<ApiEnvelope<RewardLedgerEntry[]>>(
     `/admin/rewards/wallets/${userId}/history`,
     { params: { page: 1, limit: 50 } },
@@ -77,7 +83,7 @@ export async function fetchWalletHistory(userId: string): Promise<RewardLedgerEn
 }
 
 export async function grantWalletPoints(
-  userId: string,
+  userId: number,
   input: GrantPointsInput,
 ): Promise<RewardWalletSummary> {
   const res = await apiClient.post<ApiEnvelope<RewardWalletSummary>>(
@@ -98,7 +104,7 @@ export async function createPromoCode(input: CreatePromoCodeInput): Promise<Prom
 }
 
 export async function updatePromoCode(
-  id: string,
+  id: number,
   input: UpdatePromoCodeInput,
 ): Promise<PromoCode> {
   const res = await apiClient.patch<ApiEnvelope<PromoCode>>(
@@ -108,7 +114,7 @@ export async function updatePromoCode(
   return res.data.data;
 }
 
-export async function deletePromoCode(id: string): Promise<void> {
+export async function deletePromoCode(id: number): Promise<void> {
   await apiClient.delete(`/admin/promo-codes/${id}`);
 }
 
@@ -122,17 +128,17 @@ export async function createSkill(input: CreateSkillInput): Promise<Skill> {
   return res.data.data;
 }
 
-export async function updateSkill(id: string, input: UpdateSkillInput): Promise<Skill> {
+export async function updateSkill(id: number, input: UpdateSkillInput): Promise<Skill> {
   const res = await apiClient.patch<ApiEnvelope<Skill>>(`/admin/skills/${id}`, input);
   return res.data.data;
 }
 
-export async function deleteSkill(id: string): Promise<void> {
+export async function deleteSkill(id: number): Promise<void> {
   await apiClient.delete(`/admin/skills/${id}`);
 }
 
 export async function setNannySkills(
-  id: string,
+  id: number,
   input: SetNannySkillsInput,
 ): Promise<AdminNanny> {
   const res = await apiClient.put<ApiEnvelope<AdminNanny>>(
@@ -140,6 +146,33 @@ export async function setNannySkills(
     input,
   );
   return res.data.data;
+}
+
+export async function fetchCertifications(): Promise<Certification[]> {
+  const res = await apiClient.get<ApiEnvelope<Certification[]>>('/admin/certifications');
+  return res.data.data;
+}
+
+export async function createCertification(
+  input: CreateCertificationInput,
+): Promise<Certification> {
+  const res = await apiClient.post<ApiEnvelope<Certification>>('/admin/certifications', input);
+  return res.data.data;
+}
+
+export async function updateCertification(
+  id: number,
+  input: UpdateCertificationInput,
+): Promise<Certification> {
+  const res = await apiClient.patch<ApiEnvelope<Certification>>(
+    `/admin/certifications/${id}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function deleteCertification(id: number): Promise<void> {
+  await apiClient.delete(`/admin/certifications/${id}`);
 }
 
 export async function fetchCameras(): Promise<Camera[]> {
@@ -160,14 +193,14 @@ export async function createCamera(input: CreateCameraInput): Promise<Camera> {
 }
 
 export async function updateCamera(
-  id: string,
+  id: number,
   input: UpdateCameraInput,
 ): Promise<Camera> {
   const res = await apiClient.patch<ApiEnvelope<Camera>>(`/admin/cameras/${id}`, input);
   return res.data.data;
 }
 
-export async function deleteCamera(id: string): Promise<void> {
+export async function deleteCamera(id: number): Promise<void> {
   await apiClient.delete(`/admin/cameras/${id}`);
 }
 
@@ -203,7 +236,7 @@ export async function createDurationRule(
 }
 
 export async function updateDurationRule(
-  id: string,
+  id: number,
   input: UpdateDurationRuleInput,
 ): Promise<DurationRule> {
   const res = await apiClient.patch<ApiEnvelope<DurationRule>>(
@@ -213,7 +246,7 @@ export async function updateDurationRule(
   return res.data.data;
 }
 
-export async function deleteDurationRule(id: string): Promise<void> {
+export async function deleteDurationRule(id: number): Promise<void> {
   await apiClient.delete(`/admin/duration-rules/${id}`);
 }
 
@@ -244,14 +277,14 @@ export async function fetchBooking(id: string): Promise<AdminBookingDetail> {
   return res.data.data;
 }
 
-export async function approveBooking(id: string): Promise<AdminBooking> {
+export async function approveBooking(id: number): Promise<AdminBooking> {
   const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
     `/admin/bookings/${id}/approve`,
   );
   return res.data.data;
 }
 
-export async function rejectBooking(id: string, reason?: string): Promise<AdminBooking> {
+export async function rejectBooking(id: number, reason?: string): Promise<AdminBooking> {
   const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
     `/admin/bookings/${id}/reject`,
     reason ? { reason } : {},
@@ -260,7 +293,7 @@ export async function rejectBooking(id: string, reason?: string): Promise<AdminB
 }
 
 export async function setBookingStatus(
-  id: string,
+  id: number,
   status: SetBookingStatusInput['status'],
 ): Promise<AdminBooking> {
   const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
@@ -271,7 +304,7 @@ export async function setBookingStatus(
 }
 
 export async function updateBookingTimes(
-  id: string,
+  id: number,
   input: UpdateBookingTimesInput,
 ): Promise<AdminBooking> {
   const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
@@ -312,16 +345,41 @@ export async function rejectNanny(id: string, reason?: string): Promise<AdminNan
 }
 
 export async function fetchMothers(
+  status: AdminMotherStatusFilter,
   { page, limit }: AdminListQuery,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
-    params: { page, limit },
+    params: { status, page, limit },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
 
-export async function fetchMother(id: string): Promise<AdminMother> {
-  const res = await apiClient.get<ApiEnvelope<AdminMother>>(`/admin/mothers/${id}`);
+export async function fetchMother(id: string): Promise<AdminMotherDetail> {
+  const res = await apiClient.get<ApiEnvelope<AdminMotherDetail>>(`/admin/mothers/${id}`);
+  return res.data.data;
+}
+
+export async function updateMother(
+  id: string,
+  input: UpdateAdminMotherInput,
+): Promise<AdminMotherDetail> {
+  const res = await apiClient.patch<ApiEnvelope<AdminMotherDetail>>(
+    `/admin/mothers/${id}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function approveMother(id: string): Promise<AdminMother> {
+  const res = await apiClient.post<ApiEnvelope<AdminMother>>(`/admin/mothers/${id}/approve`);
+  return res.data.data;
+}
+
+export async function rejectMother(id: string, reason?: string): Promise<AdminMother> {
+  const res = await apiClient.post<ApiEnvelope<AdminMother>>(
+    `/admin/mothers/${id}/reject`,
+    reason ? { reason } : {},
+  );
   return res.data.data;
 }
 

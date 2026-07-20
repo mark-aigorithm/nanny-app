@@ -10,7 +10,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 
 type PromoCodeRow = {
-  id: string;
+  id: number;
   code: string;
   discountType: 'FLAT' | 'PERCENTAGE';
   value: { toNumber(): number } | number;
@@ -65,7 +65,7 @@ export async function createPromoCode(input: CreatePromoCodeInput): Promise<Prom
 }
 
 export async function updatePromoCode(
-  id: string,
+  id: number,
   input: UpdatePromoCodeInput,
 ): Promise<PromoCode> {
   const existing = await prisma.promoCode.findFirst({ where: { id, deletedAt: null } });
@@ -89,7 +89,7 @@ export async function updatePromoCode(
   return toDto(row);
 }
 
-export async function deletePromoCode(id: string): Promise<{ id: string }> {
+export async function deletePromoCode(id: number): Promise<{ id: number }> {
   const existing = await prisma.promoCode.findFirst({ where: { id, deletedAt: null } });
   if (!existing) throw errors.notFound('Promo code not found');
   await prisma.promoCode.update({ where: { id }, data: { deletedAt: new Date() } });
@@ -105,8 +105,8 @@ export async function deletePromoCode(id: string): Promise<{ id: string }> {
 export async function validatePromoCode(
   code: string,
   applicableAmount: number,
-  userId: string,
-): Promise<{ promoCodeId: string; discountAmount: number }> {
+  userId: number,
+): Promise<{ promoCodeId: number; discountAmount: number }> {
   const row = await prisma.promoCode.findFirst({ where: { code, deletedAt: null } });
   if (!row) throw errors.notFound(`Promo code "${code}" not found.`);
   if (!row.isActive) throw errors.badRequest('This promo code is no longer active.');
@@ -138,7 +138,7 @@ export async function validatePromoCode(
  */
 export async function redeemPromoCode(
   tx: Prisma.TransactionClient,
-  args: { promoCodeId: string; userId: string; bookingId: string },
+  args: { promoCodeId: number; userId: number; bookingId: number },
 ): Promise<void> {
   await tx.promoCode.update({
     where: { id: args.promoCodeId },

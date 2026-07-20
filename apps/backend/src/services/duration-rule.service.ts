@@ -10,7 +10,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 
 type DurationRuleRow = {
-  id: string;
+  id: number;
   minHours: number;
   multiplier: Prisma.Decimal;
   label: string | null;
@@ -72,7 +72,7 @@ export async function createDurationRule(
 }
 
 export async function updateDurationRule(
-  id: string,
+  id: number,
   input: UpdateDurationRuleInput,
 ): Promise<DurationRule> {
   const existing = await prisma.durationMultiplierRule.findFirst({
@@ -99,7 +99,7 @@ export async function updateDurationRule(
   return toDto(row);
 }
 
-export async function deleteDurationRule(id: string): Promise<{ id: string }> {
+export async function deleteDurationRule(id: number): Promise<{ id: number }> {
   const existing = await prisma.durationMultiplierRule.findFirst({
     where: { id, deletedAt: null },
   });

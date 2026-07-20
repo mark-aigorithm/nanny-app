@@ -101,7 +101,7 @@ export function normalizeMerchantPaymentReference(reference: string): string {
 }
 
 /** Resolve our payment row id from callback (special_reference / merchant_order_id / extras). */
-export function extractMerchantPaymentId(txn: Record<string, unknown>): string | null {
+export function extractMerchantPaymentId(txn: Record<string, unknown>): number | null {
   const tx = txn as unknown as PaymobTransactionDto;
   const raw =
     tx.extras?.payment_id ??
@@ -110,5 +110,8 @@ export function extractMerchantPaymentId(txn: Record<string, unknown>): string |
     tx.payment_key_claims?.extra?.payment_id ??
     tx.special_reference ??
     null;
-  return raw ? normalizeMerchantPaymentReference(raw) : null;
+  if (!raw) return null;
+  const normalized = normalizeMerchantPaymentReference(String(raw));
+  const id = Number(normalized);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }

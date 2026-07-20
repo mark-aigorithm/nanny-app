@@ -105,7 +105,7 @@ function pendingTone(mins: number, sla: SlaThresholds): 'neutral' | 'warning' | 
 
 export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
-  const [editing, setEditing] = useState<{ id: string; start: string; end: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: number; start: string; end: string } | null>(null);
   const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const queryClient = useQueryClient();
@@ -152,7 +152,7 @@ export function BookingsPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) => rejectBooking(id, reason),
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) => rejectBooking(id, reason),
     onSuccess: () => {
       invalidate();
       setRejecting(null);
@@ -162,7 +162,7 @@ export function BookingsPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status: next }: { id: string; status: AdminBooking['status'] }) => {
+    mutationFn: ({ id, status: next }: { id: number; status: AdminBooking['status'] }) => {
       const parsed = SetBookingStatusSchema.parse({ status: next });
       return setBookingStatus(id, parsed.status);
     },
@@ -174,7 +174,7 @@ export function BookingsPage() {
   });
 
   const timesMutation = useMutation({
-    mutationFn: ({ id, startTime, endTime }: { id: string; startTime: string; endTime: string }) =>
+    mutationFn: ({ id, startTime, endTime }: { id: number; startTime: string; endTime: string }) =>
       updateBookingTimes(id, { startTime, endTime }),
     onSuccess: () => {
       invalidate();

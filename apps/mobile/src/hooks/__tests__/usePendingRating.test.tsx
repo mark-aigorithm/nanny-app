@@ -23,7 +23,7 @@ import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import type { FirebaseUser } from '@mobile/lib/firebase';
 
 function makeBooking(over: Partial<BookingResponse>): BookingResponse {
-  return { id: 'bk', status: 'COMPLETED', myReview: null, ...over } as BookingResponse;
+  return { id: 0, status: 'COMPLETED', myReview: null, ...over } as BookingResponse;
 }
 
 describe('pickPendingRating', () => {
@@ -32,24 +32,24 @@ describe('pickPendingRating', () => {
   });
 
   it('returns the completed booking when it has no review', () => {
-    const b = makeBooking({ id: 'bk_1' });
-    expect(pickPendingRating([b])?.id).toBe('bk_1');
+    const b = makeBooking({ id: 1 });
+    expect(pickPendingRating([b])?.id).toBe(1);
   });
 
   it('returns null when the most recent completed booking is already reviewed', () => {
-    const b = makeBooking({ id: 'bk_2', myReview: { id: 'r', rating: 5, comment: null, createdAt: 'now' } });
+    const b = makeBooking({ id: 2, myReview: { id: 10, rating: 5, comment: null, createdAt: 'now' } });
     expect(pickPendingRating([b])).toBeNull();
   });
 
   it('ignores bookings the user already resolved this session', () => {
-    const b = makeBooking({ id: 'bk_3' });
-    markRatingResolved('bk_3');
+    const b = makeBooking({ id: 3 });
+    markRatingResolved(3);
     expect(pickPendingRating([b])).toBeNull();
   });
 
   it('only considers the first (most recent) item', () => {
-    const reviewed = makeBooking({ id: 'newest', myReview: { id: 'r', rating: 4, comment: null, createdAt: 'now' } });
-    const unrated = makeBooking({ id: 'older' });
+    const reviewed = makeBooking({ id: 4, myReview: { id: 11, rating: 4, comment: null, createdAt: 'now' } });
+    const unrated = makeBooking({ id: 5 });
     // API returns newest-first; older unrated bookings must NOT force-prompt.
     expect(pickPendingRating([reviewed, unrated])).toBeNull();
   });
@@ -113,22 +113,22 @@ describe('usePendingRating (hook behavior)', () => {
   it('shows the prompt for a mother with an unrated completed booking', async () => {
     useAuthStore.setState({ user: fakeUser });
     useUserProfileStore.setState({ profile: fakeProfile('MOTHER') });
-    const booking = makeBooking({ id: 'bk_x' });
+    const booking = makeBooking({ id: 6 });
     mockGet.mockResolvedValueOnce({ data: { data: [booking], error: null } });
 
     renderWithQueryClient();
 
     await waitFor(() => {
-      expect(useRatingPromptStore.getState().booking?.id).toBe('bk_x');
+      expect(useRatingPromptStore.getState().booking?.id).toBe(6);
     });
   });
 
   it('does not override an already-showing prompt', async () => {
-    const alreadyShowing = makeBooking({ id: 'bk_showing' });
+    const alreadyShowing = makeBooking({ id: 7 });
     useRatingPromptStore.setState({ booking: alreadyShowing });
     useAuthStore.setState({ user: fakeUser });
     useUserProfileStore.setState({ profile: fakeProfile('MOTHER') });
-    const otherPending = makeBooking({ id: 'bk_other' });
+    const otherPending = makeBooking({ id: 8 });
     mockGet.mockResolvedValueOnce({ data: { data: [otherPending], error: null } });
 
     const { queryClient } = renderWithQueryClient();
@@ -140,6 +140,6 @@ describe('usePendingRating (hook behavior)', () => {
       expect(queryClient.getQueryData(PENDING_RATING_KEY)).toEqual([otherPending]);
     });
 
-    expect(useRatingPromptStore.getState().booking?.id).toBe('bk_showing');
+    expect(useRatingPromptStore.getState().booking?.id).toBe(7);
   });
 });

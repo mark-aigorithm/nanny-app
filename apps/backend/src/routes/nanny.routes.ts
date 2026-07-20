@@ -5,6 +5,7 @@ import { CreateReviewSchema, NannyBookedSlotsQuerySchema, NannyListQuerySchema, 
 import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import { requireApprovedNanny } from '@backend/middleware/nanny.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
+import { routeIdParam } from '@backend/lib/route-param';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
 import {
@@ -17,6 +18,7 @@ import {
   updateNannyProfile,
 } from '@backend/services/nanny.service';
 import { listActiveSkills } from '@backend/services/skill.service';
+import { listActiveCertifications } from '@backend/services/certification.service';
 
 export const nannyRouter = Router();
 
@@ -76,6 +78,18 @@ nannyRouter.get(
   },
 );
 
+// Active certification catalog — powers the nanny's self-service picker. Public
+// read (optionalAuth) like the skill catalog above.
+nannyRouter.get(
+  '/certifications',
+  optionalAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listActiveCertifications()));
+    } catch (err) { next(err); }
+  },
+);
+
 // ── Public nanny directory ────────────────────────────────────────────────────
 
 nannyRouter.get(
@@ -95,7 +109,7 @@ nannyRouter.get(
   optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const profile = await getNannyPublicProfile(String(req.params['nannyProfileId']));
+      const profile = await getNannyPublicProfile(routeIdParam(req.params['nannyProfileId']));
       res.json(ok(profile));
     } catch (err) { next(err); }
   },
@@ -108,7 +122,7 @@ nannyRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const slots = await getNannyBookedSlots(
-        String(req.params['nannyProfileId']),
+        routeIdParam(req.params['nannyProfileId']),
         res.locals['validatedQuery'],
       );
       res.json(ok(slots));
@@ -127,7 +141,7 @@ nannyRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const review = await createReview(
         req.firebaseUser,
-        String(req.params['bookingId']),
+        routeIdParam(req.params['bookingId']),
         req.body,
       );
       res.status(201).json(ok(review));

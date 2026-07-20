@@ -48,7 +48,7 @@ export type UpdateRewardConfigInput = z.infer<typeof UpdateRewardConfigSchema>;
 
 /** A user's own wallet (mobile). */
 export const RewardWalletSchema = z.object({
-  userId: z.string(),
+  userId: z.number().int(),
   pointsBalance: z.number().int(),
   lifetimeEarned: z.number().int(),
   lifetimeRedeemed: z.number().int(),
@@ -67,14 +67,14 @@ export type RewardWalletSummary = z.infer<typeof RewardWalletSummarySchema>;
 
 /** One row of grant/redemption history. */
 export const RewardLedgerEntrySchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   type: RewardEntryTypeSchema,
   /** Signed delta: positive = credited, negative = debited. */
   points: z.number().int(),
   /** Running balance immediately after this entry. */
   balanceAfter: z.number().int(),
   reason: z.string().nullable(),
-  bookingId: z.string().nullable(),
+  bookingId: z.number().int().nullable(),
   createdAt: z.string(),
 });
 export type RewardLedgerEntry = z.infer<typeof RewardLedgerEntrySchema>;

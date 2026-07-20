@@ -7,7 +7,8 @@ import {
   PaginationMetaSchema,
   wallClockField,
 } from './booking';
-import { NannyApprovalStatusSchema } from './nanny';
+import { PublicCertificationSchema } from './certification';
+import { IdDocumentTypeSchema, IdVerificationStatusSchema } from './nanny';
 import { PublicSkillSchema } from './skill';
 
 // Re-export the shared pagination meta so admin consumers can import it alongside
@@ -82,7 +83,7 @@ export const UpdatePromoCodeSchema = z
 export type UpdatePromoCodeInput = z.infer<typeof UpdatePromoCodeSchema>;
 
 export const PromoCodeSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   code: z.string(),
   discountType: DiscountTypeSchema,
   value: z.number(),
@@ -177,7 +178,7 @@ export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchem
 /** Admin pricing calculator input — previews a full breakdown for a scenario. */
 export const PricePreviewSchema = z.object({
   durationHours: z.number().positive().max(24),
-  skillIds: z.array(z.string()).default([]),
+  skillIds: z.array(z.number().int()).default([]),
   discountAmount: z.number().min(0).optional(),
 });
 export type PricePreviewInput = z.infer<typeof PricePreviewSchema>;
@@ -193,7 +194,7 @@ export const AdminBookingStatusFilterSchema = z.enum([
 export type AdminBookingStatusFilter = z.infer<typeof AdminBookingStatusFilterSchema>;
 
 export const AdminBookingSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   status: z.string(),
   /** Nanny's advisory accept/decline — admin sees "accepted / declined / no response". */
   nannyDecision: NannyBookingDecisionSchema,
@@ -207,13 +208,13 @@ export const AdminBookingSchema = z.object({
   promoCode: z.string().nullable(),
   paymentStatus: z.string().nullable(),
   mother: z.object({
-    id: z.string(),
+    id: z.number().int(),
     name: z.string(),
     phone: z.string().nullable(),
   }),
   nanny: z
     .object({
-      id: z.string(),
+      id: z.number().int(),
       name: z.string(),
     })
     .nullable(),
@@ -250,14 +251,14 @@ export type AdminBookingPayment = z.infer<typeof AdminBookingPaymentSchema>;
 export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   // Enriched parties.
   mother: z.object({
-    id: z.string(),
+    id: z.number().int(),
     name: z.string(),
     email: z.string().nullable(),
     phone: z.string().nullable(),
   }),
   nanny: z
     .object({
-      id: z.string(),
+      id: z.number().int(),
       name: z.string(),
       email: z.string().nullable(),
       phone: z.string().nullable(),
@@ -323,13 +324,13 @@ export type UpdateBookingTimesInput = z.infer<typeof UpdateBookingTimesSchema>;
 // ──────────────────────────────────────────────────────────────
 
 export const AdminNannyStatusFilterSchema = z.enum([
-  'ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
 ]);
 export type AdminNannyStatusFilter = z.infer<typeof AdminNannyStatusFilterSchema>;
 
 export const AdminNannySchema = z.object({
   /** NannyProfile id (used by approve/reject endpoints). */
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   email: z.string(),
   phone: z.string().nullable(),
@@ -338,11 +339,13 @@ export const AdminNannySchema = z.object({
   bio: z.string().nullable(),
   location: z.string().nullable(),
   yearsOfExperience: z.number().int().nullable(),
-  certifications: z.array(z.string()),
+  certifications: z.array(PublicCertificationSchema),
   skills: z.array(PublicSkillSchema),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
-  approvalStatus: NannyApprovalStatusSchema,
+  idVerificationStatus: IdVerificationStatusSchema,
+  /** Kind of ID on file (passport → front only); null until uploaded. */
+  idDocumentType: IdDocumentTypeSchema.nullable(),
   rejectionReason: z.string().nullable(),
   reviewedAt: z.string().nullable(),
   /** Both sides of the nanny's uploaded ID document, for admin KYC review. */
@@ -364,7 +367,7 @@ export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
  */
 export const AdminNannyDetailSchema = AdminNannySchema.extend({
   /** The underlying User id — distinct from `id`, which is the NannyProfile id. */
-  userId: z.string(),
+  userId: z.number().int(),
   /** Lifetime earnings: sum of `nannyAmount` across the nanny's COMPLETED bookings (EGP). */
   amountGained: z.number(),
   /** Number of COMPLETED bookings contributing to `amountGained`. */
@@ -381,9 +384,14 @@ export type RejectNannyInput = z.infer<typeof RejectNannySchema>;
 // Mothers directory (admin read-only list of parent accounts)
 // ──────────────────────────────────────────────────────────────
 
+export const AdminMotherStatusFilterSchema = z.enum([
+  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+]);
+export type AdminMotherStatusFilter = z.infer<typeof AdminMotherStatusFilterSchema>;
+
 export const AdminMotherSchema = z.object({
   /** User id. */
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   email: z.string(),
   phone: z.string().nullable(),
@@ -393,11 +401,55 @@ export const AdminMotherSchema = z.object({
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   isActive: z.boolean(),
+  /** ID verification state — mothers are reviewed the same way as nannies. */
+  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  idDocumentType: IdDocumentTypeSchema.nullable(),
+  rejectionReason: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  /** Both sides of the mother's uploaded ID document, for admin KYC review. */
+  idDocumentFrontUrl: z.string().nullable(),
+  idDocumentBackUrl: z.string().nullable(),
   /** Number of bookings this mother has placed. */
   bookingCount: z.number().int(),
   createdAt: z.string(),
 });
 export type AdminMother = z.infer<typeof AdminMotherSchema>;
+
+/** Paginated mother list query (GET /admin/mothers). */
+export const AdminMotherListQuerySchema = AdminListQuerySchema.extend({
+  status: AdminMotherStatusFilterSchema.catch('ALL').default('ALL'),
+});
+export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
+
+/**
+ * Mother detail page (GET /admin/mothers/:id): the list fields plus the raw
+ * first/last name split so the edit form can bind them without re-parsing the
+ * combined `name`. Mirrors the AdminNannyDetail precedent.
+ */
+export const AdminMotherDetailSchema = AdminMotherSchema.extend({
+  firstName: z.string(),
+  /** May be the '-' placeholder when the account has no last name. */
+  lastName: z.string(),
+});
+export type AdminMotherDetail = z.infer<typeof AdminMotherDetailSchema>;
+
+/**
+ * Partial update for a mother account (PATCH /admin/mothers/:id). Only these
+ * fields are editable from the admin console — email/phone (Firebase Auth
+ * identity), verification flags, and address (tied to matching coordinates)
+ * are intentionally omitted.
+ */
+export const UpdateAdminMotherSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(100).optional(),
+    /** Empty string is allowed; the service stores '-' as the "no last name" placeholder. */
+    lastName: z.string().trim().max(100).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'At least one field must be provided',
+  });
+export type UpdateAdminMotherInput = z.infer<typeof UpdateAdminMotherSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)
@@ -411,7 +463,7 @@ export const CreateAdminSchema = z.object({
 export type CreateAdminInput = z.infer<typeof CreateAdminSchema>;
 
 export const AdminUserSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   email: z.string(),
   role: z.enum(['ADMIN', 'SUPERUSER']),

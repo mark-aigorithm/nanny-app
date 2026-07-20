@@ -36,7 +36,7 @@ export function SkillTable({ skills }: SkillTableProps) {
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['skills'] });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateSkillInput }) => updateSkill(id, input),
+    mutationFn: ({ id, input }: { id: number; input: UpdateSkillInput }) => updateSkill(id, input),
     onSuccess: (updated) => {
       invalidate();
       setEditing(null);

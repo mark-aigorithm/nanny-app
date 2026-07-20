@@ -23,10 +23,10 @@ import RatingPromptSheet from '@mobile/components/RatingPromptSheet';
 import { useRatingPromptStore } from '@mobile/store/ratingPromptStore';
 
 const booking = {
-  id: 'bk_1',
+  id: 1,
   status: 'COMPLETED',
   myReview: null,
-  nanny: { nannyProfileId: 'np', firstName: 'Amina', lastName: 'K', avatarUrl: null, location: null },
+  nanny: { nannyProfileId: 1, firstName: 'Amina', lastName: 'K', avatarUrl: null, location: null },
 } as unknown as BookingResponse;
 
 function renderSheet() {

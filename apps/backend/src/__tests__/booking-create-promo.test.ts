@@ -81,13 +81,13 @@ const baseBody = {
 function makeBookingRow(overrides: Record<string, unknown> = {}) {
   const start = new Date('2099-01-01T10:00:00.000Z');
   return {
-    id: 'booking-1',
-    motherId: 'mother-1',
+    id: 4,
+    motherId: 10,
     mother: { firstName: 'Jane', lastName: 'Mom', avatarUrl: null },
-    nannyProfileId: 'np-1',
+    nannyProfileId: 19,
     nannyProfile: {
-      id: 'np-1',
-      user: { id: 'nanny-user-1', firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
+      id: 19,
+      user: { id: 16, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
     },
     status: 'PENDING',
     nannyDecision: 'PENDING',
@@ -118,7 +118,7 @@ function makeBookingRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockPrisma.user.findUnique.mockResolvedValue({ id: 'mother-1', role: Role.MOTHER, deletedAt: null });
+  mockPrisma.user.findUnique.mockResolvedValue({ id: 10, role: Role.MOTHER, deletedAt: null });
   mockPrisma.user.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
   mockPrisma.booking.findFirst.mockResolvedValue(null);
@@ -152,7 +152,7 @@ describe('createBooking (promo wiring)', () => {
 
   it('applies a valid promo code, sets promoCodeId, and redeems atomically', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue({
-      id: 'promo-1',
+      id: 23,
       code: 'SAVE50',
       discountType: 'FLAT',
       value: 50,
@@ -166,7 +166,7 @@ describe('createBooking (promo wiring)', () => {
     const tx = {
       booking: {
         create: jest.fn().mockResolvedValue(
-          makeBookingRow({ promoCodeId: 'promo-1', discountAmount: 50, totalAmount: 162 }),
+          makeBookingRow({ promoCodeId: 23, discountAmount: 50, totalAmount: 162 }),
         ),
       },
       promoCode: { update: jest.fn().mockResolvedValue({}) },
@@ -177,18 +177,18 @@ describe('createBooking (promo wiring)', () => {
     const res = await createBooking(DECODED, { ...baseBody, promoCode: 'SAVE50' } as never);
 
     const data = tx.booking.create.mock.calls[0][0].data;
-    expect(data.promoCodeId).toBe('promo-1');
+    expect(data.promoCodeId).toBe(23);
     expect(data.discountAmount).toBe(50);
     expect(data.subtotal).toBe(200); // priced subtotal before discount
     expect(data.serviceFeeAmount).toBe(0); // legacy fee retired under the split
     expect(data.totalAmount).toBe(150); // 200 − 50
     expect(data.nannyAmount).toBe(120); // 80% of 150
     expect(tx.promoCode.update).toHaveBeenCalledWith({
-      where: { id: 'promo-1' },
+      where: { id: 23 },
       data: { usageCount: { increment: 1 } },
     });
     expect(tx.promoCodeRedemption.create).toHaveBeenCalledWith({
-      data: { promoCodeId: 'promo-1', userId: 'mother-1', bookingId: 'booking-1' },
+      data: { promoCodeId: 23, userId: 10, bookingId: 4 },
     });
     expect(res.discountAmount).toBe(50);
   });
@@ -209,7 +209,7 @@ describe('createBooking (promo wiring)', () => {
 
     const res = await createBooking(DECODED, { ...baseBody, promoCode: 'SAVE50' } as never);
 
-    expect(res.id).toBe('booking-1');
+    expect(res.id).toBe(4);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     expect(mockPrisma.booking.create).not.toHaveBeenCalled();
     expect(mockPrisma.promoCode.findFirst).not.toHaveBeenCalled();
@@ -219,7 +219,7 @@ describe('createBooking (promo wiring)', () => {
 describe('validateBookingPromo', () => {
   it('computes the discount from the priced subtotal (no fee added) and returns it', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue({
-      id: 'promo-1',
+      id: 23,
       code: 'SAVE10',
       discountType: 'PERCENTAGE',
       value: 10,
@@ -239,7 +239,7 @@ describe('validateBookingPromo', () => {
   });
 
   it('forbids non-mothers (403)', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'nanny-1', role: Role.NANNY, deletedAt: null });
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 12, role: Role.NANNY, deletedAt: null });
     await expect(
       validateBookingPromo(DECODED, { code: 'SAVE10', subtotal: 200 }),
     ).rejects.toMatchObject({ statusCode: 403 });

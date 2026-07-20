@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { IdDocumentType } from '@nanny-app/shared';
 import type { Role, Child } from '@mobile/types';
 
 export type RegistrationDraft = {
@@ -10,8 +11,10 @@ export type RegistrationDraft = {
   countryCode: string; // e.g. '+1'
   dob: string;
   photoUri: string | null;
-  // Nanny-only — front and back of the ID document (local URIs until uploaded
-  // to Firebase Storage at submit). Mothers leave these null.
+  // Nanny-only — the ID document type + front/back images (local URIs until
+  // uploaded to Firebase Storage at submit). A passport needs only the front.
+  // Mothers leave these null.
+  idDocumentType: IdDocumentType | null;
   idFrontUri: string | null;
   idBackUri: string | null;
   // Step 2 — password (in-memory only, never persisted to disk)
@@ -41,6 +44,7 @@ const INITIAL: RegistrationDraft = {
   countryCode: '+20',
   dob: '',
   photoUri: null,
+  idDocumentType: null,
   idFrontUri: null,
   idBackUri: null,
   password: '',

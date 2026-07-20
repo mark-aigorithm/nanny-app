@@ -23,7 +23,7 @@ import {
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
-  NannyApprovalStatus,
+  IdVerificationStatus,
   NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
@@ -235,19 +235,19 @@ async function notifyMotherBookingEvent(
     body,
     data: {
       type,
-      bookingId: booking.id,
+      bookingId: String(booking.id),
       title,
     },
   });
 }
 
 async function notifyUserBookingEvent(
-  userId: string,
+  userId: number,
   type: NotificationType,
   pushType: string,
   title: string,
   body: string,
-  bookingId: string,
+  bookingId: number,
 ): Promise<void> {
   await createInAppNotification({
     userId,
@@ -260,7 +260,7 @@ async function notifyUserBookingEvent(
   await dispatchPush(userId, {
     title,
     body,
-    data: { type: pushType, bookingId, title },
+    data: { type: pushType, bookingId: String(bookingId), title },
   });
 }
 
@@ -283,7 +283,8 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       where: {
         deletedAt: null,
         isProfileComplete: true,
-        approvalStatus: NannyApprovalStatus.APPROVED,
+        // KYC gate now lives on the user row.
+        user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
         // Exclude nannies already booked for an overlapping window — they can't
         // take this one anyway.
         bookings: {
@@ -312,7 +313,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
     select: { id: true },
   });
 
-  const recipients: Array<{ userId: string; title: string; body: string }> = [
+  const recipients: Array<{ userId: number; title: string; body: string }> = [
     ...nannies.map((n) => ({
       userId: n.userId,
       title: 'New care request',
@@ -372,10 +373,10 @@ export async function notifyNannyBookingConfirmed(
 }
 
 export async function assertNoConflict(
-  nannyProfileId: string,
+  nannyProfileId: number,
   startTime: Date,
   endTime: Date,
-  excludeBookingId?: string,
+  excludeBookingId?: number,
 ): Promise<void> {
   const conflict = await prisma.booking.findFirst({
     where: {
@@ -427,6 +428,16 @@ export async function createBooking(
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
+
+  // Identity gate: a mother must have an ID on file before booking. She may book
+  // while it is still PENDING_REVIEW (upload-then-book), but not when she has
+  // never uploaded (PENDING_ID) or was rejected (REJECTED) and must re-upload.
+  if (
+    user.idVerificationStatus === IdVerificationStatus.PENDING_ID ||
+    user.idVerificationStatus === IdVerificationStatus.REJECTED
+  ) {
+    throw errors.forbidden('Please upload your ID before booking.');
+  }
 
   const config = await getPlatformConfig();
 
@@ -516,7 +527,7 @@ export async function createBooking(
 
   // Validate the promo against that subtotal so the discount can't exceed
   // what's owed.
-  let promoCodeId: string | null = null;
+  let promoCodeId: number | null = null;
   let discountAmount = 0;
   if (body.promoCode) {
     const validated = await validatePromoCode(body.promoCode, preBreakdown.subtotal, user.id);
@@ -729,7 +740,7 @@ export async function listAvailableBookings(
 
 export async function getBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
 
@@ -749,7 +760,7 @@ export async function getBooking(
 
 export async function cancelBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   body: CancelBookingRequest,
 ): Promise<{ booking: BookingResponse; refundAmount: number }> {
   const user = await getUserByUid(decoded.uid);
@@ -814,7 +825,7 @@ export async function cancelBooking(
  */
 async function applyNannyDecision(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   decision: 'ACCEPTED' | 'DECLINED',
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -906,7 +917,7 @@ async function applyNannyDecision(
 /** Nanny accepts a booking request (informational; does not confirm). */
 export async function acceptBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<BookingResponse> {
   return applyNannyDecision(decoded, bookingId, 'ACCEPTED');
 }
@@ -914,7 +925,7 @@ export async function acceptBooking(
 /** Nanny declines a booking request (informational; admin may still approve). */
 export async function declineBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<BookingResponse> {
   return applyNannyDecision(decoded, bookingId, 'DECLINED');
 }
@@ -922,7 +933,7 @@ export async function declineBooking(
 /** Demo mock payment — simulates Paymob success or failure without a real provider. */
 export async function mockPayBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   body: MockPayBookingRequest,
 ): Promise<{ booking: BookingResponse; payment: object }> {
   const user = await getUserByUid(decoded.uid);
@@ -987,7 +998,7 @@ export async function mockPayBooking(
  */
 export async function redeemBookingPoints(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   body: RedeemBookingPointsRequest,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -1081,7 +1092,7 @@ async function refundBookingIfApplied(
 /** Parent-facing "remove applied points" / refund-on-failure endpoint. */
 export async function refundBookingPoints(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
   const booking = await prisma.booking.findUnique({
@@ -1103,7 +1114,7 @@ export async function refundBookingPoints(
  */
 export async function generateStartPin(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<GenerateStartPinResponse> {
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) {
@@ -1156,7 +1167,7 @@ export async function generateStartPin(
  */
 export async function checkInBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
   pin: string,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
@@ -1240,7 +1251,7 @@ export async function checkInBooking(
 /** Nanny checks out — marks booking COMPLETED. Requires IN_PROGRESS. */
 export async function checkOutBooking(
   decoded: DecodedIdToken,
-  bookingId: string,
+  bookingId: number,
 ): Promise<BookingResponse> {
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies can check out.');

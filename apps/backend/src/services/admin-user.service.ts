@@ -1,16 +1,25 @@
-import type { Prisma } from '@prisma/client';
+import { IdVerificationStatus, type Prisma } from '@prisma/client';
 
 import type {
   AdminListQuery,
   AdminMother,
+  AdminMotherDetail,
+  AdminMotherStatusFilter,
   AdminUser,
   CreateAdminInput,
   PaginationMeta,
+  RejectNannyInput,
+  UpdateAdminMotherInput,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
+import { deleteStorageObjectByUrl } from '@backend/lib/storage';
+import {
+  createInAppNotification,
+  dispatchPush,
+} from '@backend/services/notification.service';
 
 const motherSelect = {
   id: true,
@@ -23,6 +32,13 @@ const motherSelect = {
   isEmailVerified: true,
   isPhoneVerified: true,
   isActive: true,
+  // Identity verification (mothers are reviewed the same way as nannies).
+  idVerificationStatus: true,
+  idDocumentType: true,
+  idRejectionReason: true,
+  idReviewedAt: true,
+  idDocumentFrontUrl: true,
+  idDocumentBackUrl: true,
   createdAt: true,
   _count: { select: { bookingsAsMother: true } },
 } satisfies Prisma.UserSelect;
@@ -41,13 +57,38 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
     isEmailVerified: row.isEmailVerified,
     isPhoneVerified: row.isPhoneVerified,
     isActive: row.isActive,
+    idVerificationStatus: row.idVerificationStatus,
+    idDocumentType: row.idDocumentType,
+    rejectionReason: row.idRejectionReason,
+    reviewedAt: row.idReviewedAt?.toISOString() ?? null,
+    idDocumentFrontUrl: row.idDocumentFrontUrl,
+    idDocumentBackUrl: row.idDocumentBackUrl,
     bookingCount: row._count.bookingsAsMother,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
+/** Loads a reviewable mother row (existing, not soft-deleted) or throws 404. */
+async function findReviewableMother(id: number): Promise<AdminMotherRow> {
+  const row = await prisma.user.findFirst({
+    where: { id, role: 'MOTHER', deletedAt: null },
+    select: motherSelect,
+  });
+  if (!row) throw errors.notFound('Mother not found');
+  return row;
+}
+
+/** Detail DTO: the list fields plus the raw first/last name split for the edit form. */
+function toMotherDetailDto(row: AdminMotherRow): AdminMotherDetail {
+  return {
+    ...toMotherDto(row),
+    firstName: row.firstName,
+    lastName: row.lastName,
+  };
+}
+
 type AdminUserRow = {
-  id: string;
+  id: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -100,11 +141,16 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   return rows.map((row) => toDto(row as AdminUserRow));
 }
 
-/** Read-only, paginated directory of mother (parent) accounts for the admin Users page. */
+/** Paginated directory of mother (parent) accounts for the admin Users page. */
 export async function listAdminMothers(
+  status: AdminMotherStatusFilter,
   { page, limit }: AdminListQuery,
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
-  const where: Prisma.UserWhereInput = { role: 'MOTHER', deletedAt: null };
+  const where: Prisma.UserWhereInput = {
+    role: 'MOTHER',
+    deletedAt: null,
+    ...(status !== 'ALL' ? { idVerificationStatus: status as IdVerificationStatus } : {}),
+  };
 
   const [total, rows] = await prisma.$transaction([
     prisma.user.count({ where }),
@@ -123,14 +169,102 @@ export async function listAdminMothers(
   };
 }
 
-/** Full detail for a single mother account (read-only admin detail page). */
-export async function getAdminMother(id: string): Promise<AdminMother> {
-  const row = await prisma.user.findFirst({
+/** Full detail for a single mother account (admin detail page). */
+export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
+  return toMotherDetailDto(await findReviewableMother(id));
+}
+
+/**
+ * Admin approves a mother's ID after review. Since mothers can already book
+ * while PENDING_REVIEW, this is confirmatory: PENDING_REVIEW/REJECTED → APPROVED.
+ */
+export async function approveMother(id: number): Promise<AdminMother> {
+  const mother = await findReviewableMother(id);
+  if (mother.idVerificationStatus === IdVerificationStatus.APPROVED) {
+    throw errors.badRequest('This mother is already approved.');
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      idVerificationStatus: IdVerificationStatus.APPROVED,
+      idReviewedAt: new Date(),
+      idRejectionReason: null,
+    },
+  });
+
+  const title = 'Your ID is verified';
+  const body = 'Thanks — your identity has been verified. You can keep booking with NannyNow.';
+  await createInAppNotification({ userId: id, type: 'NANNY_APPROVED', title, body });
+  await dispatchPush(id, { title, body, data: { type: 'id_approved', title } });
+
+  return toMotherDto(await findReviewableMother(id));
+}
+
+/**
+ * Admin rejects a mother's ID: clears the images (URLs + Storage files) and sets
+ * REJECTED so she is prompted to re-upload before her next booking.
+ */
+export async function rejectMother(id: number, input: RejectNannyInput): Promise<AdminMother> {
+  const mother = await findReviewableMother(id);
+  if (mother.idVerificationStatus === IdVerificationStatus.REJECTED) {
+    throw errors.badRequest('This mother is already rejected.');
+  }
+
+  const { idDocumentFrontUrl, idDocumentBackUrl } = mother;
+  await prisma.user.update({
+    where: { id },
+    data: {
+      idVerificationStatus: IdVerificationStatus.REJECTED,
+      idReviewedAt: new Date(),
+      idRejectionReason: input.reason ?? null,
+      idDocumentFrontUrl: null,
+      idDocumentBackUrl: null,
+    },
+  });
+  await deleteStorageObjectByUrl(idDocumentFrontUrl);
+  await deleteStorageObjectByUrl(idDocumentBackUrl);
+
+  const title = 'Action needed: re-upload your ID';
+  const body = input.reason
+    ? `Your ID could not be verified: ${input.reason}. Please upload a new one before booking.`
+    : 'Your ID could not be verified. Please upload a new one before booking.';
+  await createInAppNotification({ userId: id, type: 'NANNY_REJECTED', title, body });
+  await dispatchPush(id, { title, body, data: { type: 'id_rejected', title } });
+
+  return toMotherDto(await findReviewableMother(id));
+}
+
+/**
+ * Partial update of a mother account from the admin console. Only name and the
+ * `isActive` flag are editable — email/phone (Firebase Auth identity),
+ * verification flags, and address (tied to matching coordinates) are not touched.
+ */
+export async function updateAdminMother(
+  id: number,
+  input: UpdateAdminMotherInput,
+): Promise<AdminMotherDetail> {
+  // Guard existence + role here: prisma.update can only filter by unique id, so it
+  // can't scope to MOTHER / non-deleted on its own.
+  const existing = await prisma.user.findFirst({
     where: { id, role: 'MOTHER', deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) throw errors.notFound('Mother not found');
+
+  const row = await prisma.user.update({
+    where: { id },
+    data: {
+      ...(input.firstName !== undefined && { firstName: input.firstName }),
+      // Empty last name → '-' placeholder (the display name drops it — see toMotherDto).
+      ...(input.lastName !== undefined && {
+        lastName: input.lastName === '' ? '-' : input.lastName,
+      }),
+      ...(input.isActive !== undefined && { isActive: input.isActive }),
+    },
     select: motherSelect,
   });
-  if (!row) throw errors.notFound('Mother not found');
-  return toMotherDto(row);
+  return toMotherDetailDto(row);
 }
 
 /** Superuser creates an admin: Firebase Auth account + ADMIN user row. */

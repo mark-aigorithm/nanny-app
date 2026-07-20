@@ -26,7 +26,7 @@ export function CalculatorPanel() {
   );
 
   const [hours, setHours] = useState(3);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<number[]>([]);
 
   const skillIds = useMemo(() => [...selected].sort(), [selected]);
 
@@ -40,7 +40,7 @@ export function CalculatorPanel() {
     placeholderData: keepPreviousData,
   });
 
-  function toggleSkill(id: string) {
+  function toggleSkill(id: number) {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
     );

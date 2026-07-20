@@ -1,12 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { ADMIN_PAGE_SIZES, type AdminMother } from '@nanny-app/shared';
+import {
+  ADMIN_PAGE_SIZES,
+  type AdminMother,
+  type AdminMotherStatusFilter,
+} from '@nanny-app/shared';
 
 import {
   Badge,
   type Column,
   ErrorState,
+  FilterSelect,
   Pagination,
   Table,
   TableSkeleton,
@@ -15,46 +21,53 @@ import { fetchMothers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { usePagination } from '@admin/lib/use-pagination';
 
+const STATUS_FILTERS: { value: AdminMotherStatusFilter; label: string }[] = [
+  { value: 'ALL', label: 'All' },
+  { value: 'PENDING_ID', label: 'Awaiting ID' },
+  { value: 'PENDING_REVIEW', label: 'Pending review' },
+  { value: 'APPROVED', label: 'Approved' },
+  { value: 'REJECTED', label: 'Rejected' },
+];
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
+function statusTone(
+  status: AdminMother['idVerificationStatus'],
+): 'success' | 'danger' | 'neutral' {
+  if (status === 'APPROVED') return 'success';
+  if (status === 'REJECTED') return 'danger';
+  return 'neutral';
+}
+
+function statusLabel(status: string): string {
+  return status.replaceAll('_', ' ').toLowerCase();
 }
 
 const EMPTY = <span className="table-empty">—</span>;
 
 export function MothersTab() {
-  const { page, limit, setPage, setLimit } = usePagination();
+  const [status, setStatus] = useState<AdminMotherStatusFilter>('ALL');
+  const { page, limit, setPage, setLimit, reset } = usePagination();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-mothers', page, limit],
-    queryFn: () => fetchMothers({ page, limit }),
+    queryKey: ['admin-mothers', status, page, limit],
+    queryFn: () => fetchMothers(status, { page, limit }),
   });
   const mothers = data?.data;
   const meta = data?.meta;
+
+  function changeStatus(next: AdminMotherStatusFilter) {
+    setStatus(next);
+    reset();
+  }
 
   const columns: Column<AdminMother>[] = [
     {
       key: 'mother',
       header: 'Mommy',
-      render: (mother) => (
-        <div className="nanny-cell">
-          <span className="nanny-avatar" aria-hidden>
-            {initials(mother.name)}
-          </span>
-          <div>
-            <div className="nanny-name">{mother.name}</div>
-            {!mother.isActive && <div className="table-subtext">deactivated</div>}
-          </div>
-        </div>
-      ),
+      render: (mother) => <span className="nanny-name">{mother.name}</span>,
     },
     {
       key: 'phone',
@@ -74,8 +87,34 @@ export function MothersTab() {
         </>
       ),
     },
-    { key: 'email', header: 'Email', render: (mother) => mother.email },
     { key: 'location', header: 'Location', render: (mother) => mother.location ?? EMPTY },
+    { key: 'email', header: 'Email', render: (mother) => mother.email },
+    {
+      key: 'active',
+      header: 'Status',
+      render: (mother) => (
+        <Badge tone={mother.isActive ? 'success' : 'neutral'}>
+          {mother.isActive ? 'Active' : 'Deactivated'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'ID status',
+      render: (mother) =>
+        mother.idVerificationStatus ? (
+          <>
+            <Badge tone={statusTone(mother.idVerificationStatus)}>
+              {statusLabel(mother.idVerificationStatus)}
+            </Badge>
+            {mother.rejectionReason && (
+              <div className="table-subtext">{mother.rejectionReason}</div>
+            )}
+          </>
+        ) : (
+          EMPTY
+        ),
+    },
     {
       key: 'bookings',
       header: 'Bookings',
@@ -98,9 +137,18 @@ export function MothersTab() {
   return (
     <>
       <p className="panel-lead">
-        Every parent who has signed up. Registrations appear here automatically — no review needed.
+        Every parent who has signed up. Open a mommy to review the ID she uploaded before booking,
+        and approve or reject it.
       </p>
-      {isLoading && <TableSkeleton columns={6} />}
+      <div className="filter-bar">
+        <FilterSelect
+          label="ID status"
+          value={status}
+          options={STATUS_FILTERS}
+          onChange={(value) => changeStatus(value as AdminMotherStatusFilter)}
+        />
+      </div>
+      {isLoading && <TableSkeleton columns={8} />}
       {error != null && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -114,7 +162,7 @@ export function MothersTab() {
           columns={columns}
           rows={mothers}
           rowKey={(mother) => mother.id}
-          empty="No mommies have signed up yet."
+          empty="No mommies with this status."
           onRowClick={(mother) => navigate(`/users/mothers/${mother.id}`)}
         />
       )}

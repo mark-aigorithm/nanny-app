@@ -11,9 +11,11 @@ if (!admin.apps.length) {
       clientEmail: config.firebase.clientEmail,
       privateKey: config.firebase.privateKey,
     }),
+    storageBucket: config.firebase.storageBucket,
   });
 }
 
 export const firebaseAuth = admin.auth();
 export const firebaseMessaging = admin.messaging();
+export const firebaseStorage = admin.storage();
 export type DecodedIdToken = admin.auth.DecodedIdToken;

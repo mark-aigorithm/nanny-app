@@ -41,7 +41,7 @@ export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 
 /** A selected skill add-on and its per-hour fee contribution. */
 export const AppliedSkillFeeSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   name: z.string(),
   /** null = the skill was requested but carries no fee (adds 0). */
   feeType: SkillFeeTypeSchema.nullable(),
@@ -77,7 +77,7 @@ export type PriceBreakdown = z.infer<typeof PriceBreakdownSchema>;
 // ── Nanny summaries ──────────────────────────────────────────────────────────
 
 export const NannySummarySchema = z.object({
-  nannyProfileId: z.string(),
+  nannyProfileId: z.number().int(),
   firstName: z.string(),
   lastName: z.string(),
   avatarUrl: z.string().nullable(),
@@ -88,14 +88,14 @@ export type NannySummary = z.infer<typeof NannySummarySchema>;
 // ── Booking response ─────────────────────────────────────────────────────────
 
 export const BookingPaymentSummarySchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   status: PaymentStatusSchema,
   method: PaymentMethodSchema,
   amount: z.number(),
 });
 
 export const BookingMyReviewSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   rating: z.number().int().min(1).max(5),
   comment: z.string().nullable(),
   createdAt: z.string(),
@@ -103,12 +103,12 @@ export const BookingMyReviewSchema = z.object({
 export type BookingMyReview = z.infer<typeof BookingMyReviewSchema>;
 
 export const BookingResponseSchema = z.object({
-  id: z.string(),
-  motherId: z.string(),
+  id: z.number().int(),
+  motherId: z.number().int(),
   motherFirstName: z.string(),
   motherLastName: z.string(),
   motherAvatarUrl: z.string().nullable(),
-  nannyProfileId: z.string().nullable(),
+  nannyProfileId: z.number().int().nullable(),
   nanny: NannySummarySchema.nullable(),
   status: BookingStatusSchema,
   /** Nanny's optional accept/decline (informational — admin approval is authoritative). */
@@ -196,7 +196,7 @@ export const CreateBookingSchema = z.object({
   specialInstructions: z.string().trim().max(1000).optional(),
   promoCode: z.string().trim().min(1).optional(),
   /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */
-  skillIds: z.array(z.string()).default([]),
+  skillIds: z.array(z.number().int()).default([]),
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
 
