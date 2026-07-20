@@ -16,9 +16,17 @@ delivered the admin catalog + CRUD, explicitly excluding purchase/redemption).
 
 - **Full lifecycle this iteration.** Browse → purchase → redeem, end to end
   (backend + mobile).
+- **At most one ACTIVE package per user.** A parent may only hold one active
+  package at a time; purchasing is **blocked** (409) while they still have an
+  active, non-expired package with hours remaining. Historical purchases
+  accumulate as `EXPIRED`/depleted rows. This makes the free-skill allowance
+  unambiguous (the single active package's `maxSkills`) and redemption trivial
+  (draw from the one active bucket).
 - **Per-package validity → per-purchase buckets.** Each `Package` defines
-  `validityDays`; each purchase becomes its own expiring bucket. Bookings consume
-  hours **FIFO** (soonest-to-expire first). This rules out a single pooled balance.
+  `validityDays`; each purchase is its own expiring bucket with its own
+  `maxSkills`. With the single-active rule, redemption draws from the one active
+  bucket (the ledger engine is written generally / FIFO-capable, but in practice
+  sees a single bucket). This rules out a single pooled cross-package balance.
 - **1 prepaid hour = 1 hour of care (time, not money).** A prepaid hour cancels an
   hour of the booking's base duration regardless of the nanny's rate; the platform
   absorbs rate variance (the package is a genuine bulk-time discount). The booking
@@ -199,11 +207,34 @@ Cancellation/refund path writes `REFUND` rows restoring `hoursRemaining` (skippi
 `EXPIRED` buckets). Expiry sweep (or lazy-on-read) flips `ACTIVE → EXPIRED` + `EXPIRY`
 ledger row for the forfeited remainder.
 
-## 4. Admin
+## 4. Admin — catalog fields
 
 Extend the existing Packages form + table (`features/packages/*`) with
-`validityDays` and `maxSkills` inputs/columns. Read-only purchases view is out of
-scope for this iteration.
+`validityDays` and `maxSkills` inputs/columns.
+
+## 4b. Admin — purchases + consumption visibility
+
+A new **Package Purchases** admin page (top-level, templated on the existing
+admin **Rewards** wallets view) lets admins see who bought packages and how their
+hours are being consumed. Read-only (no admin balance adjustment this iteration).
+
+- **List (paginated, filterable):** every `PackagePurchase` as a row — buyer
+  (name + email), package name, `hoursPurchased`, `hoursRemaining`,
+  `hoursConsumed` (= purchased − remaining, excluding expired), `status`,
+  `purchasedAt`, `expiresAt`, `pricePaid`. Filters: status, and free-text search
+  on buyer name/email. Uses the `AdminListQuery` (`page`/`limit`) + `okPaged`
+  pagination convention.
+- **Drill-in (full ledger):** clicking a row opens that purchase's complete
+  `PackageHoursLedger` timeline — every movement (`PURCHASE`, `REDEMPTION` with
+  the booking it applied to, `REFUND`, `EXPIRY`, `ADMIN_ADJUST`), each with signed
+  `hours`, `balanceAfter`, `reason`, and `createdAt`.
+- **Backend:** `admin-package-purchase.service.ts` (`listPackagePurchases(query)`
+  → `{ purchases, meta }`; `getPackagePurchaseDetail(id)` → purchase + ledger[]);
+  routes `GET /admin/package-purchases` (`validateQuery`) and
+  `GET /admin/package-purchases/:id` on `adminRouter`.
+- **Shared:** `AdminPackagePurchaseSchema` (+ buyer fields),
+  `AdminPackagePurchaseListQuerySchema` (extends `AdminListQuerySchema` with a
+  status filter), `PackageHoursLedgerEntrySchema`, `AdminPackagePurchaseDetailSchema`.
 
 ## 5. Mobile — `apps/mobile`
 
@@ -218,7 +249,11 @@ scope for this iteration.
 
 ## Out of scope
 
-- Admin analytics / reporting on purchases.
+- Admin **write** actions on hours (manual grant/revoke balance adjustment) —
+  the admin view is read-only this iteration (`ADMIN_ADJUST` ledger type is
+  defined for future use).
+- Charts / aggregate revenue analytics on purchases (the page is a
+  record-level list + drill-in, not a dashboard).
 - Gifting or transferring hours between parents.
 - Multi-currency.
 - Mixing cash + hours on the *same* base hour (a booking hour is either fully

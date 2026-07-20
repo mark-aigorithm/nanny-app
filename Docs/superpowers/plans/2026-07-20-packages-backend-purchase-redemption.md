@@ -599,7 +599,8 @@ git commit -m "feat(backend): package-hours ledger engine (balance, FIFO redeem,
 ```ts
 jest.mock('@backend/db/prisma', () => ({
   prisma: { package: { findMany: jest.fn(), findFirst: jest.fn() },
-    user: { findUnique: jest.fn() }, packagePurchase: { create: jest.fn() } },
+    user: { findUnique: jest.fn() },
+    packagePurchase: { create: jest.fn(), findFirst: jest.fn() } },
 }));
 import { prisma } from '@backend/db/prisma';
 import { listActivePackages, createPackagePurchase } from '@backend/services/package-purchase.service';
@@ -619,6 +620,7 @@ it('lists only active, offer-not-expired packages as public DTOs', async () => {
 
 it('snapshots the package into a PENDING_PAYMENT purchase with computed expiry', async () => {
   m.user.findUnique.mockResolvedValue({ id: 7 });
+  m.packagePurchase.findFirst.mockResolvedValue(null); // no active package yet
   m.package.findFirst.mockResolvedValue({
     id: 1, name: 'Starter', hours: 50, price: '2000.00', validityDays: 90,
     maxSkills: 2, isActive: true, expiresAt: null, deletedAt: null,
@@ -630,6 +632,13 @@ it('snapshots the package into a PENDING_PAYMENT purchase with computed expiry',
   expect(arg).toMatchObject({ userId: 7, packageId: 1, nameSnapshot: 'Starter',
     hoursPurchased: 50, maxSkillsSnapshot: 2, status: 'PENDING_PAYMENT' });
   expect(arg.expiresAt).toBeInstanceOf(Date);
+});
+
+it('rejects (409) a second purchase while an active package still has hours', async () => {
+  m.user.findUnique.mockResolvedValue({ id: 7 });
+  m.packagePurchase.findFirst.mockResolvedValue({ id: 40, status: 'ACTIVE', hoursRemaining: '12.00' });
+  await expect(createPackagePurchase('uid', { packageId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+  expect(m.packagePurchase.create).not.toHaveBeenCalled();
 });
 ```
 
@@ -664,11 +673,25 @@ export async function createPackagePurchase(
 ): Promise<{ purchaseId: number }> {
   const user = await prisma.user.findUnique({ where: { firebaseUid } });
   if (!user) throw errors.notFound('User not found');
+
+  // Invariant: at most one ACTIVE package per user. Block a second purchase while
+  // the parent still holds an active, non-expired package with hours remaining.
+  const now = new Date();
+  const activeExisting = await prisma.packagePurchase.findFirst({
+    where: {
+      userId: user.id, status: 'ACTIVE', deletedAt: null,
+      hoursRemaining: { gt: 0 },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+  });
+  if (activeExisting) {
+    throw errors.conflict('You already have an active package. Use it up or wait for it to expire before buying another.');
+  }
+
   const pkg = await prisma.package.findFirst({
     where: { id: input.packageId, deletedAt: null, isActive: true },
   });
   if (!pkg) throw errors.notFound('Package not found');
-  const now = new Date();
   if (pkg.expiresAt && pkg.expiresAt <= now) throw errors.conflict('Package is no longer offered');
 
   const purchase = await prisma.packagePurchase.create({
@@ -746,7 +769,7 @@ git commit -m "feat(backend): polymorphic Paymob completion — credit package h
 - Consumes: `getAvailableHours`, `redeemPackageHours` (Task 3); the existing `buildBreakdown` (`pricing-config.service.ts`).
 - Produces: `createBooking` sets `packageHoursApplied`, `packageSkillsCovered`, `packageCreditAmount`, and folds `packageCreditAmount` into `discountAmount`.
 
-**Decision (confirm in review):** free-skill allowance = **max `maxSkillsSnapshot` among the buckets consumed** by this booking; the **N most-expensive** selected skills are waived. Redemption runs inside the same `$transaction` as booking creation so a failure rolls back the ledger too.
+**Decision (resolved):** because a user holds **at most one active package** (invariant enforced at purchase, Task 4), redemption draws from that single active bucket and the free-skill allowance = **that package's `maxSkillsSnapshot`**; the **N most-expensive** selected skills are waived. `redeemPackageHours` returns `maxSkillsAllowed` (the active bucket's value). Redemption runs inside the same `$transaction` as booking creation so a failure rolls back the ledger too.
 
 - [ ] **Step 1: Add `usePackageHours` to the request schema** (`booking.ts`), default `true`. Typecheck.
 
@@ -876,5 +899,5 @@ git commit -m "chore(backend): seed demo packages with validity + free-skill all
 
 ## Self-Review Notes
 - Spec §1 → Task 1; §2 → Task 2; §3 (catalog/purchase/balance/redeem/refund/expiry) → Tasks 3–7; §4 admin → Task 8; seed → Task 9. All covered.
-- **Assumption flagged for user:** multi-bucket free-skill allowance = max across consumed buckets (Task 6). Confirm before implementing Task 6.
+- **Single-active-package invariant** (user decision): enforced at purchase (Task 4, 409 conflict). This makes the free-skill allowance unambiguous = the active package's `maxSkills` (Task 6). The `redeemPackageHours` engine is written generally (loops over buckets) but in practice sees one active bucket; its 2-bucket unit test documents engine correctness only.
 - Redemption is auto (opt-in flag `usePackageHours`, default true) per spec §3/§5, applied in the pricing transaction so skill-fee waiver is consistent.

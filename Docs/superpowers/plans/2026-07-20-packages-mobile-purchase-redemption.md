@@ -112,6 +112,8 @@ import { router } from 'expo-router';
 ```
 Show a small header card with `usePackageHours().data?.availableHours` ("You have {n}h prepaid") linking to the hours screen. Render `packages.isLoading` → `ActivityIndicator`; `packages.isError` → error text via `getApiErrorMessage`; empty → an empty `Card`.
 
+> **Single-active-package rule:** a parent may only hold one active package (backend enforces a 409 on a second purchase). Derive `hasActivePackage` from `usePackageHours()` (any bucket with `status === 'ACTIVE'` and `hoursRemaining > 0`). When true, **disable every Buy button** and show a banner ("You have an active package — use it up or wait for it to expire before buying another"). Still surface the backend 409 via `getApiErrorMessage` in the checkout mutation catch as a safety net.
+
 - [ ] **Step 2: Styles file** — `packages-screen.styles.ts` with `StyleSheet.create`, theme tokens only.
 
 - [ ] **Step 3: Route file** `app/(parent)/packages.tsx`:
