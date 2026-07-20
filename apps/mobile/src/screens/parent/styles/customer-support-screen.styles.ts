@@ -112,10 +112,15 @@ export const styles = StyleSheet.create({
   },
   contactGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.lg,
   },
   contactCard: {
-    flex: 1,
+    // flexBasis 0 + grow keeps two cards per row at any width; minWidth forces
+    // the third and fourth onto a new row rather than squeezing four across.
+    flexBasis: 0,
+    flexGrow: 1,
+    minWidth: 140,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
