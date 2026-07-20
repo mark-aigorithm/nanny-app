@@ -21,6 +21,9 @@ import type {
   DurationRule,
   GrantPointsInput,
   NannyOption,
+  Package,
+  CreatePackageInput,
+  UpdatePackageInput,
   PlatformConfig,
   PaginationMeta,
   PriceBreakdown,
@@ -175,6 +178,30 @@ export async function updateCertification(
 
 export async function deleteCertification(id: number): Promise<void> {
   await apiClient.delete(`/admin/certifications/${id}`);
+}
+
+// ── Packages (purchasable hour bundles, EGP) ───────────────────
+
+export async function fetchPackages(): Promise<Package[]> {
+  const res = await apiClient.get<ApiEnvelope<Package[]>>('/admin/packages');
+  return res.data.data;
+}
+
+export async function createPackage(input: CreatePackageInput): Promise<Package> {
+  const res = await apiClient.post<ApiEnvelope<Package>>('/admin/packages', input);
+  return res.data.data;
+}
+
+export async function updatePackage(
+  id: number,
+  input: UpdatePackageInput,
+): Promise<Package> {
+  const res = await apiClient.patch<ApiEnvelope<Package>>(`/admin/packages/${id}`, input);
+  return res.data.data;
+}
+
+export async function deletePackage(id: number): Promise<void> {
+  await apiClient.delete(`/admin/packages/${id}`);
 }
 
 export async function fetchCameras(): Promise<Camera[]> {

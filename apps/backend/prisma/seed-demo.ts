@@ -896,6 +896,34 @@ async function seedBookings(
   return { upcomingBooking, pastBooking };
 }
 
+const SEED_PACKAGES = [
+  { name: 'Starter Pack', description: '20 hours of care to get started', hours: 20, price: 900 },
+  { name: 'Standard Pack', description: '50 hours at a discounted rate', hours: 50, price: 2000 },
+  { name: 'Premium Pack', description: '100 hours for regular care', hours: 100, price: 3600 },
+];
+
+async function seedPackages() {
+  for (const p of SEED_PACKAGES) {
+    await prisma.package.upsert({
+      where: { name: p.name },
+      create: {
+        name: p.name,
+        description: p.description,
+        hours: p.hours,
+        price: p.price,
+        isActive: true,
+      },
+      update: {
+        description: p.description,
+        hours: p.hours,
+        price: p.price,
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+  }
+}
+
 async function main() {
   const linkedMother = LINKED_MOTHER_UID
     ? await prisma.user.findUnique({ where: { firebaseUid: LINKED_MOTHER_UID } })
@@ -922,6 +950,8 @@ async function main() {
   );
 
   await seedBookings(demoMother.id, nannyProfiles);
+
+  await seedPackages();
 
   // eslint-disable-next-line no-console
   console.log('[seed-demo] Done — demo data ready for video recording');

@@ -10,6 +10,7 @@ import {
   CreateAdminSchema,
   CreateCameraSchema,
   CreateCertificationSchema,
+  CreatePackageSchema,
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
   CreateSkillSchema,
@@ -29,6 +30,7 @@ import {
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
   UpdateCertificationSchema,
+  UpdatePackageSchema,
   UpdateRewardConfigSchema,
   UpdateSkillSchema,
   UpdateSupportContactSchema,
@@ -101,6 +103,12 @@ import {
   listCertifications,
   updateCertification,
 } from '@backend/services/certification.service';
+import {
+  createPackage,
+  deletePackage,
+  listPackages,
+  updatePackage,
+} from '@backend/services/package.service';
 import {
   getRewardConfig,
   getWalletHistory,
@@ -485,6 +493,51 @@ adminRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await deleteCertification(routeIdParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Packages (purchasable hour bundles, EGP) ───────────────────
+
+adminRouter.get('/packages', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listPackages()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/packages',
+  validateBody(CreatePackageSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createPackage(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/packages/:id',
+  validateBody(UpdatePackageSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updatePackage(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/packages/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await deletePackage(routeIdParam(req.params.id))));
     } catch (err) {
       next(err);
     }
