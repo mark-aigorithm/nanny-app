@@ -163,7 +163,7 @@ export default function BookingDetailScreen() {
         </View>
 
         {/* Nanny phone — revealed only within the configured window before start */}
-        <ParentNannyContactCard booking={booking} onRefresh={() => void refetch()} />
+        <ParentNannyContactCard booking={booking} onRefresh={refetch} />
 
         {/* Booking Details */}
         <View style={styles.detailsCard}>
