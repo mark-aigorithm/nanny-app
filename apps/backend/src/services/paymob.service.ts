@@ -12,6 +12,7 @@ import {
 } from '@backend/services/booking.service';
 import { createPaymobApiClient, type PaymobIntentionElementResponse } from '@backend/lib/paymob/client';
 import {
+  PAYMOB_INTENTION_TTL_MS,
   PAYMOB_RECONCILE_OFFSETS_MS,
   PAYMOB_RETURN_PATH,
   PAYMOB_WEBHOOK_PATH,
@@ -175,12 +176,22 @@ export async function createPaymobIntentionForBooking(
       existing.paymobClientSecret &&
       existing.paymobIntentionId
     ) {
-      return {
-        paymentId: existing.id,
-        clientSecret: existing.paymobClientSecret,
-        publicKey: config.paymob.publicKey,
-        intentionId: existing.paymobIntentionId,
-      };
+      // Reuse the stored checkout link only while it is still fresh. Paymob
+      // expires the hosted link a couple of hours after creation, so once the
+      // intention is older than PAYMOB_INTENTION_TTL_MS we fall through to the
+      // regenerate path below and hand the parent a new, working link instead
+      // of the stale one. paymobReconcileAnchorAt is set to the intention
+      // creation time; createdAt is a safe fallback for legacy rows.
+      const intentionCreatedAt = existing.paymobReconcileAnchorAt ?? existing.createdAt;
+      const intentionAgeMs = Date.now() - intentionCreatedAt.getTime();
+      if (intentionAgeMs < PAYMOB_INTENTION_TTL_MS) {
+        return {
+          paymentId: existing.id,
+          clientSecret: existing.paymobClientSecret,
+          publicKey: config.paymob.publicKey,
+          intentionId: existing.paymobIntentionId,
+        };
+      }
     }
   }
 
