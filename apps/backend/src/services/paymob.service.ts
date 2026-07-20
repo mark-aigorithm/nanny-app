@@ -74,6 +74,15 @@ async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: s
       },
     });
 
+    // This webhook path only ever finalizes booking payments (package-purchase
+    // payments, once introduced, are settled by a separate handler) — but
+    // guard defensively rather than crash, since bookingId is now nullable.
+    if (!payment.bookingId) {
+      // eslint-disable-next-line no-console
+      console.warn('[paymob] captured payment has no bookingId', { paymentId });
+      return null;
+    }
+
     const booking = await tx.booking.findUnique({
       where: { id: payment.bookingId },
       include: bookingInclude,

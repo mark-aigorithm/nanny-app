@@ -14,6 +14,8 @@ type PackageRow = {
   description: string | null;
   hours: number;
   price: Prisma.Decimal;
+  validityDays: number;
+  maxSkills: number;
   isActive: boolean;
   expiresAt: Date | null;
   createdAt: Date;
@@ -26,6 +28,8 @@ function toDto(row: PackageRow): Package {
     description: row.description,
     hours: row.hours,
     price: Number(row.price),
+    validityDays: row.validityDays,
+    maxSkills: row.maxSkills,
     isActive: row.isActive,
     expiresAt: row.expiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -52,6 +56,8 @@ export async function createPackage(input: CreatePackageInput): Promise<Package>
       description: input.description ?? null,
       hours: input.hours,
       price: input.price,
+      validityDays: input.validityDays,
+      maxSkills: input.maxSkills,
       isActive: input.isActive,
       expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
     },
@@ -81,6 +87,8 @@ export async function updatePackage(
       ...(input.description !== undefined && { description: input.description ?? null }),
       ...(input.hours !== undefined && { hours: input.hours }),
       ...(input.price !== undefined && { price: input.price }),
+      ...(input.validityDays !== undefined && { validityDays: input.validityDays }),
+      ...(input.maxSkills !== undefined && { maxSkills: input.maxSkills }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
       ...(input.expiresAt !== undefined && {
         expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,

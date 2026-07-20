@@ -897,9 +897,30 @@ async function seedBookings(
 }
 
 const SEED_PACKAGES = [
-  { name: 'Starter Pack', description: '20 hours of care to get started', hours: 20, price: 900 },
-  { name: 'Standard Pack', description: '50 hours at a discounted rate', hours: 50, price: 2000 },
-  { name: 'Premium Pack', description: '100 hours for regular care', hours: 100, price: 3600 },
+  {
+    name: 'Starter Pack',
+    description: '20 hours of care to get started',
+    hours: 20,
+    price: 900,
+    validityDays: 30,
+    maxSkills: 0,
+  },
+  {
+    name: 'Standard Pack',
+    description: '50 hours at a discounted rate',
+    hours: 50,
+    price: 2000,
+    validityDays: 60,
+    maxSkills: 1,
+  },
+  {
+    name: 'Premium Pack',
+    description: '100 hours for regular care',
+    hours: 100,
+    price: 3600,
+    validityDays: 90,
+    maxSkills: 2,
+  },
 ];
 
 async function seedPackages() {
@@ -911,12 +932,16 @@ async function seedPackages() {
         description: p.description,
         hours: p.hours,
         price: p.price,
+        validityDays: p.validityDays,
+        maxSkills: p.maxSkills,
         isActive: true,
       },
       update: {
         description: p.description,
         hours: p.hours,
         price: p.price,
+        validityDays: p.validityDays,
+        maxSkills: p.maxSkills,
         isActive: true,
         deletedAt: null,
       },

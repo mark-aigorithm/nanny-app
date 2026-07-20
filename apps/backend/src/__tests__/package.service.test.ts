@@ -35,6 +35,8 @@ function makePackage(overrides: Record<string, unknown> = {}) {
     description: null,
     hours: 50,
     price: '2000.00',
+    validityDays: 30,
+    maxSkills: 0,
     isActive: true,
     expiresAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -64,6 +66,8 @@ describe('listPackages', () => {
         description: null,
         hours: 50,
         price: 2000,
+        validityDays: 30,
+        maxSkills: 0,
         isActive: true,
         expiresAt: '2026-12-31T00:00:00.000Z',
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -80,6 +84,8 @@ describe('createPackage', () => {
       name: 'Starter Pack',
       hours: 50,
       price: 2000,
+      validityDays: 30,
+      maxSkills: 0,
       isActive: true,
     });
     expect(mockPrisma.package.create).toHaveBeenCalledWith({
@@ -88,6 +94,8 @@ describe('createPackage', () => {
         description: null,
         hours: 50,
         price: 2000,
+        validityDays: 30,
+        maxSkills: 0,
         isActive: true,
         expiresAt: null,
       },
@@ -103,6 +111,8 @@ describe('createPackage', () => {
       name: 'Starter Pack',
       hours: 50,
       price: 2000,
+      validityDays: 30,
+      maxSkills: 0,
       isActive: true,
       expiresAt: '2026-12-31T00:00:00.000Z',
     });
@@ -114,7 +124,14 @@ describe('createPackage', () => {
   it('throws conflict (409) when a live package with the same name exists', async () => {
     mockPrisma.package.findUnique.mockResolvedValue(makePackage());
     await expect(
-      createPackage({ name: 'Starter Pack', hours: 50, price: 2000, isActive: true }),
+      createPackage({
+        name: 'Starter Pack',
+        hours: 50,
+        price: 2000,
+        validityDays: 30,
+        maxSkills: 0,
+        isActive: true,
+      }),
     ).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.package.create).not.toHaveBeenCalled();
   });
@@ -123,7 +140,14 @@ describe('createPackage', () => {
     mockPrisma.package.findUnique.mockResolvedValue(makePackage({ deletedAt: new Date() }));
     mockPrisma.package.create.mockResolvedValue(makePackage());
     await expect(
-      createPackage({ name: 'Starter Pack', hours: 50, price: 2000, isActive: true }),
+      createPackage({
+        name: 'Starter Pack',
+        hours: 50,
+        price: 2000,
+        validityDays: 30,
+        maxSkills: 0,
+        isActive: true,
+      }),
     ).resolves.toBeDefined();
   });
 });
@@ -145,6 +169,28 @@ describe('updatePackage', () => {
       data: { price: 2500 },
     });
     expect(updated.price).toBe(2500);
+  });
+
+  it('sets validityDays without touching maxSkills when only validityDays is provided', async () => {
+    mockPrisma.package.findFirst.mockResolvedValue(makePackage());
+    mockPrisma.package.update.mockResolvedValue(makePackage({ validityDays: 90 }));
+    const updated = await updatePackage(1, { validityDays: 90 });
+    expect(mockPrisma.package.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { validityDays: 90 },
+    });
+    expect(updated.validityDays).toBe(90);
+  });
+
+  it('sets maxSkills without touching validityDays when only maxSkills is provided', async () => {
+    mockPrisma.package.findFirst.mockResolvedValue(makePackage());
+    mockPrisma.package.update.mockResolvedValue(makePackage({ maxSkills: 3 }));
+    const updated = await updatePackage(1, { maxSkills: 3 });
+    expect(mockPrisma.package.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { maxSkills: 3 },
+    });
+    expect(updated.maxSkills).toBe(3);
   });
 
   it('clears expiresAt when passed null', async () => {

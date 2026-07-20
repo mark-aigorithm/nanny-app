@@ -15,6 +15,12 @@ export const PackageSchema = z.object({
   description: z.string().nullable(),
   hours: z.number().int(),
   price: z.number(),
+  /// Days a purchase of this package stays ACTIVE after payment succeeds
+  /// (see PackagePurchase.expiresAt).
+  validityDays: z.number().int(),
+  /// Max distinct skill add-ons a single purchase's hours can cover
+  /// (0 = base hours only, no skill add-ons).
+  maxSkills: z.number().int(),
   isActive: z.boolean(),
   expiresAt: z.string().nullable(),
   createdAt: z.string(),
@@ -26,6 +32,10 @@ export const CreatePackageSchema = z.object({
   description: z.string().trim().max(500).optional(),
   hours: z.number().int().min(1),
   price: z.number().positive().multipleOf(0.01),
+  // Defaults mirror the DB backfill used for packages that predate these
+  // columns — admins can override either at creation time.
+  validityDays: z.number().int().min(1).default(30),
+  maxSkills: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
   expiresAt: z.string().datetime().optional(),
 });
@@ -37,6 +47,8 @@ export const UpdatePackageSchema = z
     description: z.string().trim().max(500).optional(),
     hours: z.number().int().min(1).optional(),
     price: z.number().positive().multipleOf(0.01).optional(),
+    validityDays: z.number().int().min(1).optional(),
+    maxSkills: z.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
     // Nullable so an admin can clear a previously-set expiry.
     expiresAt: z.string().datetime().nullable().optional(),
