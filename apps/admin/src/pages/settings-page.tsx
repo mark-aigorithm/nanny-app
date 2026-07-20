@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { bookingWindowLengthHours, UpdatePlatformConfigSchema } from '@nanny-app/shared';
+import {
+  bookingWindowLengthHours,
+  UpdatePlatformConfigSchema,
+  UpdateSupportContactSchema,
+} from '@nanny-app/shared';
 
 import {
   Button,
@@ -13,7 +17,12 @@ import {
   PageHeader,
   useToast,
 } from '@admin/components/ui';
-import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
+import {
+  fetchPlatformConfig,
+  fetchSupportContact,
+  updatePlatformConfig,
+  updateSupportContact,
+} from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 /** Booking-window limits + matching/SLA settings — pricing lives on Pricing & Fees. */
@@ -100,6 +109,40 @@ const MATCHING_FIELDS: ConfigField[] = [
   },
 ];
 
+type SupportKey = 'whatsappNumber' | 'phoneNumber' | 'email';
+
+type SupportField = {
+  key: SupportKey;
+  label: string;
+  hint: string;
+  type: 'tel' | 'email';
+  placeholder: string;
+};
+
+const SUPPORT_FIELDS: SupportField[] = [
+  {
+    key: 'whatsappNumber',
+    label: 'Support WhatsApp number',
+    hint: 'Opens a WhatsApp chat from the app’s help screen. Include the country code. Leave blank to hide the WhatsApp option.',
+    type: 'tel',
+    placeholder: '+20 100 123 4567',
+  },
+  {
+    key: 'phoneNumber',
+    label: 'Support phone number',
+    hint: 'Dialled when a parent taps “Call support”. Include the country code. Leave blank to hide the call option.',
+    type: 'tel',
+    placeholder: '+20 100 123 4567',
+  },
+  {
+    key: 'email',
+    label: 'Support email',
+    hint: 'Opens a pre-addressed email from the app’s help screen. Leave blank to hide the email option.',
+    type: 'email',
+    placeholder: 'support@nannynow.com',
+  },
+];
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -137,6 +180,58 @@ export function SettingsPage() {
     },
     onError: (err) => toast.error('Couldn’t save settings', apiErrorMessage(err)),
   });
+
+  const {
+    data: support,
+    isLoading: supportLoading,
+    error: supportError,
+    refetch: refetchSupport,
+    isFetching: supportFetching,
+  } = useQuery({
+    queryKey: ['support-contact'],
+    queryFn: fetchSupportContact,
+  });
+
+  const [supportForm, setSupportForm] = useState<Record<SupportKey, string> | null>(null);
+  const [supportFormError, setSupportFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (support && supportForm === null) {
+      setSupportForm({
+        whatsappNumber: support.whatsappNumber,
+        phoneNumber: support.phoneNumber,
+        email: support.email,
+      });
+    }
+  }, [support, supportForm]);
+
+  const saveSupportMutation = useMutation({
+    mutationFn: updateSupportContact,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['support-contact'], updated);
+      setSupportForm({
+        whatsappNumber: updated.whatsappNumber,
+        phoneNumber: updated.phoneNumber,
+        email: updated.email,
+      });
+      setSupportFormError(null);
+      toast.success('Support contact saved', 'Parents see the change the next time they open help.');
+    },
+    onError: (err) => toast.error('Couldn’t save support contact', apiErrorMessage(err)),
+  });
+
+  function handleSupportSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!supportForm) return;
+    const parsed = UpdateSupportContactSchema.safeParse(supportForm);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      setSupportFormError(issue ? `${issue.path.join('.')}: ${issue.message}` : 'Invalid input');
+      return;
+    }
+    setSupportFormError(null);
+    saveSupportMutation.mutate(parsed.data);
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -233,6 +328,43 @@ export function SettingsPage() {
             {formError && <Feedback tone="error">{formError}</Feedback>}
             <Button type="submit" disabled={saveMutation.isPending}>
               {saveMutation.isPending ? 'Saving…' : 'Save settings'}
+            </Button>
+          </form>
+        </Card>
+      )}
+      {supportLoading && (
+        <Card>
+          <LoadingState label="Loading support contact…" />
+        </Card>
+      )}
+      {supportError != null && (
+        <ErrorState
+          message={apiErrorMessage(supportError)}
+          onRetry={() => void refetchSupport()}
+          retrying={supportFetching}
+        />
+      )}
+      {supportForm && (
+        <Card>
+          <form onSubmit={handleSupportSubmit}>
+            <h2 className="form-section-title">Support contact</h2>
+            <div className="form-grid">
+              {SUPPORT_FIELDS.map((field) => (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <input
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    value={supportForm[field.key]}
+                    onChange={(e) =>
+                      setSupportForm({ ...supportForm, [field.key]: e.target.value })
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
+            {supportFormError && <Feedback tone="error">{supportFormError}</Feedback>}
+            <Button type="submit" disabled={saveSupportMutation.isPending}>
+              {saveSupportMutation.isPending ? 'Saving…' : 'Save support contact'}
             </Button>
           </form>
         </Card>

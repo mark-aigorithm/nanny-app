@@ -14,3 +14,4 @@ export * from './messaging';
 export * from './notifications';
 export * from './rewards';
 export * from './referrals';
+export * from './support';

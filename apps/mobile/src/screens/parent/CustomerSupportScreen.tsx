@@ -5,12 +5,16 @@ import {
   ScrollView,
   Pressable,
   TextInput,
+  Linking,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { whatsappLink } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';
 import { MOCK_FAQS } from '@mobile/mocks';
 import { getProfileReturnHref } from '@mobile/lib/profileUtils';
+import { useSupportContact } from '@mobile/hooks/useSupport';
 import { styles } from './styles/customer-support-screen.styles';
 
 export default function CustomerSupportScreen() {
@@ -21,6 +25,7 @@ export default function CustomerSupportScreen() {
   }>();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(1);
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: support } = useSupportContact();
 
   const filteredFaqs = searchQuery
     ? MOCK_FAQS.filter(
@@ -43,6 +48,17 @@ export default function CustomerSupportScreen() {
       return;
     }
     router.back();
+  };
+
+  /**
+   * Deep links can fail — no dialer on the device, no mail client configured.
+   * Surface that instead of letting the promise reject silently and leaving
+   * the parent tapping a card that appears to do nothing.
+   */
+  const openExternal = (url: string) => {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Couldn’t open that', 'Please try another way to reach us.');
+    });
   };
 
   return (
@@ -106,13 +122,44 @@ export default function CustomerSupportScreen() {
         <View style={styles.otherWaysSection}>
           <Text style={styles.otherWaysHeader}>OTHER WAYS TO REACH US</Text>
           <View style={styles.contactGrid}>
-            <Pressable style={styles.contactCard}>
-              <View style={styles.contactIconWrapGreen}>
-                <Ionicons name="mail-outline" size={20} color={colors.primaryDark} />
-              </View>
-              <Text style={styles.contactTitle}>Email support</Text>
-              <Text style={styles.contactSubtitle}>Reply within 24 hours</Text>
-            </Pressable>
+            {support?.whatsappNumber ? (
+              <Pressable
+                style={styles.contactCard}
+                onPress={() => openExternal(whatsappLink(support.whatsappNumber))}
+              >
+                <View style={styles.contactIconWrapGreen}>
+                  <Ionicons name="logo-whatsapp" size={20} color={colors.primaryDark} />
+                </View>
+                <Text style={styles.contactTitle}>WhatsApp</Text>
+                <Text style={styles.contactSubtitle}>Chat with our team</Text>
+              </Pressable>
+            ) : null}
+
+            {support?.phoneNumber ? (
+              <Pressable
+                style={styles.contactCard}
+                onPress={() => openExternal(`tel:${support.phoneNumber}`)}
+              >
+                <View style={styles.contactIconWrapBeige}>
+                  <Ionicons name="call-outline" size={20} color={colors.textTertiary} />
+                </View>
+                <Text style={styles.contactTitle}>Call support</Text>
+                <Text style={styles.contactSubtitle}>Speak to us directly</Text>
+              </Pressable>
+            ) : null}
+
+            {support?.email ? (
+              <Pressable
+                style={styles.contactCard}
+                onPress={() => openExternal(`mailto:${support.email}`)}
+              >
+                <View style={styles.contactIconWrapGreen}>
+                  <Ionicons name="mail-outline" size={20} color={colors.primaryDark} />
+                </View>
+                <Text style={styles.contactTitle}>Email support</Text>
+                <Text style={styles.contactSubtitle}>Reply within 24 hours</Text>
+              </Pressable>
+            ) : null}
 
             <Pressable
               style={styles.contactCard}

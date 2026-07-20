@@ -12,6 +12,7 @@ import { notificationRouter } from './notification.routes';
 import { paymobRouter } from './paymob.routes';
 import { referralRouter } from './referral.routes';
 import { rewardRouter } from './reward.routes';
+import { supportRouter } from './support.routes';
 import { webhookRouter } from './webhook.routes';
 
 export const apiRouter = Router();
@@ -32,3 +33,4 @@ apiRouter.use('/devices', deviceRouter);
 apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/referrals', referralRouter);
 apiRouter.use('/rewards', rewardRouter);
+apiRouter.use('/support', supportRouter);
