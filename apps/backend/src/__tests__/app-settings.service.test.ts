@@ -20,6 +20,7 @@ import { AppError } from '@backend/lib/errors';
 import {
   getBroadcastRadiusKm,
   getPlatformConfig,
+  getRevealPhoneMinutes,
   updatePlatformConfig,
 } from '@backend/services/app-settings.service';
 
@@ -65,6 +66,32 @@ describe('getBroadcastRadiusKm', () => {
       value: 'not-a-number',
     });
     await expect(getBroadcastRadiusKm()).resolves.toBe(10);
+  });
+});
+
+describe('getRevealPhoneMinutes', () => {
+  it('returns the default (45) when the key is not seeded', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue(null);
+    await expect(getRevealPhoneMinutes()).resolves.toBe(45);
+    expect(mockPrisma.appSettings.findFirst).toHaveBeenCalledWith({
+      where: { key: 'reveal_phone_minutes', deletedAt: null },
+    });
+  });
+
+  it('parses the stored value', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
+      key: 'reveal_phone_minutes',
+      value: '60',
+    });
+    await expect(getRevealPhoneMinutes()).resolves.toBe(60);
+  });
+
+  it('falls back to the default on a malformed value', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
+      key: 'reveal_phone_minutes',
+      value: 'not-a-number',
+    });
+    await expect(getRevealPhoneMinutes()).resolves.toBe(45);
   });
 });
 

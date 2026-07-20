@@ -106,7 +106,10 @@ function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkil
  * startTime/endTime are true UTC instants in the DB, so plain getTime() math is
  * correct here.
  */
-function nannyPhoneIfRevealable(b: BookingWithRelations, revealMinutes: number): string | null {
+export function nannyPhoneIfRevealable(
+  b: BookingWithRelations,
+  revealMinutes: number,
+): string | null {
   const phone = b.nannyProfile?.user.phone ?? null;
   if (!phone) return null;
   if (b.status !== BookingStatus.CONFIRMED && b.status !== BookingStatus.IN_PROGRESS) {
