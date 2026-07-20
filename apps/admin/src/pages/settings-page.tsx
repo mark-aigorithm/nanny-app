@@ -209,6 +209,11 @@ export function SettingsPage() {
     mutationFn: updateSupportContact,
     onSuccess: (updated) => {
       queryClient.setQueryData(['support-contact'], updated);
+      setSupportForm({
+        whatsappNumber: updated.whatsappNumber,
+        phoneNumber: updated.phoneNumber,
+        email: updated.email,
+      });
       setSupportFormError(null);
       toast.success('Support contact saved', 'Parents see the change the next time they open help.');
     },

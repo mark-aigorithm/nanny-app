@@ -8,19 +8,20 @@ import { z } from 'zod';
 // hides that channel rather than showing a dead button.
 // ──────────────────────────────────────────────────────────────
 
-/** Mandatory leading '+', then 7–15 digits, once spaces and dashes are stripped. */
+/** Mandatory leading '+', then 7–15 digits, once separators are stripped. */
 const PHONE_PATTERN = /^\+\d{7,15}$/;
 
 /**
- * Canonical form of a phone number: whitespace and dashes removed, and a
- * leading '00' (international access prefix) rewritten to '+'. Admins can
- * paste a number in any readable format; this function only computes the
- * canonical form for validation and display — it does not persist anything.
- * The caller (the support-contact service) is responsible for applying it
- * before writing to the DB.
+ * Canonical form of a phone number: whitespace, dashes, parentheses, and dots
+ * removed, and a leading '00' (international access prefix) rewritten to
+ * '+'. Admins can paste a number in any readable format — e.g.
+ * "+20 (100) 123.4567" — this function only computes the canonical form for
+ * validation and display — it does not persist anything. The caller (the
+ * support-contact service) is responsible for applying it before writing to
+ * the DB.
  */
 export function normalizePhone(value: string): string {
-  const stripped = value.replace(/[\s-]/g, '');
+  const stripped = value.replace(/[\s\-().]/g, '');
   return stripped.startsWith('00') ? `+${stripped.slice(2)}` : stripped;
 }
 
@@ -39,7 +40,8 @@ const supportPhone = z
   .string()
   .refine((v) => v === '' || PHONE_PATTERN.test(normalizePhone(v)), {
     message:
-      'Enter a valid phone number including the country code, e.g. +20 100 123 4567, or leave blank to hide this channel.',
+      'Enter a valid phone number including the country code, e.g. +20 100 123 4567 ' +
+      '(spaces, dashes, parentheses, and dots are fine), or leave blank to hide this channel.',
   });
 
 export const SupportContactSchema = z.object({
