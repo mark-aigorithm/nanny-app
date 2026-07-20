@@ -31,6 +31,7 @@ import {
   UpdateCertificationSchema,
   UpdateRewardConfigSchema,
   UpdateSkillSchema,
+  UpdateSupportContactSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -108,6 +109,10 @@ import {
   listWallets,
   updateRewardConfig,
 } from '@backend/services/reward.service';
+import {
+  getSupportContact,
+  updateSupportContact,
+} from '@backend/services/support-contact.service';
 
 export const adminRouter = Router();
 
@@ -559,6 +564,26 @@ adminRouter.put(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await updatePlatformConfig(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/support-contact', async (_req, res, next) => {
+  try {
+    res.json(ok(await getSupportContact()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.put(
+  '/support-contact',
+  validateBody(UpdateSupportContactSchema),
+  async (req, res, next) => {
+    try {
+      res.json(ok(await updateSupportContact(req.body)));
     } catch (err) {
       next(err);
     }
