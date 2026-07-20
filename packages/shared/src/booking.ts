@@ -166,6 +166,13 @@ export const BookingResponseSchema = z.object({
    * itself — the raw code is only returned by POST /bookings/:id/start-pin.
    */
   startPinActive: z.boolean(),
+  /**
+   * True when the assigned nanny has a camera the parent could watch. Drives
+   * the "Watch Live" button. Like startPinActive it signals availability only —
+   * the stream URL itself comes from GET /bookings/:id/camera, which is gated
+   * on the booking actually being IN_PROGRESS.
+   */
+  hasCamera: z.boolean(),
   payment: BookingPaymentSummarySchema.nullable(),
   myReview: BookingMyReviewSchema.nullable(),
   createdAt: z.string(),

@@ -641,6 +641,9 @@ model Booking {
   startPinGeneratedAt      DateTime?            @map("start_pin_generated_at")
   startPinExpiresAt        DateTime?            @map("start_pin_expires_at")
   startPinAttempts         Int                  @default(0) @map("start_pin_attempts")
+  /// Last time the parent asked the nanny to turn the camera on. Used purely
+  /// as a cooldown so the nanny can't be spammed mid-shift.
+  cameraNotifiedAt         DateTime?            @map("camera_notified_at")
   replacementForBookingId  Int?                 @map("replacement_for_booking_id")
   replacementForBooking    Booking?             @relation("BookingReplacement", fields: [replacementForBookingId], references: [id])
   replacementBookings      Booking[]            @relation("BookingReplacement")
@@ -952,6 +955,8 @@ enum NotificationType {
   REFERRAL_CONVERTED
   /// An invitee redeemed a referral code and received their welcome grant.
   REFERRAL_JOINED
+  /// A parent asked the nanny to turn on the camera for a live booking.
+  CAMERA_REQUESTED
 
   @@map("notification_type")
 }
