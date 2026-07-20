@@ -185,6 +185,16 @@ git commit -m "feat(backend): schema for package purchases, hours ledger, polymo
 
 ### Task 2: Shared schemas
 
+> **PARTIALLY COMPLETE** (commit `fc935c1`). Already done, do NOT redo:
+> `validityDays`/`maxSkills` on `PackageSchema`/`CreatePackageSchema`/`UpdatePackageSchema`
+> (note: `validityDays` **defaults to 30** and `maxSkills` to 0 in `CreatePackageSchema` —
+> keep those defaults; they mirror the DB backfill), plus Step 5's `package.service.ts`
+> threading and its tests.
+>
+> **REMAINING work for this task:** only the new schemas — `PublicPackageSchema`,
+> `PackagePurchaseStatusSchema`, `PackagePurchaseSchema`, `PackageHoursBalanceSchema`,
+> `PurchasePackageSchema` — and their inferred types. Skip Step 5 entirely.
+
 **Files:**
 - Modify: `packages/shared/src/package.ts`
 - Modify: `packages/shared/src/index.ts` (already re-exports `./package` — verify)
@@ -716,44 +726,95 @@ git commit -m "feat(backend): public package catalog + purchase-intent snapshot 
 
 ---
 
-### Task 5: Paymob polymorphic completion + package intention
+### Task 5: Package payment settlement — separate handler + purpose dispatch
+
+> **Design decision (owner, supersedes the original plan):** package-purchase payments are
+> settled by a **separate handler**, NOT by branching inside `finalizePaymentCaptured`.
+> The existing guard in `finalizePaymentCaptured` (added in `fc935c1`) stays as-is: it
+> returns early when `bookingId` is null.
+>
+> **The trap this task must close:** `processPaymobWebhook`, `syncPaymobPaymentForBooking`,
+> and `reconcileStalePaymobPayments` currently funnel *unconditionally* into
+> `finalizePaymentCaptured`. With a separate handler and no dispatch, every PACKAGE capture
+> would hit that guard and be **logged-and-dropped forever** — the parent pays and never
+> receives hours. Purpose-based dispatch at each entry point is the core of this task, not
+> an afterthought.
 
 **Files:**
-- Modify: `apps/backend/src/services/paymob.service.ts` (`finalizePaymentCaptured` ~57-107; add `createPaymobIntentionForPackagePurchase`)
-- Test: `apps/backend/src/__tests__/paymob-package.service.test.ts` (new; focused)
+- Create: `apps/backend/src/services/package-payment.service.ts` (intention + capture/failure settlement for PACKAGE payments)
+- Modify: `apps/backend/src/services/paymob.service.ts` (purpose dispatch at the three entry points)
+- Test: `apps/backend/src/__tests__/package-payment.service.test.ts` (new)
 
 **Interfaces:**
-- Consumes: `creditPurchaseHours` (Task 3), `createPackagePurchase` result (Task 4).
-- Produces: `createPaymobIntentionForPackagePurchase(decoded, purchaseId): Promise<{ paymentId; clientSecret; publicKey; intentionId }>`; `finalizePaymentCaptured` now branches on `payment.purpose`.
+- Consumes: `creditPurchaseHours` (Task 3); the purchase row from `createPackagePurchase` (Task 4); the existing Paymob API client + config used by `createPaymobIntentionForBooking`.
+- Produces:
+  - `createPaymobIntentionForPackagePurchase(decoded: DecodedIdToken, purchaseId: number): Promise<{ paymentId: number; clientSecret: string; publicKey: string; intentionId: string }>`
+  - `finalizePackagePaymentCaptured(paymentId: number, paymobTransactionId: string | null): Promise<void>` — idempotent
+  - `finalizePackagePaymentFailed(paymentId: number, reason: string): Promise<void>`
+  - `syncPaymobPaymentForPackagePurchase(decoded: DecodedIdToken, purchaseId: number): Promise<{ status: PaymentStatus }>` — post-checkout poll for mobile
 
-- [ ] **Step 1: Branch `finalizePaymentCaptured` on purpose**
+- [ ] **Step 1: Write the failing dispatch tests first**
 
-After loading `payment` and setting it `CAPTURED`, before the booking logic, insert:
+The dispatch is the risk; test it first. In `package-payment.service.test.ts`, assert:
+1. A captured payment with `purpose: 'PACKAGE'` routes to `finalizePackagePaymentCaptured` and credits hours — and does NOT reach the booking-confirmation path.
+2. A captured payment with `purpose: 'BOOKING'` still routes to `finalizePaymentCaptured` (existing behavior unchanged — this is the regression guard).
+3. `finalizePackagePaymentCaptured` is idempotent: called twice for the same payment, hours are credited once (assert `creditPurchaseHours` called once, or that a second call is a no-op because status is no longer `PENDING`).
+4. A PACKAGE capture is NOT silently dropped by `finalizePaymentCaptured`'s null-`bookingId` guard.
+
+Mock `package-hours.service` and Prisma per existing patterns. Note `finalizePaymentCaptured` is module-private — reach dispatch through the exported entry points (`processPaymobWebhook` / `reconcileStalePaymobPayments`); `reconcileStalePaymobPayments` has the fewest preconditions (no HMAC, no ownership checks) and was used as the seam for the existing guard test in `fc935c1` — follow that precedent.
+
+Run: `pnpm test --filter=@nanny-app/backend -- package-payment` → Expected: FAIL.
+
+- [ ] **Step 2: Add the settlement handler**
+
+Create `package-payment.service.ts`. `finalizePackagePaymentCaptured` mirrors the shape of `finalizePaymentCaptured` but for purchases — inside a `prisma.$transaction`:
 ```ts
-    if (payment.purpose === 'PACKAGE') {
-      if (payment.packagePurchaseId) await creditPurchaseHours(tx, payment.packagePurchaseId);
-      return null; // no booking to confirm
-    }
+const payment = await tx.payment.findFirst({
+  where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING, purpose: 'PACKAGE' },
+});
+if (!payment || !payment.packagePurchaseId) return;   // idempotent: already settled or not ours
+await tx.payment.update({
+  where: { id: paymentId },
+  data: {
+    status: PaymentStatus.CAPTURED,
+    paymobTransactionId: paymobTransactionId ?? undefined,
+    failureReason: null, paymobNextReconcileAt: null, paymobClientSecret: null,
+  },
+});
+await creditPurchaseHours(tx, payment.packagePurchaseId);
 ```
-Guard the existing booking block so it only runs when `payment.bookingId` is set (it now can be null):
+The `status: PENDING` filter is what makes it idempotent — a replayed webhook finds no row and returns. `creditPurchaseHours` (Task 3) is itself idempotent on `PENDING_PAYMENT`, giving belt-and-braces.
+
+`finalizePackagePaymentFailed` mirrors `finalizePaymentFailed`: mark the payment `FAILED` with `failureReason`, and leave the purchase in `PENDING_PAYMENT` (it never becomes ACTIVE, so no hours are granted and the single-active-package rule is not tripped by an abandoned attempt).
+
+- [ ] **Step 3: Add purpose dispatch at all three entry points**
+
+In `paymob.service.ts`, before calling `finalizePaymentCaptured`, load the payment's `purpose` and route. Do this in **`processPaymobWebhook`**, **`reconcileStalePaymobPayments`**, and (for symmetry on the failure path) wherever `finalizePaymentFailed` is called:
 ```ts
-    if (!payment.bookingId) return null;
+const purpose = await getPaymentPurpose(paymentId);   // small helper: findFirst select purpose
+if (purpose === 'PACKAGE') {
+  await finalizePackagePaymentCaptured(paymentId, txnId);
+} else {
+  await finalizePaymentCaptured(paymentId, txnId);
+}
 ```
-Add `import { creditPurchaseHours } from '@backend/services/package-hours.service';`.
+`syncPaymobPaymentForBooking` is booking-scoped by signature (it takes a `bookingId`) — leave it alone and add the separate `syncPaymobPaymentForPackagePurchase` for the mobile post-checkout poll.
 
-- [ ] **Step 2: Add the package intention creator**
+> Watch for an import cycle: `paymob.service.ts` importing `package-payment.service.ts` while the latter reuses Paymob helpers. If the helpers you need (`api.createIntention`, config, `resetPaymentData`) are module-private, export them or lift them into a shared module rather than duplicating them. If this turns structural, report DONE_WITH_CONCERNS rather than restructuring broadly.
 
-Mirror `createPaymobIntentionForBooking` but key on the purchase. Reuse the same Paymob `api.createIntention` call; create/reuse a `Payment` with `{ packagePurchaseId, motherId, purpose: 'PACKAGE', amount: pricePaid, ... }` (no `bookingId`). Amount = `Number(purchase.pricePaid)`. Store `paymobIntentionId`/`paymobClientSecret` back on the payment. Return `{ paymentId, clientSecret, publicKey, intentionId }`.
+- [ ] **Step 4: Add the intention creator**
 
-- [ ] **Step 3: Write + run the focused test**
+Mirror `createPaymobIntentionForBooking`, keyed on the purchase: guard that the purchase exists, belongs to the caller, and is `PENDING_PAYMENT`; reuse a fresh unexpired intention if one exists (same TTL logic); create/update the `Payment` with `{ packagePurchaseId, motherId, purpose: 'PACKAGE', amount: Number(purchase.pricePaid) }` and **no** `bookingId`; call `api.createIntention` with `extras: { payment_id: String(payment.id) }`; store `paymobIntentionId`/`paymobClientSecret` back. Return `{ paymentId, clientSecret, publicKey, intentionId }`.
 
-Test that `finalizePaymentCaptured` with a `PACKAGE` payment calls `creditPurchaseHours` and does NOT touch bookings (mock `package-hours.service`). Run: `pnpm test --filter=@nanny-app/backend -- paymob-package`. Expected: PASS.
+- [ ] **Step 5: Run tests — expect PASS**
 
-- [ ] **Step 4: Full suite + commit**
+Run: `pnpm test --filter=@nanny-app/backend -- package-payment` → Expected: PASS.
+Then the full suite: `pnpm test --filter=@nanny-app/backend` → Expected: all passing (baseline was 37 suites / 415 tests; booking-payment behavior must be unchanged).
+
+- [ ] **Step 6: Commit**
 ```bash
-pnpm test --filter=@nanny-app/backend
-git add apps/backend/src/services/paymob.service.ts apps/backend/src/__tests__/paymob-package.service.test.ts
-git commit -m "feat(backend): polymorphic Paymob completion — credit package hours on PACKAGE payment"
+git add apps/backend/src/services/package-payment.service.ts apps/backend/src/services/paymob.service.ts apps/backend/src/__tests__/package-payment.service.test.ts
+git commit -m "feat(backend): separate package payment settlement handler + purpose dispatch"
 ```
 
 ---
@@ -830,7 +891,7 @@ import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { getMyPackageHours } from '@backend/services/package-hours.service';
 import { createPackagePurchase, listActivePackages } from '@backend/services/package-purchase.service';
-import { createPaymobIntentionForPackagePurchase } from '@backend/services/paymob.service';
+import { createPaymobIntentionForPackagePurchase } from '@backend/services/package-payment.service';
 
 export const packageRouter = Router();
 packageRouter.use(requireAuth);
@@ -854,7 +915,23 @@ packageRouter.post('/:id/purchase', validateBody(PurchasePackageSchema), async (
     res.status(201).json(ok(session));
   } catch (err) { next(err); }
 });
+
+// Post-checkout poll, mirroring POST /bookings/:id/pay/paymob/sync.
+// Mobile calls this when the Paymob WebView returns, so settlement does not
+// depend solely on the webhook arriving.
+packageRouter.post('/purchases/:id/sync', async (req, res, next) => {
+  try {
+    if (!req.firebaseUser) throw errors.unauthorized();
+    res.json(ok(await syncPaymobPaymentForPackagePurchase(
+      req.firebaseUser, routeIdParam(req.params.id),
+    )));
+  } catch (err) { next(err); }
+});
 ```
+Import `syncPaymobPaymentForPackagePurchase` from `@backend/services/package-payment.service` and `routeIdParam` from `@backend/lib/route-param`.
+
+> Route-ordering note: register `/purchases/:id/sync` **before** any `/:id`-style
+> catch-all so `purchases` is not swallowed as a package id.
 > `PurchasePackageSchema` ignores the `:id` path param; the body carries `packageId`. Keep the route path RESTful; validate `routeIdParam(req.params.id)` matches `req.body.packageId` (throw `errors.badRequest` on mismatch) for defensiveness.
 
 - [ ] **Step 2: Mount in `routes/index.ts`**: `import { packageRouter } from './package.routes';` then `apiRouter.use('/packages', packageRouter);`
@@ -884,7 +961,11 @@ git commit -m "feat(admin): package validityDays + maxSkills form fields and col
 
 ---
 
-### Task 9: Seed demo packages
+### Task 9: Seed demo packages — ✅ COMPLETE (commit `fc935c1`)
+
+> Already done, do NOT redo. `SEED_PACKAGES` carries `validityDays`/`maxSkills`
+> (Starter 30d/0, Standard 60d/1, Premium 90d/2) and the `upsert` threads both
+> fields through `create` and `update`. Idempotency preserved.
 
 **Files:** Modify `apps/backend/prisma/seed-demo.ts`
 
