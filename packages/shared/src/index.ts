@@ -4,6 +4,7 @@ export * from './platform';
 export * from './camera';
 export * from './skill';
 export * from './certification';
+export * from './package';
 export * from './duration-rule';
 export * from './pricing';
 export * from './nanny';

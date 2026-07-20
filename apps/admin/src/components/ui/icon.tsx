@@ -13,6 +13,7 @@ export {
   Ticket,
   Sparkles,
   BadgeCheck,
+  Package,
   Video,
   Settings,
   ShieldCheck,
