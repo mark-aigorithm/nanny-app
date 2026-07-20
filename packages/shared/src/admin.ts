@@ -146,6 +146,13 @@ export const PlatformConfigSchema = z.object({
    */
   bookingWindowStartHour: z.number().int().min(0).max(23),
   bookingWindowEndHour: z.number().int().min(0).max(23),
+  /**
+   * Minutes before a confirmed booking's start time when the assigned nanny's
+   * phone number is revealed to the parent (and stays visible through the end of
+   * the shift). Before this window the number is withheld for privacy. See
+   * REVEAL_PHONE_EARLY_MINUTES for the default.
+   */
+  revealPhoneMinutes: z.number().int().min(0).max(1440),
 });
 export type PlatformConfig = z.infer<typeof PlatformConfigSchema>;
 

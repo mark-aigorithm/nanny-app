@@ -1,4 +1,4 @@
-import { bookingWindowLengthHours } from '@nanny-app/shared';
+import { bookingWindowLengthHours, REVEAL_PHONE_EARLY_MINUTES } from '@nanny-app/shared';
 import type { PlatformConfig, UpdatePlatformConfigInput } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
@@ -18,6 +18,7 @@ const KEYS = {
   PENDING_CRITICAL_MINUTES: 'pending_critical_minutes',
   BOOKING_WINDOW_START_HOUR: 'booking_window_start_hour',
   BOOKING_WINDOW_END_HOUR: 'booking_window_end_hour',
+  REVEAL_PHONE_MINUTES: 'reveal_phone_minutes',
 } as const;
 
 const DEFAULTS: PlatformConfig = {
@@ -36,6 +37,7 @@ const DEFAULTS: PlatformConfig = {
   // enforcing the window for the first time changes nothing until an admin edits it.
   bookingWindowStartHour: 6,
   bookingWindowEndHour: 22,
+  revealPhoneMinutes: REVEAL_PHONE_EARLY_MINUTES,
 };
 
 /** Maps each PlatformConfig field to its app_settings key. */
@@ -53,6 +55,7 @@ const FIELD_TO_KEY: Record<keyof PlatformConfig, string> = {
   pendingCriticalMinutes: KEYS.PENDING_CRITICAL_MINUTES,
   bookingWindowStartHour: KEYS.BOOKING_WINDOW_START_HOUR,
   bookingWindowEndHour: KEYS.BOOKING_WINDOW_END_HOUR,
+  revealPhoneMinutes: KEYS.REVEAL_PHONE_MINUTES,
 };
 
 /** Returns the platform service fee % from app_settings (default 6 if not seeded). */
@@ -107,6 +110,19 @@ export async function getBroadcastRadiusKm(): Promise<number> {
   if (!row) return DEFAULTS.broadcastRadiusKm;
   const parsed = parseFloat(row.value);
   return Number.isNaN(parsed) ? DEFAULTS.broadcastRadiusKm : parsed;
+}
+
+/**
+ * Minutes before a confirmed booking's start time when the assigned nanny's
+ * phone number is revealed to the parent (through the end of the shift).
+ */
+export async function getRevealPhoneMinutes(): Promise<number> {
+  const row = await prisma.appSettings.findFirst({
+    where: { key: KEYS.REVEAL_PHONE_MINUTES, deletedAt: null },
+  });
+  if (!row) return DEFAULTS.revealPhoneMinutes;
+  const parsed = parseFloat(row.value);
+  return Number.isNaN(parsed) ? DEFAULTS.revealPhoneMinutes : parsed;
 }
 
 /** Returns the full platform config, falling back to defaults for unseeded keys. */

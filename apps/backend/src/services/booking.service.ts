@@ -41,7 +41,11 @@ import {
   toPlatformWallClock,
   wallClockToUtc,
 } from '@backend/lib/platform-time';
-import { getBroadcastRadiusKm, getPlatformConfig } from './app-settings.service';
+import {
+  getBroadcastRadiusKm,
+  getPlatformConfig,
+  getRevealPhoneMinutes,
+} from './app-settings.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -93,7 +97,31 @@ function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkil
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
 }
 
-function toBookingResponse(b: BookingWithRelations): BookingResponse {
+/**
+ * The nanny's phone number is personal data, so we only ever put it on the wire
+ * once the parent actually needs it: a CONFIRMED (or in-progress) booking, from
+ * `revealMinutes` before the start through the end of the shift. Outside that
+ * window the field is null — the client never holds the number early.
+ * `revealMinutes` is the admin-configured reveal window (see getRevealPhoneMinutes).
+ * startTime/endTime are true UTC instants in the DB, so plain getTime() math is
+ * correct here.
+ */
+function nannyPhoneIfRevealable(b: BookingWithRelations, revealMinutes: number): string | null {
+  const phone = b.nannyProfile?.user.phone ?? null;
+  if (!phone) return null;
+  if (b.status !== BookingStatus.CONFIRMED && b.status !== BookingStatus.IN_PROGRESS) {
+    return null;
+  }
+  const now = Date.now();
+  const earliest = b.startTime.getTime() - revealMinutes * 60_000;
+  const inWindow = now >= earliest && now <= b.endTime.getTime();
+  return inWindow ? phone : null;
+}
+
+function toBookingResponse(
+  b: BookingWithRelations,
+  revealPhoneMinutes: number,
+): BookingResponse {
   return {
     id: b.id,
     motherId: b.motherId,
@@ -108,8 +136,10 @@ function toBookingResponse(b: BookingWithRelations): BookingResponse {
           lastName: b.nannyProfile.user.lastName,
           avatarUrl: b.nannyProfile.user.avatarUrl,
           location: b.nannyProfile.user.address,
+          phone: nannyPhoneIfRevealable(b, revealPhoneMinutes),
         }
       : null,
+    nannyPhoneRevealMinutes: revealPhoneMinutes,
     status: b.status,
     nannyDecision: b.nannyDecision,
     nannyDecidedAt: b.nannyDecidedAt?.toISOString() ?? null,
@@ -513,7 +543,7 @@ export async function createBooking(
       bookingId: existingPending.id,
       motherId: user.id,
     });
-    return toBookingResponse(existingPending);
+    return toBookingResponse(existingPending, config.revealPhoneMinutes);
   }
 
   // Load base rate, revenue split, add-on skills and duration tiers once, then
@@ -586,7 +616,7 @@ export async function createBooking(
 
   await notifyBookingBroadcast(booking);
 
-  return toBookingResponse(booking);
+  return toBookingResponse(booking, config.revealPhoneMinutes);
 }
 
 /**
@@ -661,7 +691,7 @@ export async function listBookings(
       : { motherId: user.id }),
   };
 
-  const [total, bookings] = await Promise.all([
+  const [total, bookings, revealPhoneMinutes] = await Promise.all([
     prisma.booking.count({ where }),
     prisma.booking.findMany({
       where,
@@ -670,10 +700,11 @@ export async function listBookings(
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     }),
+    getRevealPhoneMinutes(),
   ]);
 
   return {
-    bookings: bookings.map(toBookingResponse),
+    bookings: bookings.map((b) => toBookingResponse(b, revealPhoneMinutes)),
     meta: {
       page: query.page,
       limit: query.limit,
@@ -705,7 +736,7 @@ export async function listAvailableBookings(
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
-  const [radiusKm, busy, open] = await Promise.all([
+  const [radiusKm, busy, open, revealPhoneMinutes] = await Promise.all([
     getBroadcastRadiusKm(),
     prisma.booking.findMany({
       where: {
@@ -726,6 +757,7 @@ export async function listAvailableBookings(
       orderBy: { startTime: 'asc' },
       take: 50,
     }),
+    getRevealPhoneMinutes(),
   ]);
 
   const nannyPoint = toLatLng(nannyProfile.user.latitude, nannyProfile.user.longitude);
@@ -735,7 +767,7 @@ export async function listAvailableBookings(
       isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm),
   );
 
-  return available.map(toBookingResponse);
+  return available.map((b) => toBookingResponse(b, revealPhoneMinutes));
 }
 
 export async function getBooking(
@@ -755,7 +787,7 @@ export async function getBooking(
     (booking.nannyProfile?.userId === user.id);
   if (!isOwner) throw errors.forbidden('Access denied.');
 
-  return toBookingResponse(booking);
+  return toBookingResponse(booking, await getRevealPhoneMinutes());
 }
 
 export async function cancelBooking(
@@ -804,7 +836,7 @@ export async function cancelBooking(
     include: bookingInclude,
   });
 
-  return { booking: toBookingResponse(updated), refundAmount };
+  return { booking: toBookingResponse(updated, await getRevealPhoneMinutes()), refundAmount };
 }
 
 /**
@@ -911,7 +943,7 @@ async function applyNannyDecision(
     await notifyMotherNannyClaimed(updated);
   }
 
-  return toBookingResponse(updated);
+  return toBookingResponse(updated, await getRevealPhoneMinutes());
 }
 
 /** Nanny accepts a booking request (informational; does not confirm). */
@@ -987,7 +1019,7 @@ export async function mockPayBooking(
     await notifyNannyBookingConfirmed(updatedBooking);
   }
 
-  return { booking: toBookingResponse(updatedBooking), payment };
+  return { booking: toBookingResponse(updatedBooking, await getRevealPhoneMinutes()), payment };
 }
 
 /**
@@ -1049,7 +1081,7 @@ export async function redeemBookingPoints(
     updated.rewardCreditPoints,
     Number(updated.rewardCreditHoursApplied),
   );
-  return toBookingResponse(updated);
+  return toBookingResponse(updated, await getRevealPhoneMinutes());
 }
 
 /**
@@ -1103,7 +1135,7 @@ export async function refundBookingPoints(
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
 
   const updated = await refundBookingIfApplied(booking);
-  return toBookingResponse(updated ?? booking);
+  return toBookingResponse(updated ?? booking, await getRevealPhoneMinutes());
 }
 
 /**
@@ -1245,7 +1277,7 @@ export async function checkInBooking(
     `${nannyName} has started your booking.`,
   );
 
-  return toBookingResponse(updated);
+  return toBookingResponse(updated, await getRevealPhoneMinutes());
 }
 
 /** Nanny checks out — marks booking COMPLETED. Requires IN_PROGRESS. */
@@ -1301,5 +1333,5 @@ export async function checkOutBooking(
     });
   }
 
-  return toBookingResponse(updated);
+  return toBookingResponse(updated, await getRevealPhoneMinutes());
 }

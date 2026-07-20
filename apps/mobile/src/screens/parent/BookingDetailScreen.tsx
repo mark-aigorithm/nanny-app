@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
+import ParentNannyContactCard from '@mobile/components/ParentNannyContactCard';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
@@ -41,7 +42,7 @@ export default function BookingDetailScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const careLogScrollY = useRef(0);
 
-  const { data: booking, isLoading } = useBooking(bookingId ? Number(bookingId) : undefined);
+  const { data: booking, isLoading, refetch } = useBooking(bookingId ? Number(bookingId) : undefined);
   const canViewCareLog =
     booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED';
   const cancelBooking = useCancelBooking();
@@ -160,6 +161,9 @@ export default function BookingDetailScreen() {
             </View>
           </View>
         </View>
+
+        {/* Nanny phone — revealed only within the configured window before start */}
+        <ParentNannyContactCard booking={booking} onRefresh={() => void refetch()} />
 
         {/* Booking Details */}
         <View style={styles.detailsCard}>

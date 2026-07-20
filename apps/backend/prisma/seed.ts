@@ -18,6 +18,7 @@ const APP_SETTINGS: Record<string, string> = {
   min_advance_booking_hours: '2',
   booking_window_start_hour: '6',
   booking_window_end_hour: '22',
+  reveal_phone_minutes: '45',
 };
 
 async function main() {

@@ -45,6 +45,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
   getBroadcastRadiusKm: jest.fn().mockResolvedValue(10),
+  getRevealPhoneMinutes: jest.fn().mockResolvedValue(45),
   // Wide-open window: this suite is about the approval flow, not scheduling rules.
   getPlatformConfig: jest.fn().mockResolvedValue({
     serviceFeePercent: 6,

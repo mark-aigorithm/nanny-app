@@ -82,6 +82,13 @@ export const NannySummarySchema = z.object({
   lastName: z.string(),
   avatarUrl: z.string().nullable(),
   location: z.string().nullable(),
+  /**
+   * The nanny's contact number, exposed by the backend ONLY once the booking is
+   * confirmed and the start time is within REVEAL_PHONE_EARLY_MINUTES (through
+   * the end of the shift). Null at all other times — the number is never sent to
+   * the client early. See REVEAL_PHONE_EARLY_MINUTES.
+   */
+  phone: z.string().nullable(),
 });
 export type NannySummary = z.infer<typeof NannySummarySchema>;
 
@@ -110,6 +117,13 @@ export const BookingResponseSchema = z.object({
   motherAvatarUrl: z.string().nullable(),
   nannyProfileId: z.number().int().nullable(),
   nanny: NannySummarySchema.nullable(),
+  /**
+   * Effective (admin-configured) minutes-before-start at which nanny.phone
+   * unlocks — echoed so the client can show accurate "available N minutes before
+   * start" copy and a countdown without holding the number early. See
+   * NannySummary.phone and REVEAL_PHONE_EARLY_MINUTES.
+   */
+  nannyPhoneRevealMinutes: z.number().int(),
   status: BookingStatusSchema,
   /** Nanny's optional accept/decline (informational — admin approval is authoritative). */
   nannyDecision: NannyBookingDecisionSchema,
@@ -476,6 +490,14 @@ export type CreatePaymobIntentionRequest = z.infer<typeof CreatePaymobIntentionS
 
 /** Minutes before scheduled start when nanny may check in (must match backend). */
 export const CHECK_IN_EARLY_MINUTES = 15;
+
+/**
+ * Minutes before scheduled start when the nanny's phone number is revealed to
+ * the parent on a confirmed booking (through the end of the shift). The backend
+ * gates NannySummary.phone on this window; the mobile card mirrors it for its
+ * "will appear 45 minutes before start" messaging (must match backend).
+ */
+export const REVEAL_PHONE_EARLY_MINUTES = 45;
 
 /** How long a parent-generated start PIN stays valid (must match backend). */
 export const START_PIN_TTL_MINUTES = 20;

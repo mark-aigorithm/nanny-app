@@ -26,7 +26,8 @@ type SettingsKey =
   | 'cancellationWindowHours'
   | 'broadcastRadiusKm'
   | 'pendingWarningMinutes'
-  | 'pendingCriticalMinutes';
+  | 'pendingCriticalMinutes'
+  | 'revealPhoneMinutes';
 
 type ConfigField = {
   key: SettingsKey;
@@ -91,6 +92,12 @@ const MATCHING_FIELDS: ConfigField[] = [
     label: 'Pending critical threshold (min)',
     hint: 'Pending bookings older than this are highlighted red on the Bookings page.',
   },
+  {
+    key: 'revealPhoneMinutes',
+    label: 'Reveal nanny phone before start (min)',
+    hint: 'On a confirmed booking the parent sees the nanny’s phone number this many minutes before the start time (and until the shift ends). Before then it stays hidden for privacy.',
+    max: '1440',
+  },
 ];
 
 export function SettingsPage() {
@@ -116,6 +123,7 @@ export function SettingsPage() {
         broadcastRadiusKm: String(config.broadcastRadiusKm),
         pendingWarningMinutes: String(config.pendingWarningMinutes),
         pendingCriticalMinutes: String(config.pendingCriticalMinutes),
+        revealPhoneMinutes: String(config.revealPhoneMinutes),
       });
     }
   }, [config, form]);
@@ -143,6 +151,7 @@ export function SettingsPage() {
       broadcastRadiusKm: Number(form.broadcastRadiusKm),
       pendingWarningMinutes: Number(form.pendingWarningMinutes),
       pendingCriticalMinutes: Number(form.pendingCriticalMinutes),
+      revealPhoneMinutes: Number(form.revealPhoneMinutes),
     });
     if (!parsed.success) {
       const issue = parsed.error.issues[0];

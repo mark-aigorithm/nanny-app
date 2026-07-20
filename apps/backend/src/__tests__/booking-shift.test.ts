@@ -15,6 +15,8 @@ jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn() },
     booking: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+    // getRevealPhoneMinutes (via toBookingResponse) reads this; null → default.
+    appSettings: { findFirst: jest.fn().mockResolvedValue(null) },
   },
 }));
 
