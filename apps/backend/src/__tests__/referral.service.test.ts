@@ -462,6 +462,19 @@ describe('validateReferralCode', () => {
     });
   });
 
+  it('validates for an anonymous caller mid-signup, before an account exists', async () => {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
+    mockPrisma.user.findFirst.mockResolvedValue({ id: REFERRER_ID, firstName: 'Sarah' });
+
+    await expect(validateReferralCode(null, 'SARAH-4K2P')).resolves.toEqual({
+      valid: true,
+      referrerFirstName: 'Sarah',
+      refereePoints: 100,
+    });
+    // No uid to resolve, so the only lookup is the code itself.
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledTimes(1);
+  });
+
   it('reports a self-referral as simply invalid', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
     mockPrisma.user.findFirst

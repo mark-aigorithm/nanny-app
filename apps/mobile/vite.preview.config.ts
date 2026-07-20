@@ -17,6 +17,8 @@ export default defineConfig({
       'expo-linear-gradient': path.resolve(__dirname, 'src/mocks/expo-linear-gradient-web.tsx'),
       // Stub expo-router (ships JSX in .js files, provides no-op hooks for preview)
       'expo-router': path.resolve(__dirname, 'src/mocks/expo-router-web.tsx'),
+      // Stub expo-clipboard (ClipboardPasteButton ships JSX in .js files)
+      'expo-clipboard': path.resolve(__dirname, 'src/mocks/expo-clipboard-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],

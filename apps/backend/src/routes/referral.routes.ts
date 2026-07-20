@@ -4,7 +4,7 @@ import { RedeemReferralSchema, ValidateReferralCodeQuerySchema } from '@nanny-ap
 
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
-import { requireAuth } from '@backend/middleware/auth.middleware';
+import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import {
   getReferralSummary,
   redeemReferralCode,
@@ -13,6 +13,26 @@ import {
 
 export const referralRouter = Router();
 
+/**
+ * Pre-submit check for the signup field, so a new parent can see who invited
+ * them before committing. Deliberately optional-auth: it is called mid-signup,
+ * before a Firebase account exists. When the caller *is* signed in, the service
+ * also rejects their own code. Returns only a first name and the welcome
+ * amount — never contact details.
+ */
+referralRouter.get(
+  '/validate',
+  optionalAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { code } = ValidateReferralCodeQuerySchema.parse(req.query);
+      res.json(ok(await validateReferralCode(req.firebaseUser?.uid ?? null, code)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 referralRouter.use(requireAuth);
 
 // Code, share text, payout amounts and invite list for the Refer a friend screen.
@@ -20,17 +40,6 @@ referralRouter.get('/me', async (req: Request, res: Response, next: NextFunction
   try {
     if (!req.firebaseUser) throw errors.unauthorized();
     res.json(ok(await getReferralSummary(req.firebaseUser.uid)));
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Pre-submit check, so the signup field can confirm who invited the user.
-referralRouter.get('/validate', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    if (!req.firebaseUser) throw errors.unauthorized();
-    const { code } = ValidateReferralCodeQuerySchema.parse(req.query);
-    res.json(ok(await validateReferralCode(req.firebaseUser.uid, code)));
   } catch (err) {
     next(err);
   }

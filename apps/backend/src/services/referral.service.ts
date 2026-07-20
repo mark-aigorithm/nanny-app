@@ -380,7 +380,7 @@ export async function getReferralSummary(firebaseUid: string): Promise<ReferralS
  * code is an expected outcome here, not an error.
  */
 export async function validateReferralCode(
-  firebaseUid: string,
+  firebaseUid: string | null,
   code: string,
 ): Promise<ValidateReferralCodeResponse> {
   const config = await getRewardConfig();
@@ -391,7 +391,9 @@ export async function validateReferralCode(
   };
   if (!config.referralEnabled) return invalid;
 
-  const userId = await resolveUserId(firebaseUid);
+  // Called mid-signup, before an account exists, so an anonymous caller is
+  // expected. The self-referral check only applies once we know who is asking.
+  const userId = firebaseUid ? await resolveUserId(firebaseUid) : null;
   const referrer = await prisma.user.findFirst({
     where: { referralCode: code.trim().toUpperCase(), deletedAt: null, role: Role.MOTHER },
     select: { id: true, firstName: true },

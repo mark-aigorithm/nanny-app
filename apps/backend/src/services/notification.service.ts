@@ -49,6 +49,10 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'points_granted';
     case 'POINTS_REDEEMED':
       return 'points_redeemed';
+    case 'REFERRAL_CONVERTED':
+      return 'referral_converted';
+    case 'REFERRAL_JOINED':
+      return 'referral_joined';
     default:
       return 'marketplace_message';
   }

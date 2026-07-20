@@ -21,8 +21,10 @@ function entryVisual(type: RewardLedgerEntry['type']): EntryVisual {
       return { icon: 'gift', bg: colors.warmLight, fg: colors.goldWarm, label: 'Redeemed at checkout' };
     case 'REFUND':
       return { icon: 'arrow-undo', bg: colors.successLight, fg: colors.successDark, label: 'Points refunded' };
+    case 'REFERRAL':
+      return { icon: 'people', bg: colors.primaryMuted, fg: colors.primaryDark, label: 'Referral bonus' };
     case 'ADMIN_GRANT':
-      return { icon: 'gift', bg: colors.primaryMuted, fg: colors.primary, label: 'Gift from NannyApp' };
+      return { icon: 'gift', bg: colors.primaryMuted, fg: colors.primary, label: 'Gift from NannyNow' };
     case 'ADMIN_REVOKE':
       return { icon: 'remove-circle', bg: colors.errorLight, fg: colors.error, label: 'Adjustment' };
     default:

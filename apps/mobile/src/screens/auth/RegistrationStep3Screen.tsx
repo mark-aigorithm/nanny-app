@@ -14,7 +14,9 @@ import { idTypeRequiresBack } from '@shared/nanny';
 import { colors } from '@mobile/theme';
 import { OTP_LENGTH, BYPASS_OTP, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
+import ReferralCodeField from '@mobile/components/ReferralCodeField';
 import { useCreatePhoneAccount, useRegisterProfile } from '@mobile/hooks/useAuth';
+import { useRedeemReferralCode } from '@mobile/hooks/useReferrals';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { toE164, phoneToPlaceholderEmail } from '@mobile/lib/validation';
@@ -40,6 +42,7 @@ export default function RegistrationStep3Screen() {
 
   const createAccount = useCreatePhoneAccount();
   const registerProfile = useRegisterProfile();
+  const redeemReferral = useRedeemReferralCode();
 
   const phoneE164 = toE164(draft.countryCode, draft.phone);
   // Show the user-friendly format from what they typed.
@@ -50,6 +53,7 @@ export default function RegistrationStep3Screen() {
   // Phone verification is bypassed (no SMS provider yet): the code is
   // pre-filled with the fixed test value and accepted locally.
   const [otp, setOtp] = useState(BYPASS_OTP);
+  const [referralCode, setReferralCode] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   // The nanny's ID images upload between account creation and profile save;
@@ -147,7 +151,18 @@ export default function RegistrationStep3Screen() {
               idDocumentBackUrl,
             },
             {
-              onSuccess: () => {
+              onSuccess: async () => {
+                // Redeem any referral code now that the backend account exists.
+                // Deliberately non-blocking: the account is already created, so
+                // a failed redeem must never strand the user mid-onboarding.
+                const code = referralCode.trim();
+                if (apiRole === 'MOTHER' && code) {
+                  try {
+                    await redeemReferral.mutateAsync(code);
+                  } catch {
+                    // Swallowed on purpose — see above.
+                  }
+                }
                 resetDraft();
                 router.replace({
                   pathname: '/(auth)/notification-permission',
@@ -266,6 +281,11 @@ export default function RegistrationStep3Screen() {
             </View>
           )}
         </View>
+
+        {/* Referral code — parents only; Care Points have no nanny outlet yet. */}
+        {(draft.role ?? 'parent') === 'parent' && (
+          <ReferralCodeField value={referralCode} onChange={setReferralCode} />
+        )}
 
         {/* Terms card */}
         <Pressable

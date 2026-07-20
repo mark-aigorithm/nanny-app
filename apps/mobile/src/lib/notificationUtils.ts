@@ -128,6 +128,18 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.primaryMuted,
         iconColor: colors.primary,
       };
+    case 'referral_converted':
+      return {
+        name: 'people',
+        backgroundColor: colors.successLight,
+        iconColor: colors.successDark,
+      };
+    case 'referral_joined':
+      return {
+        name: 'hand-left',
+        backgroundColor: colors.warmLight,
+        iconColor: colors.goldWarm,
+      };
     default:
       return {
         name: 'notifications',

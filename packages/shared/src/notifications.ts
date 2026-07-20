@@ -16,6 +16,8 @@ export const NotificationTypeSchema = z.enum([
   'points_earned',
   'points_granted',
   'points_redeemed',
+  'referral_converted',
+  'referral_joined',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
