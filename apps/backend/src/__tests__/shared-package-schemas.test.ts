@@ -2,7 +2,7 @@ import {
   CreatePackageSchema,
   PublicPackageSchema,
   PackageHoursBalanceSchema,
-} from '../package';
+} from '@nanny-app/shared';
 
 describe('package shared schemas', () => {
   it('requires validityDays >= 1 and maxSkills >= 0 on create', () => {

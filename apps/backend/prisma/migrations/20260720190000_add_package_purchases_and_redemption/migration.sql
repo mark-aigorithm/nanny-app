@@ -79,7 +79,7 @@ CREATE TABLE "package_purchases" (
 );
 
 -- CreateTable
-CREATE TABLE "package_hours_ledger" (
+CREATE TABLE "package_hours_ledger_entries" (
     "id" SERIAL NOT NULL,
     "purchase_id" INTEGER NOT NULL,
     "user_id" INTEGER NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE "package_hours_ledger" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
 
-    CONSTRAINT "package_hours_ledger_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "package_hours_ledger_entries_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -106,13 +106,13 @@ CREATE INDEX "package_purchases_expires_at_idx" ON "package_purchases"("expires_
 CREATE INDEX "package_purchases_deleted_at_idx" ON "package_purchases"("deleted_at");
 
 -- CreateIndex
-CREATE INDEX "package_hours_ledger_user_id_created_at_idx" ON "package_hours_ledger"("user_id", "created_at");
+CREATE INDEX "package_hours_ledger_entries_user_id_created_at_idx" ON "package_hours_ledger_entries"("user_id", "created_at");
 
 -- CreateIndex
-CREATE INDEX "package_hours_ledger_purchase_id_idx" ON "package_hours_ledger"("purchase_id");
+CREATE INDEX "package_hours_ledger_entries_purchase_id_idx" ON "package_hours_ledger_entries"("purchase_id");
 
 -- CreateIndex
-CREATE INDEX "package_hours_ledger_booking_id_idx" ON "package_hours_ledger"("booking_id");
+CREATE INDEX "package_hours_ledger_entries_booking_id_idx" ON "package_hours_ledger_entries"("booking_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payments_package_purchase_id_key" ON "payments"("package_purchase_id");
@@ -124,16 +124,16 @@ ALTER TABLE "package_purchases" ADD CONSTRAINT "package_purchases_user_id_fkey" 
 ALTER TABLE "package_purchases" ADD CONSTRAINT "package_purchases_package_id_fkey" FOREIGN KEY ("package_id") REFERENCES "packages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "package_hours_ledger" ADD CONSTRAINT "package_hours_ledger_purchase_id_fkey" FOREIGN KEY ("purchase_id") REFERENCES "package_purchases"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "package_hours_ledger_entries" ADD CONSTRAINT "package_hours_ledger_entries_purchase_id_fkey" FOREIGN KEY ("purchase_id") REFERENCES "package_purchases"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "package_hours_ledger" ADD CONSTRAINT "package_hours_ledger_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "package_hours_ledger_entries" ADD CONSTRAINT "package_hours_ledger_entries_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "package_hours_ledger" ADD CONSTRAINT "package_hours_ledger_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "package_hours_ledger_entries" ADD CONSTRAINT "package_hours_ledger_entries_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "package_hours_ledger" ADD CONSTRAINT "package_hours_ledger_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "package_hours_ledger_entries" ADD CONSTRAINT "package_hours_ledger_entries_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "payments" ADD CONSTRAINT "payments_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
