@@ -17,6 +17,10 @@ describe('normalizePhone', () => {
   it('trims surrounding whitespace and returns empty for a blank value', () => {
     expect(normalizePhone('   ')).toBe('');
   });
+
+  it('normalizes a leading 00 international-access prefix to +', () => {
+    expect(normalizePhone('0020 100 123-4567')).toBe('+201001234567');
+  });
 });
 
 describe('whatsappLink', () => {
@@ -58,6 +62,34 @@ describe('SupportContactSchema', () => {
       phoneNumber: '',
       email: '',
     }).success).toBe(false);
+  });
+
+  it('rejects a local-format number missing the country code', () => {
+    expect(SupportContactSchema.safeParse({
+      whatsappNumber: '0100 123 4567',
+      phoneNumber: '',
+      email: '',
+    }).success).toBe(false);
+  });
+
+  it('accepts a number with a 00 international-access prefix, normalized to +', () => {
+    const parsed = SupportContactSchema.safeParse({
+      whatsappNumber: '0020 100 123-4567',
+      phoneNumber: '',
+      email: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(normalizePhone(parsed.data.whatsappNumber)).toBe('+201001234567');
+    }
+  });
+
+  it('accepts a number already in canonical + form', () => {
+    expect(SupportContactSchema.safeParse({
+      whatsappNumber: '+201001234567',
+      phoneNumber: '',
+      email: '',
+    }).success).toBe(true);
   });
 
   it('rejects a malformed email', () => {

@@ -8,16 +8,20 @@ import { z } from 'zod';
 // hides that channel rather than showing a dead button.
 // ──────────────────────────────────────────────────────────────
 
-/** Optional leading '+', then 7–15 digits, once spaces and dashes are stripped. */
-const PHONE_PATTERN = /^\+?\d{7,15}$/;
+/** Mandatory leading '+', then 7–15 digits, once spaces and dashes are stripped. */
+const PHONE_PATTERN = /^\+\d{7,15}$/;
 
 /**
- * Canonical storage form for a phone number: whitespace and dashes removed,
- * a leading '+' preserved. Admins can paste a number in any readable format;
- * this is what lands in the DB, so readers never have to normalize.
+ * Canonical form of a phone number: whitespace and dashes removed, and a
+ * leading '00' (international access prefix) rewritten to '+'. Admins can
+ * paste a number in any readable format; this function only computes the
+ * canonical form for validation and display — it does not persist anything.
+ * The caller (the support-contact service) is responsible for applying it
+ * before writing to the DB.
  */
 export function normalizePhone(value: string): string {
-  return value.replace(/[\s-]/g, '').trim();
+  const stripped = value.replace(/[\s-]/g, '');
+  return stripped.startsWith('00') ? `+${stripped.slice(2)}` : stripped;
 }
 
 /**
@@ -34,7 +38,8 @@ export function whatsappLink(number: string): string {
 const supportPhone = z
   .string()
   .refine((v) => v === '' || PHONE_PATTERN.test(normalizePhone(v)), {
-    message: 'Enter a valid phone number, or leave blank to hide this channel.',
+    message:
+      'Enter a valid phone number including the country code, e.g. +20 100 123 4567, or leave blank to hide this channel.',
   });
 
 export const SupportContactSchema = z.object({
