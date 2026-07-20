@@ -25,6 +25,8 @@ const LABELS: Record<RewardLedgerEntry['type'], string> = {
   REFUND: 'Refunded — payment not completed',
   ADMIN_GRANT: 'Granted by admin',
   ADMIN_REVOKE: 'Revoked by admin',
+  // Covers both sides of a referral payout — the entry's `reason` says which.
+  REFERRAL: 'Referral reward',
 };
 
 function EntryIcon({ type }: { type: RewardLedgerEntry['type'] }) {
