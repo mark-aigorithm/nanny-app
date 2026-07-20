@@ -57,3 +57,40 @@ export const UpdatePackageSchema = z
     message: 'Provide at least one field to update',
   });
 export type UpdatePackageInput = z.infer<typeof UpdatePackageSchema>;
+
+// ── Mobile-facing catalog DTO ──────────────────────────────────
+export const PublicPackageSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  description: z.string().nullable(),
+  hours: z.number().int(),
+  price: z.number(),
+  validityDays: z.number().int(),
+  maxSkills: z.number().int(),
+});
+export type PublicPackage = z.infer<typeof PublicPackageSchema>;
+
+export const PackagePurchaseStatusSchema = z.enum([
+  'PENDING_PAYMENT', 'ACTIVE', 'EXPIRED', 'REFUNDED',
+]);
+
+export const PackagePurchaseSchema = z.object({
+  id: z.number().int(),
+  packageName: z.string(),
+  hoursPurchased: z.number().int(),
+  hoursRemaining: z.number(),
+  maxSkills: z.number().int(),
+  status: PackagePurchaseStatusSchema,
+  purchasedAt: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+});
+export type PackagePurchase = z.infer<typeof PackagePurchaseSchema>;
+
+export const PackageHoursBalanceSchema = z.object({
+  availableHours: z.number(),
+  buckets: z.array(PackagePurchaseSchema),
+});
+export type PackageHoursBalance = z.infer<typeof PackageHoursBalanceSchema>;
+
+export const PurchasePackageSchema = z.object({ packageId: z.number().int().positive() });
+export type PurchasePackageInput = z.infer<typeof PurchasePackageSchema>;
