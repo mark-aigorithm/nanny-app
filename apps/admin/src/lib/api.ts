@@ -32,6 +32,7 @@ import type {
   SetBookingStatusInput,
   SetNannySkillsInput,
   Skill,
+  SupportContact,
   UpdateAdminMotherInput,
   UpdateBookingTimesInput,
   UpdateCameraInput,
@@ -41,6 +42,7 @@ import type {
   UpdatePromoCodeInput,
   UpdateRewardConfigInput,
   UpdateSkillInput,
+  UpdateSupportContactInput,
 } from '@nanny-app/shared';
 
 import { apiClient } from './api-client';
@@ -213,6 +215,18 @@ export async function updatePlatformConfig(
   input: UpdatePlatformConfigInput,
 ): Promise<PlatformConfig> {
   const res = await apiClient.put<ApiEnvelope<PlatformConfig>>('/admin/config', input);
+  return res.data.data;
+}
+
+export async function fetchSupportContact(): Promise<SupportContact> {
+  const res = await apiClient.get<ApiEnvelope<SupportContact>>('/admin/support-contact');
+  return res.data.data;
+}
+
+export async function updateSupportContact(
+  input: UpdateSupportContactInput,
+): Promise<SupportContact> {
+  const res = await apiClient.put<ApiEnvelope<SupportContact>>('/admin/support-contact', input);
   return res.data.data;
 }
 
