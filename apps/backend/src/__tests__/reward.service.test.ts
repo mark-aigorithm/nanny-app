@@ -56,6 +56,9 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
     pointsPerBookedHour: 10,
     redemptionPointsPerHour: 100,
     minRedemptionPoints: 100,
+    referralEnabled: true,
+    referrerPoints: 50,
+    refereePoints: 50,
     ...overrides,
   };
 }
@@ -87,6 +90,9 @@ describe('getRewardConfig', () => {
       pointsPerBookedHour: 10,
       redemptionPointsPerHour: 100,
       minRedemptionPoints: 100,
+      referralEnabled: true,
+      referrerPoints: 200,
+      refereePoints: 100,
     });
   });
 
@@ -106,6 +112,9 @@ describe('updateRewardConfig', () => {
     pointsPerBookedHour: 15,
     redemptionPointsPerHour: 200,
     minRedemptionPoints: 200,
+    referralEnabled: true,
+    referrerPoints: 50,
+    refereePoints: 50,
   };
 
   it('creates the singleton on first save', async () => {

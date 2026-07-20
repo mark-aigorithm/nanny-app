@@ -10,6 +10,7 @@ import { conversationRouter } from './conversation.routes';
 import { deviceRouter } from './device.routes';
 import { notificationRouter } from './notification.routes';
 import { paymobRouter } from './paymob.routes';
+import { referralRouter } from './referral.routes';
 import { rewardRouter } from './reward.routes';
 import { webhookRouter } from './webhook.routes';
 
@@ -29,4 +30,5 @@ apiRouter.use('/community', communityRouter);
 apiRouter.use('/conversations', conversationRouter);
 apiRouter.use('/devices', deviceRouter);
 apiRouter.use('/notifications', notificationRouter);
+apiRouter.use('/referrals', referralRouter);
 apiRouter.use('/rewards', rewardRouter);

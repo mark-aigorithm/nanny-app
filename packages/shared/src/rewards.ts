@@ -17,6 +17,8 @@ export const RewardEntryTypeSchema = z.enum([
   'REFUND',
   'ADMIN_GRANT',
   'ADMIN_REVOKE',
+  /** Both sides of a referral payout; `reason` distinguishes them. */
+  'REFERRAL',
 ]);
 export type RewardEntryType = z.infer<typeof RewardEntryTypeSchema>;
 
@@ -32,6 +34,12 @@ export const RewardConfigSchema = z.object({
   redemptionPointsPerHour: z.number().int(),
   /** Minimum points a user must spend in a single redemption. */
   minRedemptionPoints: z.number().int(),
+  /** Master switch for the referral program (independent of `enabled`). */
+  referralEnabled: z.boolean(),
+  /** Points granted to the referrer once their invitee's first booking completes. */
+  referrerPoints: z.number().int(),
+  /** Points granted to the invitee immediately on redeeming a referral code. */
+  refereePoints: z.number().int(),
 });
 export type RewardConfig = z.infer<typeof RewardConfigSchema>;
 
@@ -41,6 +49,9 @@ export const UpdateRewardConfigSchema = z.object({
   pointsPerBookedHour: z.number().int().min(0).max(100_000),
   redemptionPointsPerHour: z.number().int().min(1).max(1_000_000),
   minRedemptionPoints: z.number().int().min(0).max(1_000_000),
+  referralEnabled: z.boolean(),
+  referrerPoints: z.number().int().min(0).max(1_000_000),
+  refereePoints: z.number().int().min(0).max(1_000_000),
 });
 export type UpdateRewardConfigInput = z.infer<typeof UpdateRewardConfigSchema>;
 

@@ -53,6 +53,7 @@ import {
   getPricingInputs,
 } from './pricing-config.service';
 import { redeemPromoCode, validatePromoCode } from './promo-code.service';
+import { convertReferralForBooking } from './referral.service';
 import {
   applyBookingRedemption,
   awardPointsForBooking,
@@ -1331,6 +1332,21 @@ export async function checkOutBooking(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[rewards] failed to award points on checkout', {
+      bookingId: updated.id,
+      err,
+    });
+  }
+
+  // If this parent was referred, their first completed booking pays out the
+  // referrer. Same best-effort + idempotent contract as the points award above.
+  try {
+    await convertReferralForBooking({
+      refereeUserId: updated.motherId,
+      bookingId: updated.id,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[referrals] failed to convert referral on checkout', {
       bookingId: updated.id,
       err,
     });

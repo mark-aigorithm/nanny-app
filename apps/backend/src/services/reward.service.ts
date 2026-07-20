@@ -23,6 +23,9 @@ const DEFAULT_CONFIG: RewardConfig = {
   pointsPerBookedHour: 10,
   redemptionPointsPerHour: 100,
   minRedemptionPoints: 100,
+  referralEnabled: true,
+  referrerPoints: 200,
+  refereePoints: 100,
 };
 
 /** Prisma client or an interactive-transaction client. */
@@ -40,6 +43,9 @@ type ConfigRow = {
   pointsPerBookedHour: number;
   redemptionPointsPerHour: number;
   minRedemptionPoints: number;
+  referralEnabled: boolean;
+  referrerPoints: number;
+  refereePoints: number;
 };
 
 function toConfigDto(row: ConfigRow): RewardConfig {
@@ -48,6 +54,9 @@ function toConfigDto(row: ConfigRow): RewardConfig {
     pointsPerBookedHour: row.pointsPerBookedHour,
     redemptionPointsPerHour: row.redemptionPointsPerHour,
     minRedemptionPoints: row.minRedemptionPoints,
+    referralEnabled: row.referralEnabled,
+    referrerPoints: row.referrerPoints,
+    refereePoints: row.refereePoints,
   };
 }
 
@@ -325,7 +334,7 @@ export async function getWalletForUser(userId: number): Promise<RewardWallet> {
 }
 
 /** Resolve an internal user id from a Firebase uid (mobile-facing helpers). */
-async function resolveUserId(firebaseUid: string): Promise<number> {
+export async function resolveUserId(firebaseUid: string): Promise<number> {
   const user = await prisma.user.findFirst({
     where: { firebaseUid, deletedAt: null },
     select: { id: true },

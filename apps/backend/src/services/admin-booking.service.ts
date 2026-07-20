@@ -29,6 +29,7 @@ import {
   dispatchPush,
 } from '@backend/services/notification.service';
 import { getRevenueSplit } from '@backend/services/app-settings.service';
+import { convertReferralForBooking } from '@backend/services/referral.service';
 import { awardPointsForBooking } from '@backend/services/reward.service';
 import { listActiveDurationRules } from '@backend/services/duration-rule.service';
 import {
@@ -474,6 +475,20 @@ export async function setBookingStatus(
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[rewards] failed to award points on admin completion', {
+        bookingId: updated.id,
+        err,
+      });
+    }
+
+    // ...and pays out whoever referred them, if anyone did.
+    try {
+      await convertReferralForBooking({
+        refereeUserId: updated.mother.id,
+        bookingId: updated.id,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[referrals] failed to convert referral on admin completion', {
         bookingId: updated.id,
         err,
       });

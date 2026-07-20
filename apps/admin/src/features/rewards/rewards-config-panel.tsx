@@ -15,7 +15,12 @@ import {
 import { fetchRewardConfig, updateRewardConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
-type NumericKey = 'pointsPerBookedHour' | 'redemptionPointsPerHour' | 'minRedemptionPoints';
+type NumericKey =
+  | 'pointsPerBookedHour'
+  | 'redemptionPointsPerHour'
+  | 'minRedemptionPoints'
+  | 'referrerPoints'
+  | 'refereePoints';
 
 type NumericField = { key: NumericKey; label: string; hint: string; min?: string };
 
@@ -38,11 +43,28 @@ const FIELDS: NumericField[] = [
   },
 ];
 
+/** Referral payouts, shown in their own section below the earn/redeem rates. */
+const REFERRAL_FIELDS: NumericField[] = [
+  {
+    key: 'referrerPoints',
+    label: 'Points for the referrer',
+    hint: 'Paid to the inviting parent once their invitee’s first booking is completed.',
+  },
+  {
+    key: 'refereePoints',
+    label: 'Welcome points for the invitee',
+    hint: 'Credited immediately when a new parent signs up with a referral code.',
+  },
+];
+
 type FormState = {
   enabled: boolean;
   pointsPerBookedHour: string;
   redemptionPointsPerHour: string;
   minRedemptionPoints: string;
+  referralEnabled: boolean;
+  referrerPoints: string;
+  refereePoints: string;
 };
 
 export function RewardsConfigPanel() {
@@ -63,6 +85,9 @@ export function RewardsConfigPanel() {
         pointsPerBookedHour: String(config.pointsPerBookedHour),
         redemptionPointsPerHour: String(config.redemptionPointsPerHour),
         minRedemptionPoints: String(config.minRedemptionPoints),
+        referralEnabled: config.referralEnabled,
+        referrerPoints: String(config.referrerPoints),
+        refereePoints: String(config.refereePoints),
       });
     }
   }, [config, form]);
@@ -85,6 +110,9 @@ export function RewardsConfigPanel() {
       pointsPerBookedHour: Number(form.pointsPerBookedHour),
       redemptionPointsPerHour: Number(form.redemptionPointsPerHour),
       minRedemptionPoints: Number(form.minRedemptionPoints),
+      referralEnabled: form.referralEnabled,
+      referrerPoints: Number(form.referrerPoints),
+      refereePoints: Number(form.refereePoints),
     });
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
@@ -103,6 +131,20 @@ export function RewardsConfigPanel() {
     form && Number(form.redemptionPointsPerHour) > 0
       ? `${form.redemptionPointsPerHour} points → 1 free care hour.`
       : null;
+
+  // Restate the payout as free care hours, so the per-referral cost to the
+  // platform is obvious while setting the numbers.
+  const perHour = form ? Number(form.redemptionPointsPerHour) : 0;
+  const totalPayout = form ? Number(form.referrerPoints) + Number(form.refereePoints) : 0;
+  const referralPreview = !form
+    ? null
+    : !form.referralEnabled
+      ? 'Referrals are off — codes will not resolve and pending referrals will not pay out.'
+      : perHour > 0
+        ? `Each successful referral costs ${totalPayout} points — about ${
+            Math.round((totalPayout / perHour) * 10) / 10
+          } free care hours, split between both parents.`
+        : `Each successful referral costs ${totalPayout} points.`;
 
   return (
     <>
@@ -153,6 +195,38 @@ export function RewardsConfigPanel() {
             <p className="reward-rate-preview">
               {earnPreview} {redeemPreview}
             </p>
+
+            <label className="reward-toggle">
+              <input
+                type="checkbox"
+                checked={form.referralEnabled}
+                onChange={(e) => setForm({ ...form, referralEnabled: e.target.checked })}
+              />
+              <span>
+                <span className="reward-toggle-title">Referrals enabled</span>
+                <span className="reward-toggle-hint">
+                  When off, referral codes stop working and pending referrals stop paying
+                  out. Points already awarded are unaffected.
+                </span>
+              </span>
+            </label>
+
+            <div className="form-grid">
+              {REFERRAL_FIELDS.map((field) => (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <input
+                    type="number"
+                    min={field.min ?? '0'}
+                    step="1"
+                    value={form[field.key]}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                    required
+                  />
+                </Field>
+              ))}
+            </div>
+
+            <p className="reward-rate-preview">{referralPreview}</p>
 
             {formError && <Feedback tone="error">{formError}</Feedback>}
             <Button type="submit" disabled={saveMutation.isPending}>
