@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { navigateToBookingDetail, shouldFocusCareLogFromPushData } from '@mobile/lib/notificationNavigation';
+import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useMessagingStore } from '@mobile/store/messagingStore';
 
@@ -78,8 +79,14 @@ async function registerTokenWithBackend(token: string) {
   );
 }
 
+export function isBookingCompletedPush(data?: Record<string, string>): boolean {
+  const type = data?.['type']?.toLowerCase();
+  return type === 'booking_completed';
+}
+
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
+  queryClient: ReturnType<typeof useQueryClient>,
   data?: Record<string, string>,
 ) {
   const conversationId = data?.['conversationId'];
@@ -88,6 +95,14 @@ function navigateFromNotification(
       pathname: '/(parent)/chat/messaging',
       params: { conversationId },
     });
+    return;
+  }
+
+  // A completed-booking tap should drive the mandatory rating prompt, not the
+  // booking detail. Invalidating lets usePendingRating re-detect and open the sheet.
+  if (isBookingCompletedPush(data)) {
+    void queryClient.invalidateQueries({ queryKey: PENDING_RATING_KEY });
+    router.push('/(parent)/home' as never);
     return;
   }
 
@@ -100,7 +115,7 @@ function navigateFromNotification(
   }
 
   const notificationType = data?.['type'];
-  if (notificationType === 'nanny_checkin' || notificationType === 'booking_completed') {
+  if (notificationType === 'nanny_checkin') {
     router.push('/(parent)/bookings' as never);
   }
 }
@@ -171,15 +186,19 @@ export function usePushNotifications() {
         }
         queryClient.invalidateQueries({ queryKey: ['messaging'] });
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
+
+        if (isBookingCompletedPush(message.data)) {
+          queryClient.invalidateQueries({ queryKey: PENDING_RATING_KEY });
+        }
       });
 
       unsubscribeOpened = messaging.onNotificationOpenedApp((message) => {
-        navigateFromNotification(router, message.data);
+        navigateFromNotification(router, queryClient, message.data);
       });
 
       void messaging.getInitialNotification().then((message) => {
         if (message?.data) {
-          navigateFromNotification(router, message.data);
+          navigateFromNotification(router, queryClient, message.data);
         }
       });
 
@@ -188,7 +207,7 @@ export function usePushNotifications() {
           const data = response.notification.request.content.data as
             | Record<string, string>
             | undefined;
-          navigateFromNotification(router, data);
+          navigateFromNotification(router, queryClient, data);
         });
       }
     } catch {

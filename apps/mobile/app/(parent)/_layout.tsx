@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 
+import RatingPromptHost from '@mobile/components/RatingPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
 import IdUploadModal from '@mobile/components/IdUploadModal';
 import MandatoryReviewGate from '@mobile/components/MandatoryReviewGate';
@@ -35,6 +36,7 @@ export default function ParentLayout() {
         <Tabs.Screen name="marketplace-item-detail" options={{ headerShown: false }} />
         <Tabs.Screen name="create-listing" options={{ headerShown: false }} />
       </Tabs>
+      <RatingPromptHost />
     </>
   );
 }
