@@ -69,6 +69,21 @@ describe('probeStream', () => {
     }
   });
 
+  it('does not serve a cached result after the camera is repointed', async () => {
+    const oldServer = await listen();
+    await probeStream(7, `rtsp://127.0.0.1:${oldServer.port}/stream`);
+    await oldServer.close();
+
+    // Same camera id, new URL — must be probed fresh rather than reusing the
+    // previous host's "online".
+    const dead = await listen();
+    const deadPort = dead.port;
+    await dead.close();
+
+    const result = await probeStream(7, `rtsp://127.0.0.1:${deadPort}/stream`);
+    expect(result.online).toBe(false);
+  });
+
   it('probes again once the cache has been cleared', async () => {
     const server = await listen();
     const { port } = server;

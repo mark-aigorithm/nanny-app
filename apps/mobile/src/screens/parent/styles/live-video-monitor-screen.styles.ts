@@ -109,6 +109,13 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textPrimary,
   },
+  notifyError: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: colors.textSecondary,
+  },
   liveBadge: {
     position: 'absolute',
     top: spacing.md,

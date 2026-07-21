@@ -1,7 +1,7 @@
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn() },
-    booking: { findFirst: jest.fn(), update: jest.fn() },
+    booking: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     camera: { findFirst: jest.fn() },
   },
 }));
@@ -31,7 +31,7 @@ import {
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock };
-  booking: { findFirst: jest.Mock; update: jest.Mock };
+  booking: { findFirst: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
   camera: { findFirst: jest.Mock };
 };
 const mockProbe = probeStream as jest.Mock;
@@ -71,6 +71,8 @@ beforeEach(() => {
   mockPrisma.user.findUnique.mockResolvedValue({ id: PARENT_ID, deletedAt: null });
   mockPrisma.booking.findFirst.mockResolvedValue(makeBooking());
   mockPrisma.booking.update.mockResolvedValue({});
+  // Default: the cooldown claim succeeds.
+  mockPrisma.booking.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.camera.findFirst.mockResolvedValue(CAMERA);
   mockProbe.mockResolvedValue({ online: true, checkedAt: new Date('2026-07-20T10:00:00Z') });
 });
@@ -182,21 +184,37 @@ describe('notifyNannyToStartCamera', () => {
         }),
       }),
     );
-    expect(mockPrisma.booking.update).toHaveBeenCalledWith({
-      where: { id: BOOKING_ID },
-      data: { cameraNotifiedAt: expect.any(Date) },
-    });
+    expect(mockPrisma.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { cameraNotifiedAt: expect.any(Date) } }),
+    );
     expect(result.notifiedAt).toEqual(expect.any(String));
   });
 
+  it('claims the cooldown conditionally so a double-tap cannot double-notify', async () => {
+    // The guard must live in the WHERE clause, not in a prior read — otherwise
+    // two concurrent requests both pass the check and both push.
+    await notifyNannyToStartCamera(decoded, BOOKING_ID);
+
+    const call = mockPrisma.booking.updateMany.mock.calls[0]?.[0] as {
+      where: { id: number; OR: unknown[] };
+    };
+    expect(call.where.id).toBe(BOOKING_ID);
+    expect(call.where.OR).toEqual([
+      { cameraNotifiedAt: null },
+      { cameraNotifiedAt: { lt: expect.any(Date) } },
+    ]);
+  });
+
   it('rejects a second nudge inside the cooldown', async () => {
+    // The conditional update matched no rows — someone got there first.
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.booking.findFirst.mockResolvedValue(
       makeBooking({ cameraNotifiedAt: new Date(Date.now() - 30_000) }),
     );
 
     await expectRejection(notifyNannyToStartCamera(decoded, BOOKING_ID), 429);
     expect(mockDispatchPush).not.toHaveBeenCalled();
-    expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+    expect(mockCreateNotification).not.toHaveBeenCalled();
   });
 
   it('allows another nudge once the cooldown has elapsed', async () => {
@@ -209,12 +227,22 @@ describe('notifyNannyToStartCamera', () => {
   });
 
   it('tells the parent how long is left when it refuses', async () => {
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.booking.findFirst.mockResolvedValue(
       makeBooking({ cameraNotifiedAt: new Date(Date.now() - 60_000) }),
     );
 
     // 300s cooldown minus the 60s elapsed → roughly 240s remaining.
     await expect(notifyNannyToStartCamera(decoded, BOOKING_ID)).rejects.toThrow(/24\d seconds/);
+  });
+
+  it('never reports a negative wait when the timestamp is stale', async () => {
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeBooking({ cameraNotifiedAt: new Date(Date.now() - 60 * 60_000) }),
+    );
+
+    await expect(notifyNannyToStartCamera(decoded, BOOKING_ID)).rejects.toThrow(/in 1 seconds/);
   });
 
   it('still succeeds when the nanny has no device token registered', async () => {
@@ -240,5 +268,7 @@ describe('notifyNannyToStartCamera', () => {
     mockPrisma.camera.findFirst.mockResolvedValue(null);
     await expectRejection(notifyNannyToStartCamera(decoded, BOOKING_ID), 404);
     expect(mockDispatchPush).not.toHaveBeenCalled();
+    // And must not have burned the cooldown on a nudge that never went out.
+    expect(mockPrisma.booking.updateMany).not.toHaveBeenCalled();
   });
 });

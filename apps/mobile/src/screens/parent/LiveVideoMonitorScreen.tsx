@@ -31,6 +31,7 @@ export default function LiveVideoMonitorScreen() {
 
   const [streamFailed, setStreamFailed] = useState(false);
   const [cooldownLeft, setCooldownLeft] = useState(0);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
 
   // Reset the failure state when we get a different stream to try.
   useEffect(() => {
@@ -45,11 +46,21 @@ export default function LiveVideoMonitorScreen() {
   }, [cooldownLeft]);
 
   const handleNotify = (): void => {
+    setNotifyError(null);
     notify.mutate(undefined, {
       onSuccess: () => setCooldownLeft(NOTIFY_COOLDOWN_SECONDS),
-      // A 429 means someone already asked recently — treat it like a success
-      // for the purposes of the countdown so the button stops inviting taps.
-      onError: () => setCooldownLeft(NOTIFY_COOLDOWN_SECONDS),
+      onError: (err) => {
+        if (err.isCooldown) {
+          // Already nudged recently — start the countdown so the button stops
+          // inviting taps, and show the server's message, which says how long.
+          setCooldownLeft(NOTIFY_COOLDOWN_SECONDS);
+          setNotifyError(err.message);
+          return;
+        }
+        // Anything else genuinely failed: the nanny was NOT notified. Leave the
+        // button live so the parent can retry, and say so plainly.
+        setNotifyError(err.message);
+      },
     });
   };
 
@@ -154,14 +165,17 @@ export default function LiveVideoMonitorScreen() {
         )}
 
         {camera && (
-          <Button
-            title={notifyLabel}
-            onPress={handleNotify}
-            variant={isOnline ? 'outline' : 'primary'}
-            icon="notifications-outline"
-            loading={notify.isPending}
-            disabled={cooldownLeft > 0 || notify.isPending}
-          />
+          <>
+            <Button
+              title={notifyLabel}
+              onPress={handleNotify}
+              variant={isOnline ? 'outline' : 'primary'}
+              icon="notifications-outline"
+              loading={notify.isPending}
+              disabled={cooldownLeft > 0 || notify.isPending}
+            />
+            {notifyError && <Text style={styles.notifyError}>{notifyError}</Text>}
+          </>
         )}
       </ScrollView>
 

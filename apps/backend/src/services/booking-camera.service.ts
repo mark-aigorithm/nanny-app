@@ -93,22 +93,33 @@ export async function notifyNannyToStartCamera(
 
   // Cooldown: a worried parent will tap this repeatedly, and the nanny is
   // holding a child. One nudge per window is plenty.
-  const last = booking.cameraNotifiedAt;
-  if (last) {
-    const elapsedSeconds = (Date.now() - last.getTime()) / 1000;
-    if (elapsedSeconds < CAMERA_NOTIFY_COOLDOWN_SECONDS) {
-      const wait = Math.ceil(CAMERA_NOTIFY_COOLDOWN_SECONDS - elapsedSeconds);
-      throw errors.tooManyRequests(
-        `You've already asked. You can send another reminder in ${wait} seconds.`,
-      );
-    }
-  }
-
+  //
+  // Claimed with a conditional update rather than a read-then-write: a
+  // double-tap fires two near-simultaneous requests, and a plain check would
+  // let both read the old timestamp and both push.
   const notifiedAt = new Date();
-  await prisma.booking.update({
-    where: { id: booking.id },
+  const cutoff = new Date(notifiedAt.getTime() - CAMERA_NOTIFY_COOLDOWN_SECONDS * 1000);
+
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: booking.id,
+      OR: [{ cameraNotifiedAt: null }, { cameraNotifiedAt: { lt: cutoff } }],
+    },
     data: { cameraNotifiedAt: notifiedAt },
   });
+
+  if (claimed.count === 0) {
+    const last = booking.cameraNotifiedAt;
+    const wait = last
+      ? Math.max(
+          1,
+          Math.ceil(CAMERA_NOTIFY_COOLDOWN_SECONDS - (Date.now() - last.getTime()) / 1000),
+        )
+      : CAMERA_NOTIFY_COOLDOWN_SECONDS;
+    throw errors.tooManyRequests(
+      `You've already asked. You can send another reminder in ${wait} seconds.`,
+    );
+  }
 
   const title = 'Camera request';
   const body = 'The parent has asked you to turn on the camera for this booking.';

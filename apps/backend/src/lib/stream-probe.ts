@@ -27,7 +27,9 @@ export interface ProbeResult {
   checkedAt: Date;
 }
 
-const cache = new Map<number, ProbeResult>();
+// Keyed on id AND url: an admin repointing a camera must not keep reading the
+// old host's result for the rest of the TTL.
+const cache = new Map<string, ProbeResult>();
 
 function parseTarget(streamUrl: string): { host: string; port: number } | null {
   try {
@@ -71,7 +73,9 @@ export async function probeStream(
   cameraId: number,
   streamUrl: string,
 ): Promise<ProbeResult> {
-  const cached = cache.get(cameraId);
+  const key = `${cameraId}:${streamUrl}`;
+
+  const cached = cache.get(key);
   if (cached && Date.now() - cached.checkedAt.getTime() < CACHE_TTL_MS) {
     return cached;
   }
@@ -82,7 +86,7 @@ export async function probeStream(
     checkedAt: new Date(),
   };
 
-  cache.set(cameraId, result);
+  cache.set(key, result);
   return result;
 }
 
