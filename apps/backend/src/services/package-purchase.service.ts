@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
+import { PAYMOB_INTENTION_TTL_MS } from '@backend/lib/paymob/constants';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -55,9 +56,19 @@ export async function listActivePackages(): Promise<PublicPackage[]> {
  * Enforces the single-active-package invariant: a parent may hold at most
  * one ACTIVE package with hours remaining at a time. This is the ONLY place
  * that invariant is enforced — every other package-hours code path assumes
- * it already holds. A purchase sitting in PENDING_PAYMENT (an abandoned
- * checkout), an EXPIRED one, or an ACTIVE one that has been fully consumed
- * (hoursRemaining = 0) does NOT block a new purchase.
+ * it already holds. An EXPIRED bucket, or an ACTIVE one that has been fully
+ * consumed (hoursRemaining = 0), does NOT block a new purchase.
+ *
+ * Also blocks a second checkout while a PENDING_PAYMENT purchase is still
+ * recent: `creditPurchaseHours` promotes PENDING_PAYMENT → ACTIVE
+ * unconditionally, so without this guard a parent could start two checkouts
+ * before paying either (both pass the ACTIVE guard above, since neither is
+ * ACTIVE yet) and end up with two simultaneous ACTIVE packages once both are
+ * paid. The window is bounded by `PAYMOB_INTENTION_TTL_MS` — the same TTL
+ * that governs how long a Paymob checkout intention stays usable — so a
+ * PENDING_PAYMENT purchase older than that is treated as an abandoned
+ * checkout and does NOT block a new purchase (it can never be paid anymore
+ * anyway, since its intention has gone stale).
  */
 export async function createPackagePurchase(
   firebaseUid: string,
@@ -79,6 +90,20 @@ export async function createPackagePurchase(
   if (activeExisting) {
     throw errors.conflict(
       'You already have an active package. Use it up or wait for it to expire before buying another.',
+    );
+  }
+
+  const pendingExisting = await prisma.packagePurchase.findFirst({
+    where: {
+      userId: user.id,
+      status: 'PENDING_PAYMENT',
+      deletedAt: null,
+      createdAt: { gt: new Date(now.getTime() - PAYMOB_INTENTION_TTL_MS) },
+    },
+  });
+  if (pendingExisting) {
+    throw errors.conflict(
+      'You already have a checkout in progress. Complete it or try again shortly.',
     );
   }
 
