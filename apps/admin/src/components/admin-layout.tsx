@@ -156,6 +156,7 @@ export function AdminLayout() {
             triggerClassName="admin-user-trigger"
             triggerLabel="Account menu"
             placement="top-start"
+            matchTriggerWidth
             trigger={
               <>
                 <span className="admin-user-avatar" aria-hidden>
