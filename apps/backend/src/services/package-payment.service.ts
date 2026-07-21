@@ -1,0 +1,290 @@
+import { PaymentMethod, PaymentPurpose, PaymentStatus } from '@prisma/client';
+
+import { prisma } from '@backend/db/prisma';
+import { config } from '@backend/lib/config';
+import { AppError, errors } from '@backend/lib/errors';
+import { createPaymobApiClient } from '@backend/lib/paymob/client';
+import {
+  extractLatestTransactionId,
+  mapIntentionElement,
+} from '@backend/lib/paymob/intention';
+import {
+  PAYMOB_INTENTION_TTL_MS,
+  PAYMOB_RECONCILE_OFFSETS_MS,
+  PAYMOB_RETURN_PATH,
+  PAYMOB_WEBHOOK_PATH,
+} from '@backend/lib/paymob/constants';
+import type { DecodedIdToken } from '@backend/lib/firebase';
+import { creditPurchaseHours } from '@backend/services/package-hours.service';
+
+/**
+ * Settlement handler for PACKAGE-purpose payments — a deliberately separate
+ * handler from paymob.service.ts's booking settlement (finalizePaymentCaptured),
+ * per the owner's design decision. paymob.service.ts dispatches into this module
+ * by `purpose` at every entry point that can capture or fail a payment
+ * (processPaymobWebhook, reconcileStalePaymobPayments); without that dispatch a
+ * PACKAGE capture would hit finalizePaymentCaptured's null-bookingId guard and
+ * be logged-and-dropped forever.
+ */
+
+async function getUserByUid(uid: string) {
+  const user = await prisma.user.findUnique({ where: { firebaseUid: uid } });
+  if (!user || user.deletedAt) throw errors.unauthorized();
+  return user;
+}
+
+/** Paymob merchant order id — payment row id on first attempt, suffixed on retries. */
+function buildPaymobMerchantOrderId(paymentId: number, attempt: number): string {
+  if (attempt <= 1) return `${paymentId}`;
+  return `${paymentId}-r${attempt}`;
+}
+
+/**
+ * Idempotent: the `status: PENDING` filter means a replayed webhook (or a
+ * second reconcile pass) finds no row on the second call and returns —
+ * `creditPurchaseHours` is itself idempotent on PENDING_PAYMENT, giving
+ * belt-and-braces.
+ */
+export async function finalizePackagePaymentCaptured(
+  paymentId: number,
+  paymobTransactionId: string | null,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findFirst({
+      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING, purpose: PaymentPurpose.PACKAGE },
+    });
+    if (!payment || !payment.packagePurchaseId) return; // idempotent: already settled or not ours
+
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.CAPTURED,
+        paymobTransactionId: paymobTransactionId ?? undefined,
+        failureReason: null,
+        paymobNextReconcileAt: null,
+        paymobClientSecret: null,
+      },
+    });
+
+    await creditPurchaseHours(tx, payment.packagePurchaseId);
+  });
+}
+
+/**
+ * Mirrors finalizePaymentFailed, scoped to PACKAGE payments. The purchase row
+ * is left in PENDING_PAYMENT — it never becomes ACTIVE, so no hours are
+ * granted and the single-active-package rule is never tripped by an
+ * abandoned/declined attempt.
+ */
+export async function finalizePackagePaymentFailed(paymentId: number, reason: string): Promise<void> {
+  await prisma.payment.updateMany({
+    where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING, purpose: PaymentPurpose.PACKAGE },
+    data: {
+      status: PaymentStatus.FAILED,
+      failureReason: reason,
+      paymobNextReconcileAt: null,
+      paymobClientSecret: null,
+    },
+  });
+}
+
+/** Mirrors createPaymobIntentionForBooking, keyed on a package purchase instead of a booking. */
+export async function createPaymobIntentionForPackagePurchase(
+  decoded: DecodedIdToken,
+  purchaseId: number,
+): Promise<{
+  paymentId: number;
+  clientSecret: string;
+  publicKey: string;
+  intentionId: string;
+}> {
+  if (!config.paymob.enabled) {
+    throw errors.badRequest('Paymob is not configured on this server.');
+  }
+
+  const user = await getUserByUid(decoded.uid);
+  if (!user.phone) {
+    throw errors.badRequest('Add a phone number to your profile before paying.');
+  }
+
+  const purchase = await prisma.packagePurchase.findUnique({
+    where: { id: purchaseId, deletedAt: null },
+    include: { payment: true },
+  });
+  if (!purchase) throw errors.notFound('Package purchase not found.');
+  if (purchase.userId !== user.id) throw errors.forbidden('Access denied.');
+  if (purchase.status !== 'PENDING_PAYMENT') {
+    throw errors.badRequest(`Cannot pay for a purchase in status ${purchase.status}.`);
+  }
+
+  const existing = purchase.payment;
+  if (existing && !existing.deletedAt) {
+    if (existing.status === PaymentStatus.CAPTURED) {
+      throw errors.badRequest('This package purchase is already paid.');
+    }
+    if (
+      existing.status === PaymentStatus.PENDING &&
+      existing.paymobClientSecret &&
+      existing.paymobIntentionId
+    ) {
+      // Reuse the stored checkout link only while it is still fresh — same TTL
+      // logic as createPaymobIntentionForBooking. paymobReconcileAnchorAt is set
+      // to the intention creation time; createdAt is a safe fallback for legacy rows.
+      const intentionCreatedAt = existing.paymobReconcileAnchorAt ?? existing.createdAt;
+      const intentionAgeMs = Date.now() - intentionCreatedAt.getTime();
+      if (intentionAgeMs < PAYMOB_INTENTION_TTL_MS) {
+        return {
+          paymentId: existing.id,
+          clientSecret: existing.paymobClientSecret,
+          publicKey: config.paymob.publicKey,
+          intentionId: existing.paymobIntentionId,
+        };
+      }
+    }
+  }
+
+  const anchor = new Date();
+  const nextReconcile = new Date(anchor.getTime() + PAYMOB_RECONCILE_OFFSETS_MS[0]);
+  const notificationUrl = `${config.paymob.publicApiUrl}${PAYMOB_WEBHOOK_PATH}`;
+
+  const nextIntentionAttempt = (existing?.paymobIntentionAttempt ?? 0) + 1;
+
+  const resetPaymentData = {
+    amount: Number(purchase.pricePaid),
+    currency: 'EGP',
+    // The unified-checkout hosted page lets the parent choose card/wallet/etc.
+    // itself; unlike bookings there is no separate method param on this
+    // interface (see task-5 report — a judgment call, flagged there).
+    method: PaymentMethod.CARD,
+    status: PaymentStatus.PENDING,
+    failureReason: null,
+    paymobOrderId: null,
+    paymobTransactionId: null,
+    paymobIntentionId: null,
+    paymobClientSecret: null,
+    paymobIntentionAttempt: nextIntentionAttempt,
+    paymobReconcileAnchorAt: anchor,
+    paymobReconcileAttempt: 0,
+    paymobNextReconcileAt: nextReconcile,
+  };
+
+  const payment =
+    existing && !existing.deletedAt
+      ? await prisma.payment.update({
+          where: { id: existing.id },
+          data: resetPaymentData,
+        })
+      : await prisma.payment.create({
+          data: {
+            packagePurchaseId: purchaseId,
+            motherId: user.id,
+            purpose: PaymentPurpose.PACKAGE,
+            ...resetPaymentData,
+          },
+        });
+
+  const merchantOrderId = buildPaymobMerchantOrderId(payment.id, nextIntentionAttempt);
+
+  const amountCents = Math.round(Number(purchase.pricePaid) * 100);
+  const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
+
+  const billing_data: Record<string, string | boolean> = {
+    apartment: 'NA',
+    email: user.email,
+    floor: 'NA',
+    first_name: user.firstName,
+    last_name: user.lastName,
+    street: 'NA',
+    building: 'NA',
+    phone_number: user.phone,
+    shipping_method: 'PKG',
+    postal_code: '00000',
+    city: 'NA',
+    country: 'EG',
+    state: 'NA',
+    delivery_needed: false,
+  };
+
+  const redirectionUrl = `${config.paymob.publicApiUrl}${PAYMOB_RETURN_PATH}?purchaseId=${encodeURIComponent(purchaseId)}`;
+
+  try {
+    const intention = await api.createIntention({
+      amount: amountCents,
+      currency: 'EGP',
+      payment_methods: config.paymob.paymentMethodIds,
+      billing_data,
+      merchant_order_id: merchantOrderId,
+      special_reference: merchantOrderId,
+      notification_url: notificationUrl,
+      redirection_url: redirectionUrl,
+      extras: { payment_id: String(payment.id) },
+    });
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        paymobIntentionId: intention.id,
+        paymobClientSecret: intention.client_secret,
+      },
+    });
+
+    return {
+      paymentId: payment.id,
+      clientSecret: intention.client_secret,
+      publicKey: config.paymob.publicKey,
+      intentionId: intention.id,
+    };
+  } catch (err) {
+    const message = err instanceof AppError ? err.message : 'Paymob intention request failed.';
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: PaymentStatus.FAILED,
+        failureReason: message,
+        paymobNextReconcileAt: null,
+        paymobClientSecret: null,
+        paymobIntentionId: null,
+      },
+    });
+    throw err;
+  }
+}
+
+/** Poll Paymob for the latest intention state after the parent returns from checkout. */
+export async function syncPaymobPaymentForPackagePurchase(
+  decoded: DecodedIdToken,
+  purchaseId: number,
+): Promise<{ status: PaymentStatus }> {
+  const user = await getUserByUid(decoded.uid);
+
+  const purchase = await prisma.packagePurchase.findUnique({
+    where: { id: purchaseId, deletedAt: null },
+    include: { payment: true },
+  });
+  if (!purchase) throw errors.notFound('Package purchase not found.');
+  if (purchase.userId !== user.id) throw errors.forbidden('Access denied.');
+
+  const payment = purchase.payment;
+  if (!payment || payment.deletedAt) throw errors.notFound('No payment found for this purchase.');
+
+  if (!config.paymob.enabled) return { status: payment.status };
+  if (payment.status !== PaymentStatus.PENDING) return { status: payment.status };
+  if (!payment.paymobClientSecret) return { status: payment.status };
+
+  const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
+  const element = await api.getIntentionElement(config.paymob.publicKey, payment.paymobClientSecret);
+  const mapped = mapIntentionElement(element);
+
+  if (mapped === 'captured') {
+    const tid = extractLatestTransactionId(element);
+    await finalizePackagePaymentCaptured(payment.id, tid);
+    return { status: PaymentStatus.CAPTURED };
+  }
+
+  if (mapped === 'failed') {
+    await finalizePackagePaymentFailed(payment.id, 'Paymob reported a failed payment.');
+    return { status: PaymentStatus.FAILED };
+  }
+
+  return { status: PaymentStatus.PENDING };
+}

@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, PaymentPurpose, PaymentStatus } from '@prisma/client';
 import type { CreatePaymobIntentionRequest } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 
@@ -10,7 +10,11 @@ import {
   canTransitionBookingStatus,
   notifyNannyBookingConfirmed,
 } from '@backend/services/booking.service';
-import { createPaymobApiClient, type PaymobIntentionElementResponse } from '@backend/lib/paymob/client';
+import { createPaymobApiClient } from '@backend/lib/paymob/client';
+import {
+  extractLatestTransactionId,
+  mapIntentionElement,
+} from '@backend/lib/paymob/intention';
 import {
   PAYMOB_INTENTION_TTL_MS,
   PAYMOB_RECONCILE_OFFSETS_MS,
@@ -27,21 +31,25 @@ import {
   transactionSuccess,
 } from '@backend/lib/paymob/parse-webhook';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import {
+  finalizePackagePaymentCaptured,
+  finalizePackagePaymentFailed,
+} from '@backend/services/package-payment.service';
 
-function mapIntentionElement(data: PaymobIntentionElementResponse): 'pending' | 'captured' | 'failed' {
-  const txns = data.transactions ?? [];
-  for (let i = txns.length - 1; i >= 0; i--) {
-    const t = txns[i]!;
-    if (t.success === true && t.pending === false) return 'captured';
-    if (t.success === false && t.pending === false) return 'failed';
-  }
+const PAYMENT_TIMEOUT_REASON = 'Payment timed out waiting for Paymob confirmation.';
 
-  const st = String(data.status ?? '').toLowerCase();
-  if (['failed', 'declined', 'voided', 'cancelled'].includes(st)) return 'failed';
-
-  // Require a successful transaction — do not trust `confirmed` or success-like
-  // status strings alone (fresh intentions can look "confirmed" before payment).
-  return 'pending';
+/**
+ * Which settlement handler owns a payment. PACKAGE payments are settled by
+ * package-payment.service (owner's design decision); without this dispatch they
+ * would fall into finalizePaymentCaptured's null-bookingId guard and be
+ * logged-and-dropped, so the parent would pay and never receive their hours.
+ */
+async function getPaymentPurpose(paymentId: number): Promise<PaymentPurpose | null> {
+  const row = await prisma.payment.findFirst({
+    where: { id: paymentId, deletedAt: null },
+    select: { purpose: true },
+  });
+  return row?.purpose ?? null;
 }
 
 async function getUserByUid(uid: string) {
@@ -128,10 +136,7 @@ async function finalizePaymentFailed(paymentId: number, reason: string) {
 }
 
 async function finalizePaymentTimeout(paymentId: number) {
-  await finalizePaymentFailed(
-    paymentId,
-    'Payment timed out waiting for Paymob confirmation.',
-  );
+  await finalizePaymentFailed(paymentId, PAYMENT_TIMEOUT_REASON);
 }
 
 /** Paymob merchant order id — payment row id on first attempt, suffixed on retries. */
@@ -331,20 +336,7 @@ export async function syncPaymobPaymentForBooking(
   const mapped = mapIntentionElement(element);
 
   if (mapped === 'captured') {
-    const txns = element.transactions ?? [];
-    let tid: string | null = null;
-    for (let i = txns.length - 1; i >= 0; i--) {
-      const rawId: unknown = txns[i]!['id'];
-      if (typeof rawId === 'number') {
-        tid = String(rawId);
-        break;
-      }
-      if (typeof rawId === 'string' && rawId.length > 0) {
-        tid = rawId;
-        break;
-      }
-    }
-    await finalizePaymentCaptured(payment.id, tid);
+    await finalizePaymentCaptured(payment.id, extractLatestTransactionId(element));
     return;
   }
 
@@ -391,12 +383,23 @@ export async function processPaymobWebhook(params: {
   const paymobTxnId = txn.id;
 
   if (transactionSuccess(txn)) {
-    await finalizePaymentCaptured(paymentId, String(paymobTxnId));
+    const purpose = await getPaymentPurpose(paymentId);
+    if (purpose === PaymentPurpose.PACKAGE) {
+      await finalizePackagePaymentCaptured(paymentId, String(paymobTxnId));
+    } else {
+      await finalizePaymentCaptured(paymentId, String(paymobTxnId));
+    }
     return { accepted: true };
   }
 
   if (transactionFailed(txn)) {
-    await finalizePaymentFailed(paymentId, failureReasonFromTxn(txn));
+    const purpose = await getPaymentPurpose(paymentId);
+    const reason = failureReasonFromTxn(txn);
+    if (purpose === PaymentPurpose.PACKAGE) {
+      await finalizePackagePaymentFailed(paymentId, reason);
+    } else {
+      await finalizePaymentFailed(paymentId, reason);
+    }
     return { accepted: true };
   }
 
@@ -428,32 +431,36 @@ export async function reconcileStalePaymobPayments(): Promise<void> {
       const element = await api.getIntentionElement(config.paymob.publicKey, p.paymobClientSecret);
       const mapped = mapIntentionElement(element);
 
+      // The row is already loaded, so purpose dispatch needs no extra query here.
+      const isPackage = p.purpose === PaymentPurpose.PACKAGE;
+
       if (mapped === 'captured') {
-        const txns = element.transactions ?? [];
-        let tid: string | null = null;
-        for (let i = txns.length - 1; i >= 0; i--) {
-          const rawId: unknown = txns[i]!['id'];
-          if (typeof rawId === 'number') {
-            tid = String(rawId);
-            break;
-          }
-          if (typeof rawId === 'string' && rawId.length > 0) {
-            tid = rawId;
-            break;
-          }
+        const tid = extractLatestTransactionId(element);
+        if (isPackage) {
+          await finalizePackagePaymentCaptured(p.id, tid);
+        } else {
+          await finalizePaymentCaptured(p.id, tid);
         }
-        await finalizePaymentCaptured(p.id, tid);
         continue;
       }
 
       if (mapped === 'failed') {
-        await finalizePaymentFailed(p.id, 'Paymob reported a failed payment.');
+        const reason = 'Paymob reported a failed payment.';
+        if (isPackage) {
+          await finalizePackagePaymentFailed(p.id, reason);
+        } else {
+          await finalizePaymentFailed(p.id, reason);
+        }
         continue;
       }
 
       const nextAttempt = p.paymobReconcileAttempt + 1;
       if (nextAttempt >= PAYMOB_RECONCILE_OFFSETS_MS.length) {
-        await finalizePaymentTimeout(p.id);
+        if (isPackage) {
+          await finalizePackagePaymentFailed(p.id, PAYMENT_TIMEOUT_REASON);
+        } else {
+          await finalizePaymentTimeout(p.id);
+        }
         continue;
       }
 
