@@ -15,7 +15,7 @@ jest.mock('@backend/db/prisma', () => {
   };
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
   const nannyProfile = { findUnique: jest.fn(), findMany: jest.fn() };
-  const payment = { create: jest.fn() };
+  const payment = { create: jest.fn(), updateMany: jest.fn() };
   const skill = { findMany: jest.fn() };
   // createBooking checks the mother's prepaid package-hours balance; no packages here.
   const packagePurchase = { findMany: jest.fn().mockResolvedValue([]) };
@@ -90,7 +90,7 @@ const mockPrisma = prisma as unknown as {
   };
   user: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
-  payment: { create: jest.Mock };
+  payment: { create: jest.Mock; updateMany: jest.Mock };
   skill: { findMany: jest.Mock };
   durationMultiplierRule: { findMany: jest.Mock };
 };
@@ -149,7 +149,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
     cancelledAt: null,
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
-    payment: null,
+    payments: [],
     review: null,
     createdAt: new Date('2026-07-12T00:00:00.000Z'),
     ...overrides,

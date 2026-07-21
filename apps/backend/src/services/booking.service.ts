@@ -99,7 +99,10 @@ export const bookingInclude = {
       },
     },
   },
-  payment: true,
+  // A booking accrues one payment row per attempt. Everything downstream wants
+  // "the" payment, which is always the newest — older rows are superseded
+  // attempts kept for history. Taking 1 here keeps the response shape unchanged.
+  payments: { orderBy: { id: 'desc' }, take: 1 },
   review: true,
 } as const;
 
@@ -116,6 +119,15 @@ async function getUserByUid(uid: string) {
 /** Reads the persisted skill add-on snapshot back into typed form. */
 function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
+}
+
+/**
+ * The current payment for a booking = its newest attempt. `bookingInclude`
+ * already sorts newest-first and takes one, so this is just the head — but going
+ * through a named helper keeps every read of "the payment" consistent.
+ */
+function latestPayment(b: BookingWithRelations) {
+  return b.payments[0] ?? null;
 }
 
 /**
@@ -201,12 +213,12 @@ function toBookingResponse(
     startPinActive:
       b.startPinExpiresAt != null && b.startPinExpiresAt.getTime() > Date.now(),
     hasCamera: (b.nannyProfile?.user.cameras?.length ?? 0) > 0,
-    payment: b.payment
+    payment: latestPayment(b)
       ? {
-          id: b.payment.id,
-          status: b.payment.status,
-          method: b.payment.method,
-          amount: Number(b.payment.amount),
+          id: latestPayment(b)!.id,
+          status: latestPayment(b)!.status,
+          method: latestPayment(b)!.method,
+          amount: Number(latestPayment(b)!.amount),
         }
       : null,
     myReview:
@@ -1113,6 +1125,18 @@ export async function mockPayBooking(
   }
 
   const [payment, updatedBooking] = await prisma.$transaction(async (tx) => {
+    // Retire any earlier still-PENDING attempt (e.g. an abandoned real Paymob
+    // intention) so the reconciler stops polling it once this mock pay lands.
+    await tx.payment.updateMany({
+      where: { bookingId, status: PaymentStatus.PENDING, deletedAt: null },
+      data: {
+        status: PaymentStatus.FAILED,
+        failureReason: 'Superseded by a new payment attempt.',
+        paymobNextReconcileAt: null,
+        paymobClientSecret: null,
+      },
+    });
+
     const pmt = await tx.payment.create({
       data: {
         bookingId,

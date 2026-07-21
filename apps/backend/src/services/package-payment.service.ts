@@ -66,7 +66,18 @@ export async function finalizePackagePaymentCaptured(
       },
     });
 
-    await creditPurchaseHours(tx, payment.packagePurchaseId);
+    const outcome = await creditPurchaseHours(tx, payment.packagePurchaseId);
+    if (outcome === 'SLOT_TAKEN') {
+      // The parent already holds an active package, so this purchase cannot be
+      // activated. The payment stays CAPTURED — the money was taken and must not
+      // be erased by rolling back — and the purchase stays PENDING_PAYMENT for a
+      // human to refund or activate once the current package clears.
+      // eslint-disable-next-line no-console
+      console.error('[packages] captured payment could not be activated: active slot taken', {
+        paymentId,
+        purchaseId: payment.packagePurchaseId,
+      });
+    }
   });
 }
 
@@ -109,7 +120,7 @@ export async function createPaymobIntentionForPackagePurchase(
 
   const purchase = await prisma.packagePurchase.findUnique({
     where: { id: purchaseId, deletedAt: null },
-    include: { payment: true },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
   });
   if (!purchase) throw errors.notFound('Package purchase not found.');
   if (purchase.userId !== user.id) throw errors.forbidden('Access denied.');
@@ -117,29 +128,30 @@ export async function createPaymobIntentionForPackagePurchase(
     throw errors.badRequest(`Cannot pay for a purchase in status ${purchase.status}.`);
   }
 
-  const existing = purchase.payment;
-  if (existing && !existing.deletedAt) {
-    if (existing.status === PaymentStatus.CAPTURED) {
-      throw errors.badRequest('This package purchase is already paid.');
-    }
-    if (
-      existing.status === PaymentStatus.PENDING &&
-      existing.paymobClientSecret &&
-      existing.paymobIntentionId
-    ) {
-      // Reuse the stored checkout link only while it is still fresh — same TTL
-      // logic as createPaymobIntentionForBooking. paymobReconcileAnchorAt is set
-      // to the intention creation time; createdAt is a safe fallback for legacy rows.
-      const intentionCreatedAt = existing.paymobReconcileAnchorAt ?? existing.createdAt;
-      const intentionAgeMs = Date.now() - intentionCreatedAt.getTime();
-      if (intentionAgeMs < PAYMOB_INTENTION_TTL_MS) {
-        return {
-          paymentId: existing.id,
-          clientSecret: existing.paymobClientSecret,
-          publicKey: config.paymob.publicKey,
-          intentionId: existing.paymobIntentionId,
-        };
-      }
+  const attempts = purchase.payments;
+  if (attempts.some((p) => p.status === PaymentStatus.CAPTURED)) {
+    throw errors.badRequest('This package purchase is already paid.');
+  }
+
+  const latest = attempts[0];
+  if (
+    latest &&
+    latest.status === PaymentStatus.PENDING &&
+    latest.paymobClientSecret &&
+    latest.paymobIntentionId
+  ) {
+    // Resuming the SAME attempt, not starting a new one: while the hosted link
+    // is still alive, hand back the existing session rather than minting another
+    // payment row. paymobReconcileAnchorAt is the intention creation time;
+    // createdAt is a safe fallback for legacy rows.
+    const intentionCreatedAt = latest.paymobReconcileAnchorAt ?? latest.createdAt;
+    if (Date.now() - intentionCreatedAt.getTime() < PAYMOB_INTENTION_TTL_MS) {
+      return {
+        paymentId: latest.id,
+        clientSecret: latest.paymobClientSecret,
+        publicKey: config.paymob.publicKey,
+        intentionId: latest.paymobIntentionId,
+      };
     }
   }
 
@@ -147,41 +159,46 @@ export async function createPaymobIntentionForPackagePurchase(
   const nextReconcile = new Date(anchor.getTime() + PAYMOB_RECONCILE_OFFSETS_MS[0]);
   const notificationUrl = `${config.paymob.publicApiUrl}${PAYMOB_WEBHOOK_PATH}`;
 
-  const nextIntentionAttempt = (existing?.paymobIntentionAttempt ?? 0) + 1;
+  // Attempts are numbered off the history, so the Paymob merchant order id stays
+  // unique across retries even though each attempt is now its own row.
+  const nextIntentionAttempt = (latest?.paymobIntentionAttempt ?? 0) + 1;
 
-  const resetPaymentData = {
-    amount: Number(purchase.pricePaid),
-    currency: 'EGP',
-    // The unified-checkout hosted page lets the parent choose card/wallet/etc.
-    // itself; unlike bookings there is no separate method param on this
-    // interface (see task-5 report — a judgment call, flagged there).
-    method: PaymentMethod.CARD,
-    status: PaymentStatus.PENDING,
-    failureReason: null,
-    paymobOrderId: null,
-    paymobTransactionId: null,
-    paymobIntentionId: null,
-    paymobClientSecret: null,
-    paymobIntentionAttempt: nextIntentionAttempt,
-    paymobReconcileAnchorAt: anchor,
-    paymobReconcileAttempt: 0,
-    paymobNextReconcileAt: nextReconcile,
-  };
+  // Retire any still-PENDING attempt before opening a new one. Left alone it
+  // would keep its clientSecret and go on being polled by the reconciler,
+  // competing with the attempt the parent is actually looking at.
+  await prisma.payment.updateMany({
+    where: {
+      packagePurchaseId: purchaseId,
+      status: PaymentStatus.PENDING,
+      deletedAt: null,
+    },
+    data: {
+      status: PaymentStatus.FAILED,
+      failureReason: 'Superseded by a new payment attempt.',
+      paymobNextReconcileAt: null,
+      paymobClientSecret: null,
+    },
+  });
 
-  const payment =
-    existing && !existing.deletedAt
-      ? await prisma.payment.update({
-          where: { id: existing.id },
-          data: resetPaymentData,
-        })
-      : await prisma.payment.create({
-          data: {
-            packagePurchaseId: purchaseId,
-            motherId: user.id,
-            purpose: PaymentPurpose.PACKAGE,
-            ...resetPaymentData,
-          },
-        });
+  // Every attempt is its own record — a declined card keeps its FAILED row and
+  // this insert starts a clean one, so the history is never overwritten.
+  const payment = await prisma.payment.create({
+    data: {
+      packagePurchaseId: purchaseId,
+      motherId: user.id,
+      purpose: PaymentPurpose.PACKAGE,
+      amount: Number(purchase.pricePaid),
+      currency: 'EGP',
+      // The unified-checkout hosted page lets the parent choose card/wallet/etc.
+      // itself; unlike bookings there is no separate method param here.
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.PENDING,
+      paymobIntentionAttempt: nextIntentionAttempt,
+      paymobReconcileAnchorAt: anchor,
+      paymobReconcileAttempt: 0,
+      paymobNextReconcileAt: nextReconcile,
+    },
+  });
 
   const merchantOrderId = buildPaymobMerchantOrderId(payment.id, nextIntentionAttempt);
 
@@ -259,13 +276,17 @@ export async function syncPaymobPaymentForPackagePurchase(
 
   const purchase = await prisma.packagePurchase.findUnique({
     where: { id: purchaseId, deletedAt: null },
-    include: { payment: true },
+    include: {
+      // Newest first — the parent just came back from the latest attempt's
+      // checkout, so that is the one whose outcome we poll for.
+      payments: { where: { deletedAt: null }, orderBy: { id: 'desc' }, take: 1 },
+    },
   });
   if (!purchase) throw errors.notFound('Package purchase not found.');
   if (purchase.userId !== user.id) throw errors.forbidden('Access denied.');
 
-  const payment = purchase.payment;
-  if (!payment || payment.deletedAt) throw errors.notFound('No payment found for this purchase.');
+  const payment = purchase.payments[0];
+  if (!payment) throw errors.notFound('No payment found for this purchase.');
 
   if (!config.paymob.enabled) return { status: payment.status };
   if (payment.status !== PaymentStatus.PENDING) return { status: payment.status };

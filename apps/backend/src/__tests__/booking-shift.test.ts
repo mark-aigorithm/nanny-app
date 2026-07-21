@@ -92,7 +92,7 @@ function makeBooking(overrides: Partial<{
       userId: nannyUser.id,
       user: nannyProfileUser,
     },
-    payment: null,
+    payments: [],
     type: 'STANDARD',
     durationHours: 3,
     baseRate: 100,

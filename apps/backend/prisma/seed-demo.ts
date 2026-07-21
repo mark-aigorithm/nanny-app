@@ -773,7 +773,7 @@ async function seedBookings(
       serviceFeePercent,
       serviceFeeAmount: new Prisma.Decimal(String(feeUpcoming)),
       totalAmount: new Prisma.Decimal(String(totalUpcoming)),
-      payment: {
+      payments: {
         create: {
           motherId,
           amount: new Prisma.Decimal(String(totalUpcoming)),
@@ -807,7 +807,7 @@ async function seedBookings(
       totalAmount: new Prisma.Decimal(String(totalPast)),
       nannyCheckedInAt: past.startTime,
       nannyCheckedOutAt: past.endTime,
-      payment: {
+      payments: {
         create: {
           motherId,
           amount: new Prisma.Decimal(String(totalPast)),
@@ -874,7 +874,7 @@ async function seedBookings(
       serviceFeePercent,
       serviceFeeAmount: new Prisma.Decimal(String(feePast2)),
       totalAmount: new Prisma.Decimal(String(totalPast2)),
-      payment: {
+      payments: {
         create: {
           motherId,
           amount: new Prisma.Decimal(String(totalPast2)),

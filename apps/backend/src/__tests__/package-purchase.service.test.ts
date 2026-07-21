@@ -82,7 +82,7 @@ describe('listActivePackages', () => {
 
 describe('createPackagePurchase', () => {
   it('snapshots the package into a PENDING_PAYMENT purchase with computed expiry', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards(); // no active package, no recent pending checkout
     m.package.findFirst.mockResolvedValue({
       id: 1,
@@ -113,7 +113,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('queries the guard for an ACTIVE, non-deleted bucket with hours remaining and a null-or-future expiresAt', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards();
     m.package.findFirst.mockResolvedValue({
       id: 1, name: 'Starter', hours: 50, price: '2000.00', validityDays: 90,
@@ -135,7 +135,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('queries the guard for a PENDING_PAYMENT purchase created within the Paymob intention TTL', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards();
     m.package.findFirst.mockResolvedValue(catalogRow());
     m.packagePurchase.create.mockResolvedValue({ id: 55 });
@@ -146,11 +146,30 @@ describe('createPackagePurchase', () => {
 
     const pendingCall = m.packagePurchase.findFirst.mock.calls.find(
       ([args]: [{ where: { status: string } }]) => args.where.status === 'PENDING_PAYMENT',
-    ) as [{ where: { userId: number; status: string; deletedAt: null; createdAt: { gt: Date } } }] | undefined;
+    ) as
+      | [
+          {
+            where: {
+              userId: number;
+              status: string;
+              deletedAt: null;
+              createdAt: { gt: Date };
+              payments: { some: { status: string; deletedAt: null } };
+            };
+          },
+        ]
+      | undefined;
     expect(pendingCall).toBeDefined();
 
     const where = pendingCall![0].where;
-    expect(where).toMatchObject({ userId: 7, status: 'PENDING_PAYMENT', deletedAt: null });
+    expect(where).toMatchObject({
+      userId: 7,
+      status: 'PENDING_PAYMENT',
+      deletedAt: null,
+      // Only a purchase whose latest payment attempt is still PENDING blocks a
+      // retry — one whose payment never started (e.g. missing phone) must not.
+      payments: { some: { status: 'PENDING', deletedAt: null } },
+    });
 
     // The cutoff must be computed as "now - PAYMOB_INTENTION_TTL_MS" at call time —
     // a pending checkout should block for exactly as long as its Paymob intention
@@ -161,14 +180,14 @@ describe('createPackagePurchase', () => {
   });
 
   it('rejects (409) a second purchase while an active package still has hours', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards({ active: { id: 40, status: 'ACTIVE', hoursRemaining: '12.00' } });
     await expect(createPackagePurchase('uid', { packageId: 1 })).rejects.toMatchObject({ statusCode: 409 });
     expect(m.packagePurchase.create).not.toHaveBeenCalled();
   });
 
   it('rejects (409) with a distinct message when a PENDING_PAYMENT checkout exists within the intention TTL', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     // No active bucket, but a checkout was started moments ago and hasn't been paid yet.
     mockPurchaseGuards({
       pending: { id: 41, status: 'PENDING_PAYMENT', createdAt: new Date() },
@@ -189,7 +208,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('does NOT block when the existing ACTIVE bucket is fully consumed (hoursRemaining = 0)', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     // A real query with `hoursRemaining: { gt: 0 }` would exclude this bucket, so findFirst
     // resolves null even though the user has a fully-drained ACTIVE bucket on file.
     mockPurchaseGuards();
@@ -201,7 +220,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('does NOT block when the existing bucket is EXPIRED', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     // A real query with `status: 'ACTIVE'` would exclude an EXPIRED bucket.
     mockPurchaseGuards();
     m.package.findFirst.mockResolvedValue(catalogRow());
@@ -212,7 +231,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('does NOT block when the existing PENDING_PAYMENT purchase is older than the intention TTL (abandoned checkout)', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     // A real query with `createdAt: { gt: now - PAYMOB_INTENTION_TTL_MS }` would exclude a
     // PENDING_PAYMENT row older than the TTL — it's an abandoned checkout, not a live one,
     // so it must not permanently lock the parent out of buying again.
@@ -225,7 +244,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('does NOT block when the existing ACTIVE bucket has already passed its expiresAt', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     // A real query with `OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]` would exclude
     // a past-due bucket.
     mockPurchaseGuards();
@@ -253,7 +272,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('throws notFound (404) when the package does not exist, is inactive, or is soft-deleted', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards();
     m.package.findFirst.mockResolvedValue(null);
     await expect(createPackagePurchase('uid', { packageId: 999 })).rejects.toMatchObject({
@@ -263,7 +282,7 @@ describe('createPackagePurchase', () => {
   });
 
   it('throws conflict (409) when the package catalog offer has already expired', async () => {
-    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards();
     m.package.findFirst.mockResolvedValue(
       catalogRow({ expiresAt: new Date('2020-01-01T00:00:00.000Z') }),

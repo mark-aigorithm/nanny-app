@@ -85,7 +85,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
     promoCode: null,
-    payment: { status: 'PENDING' },
+    payments: [{ status: 'PENDING' }],
     mother: { id: 10, firstName: 'Jane', lastName: 'Mom', phone: '+201000000000' },
     nannyProfileId: 19,
     nannyProfile: {
@@ -333,18 +333,20 @@ describe('getAdminBooking (detail)', () => {
         selectedSkillFees: [],
         nannyAmount: dec(254),
         platformAmount: dec(64),
-        payment: {
-          status: 'CAPTURED',
-          method: 'CARD',
-          amount: dec(318),
-          currency: 'EGP',
-          paymobOrderId: 'ord-1',
-          paymobTransactionId: 'txn-1',
-          paymobIntentionId: 'int-1',
-          failureReason: null,
-          refundedAmount: dec(0),
-          refundedAt: null,
-        },
+        payments: [
+          {
+            status: 'CAPTURED',
+            method: 'CARD',
+            amount: dec(318),
+            currency: 'EGP',
+            paymobOrderId: 'ord-1',
+            paymobTransactionId: 'txn-1',
+            paymobIntentionId: 'int-1',
+            failureReason: null,
+            refundedAmount: dec(0),
+            refundedAt: null,
+          },
+        ],
       }),
     );
 

@@ -45,7 +45,8 @@ const bookingInclude = {
       user: { select: { id: true, firstName: true, lastName: true } },
     },
   },
-  payment: { select: { status: true } },
+  // A booking has one payment row per attempt; the current one is the newest.
+  payments: { select: { status: true }, orderBy: { id: 'desc' }, take: 1 },
   promoCode: { select: { code: true } },
 } satisfies Prisma.BookingInclude;
 
@@ -62,7 +63,7 @@ const bookingDetailInclude = {
       },
     },
   },
-  payment: true,
+  payments: { orderBy: { id: 'desc' }, take: 1 },
   promoCode: { select: { code: true } },
 } satisfies Prisma.BookingInclude;
 
@@ -75,6 +76,7 @@ function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkil
 }
 
 function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
+  const payment = row.payments[0] ?? null;
   return {
     id: row.id,
     status: row.status,
@@ -90,7 +92,7 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     totalAmount: row.totalAmount.toNumber(),
     discountAmount: row.discountAmount.toNumber(),
     promoCode: row.promoCode?.code ?? null,
-    paymentStatus: row.payment?.status ?? null,
+    paymentStatus: payment?.status ?? null,
     mother: {
       id: row.mother.id,
       name: `${row.mother.firstName} ${row.mother.lastName}`.trim(),
@@ -114,18 +116,18 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     serviceFeeAmount: row.serviceFeeAmount.toNumber(),
     nannyAmount: row.nannyAmount.toNumber(),
     platformAmount: row.platformAmount.toNumber(),
-    payment: row.payment
+    payment: payment
       ? {
-          status: row.payment.status,
-          method: row.payment.method,
-          amount: row.payment.amount.toNumber(),
-          currency: row.payment.currency,
-          paymobOrderId: row.payment.paymobOrderId,
-          paymobTransactionId: row.payment.paymobTransactionId,
-          paymobIntentionId: row.payment.paymobIntentionId,
-          failureReason: row.payment.failureReason,
-          refundedAmount: row.payment.refundedAmount.toNumber(),
-          refundedAt: row.payment.refundedAt?.toISOString() ?? null,
+          status: payment.status,
+          method: payment.method,
+          amount: payment.amount.toNumber(),
+          currency: payment.currency,
+          paymobOrderId: payment.paymobOrderId,
+          paymobTransactionId: payment.paymobTransactionId,
+          paymobIntentionId: payment.paymobIntentionId,
+          failureReason: payment.failureReason,
+          refundedAmount: payment.refundedAmount.toNumber(),
+          refundedAt: payment.refundedAt?.toISOString() ?? null,
         }
       : null,
     specialInstructions: row.specialInstructions,
@@ -143,6 +145,7 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
 }
 
 function toDto(row: AdminBookingRow): AdminBooking {
+  const payment = row.payments[0] ?? null;
   return {
     id: row.id,
     status: row.status,
@@ -158,7 +161,7 @@ function toDto(row: AdminBookingRow): AdminBooking {
     totalAmount: row.totalAmount.toNumber(),
     discountAmount: row.discountAmount.toNumber(),
     promoCode: row.promoCode?.code ?? null,
-    paymentStatus: row.payment?.status ?? null,
+    paymentStatus: payment?.status ?? null,
     mother: {
       id: row.mother.id,
       name: `${row.mother.firstName} ${row.mother.lastName}`.trim(),

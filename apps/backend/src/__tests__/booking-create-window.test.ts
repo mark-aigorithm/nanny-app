@@ -103,7 +103,7 @@ function bookingRow(start: Date, end: Date) {
     nannyCheckedOutAt: null,
     startPinHash: null,
     startPinExpiresAt: null,
-    payment: null,
+    payments: [],
     review: null,
     createdAt: NOW_UTC,
   };

@@ -167,7 +167,7 @@ export async function createPaymobIntentionForBooking(
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId, deletedAt: null },
-    include: { payment: true },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
   });
   if (!booking) throw errors.notFound('Booking not found.');
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
@@ -180,32 +180,31 @@ export async function createPaymobIntentionForBooking(
     throw errors.badRequest('Booking has no assigned nanny yet.');
   }
 
-  const existing = booking.payment;
-  if (existing && !existing.deletedAt) {
-    if (existing.status === PaymentStatus.CAPTURED) {
-      throw errors.badRequest('This booking is already paid.');
-    }
-    if (
-      existing.status === PaymentStatus.PENDING &&
-      existing.paymobClientSecret &&
-      existing.paymobIntentionId
-    ) {
-      // Reuse the stored checkout link only while it is still fresh. Paymob
-      // expires the hosted link a couple of hours after creation, so once the
-      // intention is older than PAYMOB_INTENTION_TTL_MS we fall through to the
-      // regenerate path below and hand the parent a new, working link instead
-      // of the stale one. paymobReconcileAnchorAt is set to the intention
-      // creation time; createdAt is a safe fallback for legacy rows.
-      const intentionCreatedAt = existing.paymobReconcileAnchorAt ?? existing.createdAt;
-      const intentionAgeMs = Date.now() - intentionCreatedAt.getTime();
-      if (intentionAgeMs < PAYMOB_INTENTION_TTL_MS) {
-        return {
-          paymentId: existing.id,
-          clientSecret: existing.paymobClientSecret,
-          publicKey: config.paymob.publicKey,
-          intentionId: existing.paymobIntentionId,
-        };
-      }
+  const attempts = booking.payments;
+  if (attempts.some((p) => p.status === PaymentStatus.CAPTURED)) {
+    throw errors.badRequest('This booking is already paid.');
+  }
+
+  const latest = attempts[0];
+  if (
+    latest &&
+    latest.status === PaymentStatus.PENDING &&
+    latest.paymobClientSecret &&
+    latest.paymobIntentionId
+  ) {
+    // Resuming the SAME attempt while its hosted link is still fresh. Paymob
+    // expires the link a couple of hours out, so once it is older than
+    // PAYMOB_INTENTION_TTL_MS we fall through and open a new attempt with a
+    // working link. paymobReconcileAnchorAt is the intention creation time;
+    // createdAt is a safe fallback for legacy rows.
+    const intentionCreatedAt = latest.paymobReconcileAnchorAt ?? latest.createdAt;
+    if (Date.now() - intentionCreatedAt.getTime() < PAYMOB_INTENTION_TTL_MS) {
+      return {
+        paymentId: latest.id,
+        clientSecret: latest.paymobClientSecret,
+        publicKey: config.paymob.publicKey,
+        intentionId: latest.paymobIntentionId,
+      };
     }
   }
 
@@ -213,37 +212,36 @@ export async function createPaymobIntentionForBooking(
   const nextReconcile = new Date(anchor.getTime() + PAYMOB_RECONCILE_OFFSETS_MS[0]);
   const notificationUrl = `${config.paymob.publicApiUrl}${PAYMOB_WEBHOOK_PATH}`;
 
-  const nextIntentionAttempt = (existing?.paymobIntentionAttempt ?? 0) + 1;
+  const nextIntentionAttempt = (latest?.paymobIntentionAttempt ?? 0) + 1;
 
-  const resetPaymentData = {
-    amount: booking.totalAmount,
-    currency: 'EGP',
-    method: body.method,
-    status: PaymentStatus.PENDING,
-    failureReason: null,
-    paymobOrderId: null,
-    paymobTransactionId: null,
-    paymobIntentionId: null,
-    paymobClientSecret: null,
-    paymobIntentionAttempt: nextIntentionAttempt,
-    paymobReconcileAnchorAt: anchor,
-    paymobReconcileAttempt: 0,
-    paymobNextReconcileAt: nextReconcile,
-  };
+  // Retire any still-PENDING attempt so the reconciler stops polling the link
+  // the parent has abandoned in favour of this new one.
+  await prisma.payment.updateMany({
+    where: { bookingId, status: PaymentStatus.PENDING, deletedAt: null },
+    data: {
+      status: PaymentStatus.FAILED,
+      failureReason: 'Superseded by a new payment attempt.',
+      paymobNextReconcileAt: null,
+      paymobClientSecret: null,
+    },
+  });
 
-  const payment =
-    existing && !existing.deletedAt
-      ? await prisma.payment.update({
-          where: { id: existing.id },
-          data: resetPaymentData,
-        })
-      : await prisma.payment.create({
-          data: {
-            bookingId,
-            motherId: user.id,
-            ...resetPaymentData,
-          },
-        });
+  // Every attempt is its own record — a declined card keeps its FAILED row and
+  // this insert starts a clean one, so the history is never overwritten.
+  const payment = await prisma.payment.create({
+    data: {
+      bookingId,
+      motherId: user.id,
+      amount: booking.totalAmount,
+      currency: 'EGP',
+      method: body.method,
+      status: PaymentStatus.PENDING,
+      paymobIntentionAttempt: nextIntentionAttempt,
+      paymobReconcileAnchorAt: anchor,
+      paymobReconcileAttempt: 0,
+      paymobNextReconcileAt: nextReconcile,
+    },
+  });
 
   const merchantOrderId = buildPaymobMerchantOrderId(payment.id, nextIntentionAttempt);
 
@@ -322,13 +320,13 @@ export async function syncPaymobPaymentForBooking(
   const user = await getUserByUid(decoded.uid);
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId, deletedAt: null },
-    include: { payment: true },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
   });
   if (!booking) throw errors.notFound('Booking not found.');
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
 
-  const payment = booking.payment;
-  if (!payment || payment.deletedAt || payment.status !== PaymentStatus.PENDING) return;
+  const payment = booking.payments[0];
+  if (!payment || payment.status !== PaymentStatus.PENDING) return;
   if (!payment.paymobClientSecret) return;
 
   const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);

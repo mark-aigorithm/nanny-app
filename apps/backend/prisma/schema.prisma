@@ -383,14 +383,24 @@ model PackagePurchase {
   maxSkillsSnapshot Int                   @map("max_skills_snapshot")
   hoursRemaining    Decimal               @default(0) @map("hours_remaining") @db.Decimal(6, 2)
   status            PackagePurchaseStatus @default(PENDING_PAYMENT)
+  /// True exactly while `status` is ACTIVE, null otherwise. Paired with
+  /// @@unique([userId, isActiveSlot]) this is what actually enforces "at most one
+  /// active package per user": Postgres treats NULLs as distinct, so any number of
+  /// non-active rows coexist for a user while a second ACTIVE row collides.
+  /// The service guard is the friendly pre-check; this is the guarantee.
+  isActiveSlot      Boolean?              @map("is_active_slot")
   purchasedAt       DateTime?             @map("purchased_at")
   expiresAt         DateTime?             @map("expires_at")
-  payment           Payment?
+  /// One purchase accrues MANY payment attempts: a declined card leaves a FAILED
+  /// row behind and the retry creates a fresh one, so the history is preserved
+  /// rather than overwritten.
+  payments          Payment[]
   ledgerEntries     PackageHoursLedger[]
   createdAt         DateTime              @default(now()) @map("created_at")
   updatedAt         DateTime              @updatedAt @map("updated_at")
   deletedAt         DateTime?             @map("deleted_at")
 
+  @@unique([userId, isActiveSlot])
   @@index([userId, status])
   @@index([expiresAt])
   @@index([deletedAt])
@@ -752,7 +762,8 @@ model Booking {
   replacementForBookingId  Int?                 @map("replacement_for_booking_id")
   replacementForBooking    Booking?             @relation("BookingReplacement", fields: [replacementForBookingId], references: [id])
   replacementBookings      Booking[]            @relation("BookingReplacement")
-  payment                  Payment?
+  /// One booking accrues MANY payment attempts — see Payment.bookingId.
+  payments                 Payment[]
   createdAt                DateTime             @default(now()) @map("created_at")
   updatedAt                DateTime             @updatedAt @map("updated_at")
   deletedAt                DateTime?            @map("deleted_at")
@@ -775,9 +786,12 @@ model Payment {
   /// Nullable + polymorphic: a payment covers either a Booking or a
   /// PackagePurchase (never both). `purpose` disambiguates which relation
   /// is populated.
-  bookingId               Int?             @unique @map("booking_id")
+  /// Neither FK is unique: every payment ATTEMPT gets its own row, so a declined
+  /// card keeps its FAILED record and the retry is a new one rather than an
+  /// overwrite. Consumers that want "the" payment take the newest.
+  bookingId               Int?             @map("booking_id")
   booking                 Booking?         @relation(fields: [bookingId], references: [id])
-  packagePurchaseId       Int?             @unique @map("package_purchase_id")
+  packagePurchaseId       Int?             @map("package_purchase_id")
   packagePurchase         PackagePurchase? @relation(fields: [packagePurchaseId], references: [id])
   purpose                 PaymentPurpose   @default(BOOKING)
   motherId                Int              @map("mother_id")
@@ -808,6 +822,10 @@ model Payment {
 
   @@index([paymobOrderId])
   @@index([paymobNextReconcileAt])
+  /// Replace the indexes the dropped @unique constraints used to provide — both
+  /// flows look payments up by owner to find the latest attempt.
+  @@index([packagePurchaseId])
+  @@index([bookingId])
   @@map("payments")
 }
 

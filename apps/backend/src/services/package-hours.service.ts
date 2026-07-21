@@ -7,6 +7,16 @@ import { errors } from '@backend/lib/errors';
 /** Prisma client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
 
+/**
+ * Why a capture did or didn't grant hours.
+ * - CREDITED         hours granted, PURCHASE ledger row written.
+ * - ALREADY_CREDITED a replayed capture; the first one already granted them.
+ * - SLOT_TAKEN       the parent already holds an active package, so this purchase
+ *                    stays PENDING_PAYMENT. The caller MUST still record the
+ *                    payment — the money was taken and needs resolving by hand.
+ */
+export type CreditOutcome = 'CREDITED' | 'ALREADY_CREDITED' | 'SLOT_TAKEN';
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -49,12 +59,25 @@ export async function getRedeemableSummary(
  * time (now + the package's validityDays) and stored on the row, so this
  * function only promotes PENDING_PAYMENT → ACTIVE using that stored value.
  */
-export async function creditPurchaseHours(db: Db, purchaseId: number): Promise<void> {
+export async function creditPurchaseHours(
+  db: Db,
+  purchaseId: number,
+): Promise<CreditOutcome> {
   const purchase = await db.packagePurchase.findFirst({
     where: { id: purchaseId, deletedAt: null },
   });
   if (!purchase) throw errors.notFound('Package purchase not found');
-  if (purchase.status !== 'PENDING_PAYMENT') return; // already credited — idempotent
+  if (purchase.status !== 'PENDING_PAYMENT') return 'ALREADY_CREDITED'; // idempotent
+
+  // The unique index on (userId, isActiveSlot) is what guarantees one active
+  // package per user, but it must never be the thing that STOPS a capture:
+  // letting the write hit it would abort the enclosing transaction and roll back
+  // the payment's CAPTURED row, erasing the record of money Paymob already took.
+  // So check for a free slot first and report back instead of throwing.
+  const slotTaken = await db.packagePurchase.findFirst({
+    where: { userId: purchase.userId, isActiveSlot: true, deletedAt: null },
+  });
+  if (slotTaken) return 'SLOT_TAKEN';
 
   const purchasedAt = new Date();
 
@@ -65,12 +88,13 @@ export async function creditPurchaseHours(db: Db, purchaseId: number): Promise<v
     where: { id: purchase.id, status: 'PENDING_PAYMENT', deletedAt: null },
     data: {
       status: 'ACTIVE',
+      isActiveSlot: true,
       hoursRemaining: purchase.hoursPurchased,
       purchasedAt,
       expiresAt: purchase.expiresAt,
     },
   });
-  if (promoted.count === 0) return; // lost the race — the other caller credited it
+  if (promoted.count === 0) return 'ALREADY_CREDITED'; // lost the race
   await db.packageHoursLedger.create({
     data: {
       purchaseId: purchase.id,
@@ -81,6 +105,7 @@ export async function creditPurchaseHours(db: Db, purchaseId: number): Promise<v
       reason: `Purchased ${purchase.nameSnapshot}`,
     },
   });
+  return 'CREDITED';
 }
 
 /**
@@ -213,9 +238,11 @@ export async function expirePackagesForUser(userId: number, db: Db = prisma): Pr
     // WHERE clause so two concurrent balance reads (a pull-to-refresh double
     // fire is enough) can't both forfeit the same bucket and write two EXPIRY
     // rows for one loss.
+    // Clearing isActiveSlot alongside the status is what frees the parent to buy
+    // again — leaving it set would lock them out permanently once a package expires.
     const expired = await db.packagePurchase.updateMany({
       where: { id: p.id, status: 'ACTIVE', deletedAt: null },
-      data: { status: 'EXPIRED' },
+      data: { status: 'EXPIRED', isActiveSlot: null },
     });
     if (expired.count === 0) continue; // another caller expired it first
 

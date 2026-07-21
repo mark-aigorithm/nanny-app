@@ -1,5 +1,5 @@
 import type { PublicPackage, PurchasePackageInput } from '@nanny-app/shared';
-import type { Prisma } from '@prisma/client';
+import { PaymentStatus, type Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -77,6 +77,13 @@ export async function createPackagePurchase(
   const user = await prisma.user.findUnique({ where: { firebaseUid } });
   if (!user || user.deletedAt) throw errors.notFound('User not found');
 
+  // Checked here, before any row is written. Paymob needs a phone number, and
+  // discovering that only at intention time stranded a PENDING_PAYMENT purchase
+  // that then blocked the parent's own retry.
+  if (!user.phone) {
+    throw errors.badRequest('Add a phone number to your profile before paying.');
+  }
+
   const now = new Date();
   const activeExisting = await prisma.packagePurchase.findFirst({
     where: {
@@ -93,15 +100,23 @@ export async function createPackagePurchase(
     );
   }
 
-  const pendingExisting = await prisma.packagePurchase.findFirst({
+  // Block only on a checkout that is genuinely still live — one whose latest
+  // payment attempt is still PENDING. Blocking on the purchase row's age alone
+  // locked the parent out for the full intention TTL after a declined card (the
+  // reconciler gives up on the payment in ~5 minutes) and even after a failure
+  // that never reached Paymob at all, such as a missing phone number.
+  const liveCheckout = await prisma.packagePurchase.findFirst({
     where: {
       userId: user.id,
       status: 'PENDING_PAYMENT',
       deletedAt: null,
       createdAt: { gt: new Date(now.getTime() - PAYMOB_INTENTION_TTL_MS) },
+      payments: {
+        some: { status: PaymentStatus.PENDING, deletedAt: null },
+      },
     },
   });
-  if (pendingExisting) {
+  if (liveCheckout) {
     throw errors.conflict(
       'You already have a checkout in progress. Complete it or try again shortly.',
     );

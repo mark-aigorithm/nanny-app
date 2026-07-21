@@ -82,6 +82,22 @@ function mockPurchaseLookups(rows: Record<number, unknown>, balancesAfter: Recor
   });
 }
 
+/**
+ * `creditPurchaseHours` drives TWO distinct `packagePurchase.findFirst` queries: the
+ * purchase-row lookup (`where.id`), then the active-slot pre-check (`where.isActiveSlot`).
+ * A single blanket `mockResolvedValue` would (wrongly) answer the slot pre-check with the
+ * same truthy purchase row, short-circuiting activation via a false 'SLOT_TAKEN'. This
+ * routes each call to its own fixture based on which query shape asked.
+ */
+function mockCreditLookups(purchaseRow: unknown, slotTaken: unknown = null) {
+  m.packagePurchase.findFirst.mockImplementation(
+    async (args: { where: Record<string, unknown> }) => {
+      if ('isActiveSlot' in args.where) return slotTaken;
+      return purchaseRow;
+    },
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   m.packagePurchase.updateMany.mockResolvedValue({ count: 1 });
@@ -154,11 +170,12 @@ describe('creditPurchaseHours', () => {
       expiresAt: new Date('2026-09-01T00:00:00.000Z'),
       nameSnapshot: 'Starter Pack',
     });
-    m.packagePurchase.findFirst.mockResolvedValue(pending);
+    mockCreditLookups(pending); // no active slot taken, so activation proceeds
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    await creditPurchaseHours(prisma as never, 5);
+    const outcome = await creditPurchaseHours(prisma as never, 5);
 
+    expect(outcome).toBe('CREDITED');
     expect(m.packagePurchase.findFirst).toHaveBeenCalledWith({ where: { id: 5, deletedAt: null } });
     // The PENDING_PAYMENT guard must live in the WHERE clause, not in a prior
     // read — otherwise a replayed capture double-credits.
@@ -166,6 +183,7 @@ describe('creditPurchaseHours', () => {
       where: { id: 5, status: 'PENDING_PAYMENT', deletedAt: null },
       data: {
         status: 'ACTIVE',
+        isActiveSlot: true,
         hoursRemaining: 20,
         purchasedAt: expect.any(Date),
         expiresAt: new Date('2026-09-01T00:00:00.000Z'),
@@ -186,19 +204,36 @@ describe('creditPurchaseHours', () => {
   it('is idempotent — calling it again on an already-ACTIVE purchase does not double-credit', async () => {
     m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 5, status: 'ACTIVE' }));
 
-    await creditPurchaseHours(prisma as never, 5);
+    const outcome = await creditPurchaseHours(prisma as never, 5);
 
+    expect(outcome).toBe('ALREADY_CREDITED');
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('reports SLOT_TAKEN and writes nothing when the user already has an active package', async () => {
+    mockCreditLookups(
+      bucket({ id: 5, status: 'PENDING_PAYMENT' }),
+      bucket({ id: 9, status: 'ACTIVE' }), // another purchase already holds the active slot
+    );
+
+    const outcome = await creditPurchaseHours(prisma as never, 5);
+
+    expect(outcome).toBe('SLOT_TAKEN');
     expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 
   it('writes no ledger row when a concurrent capture won the promotion race', async () => {
-    // Both callers read PENDING_PAYMENT; the conditional update decides the winner.
-    m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 5, status: 'PENDING_PAYMENT' }));
+    // Both callers read PENDING_PAYMENT and find no slot taken; the conditional
+    // update (guarded on status in the WHERE clause) decides the winner.
+    mockCreditLookups(bucket({ id: 5, status: 'PENDING_PAYMENT' }));
     m.packagePurchase.updateMany.mockResolvedValue({ count: 0 });
 
-    await creditPurchaseHours(prisma as never, 5);
+    const outcome = await creditPurchaseHours(prisma as never, 5);
 
+    expect(outcome).toBe('ALREADY_CREDITED');
+    expect(m.packagePurchase.updateMany).toHaveBeenCalled();
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 
@@ -377,9 +412,11 @@ describe('expirePackagesForUser', () => {
     // Status guard in the WHERE clause so two concurrent balance reads can't
     // both forfeit the same bucket and write two EXPIRY rows for one loss.
     // Zeroing is deliberately NOT part of this statement — see the next test.
+    // Clearing isActiveSlot alongside the status is what frees the parent to buy
+    // again — leaving it set would lock them out permanently once it expires.
     expect(m.packagePurchase.updateMany).toHaveBeenNthCalledWith(1, {
       where: { id: 1, status: 'ACTIVE', deletedAt: null },
-      data: { status: 'EXPIRED' },
+      data: { status: 'EXPIRED', isActiveSlot: null },
     });
     expect(m.packagePurchase.updateMany).toHaveBeenNthCalledWith(2, {
       where: { id: 1 },

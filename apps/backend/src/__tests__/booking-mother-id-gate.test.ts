@@ -115,7 +115,7 @@ beforeEach(() => {
     nannyCheckedOutAt: null,
     startPinHash: null,
     startPinExpiresAt: null,
-    payment: null,
+    payments: [],
     review: null,
     createdAt: NOW_UTC,
   });

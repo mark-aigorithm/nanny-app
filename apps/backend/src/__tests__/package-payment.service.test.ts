@@ -234,4 +234,36 @@ describe('finalizePackagePaymentCaptured idempotency', () => {
     expect(mockCreditPurchaseHours).not.toHaveBeenCalled();
     expect(mockPrisma.payment.update).not.toHaveBeenCalled();
   });
+
+  it('keeps the payment CAPTURED but does not roll back when the active slot is taken', async () => {
+    // The parent paid for a package they cannot activate because they already
+    // hold an active one. The money was taken, so the CAPTURED write must stand
+    // (no throw, no rollback) and the situation is logged for a human to resolve.
+    mockPrisma.payment.findFirst.mockResolvedValue({
+      id: 100,
+      purpose: 'PACKAGE',
+      bookingId: null,
+      packagePurchaseId: 77,
+      deletedAt: null,
+      status: PaymentStatus.PENDING,
+    });
+    mockPrisma.payment.update.mockResolvedValue({});
+    mockCreditPurchaseHours.mockResolvedValue('SLOT_TAKEN');
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(finalizePackagePaymentCaptured(100, '555')).resolves.toBeUndefined();
+
+    // The capture is still recorded — the transaction is NOT rolled back.
+    expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 100 },
+        data: expect.objectContaining({ status: PaymentStatus.CAPTURED }),
+      }),
+    );
+    expect(errSpy).toHaveBeenCalledWith(
+      '[packages] captured payment could not be activated: active slot taken',
+      expect.objectContaining({ paymentId: 100, purchaseId: 77 }),
+    );
+    errSpy.mockRestore();
+  });
 });

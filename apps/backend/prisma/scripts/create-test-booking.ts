@@ -83,7 +83,7 @@ async function main() {
       serviceFeePercent: new Prisma.Decimal('6.00'),
       serviceFeeAmount: new Prisma.Decimal(String(fee)),
       totalAmount: new Prisma.Decimal(String(total)),
-      payment: {
+      payments: {
         create: {
           motherId: mother.id,
           amount: new Prisma.Decimal(String(total)),
