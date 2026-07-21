@@ -36,6 +36,10 @@ import {
   refundBookingPoints,
   validateBookingPromo,
 } from '@backend/services/booking.service';
+import {
+  getBookingCamera,
+  notifyNannyToStartCamera,
+} from '@backend/services/booking-camera.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
 import {
   createPaymobIntentionForBooking,
@@ -127,6 +131,36 @@ bookingRouter.get(
       if (!req.firebaseUser) throw errors.unauthorized();
       const booking = await getBooking(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+/** Parent-only live camera feed for an IN_PROGRESS booking. Returns the RTSP
+ *  URL plus a reachability probe. Role/status checks live in the service. */
+bookingRouter.get(
+  '/:id/camera',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const camera = await getBookingCamera(req.firebaseUser, routeIdParam(req.params['id']));
+      res.json(ok(camera));
+    } catch (err) { next(err); }
+  },
+);
+
+/** Nudge the nanny to turn the camera on. Cooldown enforced in the service. */
+bookingRouter.post(
+  '/:id/camera/notify',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const result = await notifyNannyToStartCamera(
+        req.firebaseUser,
+        routeIdParam(req.params['id']),
+      );
+      res.json(ok(result));
     } catch (err) { next(err); }
   },
 );
