@@ -8,6 +8,9 @@ jest.mock('@backend/db/prisma', () => ({
     },
     packageHoursLedger: { create: jest.fn(), findMany: jest.fn() },
     user: { findUnique: jest.fn() },
+    $transaction: jest.fn(async (arg: unknown) =>
+      typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(jest.requireMock('@backend/db/prisma').prisma) : arg,
+    ),
   },
 }));
 
@@ -289,6 +292,10 @@ describe('refundPackageHours', () => {
     expect(m.packageHoursLedger.findMany).toHaveBeenCalledWith({
       where: { bookingId: 42, type: 'REDEMPTION', deletedAt: null },
     });
+    // Soft-delete filter on the bucket lookup.
+    expect(m.packagePurchase.findFirst).toHaveBeenCalledWith({
+      where: { id: 1, deletedAt: null },
+    });
     expect(refunded).toBe(3);
     expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
       where: { id: 1, status: 'ACTIVE', deletedAt: null },
@@ -357,8 +364,9 @@ describe('refundPackageHours', () => {
 });
 
 describe('expirePackagesForUser', () => {
-  it('flips a past-due ACTIVE bucket to EXPIRED, zeroes hoursRemaining, and writes an EXPIRY ledger row', async () => {
+  it('closes the bucket first, then forfeits whatever is actually left', async () => {
     m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
+    mockPurchaseLookups({}, { 1: '4.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
     await expirePackagesForUser(7);
@@ -368,9 +376,14 @@ describe('expirePackagesForUser', () => {
     });
     // Status guard in the WHERE clause so two concurrent balance reads can't
     // both forfeit the same bucket and write two EXPIRY rows for one loss.
-    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+    // Zeroing is deliberately NOT part of this statement — see the next test.
+    expect(m.packagePurchase.updateMany).toHaveBeenNthCalledWith(1, {
       where: { id: 1, status: 'ACTIVE', deletedAt: null },
-      data: { status: 'EXPIRED', hoursRemaining: 0 },
+      data: { status: 'EXPIRED' },
+    });
+    expect(m.packagePurchase.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: 1 },
+      data: { hoursRemaining: 0 },
     });
     expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
       data: {
@@ -381,6 +394,21 @@ describe('expirePackagesForUser', () => {
         balanceAfter: 0,
         reason: expect.stringContaining('4'),
       },
+    });
+  });
+
+  it('forfeits only what survived a redemption that landed after the stale read', async () => {
+    // The sweep listed the bucket at 4h, but a booking redeemed 3h before the
+    // status flip committed. Writing the stale 4 would leave sum(ledger)
+    // permanently 3h above the bucket.
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
+    mockPurchaseLookups({}, { 1: '1.00' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    await expirePackagesForUser(7);
+
+    expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ type: 'EXPIRY', hours: -1, balanceAfter: 0 }),
     });
   });
 
@@ -395,13 +423,10 @@ describe('expirePackagesForUser', () => {
 
   it('does not write a ledger row when there are no hours left to forfeit', async () => {
     m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '0.00' })]);
+    mockPurchaseLookups({}, { 1: '0.00' });
 
     await expirePackagesForUser(7);
 
-    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
-      where: { id: 1, status: 'ACTIVE', deletedAt: null },
-      data: { status: 'EXPIRED', hoursRemaining: 0 },
-    });
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 

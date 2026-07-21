@@ -209,16 +209,31 @@ export async function expirePackagesForUser(userId: number, db: Db = prisma): Pr
   });
 
   for (const p of stale) {
-    const forfeited = Number(p.hoursRemaining);
-    // The status guard belongs in the WHERE clause: two concurrent balance
-    // reads (a pull-to-refresh double fire is enough) would otherwise both
-    // expire the same bucket and write two EXPIRY rows for one forfeiture,
-    // permanently desyncing sum(ledger) from hoursRemaining.
+    // Close the status FIRST, without zeroing yet. The guard belongs in the
+    // WHERE clause so two concurrent balance reads (a pull-to-refresh double
+    // fire is enough) can't both forfeit the same bucket and write two EXPIRY
+    // rows for one loss.
     const expired = await db.packagePurchase.updateMany({
       where: { id: p.id, status: 'ACTIVE', deletedAt: null },
-      data: { status: 'EXPIRED', hoursRemaining: 0 },
+      data: { status: 'EXPIRED' },
     });
     if (expired.count === 0) continue; // another caller expired it first
+
+    // Only now read what is actually left. `stale` was read before the status
+    // flip, so a booking that redeemed from this bucket in between would make
+    // that snapshot too high — writing it to the ledger would leave
+    // sum(ledger) permanently above hoursRemaining. Redemption requires
+    // status ACTIVE, so nothing can draw from the bucket past this point.
+    const fresh = await db.packagePurchase.findFirst({
+      where: { id: p.id },
+      select: { hoursRemaining: true },
+    });
+    const forfeited = round2(Number(fresh?.hoursRemaining ?? 0));
+
+    await db.packagePurchase.updateMany({
+      where: { id: p.id },
+      data: { hoursRemaining: 0 },
+    });
 
     if (forfeited > 0) {
       await db.packageHoursLedger.create({
@@ -264,7 +279,10 @@ export async function getMyPackageHours(firebaseUid: string): Promise<PackageHou
   const user = await prisma.user.findUnique({ where: { firebaseUid } });
   if (!user || user.deletedAt) throw errors.notFound('User not found');
 
-  await expirePackagesForUser(user.id);
+  // Wrapped in a transaction so the status flip, the zeroing and the EXPIRY
+  // ledger row commit together — a crash between them would otherwise leave the
+  // ledger disagreeing with the bucket.
+  await prisma.$transaction((tx) => expirePackagesForUser(user.id, tx));
 
   const rows = await prisma.packagePurchase.findMany({
     where: { userId: user.id, deletedAt: null, status: { in: ['ACTIVE', 'PENDING_PAYMENT'] } },

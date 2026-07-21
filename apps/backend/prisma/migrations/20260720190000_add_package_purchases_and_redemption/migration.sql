@@ -114,6 +114,13 @@ CREATE INDEX "package_hours_ledger_entries_purchase_id_idx" ON "package_hours_le
 -- CreateIndex
 CREATE INDEX "package_hours_ledger_entries_booking_id_idx" ON "package_hours_ledger_entries"("booking_id");
 
+-- Enforces refund idempotency at the database rather than by a preceding read:
+-- two concurrent cancels of the same booking can both pass the application's
+-- pre-check, and the increment that follows would fabricate hours. Rows with a
+-- null booking_id (PURCHASE, EXPIRY, ADMIN_ADJUST) are unconstrained, since
+-- Postgres treats NULLs as distinct in a unique index.
+CREATE UNIQUE INDEX "package_hours_ledger_entries_booking_id_purchase_id_type_key" ON "package_hours_ledger_entries"("booking_id", "purchase_id", "type");
+
 -- CreateIndex
 CREATE UNIQUE INDEX "payments_package_purchase_id_key" ON "payments"("package_purchase_id");
 

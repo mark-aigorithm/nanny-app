@@ -76,6 +76,26 @@ function floor2(n: number): number {
  * the total owed would silently destroy prepaid hours whenever a promo code has
  * already brought the total below the raw value of those hours.
  */
+export function resolvePackageHourValue(params: {
+  baseRate: number;
+  durationMultiplier: number;
+  /** Free skill add-ons the package covers. */
+  maxSkillsAllowed: number;
+  /** Per-hour fee of each selected skill add-on, in any order. */
+  skillFeesPerHour: number[];
+}): { creditPerHour: number; skillsCovered: number } {
+  const descending = [...params.skillFeesPerHour].sort((a, b) => b - a);
+  const skillsCovered = Math.min(params.maxSkillsAllowed, descending.length);
+  const waivedPerHour = descending
+    .slice(0, skillsCovered)
+    .reduce((sum, fee) => sum + fee, 0);
+
+  return {
+    creditPerHour: round2((params.baseRate + waivedPerHour) * params.durationMultiplier),
+    skillsCovered,
+  };
+}
+
 export function planPackageHoursRedemption(params: {
   baseRate: number;
   durationMultiplier: number;
@@ -84,23 +104,20 @@ export function planPackageHoursRedemption(params: {
   durationHours: number;
   /** Prepaid hours the mother currently holds. */
   availableHours: number;
+  /**
+   * Best allowance across the mother's buckets. Optimistic on purpose: a higher
+   * allowance means a higher per-hour value, hence FEWER affordable hours, so
+   * this can only under-spend. The caller re-prices against the allowance of the
+   * buckets actually drawn from.
+   */
   maxSkillsAllowed: number;
-  /** Per-hour fee of each selected skill add-on, in any order. */
   skillFeesPerHour: number[];
 }): { hoursToRedeem: number; skillsCovered: number; creditPerHour: number } {
   const none = { hoursToRedeem: 0, skillsCovered: 0, creditPerHour: 0 };
   if (params.availableHours <= 0 || params.durationHours <= 0) return none;
   if (params.totalAmount <= 0) return none;
 
-  const descending = [...params.skillFeesPerHour].sort((a, b) => b - a);
-  const skillsCovered = Math.min(params.maxSkillsAllowed, descending.length);
-  const waivedPerHour = descending
-    .slice(0, skillsCovered)
-    .reduce((sum, fee) => sum + fee, 0);
-
-  const creditPerHour = round2(
-    (params.baseRate + waivedPerHour) * params.durationMultiplier,
-  );
+  const { creditPerHour, skillsCovered } = resolvePackageHourValue(params);
   // A worthless hour must never be spent.
   if (creditPerHour <= 0) return none;
 

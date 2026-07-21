@@ -1,4 +1,8 @@
-import { packageHoursCreditFor, planPackageHoursRedemption } from '@nanny-app/shared';
+import {
+  packageHoursCreditFor,
+  planPackageHoursRedemption,
+  resolvePackageHourValue,
+} from '@nanny-app/shared';
 
 /**
  * Pins how many prepaid hours a booking spends and what they are worth.
@@ -173,6 +177,61 @@ describe('planPackageHoursRedemption', () => {
         skillFeesPerHour: [],
       }).hoursToRedeem,
     ).toBe(0);
+  });
+});
+
+describe('resolvePackageHourValue', () => {
+  /**
+   * The plan sizes itself with the BEST allowance across all of a mother's
+   * buckets, but FIFO may drain a bucket with a smaller one. Billing at the
+   * planned rate would then waive skill fees the consumed package never
+   * covered — platform money spent on an entitlement she doesn't hold. So
+   * booking.service re-prices with the allowance of the buckets actually drawn
+   * from, and this is the function it re-prices through.
+   */
+  it('values an hour at base rate plus the waived surcharges only', () => {
+    expect(
+      resolvePackageHourValue({
+        baseRate: 50,
+        durationMultiplier: 1,
+        maxSkillsAllowed: 1,
+        skillFeesPerHour: [20],
+      }),
+    ).toEqual({ creditPerHour: 70, skillsCovered: 1 });
+  });
+
+  it('drops to the bare base rate when the drawn bucket allows no free skills', () => {
+    // The regression case: planned against a 3-skill bucket, but FIFO drained a
+    // 0-skill one. Re-pricing must not keep waiving the 20/h add-on.
+    const planned = resolvePackageHourValue({
+      baseRate: 50,
+      durationMultiplier: 1,
+      maxSkillsAllowed: 3,
+      skillFeesPerHour: [20],
+    });
+    const actual = resolvePackageHourValue({
+      baseRate: 50,
+      durationMultiplier: 1,
+      maxSkillsAllowed: 0,
+      skillFeesPerHour: [20],
+    });
+
+    expect(planned.creditPerHour).toBe(70);
+    expect(actual).toEqual({ creditPerHour: 50, skillsCovered: 0 });
+    // Re-pricing can only ever lower the credit, so the plan's affordability
+    // bound still holds after the swap.
+    expect(actual.creditPerHour).toBeLessThan(planned.creditPerHour);
+  });
+
+  it('applies the duration multiplier to the waived surcharges too', () => {
+    expect(
+      resolvePackageHourValue({
+        baseRate: 50,
+        durationMultiplier: 0.9,
+        maxSkillsAllowed: 1,
+        skillFeesPerHour: [20],
+      }).creditPerHour,
+    ).toBe(63);
   });
 });
 

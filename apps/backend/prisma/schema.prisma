@@ -418,6 +418,12 @@ model PackageHoursLedger {
   updatedAt    DateTime              @updatedAt @map("updated_at")
   deletedAt    DateTime?             @map("deleted_at")
 
+  /// One movement of a given type per booking per bucket. This is what actually
+  /// enforces refund idempotency: the pre-read guard in refundPackageHours is a
+  /// fast path, but two concurrent cancels can both pass it, and the increment
+  /// that follows would fabricate hours. Rows with a null bookingId (PURCHASE,
+  /// EXPIRY, ADMIN_ADJUST) are unconstrained — Postgres treats NULLs as distinct.
+  @@unique([bookingId, purchaseId, type])
   @@index([userId, createdAt])
   @@index([purchaseId])
   @@index([bookingId])

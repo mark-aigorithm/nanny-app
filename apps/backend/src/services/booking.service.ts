@@ -5,6 +5,7 @@ import {
   BookingType,
   packageHoursCreditFor,
   planPackageHoursRedemption,
+  resolvePackageHourValue,
   PaymentStatus,
   bookingLeadTimeMessage,
   bookingWindowMessage,
@@ -502,14 +503,27 @@ async function applyPackageHoursToBooking(
   });
   if (redeem.hoursApplied <= 0) return booking;
 
+  // Re-price against the buckets FIFO actually drew from, not the optimistic
+  // allowance used to size the plan. The plan takes the best allowance across
+  // all of the mother's buckets; if FIFO drained a bucket with a smaller one,
+  // billing at the planned rate would waive skill fees the consumed package
+  // never covered — money out of platformAmount for an entitlement she doesn't
+  // hold. Sourcing it from the drawn buckets can only lower the credit, so the
+  // plan's affordability bound still holds.
+  const actual = resolvePackageHourValue({
+    baseRate: Number(booking.baseRate),
+    durationMultiplier: Number(booking.durationMultiplier) || 1,
+    maxSkillsAllowed: redeem.maxSkillsAllowed,
+    skillFeesPerHour: skillAddOns.map((s) => s.amountPerHour),
+  });
   // Priced off what was ACTUALLY debited — a concurrent booking may have taken
   // some of the balance between the plan and the redeem.
   const credit = packageHoursCreditFor({
     hoursApplied: redeem.hoursApplied,
-    creditPerHour: plan.creditPerHour,
+    creditPerHour: actual.creditPerHour,
     totalAmount,
   });
-  const skillsCovered = plan.skillsCovered;
+  const skillsCovered = actual.skillsCovered;
 
   return tx.booking.update({
     where: { id: booking.id },
