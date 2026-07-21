@@ -80,6 +80,35 @@ export const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  // Shown while loading, when there's no camera, or when the stream won't open.
+  videoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  placeholderText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: colors.textSecondary,
+  },
+  retryBtn: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+  },
+  retryText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
   liveBadge: {
     position: 'absolute',
     top: spacing.md,

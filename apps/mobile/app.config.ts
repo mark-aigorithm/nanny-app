@@ -63,6 +63,12 @@ const config: ExpoConfig = {
         cameraPermission: `${APP_NAME} needs access to your camera so you can attach photo evidence to care log entries.`,
       },
     ],
+    // RTSP playback for the parent's live camera monitor. libVLC handles RTSP
+    // on both platforms; AVPlayer (expo-video/react-native-video) cannot play
+    // RTSP on iOS at all, which is why this is a native module rather than a
+    // JS-only addition. Requires a fresh dev/EAS build — it will not arrive
+    // over an OTA update.
+    'react-native-vlc-media-player',
   ],
   experiments: {
     typedRoutes: true,

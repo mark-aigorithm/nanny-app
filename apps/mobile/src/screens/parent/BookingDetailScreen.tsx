@@ -45,6 +45,8 @@ export default function BookingDetailScreen() {
   const { data: booking, isLoading, refetch } = useBooking(bookingId ? Number(bookingId) : undefined);
   const canViewCareLog =
     booking?.status === 'IN_PROGRESS' || booking?.status === 'COMPLETED';
+  // The feed only exists mid-shift, and only if the nanny has a camera set up.
+  const canWatchLive = booking?.status === 'IN_PROGRESS' && booking.hasCamera;
   const cancelBooking = useCancelBooking();
 
   useEffect(() => {
@@ -242,6 +244,21 @@ export default function BookingDetailScreen() {
             </View>
           )}
         </View>
+
+        {canWatchLive && bookingId ? (
+          <Pressable
+            style={styles.watchLiveButton}
+            onPress={() =>
+              router.push({
+                pathname: '/nanny/live-video-monitor',
+                params: { bookingId: String(bookingId) },
+              })
+            }
+          >
+            <Ionicons name="videocam-outline" size={18} color={colors.white} />
+            <Text style={styles.watchLiveButtonText}>Watch live</Text>
+          </Pressable>
+        ) : null}
 
         {canViewCareLog && bookingId ? (
           <View

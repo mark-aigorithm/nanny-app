@@ -227,6 +227,21 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.white,
   },
+  watchLiveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: borderRadius['2xl'],
+    backgroundColor: colors.primary,
+    ...shadows.md,
+  },
+  watchLiveButtonText: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
   careLogSection: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
