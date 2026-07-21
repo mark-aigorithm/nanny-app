@@ -53,6 +53,8 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'referral_converted';
     case 'REFERRAL_JOINED':
       return 'referral_joined';
+    case 'CAMERA_REQUESTED':
+      return 'camera_requested';
     default:
       return 'marketplace_message';
   }

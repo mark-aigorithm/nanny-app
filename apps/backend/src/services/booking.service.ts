@@ -87,7 +87,18 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const bookingInclude = {
   mother: true,
-  nannyProfile: { include: { user: true } },
+  // `cameras` is pulled only to derive the `hasCamera` boolean — id-only and
+  // capped at one row, so it stays cheap on list queries. The stream URL is
+  // never read here; it's served solely by GET /bookings/:id/camera.
+  nannyProfile: {
+    include: {
+      user: {
+        include: {
+          cameras: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+        },
+      },
+    },
+  },
   payment: true,
   review: true,
 } as const;
@@ -189,6 +200,7 @@ function toBookingResponse(
     nannyCheckedOutAt: b.nannyCheckedOutAt?.toISOString() ?? null,
     startPinActive:
       b.startPinExpiresAt != null && b.startPinExpiresAt.getTime() > Date.now(),
+    hasCamera: (b.nannyProfile?.user.cameras?.length ?? 0) > 0,
     payment: b.payment
       ? {
           id: b.payment.id,

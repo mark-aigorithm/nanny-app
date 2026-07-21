@@ -30,6 +30,37 @@ export const UpdateCameraSchema = CreateCameraSchema.partial().refine(
 );
 export type UpdateCameraInput = z.infer<typeof UpdateCameraSchema>;
 
+// ──────────────────────────────────────────────────────────────
+// Live monitoring (parent-facing)
+// ──────────────────────────────────────────────────────────────
+
+/** The camera feed for an in-progress booking, as served to the parent.
+ *
+ *  `streamUrl` is an `rtsp://` URL and is deliberately NOT part of
+ *  BookingResponse — RTSP URLs routinely embed credentials, so it is only ever
+ *  returned from the dedicated, status-gated endpoint. BookingResponse carries
+ *  a `hasCamera` boolean instead, which is all the UI needs to show the button.
+ *
+ *  `online` comes from a TCP reachability probe: true/false when the host could
+ *  be dialled, null when the URL could not be parsed. It proves the camera is
+ *  reachable, NOT that a stream is actually flowing. */
+export const BookingCameraSchema = z.object({
+  name: z.string(),
+  streamUrl: z.string(),
+  online: z.boolean().nullable(),
+  checkedAt: z.string(),
+});
+export type BookingCamera = z.infer<typeof BookingCameraSchema>;
+
+/** Result of asking the nanny to turn the camera on. */
+export const NotifyCameraResponseSchema = z.object({
+  notifiedAt: z.string(),
+});
+export type NotifyCameraResponse = z.infer<typeof NotifyCameraResponseSchema>;
+
+/** Cooldown between two "turn the camera on" nudges to the same booking. */
+export const CAMERA_NOTIFY_COOLDOWN_SECONDS = 300;
+
 /** Option for the admin nanny-assignment dropdown. */
 export const NannyOptionSchema = z.object({
   userId: z.number().int(),

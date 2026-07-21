@@ -19,4 +19,5 @@ export const errors = {
   notFound: (message = 'Not found') => new AppError(message, 404),
   conflict: (message: string) => new AppError(message, 409),
   badRequest: (message: string) => new AppError(message, 400),
+  tooManyRequests: (message: string) => new AppError(message, 429),
 };
