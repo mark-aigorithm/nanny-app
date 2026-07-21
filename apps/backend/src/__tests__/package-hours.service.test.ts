@@ -1,6 +1,11 @@
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
-    packagePurchase: { findMany: jest.fn(), update: jest.fn(), findFirst: jest.fn() },
+    packagePurchase: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      findFirst: jest.fn(),
+    },
     packageHoursLedger: { create: jest.fn(), findMany: jest.fn() },
     user: { findUnique: jest.fn() },
   },
@@ -12,12 +17,18 @@ import {
   expirePackagesForUser,
   getAvailableHours,
   getMyPackageHours,
+  getRedeemableSummary,
   redeemPackageHours,
   refundPackageHours,
 } from '@backend/services/package-hours.service';
 
 const m = prisma as unknown as {
-  packagePurchase: { findMany: jest.Mock; update: jest.Mock; findFirst: jest.Mock };
+  packagePurchase: {
+    findMany: jest.Mock;
+    update: jest.Mock;
+    updateMany: jest.Mock;
+    findFirst: jest.Mock;
+  };
   packageHoursLedger: { create: jest.Mock; findMany: jest.Mock };
   user: { findUnique: jest.Mock };
 };
@@ -51,8 +62,26 @@ function mockLedgerFindMany(debits: unknown[], existingRefunds: unknown[] = []) 
   );
 }
 
+type PurchaseFindFirstArgs = {
+  where: { id: number; deletedAt?: null };
+  select?: { hoursRemaining: true };
+};
+
+/**
+ * Balances are now read back from the DB AFTER an atomic increment/decrement rather than
+ * computed in JS, so `packagePurchase.findFirst` serves two different queries: the full-row
+ * lookup, and the `select: { hoursRemaining }` read-back. Route them by the `select` key.
+ */
+function mockPurchaseLookups(rows: Record<number, unknown>, balancesAfter: Record<number, string>) {
+  m.packagePurchase.findFirst.mockImplementation(async (args: PurchaseFindFirstArgs) => {
+    if (args.select) return { hoursRemaining: balancesAfter[args.where.id] ?? '0.00' };
+    return rows[args.where.id] ?? null;
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  m.packagePurchase.updateMany.mockResolvedValue({ count: 1 });
 });
 
 describe('getAvailableHours', () => {
@@ -92,6 +121,24 @@ describe('getAvailableHours', () => {
   });
 });
 
+describe('getRedeemableSummary', () => {
+  it('reports spendable hours and the best free-skill allowance without debiting anything', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([
+      bucket({ id: 1, hoursRemaining: '4.00', maxSkillsSnapshot: 1 }),
+      bucket({ id: 2, hoursRemaining: '6.00', maxSkillsSnapshot: 3 }),
+    ]);
+
+    expect(await getRedeemableSummary(7)).toEqual({ availableHours: 10, maxSkillsAllowed: 3 });
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('reports a zero allowance when there is nothing to spend', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([]);
+    expect(await getRedeemableSummary(7)).toEqual({ availableHours: 0, maxSkillsAllowed: 0 });
+  });
+});
+
 describe('creditPurchaseHours', () => {
   it('promotes PENDING_PAYMENT to ACTIVE, sets hoursRemaining and purchasedAt, keeps the stored expiresAt as-is, and writes a PURCHASE ledger row', async () => {
     const pending = bucket({
@@ -105,14 +152,15 @@ describe('creditPurchaseHours', () => {
       nameSnapshot: 'Starter Pack',
     });
     m.packagePurchase.findFirst.mockResolvedValue(pending);
-    m.packagePurchase.update.mockResolvedValue({});
     m.packageHoursLedger.create.mockResolvedValue({});
 
     await creditPurchaseHours(prisma as never, 5);
 
     expect(m.packagePurchase.findFirst).toHaveBeenCalledWith({ where: { id: 5, deletedAt: null } });
-    expect(m.packagePurchase.update).toHaveBeenCalledWith({
-      where: { id: 5 },
+    // The PENDING_PAYMENT guard must live in the WHERE clause, not in a prior
+    // read — otherwise a replayed capture double-credits.
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 5, status: 'PENDING_PAYMENT', deletedAt: null },
       data: {
         status: 'ACTIVE',
         hoursRemaining: 20,
@@ -137,7 +185,17 @@ describe('creditPurchaseHours', () => {
 
     await creditPurchaseHours(prisma as never, 5);
 
-    expect(m.packagePurchase.update).not.toHaveBeenCalled();
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('writes no ledger row when a concurrent capture won the promotion race', async () => {
+    // Both callers read PENDING_PAYMENT; the conditional update decides the winner.
+    m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 5, status: 'PENDING_PAYMENT' }));
+    m.packagePurchase.updateMany.mockResolvedValue({ count: 0 });
+
+    await creditPurchaseHours(prisma as never, 5);
+
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 
@@ -153,9 +211,11 @@ describe('redeemPackageHours (FIFO)', () => {
       bucket({ id: 1, hoursRemaining: '4.00', expiresAt: new Date('2026-08-01'), maxSkillsSnapshot: 1 }),
       bucket({ id: 2, hoursRemaining: '10.00', expiresAt: new Date('2026-10-01'), maxSkillsSnapshot: 3 }),
     ]);
-    m.packagePurchase.update.mockResolvedValue({});
+    mockPurchaseLookups({}, { 1: '0.00', 2: '8.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
+
     const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 99, hoursNeeded: 6 });
+
     expect(res.hoursApplied).toBe(6);
     expect(res.maxSkillsAllowed).toBe(3); // max across consumed buckets
     expect(res.purchaseIds).toEqual([1, 2]);
@@ -164,23 +224,27 @@ describe('redeemPackageHours (FIFO)', () => {
 
   it('applies only what is available when short', async () => {
     m.packagePurchase.findMany.mockResolvedValue([bucket({ hoursRemaining: '2.00' })]);
-    m.packagePurchase.update.mockResolvedValue({});
+    mockPurchaseLookups({}, { 1: '0.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
+
     const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 99, hoursNeeded: 6 });
     expect(res.hoursApplied).toBe(2);
   });
 
-  it('writes a negative-hours REDEMPTION row referencing the bookingId, with the correct balanceAfter', async () => {
+  it('debits atomically and guards against overdraw, then records the DB-read balance', async () => {
     m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
-    m.packagePurchase.update.mockResolvedValue({});
+    mockPurchaseLookups({}, { 1: '1.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
     await redeemPackageHours(prisma as never, { userId: 7, bookingId: 42, hoursNeeded: 3 });
 
-    expect(m.packagePurchase.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { hoursRemaining: 1 },
+    // A conditional decrement — never an absolute write computed from the read
+    // above, which would lose concurrent updates and could go negative.
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE', deletedAt: null, hoursRemaining: { gte: 3 } },
+      data: { hoursRemaining: { decrement: 3 } },
     });
+    expect(m.packagePurchase.update).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
       data: {
         purchaseId: 1,
@@ -194,6 +258,18 @@ describe('redeemPackageHours (FIFO)', () => {
     });
   });
 
+  it('skips a bucket a concurrent booking already drained, and reports the shortfall', async () => {
+    // Two bookings race for the same 4h: this one loses the conditional decrement.
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
+    m.packagePurchase.updateMany.mockResolvedValue({ count: 0 });
+
+    const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 42, hoursNeeded: 4 });
+
+    expect(res.hoursApplied).toBe(0);
+    expect(res.purchaseIds).toEqual([]);
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
   it('returns zero applied hours and no purchaseIds when there is nothing to redeem from', async () => {
     m.packagePurchase.findMany.mockResolvedValue([]);
     const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 99, hoursNeeded: 6 });
@@ -205,8 +281,7 @@ describe('redeemPackageHours (FIFO)', () => {
 describe('refundPackageHours', () => {
   it('restores hours to the originating bucket and writes a REFUND row', async () => {
     mockLedgerFindMany([{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }]);
-    m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 1, hoursRemaining: '1.00' }));
-    m.packagePurchase.update.mockResolvedValue({});
+    mockPurchaseLookups({ 1: bucket({ id: 1, hoursRemaining: '1.00' }) }, { 1: '4.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
     const refunded = await refundPackageHours(prisma as never, 42);
@@ -214,12 +289,12 @@ describe('refundPackageHours', () => {
     expect(m.packageHoursLedger.findMany).toHaveBeenCalledWith({
       where: { bookingId: 42, type: 'REDEMPTION', deletedAt: null },
     });
-    expect(m.packagePurchase.findFirst).toHaveBeenCalledWith({ where: { id: 1, deletedAt: null } });
     expect(refunded).toBe(3);
-    expect(m.packagePurchase.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { hoursRemaining: 4 },
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE', deletedAt: null },
+      data: { hoursRemaining: { increment: 3 } },
     });
+    expect(m.packagePurchase.update).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
       data: {
         purchaseId: 1,
@@ -238,27 +313,25 @@ describe('refundPackageHours', () => {
       { id: 10, purchaseId: 1, userId: 7, hours: '-4.00' },
       { id: 11, purchaseId: 2, userId: 7, hours: '-2.00' },
     ]);
-    m.packagePurchase.findFirst
-      .mockResolvedValueOnce(bucket({ id: 1, hoursRemaining: '0.00' }))
-      .mockResolvedValueOnce(bucket({ id: 2, hoursRemaining: '8.00' }));
-    m.packagePurchase.update.mockResolvedValue({});
+    mockPurchaseLookups(
+      { 1: bucket({ id: 1, hoursRemaining: '0.00' }), 2: bucket({ id: 2, hoursRemaining: '8.00' }) },
+      { 1: '4.00', 2: '10.00' },
+    );
     m.packageHoursLedger.create.mockResolvedValue({});
 
     const refunded = await refundPackageHours(prisma as never, 42);
     expect(refunded).toBe(6);
-    expect(m.packagePurchase.update).toHaveBeenCalledTimes(2);
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledTimes(2);
     expect(m.packageHoursLedger.create).toHaveBeenCalledTimes(2);
   });
 
   it('skips a bucket that has since expired', async () => {
     mockLedgerFindMany([{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }]);
-    m.packagePurchase.findFirst.mockResolvedValue(
-      bucket({ id: 1, status: 'EXPIRED', hoursRemaining: '0.00' }),
-    );
+    mockPurchaseLookups({ 1: bucket({ id: 1, status: 'EXPIRED', hoursRemaining: '0.00' }) }, {});
 
     const refunded = await refundPackageHours(prisma as never, 42);
     expect(refunded).toBe(0);
-    expect(m.packagePurchase.update).not.toHaveBeenCalled();
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 
@@ -272,14 +345,13 @@ describe('refundPackageHours', () => {
       [{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }],
       [{ id: 99, purchaseId: 1, userId: 7, hours: '3.00' }],
     );
-    m.packagePurchase.findFirst.mockResolvedValue(bucket({ id: 1, hoursRemaining: '1.00' }));
-    m.packagePurchase.update.mockResolvedValue({});
+    mockPurchaseLookups({ 1: bucket({ id: 1, hoursRemaining: '1.00' }) }, { 1: '4.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
     const refunded = await refundPackageHours(prisma as never, 42);
 
     expect(refunded).toBe(0);
-    expect(m.packagePurchase.update).not.toHaveBeenCalled();
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 });
@@ -287,7 +359,6 @@ describe('refundPackageHours', () => {
 describe('expirePackagesForUser', () => {
   it('flips a past-due ACTIVE bucket to EXPIRED, zeroes hoursRemaining, and writes an EXPIRY ledger row', async () => {
     m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
-    m.packagePurchase.update.mockResolvedValue({});
     m.packageHoursLedger.create.mockResolvedValue({});
 
     await expirePackagesForUser(7);
@@ -295,8 +366,10 @@ describe('expirePackagesForUser', () => {
     expect(m.packagePurchase.findMany).toHaveBeenCalledWith({
       where: { userId: 7, status: 'ACTIVE', deletedAt: null, expiresAt: { lt: expect.any(Date) } },
     });
-    expect(m.packagePurchase.update).toHaveBeenCalledWith({
-      where: { id: 1 },
+    // Status guard in the WHERE clause so two concurrent balance reads can't
+    // both forfeit the same bucket and write two EXPIRY rows for one loss.
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE', deletedAt: null },
       data: { status: 'EXPIRED', hoursRemaining: 0 },
     });
     expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
@@ -311,14 +384,22 @@ describe('expirePackagesForUser', () => {
     });
   });
 
-  it('does not write a ledger row when there are no hours left to forfeit', async () => {
-    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '0.00' })]);
-    m.packagePurchase.update.mockResolvedValue({});
+  it('writes no EXPIRY row when a concurrent sweep already expired the bucket', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
+    m.packagePurchase.updateMany.mockResolvedValue({ count: 0 });
 
     await expirePackagesForUser(7);
 
-    expect(m.packagePurchase.update).toHaveBeenCalledWith({
-      where: { id: 1 },
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('does not write a ledger row when there are no hours left to forfeit', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '0.00' })]);
+
+    await expirePackagesForUser(7);
+
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE', deletedAt: null },
       data: { status: 'EXPIRED', hoursRemaining: 0 },
     });
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
@@ -327,7 +408,7 @@ describe('expirePackagesForUser', () => {
   it('is a no-op when there are no stale buckets', async () => {
     m.packagePurchase.findMany.mockResolvedValue([]);
     await expirePackagesForUser(7);
-    expect(m.packagePurchase.update).not.toHaveBeenCalled();
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 });

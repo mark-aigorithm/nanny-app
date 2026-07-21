@@ -1,133 +1,198 @@
-import { computePackageHoursCredit } from '@nanny-app/shared';
+import { packageHoursCreditFor, planPackageHoursRedemption } from '@nanny-app/shared';
 
 /**
- * Pins how prepaid package hours are turned into money on a booking.
+ * Pins how many prepaid hours a booking spends and what they are worth.
  *
- * This is the arithmetic `applyPackageHoursToBooking` (booking.service) relies
- * on, and the part that can silently over- or under-credit a parent, so it is
- * exercised directly rather than through createBooking's full dependency graph.
+ * The hours-to-spend decision has to happen BEFORE anything is debited. An
+ * earlier version debited the full booking duration and only then capped the
+ * credit at the total owed, which silently destroyed prepaid hours whenever a
+ * promo had already pushed the total below their value. The regression cases
+ * below are the ones that version got wrong.
  */
-describe('computePackageHoursCredit', () => {
-  it('values covered hours at the base rate when no skills are selected', () => {
-    const { credit, skillsCovered } = computePackageHoursCredit({
+describe('planPackageHoursRedemption', () => {
+  it('covers the whole booking when the balance and total allow it', () => {
+    const plan = planPackageHoursRedemption({
       baseRate: 50,
       durationMultiplier: 1,
       totalAmount: 500,
-      hoursApplied: 4,
+      durationHours: 4,
+      availableHours: 10,
       maxSkillsAllowed: 2,
       skillFeesPerHour: [],
     });
-    expect(credit).toBe(200);
+    expect(plan.hoursToRedeem).toBe(4);
+    expect(plan.creditPerHour).toBe(50);
     // An allowance of 2 with nothing selected covers nothing.
-    expect(skillsCovered).toBe(0);
+    expect(plan.skillsCovered).toBe(0);
+  });
+
+  it('spends only the hours a promo-reduced total can pay for', () => {
+    // 6h at 60 = 360 subtotal, but a 50%-off promo leaves 180 owed.
+    // Spending all 6 hours would burn 360 EGP of prepaid value for 180 of benefit.
+    const plan = planPackageHoursRedemption({
+      baseRate: 60,
+      durationMultiplier: 1,
+      totalAmount: 180,
+      durationHours: 6,
+      availableHours: 10,
+      maxSkillsAllowed: 0,
+      skillFeesPerHour: [],
+    });
+    expect(plan.hoursToRedeem).toBe(3);
+    expect(
+      packageHoursCreditFor({
+        hoursApplied: plan.hoursToRedeem,
+        creditPerHour: plan.creditPerHour,
+        totalAmount: 180,
+      }),
+    ).toBe(180);
+  });
+
+  it('spends nothing when a 100% promo leaves nothing owed', () => {
+    // The worst case of the old bug: every hour burned for zero benefit.
+    const plan = planPackageHoursRedemption({
+      baseRate: 60,
+      durationMultiplier: 1,
+      totalAmount: 0,
+      durationHours: 6,
+      availableHours: 10,
+      maxSkillsAllowed: 0,
+      skillFeesPerHour: [],
+    });
+    expect(plan.hoursToRedeem).toBe(0);
+  });
+
+  it('never spends more hours than the parent holds', () => {
+    const plan = planPackageHoursRedemption({
+      baseRate: 60,
+      durationMultiplier: 1,
+      totalAmount: 600,
+      durationHours: 6,
+      availableHours: 2.5,
+      maxSkillsAllowed: 0,
+      skillFeesPerHour: [],
+    });
+    expect(plan.hoursToRedeem).toBe(2.5);
+  });
+
+  it('rounds affordable hours DOWN so the credit can never exceed the total', () => {
+    // 190 / 60 = 3.1666… — rounding up would credit 190.02 against 190 owed.
+    const plan = planPackageHoursRedemption({
+      baseRate: 60,
+      durationMultiplier: 1,
+      totalAmount: 190,
+      durationHours: 6,
+      availableHours: 10,
+      maxSkillsAllowed: 0,
+      skillFeesPerHour: [],
+    });
+    expect(plan.hoursToRedeem).toBe(3.16);
+    const credit = packageHoursCreditFor({
+      hoursApplied: plan.hoursToRedeem,
+      creditPerHour: plan.creditPerHour,
+      totalAmount: 190,
+    });
+    expect(credit).toBeLessThanOrEqual(190);
   });
 
   it('waives the most expensive skills first, up to the allowance', () => {
-    const { credit, skillsCovered } = computePackageHoursCredit({
+    const plan = planPackageHoursRedemption({
       baseRate: 50,
       durationMultiplier: 1,
       totalAmount: 1000,
-      hoursApplied: 3,
+      durationHours: 3,
+      availableHours: 10,
       maxSkillsAllowed: 2,
-      // Allowance of 2 against three add-ons: 12 and 8 are waived, 5 stays billable.
+      // Allowance of 2 against three add-ons: 12 and 8 waived, 5 stays billable.
       skillFeesPerHour: [5, 12, 8],
     });
-    expect(skillsCovered).toBe(2);
-    expect(credit).toBe((50 + 12 + 8) * 3);
+    expect(plan.skillsCovered).toBe(2);
+    expect(plan.creditPerHour).toBe(50 + 12 + 8);
+  });
+
+  it('waives nothing when the package includes no free skills', () => {
+    const plan = planPackageHoursRedemption({
+      baseRate: 40,
+      durationMultiplier: 1,
+      totalAmount: 1000,
+      durationHours: 2,
+      availableHours: 10,
+      maxSkillsAllowed: 0,
+      skillFeesPerHour: [10, 20],
+    });
+    expect(plan.skillsCovered).toBe(0);
+    expect(plan.creditPerHour).toBe(40);
   });
 
   it('scales by the duration multiplier so a discounted booking is not over-credited', () => {
     // These hours were only charged at 0.9x, so crediting the full rate back
-    // would hand the mother more than the hours actually cost her.
-    const { credit } = computePackageHoursCredit({
+    // would hand the parent more than the hours actually cost them.
+    const plan = planPackageHoursRedemption({
       baseRate: 50,
       durationMultiplier: 0.9,
       totalAmount: 1000,
-      hoursApplied: 4,
+      durationHours: 4,
+      availableHours: 10,
       maxSkillsAllowed: 0,
       skillFeesPerHour: [],
     });
-    expect(credit).toBe(180);
-    expect(credit).toBeLessThan(50 * 4);
-  });
-
-  it('never credits more than the total still owed', () => {
-    const { credit } = computePackageHoursCredit({
-      baseRate: 50,
-      durationMultiplier: 1,
-      // A promo already pulled the total below the raw value of the hours.
-      totalAmount: 120,
-      hoursApplied: 6,
-      maxSkillsAllowed: 0,
-      skillFeesPerHour: [],
-    });
-    expect(credit).toBe(120);
-  });
-
-  it('covers only the skills actually selected when the allowance exceeds them', () => {
-    const { credit, skillsCovered } = computePackageHoursCredit({
-      baseRate: 40,
-      durationMultiplier: 1,
-      totalAmount: 1000,
-      hoursApplied: 2,
-      maxSkillsAllowed: 5,
-      skillFeesPerHour: [10],
-    });
-    expect(skillsCovered).toBe(1);
-    expect(credit).toBe((40 + 10) * 2);
-  });
-
-  it('waives nothing when the package includes no free skills', () => {
-    const { credit, skillsCovered } = computePackageHoursCredit({
-      baseRate: 40,
-      durationMultiplier: 1,
-      totalAmount: 1000,
-      hoursApplied: 2,
-      maxSkillsAllowed: 0,
-      skillFeesPerHour: [10, 20],
-    });
-    expect(skillsCovered).toBe(0);
-    // Base rate only — both add-ons stay billable.
-    expect(credit).toBe(80);
-  });
-
-  it('handles partial coverage when fewer hours are left than the booking runs', () => {
-    // A 6-hour booking with only 2.5 prepaid hours left; the rest stays payable.
-    const { credit } = computePackageHoursCredit({
-      baseRate: 60,
-      durationMultiplier: 1,
-      totalAmount: 360,
-      hoursApplied: 2.5,
-      maxSkillsAllowed: 0,
-      skillFeesPerHour: [],
-    });
-    expect(credit).toBe(150);
-    expect(credit).toBeLessThan(360);
-  });
-
-  it('is a no-op when no hours were applied', () => {
+    expect(plan.creditPerHour).toBe(45);
     expect(
-      computePackageHoursCredit({
+      packageHoursCreditFor({
+        hoursApplied: 4,
+        creditPerHour: plan.creditPerHour,
+        totalAmount: 1000,
+      }),
+    ).toBe(180);
+  });
+
+  it('spends nothing when there is no balance', () => {
+    expect(
+      planPackageHoursRedemption({
         baseRate: 50,
         durationMultiplier: 1,
         totalAmount: 500,
-        hoursApplied: 0,
+        durationHours: 4,
+        availableHours: 0,
         maxSkillsAllowed: 3,
         skillFeesPerHour: [10],
       }),
-    ).toEqual({ credit: 0, skillsCovered: 0 });
+    ).toEqual({ hoursToRedeem: 0, skillsCovered: 0, creditPerHour: 0 });
   });
 
-  it('rounds to 2 decimals so fractional hours cannot drift the balance', () => {
-    const { credit } = computePackageHoursCredit({
-      baseRate: 33.33,
-      durationMultiplier: 1,
-      totalAmount: 1000,
-      hoursApplied: 1.5,
-      maxSkillsAllowed: 0,
-      skillFeesPerHour: [],
-    });
-    expect(credit).toBe(50);
-    expect(Number.isInteger(Math.round(credit * 100))).toBe(true);
+  it('spends nothing when an hour would be worth nothing', () => {
+    // A zero rate would otherwise consume hours for no credit at all.
+    expect(
+      planPackageHoursRedemption({
+        baseRate: 0,
+        durationMultiplier: 1,
+        totalAmount: 500,
+        durationHours: 4,
+        availableHours: 10,
+        maxSkillsAllowed: 0,
+        skillFeesPerHour: [],
+      }).hoursToRedeem,
+    ).toBe(0);
+  });
+});
+
+describe('packageHoursCreditFor', () => {
+  it('prices the hours that were actually debited, not the hours planned', () => {
+    // A concurrent booking can take part of the balance between plan and redeem.
+    expect(
+      packageHoursCreditFor({ hoursApplied: 2, creditPerHour: 50, totalAmount: 500 }),
+    ).toBe(100);
+  });
+
+  it('is zero when nothing was applied', () => {
+    expect(
+      packageHoursCreditFor({ hoursApplied: 0, creditPerHour: 50, totalAmount: 500 }),
+    ).toBe(0);
+  });
+
+  it('still caps at the total owed as a safety net', () => {
+    expect(
+      packageHoursCreditFor({ hoursApplied: 10, creditPerHour: 50, totalAmount: 120 }),
+    ).toBe(120);
   });
 });

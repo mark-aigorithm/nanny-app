@@ -54,29 +54,43 @@ export function resolveEffectiveRate(
   return { effectiveHourlyRate: round2(baseRate + addOnTotal), applied };
 }
 
+/** Rounds DOWN to 2 decimals — used where rounding up would overspend. */
+function floor2(n: number): number {
+  return Math.floor(n * 100) / 100;
+}
+
 /**
- * Values a booking's applied prepaid package hours as an EGP credit.
+ * Decides how many prepaid package hours a booking should actually consume.
  *
  * Prepaid hours are a credit, never a re-price — the nanny is still paid the
- * full effective rate and the platform funds the benefit. Covered hours are
- * valued at what the mother was actually charged for them: the base rate plus
- * any waived skill surcharges, scaled by the duration multiplier. Skipping the
+ * full effective rate and the platform funds the benefit. A covered hour is
+ * worth what the mother was actually charged for it: the base rate plus any
+ * waived skill surcharges, scaled by the duration multiplier. Skipping the
  * multiplier would credit back more than a discounted long booking cost.
  *
  * The package's free-skill allowance is spent on the most expensive add-ons
  * first (best for the mother); any selected beyond the allowance stay billable.
- * The credit never exceeds what is still owed.
+ *
+ * Critically, the hours to redeem are bounded by what the remaining balance can
+ * actually pay for. Redeeming the full duration and then capping the credit at
+ * the total owed would silently destroy prepaid hours whenever a promo code has
+ * already brought the total below the raw value of those hours.
  */
-export function computePackageHoursCredit(params: {
+export function planPackageHoursRedemption(params: {
   baseRate: number;
   durationMultiplier: number;
+  /** What is still owed on the booking before any package credit. */
   totalAmount: number;
-  hoursApplied: number;
+  durationHours: number;
+  /** Prepaid hours the mother currently holds. */
+  availableHours: number;
   maxSkillsAllowed: number;
   /** Per-hour fee of each selected skill add-on, in any order. */
   skillFeesPerHour: number[];
-}): { credit: number; skillsCovered: number } {
-  if (params.hoursApplied <= 0) return { credit: 0, skillsCovered: 0 };
+}): { hoursToRedeem: number; skillsCovered: number; creditPerHour: number } {
+  const none = { hoursToRedeem: 0, skillsCovered: 0, creditPerHour: 0 };
+  if (params.availableHours <= 0 || params.durationHours <= 0) return none;
+  if (params.totalAmount <= 0) return none;
 
   const descending = [...params.skillFeesPerHour].sort((a, b) => b - a);
   const skillsCovered = Math.min(params.maxSkillsAllowed, descending.length);
@@ -84,10 +98,33 @@ export function computePackageHoursCredit(params: {
     .slice(0, skillsCovered)
     .reduce((sum, fee) => sum + fee, 0);
 
-  const rawCredit = round2(
-    (params.baseRate + waivedPerHour) * params.hoursApplied * params.durationMultiplier,
+  const creditPerHour = round2(
+    (params.baseRate + waivedPerHour) * params.durationMultiplier,
   );
-  return { credit: Math.min(rawCredit, params.totalAmount), skillsCovered };
+  // A worthless hour must never be spent.
+  if (creditPerHour <= 0) return none;
+
+  const affordableHours = floor2(params.totalAmount / creditPerHour);
+  const hoursToRedeem = round2(
+    Math.min(params.durationHours, params.availableHours, affordableHours),
+  );
+  if (hoursToRedeem <= 0) return none;
+
+  return { hoursToRedeem, skillsCovered, creditPerHour };
+}
+
+/**
+ * EGP credit for the hours a booking actually consumed. The cap is a safety
+ * net only — planPackageHoursRedemption already bounds the hours so it should
+ * never bind.
+ */
+export function packageHoursCreditFor(params: {
+  hoursApplied: number;
+  creditPerHour: number;
+  totalAmount: number;
+}): number {
+  if (params.hoursApplied <= 0) return 0;
+  return Math.min(round2(params.hoursApplied * params.creditPerHour), params.totalAmount);
 }
 
 /**

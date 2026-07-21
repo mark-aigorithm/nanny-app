@@ -28,6 +28,22 @@ export async function getAvailableHours(userId: number, db: Db = prisma): Promis
 }
 
 /**
+ * What the user could spend right now, without debiting anything. Callers need
+ * the free-skill allowance to price a redemption BEFORE committing to it — see
+ * planPackageHoursRedemption.
+ */
+export async function getRedeemableSummary(
+  userId: number,
+  db: Db = prisma,
+): Promise<{ availableHours: number; maxSkillsAllowed: number }> {
+  const buckets = await activeBuckets(userId, db);
+  return {
+    availableHours: round2(buckets.reduce((sum, b) => sum + Number(b.hoursRemaining), 0)),
+    maxSkillsAllowed: buckets.reduce((max, b) => Math.max(max, b.maxSkillsSnapshot), 0),
+  };
+}
+
+/**
  * Idempotent: turn a paid purchase into usable hours + a PURCHASE ledger row.
  * Called on payment capture. `expiresAt` is computed once at purchase-creation
  * time (now + the package's validityDays) and stored on the row, so this
@@ -42,8 +58,11 @@ export async function creditPurchaseHours(db: Db, purchaseId: number): Promise<v
 
   const purchasedAt = new Date();
 
-  await db.packagePurchase.update({
-    where: { id: purchase.id },
+  // Conditional update rather than check-then-act: the status guard lives in the
+  // WHERE clause, so a concurrent replay of the same capture matches zero rows
+  // instead of crediting the hours (and writing a PURCHASE ledger row) twice.
+  const promoted = await db.packagePurchase.updateMany({
+    where: { id: purchase.id, status: 'PENDING_PAYMENT', deletedAt: null },
     data: {
       status: 'ACTIVE',
       hoursRemaining: purchase.hoursPurchased,
@@ -51,6 +70,7 @@ export async function creditPurchaseHours(db: Db, purchaseId: number): Promise<v
       expiresAt: purchase.expiresAt,
     },
   });
+  if (promoted.count === 0) return; // lost the race — the other caller credited it
   await db.packageHoursLedger.create({
     data: {
       purchaseId: purchase.id,
@@ -80,15 +100,27 @@ export async function redeemPackageHours(
 
   for (const b of buckets) {
     if (remaining <= 0) break;
-    const avail = Number(b.hoursRemaining);
-    const take = round2(Math.min(avail, remaining));
+    const take = round2(Math.min(Number(b.hoursRemaining), remaining));
     if (take <= 0) continue;
-    const balanceAfter = round2(avail - take);
 
-    await db.packagePurchase.update({
-      where: { id: b.id },
-      data: { hoursRemaining: balanceAfter },
+    // Atomic conditional decrement, NOT a read-then-set. Writing an absolute
+    // balance computed from the earlier read loses updates: two concurrent
+    // bookings could both read 10h, both write 4h, and draw 12h from a 10h
+    // bucket. The `gte` guard also makes a negative balance unrepresentable —
+    // under READ COMMITTED the predicate is re-evaluated after the row lock is
+    // released, so the loser of a race matches zero rows and moves on.
+    const debited = await db.packagePurchase.updateMany({
+      where: { id: b.id, status: 'ACTIVE', deletedAt: null, hoursRemaining: { gte: take } },
+      data: { hoursRemaining: { decrement: take } },
     });
+    if (debited.count === 0) continue; // another transaction took them first
+
+    const fresh = await db.packagePurchase.findFirst({
+      where: { id: b.id },
+      select: { hoursRemaining: true },
+    });
+    const balanceAfter = round2(Number(fresh?.hoursRemaining ?? 0));
+
     await db.packageHoursLedger.create({
       data: {
         purchaseId: b.id,
@@ -137,12 +169,22 @@ export async function refundPackageHours(db: Db, bookingId: number): Promise<num
     if (!purchase || purchase.status === 'EXPIRED') continue;
 
     const restore = Math.abs(Number(d.hours));
-    const balanceAfter = round2(Number(purchase.hoursRemaining) + restore);
 
-    await db.packagePurchase.update({
-      where: { id: purchase.id },
-      data: { hoursRemaining: balanceAfter },
+    // Atomic increment for the same reason redemption uses a decrement: an
+    // absolute write computed from the read above would clobber a concurrent
+    // redemption on the same bucket.
+    const credited = await db.packagePurchase.updateMany({
+      where: { id: purchase.id, status: 'ACTIVE', deletedAt: null },
+      data: { hoursRemaining: { increment: restore } },
     });
+    if (credited.count === 0) continue; // expired or refunded out from under us
+
+    const fresh = await db.packagePurchase.findFirst({
+      where: { id: purchase.id },
+      select: { hoursRemaining: true },
+    });
+    const balanceAfter = round2(Number(fresh?.hoursRemaining ?? restore));
+
     await db.packageHoursLedger.create({
       data: {
         purchaseId: purchase.id,
@@ -168,10 +210,16 @@ export async function expirePackagesForUser(userId: number, db: Db = prisma): Pr
 
   for (const p of stale) {
     const forfeited = Number(p.hoursRemaining);
-    await db.packagePurchase.update({
-      where: { id: p.id },
+    // The status guard belongs in the WHERE clause: two concurrent balance
+    // reads (a pull-to-refresh double fire is enough) would otherwise both
+    // expire the same bucket and write two EXPIRY rows for one forfeiture,
+    // permanently desyncing sum(ledger) from hoursRemaining.
+    const expired = await db.packagePurchase.updateMany({
+      where: { id: p.id, status: 'ACTIVE', deletedAt: null },
       data: { status: 'EXPIRED', hoursRemaining: 0 },
     });
+    if (expired.count === 0) continue; // another caller expired it first
+
     if (forfeited > 0) {
       await db.packageHoursLedger.create({
         data: {

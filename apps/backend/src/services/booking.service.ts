@@ -3,7 +3,8 @@ import {
   type AppliedSkillFee,
   BookingStatus,
   BookingType,
-  computePackageHoursCredit,
+  packageHoursCreditFor,
+  planPackageHoursRedemption,
   PaymentStatus,
   bookingLeadTimeMessage,
   bookingWindowMessage,
@@ -55,6 +56,7 @@ import {
 } from './pricing-config.service';
 import {
   getAvailableHours,
+  getRedeemableSummary,
   redeemPackageHours,
   refundPackageHours,
 } from './package-hours.service';
@@ -477,21 +479,37 @@ async function applyPackageHoursToBooking(
   booking: BookingWithRelations,
   skillAddOns: AppliedSkillFee[],
 ): Promise<BookingWithRelations> {
+  // Decide how many hours are worth spending BEFORE debiting any. Redeeming the
+  // full duration and then capping the credit at the total owed would silently
+  // burn hours whenever a promo has already pushed the total below their value.
+  const summary = await getRedeemableSummary(booking.motherId, tx);
+  const totalAmount = Number(booking.totalAmount);
+  const plan = planPackageHoursRedemption({
+    baseRate: Number(booking.baseRate),
+    durationMultiplier: Number(booking.durationMultiplier) || 1,
+    totalAmount,
+    durationHours: Number(booking.durationHours),
+    availableHours: summary.availableHours,
+    maxSkillsAllowed: summary.maxSkillsAllowed,
+    skillFeesPerHour: skillAddOns.map((s) => s.amountPerHour),
+  });
+  if (plan.hoursToRedeem <= 0) return booking;
+
   const redeem = await redeemPackageHours(tx, {
     userId: booking.motherId,
     bookingId: booking.id,
-    hoursNeeded: Number(booking.durationHours),
+    hoursNeeded: plan.hoursToRedeem,
   });
   if (redeem.hoursApplied <= 0) return booking;
 
-  const { credit, skillsCovered } = computePackageHoursCredit({
-    baseRate: Number(booking.baseRate),
-    durationMultiplier: Number(booking.durationMultiplier) || 1,
-    totalAmount: Number(booking.totalAmount),
+  // Priced off what was ACTUALLY debited — a concurrent booking may have taken
+  // some of the balance between the plan and the redeem.
+  const credit = packageHoursCreditFor({
     hoursApplied: redeem.hoursApplied,
-    maxSkillsAllowed: redeem.maxSkillsAllowed,
-    skillFeesPerHour: skillAddOns.map((s) => s.amountPerHour),
+    creditPerHour: plan.creditPerHour,
+    totalAmount,
   });
+  const skillsCovered = plan.skillsCovered;
 
   return tx.booking.update({
     where: { id: booking.id },
@@ -879,17 +897,22 @@ export async function cancelBooking(
 
   // Return any Care Points the parent applied to this (still unpaid) booking.
   // Best-effort — a reward hiccup must not block a cancellation.
+  // Both reversals rewrite the booking's money fields from ABSOLUTE values read
+  // off the row they were handed, so the second must see the first's result.
+  // Passing the same stale snapshot to both silently discards one reversal when
+  // a booking carries Care Points and package hours at once.
+  let reversed = booking;
   try {
-    await refundBookingIfApplied(booking);
+    reversed = (await refundBookingIfApplied(reversed)) ?? reversed;
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[rewards] failed to refund points on cancel', { bookingId, err });
   }
 
   // Same for any prepaid package hours applied to this (still unpaid) booking —
-  // best-effort, so a hours-ledger hiccup can't block the cancellation.
+  // best-effort, so an hours-ledger hiccup can't block the cancellation.
   try {
-    await refundPackageHoursIfApplied(booking);
+    reversed = (await refundPackageHoursIfApplied(reversed)) ?? reversed;
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[packages] failed to refund package hours on cancel', { bookingId, err });
