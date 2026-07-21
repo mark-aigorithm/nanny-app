@@ -63,14 +63,6 @@ const config: ExpoConfig = {
         cameraPermission: `${APP_NAME} needs access to your camera so you can attach photo evidence to care log entries.`,
       },
     ],
-    // Firebase's Swift pods (FirebaseAuth, FirebaseCoreInternal) depend on
-    // pods that don't define modules, so they cannot be integrated as plain
-    // static libraries -- `pod install` fails outright without this. Static
-    // frameworks are the combination React Native Firebase documents.
-    [
-      'expo-build-properties',
-      { ios: { useFrameworks: 'static' } },
-    ],
     // RTSP playback for the parent's live camera monitor. libVLC handles RTSP
     // on both platforms; AVPlayer (expo-video/react-native-video) cannot play
     // RTSP on iOS at all, which is why this is a native module rather than a
