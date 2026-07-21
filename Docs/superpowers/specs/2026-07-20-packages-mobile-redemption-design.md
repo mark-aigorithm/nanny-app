@@ -22,6 +22,16 @@ delivered the admin catalog + CRUD, explicitly excluding purchase/redemption).
   accumulate as `EXPIRED`/depleted rows. This makes the free-skill allowance
   unambiguous (the single active package's `maxSkills`) and redemption trivial
   (draw from the one active bucket).
+  - **Pending-checkout guard.** Blocking only on `ACTIVE` left a hole: a parent
+    could start two checkouts before paying either (neither is ACTIVE yet, so
+    both pass), pay both, and end up with two active packages — because
+    `creditPurchaseHours` promotes `PENDING_PAYMENT → ACTIVE` unconditionally.
+    So a second purchase is **also blocked while a recent `PENDING_PAYMENT`
+    purchase exists**, using `PAYMOB_INTENTION_TTL_MS` as the window: a pending
+    checkout blocks for exactly as long as its Paymob intention is still usable.
+    Past that TTL the checkout is treated as abandoned and no longer blocks, so
+    an abandoned attempt can never permanently lock a parent out. The two
+    conflicts return distinct messages.
 - **Per-package validity → per-purchase buckets.** Each `Package` defines
   `validityDays`; each purchase is its own expiring bucket with its own
   `maxSkills`. With the single-active rule, redemption draws from the one active
