@@ -72,6 +72,16 @@ export function PackageTable({ packages }: PackageTableProps) {
     { key: 'hours', header: 'Hours', render: (pkg) => `${pkg.hours} h` },
     { key: 'price', header: 'Price', render: (pkg) => formatEgp(pkg.price) },
     {
+      key: 'validityDays',
+      header: 'Validity',
+      render: (pkg) => `${pkg.validityDays} d`,
+    },
+    {
+      key: 'maxSkills',
+      header: 'Free skills',
+      render: (pkg) => String(pkg.maxSkills),
+    },
+    {
       key: 'expiresAt',
       header: 'Expires',
       render: (pkg) =>
@@ -163,9 +173,16 @@ function PackageEditModal({
   const [description, setDescription] = useState(pkg.description ?? '');
   const [hours, setHours] = useState(String(pkg.hours));
   const [price, setPrice] = useState(String(pkg.price));
+  const [validityDays, setValidityDays] = useState(String(pkg.validityDays));
+  const [maxSkills, setMaxSkills] = useState(String(pkg.maxSkills));
   const [expiresAt, setExpiresAt] = useState(isoToDateInput(pkg.expiresAt));
   const canSave =
-    !busy && name.trim().length > 0 && Number(hours) >= 1 && Number(price) > 0;
+    !busy &&
+    name.trim().length > 0 &&
+    Number(hours) >= 1 &&
+    Number(price) > 0 &&
+    Number(validityDays) >= 1 &&
+    Number(maxSkills) >= 0;
 
   return (
     <Modal
@@ -185,6 +202,8 @@ function PackageEditModal({
                 description: description.trim() || undefined,
                 hours: Number(hours),
                 price: Number(price),
+                validityDays: Number(validityDays),
+                maxSkills: Number(maxSkills),
                 expiresAt: dateInputToIso(expiresAt),
               })
             }
@@ -245,6 +264,40 @@ function PackageEditModal({
           value={price}
           onChange={(event) => setPrice(event.target.value)}
         />
+      </div>
+      <div className="modal-field field">
+        <label className="field-label" htmlFor="package-validity">
+          Validity (days)
+        </label>
+        <input
+          id="package-validity"
+          className="input"
+          type="number"
+          min={1}
+          step={1}
+          value={validityDays}
+          onChange={(event) => setValidityDays(event.target.value)}
+        />
+        <span className="field-hint">
+          How long a parent&rsquo;s hours stay usable after they buy this package.
+        </span>
+      </div>
+      <div className="modal-field field">
+        <label className="field-label" htmlFor="package-max-skills">
+          Free skills
+        </label>
+        <input
+          id="package-max-skills"
+          className="input"
+          type="number"
+          min={0}
+          step={1}
+          value={maxSkills}
+          onChange={(event) => setMaxSkills(event.target.value)}
+        />
+        <span className="field-hint">
+          Skill add-ons covered free on a booking paid with this package.
+        </span>
       </div>
       <div className="modal-field field">
         <label className="field-label" htmlFor="package-expires">

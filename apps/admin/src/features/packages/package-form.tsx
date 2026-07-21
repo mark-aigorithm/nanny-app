@@ -19,6 +19,8 @@ export function PackageForm() {
   const [description, setDescription] = useState('');
   const [hours, setHours] = useState('');
   const [price, setPrice] = useState('');
+  const [validityDays, setValidityDays] = useState('');
+  const [maxSkills, setMaxSkills] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -30,6 +32,8 @@ export function PackageForm() {
       setDescription('');
       setHours('');
       setPrice('');
+      setValidityDays('');
+      setMaxSkills('');
       setExpiresAt('');
       setIsActive(true);
       setFormError(null);
@@ -45,6 +49,10 @@ export function PackageForm() {
       description: description.trim() || undefined,
       hours: Number(hours),
       price: Number(price),
+      // Left blank means "use the schema default" — Number('') would be 0 and
+      // fail validation rather than falling back.
+      validityDays: validityDays ? Number(validityDays) : undefined,
+      maxSkills: maxSkills ? Number(maxSkills) : undefined,
       isActive,
       expiresAt: dateInputToIso(expiresAt),
     });
@@ -97,7 +105,33 @@ export function PackageForm() {
               required
             />
           </Field>
-          <Field label="Expires at" hint="Optional — leave blank for a package that never expires.">
+          <Field
+            label="Validity (days)"
+            hint="How long a parent's hours stay usable after purchase. Defaults to 30."
+          >
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={validityDays}
+              onChange={(e) => setValidityDays(e.target.value)}
+              placeholder="90"
+            />
+          </Field>
+          <Field
+            label="Free skills"
+            hint="Skill add-ons covered free on a booking paid with this package. Defaults to 0."
+          >
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={maxSkills}
+              onChange={(e) => setMaxSkills(e.target.value)}
+              placeholder="2"
+            />
+          </Field>
+          <Field label="Expires at" hint="Optional — the date this package stops being offered.">
             <input
               type="date"
               value={expiresAt}
