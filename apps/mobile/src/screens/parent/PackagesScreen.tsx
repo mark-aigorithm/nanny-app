@@ -55,6 +55,11 @@ export default function PackagesScreen() {
     [packageHours.data],
   );
 
+  // Fail safe: while the hours balance is loading or errored, we cannot confirm
+  // whether an active package exists — treat Buy as blocked rather than allowed.
+  const hoursUnconfirmed = packageHours.isLoading || packageHours.isError;
+  const buyDisabled = hasActivePackage || hoursUnconfirmed;
+
   const availableHours = packageHours.data?.availableHours ?? 0;
   const list = packages.data ?? [];
 
@@ -104,6 +109,22 @@ export default function PackagesScreen() {
           </Card>
         )}
 
+        {packageHours.isError && (
+          <Card style={styles.banner}>
+            <View style={styles.bannerRow}>
+              <IconCircle
+                icon="alert-circle-outline"
+                size="sm"
+                backgroundColor={colors.surface}
+                iconColor={colors.goldWarm}
+              />
+              <Text style={styles.bannerText}>
+                Couldn&apos;t check your prepaid balance — pull to refresh before buying.
+              </Text>
+            </View>
+          </Card>
+        )}
+
         <Text style={styles.sectionTitle}>Available packages</Text>
 
         {packages.isLoading && (
@@ -125,7 +146,7 @@ export default function PackagesScreen() {
         )}
 
         {list.map((pkg) => (
-          <PackageCard key={pkg.id} pkg={pkg} buyDisabled={hasActivePackage} />
+          <PackageCard key={pkg.id} pkg={pkg} buyDisabled={buyDisabled} />
         ))}
       </ScrollView>
     </View>
