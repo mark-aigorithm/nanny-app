@@ -106,8 +106,8 @@ which signals availability without exposing the secret.
 `packages/shared/src/camera.ts` gains `BookingCameraSchema` / `BookingCamera`.
 `packages/shared/src/booking.ts` gains `hasCamera` on `BookingResponseSchema`.
 
-`packages/shared/dist/` is committed to the repo, so it must be rebuilt as part of
-this change or mobile will typecheck against stale definitions.
+`packages/shared/dist/` is gitignored, so it just needs rebuilding locally
+(`pnpm build` in `packages/shared`) before mobile typechecks.
 
 ## Mobile
 
@@ -120,6 +120,24 @@ installed dev builds will not pick it up.
 
 Chosen over the platform players because `AVPlayer` on iOS has no RTSP support at all;
 ExoPlayer on Android does, which would yield a working Android and a broken iOS.
+
+**Unverified: New Architecture compatibility.** Expo SDK 54 enables the New
+Architecture by default, and `react-native-vlc-media-player` is a legacy Paper
+view manager with no Fabric/codegen support. It should run through React
+Native's legacy interop layer, but that could not be confirmed without a native
+build, and video surfaces are a common interop edge case. **First dev build must
+open the live monitor screen to confirm.** A blank/black video area or an unknown
+component error means interop failed.
+
+Two fallbacks, in order of preference:
+
+1. `newArchEnabled: false` in `app.config.ts`. Guaranteed to work, but SDK 54 is
+   the last release where the New Architecture can be disabled, so this only
+   defers the problem to the next Expo upgrade.
+2. Upgrade to Expo SDK 55 and switch to `expo-libvlc-player`, which is a proper
+   New-Architecture Expo module. This is the clean end state. It was rejected for
+   now only because it has no SDK 54 build at all — its versions jump from Expo 53
+   to Expo 55 — so adopting it today would force the SDK upgrade.
 
 ### `LiveVideoMonitorScreen`
 
