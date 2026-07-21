@@ -29,9 +29,12 @@ const config: ExpoConfig = {
     supportsTablet: false,
     bundleIdentifier: 'com.nannyapp.mobile',
     googleServicesFile: "./GoogleService-Info.plist",
-    config: {
-      googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    },
+    // Deliberately no `config.googleMapsApiKey` here. Setting it pulls in the
+    // react-native-google-maps pod, which cannot build under the framework
+    // linkage Firebase requires (react-native-maps#4868, #5742 -- unresolved
+    // upstream). Nothing is lost: no screen passes PROVIDER_GOOGLE, so
+    // react-native-maps already renders Apple Maps on iOS and the pod was
+    // being compiled but never used. Android still uses Google Maps below.
   },
   android: {
     adaptiveIcon: {
@@ -63,6 +66,11 @@ const config: ExpoConfig = {
         cameraPermission: `${APP_NAME} needs access to your camera so you can attach photo evidence to care log entries.`,
       },
     ],
+    // Firebase's Swift pods cannot be integrated as static libraries, so iOS
+    // needs framework linkage. This and withIosFirebasePods are two halves of
+    // one fix and must stay together -- see that plugin for the full story.
+    ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+    './plugins/withIosFirebasePods',
     // RTSP playback for the parent's live camera monitor. libVLC handles RTSP
     // on both platforms; AVPlayer (expo-video/react-native-video) cannot play
     // RTSP on iOS at all, which is why this is a native module rather than a
