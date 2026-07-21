@@ -121,23 +121,28 @@ installed dev builds will not pick it up.
 Chosen over the platform players because `AVPlayer` on iOS has no RTSP support at all;
 ExoPlayer on Android does, which would yield a working Android and a broken iOS.
 
-**Unverified: New Architecture compatibility.** Expo SDK 54 enables the New
-Architecture by default, and `react-native-vlc-media-player` is a legacy Paper
-view manager with no Fabric/codegen support. It should run through React
-Native's legacy interop layer, but that could not be confirmed without a native
-build, and video surfaces are a common interop edge case. **First dev build must
-open the live monitor screen to confirm.** A blank/black video area or an unknown
-component error means interop failed.
+**New Architecture compatibility: VERIFIED WORKING (2026-07-21.)** This was the
+main risk in the design. Expo SDK 54 enables the New Architecture by default and
+`react-native-vlc-media-player` is a legacy Paper view manager with no
+Fabric/codegen support, so it depends on React Native's legacy interop layer —
+and video surfaces are a known interop edge case. It was tested end-to-end on a
+device and the stream renders correctly. No fallback was needed.
 
-Two fallbacks, in order of preference:
+Fallbacks, kept only in case a future Expo upgrade regresses this:
 
-1. `newArchEnabled: false` in `app.config.ts`. Guaranteed to work, but SDK 54 is
-   the last release where the New Architecture can be disabled, so this only
-   defers the problem to the next Expo upgrade.
-2. Upgrade to Expo SDK 55 and switch to `expo-libvlc-player`, which is a proper
-   New-Architecture Expo module. This is the clean end state. It was rejected for
-   now only because it has no SDK 54 build at all — its versions jump from Expo 53
-   to Expo 55 — so adopting it today would force the SDK upgrade.
+1. `newArchEnabled: false` in `app.config.ts`. SDK 54 is the last release where
+   the New Architecture can be disabled, so this defers rather than solves.
+2. Upgrade to Expo SDK 55 and switch to `expo-libvlc-player`, a proper
+   New-Architecture Expo module. The clean end state, rejected here only because
+   it has no SDK 54 build — its versions jump from Expo 53 to Expo 55.
+
+### iOS build configuration
+
+Getting iOS to build at all required four interlocking Podfile settings for
+React Native Firebase. They are documented in
+`apps/mobile/plugins/withIosFirebasePods.js`; removing any one breaks the build
+in a different and misleading way. Notably `buildReactNativeFromSource` must
+stay off, or fmt 11.0.2 fails under Xcode 26 clang.
 
 ### `LiveVideoMonitorScreen`
 
@@ -169,8 +174,9 @@ Shared: schema parse tests. Mobile: button visibility gating.
 
 ## Risks
 
-1. `react-native-vlc-media-player` is thinly maintained and its Expo config plugin
-   support is inconsistent. This is the most likely source of schedule slip.
+1. ~~`react-native-vlc-media-player` may not work under the New Architecture.~~
+   Resolved — verified working on device 2026-07-21. The package remains thinly
+   maintained, so an Expo/RN upgrade could regress it; see the fallbacks above.
 2. The TCP probe overstates liveness (see above).
 3. libVLC meaningfully increases binary size.
 4. RTSP playback assumes the camera is reachable from the parent's device. Cameras
