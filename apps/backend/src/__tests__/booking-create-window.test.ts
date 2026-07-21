@@ -5,6 +5,8 @@ jest.mock('@backend/db/prisma', () => ({
     user: { findUnique: jest.fn(), findMany: jest.fn() },
     nannyProfile: { findMany: jest.fn() },
     booking: { findFirst: jest.fn(), create: jest.fn() },
+    // createBooking checks the mother's prepaid package-hours balance; no packages here.
+    packagePurchase: { findMany: jest.fn().mockResolvedValue([]) },
     skill: { findMany: jest.fn() },
     durationMultiplierRule: { findMany: jest.fn() },
   },
@@ -40,6 +42,7 @@ const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
   nannyProfile: { findMany: jest.Mock };
   booking: { findFirst: jest.Mock; create: jest.Mock };
+  packagePurchase: { findMany: jest.Mock };
   skill: { findMany: jest.Mock };
   durationMultiplierRule: { findMany: jest.Mock };
 };

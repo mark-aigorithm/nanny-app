@@ -3,6 +3,7 @@ import {
   type AppliedSkillFee,
   BookingStatus,
   BookingType,
+  computePackageHoursCredit,
   PaymentStatus,
   bookingLeadTimeMessage,
   bookingWindowMessage,
@@ -52,6 +53,11 @@ import {
   getPricingConfig,
   getPricingInputs,
 } from './pricing-config.service';
+import {
+  getAvailableHours,
+  redeemPackageHours,
+  refundPackageHours,
+} from './package-hours.service';
 import { redeemPromoCode, validatePromoCode } from './promo-code.service';
 import { convertReferralForBooking } from './referral.service';
 import {
@@ -456,6 +462,51 @@ export async function assertNoConflict(
  * platform hourly rate, so the mother sees her total immediately. The nanny
  * time-conflict check happens at claim time, not here.
  */
+/**
+ * Apply the mother's prepaid package hours to a freshly created booking.
+ *
+ * Prepaid hours are a CREDIT, never a re-price: the nanny is still paid the full
+ * effective rate (`nannyAmount` is untouched) and the platform funds the benefit
+ * out of `platformAmount` — exactly how Care Points redemption works. Covered
+ * hours are valued at what the mother was actually charged for them (base rate
+ * plus any waived skill surcharges, scaled by the duration multiplier), so a
+ * discounted long booking never credits back more than those hours cost.
+ */
+async function applyPackageHoursToBooking(
+  tx: Prisma.TransactionClient,
+  booking: BookingWithRelations,
+  skillAddOns: AppliedSkillFee[],
+): Promise<BookingWithRelations> {
+  const redeem = await redeemPackageHours(tx, {
+    userId: booking.motherId,
+    bookingId: booking.id,
+    hoursNeeded: Number(booking.durationHours),
+  });
+  if (redeem.hoursApplied <= 0) return booking;
+
+  const { credit, skillsCovered } = computePackageHoursCredit({
+    baseRate: Number(booking.baseRate),
+    durationMultiplier: Number(booking.durationMultiplier) || 1,
+    totalAmount: Number(booking.totalAmount),
+    hoursApplied: redeem.hoursApplied,
+    maxSkillsAllowed: redeem.maxSkillsAllowed,
+    skillFeesPerHour: skillAddOns.map((s) => s.amountPerHour),
+  });
+
+  return tx.booking.update({
+    where: { id: booking.id },
+    data: {
+      discountAmount: round2(Number(booking.discountAmount) + credit),
+      totalAmount: round2(Number(booking.totalAmount) - credit),
+      platformAmount: round2(Number(booking.platformAmount) - credit),
+      packageHoursApplied: redeem.hoursApplied,
+      packageSkillsCovered: skillsCovered,
+      packageCreditAmount: credit,
+    },
+    include: bookingInclude,
+  });
+}
+
 export async function createBooking(
   decoded: DecodedIdToken,
   body: CreateBookingRequest,
@@ -602,17 +653,30 @@ export async function createBooking(
     ...(body.specialInstructions ? { specialInstructions: body.specialInstructions } : {}),
   };
 
+  // Prepaid package hours are applied inside the same transaction as creation so
+  // a failure can never leave hours debited against a booking that doesn't exist.
+  // Only take the transactional path when there is actually a balance to spend,
+  // so the common no-package booking keeps its original single-insert path.
+  // A balance change between this check and the redeem is harmless: the redeem
+  // re-reads inside the transaction and applies whatever is really there.
+  const wantsPackageHours = body.usePackageHours !== false;
+  const willApplyPackageHours =
+    wantsPackageHours && (await getAvailableHours(user.id)) > 0;
+
   let booking: BookingWithRelations;
-  if (promoCodeId) {
+  if (promoCodeId || willApplyPackageHours) {
     const appliedPromoCodeId = promoCodeId;
     booking = await prisma.$transaction(async (tx) => {
       const created = await tx.booking.create({ data, include: bookingInclude });
-      await redeemPromoCode(tx, {
-        promoCodeId: appliedPromoCodeId,
-        userId: user.id,
-        bookingId: created.id,
-      });
-      return created;
+      if (appliedPromoCodeId) {
+        await redeemPromoCode(tx, {
+          promoCodeId: appliedPromoCodeId,
+          userId: user.id,
+          bookingId: created.id,
+        });
+      }
+      if (!willApplyPackageHours) return created;
+      return applyPackageHoursToBooking(tx, created, breakdown.skillAddOns);
     });
   } else {
     booking = await prisma.booking.create({ data, include: bookingInclude });
@@ -820,6 +884,15 @@ export async function cancelBooking(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[rewards] failed to refund points on cancel', { bookingId, err });
+  }
+
+  // Same for any prepaid package hours applied to this (still unpaid) booking —
+  // best-effort, so a hours-ledger hiccup can't block the cancellation.
+  try {
+    await refundPackageHoursIfApplied(booking);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[packages] failed to refund package hours on cancel', { bookingId, err });
   }
 
   const hoursUntilStart = (booking.startTime.getTime() - Date.now()) / 3_600_000;
@@ -1123,6 +1196,46 @@ async function refundBookingIfApplied(
   });
   await notifyPointsRefunded(booking.motherId, points);
   return updated;
+}
+
+/**
+ * Return a booking's prepaid package hours to their originating buckets and undo
+ * the credit on the booking. The package-hours mirror of refundBookingIfApplied.
+ *
+ * Only reverses while the booking is still unpaid (PENDING/APPROVED). Once it is
+ * CONFIRMED the money has moved and the hours stay spent — the cancellation
+ * refund policy settles that in cash instead, same as Care Points.
+ * `refundPackageHours` is itself idempotent per booking, so a double cancel
+ * cannot return the hours twice.
+ */
+async function refundPackageHoursIfApplied(
+  booking: BookingWithRelations,
+): Promise<BookingWithRelations | null> {
+  const hours = Number(booking.packageHoursApplied);
+  const amount = Number(booking.packageCreditAmount);
+  if (hours <= 0) return null;
+  if (
+    booking.status !== BookingStatus.PENDING &&
+    booking.status !== BookingStatus.APPROVED
+  ) {
+    return null;
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await refundPackageHours(tx, booking.id);
+    return tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        discountAmount: round2(Number(booking.discountAmount) - amount),
+        totalAmount: round2(Number(booking.totalAmount) + amount),
+        platformAmount: round2(Number(booking.platformAmount) + amount),
+        packageHoursApplied: 0,
+        packageSkillsCovered: 0,
+        packageCreditAmount: 0,
+      },
+      include: bookingInclude,
+    });
+  });
 }
 
 /** Parent-facing "remove applied points" / refund-on-failure endpoint. */

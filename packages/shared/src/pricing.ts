@@ -55,6 +55,42 @@ export function resolveEffectiveRate(
 }
 
 /**
+ * Values a booking's applied prepaid package hours as an EGP credit.
+ *
+ * Prepaid hours are a credit, never a re-price — the nanny is still paid the
+ * full effective rate and the platform funds the benefit. Covered hours are
+ * valued at what the mother was actually charged for them: the base rate plus
+ * any waived skill surcharges, scaled by the duration multiplier. Skipping the
+ * multiplier would credit back more than a discounted long booking cost.
+ *
+ * The package's free-skill allowance is spent on the most expensive add-ons
+ * first (best for the mother); any selected beyond the allowance stay billable.
+ * The credit never exceeds what is still owed.
+ */
+export function computePackageHoursCredit(params: {
+  baseRate: number;
+  durationMultiplier: number;
+  totalAmount: number;
+  hoursApplied: number;
+  maxSkillsAllowed: number;
+  /** Per-hour fee of each selected skill add-on, in any order. */
+  skillFeesPerHour: number[];
+}): { credit: number; skillsCovered: number } {
+  if (params.hoursApplied <= 0) return { credit: 0, skillsCovered: 0 };
+
+  const descending = [...params.skillFeesPerHour].sort((a, b) => b - a);
+  const skillsCovered = Math.min(params.maxSkillsAllowed, descending.length);
+  const waivedPerHour = descending
+    .slice(0, skillsCovered)
+    .reduce((sum, fee) => sum + fee, 0);
+
+  const rawCredit = round2(
+    (params.baseRate + waivedPerHour) * params.hoursApplied * params.durationMultiplier,
+  );
+  return { credit: Math.min(rawCredit, params.totalAmount), skillsCovered };
+}
+
+/**
  * Picks the duration multiplier for a booking length: the highest tier whose
  * minHours is ≤ durationHours wins. With no matching tier the multiplier is 1
  * (no adjustment). E.g. a 3-hour booking against a "≥2h → 0.90" tier gets 0.90.

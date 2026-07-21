@@ -211,6 +211,13 @@ export const CreateBookingSchema = z.object({
   promoCode: z.string().trim().min(1).optional(),
   /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */
   skillIds: z.array(z.number().int()).default([]),
+  /**
+   * Apply the mother's prepaid package hours to this booking. Omitted or true
+   * means apply them; set false to save the hours for a later booking and pay
+   * cash instead. Optional rather than `.default(true)` so existing callers
+   * aren't forced to send it — the service treats undefined as "apply".
+   */
+  usePackageHours: z.boolean().optional(),
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
 
