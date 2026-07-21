@@ -66,6 +66,8 @@ export async function finalizePackagePaymentCaptured(
       },
     });
 
+    // The payment above is now CAPTURED, so creditPurchaseHours' own
+    // captured-payment gate passes and the purchase activates.
     const outcome = await creditPurchaseHours(tx, payment.packagePurchaseId);
     if (outcome === 'SLOT_TAKEN') {
       // The parent already holds an active package, so this purchase cannot be

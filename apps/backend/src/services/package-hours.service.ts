@@ -14,8 +14,11 @@ type Db = Prisma.TransactionClient | typeof prisma;
  * - SLOT_TAKEN       the parent already holds an active package, so this purchase
  *                    stays PENDING_PAYMENT. The caller MUST still record the
  *                    payment — the money was taken and needs resolving by hand.
+ * - NO_PAYMENT       no captured payment exists for this purchase, so nothing was
+ *                    activated. Only reachable by misuse; the normal capture path
+ *                    marks the payment CAPTURED before calling.
  */
-export type CreditOutcome = 'CREDITED' | 'ALREADY_CREDITED' | 'SLOT_TAKEN';
+export type CreditOutcome = 'CREDITED' | 'ALREADY_CREDITED' | 'SLOT_TAKEN' | 'NO_PAYMENT';
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -68,6 +71,18 @@ export async function creditPurchaseHours(
   });
   if (!purchase) throw errors.notFound('Package purchase not found');
   if (purchase.status !== 'PENDING_PAYMENT') return 'ALREADY_CREDITED'; // idempotent
+
+  // Defensive gate: a package is only ever activated off a genuinely captured
+  // payment. The sole caller (finalizePackagePaymentCaptured) marks the payment
+  // CAPTURED in this same transaction before calling us, so this always passes
+  // there — but it makes "active package ⟹ a payment was captured" a
+  // code-enforced invariant rather than an accident of call order, so a future
+  // caller can't activate a purchase that was never paid for.
+  const captured = await db.payment.findFirst({
+    where: { packagePurchaseId: purchase.id, status: 'CAPTURED', deletedAt: null },
+    select: { id: true },
+  });
+  if (!captured) return 'NO_PAYMENT';
 
   // The unique index on (userId, isActiveSlot) is what guarantees one active
   // package per user, but it must never be the thing that STOPS a capture:

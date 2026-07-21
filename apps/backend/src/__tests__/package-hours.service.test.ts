@@ -7,6 +7,7 @@ jest.mock('@backend/db/prisma', () => ({
       findFirst: jest.fn(),
     },
     packageHoursLedger: { create: jest.fn(), findMany: jest.fn() },
+    payment: { findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
     $transaction: jest.fn(async (arg: unknown) =>
       typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(jest.requireMock('@backend/db/prisma').prisma) : arg,
@@ -33,6 +34,7 @@ const m = prisma as unknown as {
     findFirst: jest.Mock;
   };
   packageHoursLedger: { create: jest.Mock; findMany: jest.Mock };
+  payment: { findFirst: jest.Mock };
   user: { findUnique: jest.Mock };
 };
 
@@ -101,6 +103,9 @@ function mockCreditLookups(purchaseRow: unknown, slotTaken: unknown = null) {
 beforeEach(() => {
   jest.clearAllMocks();
   m.packagePurchase.updateMany.mockResolvedValue({ count: 1 });
+  // Default: a captured payment exists, so creditPurchaseHours' gate passes.
+  // The NO_PAYMENT case overrides this to null.
+  m.payment.findFirst.mockResolvedValue({ id: 500 });
 });
 
 describe('getAvailableHours', () => {
@@ -240,6 +245,19 @@ describe('creditPurchaseHours', () => {
   it('throws notFound (404) when the purchase does not exist', async () => {
     m.packagePurchase.findFirst.mockResolvedValue(null);
     await expect(creditPurchaseHours(prisma as never, 999)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('reports NO_PAYMENT and activates nothing when no captured payment exists', async () => {
+    // The defensive gate: a package is only ever activated off a captured
+    // payment. Misuse (calling without one) must not grant hours.
+    mockCreditLookups(bucket({ id: 5, status: 'PENDING_PAYMENT' }));
+    m.payment.findFirst.mockResolvedValue(null); // nothing captured
+
+    const outcome = await creditPurchaseHours(prisma as never, 5);
+
+    expect(outcome).toBe('NO_PAYMENT');
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
 });
 

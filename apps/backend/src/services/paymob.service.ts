@@ -111,6 +111,23 @@ async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: s
       return null;
     }
 
+    // Defensive gate: a booking is only ever CONFIRMED off a genuinely captured
+    // payment. The capture above satisfies this on the normal path; the explicit
+    // check keeps "CONFIRMED ⟹ a payment was captured" enforced even if capture
+    // and confirm are ever split apart.
+    const capturedPayment = await tx.payment.findFirst({
+      where: { bookingId: booking.id, status: PaymentStatus.CAPTURED, deletedAt: null },
+      select: { id: true },
+    });
+    if (!capturedPayment) {
+      // eslint-disable-next-line no-console
+      console.warn('[paymob] refusing to confirm a booking with no captured payment', {
+        paymentId,
+        bookingId: booking.id,
+      });
+      return null;
+    }
+
     return tx.booking.update({
       where: { id: booking.id },
       data: { status: BookingStatus.CONFIRMED },

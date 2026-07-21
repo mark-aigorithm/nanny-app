@@ -1,4 +1,4 @@
-import { Role, BookingStatus } from '@nanny-app/shared';
+import { Role } from '@nanny-app/shared';
 import { BookingStatus as PrismaBookingStatus, NannyBookingDecision } from '@prisma/client';
 
 jest.mock('@backend/db/prisma', () => {

@@ -106,12 +106,15 @@ beforeEach(() => {
 describe('finalizePaymentCaptured (reached via reconcileStalePaymobPayments)', () => {
   it('bookingId present: looks up the booking and confirms it as before', async () => {
     mockPrisma.payment.findMany.mockResolvedValue([staleRow()]);
-    mockPrisma.payment.findFirst.mockResolvedValue({
-      id: 100,
-      bookingId: 42,
-      deletedAt: null,
-      status: PaymentStatus.PENDING,
-    });
+    // Two findFirst calls: the initial PENDING load, then the confirm gate's
+    // CAPTURED check. Route by the queried status so the gate sees a real
+    // captured payment rather than the pre-capture row.
+    mockPrisma.payment.findFirst.mockImplementation(
+      async ({ where }: { where: { status: PaymentStatus } }) =>
+        where.status === PaymentStatus.CAPTURED
+          ? { id: 100 }
+          : { id: 100, bookingId: 42, deletedAt: null, status: PaymentStatus.PENDING },
+    );
     mockPrisma.payment.update.mockResolvedValue({});
     mockPrisma.booking.findUnique.mockResolvedValue({
       id: 42,
@@ -178,6 +181,34 @@ describe('finalizePaymentCaptured (reached via reconcileStalePaymobPayments)', (
     expect(mockCanTransition).not.toHaveBeenCalled();
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     expect(mockNotifyConfirmed).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('refuses to confirm a booking when no captured payment can be found', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mockPrisma.payment.findMany.mockResolvedValue([staleRow()]);
+    // The initial PENDING load succeeds, but the confirm gate's CAPTURED lookup
+    // finds nothing — so the booking must NOT be confirmed.
+    mockPrisma.payment.findFirst.mockImplementation(
+      async ({ where }: { where: { status: PaymentStatus } }) =>
+        where.status === PaymentStatus.CAPTURED
+          ? null
+          : { id: 100, bookingId: 42, deletedAt: null, status: PaymentStatus.PENDING },
+    );
+    mockPrisma.payment.update.mockResolvedValue({});
+    mockPrisma.booking.findUnique.mockResolvedValue({ id: 42, status: BookingStatus.APPROVED });
+    mockCanTransition.mockReturnValue(true);
+
+    await reconcileStalePaymobPayments();
+
+    expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+    expect(mockNotifyConfirmed).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[paymob] refusing to confirm a booking with no captured payment',
+      expect.objectContaining({ paymentId: 100, bookingId: 42 }),
+    );
 
     warnSpy.mockRestore();
   });
