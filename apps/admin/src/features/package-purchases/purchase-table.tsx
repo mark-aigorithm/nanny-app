@@ -1,11 +1,13 @@
 import type { AdminPackagePurchase } from '@nanny-app/shared';
 
 import { Badge, type Column, Table } from '@admin/components/ui';
-import { formatDateTime, formatEgp } from '@admin/lib/format';
+import { formatDateTime, formatEgp, formatHours } from '@admin/lib/format';
 
 type Props = {
   rows: AdminPackagePurchase[];
   onRowClick: (id: number) => void;
+  /** Whether a search or non-"ALL" status filter is currently applied. */
+  hasActiveFilters: boolean;
 };
 
 const EMPTY = <span className="table-empty">—</span>;
@@ -23,16 +25,11 @@ function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
 }
 
-/** Fractional hours read cleanly — whole numbers show with no decimal noise. */
-function formatHours(hours: number): string {
-  return Number.isInteger(hours) ? String(hours) : hours.toFixed(2);
-}
-
 /**
  * The Package Purchases table: one row per purchase, opening the ledger
  * drill-in on click. Mirrors the mothers/bookings tables' column shape.
  */
-export function PurchaseTable({ rows, onRowClick }: Props) {
+export function PurchaseTable({ rows, onRowClick, hasActiveFilters }: Props) {
   const columns: Column<AdminPackagePurchase>[] = [
     {
       key: 'buyer',
@@ -90,7 +87,11 @@ export function PurchaseTable({ rows, onRowClick }: Props) {
       columns={columns}
       rows={rows}
       rowKey={(p) => p.id}
-      empty="No package purchases match your filters."
+      empty={
+        hasActiveFilters
+          ? 'No package purchases match your filters.'
+          : 'No package purchases yet.'
+      }
       onRowClick={(p) => onRowClick(p.id)}
     />
   );

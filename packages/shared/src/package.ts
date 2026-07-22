@@ -115,7 +115,7 @@ export type AdminPackagePurchase = z.infer<typeof AdminPackagePurchaseSchema>;
 
 export const AdminPackagePurchaseListQuerySchema = AdminListQuerySchema.extend({
   status: PackagePurchaseStatusSchema.optional(),
-  search: z.string().trim().min(1).optional(),
+  search: z.string().trim().max(200).optional(),
 });
 export type AdminPackagePurchaseListQuery = z.infer<typeof AdminPackagePurchaseListQuerySchema>;
 

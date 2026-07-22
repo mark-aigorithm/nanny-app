@@ -6,7 +6,7 @@ import type { PackageHoursLedgerEntry } from '@nanny-app/shared';
 import { Badge, ErrorState, LoadingState, Modal } from '@admin/components/ui';
 import { fetchPackagePurchaseDetail } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
-import { formatDateTime, formatEgp } from '@admin/lib/format';
+import { formatDateTime, formatEgp, formatHours } from '@admin/lib/format';
 
 type Props = {
   id: number;
@@ -28,11 +28,6 @@ function typeTone(
   if (type === 'REFUND') return 'danger';
   if (type === 'EXPIRY' || type === 'ADMIN_ADJUST') return 'warning';
   return 'neutral'; // REDEMPTION
-}
-
-/** Fractional hours read cleanly — whole numbers show with no decimal noise. */
-function formatHours(hours: number): string {
-  return Number.isInteger(hours) ? String(hours) : hours.toFixed(2);
 }
 
 /**

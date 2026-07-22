@@ -46,3 +46,8 @@ export function formatAmount(amount: number): string {
     maximumFractionDigits: 2,
   });
 }
+
+/** Fractional hours read cleanly — whole numbers show with no decimal noise. */
+export function formatHours(hours: number): string {
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(2);
+}

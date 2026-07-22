@@ -93,7 +93,13 @@ export function PackagePurchasesPage() {
           retrying={isFetching}
         />
       )}
-      {purchases && <PurchaseTable rows={purchases} onRowClick={setSelectedId} />}
+      {purchases && (
+        <PurchaseTable
+          rows={purchases}
+          onRowClick={setSelectedId}
+          hasActiveFilters={status !== 'ALL' || appliedSearch !== ''}
+        />
+      )}
       {purchases && meta && (
         <Pagination
           page={meta.page}

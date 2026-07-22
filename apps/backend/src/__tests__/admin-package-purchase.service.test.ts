@@ -33,6 +33,24 @@ it('paginates and maps buyer + hoursConsumed', async () => {
   });
 });
 
+it('builds the where clause from status + search, and reuses it for count', async () => {
+  m.packagePurchase.count.mockResolvedValue(1);
+  m.packagePurchase.findMany.mockResolvedValue([row()]);
+  await listPackagePurchases({ page: 1, limit: 20, status: 'ACTIVE', search: 'sara' });
+  const where = m.packagePurchase.findMany.mock.calls[0][0].where;
+  expect(where).toMatchObject({
+    status: 'ACTIVE',
+    user: {
+      OR: [
+        { firstName: { contains: 'sara', mode: 'insensitive' } },
+        { lastName: { contains: 'sara', mode: 'insensitive' } },
+        { email: { contains: 'sara', mode: 'insensitive' } },
+      ],
+    },
+  });
+  expect(m.packagePurchase.count).toHaveBeenCalledWith({ where });
+});
+
 it('detail includes the ledger, newest first', async () => {
   m.packagePurchase.findFirst.mockResolvedValue(row());
   m.packageHoursLedger.findMany.mockResolvedValue([
@@ -41,6 +59,10 @@ it('detail includes the ledger, newest first', async () => {
   ]);
   const d = await getPackagePurchaseDetail(1);
   expect(d.ledger[0]).toMatchObject({ type: 'REDEMPTION', hours: -6, balanceAfter: 44, bookingId: 12 });
+  expect(m.packageHoursLedger.findMany).toHaveBeenCalledWith({
+    where: { purchaseId: 1, deletedAt: null },
+    orderBy: { createdAt: 'desc' },
+  });
 });
 
 it('throws 404 when the purchase is missing', async () => {
