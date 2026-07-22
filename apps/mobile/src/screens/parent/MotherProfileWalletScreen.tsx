@@ -38,6 +38,12 @@ export default function MotherProfileWalletScreen() {
           params: { returnTo: returnTo ?? 'home' },
         } as never);
         break;
+      case 'packages':
+        router.push({
+          pathname: '/(parent)/packages',
+          params: { returnTo: returnTo ?? 'home' },
+        } as never);
+        break;
       case 'refer':
         router.push({
           pathname: '/(parent)/refer-a-friend',

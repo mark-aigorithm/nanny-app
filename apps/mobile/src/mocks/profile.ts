@@ -13,6 +13,7 @@ export const MOCK_PROFILE: UserProfile = {
 
 export const SETTINGS_ITEMS: SettingsItem[] = [
   { id: 'rewards', label: 'Care Points', icon: 'gift-outline' },
+  { id: 'packages', label: 'Prepaid hours', icon: 'time-outline' },
   { id: 'refer', label: 'Refer a friend', icon: 'people-outline' },
   { id: 'payment', label: 'Payment methods', icon: 'card-outline' },
   { id: 'help', label: 'Help & support', icon: 'help-circle-outline' },

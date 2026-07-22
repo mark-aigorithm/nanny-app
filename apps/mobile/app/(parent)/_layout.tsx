@@ -20,6 +20,8 @@ export default function ParentLayout() {
         <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Tabs.Screen name="mother-profile" options={{ title: 'Profile' }} />
         <Tabs.Screen name="rewards" options={{ headerShown: false }} />
+        <Tabs.Screen name="packages" options={{ headerShown: false }} />
+        <Tabs.Screen name="package-hours" options={{ headerShown: false }} />
         <Tabs.Screen name="refer-a-friend" options={{ headerShown: false }} />
         <Tabs.Screen name="customer-support" options={{ title: 'Support' }} />
         <Tabs.Screen name="book" options={{ title: 'Book' }} />
