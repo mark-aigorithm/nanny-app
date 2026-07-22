@@ -20,6 +20,7 @@ import { SettingsPage } from './pages/settings-page';
 import { SkillsPage } from './pages/skills-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
+import { PackagePurchasesPage } from './pages/package-purchases-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ export function App() {
               <Route path="skills" element={<SkillsPage />} />
               <Route path="certifications" element={<CertificationsPage />} />
               <Route path="packages" element={<PackagesPage />} />
+              <Route path="package-purchases" element={<PackagePurchasesPage />} />
               <Route path="rewards" element={<RewardsPage />} />
               <Route path="pricing" element={<PricingFeesPage />} />
               <Route path="cameras" element={<CamerasPage />} />
