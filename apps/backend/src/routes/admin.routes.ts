@@ -7,6 +7,8 @@ import {
   type AdminMotherListQuery,
   AdminNannyListQuerySchema,
   type AdminNannyListQuery,
+  AdminPackagePurchaseListQuerySchema,
+  type AdminPackagePurchaseListQuery,
   CreateAdminSchema,
   CreateCameraSchema,
   CreateCertificationSchema,
@@ -67,6 +69,10 @@ import {
   rejectMother,
   updateAdminMother,
 } from '@backend/services/admin-user.service';
+import {
+  getPackagePurchaseDetail,
+  listPackagePurchases,
+} from '@backend/services/admin-package-purchase.service';
 import {
   getPlatformConfig,
   updatePlatformConfig,
@@ -789,3 +795,23 @@ adminRouter.post(
     }
   },
 );
+
+// ── Package purchases (parent hour bundles — read-only) ────────
+adminRouter.get(
+  '/package-purchases',
+  validateQuery(AdminPackagePurchaseListQuerySchema),
+  async (req, res, next) => {
+    try {
+      const { purchases, meta } = await listPackagePurchases(
+        req.query as unknown as AdminPackagePurchaseListQuery,
+      );
+      res.json(okPaged(purchases, meta));
+    } catch (err) { next(err); }
+  },
+);
+
+adminRouter.get('/package-purchases/:id', async (req, res, next) => {
+  try {
+    res.json(ok(await getPackagePurchaseDetail(routeIdParam(req.params.id))));
+  } catch (err) { next(err); }
+});
