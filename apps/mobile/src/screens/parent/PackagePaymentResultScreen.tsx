@@ -31,6 +31,7 @@ export default function PackagePaymentResultScreen() {
   const syncedRef = useRef(false);
   const [outcome, setOutcome] = useState<Outcome>('loading');
   const [syncFailed, setSyncFailed] = useState(false);
+  const [hasSynced, setHasSynced] = useState(false);
 
   const bucket = hours.data?.buckets.find((b) => b.id === Number(purchaseId));
 
@@ -45,8 +46,10 @@ export default function PackagePaymentResultScreen() {
         if (res.status === PaymentStatus.FAILED) setSyncFailed(true);
       } catch {
         // Ignore — we still poll the hours balance we already have below.
+      } finally {
+        await hours.refetch();
+        setHasSynced(true);
       }
-      await hours.refetch();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purchaseId]);
@@ -56,6 +59,8 @@ export default function PackagePaymentResultScreen() {
   // captured); a synced FAILED payment is the terminal failure. Do NOT infer
   // success from availableHours going up — that races with any other credit.
   useEffect(() => {
+    if (!hasSynced || !hours.data) return;
+
     if (bucket?.status === 'ACTIVE') {
       setOutcome('success');
       return;
@@ -70,7 +75,7 @@ export default function PackagePaymentResultScreen() {
     // pending state without overriding a resolved outcome.
     setOutcome((current) => (current === 'loading' ? 'pending' : current));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours.data, syncFailed]);
+  }, [hours.data, syncFailed, hasSynced]);
 
   // Escape hatch for the initial load: if the balance never resolves (slow or
   // failing query) flip to a graceful "still processing" state with a way out.
