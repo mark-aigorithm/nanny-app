@@ -7,15 +7,15 @@ import {
   ErrorState,
   FilterSelect,
   Input,
-  PageHeader,
   Pagination,
   TableSkeleton,
 } from '@admin/components/ui';
-import { PurchaseLedgerDrawer } from '@admin/features/package-purchases/purchase-ledger-drawer';
-import { PurchaseTable } from '@admin/features/package-purchases/purchase-table';
 import { fetchPackagePurchases } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { usePagination } from '@admin/lib/use-pagination';
+
+import { PurchaseLedgerDrawer } from './purchase-ledger-drawer';
+import { PurchaseTable } from './purchase-table';
 
 type StatusFilter = 'ALL' | AdminPackagePurchase['status'];
 
@@ -27,7 +27,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'REFUNDED', label: 'Refunded' },
 ];
 
-export function PackagePurchasesPage() {
+export function PurchasesTab() {
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [search, setSearch] = useState('');
   // Server-side search, debounced so we don't refetch on every keystroke.
@@ -63,12 +63,7 @@ export function PackagePurchasesPage() {
   const meta = data?.meta;
 
   return (
-    <section>
-      <PageHeader
-        title="Package Purchases"
-        subtitle="Every prepaid hours bundle a parent has bought — remaining balance, consumption, and the full redemption ledger behind each one."
-      />
-
+    <>
       <div className="filter-bar">
         <FilterSelect
           label="Status"
@@ -116,6 +111,6 @@ export function PackagePurchasesPage() {
       {selectedId != null && (
         <PurchaseLedgerDrawer id={selectedId} onClose={() => setSelectedId(null)} />
       )}
-    </section>
+    </>
   );
 }

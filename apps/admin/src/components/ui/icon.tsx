@@ -48,7 +48,6 @@ export {
   Wallet,
   Users,
   ClipboardList,
-  Receipt,
   // Care Points
   Gift,
   Coins,
