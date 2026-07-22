@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { AdminListQuerySchema } from './admin';
+
 // ──────────────────────────────────────────────────────────────
 // Packages — admin-curated catalog of purchasable hour bundles
 // (e.g. "Starter Pack" — 50 hours for 2000 EGP). Each package pairs
@@ -94,3 +96,41 @@ export type PackageHoursBalance = z.infer<typeof PackageHoursBalanceSchema>;
 
 export const PurchasePackageSchema = z.object({ packageId: z.number().int().positive() });
 export type PurchasePackageInput = z.infer<typeof PurchasePackageSchema>;
+
+// ── Admin package purchase list + ledger detail ────────────────
+export const AdminPackagePurchaseSchema = z.object({
+  id: z.number().int(),
+  buyerName: z.string(),
+  buyerEmail: z.string(),
+  packageName: z.string(),
+  hoursPurchased: z.number().int(),
+  hoursRemaining: z.number(),
+  hoursConsumed: z.number(),
+  pricePaid: z.number(),
+  status: PackagePurchaseStatusSchema,
+  purchasedAt: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+});
+export type AdminPackagePurchase = z.infer<typeof AdminPackagePurchaseSchema>;
+
+export const AdminPackagePurchaseListQuerySchema = AdminListQuerySchema.extend({
+  status: PackagePurchaseStatusSchema.optional(),
+  search: z.string().trim().min(1).optional(),
+});
+export type AdminPackagePurchaseListQuery = z.infer<typeof AdminPackagePurchaseListQuerySchema>;
+
+export const PackageHoursLedgerEntrySchema = z.object({
+  id: z.number().int(),
+  type: z.enum(['PURCHASE', 'REDEMPTION', 'REFUND', 'EXPIRY', 'ADMIN_ADJUST']),
+  hours: z.number(),
+  balanceAfter: z.number(),
+  reason: z.string().nullable(),
+  bookingId: z.number().int().nullable(),
+  createdAt: z.string(),
+});
+export type PackageHoursLedgerEntry = z.infer<typeof PackageHoursLedgerEntrySchema>;
+
+export const AdminPackagePurchaseDetailSchema = AdminPackagePurchaseSchema.extend({
+  ledger: z.array(PackageHoursLedgerEntrySchema),
+});
+export type AdminPackagePurchaseDetail = z.infer<typeof AdminPackagePurchaseDetailSchema>;
