@@ -96,11 +96,13 @@ export function useMarkConversationRead() {
   });
 }
 
-export function useUnreadMessageCount() {
+/** Pass `enabled: false` for guests — the endpoint requires auth. */
+export function useUnreadMessageCount(enabled = true) {
   return useQuery({
     queryKey: [MESSAGING_KEY, 'unread-count'],
     queryFn: async () => unwrap<UnreadCountResponse>(api.get('/conversations/unread-count')),
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
+    enabled,
   });
 }

@@ -222,7 +222,7 @@ export default function CommunityFeedScreen() {
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
 
-      <BottomNav activeTab="community" />
+      <BottomNav activeTab="services" />
     </View>
   );
 }

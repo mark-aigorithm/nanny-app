@@ -132,7 +132,7 @@ export default function CareActivityFeedScreen() {
         </View>
       </View>
 
-      <BottomNav activeTab="bookings" />
+      <BottomNav activeTab="activity" />
     </View>
   );
 }

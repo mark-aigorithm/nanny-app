@@ -7,7 +7,7 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  BOTTOM_NAV_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
 const HEADER_HEIGHT_LOCAL = 110;
@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: HEADER_HEIGHT_LOCAL + 60,
-    paddingBottom: BOTTOM_NAV_HEIGHT + spacing.lg,
+    paddingBottom: FLOATING_NAV_CLEARANCE + spacing.lg,
     paddingHorizontal: screenPadding,
     gap: spacing.xl,
   },

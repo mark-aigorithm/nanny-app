@@ -171,7 +171,7 @@ export default function MarketplaceScreen() {
         </SafeAreaView>
       </View>
 
-      <BottomNav activeTab="home" />
+      <BottomNav activeTab="services" />
     </View>
   );
 }

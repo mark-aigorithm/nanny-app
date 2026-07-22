@@ -7,7 +7,7 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  BOTTOM_NAV_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: BOTTOM_NAV_HEIGHT + spacing['3xl'],
+    paddingBottom: FLOATING_NAV_CLEARANCE + spacing['3xl'],
   },
 
   // Header

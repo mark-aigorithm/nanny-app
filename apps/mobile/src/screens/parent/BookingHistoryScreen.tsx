@@ -160,7 +160,7 @@ export default function BookingHistoryScreen() {
 
       <ParentTabHeader />
 
-      <BottomNav activeTab="bookings" />
+      <BottomNav activeTab="activity" />
     </View>
   );
 }

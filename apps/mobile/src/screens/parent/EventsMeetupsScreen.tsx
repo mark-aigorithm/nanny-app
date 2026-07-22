@@ -175,7 +175,7 @@ export default function EventsMeetupsScreen() {
         <Text style={styles.fabLabel}>CREATE EVENT</Text>
       </View>
 
-      <BottomNav activeTab="community" />
+      <BottomNav activeTab="services" />
     </View>
   );
 }

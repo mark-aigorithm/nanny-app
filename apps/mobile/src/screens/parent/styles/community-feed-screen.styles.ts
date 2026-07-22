@@ -7,7 +7,7 @@ import {
   screenPadding,
   borderRadius,
   STATUS_BAR_HEIGHT,
-  BOTTOM_NAV_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.xl,
-    paddingBottom: BOTTOM_NAV_HEIGHT + spacing['2xl'],
+    paddingBottom: FLOATING_NAV_CLEARANCE + spacing['2xl'],
     gap: spacing.lg,
   },
   scrollContentEmpty: {
@@ -297,7 +297,7 @@ export const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: screenPadding,
-    bottom: BOTTOM_NAV_HEIGHT + spacing['2xl'],
+    bottom: FLOATING_NAV_CLEARANCE + spacing['2xl'],
     width: 56,
     height: 56,
     borderRadius: 28,

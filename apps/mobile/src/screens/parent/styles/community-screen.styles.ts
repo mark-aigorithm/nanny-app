@@ -7,7 +7,7 @@ import {
   screenPadding,
   borderRadius,
   PARENT_TAB_CONTENT_TOP,
-  BOTTOM_NAV_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
   HEADER_HEIGHT,
 } from '@mobile/theme';
 
@@ -55,7 +55,7 @@ export const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: HEADER_HEIGHT + spacing['3xl'] + spacing.lg + spacing.md,
-    paddingBottom: BOTTOM_NAV_HEIGHT + spacing['3xl'],
+    paddingBottom: FLOATING_NAV_CLEARANCE + spacing['3xl'],
     paddingHorizontal: screenPadding,
     gap: spacing.lg,
   },

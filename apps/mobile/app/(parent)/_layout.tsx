@@ -15,7 +15,7 @@ export default function ParentLayout() {
         <Tabs.Screen name="home" options={{ title: 'Home' }} />
         <Tabs.Screen name="community" options={{ title: 'Community' }} />
         <Tabs.Screen name="messages" options={{ title: 'Messages' }} />
-        <Tabs.Screen name="bookings" options={{ title: 'Bookings' }} />
+        <Tabs.Screen name="bookings" options={{ title: 'Activity' }} />
         <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
         <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Tabs.Screen name="mother-profile" options={{ title: 'Profile' }} />

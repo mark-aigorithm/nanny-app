@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabSearchStrip from '@mobile/components/ParentTabSearchStrip';
-import { useConversations, useUnreadMessageCount } from '@mobile/hooks/useMessaging';
+import { useConversations } from '@mobile/hooks/useMessaging';
 import { formatAuthorName, formatPrice, formatTimeAgo } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { colors } from '@mobile/theme';
@@ -91,7 +91,6 @@ export default function MessagesScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const { data, isLoading } = useConversations();
-  const { data: unreadData } = useUnreadMessageCount();
 
   const conversations = useMemo(() => {
     const items = data?.conversations ?? [];
@@ -148,7 +147,7 @@ export default function MessagesScreen() {
         onClear={() => setSearchQuery('')}
       />
 
-      <BottomNav activeTab="messages" messagesBadge={unreadData?.unreadCount} />
+      <BottomNav activeTab="account" />
     </View>
   );
 }

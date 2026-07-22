@@ -9,7 +9,7 @@ import {
   borderRadius,
   shadows,
   PARENT_TAB_CONTENT_TOP,
-  BOTTOM_NAV_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: PARENT_TAB_CONTENT_TOP,
-    paddingBottom: BOTTOM_NAV_HEIGHT + screenPadding,
+    paddingBottom: FLOATING_NAV_CLEARANCE + screenPadding,
   },
 
   // Tab Bar

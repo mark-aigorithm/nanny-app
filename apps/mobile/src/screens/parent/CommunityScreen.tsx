@@ -166,7 +166,7 @@ export default function CommunityScreen() {
 
       <ParentTabFab onPress={openCreatePost} />
 
-      <BottomNav activeTab="community" />
+      <BottomNav activeTab="services" />
     </View>
   );
 }

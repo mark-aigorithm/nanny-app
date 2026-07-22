@@ -9,6 +9,14 @@ export const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56;
 
 export const BOTTOM_NAV_HEIGHT = 80;
 
+/**
+ * Bottom content clearance for the parent floating pill tab bar:
+ * pill height (~72) + bottom offset + breathing room. Screens that scroll
+ * under the floating bar pad their content with this, NOT BOTTOM_NAV_HEIGHT
+ * (which remains the nanny bar's in-flow height).
+ */
+export const FLOATING_NAV_CLEARANCE = 112;
+
 export const PARENT_TAB_SEARCH_BAR_HEIGHT = 48;
 
 export const PARENT_TAB_SEARCH_STRIP_HEIGHT =
@@ -19,6 +27,6 @@ export const PARENT_TAB_CONTENT_TOP = HEADER_HEIGHT + spacing.lg;
 export const PARENT_TAB_CONTENT_TOP_WITH_SEARCH =
   HEADER_HEIGHT + PARENT_TAB_SEARCH_STRIP_HEIGHT;
 
-export const PARENT_TAB_SCROLL_BOTTOM = BOTTOM_NAV_HEIGHT + spacing.lg + 16;
+export const PARENT_TAB_SCROLL_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.lg;
 
-export const PARENT_TAB_FAB_BOTTOM = BOTTOM_NAV_HEIGHT + spacing.lg;
+export const PARENT_TAB_FAB_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.sm;

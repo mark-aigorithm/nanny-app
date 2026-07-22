@@ -8,7 +8,7 @@ import {
   shadows,
   screenPadding,
   STATUS_BAR_HEIGHT,
-  BOTTOM_NAV_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
   HEADER_HEIGHT,
 } from '@mobile/theme';
 
@@ -87,7 +87,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: BOTTOM_NAV_HEIGHT + screenPadding,
+    paddingBottom: FLOATING_NAV_CLEARANCE + screenPadding,
     gap: spacing['2xl'],
   },
 

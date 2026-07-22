@@ -1,13 +1,21 @@
-import type { BottomNavTab } from '@mobile/components/BottomNav';
-
+/**
+ * Where a pushed-over screen (rewards, refer, support…) returns to.
+ * Keys are historical route names, NOT tab keys — 'bookings' is the
+ * Activity tab's route, 'mother-profile' the Account tab's.
+ */
 export type ProfileReturnTo =
-  | BottomNavTab
+  | 'home'
+  | 'services'
+  | 'bookings'
+  | 'community'
+  | 'messages'
   | 'customer-support'
   | 'events-meetups'
   | 'mother-profile';
 
 const RETURN_HREF: Record<ProfileReturnTo, string> = {
   home: '/(parent)/home',
+  services: '/(parent)/services',
   bookings: '/(parent)/bookings',
   community: '/(parent)/community',
   messages: '/(parent)/messages',
@@ -23,10 +31,10 @@ export function getProfileReturnHref(returnTo?: string): string {
   return RETURN_HREF.home;
 }
 
-export const PARENT_TAB_SEGMENTS = ['home', 'bookings', 'community', 'messages'] as const;
+export const PARENT_TAB_SEGMENTS = ['home', 'services', 'bookings', 'community', 'messages'] as const;
 
 export function getReturnToFromSegments(segments: string[]): ProfileReturnTo {
-  const tab = segments.find((s): s is BottomNavTab =>
+  const tab = segments.find((s): s is (typeof PARENT_TAB_SEGMENTS)[number] =>
     (PARENT_TAB_SEGMENTS as readonly string[]).includes(s),
   );
   if (tab) return tab;
