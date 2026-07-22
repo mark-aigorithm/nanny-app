@@ -60,6 +60,10 @@ import {
   setNannySkills,
 } from '@backend/services/admin-nanny.service';
 import {
+  getPackagePurchaseDetail,
+  listPackagePurchases,
+} from '@backend/services/admin-package-purchase.service';
+import {
   approveMother,
   createAdminUser,
   getAdminMother,
@@ -69,10 +73,6 @@ import {
   rejectMother,
   updateAdminMother,
 } from '@backend/services/admin-user.service';
-import {
-  getPackagePurchaseDetail,
-  listPackagePurchases,
-} from '@backend/services/admin-package-purchase.service';
 import {
   getPlatformConfig,
   updatePlatformConfig,
@@ -800,18 +800,21 @@ adminRouter.post(
 adminRouter.get(
   '/package-purchases',
   validateQuery(AdminPackagePurchaseListQuerySchema),
-  async (req, res, next) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { purchases, meta } = await listPackagePurchases(
-        req.query as unknown as AdminPackagePurchaseListQuery,
-      );
+      const query = res.locals['validatedQuery'] as AdminPackagePurchaseListQuery;
+      const { purchases, meta } = await listPackagePurchases(query);
       res.json(okPaged(purchases, meta));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   },
 );
 
-adminRouter.get('/package-purchases/:id', async (req, res, next) => {
+adminRouter.get('/package-purchases/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(ok(await getPackagePurchaseDetail(routeIdParam(req.params.id))));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
