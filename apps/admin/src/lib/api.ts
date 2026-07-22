@@ -9,6 +9,9 @@ import type {
   AdminNanny,
   AdminNannyDetail,
   AdminNannyStatusFilter,
+  AdminPackagePurchase,
+  AdminPackagePurchaseDetail,
+  AdminPackagePurchaseListQuery,
   AdminUser,
   Camera,
   Certification,
@@ -431,5 +434,26 @@ export async function fetchAdmins(): Promise<AdminUser[]> {
 
 export async function createAdmin(input: CreateAdminInput): Promise<AdminUser> {
   const res = await apiClient.post<ApiEnvelope<AdminUser>>('/admin/admins', input);
+  return res.data.data;
+}
+
+// ── Package purchases (admin visibility into the consumption ledger) ──
+
+export async function fetchPackagePurchases(
+  params: AdminPackagePurchaseListQuery,
+): Promise<Paged<AdminPackagePurchase[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminPackagePurchase[]>>(
+    '/admin/package-purchases',
+    { params },
+  );
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchPackagePurchaseDetail(
+  id: number,
+): Promise<AdminPackagePurchaseDetail> {
+  const res = await apiClient.get<ApiEnvelope<AdminPackagePurchaseDetail>>(
+    `/admin/package-purchases/${id}`,
+  );
   return res.data.data;
 }

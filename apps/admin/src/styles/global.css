@@ -2503,6 +2503,95 @@ h3 {
   color: var(--color-text-muted);
 }
 
+/* Package purchase ledger drawer */
+.purchase-ledger-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.purchase-ledger-balance {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+.purchase-ledger-balance-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+.purchase-ledger-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+.purchase-ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.purchase-ledger-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-warm-border);
+}
+.purchase-ledger-row:last-child {
+  border-bottom: none;
+}
+.purchase-ledger-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.purchase-ledger-reason {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.purchase-ledger-link {
+  font-size: 0.8125rem;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+.purchase-ledger-date {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.1rem;
+}
+.purchase-ledger-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.purchase-ledger-hours {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+.purchase-ledger-hours--pos {
+  color: var(--color-success-text);
+}
+.purchase-ledger-hours--neg {
+  color: var(--color-error);
+}
+.purchase-ledger-after {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 /* Care Points row inside the pricing calculator */
 .calc-reward {
   display: flex;
