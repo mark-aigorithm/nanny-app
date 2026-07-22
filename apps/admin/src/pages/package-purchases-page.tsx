@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { ADMIN_PAGE_SIZES, type AdminPackagePurchase } from '@nanny-app/shared';
@@ -57,6 +57,7 @@ export function PackagePurchasesPage() {
         status: status === 'ALL' ? undefined : status,
         search: appliedSearch || undefined,
       }),
+    placeholderData: keepPreviousData,
   });
   const purchases = data?.data;
   const meta = data?.meta;
