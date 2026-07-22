@@ -8,7 +8,7 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  PARENT_TAB_CONTENT_TOP,
+  STATUS_BAR_HEIGHT,
   FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
@@ -24,8 +24,15 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingTop: PARENT_TAB_CONTENT_TOP,
+    paddingTop: STATUS_BAR_HEIGHT + spacing.xl,
     paddingBottom: FLOATING_NAV_CLEARANCE + screenPadding,
+  },
+
+  // Uber-style big screen title
+  screenTitle: {
+    ...typeScale.displayMd,
+    color: colors.textPrimary,
+    marginBottom: spacing.xl,
   },
 
   // Tab Bar

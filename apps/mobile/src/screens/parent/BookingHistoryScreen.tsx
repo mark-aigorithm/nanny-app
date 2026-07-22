@@ -13,8 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
-import ParentTabHeader from '@mobile/components/ParentTabHeader';
-import { colors, HEADER_HEIGHT } from '@mobile/theme';
+import { colors, STATUS_BAR_HEIGHT } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -77,7 +76,7 @@ export default function BookingHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            progressViewOffset={HEADER_HEIGHT}
+            progressViewOffset={STATUS_BAR_HEIGHT}
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
             tintColor={colors.primary}
@@ -85,6 +84,8 @@ export default function BookingHistoryScreen() {
           />
         }
       >
+        <Text style={styles.screenTitle}>Activity</Text>
+
         <OngoingBookingBanner
           onPressBooking={(booking) =>
             router.push({
@@ -157,8 +158,6 @@ export default function BookingHistoryScreen() {
           </View>
         )}
       </ScrollView>
-
-      <ParentTabHeader />
 
       <BottomNav activeTab="activity" />
     </View>
