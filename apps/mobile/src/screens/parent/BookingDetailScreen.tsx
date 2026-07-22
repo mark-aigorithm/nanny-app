@@ -128,7 +128,8 @@ export default function BookingDetailScreen() {
   // The backend folds redeemed Care Points into discountAmount alongside the
   // promo, so split them back out to show each as its own line.
   const carePointsDiscount = booking.rewardCreditAmount;
-  const promoDiscount = Math.round((booking.discountAmount - carePointsDiscount) * 100) / 100;
+  const promoDiscount =
+    Math.round((booking.discountAmount - carePointsDiscount - booking.packageCreditAmount) * 100) / 100;
 
   return (
     <View style={styles.container}>
@@ -224,6 +225,15 @@ export default function BookingDetailScreen() {
                 Care Points · {booking.rewardCreditHoursApplied}h
               </Text>
               <Text style={styles.paymentValue}>–{formatMoney(carePointsDiscount)}</Text>
+            </View>
+          )}
+          {booking.packageHoursApplied > 0 && (
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>
+                Prepaid hours · {booking.packageHoursApplied}h
+                {booking.packageSkillsCovered > 0 ? ` + ${booking.packageSkillsCovered} free skills` : ''}
+              </Text>
+              <Text style={styles.paymentValue}>–{formatMoney(booking.packageCreditAmount)}</Text>
             </View>
           )}
           {promoDiscount > 0.005 && (
