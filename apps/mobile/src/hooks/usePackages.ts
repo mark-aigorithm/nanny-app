@@ -8,6 +8,7 @@ export const PACKAGE_HOURS_KEY = 'package-hours';
 
 export type PackageCheckoutSession = {
   paymentId: number; clientSecret: string; publicKey: string; intentionId: string;
+  purchaseId: number;
 };
 
 export function usePackages() {

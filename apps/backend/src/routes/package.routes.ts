@@ -81,7 +81,7 @@ packageRouter.post(
         req.firebaseUser,
         purchaseId,
       );
-      res.status(201).json(ok(session));
+      res.status(201).json(ok({ ...session, purchaseId }));
     } catch (err) {
       next(err);
     }
