@@ -15,8 +15,9 @@ type Outcome = 'loading' | 'success' | 'failure' | 'pending' | 'stalled';
 // the user and point them at their hours, so this screen can never trap them
 // on the spinner (mirrors BookingPaymentResultScreen).
 const LOADING_TIMEOUT_MS = 12_000;
-// How long to keep polling a not-yet-activated purchase before treating it as
-// a failure the user can retry (their card was not charged).
+// How long to keep polling a not-yet-activated purchase before giving up and
+// surfacing the honest "stalled" state — pending only happens when the sync
+// did NOT report a decline, so the card may well have been charged.
 const PENDING_TIMEOUT_MS = 10_000;
 const POLL_INTERVAL_MS = 3_000;
 
@@ -103,7 +104,9 @@ export default function PackagePaymentResultScreen() {
     setOutcome('stalled');
   }, [hours.isError, outcome]);
 
-  // While pending, keep polling; if it never activates, surface a failure.
+  // While pending, keep polling; if it never activates in time, surface the
+  // honest "stalled" state — never a definitive decline, since syncFailed is
+  // false whenever we're in pending.
   useEffect(() => {
     if (outcome !== 'pending' || !purchaseId) return;
 
@@ -112,7 +115,7 @@ export default function PackagePaymentResultScreen() {
     }, POLL_INTERVAL_MS);
 
     const timeout = setTimeout(() => {
-      setOutcome((current) => (current === 'pending' ? 'failure' : current));
+      setOutcome((current) => (current === 'pending' ? 'stalled' : current));
     }, PENDING_TIMEOUT_MS);
 
     return () => {
