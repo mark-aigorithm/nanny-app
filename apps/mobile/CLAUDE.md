@@ -63,7 +63,7 @@ All visual constants are centralized in `src/theme/` and imported via `@mobile/t
 | `spacing.ts` | `spacing` — scale (xxs→4xl); `screenPadding` — standard horizontal padding (24) |
 | `borders.ts` | `borderRadius` — scale (sm→full) |
 | `shadows.ts` | `shadows` — elevation presets as `ViewStyle` |
-| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT` |
+| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT`, `FLOATING_NAV_CLEARANCE` — bottom content clearance for the parent floating pill tab bar (vs `BOTTOM_NAV_HEIGHT`, the nanny bar's in-flow height) |
 | `index.ts` | Barrel re-export of all above |
 
 ---
@@ -170,7 +170,7 @@ All placeholder/mock data lives in `src/mocks/`, organized by domain:
 | `messages.ts` | `MOCK_CONVERSATIONS`, `MOCK_MESSAGES` |
 | `notifications.ts` | `MOCK_NOTIFICATIONS` |
 | `care.ts` | `MOCK_CHILD`, `QUICK_ENTRIES`, `MOCK_LOG_ENTRIES`, `TODAY_ACTIVITIES`, `YESTERDAY_ACTIVITIES`, `MOCK_ACTIVITIES_LIVE` |
-| `profile.ts` | `MOCK_PROFILE`, `SETTINGS_ITEMS` |
+| `profile.ts` | `MOCK_PROFILE` |
 | `support.ts` | `MOCK_FAQS` |
 | `reviews.ts` | `MOCK_REVIEWS` |
 | `index.ts` | Barrel re-export of all above |

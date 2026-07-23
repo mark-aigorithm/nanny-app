@@ -29,4 +29,7 @@ export const PARENT_TAB_CONTENT_TOP_WITH_SEARCH =
 
 export const PARENT_TAB_SCROLL_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.lg;
 
-export const PARENT_TAB_FAB_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.sm;
+// The floating pill occupies ~122px from the screen bottom on home-indicator
+// devices (insets.bottom 34 + 12 offset + ~76 pill height). +spacing.sm left
+// the FAB sitting ~2px under the pill, so it needs the larger clearance.
+export const PARENT_TAB_FAB_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.lg;

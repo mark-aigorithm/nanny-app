@@ -3,7 +3,6 @@ import { StyleSheet } from 'react-native';
 import {
   colors,
   typeScale,
-  fontFamily,
   spacing,
   screenPadding,
   borderRadius,
@@ -137,10 +136,5 @@ export const styles = StyleSheet.create({
   listDivider: {
     height: 1,
     backgroundColor: colors.borderSubtle,
-  },
-  signOutPendingLabel: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 16,
-    color: colors.textMuted,
   },
 });
