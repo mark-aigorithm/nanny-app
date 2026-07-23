@@ -44,6 +44,14 @@ export {
   CircleCheck,
   Info,
   RefreshCw,
+  TriangleAlert,
+  // Configuration summary
+  Clock,
+  Hourglass,
+  CalendarX2,
+  MapPin,
+  BellRing,
+  Phone,
   // Reporting
   Wallet,
   Users,
