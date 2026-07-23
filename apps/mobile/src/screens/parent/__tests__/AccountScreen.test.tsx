@@ -110,6 +110,9 @@ describe('Account screen', () => {
       params: { returnTo: 'mother-profile' },
     });
 
+    fireEvent.press(getByText('Prepaid hours'));
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/packages');
+
     fireEvent.press(getByText('Refer a friend'));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/(parent)/refer-a-friend',

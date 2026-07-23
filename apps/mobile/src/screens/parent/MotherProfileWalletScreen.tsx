@@ -133,6 +133,17 @@ export default function MotherProfileWalletScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
+          onPress={() => router.push('/(parent)/packages' as never)}
+        >
+          <View style={styles.promoTextWrap}>
+            <Text style={styles.promoTitle}>Prepaid hours</Text>
+            <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
+          </View>
+          <IconCircle icon="time-outline" size="lg" />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
           onPress={() =>
             router.push({
               pathname: '/(parent)/refer-a-friend',
