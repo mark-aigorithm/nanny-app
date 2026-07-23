@@ -72,87 +72,97 @@ export function BaseSplitPanel() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="pricing-cols">
-        <Card title="Base hourly rate">
-        <p className="panel-lead">
-          The starting price every booking is built from, before skill add-ons and
-          duration discounts. Charged per hour, in EGP.
-        </p>
-        <div className="rate-field">
-          <span className="rate-prefix">EGP</span>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            value={baseRate}
-            onChange={(e) => {
-              setSaved(false);
-              setBaseRate(e.target.value);
-            }}
-            aria-label="Base hourly rate"
-            required
-          />
-          <span className="rate-suffix">/ hour</span>
+      <Card>
+        <div className="card-header">
+          <h3>Base rate &amp; revenue split</h3>
+          <Button type="submit" disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
         </div>
+
+        {formError && <Feedback tone="error">{formError}</Feedback>}
+        {saved && <Feedback tone="success">Pricing saved.</Feedback>}
+
+        <div className="config-split">
+          <section className="config-section">
+            <h4 className="section-eyebrow">Base hourly rate</h4>
+            <p className="config-section-lead">
+              The starting price every booking is built from, before skill add-ons and duration
+              discounts.
+            </p>
+            <div className="rate-field">
+              <span className="rate-prefix">EGP</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={baseRate}
+                onChange={(e) => {
+                  setSaved(false);
+                  setBaseRate(e.target.value);
+                }}
+                aria-label="Base hourly rate"
+                required
+              />
+              <span className="rate-suffix">/ hour</span>
+            </div>
+          </section>
+
+          <section className="config-section">
+            <h4 className="section-eyebrow">Revenue split</h4>
+            <p className="config-section-lead">
+              How each booking total is divided. The nanny only ever sees her share.
+            </p>
+
+            <div className="split-control">
+              <Field label={`Nanny keeps — ${nannyPercent}%`}>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={nannyPercent}
+                  onChange={(e) => {
+                    setSaved(false);
+                    setNannyPercent(Number(e.target.value));
+                  }}
+                  className="split-slider"
+                  aria-label="Nanny percentage"
+                />
+              </Field>
+
+              <div
+                className="split-bar"
+                role="img"
+                aria-label={`Nanny ${nannyPercent}%, platform ${platformPercent}%`}
+              >
+                <div className="split-bar-nanny" style={{ width: `${nannyPercent}%` }}>
+                  {nannyPercent >= 12 && <span>{nannyPercent}%</span>}
+                </div>
+                <div className="split-bar-platform" style={{ width: `${platformPercent}%` }}>
+                  {platformPercent >= 12 && <span>{platformPercent}%</span>}
+                </div>
+              </div>
+
+              <div className="split-legend">
+                <span className="split-legend-item">
+                  <span className="dot dot--nanny" /> Nanny {nannyPercent}%
+                </span>
+                <span className="split-legend-item">
+                  <span className="dot dot--platform" /> Platform {platformPercent}%
+                </span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <p className="split-example">
+          On a {SAMPLE_HOURS}-hour booking of <strong>EGP {formatAmount(sampleTotal)}</strong>, the
+          nanny earns <strong className="text-nanny">EGP {formatAmount(sampleNanny)}</strong> and
+          the platform keeps{' '}
+          <strong className="text-platform">EGP {formatAmount(samplePlatform)}</strong>.
+        </p>
       </Card>
-
-      <Card title="Revenue split">
-        <p className="panel-lead">
-          How each booking total is divided between the nanny and the platform.
-          The nanny only ever sees her share.
-        </p>
-
-        <div className="split-control">
-          <Field label={`Nanny keeps — ${nannyPercent}%`}>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={nannyPercent}
-              onChange={(e) => {
-                setSaved(false);
-                setNannyPercent(Number(e.target.value));
-              }}
-              className="split-slider"
-              aria-label="Nanny percentage"
-            />
-          </Field>
-
-          <div className="split-bar" role="img" aria-label={`Nanny ${nannyPercent}%, platform ${platformPercent}%`}>
-            <div className="split-bar-nanny" style={{ width: `${nannyPercent}%` }}>
-              {nannyPercent >= 12 && <span>{nannyPercent}%</span>}
-            </div>
-            <div className="split-bar-platform" style={{ width: `${platformPercent}%` }}>
-              {platformPercent >= 12 && <span>{platformPercent}%</span>}
-            </div>
-          </div>
-
-          <div className="split-legend">
-            <span className="split-legend-item">
-              <span className="dot dot--nanny" /> Nanny {nannyPercent}%
-            </span>
-            <span className="split-legend-item">
-              <span className="dot dot--platform" /> Platform {platformPercent}%
-            </span>
-          </div>
-
-          <p className="split-example">
-            On a {SAMPLE_HOURS}-hour booking of{' '}
-            <strong>EGP {formatAmount(sampleTotal)}</strong>, the nanny earns{' '}
-            <strong className="text-nanny">EGP {formatAmount(sampleNanny)}</strong> and the
-            platform keeps{' '}
-            <strong className="text-platform">EGP {formatAmount(samplePlatform)}</strong>.
-          </p>
-        </div>
-        </Card>
-      </div>
-
-      {formError && <Feedback tone="error">{formError}</Feedback>}
-      {saved && <Feedback tone="success">Pricing saved.</Feedback>}
-      <Button type="submit" disabled={saveMutation.isPending}>
-        {saveMutation.isPending ? 'Saving…' : 'Save base & split'}
-      </Button>
     </form>
   );
 }
@@ -160,25 +170,31 @@ export function BaseSplitPanel() {
 /** Placeholder shaped like the base-rate and revenue-split cards while config loads. */
 function BaseSplitSkeleton() {
   return (
-    <div className="pricing-cols" role="status" aria-label="Loading pricing…">
-      <div className="card">
-        <Skeleton width={150} height={17} />
-        <div className="skeleton-lines">
-          <Skeleton width="90%" height={11} />
-          <Skeleton width="70%" height={11} />
-        </div>
-        <Skeleton width={200} height={52} radius="var(--radius-sm)" />
+    <div className="card" role="status" aria-label="Loading pricing…">
+      <div className="card-header">
+        <Skeleton width={230} height={19} />
+        <Skeleton width={130} height={40} radius="var(--radius-full)" />
       </div>
-      <div className="card">
-        <Skeleton width={130} height={17} />
-        <div className="skeleton-lines">
-          <Skeleton width="95%" height={11} />
-          <Skeleton width="60%" height={11} />
+      <div className="config-split">
+        <div className="config-section">
+          <Skeleton width={120} height={11} />
+          <div className="skeleton-lines">
+            <Skeleton width="90%" height={11} />
+            <Skeleton width="70%" height={11} />
+          </div>
+          <Skeleton width={200} height={52} radius="var(--radius-sm)" />
         </div>
-        <Skeleton height={38} radius="999px" style={{ marginTop: '0.5rem' }} />
-        <div className="calc-skeleton-row" style={{ marginTop: '1rem' }}>
-          <Skeleton width={120} height={12} />
-          <Skeleton width={120} height={12} />
+        <div className="config-section">
+          <Skeleton width={110} height={11} />
+          <div className="skeleton-lines">
+            <Skeleton width="95%" height={11} />
+            <Skeleton width="60%" height={11} />
+          </div>
+          <Skeleton height={38} radius="999px" />
+          <div className="calc-skeleton-row">
+            <Skeleton width={120} height={12} />
+            <Skeleton width={120} height={12} />
+          </div>
         </div>
       </div>
     </div>
