@@ -13,7 +13,7 @@ export {
   MOCK_ACTIVITIES_LIVE,
   IMG_VIDEO_FEED,
 } from './care';
-export { MOCK_PROFILE, SETTINGS_ITEMS } from './profile';
+export { MOCK_PROFILE } from './profile';
 export { MOCK_FAQS } from './support';
 export { MOCK_REVIEWS } from './reviews';
 export { MOCK_NANNY_PROFILE } from './nanny-profile';

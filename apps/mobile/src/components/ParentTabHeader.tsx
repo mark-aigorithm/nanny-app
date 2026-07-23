@@ -2,8 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useSegments } from 'expo-router';
-import { getReturnToFromSegments } from '@mobile/lib/profileUtils';
+import { useRouter } from 'expo-router';
 
 import NotificationBellButton from '@mobile/components/NotificationBellButton';
 import { APP_NAME } from '@mobile/constants';
@@ -27,15 +26,11 @@ export const PARENT_TAB_HEADER_HEIGHT = HEADER_HEIGHT;
 
 export default function ParentTabHeader({ bottomContent }: ParentTabHeaderProps) {
   const router = useRouter();
-  const segments = useSegments();
   const profile = useUserProfileStore((s) => s.profile);
   const { gate } = useGuestGate();
 
   const openProfile = () => {
-    router.push({
-      pathname: '/(parent)/mother-profile',
-      params: { returnTo: getReturnToFromSegments(segments) },
-    } as never);
+    router.push('/(parent)/mother-profile' as never);
   };
 
   return (

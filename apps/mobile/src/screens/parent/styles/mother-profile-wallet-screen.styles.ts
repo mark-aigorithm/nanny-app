@@ -2,12 +2,14 @@ import { StyleSheet } from 'react-native';
 
 import {
   colors,
+  typeScale,
   fontFamily,
   spacing,
-  borderRadius,
   screenPadding,
+  borderRadius,
+  shadows,
   STATUS_BAR_HEIGHT,
-  HEADER_HEIGHT,
+  FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -15,167 +17,130 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-
-  // Scroll
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: HEADER_HEIGHT + spacing.lg,
-    // TODO: Update bottom padding once BottomNav is updated with
-    // the correct tabs for this screen (Home, Bookings, Support, Profile)
-    paddingBottom: 128,
     paddingHorizontal: screenPadding,
-    gap: spacing['2xl'],
+    paddingTop: STATUS_BAR_HEIGHT + spacing.xl,
+    paddingBottom: FLOATING_NAV_CLEARANCE + spacing.lg,
+    gap: spacing.lg,
   },
 
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253,250,248,0.8)',
-    zIndex: 100,
-  },
+  // Name header (Uber-style: big bold name left, avatar right)
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.lg,
+    gap: spacing.lg,
   },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerAvatarWrap: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: -1,
+  name: {
+    ...typeScale.displayLg,
     color: colors.textPrimary,
+    flex: 1,
   },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: spacing.xl,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: 'rgba(196,200,191,0.2)',
-  },
-
-  // Hero section
-  heroSection: {
-    backgroundColor: colors.warmBorder,
-    borderRadius: borderRadius.xl,
-    minHeight: 260,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing['2xl'],
-    gap: spacing.sm,
-  },
-  profilePhotoWrap: {
-    width: 96,
-    height: 96,
-    marginBottom: spacing.xs,
-  },
-  profilePhoto: {
-    width: 96,
-    height: 96,
-    borderRadius: spacing['4xl'],
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  profilePhotoFallback: {
-    backgroundColor: colors.taupe,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileName: {
-    fontFamily: fontFamily.bold,
-    fontSize: 20,
-    lineHeight: 28,
-    color: colors.textPrimary,
-  },
-  locationRow: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: spacing.xs,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  locationText: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textTertiary,
-  },
-  editProfileBtn: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  editProfileText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.primary,
+  statusPillText: {
+    ...typeScale.labelSm,
+    color: colors.textPrimary,
   },
 
-  // Settings list
-  settingsList: {
-    gap: spacing.sm,
+  // 2x2 quick tiles
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginTop: spacing.sm,
   },
-  settingsItem: {
+  tile: {
+    flexBasis: '45%',
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    minHeight: 56,
+  },
+  tilePressed: {
+    opacity: 0.7,
+  },
+  tileLabel: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+  },
+  tileIconWrap: {
+    position: 'relative',
+  },
+  tileBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.error,
+  },
+
+  // Promo cards (title + subtitle left, icon circle right)
+  promoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    height: 56,
-    paddingHorizontal: spacing.lg,
+    padding: spacing.xl,
+    ...shadows.sm,
   },
-  settingsItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  promoTextWrap: {
+    flex: 1,
   },
-  settingsItemLabel: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    lineHeight: 20,
+  promoTitle: {
+    ...typeScale.headingSm,
     color: colors.textPrimary,
   },
-  settingsItemLabelDestructive: {
-    color: colors.errorDark,
-    fontWeight: '700',
+  promoSubtitle: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
   },
-  settingsItemRight: {
+
+  // List section
+  listSection: {
+    marginTop: spacing.sm,
+  },
+  listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.lg,
+    paddingVertical: spacing.lg,
   },
-  settingsBadge: {
-    backgroundColor: colors.warmBorder,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: borderRadius.full,
+  listItemLabel: {
+    ...typeScale.labelLg,
+    color: colors.textPrimary,
+    flex: 1,
   },
-  settingsBadgeText: {
+  listItemDestructive: {
+    color: colors.errorDark,
+  },
+  listDivider: {
+    height: 1,
+    backgroundColor: colors.borderSubtle,
+  },
+  signOutPendingLabel: {
     fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.textTertiary,
+    fontSize: 16,
+    color: colors.textMuted,
   },
 });

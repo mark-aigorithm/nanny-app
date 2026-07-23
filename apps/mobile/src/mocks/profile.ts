@@ -1,4 +1,4 @@
-import type { SettingsItem, UserProfile, AccountDetails } from '@mobile/types';
+import type { UserProfile, AccountDetails } from '@mobile/types';
 import { IMG_PROFILE_PHOTO } from './images';
 
 export const MOCK_PROFILE: UserProfile = {
@@ -10,15 +10,6 @@ export const MOCK_PROFILE: UserProfile = {
   rewardValue: 3.2,
   favouriteNanniesCount: 5,
 };
-
-export const SETTINGS_ITEMS: SettingsItem[] = [
-  { id: 'rewards', label: 'Care Points', icon: 'gift-outline' },
-  { id: 'packages', label: 'Prepaid hours', icon: 'time-outline' },
-  { id: 'refer', label: 'Refer a friend', icon: 'people-outline' },
-  { id: 'payment', label: 'Payment methods', icon: 'card-outline' },
-  { id: 'help', label: 'Help & support', icon: 'help-circle-outline' },
-  { id: 'logout', label: 'Log out', icon: 'log-out-outline', isDestructive: true },
-];
 
 export const MOCK_ACCOUNT_DETAILS: AccountDetails = {
   firstName: 'Sarah',
