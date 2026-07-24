@@ -92,6 +92,138 @@ export const NannySummarySchema = z.object({
 });
 export type NannySummary = z.infer<typeof NannySummarySchema>;
 
+// ── Mid-shift extensions ─────────────────────────────────────────────────────
+
+/**
+ * Lifecycle of a mother's request for extra hours on a running booking.
+ * PENDING_NANNY → ACCEPTED → PAID is the happy path. Only PAID moves the
+ * booking's end time; every other terminal state returns any reserved credits.
+ */
+export const BookingExtensionStatusSchema = z.enum([
+  'PENDING_NANNY', 'ACCEPTED', 'PAID', 'DECLINED', 'EXPIRED', 'CANCELLED',
+]);
+export const BookingExtensionStatus = BookingExtensionStatusSchema.enum;
+export type BookingExtensionStatus = z.infer<typeof BookingExtensionStatusSchema>;
+
+/** The extra-hour amounts offered in the mother's Extend sheet. */
+export const BOOKING_EXTENSION_PRESET_HOURS = [1, 2, 3] as const;
+
+/** How long the nanny has to answer an extension request (must match backend). */
+export const BOOKING_EXTENSION_NANNY_RESPONSE_MINUTES = 15;
+
+/** How long the mother has to pay once the nanny accepts (must match backend). */
+export const BOOKING_EXTENSION_PAYMENT_MINUTES = 15;
+
+export const BookingExtensionResponseSchema = z.object({
+  id: z.number().int(),
+  bookingId: z.number().int(),
+  status: BookingExtensionStatusSchema,
+  hours: z.number(),
+  /**
+   * The booking's end time if this extension is paid for. Wall-clock in
+   * PLATFORM_TIMEZONE, exactly like BookingResponse.endTime — it is a time of
+   * day the mother reads off the string, not a bare instant.
+   */
+  newEndTime: z.string(),
+  /** Snapshot of the booking's effectiveHourlyRate — add-ons are never re-priced. */
+  hourlyRate: z.number(),
+  subtotal: z.number(),
+  discountAmount: z.number(),
+  packageHoursApplied: z.number(),
+  packageSkillsCovered: z.number(),
+  packageCreditAmount: z.number(),
+  rewardCreditHoursApplied: z.number(),
+  rewardCreditPoints: z.number(),
+  rewardCreditAmount: z.number(),
+  /** What is still owed after credits. 0 settles without a trip to Paymob. */
+  totalAmount: z.number(),
+  /**
+   * What the nanny earns for the extra hours. Credits the mother applies come
+   * out of the platform's share, never this — so it is what her prompt shows.
+   */
+  nannyAmount: z.number(),
+  requestedAt: z.string(),
+  nannyRespondedAt: z.string().nullable(),
+  /**
+   * Deadline for whatever the row is currently waiting on: the nanny's answer
+   * while PENDING_NANNY, the mother's payment once ACCEPTED.
+   */
+  expiresAt: z.string(),
+  paidAt: z.string().nullable(),
+});
+export type BookingExtensionResponse = z.infer<typeof BookingExtensionResponseSchema>;
+
+/**
+ * Request extra hours on a running booking. Restricted to the presets so the
+ * mid-shift path stays a single tap — the server re-validates the value against
+ * the same list, the platform's daily booking window and the max duration.
+ */
+export const CreateBookingExtensionSchema = z.object({
+  hours: z
+    .number()
+    .int()
+    .refine(
+      (h): h is (typeof BOOKING_EXTENSION_PRESET_HOURS)[number] =>
+        (BOOKING_EXTENSION_PRESET_HOURS as readonly number[]).includes(h),
+      `hours must be one of ${BOOKING_EXTENSION_PRESET_HOURS.join(', ')}`,
+    ),
+});
+export type CreateBookingExtensionRequest = z.infer<typeof CreateBookingExtensionSchema>;
+
+/** Apply Care Points against an accepted extension, before paying for it. */
+export const RedeemExtensionPointsSchema = z.object({
+  hours: z.number().int().min(1).max(24),
+});
+export type RedeemExtensionPointsRequest = z.infer<typeof RedeemExtensionPointsSchema>;
+
+/**
+ * The wall-clock time `hours` after `wall`. Whole hours only, which is all the
+ * presets ever ask for. Returns null on malformed input so callers fail closed.
+ */
+export function addHoursToWallClock(wall: string, hours: number): string | null {
+  const parsed = parseWallClock(wall);
+  if (!parsed) return null;
+  const totalMinutes = parsed.minutes + hours * 60;
+  // Floor rather than truncate: a negative offset must borrow from the day, not
+  // round back toward zero and land an hour late.
+  const dayShift = Math.floor(totalMinutes / MINUTES_PER_DAY);
+  const dayMinutes = totalMinutes - dayShift * MINUTES_PER_DAY;
+  const dateIso = addDaysIso(wall.slice(0, 10), dayShift);
+  const hh = String(Math.floor(dayMinutes / 60)).padStart(2, '0');
+  const mm = String(dayMinutes % 60).padStart(2, '0');
+  return `${dateIso}T${hh}:${mm}:${wall.slice(17, 19)}`;
+}
+
+/**
+ * Which extension presets a running booking can still take. A preset qualifies
+ * only if the LONGER booking would still fit the daily window and stay under
+ * the max duration — the same two rules `createBooking` enforces, applied to
+ * the extended shift rather than the original one.
+ *
+ * Shared so the mother's Extend sheet offers exactly what the server will
+ * accept: a chip she can tap and then be rejected for is a bug, not a message.
+ */
+export function extendablePresetHours(params: {
+  startWall: string;
+  endWall: string;
+  durationHours: number;
+  windowStartHour: number;
+  windowEndHour: number;
+  maxBookingHours: number;
+}): number[] {
+  return BOOKING_EXTENSION_PRESET_HOURS.filter((h) => {
+    if (params.durationHours + h > params.maxBookingHours) return false;
+    const newEnd = addHoursToWallClock(params.endWall, h);
+    if (!newEnd) return false;
+    return isBookingWithinDailyWindow(
+      params.startWall,
+      newEnd,
+      params.windowStartHour,
+      params.windowEndHour,
+    );
+  });
+}
+
 // ── Booking response ─────────────────────────────────────────────────────────
 
 export const BookingPaymentSummarySchema = z.object({
@@ -163,6 +295,27 @@ export const BookingResponseSchema = z.object({
   cancelledAt: z.string().nullable(),
   nannyCheckedInAt: z.string().nullable(),
   nannyCheckedOutAt: z.string().nullable(),
+  /**
+   * When the MOTHER ended the shift early from her app. Distinct from
+   * nannyCheckedOutAt on purpose — a booking she ended has this set and the
+   * check-out null, so both apps and the admin can say who closed the shift.
+   */
+  motherEndedAt: z.string().nullable(),
+  /**
+   * The extension currently in flight (PENDING_NANNY or ACCEPTED), or null.
+   * Drives the mother's "waiting on your nanny" / "Pay now" states and the
+   * nanny's accept-decline prompt. Settled extensions are not carried here.
+   */
+  activeExtension: BookingExtensionResponseSchema.nullable(),
+  /**
+   * True when the mother may request MORE hours: the booking is running and the
+   * next preset would still land inside the platform's daily booking window and
+   * under the max duration. The server owns this so the Extend button can't
+   * offer something it will then reject.
+   */
+  canExtend: z.boolean(),
+  /** Preset hour amounts still bookable right now — a subset of the presets. */
+  extendableHours: z.array(z.number()),
   /**
    * True when the parent has generated a still-valid start PIN. Lets the nanny
    * UI show "waiting for the parent" vs "enter the PIN". Never carries the PIN
@@ -504,6 +657,7 @@ export const CreatePaymobIntentionSchema = z.object({
   method: PaymentMethodSchema,
 });
 export type CreatePaymobIntentionRequest = z.infer<typeof CreatePaymobIntentionSchema>;
+
 
 /** Minutes before scheduled start when nanny may check in (must match backend). */
 export const CHECK_IN_EARLY_MINUTES = 15;

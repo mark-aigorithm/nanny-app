@@ -93,8 +93,24 @@ enum PaymentMethod {
 enum PaymentPurpose {
   BOOKING
   PACKAGE
+  /// Extra hours added to an already-running booking. See BookingExtension.
+  BOOKING_EXTENSION
 
   @@map("payment_purpose")
+}
+
+/// Lifecycle of a mother's mid-shift request for extra hours.
+/// PENDING_NANNY → ACCEPTED → PAID is the happy path; the nanny may DECLINE,
+/// either side may let it EXPIRE, and ending the booking CANCELs it.
+enum BookingExtensionStatus {
+  PENDING_NANNY
+  ACCEPTED
+  PAID
+  DECLINED
+  EXPIRED
+  CANCELLED
+
+  @@map("booking_extension_status")
 }
 
 enum NannyApprovalStatus {
@@ -219,6 +235,7 @@ model User {
   packagePurchases         PackagePurchase[]         @relation("PackagePurchaseUser")
   packageHoursLedger       PackageHoursLedger[]      @relation("PackageHoursLedgerUser")
   packageHoursGrants       PackageHoursLedger[]      @relation("PackageHoursLedgerAdmin")
+  bookingExtensions        BookingExtension[]        @relation("BookingExtensionMother")
 
   @@index([role])
   @@index([deletedAt])
@@ -422,6 +439,10 @@ model PackageHoursLedger {
   reason       String?
   bookingId    Int?                  @map("booking_id")
   booking      Booking?              @relation(fields: [bookingId], references: [id])
+  /// Set instead of bookingId when the hours were drawn for a mid-shift
+  /// extension. The two are mutually exclusive — see the unique keys below.
+  bookingExtensionId Int?            @map("booking_extension_id")
+  bookingExtension   BookingExtension? @relation(fields: [bookingExtensionId], references: [id])
   adminId      Int?                  @map("admin_id")
   admin        User?                 @relation("PackageHoursLedgerAdmin", fields: [adminId], references: [id])
   createdAt    DateTime              @default(now()) @map("created_at")
@@ -434,9 +455,16 @@ model PackageHoursLedger {
   /// that follows would fabricate hours. Rows with a null bookingId (PURCHASE,
   /// EXPIRY, ADMIN_ADJUST) are unconstrained — Postgres treats NULLs as distinct.
   @@unique([bookingId, purchaseId, type])
+  /// The same guarantee for extension-scoped movements. Without it an extension
+  /// refund could be applied twice — the key above can't help, because those
+  /// rows carry a null bookingId and Postgres treats NULLs as distinct.
+  /// Named explicitly: the generated name would exceed Postgres' 63-char
+  /// identifier limit and be silently truncated.
+  @@unique([bookingExtensionId, purchaseId, type], map: "package_hours_ledger_entries_extension_purchase_type_key")
   @@index([userId, createdAt])
   @@index([purchaseId])
   @@index([bookingId])
+  @@index([bookingExtensionId])
   @@map("package_hours_ledger_entries")
 }
 
@@ -621,6 +649,9 @@ model RewardLedgerEntry {
   reason       String?
   /// Set on EARN entries (the booking that generated the points).
   bookingId    Int?            @map("booking_id")
+  /// Set instead of bookingId when points were spent on a mid-shift extension,
+  /// so an extension's REDEEM is distinguishable from the parent booking's own.
+  bookingExtensionId Int?      @map("booking_extension_id")
   /// Set on ADMIN_GRANT / ADMIN_REVOKE (the acting admin).
   adminId      Int?            @map("admin_id")
   admin        User?           @relation("RewardGrantAdmin", fields: [adminId], references: [id])
@@ -630,6 +661,7 @@ model RewardLedgerEntry {
 
   @@index([userId, createdAt])
   @@index([bookingId])
+  @@index([bookingExtensionId])
   @@map("reward_ledger_entries")
 }
 
@@ -749,6 +781,11 @@ model Booking {
   cancelledAt              DateTime?            @map("cancelled_at")
   nannyCheckedInAt         DateTime?            @map("nanny_checked_in_at")
   nannyCheckedOutAt        DateTime?            @map("nanny_checked_out_at")
+  /// When the MOTHER ended the shift early from her app. Deliberately distinct
+  /// from nannyCheckedOutAt — that field means the nanny checked herself out,
+  /// and writing it here would misreport who closed the shift. A booking
+  /// completed this way has motherEndedAt set and nannyCheckedOutAt null.
+  motherEndedAt            DateTime?            @map("mother_ended_at")
   /// Parent-generated hand-off PIN gating nanny check-in. The parent reveals a
   /// 4-digit code within the check-in window; the nanny must enter it to start.
   /// Stored hashed (sha-256) and cleared on successful check-in. See booking.service.
@@ -771,6 +808,7 @@ model Booking {
   review             Review?
   careLogs           CareLog[]
   packageHoursLedger PackageHoursLedger[]
+  extensions         BookingExtension[]
 
   @@index([motherId])
   @@index([nannyProfileId])
@@ -781,11 +819,68 @@ model Booking {
   @@map("bookings")
 }
 
+/// A mother's mid-shift request to add hours to a running booking.
+///
+/// Money and hours are only ever moved when the row reaches PAID: the request
+/// itself is a quote (no credits debited), credits are reserved when the nanny
+/// ACCEPTS, and they are returned if the row ends DECLINED / EXPIRED /
+/// CANCELLED. Every price field is a SNAPSHOT taken at request time so a later
+/// change to platform rates can't retroactively re-price what she agreed to.
+model BookingExtension {
+  id                       Int                    @id @default(autoincrement())
+  bookingId                Int                    @map("booking_id")
+  booking                  Booking                @relation(fields: [bookingId], references: [id])
+  motherId                 Int                    @map("mother_id")
+  mother                   User                   @relation("BookingExtensionMother", fields: [motherId], references: [id])
+  status                   BookingExtensionStatus @default(PENDING_NANNY)
+  /// Extra hours requested (a preset: 1, 2 or 3).
+  hours                    Decimal                @db.Decimal(4, 2)
+  /// The booking's endTime if this extension is paid for. Validated against the
+  /// platform daily booking window and max duration at request AND accept time.
+  newEndTime               DateTime               @map("new_end_time")
+  /// Copied from the booking's effectiveHourlyRate — base rate plus the skill
+  /// add-ons she already selected. Extensions never re-price the add-ons.
+  hourlyRate               Decimal                @map("hourly_rate") @db.Decimal(10, 2)
+  subtotal                 Decimal                @db.Decimal(10, 2)
+  discountAmount           Decimal                @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  /// Package hours reserved against this extension. Returned unless it is PAID.
+  packageHoursApplied      Decimal                @default(0) @map("package_hours_applied") @db.Decimal(6, 2)
+  packageSkillsCovered     Int                    @default(0) @map("package_skills_covered")
+  packageCreditAmount      Decimal                @default(0) @map("package_credit_amount") @db.Decimal(10, 2)
+  /// Care Points reserved against this extension. Returned unless it is PAID.
+  rewardCreditHoursApplied Decimal                @default(0) @map("reward_credit_hours_applied") @db.Decimal(6, 2)
+  rewardCreditPoints       Int                    @default(0) @map("reward_credit_points")
+  rewardCreditAmount       Decimal                @default(0) @map("reward_credit_amount") @db.Decimal(10, 2)
+  /// What the mother still owes after credits. Zero means it settles with no
+  /// trip to Paymob at all.
+  totalAmount              Decimal                @map("total_amount") @db.Decimal(10, 2)
+  nannyAmount              Decimal                @default(0) @map("nanny_amount") @db.Decimal(10, 2)
+  platformAmount           Decimal                @default(0) @map("platform_amount") @db.Decimal(10, 2)
+  requestedAt              DateTime               @default(now()) @map("requested_at")
+  nannyRespondedAt         DateTime?              @map("nanny_responded_at")
+  /// Deadline for the CURRENT status: the nanny's answer while PENDING_NANNY,
+  /// then the mother's payment once ACCEPTED. Swept by the reconciliation tick.
+  expiresAt                DateTime               @map("expires_at")
+  paidAt                   DateTime?              @map("paid_at")
+  createdAt                DateTime               @default(now()) @map("created_at")
+  updatedAt                DateTime               @updatedAt @map("updated_at")
+  deletedAt                DateTime?              @map("deleted_at")
+
+  /// Like Booking, one extension accrues one payment row per attempt.
+  payments           Payment[]
+  packageHoursLedger PackageHoursLedger[]
+
+  @@index([bookingId])
+  @@index([motherId])
+  @@index([status, expiresAt])
+  @@map("booking_extensions")
+}
+
 model Payment {
   id                      Int              @id @default(autoincrement())
-  /// Nullable + polymorphic: a payment covers either a Booking or a
-  /// PackagePurchase (never both). `purpose` disambiguates which relation
-  /// is populated.
+  /// Nullable + polymorphic: a payment covers either a Booking, a
+  /// PackagePurchase or a BookingExtension (never more than one). `purpose`
+  /// disambiguates which relation is populated.
   /// Neither FK is unique: every payment ATTEMPT gets its own row, so a declined
   /// card keeps its FAILED record and the retry is a new one rather than an
   /// overwrite. Consumers that want "the" payment take the newest.
@@ -793,6 +888,8 @@ model Payment {
   booking                 Booking?         @relation(fields: [bookingId], references: [id])
   packagePurchaseId       Int?             @map("package_purchase_id")
   packagePurchase         PackagePurchase? @relation(fields: [packagePurchaseId], references: [id])
+  bookingExtensionId      Int?              @map("booking_extension_id")
+  bookingExtension        BookingExtension? @relation(fields: [bookingExtensionId], references: [id])
   purpose                 PaymentPurpose   @default(BOOKING)
   motherId                Int              @map("mother_id")
   mother                  User             @relation("PaymentMother", fields: [motherId], references: [id])
@@ -823,7 +920,9 @@ model Payment {
   @@index([paymobOrderId])
   @@index([paymobNextReconcileAt])
   /// Replace the indexes the dropped @unique constraints used to provide — both
-  /// flows look payments up by owner to find the latest attempt.
+  /// flows look payments up by owner to find the latest attempt. Extensions
+  /// resolve their newest attempt the same way.
+  @@index([bookingExtensionId])
   @@index([packagePurchaseId])
   @@index([bookingId])
   @@map("payments")
@@ -1087,6 +1186,16 @@ enum NotificationType {
   REFERRAL_JOINED
   /// A parent asked the nanny to turn on the camera for a live booking.
   CAMERA_REQUESTED
+  /// A parent ended a running booking early from her app.
+  BOOKING_ENDED_BY_PARENT
+  /// A parent asked to add hours to a running booking (nanny must answer).
+  BOOKING_EXTENSION_REQUESTED
+  /// The nanny accepted the extra hours — the parent still has to pay.
+  BOOKING_EXTENSION_ACCEPTED
+  /// The nanny turned the extra hours down.
+  BOOKING_EXTENSION_DECLINED
+  /// The extension was paid for and the booking's end time has moved.
+  BOOKING_EXTENDED
 
   @@map("notification_type")
 }

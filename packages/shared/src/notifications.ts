@@ -19,6 +19,11 @@ export const NotificationTypeSchema = z.enum([
   'referral_converted',
   'referral_joined',
   'camera_requested',
+  'booking_ended_by_parent',
+  'booking_extension_requested',
+  'booking_extension_accepted',
+  'booking_extension_declined',
+  'booking_extended',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
