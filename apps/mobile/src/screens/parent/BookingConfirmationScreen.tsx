@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,12 @@ import {
   Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus, type BookingResponse } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
+import { PulseRings, Stepper } from '@mobile/components/ui';
 import {
   useBooking,
   useCancelBooking,
@@ -27,29 +29,111 @@ import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { styles } from './styles/booking-confirmation-screen.styles';
 
+/**
+ * Cycled while the request is out for broadcast. Deliberately generic — the app
+ * gets no per-nanny signal back, so nothing here may imply a live count.
+ */
+const SEARCH_MESSAGES = [
+  'Notifying available nannies near you…',
+  'Nannies are reviewing your request…',
+  'This usually takes just a few minutes.',
+] as const;
+
+const NEXT_STEPS = [
+  { title: 'Request sent', detail: 'Every available nanny can see it' },
+  { title: 'A nanny accepts', detail: 'First to accept takes the booking' },
+  { title: 'Pay & confirm', detail: 'Your card is charged only then' },
+] as const;
+
+/** "4m 12s" since the request was created. */
+function formatElapsed(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+}
+
 export default function BookingConfirmationScreen() {
   const router = useRouter();
-  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const { bookingId, pointsHours } = useLocalSearchParams<{
+    bookingId: string;
+    pointsHours?: string;
+  }>();
 
   // Poll while the request is still unclaimed so the screen flips to
   // "nanny accepted — pay" on its own the moment a nanny claims it.
   const { data: booking, isLoading } = useBooking(Number(bookingId), true);
   const cancelBooking = useCancelBooking();
+  const redeem = useRedeemBookingPoints();
 
-  // Gentle pulse while we're still searching for a nanny.
-  const pulse = useRef(new Animated.Value(0)).current;
   const isSearching = booking?.status === BookingStatus.PENDING;
+
+  // ── Rotating reassurance copy ──
+  const [messageIndex, setMessageIndex] = useState(0);
+  const messageFade = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (!isSearching) return;
-    const loop = Animated.loop(
+    const timer = setInterval(() => {
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.in(Easing.ease), useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [isSearching, pulse]);
+        Animated.timing(messageFade, {
+          toValue: 0,
+          duration: 240,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(messageFade, {
+          toValue: 1,
+          duration: 240,
+          delay: 60,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      // Swapped mid-fade so the text never changes while fully visible.
+      setTimeout(() => setMessageIndex((i) => (i + 1) % SEARCH_MESSAGES.length), 260);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [isSearching, messageFade]);
+
+  // ── Elapsed since the request was created ──
+  // Read off `createdAt` rather than mount time, so leaving and coming back
+  // doesn't restart the clock.
+  const [elapsed, setElapsed] = useState(0);
+  const createdAt = booking?.createdAt;
+  useEffect(() => {
+    if (!isSearching || !createdAt) return;
+    const start = new Date(createdAt).getTime();
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [isSearching, createdAt]);
+
+  // ── Reveal when a nanny claims the request ──
+  const reveal = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (isSearching || !booking) return;
+    Animated.spring(reveal, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 60,
+    }).start();
+  }, [isSearching, booking, reveal]);
+
+  // ── Auto-apply the Care Points reserved back on the review step ──
+  const autoAppliedRef = useRef(false);
+  const reservedHours = Number(pointsHours ?? 0);
+  useEffect(() => {
+    if (autoAppliedRef.current || !booking) return;
+    if (booking.status !== BookingStatus.APPROVED) return;
+    if (booking.rewardCreditAmount > 0) return;
+    if (!Number.isFinite(reservedHours) || reservedHours < 1) return;
+    // Guarded by a ref rather than state: the 5s poll re-runs this effect on
+    // every refetch, and a second redeem would spend the points twice.
+    autoAppliedRef.current = true;
+    const hours = Math.min(Math.floor(reservedHours), Math.floor(booking.durationHours));
+    if (hours >= 1) redeem.mutate({ id: booking.id, hours });
+  }, [booking, reservedHours, redeem]);
 
   const handleViewDetails = () => {
     router.push({
@@ -58,13 +142,13 @@ export default function BookingConfirmationScreen() {
     } as never);
   };
 
-  const handleCompletePayment = () => {
+  const handleCompletePayment = useCallback(() => {
     if (!booking) return;
     router.push({
       pathname: '/(parent)/book/booking-step-3',
       params: payBookingParams(booking) as never,
     } as never);
-  };
+  }, [booking, router]);
 
   const handleCancelRequest = () => {
     if (!booking) return;
@@ -80,7 +164,7 @@ export default function BookingConfirmationScreen() {
 
   if (isLoading || !booking) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+      <View style={styles.loadingState}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
@@ -105,20 +189,19 @@ export default function BookingConfirmationScreen() {
 
   let heading: string;
   let subtitle: string;
-  let iconName: React.ComponentProps<typeof Ionicons>['name'];
   if (isPaid) {
     heading = "You're booked.";
     subtitle = `${nannyFirstName} is confirmed for ${dateDisplay}.`;
-    iconName = 'checkmark';
   } else if (isApproved) {
     heading = 'A nanny accepted!';
     subtitle = `${nannyFirstName} is ready for ${dateDisplay}. Complete payment to confirm.`;
-    iconName = 'sparkles-outline';
   } else {
     heading = 'Finding a nanny';
-    subtitle = "We're reaching out to nannies for you. We'll let you know the moment one accepts.";
-    iconName = 'radio-outline';
+    subtitle = SEARCH_MESSAGES[messageIndex] ?? SEARCH_MESSAGES[0];
   }
+
+  /** Which "what happens next" step is live right now. */
+  const activeStep = isPaid ? 2 : isApproved ? 1 : 0;
 
   return (
     <ScrollView
@@ -126,50 +209,95 @@ export default function BookingConfirmationScreen() {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Status Indicator ── */}
-      <View style={styles.successSection}>
-        <View style={isPaid ? styles.successCircle : styles.pendingCircle}>
-          {isPending && (
-            <Animated.View
-              style={[
-                styles.pendingHalo,
-                {
-                  transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
-                  opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
-                },
-              ]}
-            />
-          )}
-          <Ionicons name={iconName} size={27} color={isPaid ? colors.white : colors.primary} />
-        </View>
+      {/* ── Hero ── */}
+      <View style={styles.hero}>
+        {isPending ? (
+          <PulseRings size={104} maxScale={2.2} active>
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCore}
+            >
+              <Ionicons name="radio-outline" size={34} color={colors.white} />
+            </LinearGradient>
+          </PulseRings>
+        ) : (
+          <Animated.View
+            style={[
+              styles.revealWrap,
+              {
+                opacity: reveal,
+                transform: [
+                  { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                ],
+              },
+            ]}
+          >
+            {nannyPhoto ? (
+              <Image source={{ uri: nannyPhoto }} style={styles.heroAvatar} resizeMode="cover" />
+            ) : (
+              <View style={[styles.heroAvatar, styles.heroAvatarPlaceholder]}>
+                <Ionicons name="person" size={40} color={colors.primary} />
+              </View>
+            )}
+            <View style={styles.heroBadge}>
+              <Ionicons
+                name={isPaid ? 'checkmark' : 'sparkles'}
+                size={14}
+                color={colors.white}
+              />
+            </View>
+          </Animated.View>
+        )}
+
         <Text style={styles.heading}>{heading}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        {isPending ? (
+          <Animated.Text style={[styles.subtitle, { opacity: messageFade }]}>
+            {subtitle}
+          </Animated.Text>
+        ) : (
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        )}
+
+        {isPending && (
+          <View style={styles.elapsedPill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.elapsedText}>Searching for {formatElapsed(elapsed)}</Text>
+          </View>
+        )}
       </View>
 
-      {/* ── Booking Card ── */}
+      {/* ── Booking card ── */}
       <View style={styles.card}>
-        {/* Nanny / status header */}
         <View style={styles.nannyHeader}>
           <View style={styles.photoWrapper}>
             {nannyPhoto ? (
               <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
             ) : (
-              <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name={isPending ? 'search' : 'person'} size={30} color={colors.primary} />
+              <View style={[styles.nannyPhoto, styles.nannyPhotoPlaceholder]}>
+                <Ionicons
+                  name={isPending ? 'search' : 'person'}
+                  size={24}
+                  color={colors.primary}
+                />
               </View>
             )}
           </View>
-          <Text style={styles.nannyName}>
-            {booking.nanny
-              ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
-              : 'Searching for a nanny…'}
-          </Text>
+          <View style={styles.nannyHeaderBody}>
+            <Text style={styles.nannyName}>
+              {booking.nanny
+                ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+                : 'Searching for a nanny…'}
+            </Text>
+            <Text style={styles.nannyMeta}>
+              {isPending ? 'Your request is out to every available nanny' : 'Your nanny'}
+            </Text>
+          </View>
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Details List */}
         <View style={styles.detailsList}>
           <DetailRow iconName="calendar-outline" label="Date" value={dateDisplay} />
           <DetailRow iconName="time-outline" label="Time" value={timeDisplay} />
@@ -181,10 +309,46 @@ export default function BookingConfirmationScreen() {
         </View>
       </View>
 
-      {/* ── Care Points redemption (before payment) ── */}
-      {isApproved && <CarePointsCard booking={booking} />}
+      {/* ── What happens next ── */}
+      {isPending && (
+        <View style={styles.timeline}>
+          <Text style={styles.timelineTitle}>What happens next</Text>
+          {NEXT_STEPS.map((step, index) => {
+            const done = index < activeStep;
+            const active = index === activeStep;
+            return (
+              <View key={step.title} style={styles.timelineRow}>
+                <View style={styles.timelineRail}>
+                  <View
+                    style={[
+                      styles.timelineDot,
+                      (done || active) && styles.timelineDotReached,
+                    ]}
+                  >
+                    {done && <Ionicons name="checkmark" size={11} color={colors.white} />}
+                  </View>
+                  {index < NEXT_STEPS.length - 1 && <View style={styles.timelineLine} />}
+                </View>
+                <View style={styles.timelineBody}>
+                  <Text
+                    style={[styles.timelineStep, active && styles.timelineStepActive]}
+                  >
+                    {step.title}
+                  </Text>
+                  <Text style={styles.timelineDetail}>{step.detail}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
-      {/* ── Action Buttons ── */}
+      {/* ── Care Points redemption (before payment) ── */}
+      {isApproved && (
+        <CarePointsCard booking={booking} autoApplying={redeem.isPending} />
+      )}
+
+      {/* ── Actions ── */}
       <View style={styles.actions}>
         {isApproved ? (
           <TouchableOpacity
@@ -206,29 +370,23 @@ export default function BookingConfirmationScreen() {
           </TouchableOpacity>
         )}
 
+        <TouchableOpacity style={styles.linkButton} activeOpacity={0.7} onPress={handleBackToHome}>
+          <Text style={styles.linkButtonText}>Back to home</Text>
+        </TouchableOpacity>
+
         {isPending && (
           <TouchableOpacity
-            style={styles.secondaryButton}
-            activeOpacity={0.85}
+            style={styles.linkButton}
+            activeOpacity={0.7}
             onPress={handleCancelRequest}
             disabled={cancelBooking.isPending}
           >
-            <Ionicons name="close" size={20} color={colors.textTertiary} />
-            <Text style={styles.secondaryButtonText}>
+            <Text style={styles.cancelLinkText}>
               {cancelBooking.isPending ? 'Cancelling…' : 'Cancel request'}
             </Text>
           </TouchableOpacity>
         )}
       </View>
-
-      {/* ── Navigation Link ── */}
-      <TouchableOpacity
-        style={styles.backLink}
-        activeOpacity={0.7}
-        onPress={handleBackToHome}
-      >
-        <Text style={styles.backLinkText}>Back to home</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -239,8 +397,17 @@ export default function BookingConfirmationScreen() {
  * Lets the parent apply Care Points to an approved booking before paying. The
  * server lowers the booking total; whatever provider then charges bills the
  * reduced amount. Points are refunded via "Remove" or on cancellation.
+ *
+ * Hours reserved back on the review step are applied for her automatically —
+ * `autoApplying` keeps this card quiet while that request is in flight.
  */
-function CarePointsCard({ booking }: { booking: BookingResponse }) {
+function CarePointsCard({
+  booking,
+  autoApplying = false,
+}: {
+  booking: BookingResponse;
+  autoApplying?: boolean;
+}) {
   const wallet = useRewardWallet();
   const config = useRewardConfig();
   const redeem = useRedeemBookingPoints();
@@ -258,22 +425,30 @@ function CarePointsCard({ booking }: { booking: BookingResponse }) {
 
   if (applied) {
     return (
-      <View style={styles.rewardCard}>
-        <View style={styles.rewardAppliedRow}>
-          <Ionicons name="checkmark-circle" size={22} color={colors.successDark} />
-          <View style={styles.rewardAppliedBody}>
-            <Text style={styles.rewardTitle}>
-              {booking.rewardCreditHoursApplied}h free applied
-            </Text>
-            <Text style={styles.rewardSub}>
-              You saved {formatMoney(booking.rewardCreditAmount)} with{' '}
-              {booking.rewardCreditPoints} points.
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => refund.mutate(booking.id)} disabled={refund.isPending}>
-            <Text style={styles.rewardRemove}>{refund.isPending ? '…' : 'Remove'}</Text>
-          </TouchableOpacity>
+      <View style={[styles.rewardCard, styles.rewardCardApplied]}>
+        <Ionicons name="gift" size={22} color={colors.successDark} />
+        <View style={styles.rewardAppliedBody}>
+          <Text style={styles.rewardTitle}>
+            {booking.rewardCreditHoursApplied} free hour
+            {booking.rewardCreditHoursApplied === 1 ? '' : 's'} applied
+          </Text>
+          <Text style={styles.rewardSub}>
+            You saved {formatMoney(booking.rewardCreditAmount)} with {booking.rewardCreditPoints}{' '}
+            points.
+          </Text>
         </View>
+        <TouchableOpacity onPress={() => refund.mutate(booking.id)} disabled={refund.isPending}>
+          <Text style={styles.rewardRemove}>{refund.isPending ? '…' : 'Remove'}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (autoApplying) {
+    return (
+      <View style={[styles.rewardCard, styles.rewardCardApplied]}>
+        <ActivityIndicator color={colors.successDark} />
+        <Text style={styles.rewardSub}>Applying your reserved Care Points…</Text>
       </View>
     );
   }
@@ -291,23 +466,14 @@ function CarePointsCard({ booking }: { booking: BookingResponse }) {
         Redeem up to {maxHours} free hour{maxHours === 1 ? '' : 's'} ({pph} pts each).
       </Text>
       <View style={styles.rewardControls}>
-        <View style={styles.stepper}>
-          <TouchableOpacity
-            style={styles.stepBtn}
-            onPress={() => setHours(Math.max(1, clamped - 1))}
-            disabled={clamped <= 1}
-          >
-            <Ionicons name="remove" size={18} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.stepValue}>{clamped}h</Text>
-          <TouchableOpacity
-            style={styles.stepBtn}
-            onPress={() => setHours(Math.min(maxHours, clamped + 1))}
-            disabled={clamped >= maxHours}
-          >
-            <Ionicons name="add" size={18} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
+        <Stepper
+          value={clamped}
+          onChange={setHours}
+          min={1}
+          max={Math.max(maxHours, 1)}
+          suffix="h"
+          size="sm"
+        />
         <TouchableOpacity
           style={styles.rewardApplyBtn}
           onPress={() => redeem.mutate({ id: booking.id, hours: clamped })}

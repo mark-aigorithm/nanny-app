@@ -128,7 +128,14 @@ export function useCreateBooking() {
   const qc = useQueryClient();
   return useMutation<BookingResponse, Error, CreateBookingRequest>({
     mutationFn: (body) => unwrap(api.post('/bookings', body)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+    onSuccess: (booking) => {
+      // Seed the detail cache with the booking we were just handed. The
+      // confirmation screen navigates straight here after submitting, and
+      // without this it would mount with no data and flash a bare spinner
+      // before its own fetch resolved.
+      qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
+      void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+    },
   });
 }
 

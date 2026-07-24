@@ -32,6 +32,20 @@ export function formatHour24(hour: number, minute = 0): string {
 /** @deprecated Alias kept for hot-reload safety — use formatHour24 */
 export const formatHourLabel = formatHour24;
 
+/**
+ * Formats a possibly-fractional hour count as "4h" / "4h 30m" / "45m".
+ *
+ * Bookings are no longer whole hours — the picker offers half-hour lengths and
+ * any start minute — so "4.5 hours" must never reach the screen.
+ */
+export function formatDurationHours(hours: number): string {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 /** Formats an "HH:mm" string as a 12h label. */
 export function formatHhMm(hhmm: string): string {
   const [h, m] = hhmm.split(':').map((v) => parseInt(v ?? '0', 10));

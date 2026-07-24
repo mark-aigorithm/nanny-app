@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   colors,
@@ -7,6 +7,7 @@ import {
   spacing,
   screenPadding,
   borderRadius,
+  shadows,
   STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
@@ -47,62 +48,14 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: spacing['3xl'],
+    paddingTop: spacing.lg,
     paddingHorizontal: screenPadding,
-    paddingBottom: 120,
+    // Clears the sticky summary bar.
+    paddingBottom: 200,
     gap: screenPadding,
   },
 
-  // Progress & Title
-  progressSection: {
-    gap: spacing.sm,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  dot: {
-    borderRadius: borderRadius.full,
-  },
-  dotActive: {
-    width: 10,
-    height: 10,
-    backgroundColor: colors.primary,
-  },
-  dotInactive: {
-    width: 8,
-    height: 8,
-    backgroundColor: colors.taupe,
-  },
-  stepLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  heading: {
-    ...typeScale.headingLg,
-    letterSpacing: -0.5,
-    color: colors.textPrimary,
-  },
-
-  // Nanny Card
-  nannyCardInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  nannyPhoto: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.surfaceMuted,
-  },
-  nannyPhotoPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // Missing-draft fallback
   centeredState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -121,148 +74,243 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   missingParamsBtnText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 15,
+    ...typeScale.labelMd,
     color: colors.white,
   },
-  nannyInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  nannyNameRow: {
+
+  // When card
+  whenCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
-  nannyName: {
+  whenIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  whenBody: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  whenDate: {
     ...typeScale.headingSm,
     color: colors.textPrimary,
   },
-  nannyRating: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
-    color: colors.goldWarm,
-  },
-  nannyDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  nannyDateText: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
+  whenTime: {
+    ...typeScale.bodySm,
     color: colors.textSecondary,
   },
-
-  // Promo Section
-  promoSection: {
-    gap: spacing.md,
+  whenEdit: {
+    ...typeScale.labelSm,
+    color: colors.primaryDark,
   },
+
+  // Generic section
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  sectionHint: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+
+  // Promo code
   promoInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    height: 44,
-    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   promoInput: {
     flex: 1,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.full,
+    height: 44,
+    paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.regular,
     fontSize: 14,
     color: colors.textPrimary,
+  },
+  promoApplyBtn: {
     height: 44,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promoApplyBtnDisabled: {
+    backgroundColor: colors.taupe,
   },
   promoApplyText: {
     ...typeScale.labelMd,
-    color: colors.primary,
-  },
-  promoApplyTextDisabled: {
-    opacity: 0.5,
+    color: colors.white,
   },
   promoChip: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: colors.successLight,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   promoChipText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
+    ...typeScale.labelSm,
     color: colors.successDark,
   },
   promoErrorText: {
     ...typeScale.caption,
     color: colors.error,
-    marginTop: spacing.xs,
   },
 
-  // Skill add-ons
-  addOnSection: {
+  // Care Points
+  pointsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  addOnTitle: {
-    ...typeScale.labelMd,
-    color: colors.textTertiary,
+  pointsBalance: {
+    ...typeScale.labelSm,
+    color: colors.goldWarm,
+    marginLeft: 'auto',
   },
-  addOnHint: {
+  pointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  pointsSaving: {
+    ...typeScale.labelMd,
+    color: colors.successDark,
+  },
+  pointsNote: {
     ...typeScale.caption,
     color: colors.textMuted,
   },
-  addOnChips: {
+
+  // Prepaid hours
+  prepaidRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.successLight,
   },
-  addOnRowLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
+  prepaidText: {
+    ...typeScale.caption,
+    color: colors.successText,
+    flex: 1,
+  },
+
+  // Prepaid-package nudge
+  packageNudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primaryMuted,
+  },
+  packageNudgeBody: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  packageNudgeTitle: {
+    ...typeScale.labelSm,
+    color: colors.textPrimary,
+  },
+  packageNudgeSub: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+
+  // "You're saving" tally — read-only, never a control
+  savingsCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.successLight,
+    gap: spacing.sm,
+  },
+  savingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  savingsTitle: {
+    ...typeScale.labelMd,
+    color: colors.successText,
+    flex: 1,
+  },
+  savingsTotal: {
+    ...typeScale.headingSm,
+    color: colors.successDark,
+  },
+  savingsLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  savingsLineLabel: {
+    ...typeScale.bodySm,
     color: colors.textSecondary,
     flex: 1,
   },
-  addOnRowValue: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    color: colors.bronze,
+  savingsLineValue: {
+    ...typeScale.labelSm,
+    color: colors.successDark,
+  },
+  savingsFootnote: {
+    ...typeScale.caption,
+    color: colors.textMuted,
   },
 
-  // Price Card
-  priceCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.warmBorder,
-    borderRadius: borderRadius.xl,
-    padding: 21,
-    gap: 14,
-  },
+  // Price breakdown
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   priceLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
+    ...typeScale.bodyMd,
     color: colors.textSecondary,
   },
   priceValue: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
+    ...typeScale.labelMd,
     color: colors.textPrimary,
   },
+  addOnRowLabel: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  addOnRowValue: {
+    ...typeScale.labelMd,
+    color: colors.bronze,
+  },
   promoLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
+    ...typeScale.bodyMd,
     color: colors.success,
   },
   promoValue: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
+    ...typeScale.labelMd,
     color: colors.success,
   },
   priceDivider: {
@@ -270,20 +318,39 @@ export const styles = StyleSheet.create({
     borderTopColor: colors.taupeLight,
   },
   totalLabel: {
-    ...typeScale.headingLg,
+    ...typeScale.headingSm,
     color: colors.textPrimary,
   },
   totalValue: {
-    ...typeScale.headingLg,
-    color: colors.primary,
+    ...typeScale.headingSm,
+    color: colors.primaryDark,
+  },
+  pendingCreditNote: {
+    ...typeScale.caption,
+    color: colors.textMuted,
   },
 
-  instructionsSection: {
+  // Submit failure, shown just above the sticky CTA
+  submitErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.errorLight,
   },
-  instructionsLabel: {
-    ...typeScale.labelMd,
-    color: colors.textTertiary,
+  submitErrorText: {
+    ...typeScale.caption,
+    color: colors.error,
+    flex: 1,
+  },
+
+  // Instructions
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   instructionsInput: {
     backgroundColor: colors.taupeLight,
@@ -295,9 +362,10 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textPrimary,
     textAlignVertical: 'top',
+    marginTop: spacing.xs,
   },
 
-  // Guarantee Card
+  // Guarantee card
   guaranteeCard: {
     backgroundColor: colors.taupeLight,
     borderRadius: borderRadius.xl,
@@ -308,36 +376,7 @@ export const styles = StyleSheet.create({
   },
   guaranteeText: {
     flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    lineHeight: 20,
+    ...typeScale.bodyMd,
     color: colors.textTertiary,
-  },
-
-  // Sticky Footer
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253,250,248,0.8)',
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 36 : screenPadding,
-  },
-  proceedBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius['2xl'],
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  proceedBtnDisabled: {
-    opacity: 0.5,
-  },
-  proceedBtnText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 16,
-    color: colors.white,
   },
 });

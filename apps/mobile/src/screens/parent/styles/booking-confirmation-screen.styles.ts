@@ -2,7 +2,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   colors,
-  fontFamily,
   typeScale,
   spacing,
   screenPadding,
@@ -20,112 +19,144 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: screenPadding,
-    paddingVertical: 63,
+    paddingVertical: spacing['4xl'],
+    gap: spacing.lg,
   },
-
-  // Success Indicator
-  successSection: {
-    alignItems: 'center',
-    marginBottom: spacing['3xl'],
-  },
-  successCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.successLight,
+  loadingState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
+    backgroundColor: colors.background,
   },
-  pendingCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+
+  // Hero
+  hero: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  heroCore: {
+    width: 104,
+    height: 104,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  revealWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    // Shadow lives on the wrapper: on the Image itself it would widen the
+    // style to a ViewStyle and stop type-checking against ImageStyle.
+    ...shadows.md,
+  },
+  heroAvatar: {
+    width: 104,
+    height: 104,
+    borderRadius: borderRadius.full,
+    borderWidth: 4,
+    borderColor: colors.surface,
+  },
+  heroAvatarPlaceholder: {
     backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
   },
-  pendingHalo: {
+  heroBadge: {
     position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    right: 0,
+    bottom: 0,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
     backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heading: {
-    ...typeScale.displayMd,
+    ...typeScale.displaySm,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginTop: spacing.md,
   },
   subtitle: {
-    ...typeScale.bodyLg,
+    ...typeScale.bodyMd,
     color: colors.textMuted,
     textAlign: 'center',
+    minHeight: 44,
+  },
+  elapsedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupeLight,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  elapsedText: {
+    ...typeScale.caption,
+    color: colors.textTertiary,
   },
 
-  // Booking Card
+  // Booking card
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    padding: screenPadding,
+    padding: spacing.xl,
     width: '100%',
-    ...shadows.lg,
-  },
-
-  // Nanny Header
-  nannyHeader: {
-    alignItems: 'center',
-  },
-  photoWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 4,
-    borderColor: colors.surfaceMuted,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
     ...shadows.md,
   },
-  nannyPhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-  },
-  nannyName: {
-    ...typeScale.headingMd,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  verifiedBadge: {
+  nannyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.primaryMuted,
-    paddingHorizontal: 10,
-    paddingVertical: spacing.xs,
+    gap: spacing.md,
+  },
+  photoWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceMuted,
+  },
+  nannyPhoto: {
+    width: 52,
+    height: 52,
     borderRadius: borderRadius.full,
   },
-  verifiedText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+  nannyPhotoPlaceholder: {
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nannyHeaderBody: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  nannyName: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  nannyMeta: {
+    ...typeScale.caption,
+    color: colors.textMuted,
   },
 
-  // Divider
   divider: {
     height: 1,
-    backgroundColor: 'rgba(229,226,224,0.5)',
-    marginVertical: screenPadding,
+    backgroundColor: colors.borderSubtle,
+    marginVertical: spacing.lg,
   },
 
-  // Details List
   detailsList: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
@@ -138,20 +169,76 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   detailLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: 13,
+    ...typeScale.bodySm,
     color: colors.textMuted,
   },
   detailValue: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
+    ...typeScale.labelMd,
     color: colors.textPrimary,
   },
 
-  // Action Buttons
+  // What happens next
+  timeline: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  timelineTitle: {
+    ...typeScale.labelMd,
+    color: colors.textTertiary,
+    marginBottom: spacing.xxs,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  timelineRail: {
+    alignItems: 'center',
+    width: 20,
+  },
+  timelineDot: {
+    width: 18,
+    height: 18,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupe,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineDotReached: {
+    backgroundColor: colors.primary,
+  },
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    minHeight: 20,
+    backgroundColor: colors.taupeLight,
+    marginVertical: spacing.xxs,
+  },
+  timelineBody: {
+    flex: 1,
+    paddingBottom: spacing.md,
+    gap: spacing.xxs,
+  },
+  timelineStep: {
+    ...typeScale.labelSm,
+    color: colors.textMuted,
+  },
+  timelineStepActive: {
+    color: colors.textPrimary,
+  },
+  timelineDetail: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+
+  // Actions
   actions: {
     width: '100%',
-    paddingTop: spacing['3xl'],
+    gap: spacing.sm,
+    paddingTop: spacing.md,
   },
   primaryButton: {
     flexDirection: 'row',
@@ -161,55 +248,43 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: borderRadius['2xl'],
     height: 56,
+    ...shadows.md,
   },
   primaryButtonText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 16,
+    ...typeScale.labelLg,
     color: colors.white,
   },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.warmBorder,
-    borderRadius: borderRadius['2xl'],
-    height: 56,
-    marginTop: spacing.md,
-  },
-  secondaryButtonText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 16,
-    color: colors.textTertiary,
-  },
-
-  // Back Link
-  backLink: {
-    paddingTop: 40,
+  linkButton: {
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
-  backLinkText: {
+  linkButtonText: {
     ...typeScale.labelMd,
     color: colors.textMuted,
+  },
+  cancelLinkText: {
+    ...typeScale.labelMd,
+    color: colors.error,
   },
 
   // Care Points redemption card
   rewardCard: {
+    width: '100%',
     alignItems: 'flex-start',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
     ...shadows.sm,
   },
-  rewardAppliedRow: {
+  rewardCardApplied: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    width: '100%',
+    backgroundColor: colors.successLight,
   },
   rewardAppliedBody: {
     flex: 1,
+    gap: spacing.xxs,
   },
   rewardHeaderRow: {
     flexDirection: 'row',
@@ -230,7 +305,7 @@ export const styles = StyleSheet.create({
   rewardSub: {
     ...typeScale.bodySm,
     color: colors.textSecondary,
-    width: '100%',
+    flex: 1,
   },
   rewardControls: {
     flexDirection: 'row',
@@ -239,30 +314,6 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.md,
     width: '100%',
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-  },
-  stepBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.sm,
-  },
-  stepValue: {
-    ...typeScale.labelMd,
-    color: colors.textPrimary,
-    minWidth: 28,
-    textAlign: 'center',
   },
   rewardApplyBtn: {
     flex: 1,

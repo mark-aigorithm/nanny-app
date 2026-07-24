@@ -30,13 +30,7 @@ import BookingStepProgress from '@mobile/components/BookingStepProgress';
 
 import { colors } from '@mobile/theme';
 
-import {
-
-  useCreateBooking,
-
-  usePaymobCheckout,
-
-} from '@mobile/hooks/useBookings';
+import { usePaymobCheckout } from '@mobile/hooks/useBookings';
 
 import {
 
@@ -48,14 +42,11 @@ import {
 
   getBookingTimeDisplay,
 
-  hasRequiredBookingDraft,
-
   type BookingFlowParams,
 
 } from '@mobile/lib/bookingDraft';
 
 import { getApiErrorMessage } from '@mobile/lib/api';
-import { useIdGateStore } from '@mobile/store/idGateStore';
 import { buildPaymobCheckoutUrl } from '@mobile/lib/paymobCheckout';
 
 import { extractBookingIdFromRedirect, isPaymobPaymentRedirect } from '@mobile/lib/paymobRedirect';
@@ -223,33 +214,12 @@ export default function BookingStep3Screen() {
 
 
 
-  const createBooking = useCreateBooking();
-
   const paymobCheckout = usePaymobCheckout();
 
   const retryMode = isRetryCheckout(params);
 
-  const draftReady = hasRequiredBookingDraft(params) || retryMode;
-
-
-
-  const goToConfirmation = useCallback(
-
-    (id: string) => {
-
-      router.replace({
-
-        pathname: '/(parent)/book/booking-confirmation',
-
-        params: { bookingId: id },
-
-      } as never);
-
-    },
-
-    [router],
-
-  );
+  // Payment-only screen — it never creates a booking, so it needs an existing one.
+  const draftReady = retryMode;
 
 
 
@@ -339,85 +309,6 @@ export default function BookingStep3Screen() {
 
 
 
-  // Create-flow: broadcast the request to every eligible nanny. Creating a
-  // booking must NOT open payment — the mother pays only once a nanny has
-  // claimed it and it becomes APPROVED (see resumeCheckout / retry mode).
-  const submitBookingRequest = useCallback(async () => {
-
-    if (!params.dateIso || !params.startTimeWall || !params.endTimeWall) {
-
-      setLoadError('Missing booking details. Go back and try again.');
-
-      setIsStarting(false);
-
-      return;
-
-    }
-
-    // The booking window and the minimum advance notice are enforced by the
-    // server, which owns the config and the clock. It returns a specific message
-    // when a request breaks either, surfaced below — don't second-guess it here.
-
-    setIsStarting(true);
-
-    setLoadError(null);
-
-
-
-    try {
-
-      const created = await createBooking.mutateAsync({
-
-        startTime: params.startTimeWall,
-
-        endTime: params.endTimeWall,
-
-        ...(params.instructions?.trim()
-
-          ? { specialInstructions: params.instructions.trim() }
-
-          : {}),
-
-        ...(params.promoCode?.trim() ? { promoCode: params.promoCode.trim() } : {}),
-
-        skillIds: params.skillIds?.trim()
-          ? params.skillIds
-              .split(',')
-              .map((s) => Number(s.trim()))
-              .filter((n) => Number.isInteger(n))
-          : [],
-
-      });
-
-      // Route straight to the confirmation screen, which reads a PENDING
-      // booking as "request submitted — awaiting approval".
-      goToConfirmation(String(created.id));
-
-    } catch (err) {
-
-      const message = getApiErrorMessage(err, 'Could not submit your request. Please try again.');
-
-      // Backstop: if the server gated the booking on a missing ID (a mother who
-      // slipped past the home-screen gate, e.g. stale profile), prompt her to
-      // upload rather than showing a dead-end error.
-      if (message.toLowerCase().includes('upload your id')) {
-
-        useIdGateStore.getState().openIdGate();
-
-      }
-
-      setLoadError(message);
-
-    } finally {
-
-      setIsStarting(false);
-
-    }
-
-  }, [createBooking, goToConfirmation, params]);
-
-
-
   useEffect(() => {
 
     if (!draftReady || startedRef.current) return;
@@ -426,17 +317,9 @@ export default function BookingStep3Screen() {
 
     redirectHandledRef.current = false;
 
-    if (retryMode) {
+    void resumeCheckout();
 
-      void resumeCheckout();
-
-    } else {
-
-      void submitBookingRequest();
-
-    }
-
-  }, [draftReady, resumeCheckout, retryMode, submitBookingRequest]);
+  }, [draftReady, resumeCheckout]);
 
 
 
@@ -506,7 +389,7 @@ export default function BookingStep3Screen() {
 
       <View style={[styles.container, styles.centeredState]}>
 
-        <Text style={styles.missingParamsText}>Booking details are incomplete.</Text>
+        <Text style={styles.missingParamsText}>This booking is no longer awaiting payment.</Text>
 
         <Pressable style={styles.missingParamsBtn} onPress={() => router.back()}>
 
@@ -552,7 +435,7 @@ export default function BookingStep3Screen() {
 
           </Pressable>
 
-          <Text style={styles.headerTitle}>{retryMode ? 'Payment' : 'Confirm request'}</Text>
+          <Text style={styles.headerTitle}>Payment</Text>
 
           <View style={styles.headerIconBtn} />
 
@@ -592,9 +475,7 @@ export default function BookingStep3Screen() {
 
             <ActivityIndicator color={colors.primary} size="large" />
 
-            <Text style={styles.webviewLoadingText}>
-              {retryMode ? 'Preparing checkout…' : 'Submitting your request…'}
-            </Text>
+            <Text style={styles.webviewLoadingText}>Preparing checkout…</Text>
 
           </View>
 
@@ -616,17 +497,7 @@ export default function BookingStep3Screen() {
 
                 redirectHandledRef.current = false;
 
-                if (params.bookingId ?? bookingId) {
-
-                  void resumeCheckout();
-
-                } else {
-
-                  startedRef.current = true;
-
-                  void submitBookingRequest();
-
-                }
+                void resumeCheckout();
 
               }}
 

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 
 import { colors, fontFamily, typeScale, spacing, borderRadius } from '@mobile/theme';
 
@@ -10,34 +10,75 @@ type Props = {
   compact?: boolean;
 };
 
+const STEP_LABELS = ['When', 'Review', 'Confirm'] as const;
+
+/**
+ * Three-segment progress rail for the booking flow. Completed segments are
+ * filled outright; the current one sweeps its fill in on mount so arriving at a
+ * step reads as forward motion rather than a static state.
+ */
 export default function BookingStepProgress({
   step,
   title,
   centered = false,
   compact = false,
 }: Props) {
+  const sweep = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    sweep.setValue(0);
+    Animated.timing(sweep, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      // Animating width can't run on the native driver — it's a layout prop.
+      useNativeDriver: false,
+    }).start();
+  }, [step, sweep]);
+
+  const sweepWidth = sweep.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
   return (
-    <View style={[styles.progressSection, centered && styles.progressSectionCentered]}>
-      <View style={[styles.dotsRow, centered && styles.dotsRowCentered]}>
-        {[1, 2, 3].map((n) => (
-          <View
-            key={n}
-            style={[
-              styles.dot,
-              compact && styles.dotCompact,
-              n < step && styles.dotCompleted,
-              n === step && styles.dotActive,
-              n > step && styles.dotInactive,
-              compact && n > step && styles.dotInactiveCompact,
-            ]}
-          />
-        ))}
+    <View style={[styles.wrap, centered && styles.wrapCentered]}>
+      <View style={styles.rail}>
+        {STEP_LABELS.map((label, index) => {
+          const n = index + 1;
+          const done = n < step;
+          const active = n === step;
+          return (
+            <View key={label} style={styles.segmentColumn}>
+              <View style={[styles.segment, compact && styles.segmentCompact]}>
+                {done && <View style={styles.segmentFill} />}
+                {active && (
+                  <Animated.View style={[styles.segmentFill, { width: sweepWidth }]} />
+                )}
+              </View>
+              {!compact && (
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    (done || active) && styles.segmentLabelReached,
+                  ]}
+                >
+                  {label}
+                </Text>
+              )}
+            </View>
+          );
+        })}
       </View>
-      <Text style={[styles.stepLabel, centered && styles.textCentered, compact && styles.stepLabelCompact]}>
-        Step {step} of 3
-      </Text>
+
       {title ? (
-        <Text style={[styles.heading, centered && styles.textCentered, compact && styles.headingCompact]}>
+        <Text
+          style={[
+            styles.heading,
+            centered && styles.textCentered,
+            compact && styles.headingCompact,
+          ]}
+        >
           {title}
         </Text>
       ) : null}
@@ -46,61 +87,48 @@ export default function BookingStepProgress({
 }
 
 const styles = StyleSheet.create({
-  progressSection: {
-    gap: spacing.sm,
+  wrap: {
+    gap: spacing.md,
+    alignSelf: 'stretch',
   },
-  progressSectionCentered: {
+  wrapCentered: {
     alignItems: 'center',
-    gap: spacing.xxs,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  dotsRowCentered: {
-    justifyContent: 'center',
-    marginBottom: 0,
   },
   textCentered: {
     textAlign: 'center',
   },
-  dot: {
+  rail: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+  },
+  segmentColumn: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  segment: {
+    height: 4,
     borderRadius: borderRadius.full,
-  },
-  dotCompleted: {
-    width: 10,
-    height: 10,
-    backgroundColor: colors.primary,
-    opacity: 0.5,
-  },
-  dotActive: {
-    width: 10,
-    height: 10,
-    backgroundColor: colors.primary,
-  },
-  dotInactive: {
-    width: 8,
-    height: 8,
     backgroundColor: colors.taupe,
+    overflow: 'hidden',
   },
-  dotCompact: {
-    width: 8,
-    height: 8,
+  segmentCompact: {
+    height: 3,
   },
-  dotInactiveCompact: {
-    width: 6,
-    height: 6,
+  segmentFill: {
+    height: '100%',
+    width: '100%',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
   },
-  stepLabel: {
+  segmentLabel: {
+    ...typeScale.caption,
     fontFamily: fontFamily.medium,
-    fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.textPlaceholder,
   },
-  stepLabelCompact: {
-    fontSize: 11,
-    lineHeight: 14,
+  segmentLabelReached: {
+    fontFamily: fontFamily.semiBold,
+    color: colors.textSecondary,
   },
   heading: {
     ...typeScale.headingLg,

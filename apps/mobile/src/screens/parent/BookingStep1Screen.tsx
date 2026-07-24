@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -16,11 +17,15 @@ import {
   type PublicSkill,
 } from '@nanny-app/shared';
 
-import { colors, spacing, borderRadius } from '@mobile/theme';
-import { Card, Chip } from '@mobile/components/ui';
+import { colors } from '@mobile/theme';
+import { Chip, CollapsibleCard, Stepper } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
-import { usePricingConfig, useValidatePromo } from '@mobile/hooks/useBookings';
+import { useCreateBooking, usePricingConfig, useValidatePromo } from '@mobile/hooks/useBookings';
+import { usePackageHours, usePackages } from '@mobile/hooks/usePackages';
+import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
+import { getApiErrorMessage } from '@mobile/lib/api';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { formatDurationHours } from '@mobile/lib/formatTime';
 import {
   getBookingDateDisplay,
   getBookingDurationHours,
@@ -29,8 +34,32 @@ import {
   type BookingFlowParams,
 } from '@mobile/lib/bookingDraft';
 
+import { useIdGateStore } from '@mobile/store/idGateStore';
+
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
+import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
 import { styles } from './styles/booking-step1-screen.styles';
+
+/** One-tap prompts for the instructions box — a blank textarea gets skipped. */
+const INSTRUCTION_TAGS = ['Allergies', 'Nap routine', 'Meals', 'Pets', 'House rules'] as const;
+
+/** What a skill add-on costs across the whole booking, in money. */
+function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): number {
+  if (skill.feeType === 'FLAT') return skill.feeValue * hours;
+  if (skill.feeType === 'PERCENTAGE') return baseRate * (skill.feeValue / 100) * hours;
+  return 0;
+}
+
+/**
+ * Chip label: the name, plus what it adds to THIS booking. Free specialties
+ * carry no suffix — "+EGP 0.00" on half the list was pure noise.
+ */
+function addOnChipLabel(skill: PublicSkill, baseRate: number | null, hours: number): string {
+  if (baseRate == null || hours <= 0) return skill.name;
+  const amount = addOnAmount(skill, baseRate, hours);
+  if (amount <= 0.005) return skill.name;
+  return `${skill.name} · +${formatMoney(amount, { fractionDigits: 0 })}`;
+}
 
 export default function BookingStep1Screen() {
   const router = useRouter();
@@ -43,10 +72,17 @@ export default function BookingStep1Screen() {
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
   const [instructions, setInstructions] = useState('');
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  const [pointsHours, setPointsHours] = useState(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const validatePromo = useValidatePromo();
+  const createBooking = useCreateBooking();
 
   const draftReady = hasRequiredBookingDraft(params);
   const { data: pricing, isLoading: isPricingLoading } = usePricingConfig();
+  const { data: wallet } = useRewardWallet();
+  const { data: rewardConfig } = useRewardConfig();
+  const { data: packageHours } = usePackageHours();
+  const { data: packages } = usePackages();
 
   const dateDisplay = getBookingDateDisplay(params);
   const timeDisplay = getBookingTimeDisplay(params);
@@ -57,6 +93,10 @@ export default function BookingStep1Screen() {
 
   const addOns = pricing?.skillAddOns ?? [];
   const selectedAddOns = addOns.filter((s) => selectedSkillIds.includes(s.id));
+  const addOnsTotal =
+    hourlyRate != null
+      ? selectedAddOns.reduce((sum, s) => sum + addOnAmount(s, hourlyRate, hours), 0)
+      : 0;
 
   // Live estimate using the shared pricing engine — the same math the server
   // runs when the request is created, so what the parent sees is what she pays.
@@ -78,6 +118,42 @@ export default function BookingStep1Screen() {
   const durationDiscount = breakdown ? rawSubtotal - breakdown.subtotal : 0;
   const total = breakdown?.totalAmount ?? 0;
 
+  // ── Care Points ─────────────────────────────────────────────────────────
+  // Points can only be redeemed against a booking that exists, so here they are
+  // *reserved*: the choice rides through the flow and is applied automatically
+  // on the confirmation screen the moment a nanny accepts. Which is why the
+  // saving is never folded into `total` below — that number is what gets
+  // charged now.
+  const pointsPerHour = rewardConfig?.redemptionPointsPerHour ?? 0;
+  const pointsBalance = wallet?.pointsBalance ?? 0;
+  const maxPointHours =
+    pointsPerHour > 0 ? Math.min(Math.floor(pointsBalance / pointsPerHour), Math.floor(hours)) : 0;
+  const minPointHours =
+    pointsPerHour > 0
+      ? Math.max(1, Math.ceil((rewardConfig?.minRedemptionPoints ?? 0) / pointsPerHour))
+      : 1;
+  const canUsePoints =
+    (rewardConfig?.enabled ?? false) && maxPointHours >= minPointHours && hours > 0;
+  const pointsSaving = breakdown ? pointsHours * breakdown.effectiveHourlyRate : 0;
+
+  const totalSaved = durationDiscount + promoDiscount + pointsSaving;
+
+  // ── Prepaid packages ────────────────────────────────────────────────────
+  // Buying hours in bulk is the single biggest lever on what care costs, and it
+  // was previously only discoverable three taps into the Account tab. Surface
+  // it at the moment the price is on screen — but only when she has no prepaid
+  // hours already (they're applied server-side and would make this noise).
+  const prepaidHours = packageHours?.availableHours ?? 0;
+  const bestPackagePercentOff = useMemo(() => {
+    if (prepaidHours > 0 || hourlyRate == null || hourlyRate <= 0) return 0;
+    const rates = (packages ?? [])
+      .filter((p) => p.hours > 0)
+      .map((p) => p.price / p.hours)
+      .filter((rate) => rate < hourlyRate);
+    if (rates.length === 0) return 0;
+    return Math.round((1 - Math.min(...rates) / hourlyRate) * 100);
+  }, [packages, prepaidHours, hourlyRate]);
+
   const canProceed = draftReady && hourlyRate != null && hours > 0 && !isPricingLoading;
 
   const toggleSkill = (id: number) => {
@@ -87,12 +163,23 @@ export default function BookingStep1Screen() {
     );
   };
 
-  const skillChipLabel = (skill: PublicSkill): string => {
-    if (skill.feeType === 'FLAT') {
-      return `${skill.name} · +${formatMoney(skill.feeValue, { fractionDigits: 0 })}/hr`;
+  /**
+   * The stepper runs 0…max, but the program may impose a floor on a single
+   * redemption. Snap past the dead zone in whichever direction the mother moved.
+   */
+  const handlePointsChange = (next: number) => {
+    if (next === 0 || next >= minPointHours) {
+      setPointsHours(next);
+      return;
     }
-    if (skill.feeType === 'PERCENTAGE') return `${skill.name} · +${skill.feeValue}%`;
-    return skill.name;
+    setPointsHours(next > pointsHours ? Math.min(minPointHours, maxPointHours) : 0);
+  };
+
+  const appendInstructionTag = (tag: string) => {
+    setInstructions((prev) => {
+      if (prev.toLowerCase().includes(tag.toLowerCase())) return prev;
+      return prev.trim().length > 0 ? `${prev.trim()}\n${tag}: ` : `${tag}: `;
+    });
   };
 
   const handleApplyPromo = () => {
@@ -110,25 +197,56 @@ export default function BookingStep1Screen() {
     validatePromo.reset();
   };
 
-  const handleProceed = () => {
-    if (!canProceed) return;
-    router.push({
-      pathname: '/(parent)/book/booking-step-3',
-      params: {
-        date: dateDisplay,
-        dateIso: params.dateIso,
-        startTimeWall: params.startTimeWall,
-        endTimeWall: params.endTimeWall,
-        durationHours: params.durationHours,
-        total: total.toFixed(2),
+  /**
+   * Submits the request from here and goes straight to the matching screen.
+   *
+   * This used to hop through the checkout screen, which showed a full-screen
+   * "Submitting your request…" spinner for the length of one API call and then
+   * replaced itself with "Finding a nanny" — two waiting screens back to back
+   * for a single action. The button's own pending state covers it.
+   */
+  const handleProceed = async () => {
+    if (!canProceed || createBooking.isPending) return;
+    if (!params.startTimeWall || !params.endTimeWall) return;
+
+    setSubmitError(null);
+    try {
+      const created = await createBooking.mutateAsync({
+        startTime: params.startTimeWall,
+        endTime: params.endTimeWall,
+        ...(instructions.trim() ? { specialInstructions: instructions.trim() } : {}),
         ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
-        ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
-        ...(selectedSkillIds.length ? { skillIds: selectedSkillIds.join(',') } : {}),
-        bookingId: '',
-        retry: '',
-      },
-    } as never);
+        skillIds: selectedSkillIds,
+      });
+      router.replace({
+        pathname: '/(parent)/book/booking-confirmation',
+        params: {
+          bookingId: String(created.id),
+          ...(pointsHours > 0 ? { pointsHours: String(pointsHours) } : {}),
+        },
+      } as never);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Could not submit your request. Please try again.');
+      // Backstop: if the server gated the booking on a missing ID (a mother who
+      // slipped past the home-screen gate, e.g. stale profile), prompt her to
+      // upload rather than showing a dead-end error.
+      if (message.toLowerCase().includes('upload your id')) {
+        useIdGateStore.getState().openIdGate();
+      }
+      setSubmitError(message);
+    }
   };
+
+  const promoDisabled =
+    appliedPromo != null || promoCode.trim().length === 0 || validatePromo.isPending;
+
+  const summaryLine = useMemo(
+    () =>
+      [dateDisplay, timeDisplay, hours > 0 ? formatDurationHours(hours) : null]
+        .filter(Boolean)
+        .join(' · '),
+    [dateDisplay, timeDisplay, hours],
+  );
 
   if (!draftReady) {
     return (
@@ -162,98 +280,211 @@ export default function BookingStep1Screen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <BookingStepProgress step={2} title="Review your request" centered />
+        <BookingStepProgress step={2} title="Review your request" />
 
-        <Card shadow="sm" padding={spacing.lg} radius={borderRadius.xl}>
-          <View style={styles.nannyCardInner}>
-            <View style={[styles.nannyPhoto, styles.nannyPhotoPlaceholder]}>
-              <Ionicons name="calendar-outline" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.nannyInfo}>
-              <View style={styles.nannyNameRow}>
-                <Text style={styles.nannyName}>Care request</Text>
-              </View>
-              <View style={styles.nannyDateRow}>
-                <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-                <Text style={styles.nannyDateText}>
-                  {dateDisplay} · {timeDisplay} · {hours} hours
-                </Text>
-              </View>
-            </View>
+        {/* ── When ── */}
+        <View style={styles.whenCard}>
+          <View style={styles.whenIcon}>
+            <Ionicons name="calendar-outline" size={20} color={colors.primaryDark} />
           </View>
-        </Card>
-
-        {addOns.length > 0 && (
-          <View style={styles.addOnSection}>
-            <Text style={styles.addOnTitle}>Add-ons</Text>
-            <Text style={styles.addOnHint}>
-              Tap the specialties you need — the fee is added to the hourly rate.
+          <View style={styles.whenBody}>
+            <Text style={styles.whenDate}>{dateDisplay}</Text>
+            <Text style={styles.whenTime}>
+              {timeDisplay} · {formatDurationHours(hours)}
             </Text>
-            <View style={styles.addOnChips}>
+          </View>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} hitSlop={8}>
+            <Text style={styles.whenEdit}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Add-ons ──
+            Collapsed by default: the catalogue can run to a dozen specialties,
+            and a full-width tile each pushed everything else off the screen. */}
+        {addOns.length > 0 && (
+          <CollapsibleCard
+            title="Add a specialty"
+            summary={
+              selectedAddOns.length > 0
+                ? `${selectedAddOns.length} · +${formatMoney(addOnsTotal)}`
+                : undefined
+            }
+            icon="sparkles-outline"
+          >
+            <Text style={styles.sectionHint}>
+              Optional — the fee is added to the hourly rate for this booking.
+            </Text>
+            <View style={styles.tagRow}>
               {addOns.map((skill) => (
                 <Chip
                   key={skill.id}
-                  label={skillChipLabel(skill)}
+                  label={addOnChipLabel(skill, hourlyRate, hours)}
                   active={selectedSkillIds.includes(skill.id)}
                   onPress={() => toggleSkill(skill.id)}
                   size="sm"
+                  inactiveColor={colors.taupeLight}
                 />
               ))}
             </View>
-          </View>
+          </CollapsibleCard>
         )}
 
-        <View style={styles.promoSection}>
-          <View style={styles.promoInputRow}>
-            <TextInput
-              style={styles.promoInput}
-              placeholder="Promo code"
-              placeholderTextColor={colors.textPlaceholder}
-              value={promoCode}
-              onChangeText={setPromoCode}
-              autoCapitalize="characters"
-              editable={appliedPromo == null}
-            />
-            <TouchableOpacity
-              onPress={handleApplyPromo}
-              activeOpacity={0.7}
-              disabled={appliedPromo != null || promoCode.trim().length === 0 || validatePromo.isPending}
-            >
-              <Text
-                style={[
-                  styles.promoApplyText,
-                  (appliedPromo != null || promoCode.trim().length === 0 || validatePromo.isPending) &&
-                    styles.promoApplyTextDisabled,
-                ]}
-              >
-                Apply
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {appliedPromo && (
+        {/* ── Promo code ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Promo code</Text>
+          {appliedPromo ? (
             <View style={styles.promoChip}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.successDark} />
               <Text style={styles.promoChipText}>
                 {appliedPromo.code} — {formatMoney(appliedPromo.discountAmount)} off
               </Text>
-              <TouchableOpacity onPress={handleRemovePromo} activeOpacity={0.7}>
+              <TouchableOpacity onPress={handleRemovePromo} activeOpacity={0.7} hitSlop={8}>
                 <Ionicons name="close" size={16} color={colors.successDark} />
               </TouchableOpacity>
             </View>
+          ) : (
+            <View style={styles.promoInputRow}>
+              <TextInput
+                style={styles.promoInput}
+                placeholder="Enter code"
+                placeholderTextColor={colors.textPlaceholder}
+                value={promoCode}
+                onChangeText={setPromoCode}
+                autoCapitalize="characters"
+              />
+              <TouchableOpacity
+                style={[styles.promoApplyBtn, promoDisabled && styles.promoApplyBtnDisabled]}
+                onPress={handleApplyPromo}
+                activeOpacity={0.7}
+                disabled={promoDisabled}
+              >
+                <Text style={styles.promoApplyText}>
+                  {validatePromo.isPending ? '…' : 'Apply'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
-          {validatePromo.isError && (
+          {validatePromo.isError && !appliedPromo && (
             <Text style={styles.promoErrorText}>
               {validatePromo.error.message || 'That promo code could not be applied.'}
             </Text>
           )}
         </View>
 
-        {isPricingLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
+        {/* ── Care Points ── */}
+        {canUsePoints && (
+          <View style={styles.section}>
+            <View style={styles.pointsHeader}>
+              <Ionicons name="gift-outline" size={16} color={colors.goldWarm} />
+              <Text style={styles.sectionTitle}>Care Points</Text>
+              <Text style={styles.pointsBalance}>{pointsBalance} pts</Text>
+            </View>
+            <Text style={styles.sectionHint}>
+              Swap {pointsPerHour} points for a free hour — up to {maxPointHours} on this booking.
+            </Text>
+            <View style={styles.pointsRow}>
+              <Stepper
+                value={pointsHours}
+                onChange={handlePointsChange}
+                min={0}
+                max={maxPointHours}
+                suffix="h free"
+                size="sm"
+              />
+              <Text style={styles.pointsSaving}>
+                {pointsHours > 0 ? `−${formatMoney(pointsSaving)}` : 'None reserved'}
+              </Text>
+            </View>
+            {pointsHours > 0 && (
+              <Text style={styles.pointsNote}>
+                Applied automatically once a nanny accepts — you’ll pay the reduced amount.
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* ── Prepaid hours ── */}
+        {prepaidHours > 0 ? (
+          <View style={styles.prepaidRow}>
+            <Ionicons name="time-outline" size={16} color={colors.successDark} />
+            <Text style={styles.prepaidText}>
+              {prepaidHours}h prepaid will be applied to this booking
+            </Text>
+          </View>
         ) : (
-          <View style={styles.priceCard}>
+          bestPackagePercentOff > 0 && (
+            <Pressable
+              style={styles.packageNudge}
+              onPress={() => router.push('/(parent)/packages' as never)}
+            >
+              <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
+              <View style={styles.packageNudgeBody}>
+                <Text style={styles.packageNudgeTitle}>
+                  Save up to {bestPackagePercentOff}% with prepaid hours
+                </Text>
+                <Text style={styles.packageNudgeSub}>
+                  Buy a bundle once — it applies to your bookings automatically.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
+          )
+        )}
+
+        {/* ── What you saved ──
+            Read-only tally, deliberately separate from the promo input: most of
+            these savings have nothing to do with a code, and putting a number in
+            the promo card's header implied the code earned it. */}
+        {totalSaved > 0.005 && (
+          <View style={styles.savingsCard}>
+            <View style={styles.savingsHeader}>
+              <Ionicons name="pricetag" size={16} color={colors.successDark} />
+              <Text style={styles.savingsTitle}>You’re saving</Text>
+              <Text style={styles.savingsTotal}>{formatMoney(totalSaved)}</Text>
+            </View>
+
+            {durationDiscount > 0.005 && (
+              <View style={styles.savingsLine}>
+                <Text style={styles.savingsLineLabel}>Longer-booking discount</Text>
+                <Text style={styles.savingsLineValue}>−{formatMoney(durationDiscount)}</Text>
+              </View>
+            )}
+            {appliedPromo && (
+              <View style={styles.savingsLine}>
+                <Text style={styles.savingsLineLabel}>Promo {appliedPromo.code}</Text>
+                <Text style={styles.savingsLineValue}>−{formatMoney(promoDiscount)}</Text>
+              </View>
+            )}
+            {pointsHours > 0 && (
+              <View style={styles.savingsLine}>
+                <Text style={styles.savingsLineLabel}>
+                  {pointsHours} free hour{pointsHours === 1 ? '' : 's'} · Care Points
+                </Text>
+                <Text style={styles.savingsLineValue}>−{formatMoney(pointsSaving)}</Text>
+              </View>
+            )}
+
+            {pointsHours > 0 && (
+              <Text style={styles.savingsFootnote}>
+                Care Points come off once a nanny accepts, before you pay.
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* ── Price ── */}
+        {isPricingLoading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <CollapsibleCard
+            title="Price details"
+            summary={formatMoney(total)}
+            icon="receipt-outline"
+          >
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>
-                Base {hourlyRate != null ? formatMoney(hourlyRate, { fractionDigits: 0 }) : '—'} × {hours}h
+                Base {hourlyRate != null ? formatMoney(hourlyRate, { fractionDigits: 0 }) : '—'} ×{' '}
+                {formatDurationHours(hours)}
               </Text>
               <Text style={styles.priceValue}>{formatMoney(baseCost)}</Text>
             </View>
@@ -282,11 +513,29 @@ export default function BookingStep1Screen() {
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>{formatMoney(total)}</Text>
             </View>
-          </View>
+            {pointsHours > 0 && (
+              <Text style={styles.pendingCreditNote}>
+                {pointsHours} free hour{pointsHours === 1 ? '' : 's'} reserved (−
+                {formatMoney(pointsSaving)}) — applied once a nanny accepts, before you pay.
+              </Text>
+            )}
+          </CollapsibleCard>
         )}
 
-        <View style={styles.instructionsSection}>
-          <Text style={styles.instructionsLabel}>Special instructions (optional)</Text>
+        {/* ── Instructions ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Anything we should know?</Text>
+          <View style={styles.tagRow}>
+            {INSTRUCTION_TAGS.map((tag) => (
+              <Chip
+                key={tag}
+                label={tag}
+                size="sm"
+                inactiveColor={colors.taupeLight}
+                onPress={() => appendInstructionTag(tag)}
+              />
+            ))}
+          </View>
           <TextInput
             style={styles.instructionsInput}
             value={instructions}
@@ -306,18 +555,22 @@ export default function BookingStep1Screen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.proceedBtn, !canProceed && styles.proceedBtnDisabled]}
-          onPress={handleProceed}
-          activeOpacity={0.85}
-          disabled={!canProceed}
-        >
-          <Text style={styles.proceedBtnText}>
-            Request care · {formatMoney(total)}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <BookingSummaryBar
+        summary={summaryLine}
+        total={formatMoney(total)}
+        totalLabel="You’ll pay"
+        ctaLabel={`Request care · ${formatMoney(total)}`}
+        onPress={() => void handleProceed()}
+        disabled={!canProceed}
+        loading={isPricingLoading || createBooking.isPending}
+      >
+        {submitError && (
+          <View style={styles.submitErrorRow}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+            <Text style={styles.submitErrorText}>{submitError}</Text>
+          </View>
+        )}
+      </BookingSummaryBar>
     </View>
   );
 }

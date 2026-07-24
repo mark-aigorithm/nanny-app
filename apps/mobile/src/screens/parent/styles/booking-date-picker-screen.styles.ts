@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import {
   colors,
   fontFamily,
@@ -22,29 +22,111 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: HEADER_HEIGHT + spacing.lg,
     paddingHorizontal: screenPadding,
-    paddingBottom: 120,
-    gap: spacing['3xl'],
+    // Clears the summary bar, which is taller than a plain button and grows
+    // again when the longer-booking nudge appears.
+    paddingBottom: 220,
+    gap: spacing['2xl'],
+  },
+  noticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupeLight,
   },
   advanceNotice: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: -spacing.lg,
+    ...typeScale.caption,
+    color: colors.textTertiary,
   },
 
-  // Calendar
+  // Sections
+  section: {
+    gap: spacing.md,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+  },
+  viewToggleText: {
+    ...typeScale.caption,
+    fontFamily: fontFamily.semiBold,
+    color: colors.primaryDark,
+  },
+
+  // Date rail
+  railContent: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xxs,
+    paddingRight: spacing.lg,
+  },
+  railCard: {
+    width: 62,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.warmBorder,
+    alignItems: 'center',
+    gap: spacing.xxs,
+    ...shadows.sm,
+  },
+  railCardSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  railWeekday: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+  railDay: {
+    ...typeScale.headingMd,
+    letterSpacing: 0,
+    color: colors.textPrimary,
+  },
+  railMonth: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+  railTextSelected: {
+    color: colors.white,
+  },
+
+  // Month grid
+  gridBlock: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
+  },
   calendarHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   calendarMonth: {
-    ...typeScale.headingLg,
+    ...typeScale.headingSm,
     color: colors.textPrimary,
   },
   calendarNavButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: borderRadius.full,
     backgroundColor: colors.taupeLight,
     alignItems: 'center',
@@ -58,7 +140,7 @@ export const styles = StyleSheet.create({
   weekdayLabel: {
     ...typeScale.captionBold,
     color: colors.textMuted,
-    width: 40,
+    width: 36,
     textAlign: 'center',
   },
   calendarGrid: {
@@ -69,7 +151,7 @@ export const styles = StyleSheet.create({
   dayCell: {
     width: '14.28%',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   dayText: {
     ...typeScale.labelMd,
@@ -96,60 +178,56 @@ export const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
 
-  // Time slots
-  sectionTitle: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
+  // Start time — same card vocabulary as Duration below it
   slotsPlaceholder: {
     ...typeScale.bodySm,
     color: colors.textMuted,
     textAlign: 'center',
     marginVertical: spacing.lg,
   },
-  timeSlotSection: {
+  quickScrollRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+
+  // Duration
+  durationCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surface,
+    gap: spacing.lg,
+    ...shadows.sm,
+  },
+  durationTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.md,
   },
-  timePeriodLabel: {
-    ...typeScale.labelSm,
-    color: colors.textTertiary,
+  durationReadout: {
+    gap: spacing.xxs,
   },
-  timeSlotsRow: {
+  durationValue: {
+    ...typeScale.displaySm,
+    color: colors.textPrimary,
+  },
+  durationCaption: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+  },
+  quickRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  timeSlot: {
+  durationChip: {
+    minWidth: 52,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.taupeLight,
-  },
-  timeSlotSelected: {
-    backgroundColor: colors.primary,
-  },
-  timeSlotDisabled: {
-    opacity: 0.4,
-  },
-  timeSlotText: {
-    ...typeScale.labelSm,
-    color: colors.textTertiary,
-  },
-  timeSlotTextSelected: {
-    color: colors.white,
-  },
-
-  // Duration
-  durationRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  durationChip: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.taupe,
+    backgroundColor: colors.taupeLight,
+    alignItems: 'center',
   },
   durationChipSelected: {
     backgroundColor: colors.primaryDark,
@@ -164,10 +242,30 @@ export const styles = StyleSheet.create({
   durationChipTextSelected: {
     color: colors.white,
   },
+  durationHint: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
   availabilityError: {
     ...typeScale.bodySm,
     color: colors.error,
     marginTop: spacing.sm,
+  },
+
+  // Longer-booking nudge, rendered inside the summary bar
+  dealBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.successLight,
+  },
+  dealText: {
+    ...typeScale.caption,
+    color: colors.successText,
+    flex: 1,
   },
 
   // Header
@@ -196,36 +294,5 @@ export const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  // Footer
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 36 : spacing['2xl'],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-  },
-  continueButton: {
-    height: 56,
-    borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  continueButtonDisabled: {
-    backgroundColor: colors.taupe,
-    ...{ shadowOpacity: 0 },
-  },
-  continueButtonText: {
-    ...typeScale.labelLg,
-    fontFamily: fontFamily.bold,
-    color: colors.white,
   },
 });
