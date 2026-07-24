@@ -4,16 +4,16 @@ import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import { colors, fontFamily, typeScale, spacing, borderRadius } from '@mobile/theme';
 
 type Props = {
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
   title?: string;
   centered?: boolean;
   compact?: boolean;
 };
 
-const STEP_LABELS = ['When', 'Review', 'Confirm'] as const;
+const STEP_LABELS = ['When', 'Care', 'Review', 'Confirm'] as const;
 
 /**
- * Three-segment progress rail for the booking flow. Completed segments are
+ * Four-segment progress rail for the booking flow. Completed segments are
  * filled outright; the current one sweeps its fill in on mount so arriving at a
  * step reads as forward motion rather than a static state.
  */

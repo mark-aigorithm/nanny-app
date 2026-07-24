@@ -7,15 +7,13 @@ import {
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
-  Modal,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import type { Child } from '@mobile/types';
-import { AGE_OPTIONS, PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
+import { PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
 import HomeLocationMapCard, {
@@ -33,8 +31,6 @@ export default function RegistrationStep2Screen() {
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
 
-  // Index of the child whose age picker is open, or null when closed.
-  const [agePickerIndex, setAgePickerIndex] = useState<number | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const pinCoords =
@@ -63,25 +59,6 @@ export default function RegistrationStep2Screen() {
     void reverseGeocode(coords).then((address) => {
       if (address) patch({ address });
     });
-  }
-
-  function handleAddChild() {
-    patch({ children: [...draft.children, { name: '', age: '' }] });
-  }
-
-  function handleChildName(index: number, value: string) {
-    const next: Child[] = draft.children.map((child, i) =>
-      i === index ? { ...child, name: value } : child,
-    );
-    patch({ children: next });
-  }
-
-  function handleChildAge(index: number, value: string) {
-    const next: Child[] = draft.children.map((child, i) =>
-      i === index ? { ...child, age: value } : child,
-    );
-    patch({ children: next });
-    setAgePickerIndex(null);
   }
 
   function togglePreference(pref: string) {
@@ -162,44 +139,6 @@ export default function RegistrationStep2Screen() {
             />
           </View>
 
-          {/* Your children section */}
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionHeader}>Your children</Text>
-
-            {draft.children.map((child, index) => (
-              <View key={index} style={styles.childCard}>
-                <TextInput
-                  style={styles.childNameInput}
-                  value={child.name}
-                  onChangeText={(val) => handleChildName(index, val)}
-                  placeholder="Child's name"
-                  placeholderTextColor={colors.textPlaceholder}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                />
-                <Pressable
-                  style={styles.ageDropdown}
-                  onPress={() => setAgePickerIndex(index)}
-                >
-                  <Text
-                    style={[
-                      styles.ageDropdownText,
-                      child.age !== '' && styles.ageDropdownTextFilled,
-                    ]}
-                  >
-                    {child.age !== '' ? child.age + ' yr' : 'Age'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
-                </Pressable>
-              </View>
-            ))}
-
-            <Pressable style={styles.addChildLink} onPress={handleAddChild}>
-              <Ionicons name="add" size={16} color={colors.primary} />
-              <Text style={styles.addChildLinkText}>Add another child</Text>
-            </Pressable>
-          </View>
-
           {/* What matters most section */}
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>What matters most?</Text>
@@ -226,52 +165,6 @@ export default function RegistrationStep2Screen() {
           <Button title="Continue" onPress={handleContinue} />
         </View>
 
-        {/* Age picker bottom-sheet modal */}
-        <Modal
-          visible={agePickerIndex !== null}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setAgePickerIndex(null)}
-        >
-          <Pressable
-            style={styles.ageModalBackdrop}
-            onPress={() => setAgePickerIndex(null)}
-          >
-            <Pressable style={styles.ageModalSheet}>
-              <View style={styles.ageModalHeader}>
-                <Text style={styles.ageModalTitle}>Child&apos;s age</Text>
-                <Pressable onPress={() => setAgePickerIndex(null)} hitSlop={8}>
-                  <Text style={styles.ageModalCancel}>Cancel</Text>
-                </Pressable>
-              </View>
-              <View style={styles.ageModalGrid}>
-                {AGE_OPTIONS.map((age) => {
-                  const isSelected =
-                    agePickerIndex !== null &&
-                    draft.children[agePickerIndex]?.age === age;
-                  return (
-                    <Pressable
-                      key={age}
-                      style={[styles.ageOption, isSelected && styles.ageOptionSelected]}
-                      onPress={() =>
-                        agePickerIndex !== null && handleChildAge(agePickerIndex, age)
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.ageOptionText,
-                          isSelected && styles.ageOptionTextSelected,
-                        ]}
-                      >
-                        {age}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
       </View>
     </KeyboardAvoidingView>
   );

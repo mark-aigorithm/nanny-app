@@ -1,5 +1,5 @@
 export { APP_NAME } from './app';
-export { AGE_OPTIONS, PREFERENCE_OPTIONS } from './registration';
+export { PREFERENCE_OPTIONS } from './registration';
 export { OTP_LENGTH, RESEND_SECONDS, BYPASS_OTP } from './otp';
 export { PAYMENT_TYPES } from './booking';
 export { HOME_FILTER_TABS, SORT_OPTIONS, INITIAL_SEARCH_FILTERS } from './filters';

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { IdDocumentType } from '@nanny-app/shared';
-import type { Role, Child } from '@mobile/types';
+import type { Role } from '@mobile/types';
 
 export type RegistrationDraft = {
   role: Role | null;
@@ -25,7 +25,6 @@ export type RegistrationDraft = {
   // Home coordinates from the map picker; null until the user sets the pin.
   latitude: number | null;
   longitude: number | null;
-  children: Child[];
   preferences: string[];
   // Step 4 — terms
   termsAcceptedAt: number | null;
@@ -52,7 +51,6 @@ const INITIAL: RegistrationDraft = {
   neighbourhood: '',
   latitude: null,
   longitude: null,
-  children: [{ name: '', age: '' }],
   preferences: ['Background checked', 'CPR certified'],
   termsAcceptedAt: null,
 };

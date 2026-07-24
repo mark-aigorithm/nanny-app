@@ -1,4 +1,4 @@
-import type { BookingResponse } from '@nanny-app/shared';
+import { BookingChildSchema, type BookingChild, type BookingResponse } from '@nanny-app/shared';
 
 import { fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { resolveImageUri } from '@mobile/lib/imageUri';
@@ -22,6 +22,14 @@ export type BookingFlowParams = {
   promoCode?: string;
   /** Comma-separated skill ids the parent selected as paid add-ons. */
   skillIds?: string;
+  /**
+   * The children being booked for, JSON-encoded. Expo Router params are strings,
+   * and these carry a name AND an age each — a delimiter-joined string would
+   * break the first time a mother types a comma into a name.
+   */
+  children?: string;
+  /** '1' when she asked to save these children for her next booking. */
+  saveChildren?: string;
   /**
    * Free hours the parent reserved with Care Points on the review step. Points
    * can only be redeemed against a booking that exists, so this rides through
@@ -47,6 +55,33 @@ export function getBookingDateDisplay(params: BookingFlowParams): string {
 export function getBookingTimeDisplay(params: BookingFlowParams): string {
   if (!params.startTimeWall || !params.endTimeWall) return '';
   return fmtBookingTime(params.startTimeWall, params.endTimeWall);
+}
+
+/**
+ * The skill ids carried through the flow. Tolerant of junk: a malformed param
+ * should cost the mother her add-on selection, not the whole booking.
+ */
+export function parseSkillIdsParam(raw: string | undefined): number[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+/**
+ * The children carried through the flow. Validated with the shared schema rather
+ * than cast, so a hand-edited deep link can't put an unpriceable child into the
+ * request — it degrades to "none chosen" and the care step asks again.
+ */
+export function parseChildrenParam(raw: string | undefined): BookingChild[] {
+  if (!raw) return [];
+  try {
+    const parsed = BookingChildSchema.array().safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : [];
+  } catch {
+    return [];
+  }
 }
 
 export function getBookingDurationHours(params: BookingFlowParams): number {

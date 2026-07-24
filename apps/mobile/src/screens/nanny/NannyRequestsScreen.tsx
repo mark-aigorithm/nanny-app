@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
-import type { BookingResponse } from '@nanny-app/shared';
+import { formatChildrenSummary, type BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import {
@@ -125,6 +125,15 @@ export default function NannyRequestsScreen() {
             <Ionicons name="time-outline" size={16} color={colors.textMuted} />
             <Text style={styles.detailText}>{timeDisplay} ({booking.durationHours}h)</Text>
           </View>
+          {/* What she is actually accepting. Count and ages only — this card is
+              in the open pool, before anyone has claimed the booking, so it must
+              not identify the family. formatChildrenSummary omits names. */}
+          {booking.children.length > 0 && (
+            <View style={styles.detailRow}>
+              <Ionicons name="people-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.detailText}>{formatChildrenSummary(booking.children)}</Text>
+            </View>
+          )}
         </View>
 
         {/* Mother's review (past bookings) */}

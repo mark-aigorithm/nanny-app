@@ -15,7 +15,7 @@ import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
-import type { BookingStatus } from '@nanny-app/shared';
+import { formatChildAge, type BookingStatus } from '@nanny-app/shared';
 import { styles } from './styles/nanny-booking-detail-screen.styles';
 
 function getStatusStyle(status: BookingStatus) {
@@ -108,6 +108,21 @@ export default function NannyBookingDetailScreen() {
             </View>
             <Text style={styles.detailValue}>{booking.durationHours} hours</Text>
           </View>
+          {/* She holds this booking, so she gets the names too — the open
+              requests pool only ever shows the count and ages. */}
+          {booking.children.length > 0 && (
+            <View style={styles.detailRow}>
+              <View style={styles.detailLeft}>
+                <Ionicons name="people-outline" size={16} color={colors.textMuted} />
+                <Text style={styles.detailLabel}>Children</Text>
+              </View>
+              <Text style={styles.detailValue}>
+                {booking.children
+                  .map((c) => (c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears)))
+                  .join(', ')}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Earnings — the nanny only sees what she takes home. */}

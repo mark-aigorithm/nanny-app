@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
   calculatePriceBreakdown,
+  formatChildrenSummary,
   resolveDurationMultiplier,
   type PublicSkill,
 } from '@nanny-app/shared';
@@ -31,6 +32,8 @@ import {
   getBookingDurationHours,
   getBookingTimeDisplay,
   hasRequiredBookingDraft,
+  parseChildrenParam,
+  parseSkillIdsParam,
   type BookingFlowParams,
 } from '@mobile/lib/bookingDraft';
 
@@ -51,7 +54,7 @@ function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): numbe
 }
 
 /**
- * Chip label: the name, plus what it adds to THIS booking. Free specialties
+ * Chip label: the name, plus what it adds to THIS booking. Free skills
  * carry no suffix — "+EGP 0.00" on half the list was pure noise.
  */
 function addOnChipLabel(skill: PublicSkill, baseRate: number | null, hours: number): string {
@@ -71,7 +74,6 @@ export default function BookingStep1Screen() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
   const [instructions, setInstructions] = useState('');
-  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
   const [pointsHours, setPointsHours] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const validatePromo = useValidatePromo();
@@ -91,6 +93,12 @@ export default function BookingStep1Screen() {
   const hourlyRate = pricing?.standardHourlyRate ?? null;
   const promoDiscount = appliedPromo?.discountAmount ?? 0;
 
+  // Children and skills are settled on the care step; this screen only
+  // reports what they cost. Reading them straight from the params (rather than
+  // holding state) is what keeps the two screens from disagreeing.
+  const children = useMemo(() => parseChildrenParam(params.children), [params.children]);
+  const selectedSkillIds = useMemo(() => parseSkillIdsParam(params.skillIds), [params.skillIds]);
+
   const addOns = pricing?.skillAddOns ?? [];
   const selectedAddOns = addOns.filter((s) => selectedSkillIds.includes(s.id));
   const addOnsTotal =
@@ -106,12 +114,20 @@ export default function BookingStep1Screen() {
           baseRate: pricing.standardHourlyRate,
           durationHours: hours,
           skillAddOns: selectedAddOns,
+          extraChildFee: {
+            childrenCount: children.length,
+            includedChildren: pricing.includedChildrenPerBooking,
+            feeType: pricing.extraChildFeeType,
+            feeValue: pricing.extraChildFeeValue,
+          },
           durationMultiplier: resolveDurationMultiplier(hours, pricing.durationRules),
           discountAmount: promoDiscount,
           nannyPercent: pricing.nannyPercent,
           platformPercent: pricing.platformPercent,
         })
       : null;
+
+  const extraChildCost = breakdown ? breakdown.extraChildFeePerHour * hours : 0;
 
   const baseCost = hourlyRate != null ? hourlyRate * hours : 0;
   const rawSubtotal = breakdown ? breakdown.effectiveHourlyRate * hours : 0;
@@ -154,14 +170,8 @@ export default function BookingStep1Screen() {
     return Math.round((1 - Math.min(...rates) / hourlyRate) * 100);
   }, [packages, prepaidHours, hourlyRate]);
 
-  const canProceed = draftReady && hourlyRate != null && hours > 0 && !isPricingLoading;
-
-  const toggleSkill = (id: number) => {
-    setAppliedPromo(null); // add-ons change the price → re-validate any promo
-    setSelectedSkillIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
-  };
+  const canProceed =
+    draftReady && hourlyRate != null && hours > 0 && children.length > 0 && !isPricingLoading;
 
   /**
    * The stepper runs 0…max, but the program may impose a floor on a single
@@ -217,6 +227,8 @@ export default function BookingStep1Screen() {
         ...(instructions.trim() ? { specialInstructions: instructions.trim() } : {}),
         ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
         skillIds: selectedSkillIds,
+        children,
+        ...(params.saveChildren === '1' ? { saveChildren: true } : {}),
       });
       router.replace({
         pathname: '/(parent)/book/booking-confirmation',
@@ -248,10 +260,17 @@ export default function BookingStep1Screen() {
     [dateDisplay, timeDisplay, hours],
   );
 
-  if (!draftReady) {
+  // Children arrive from the care step, so a deep link straight to this screen
+  // can land here without them. Say so and send her back — a disabled CTA with
+  // no explanation is the worse failure.
+  if (!draftReady || children.length === 0) {
     return (
       <View style={[styles.container, styles.centeredState]}>
-        <Text style={styles.missingParamsText}>Select a date and time to continue.</Text>
+        <Text style={styles.missingParamsText}>
+          {draftReady
+            ? 'Tell us who needs care to continue.'
+            : 'Select a date and time to continue.'}
+        </Text>
         <TouchableOpacity style={styles.missingParamsBtn} onPress={() => router.back()}>
           <Text style={styles.missingParamsBtnText}>Go back</Text>
         </TouchableOpacity>
@@ -280,7 +299,7 @@ export default function BookingStep1Screen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <BookingStepProgress step={2} title="Review your request" />
+        <BookingStepProgress step={3} title="Review your request" />
 
         {/* ── When ── */}
         <View style={styles.whenCard}>
@@ -298,36 +317,26 @@ export default function BookingStep1Screen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Add-ons ──
-            Collapsed by default: the catalogue can run to a dozen specialties,
-            and a full-width tile each pushed everything else off the screen. */}
-        {addOns.length > 0 && (
-          <CollapsibleCard
-            title="Add a specialty"
-            summary={
-              selectedAddOns.length > 0
-                ? `${selectedAddOns.length} · +${formatMoney(addOnsTotal)}`
-                : undefined
-            }
-            icon="sparkles-outline"
-          >
-            <Text style={styles.sectionHint}>
-              Optional — the fee is added to the hourly rate for this booking.
+        {/* ── Care details ──
+            A read-only recap of the previous step. Editing goes back rather than
+            duplicating the pickers here, so there is exactly one place where
+            children and skills are chosen. */}
+        <View style={styles.whenCard}>
+          <View style={styles.whenIcon}>
+            <Ionicons name="people-outline" size={20} color={colors.primaryDark} />
+          </View>
+          <View style={styles.whenBody}>
+            <Text style={styles.whenDate}>{formatChildrenSummary(children)}</Text>
+            <Text style={styles.whenTime}>
+              {selectedAddOns.length > 0
+                ? `${selectedAddOns.map((s) => s.name).join(', ')} · +${formatMoney(addOnsTotal)}`
+                : 'No skills requested'}
             </Text>
-            <View style={styles.tagRow}>
-              {addOns.map((skill) => (
-                <Chip
-                  key={skill.id}
-                  label={addOnChipLabel(skill, hourlyRate, hours)}
-                  active={selectedSkillIds.includes(skill.id)}
-                  onPress={() => toggleSkill(skill.id)}
-                  size="sm"
-                  inactiveColor={colors.taupeLight}
-                />
-              ))}
-            </View>
-          </CollapsibleCard>
-        )}
+          </View>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} hitSlop={8}>
+            <Text style={styles.whenEdit}>Edit</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* ── Promo code ── */}
         <View style={styles.section}>
@@ -492,7 +501,26 @@ export default function BookingStep1Screen() {
               <Text style={styles.priceValue}>{formatMoney(baseCost)}</Text>
             </View>
 
-            {/* Each specialty shows its own arithmetic. A bare "+EGP 120" gave
+            {/* Extra children, itemised the same way. The count and the per-hour
+                figure are both spelled out so "why is this more than last time?"
+                answers itself. */}
+            {breakdown && breakdown.extraChildren > 0 && (
+              <View style={styles.priceRow}>
+                <View style={styles.priceRowLabel}>
+                  <Text style={styles.addOnRowLabel}>
+                    + {breakdown.extraChildren} extra child
+                    {breakdown.extraChildren === 1 ? '' : 'ren'}
+                  </Text>
+                  <Text style={styles.priceMath}>
+                    {formatHourlyRate(breakdown.extraChildFeePerHour)} ×{' '}
+                    {formatDurationHours(hours)} · {breakdown.includedChildren} included
+                  </Text>
+                </View>
+                <Text style={styles.addOnRowValue}>+{formatMoney(extraChildCost)}</Text>
+              </View>
+            )}
+
+            {/* Each skill shows its own arithmetic. A bare "+EGP 120" gave
                 the mother no way to check where it came from, and percentage
                 add-ons are resolved to money by the pricing engine, so the
                 configured "+15%" never appeared anywhere she could see. */}

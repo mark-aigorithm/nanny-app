@@ -410,7 +410,7 @@ export default function BookingDatePickerScreen() {
     if (!canContinue || !startWall || !endWall || durationMinutes === null) return;
 
     router.push({
-      pathname: '/(parent)/book/booking-step-1',
+      pathname: '/(parent)/book/booking-care-details',
       params: {
         // The date the booking actually STARTS — which for a late-night slot is
         // the day after the one tapped. The server derives its own from the
