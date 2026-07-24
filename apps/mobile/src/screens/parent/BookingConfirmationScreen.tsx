@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +16,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus, type BookingResponse } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
-import { PulseRings, Stepper } from '@mobile/components/ui';
+import { Button, PulseRings, Stepper } from '@mobile/components/ui';
 import {
   useBooking,
   useCancelBooking,
@@ -150,11 +151,27 @@ export default function BookingConfirmationScreen() {
     } as never);
   }, [booking, router]);
 
+  /**
+   * Cancelling destroys a live request, so it asks first — this sits one tap
+   * below "Back to home" and used to fire immediately on a mis-tap.
+   */
   const handleCancelRequest = () => {
     if (!booking) return;
-    cancelBooking.mutate(
-      { id: booking.id, reason: 'Cancelled by parent' },
-      { onSuccess: () => router.replace('/(parent)/home') },
+    Alert.alert(
+      'Cancel this request?',
+      'We’ll stop looking for a nanny. You can book again at any time.',
+      [
+        { text: 'Keep looking', style: 'cancel' },
+        {
+          text: 'Cancel request',
+          style: 'destructive',
+          onPress: () =>
+            cancelBooking.mutate(
+              { id: booking.id, reason: 'Cancelled by parent' },
+              { onSuccess: () => router.replace('/(parent)/home') },
+            ),
+        },
+      ],
     );
   };
 
@@ -348,43 +365,57 @@ export default function BookingConfirmationScreen() {
         <CarePointsCard booking={booking} autoApplying={redeem.isPending} />
       )}
 
-      {/* ── Actions ── */}
+      {/* ── Actions ──
+          Ranked by what is actually useful in each state. While the request is
+          out there is nothing to do but wait, so leaving is the honest primary
+          — pointing a sage CTA at "View booking details" put the emphasis on a
+          screen she is already looking at. */}
       <View style={styles.actions}>
-        {isApproved ? (
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.85}
-            onPress={handleCompletePayment}
-          >
-            <Ionicons name="card-outline" size={20} color={colors.white} />
-            <Text style={styles.primaryButtonText}>Complete payment</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.85}
-            onPress={handleViewDetails}
-          >
-            <Ionicons name="eye-outline" size={20} color={colors.white} />
-            <Text style={styles.primaryButtonText}>View booking details</Text>
-          </TouchableOpacity>
+        {isPending && (
+          <>
+            <Text style={styles.actionsHint}>
+              We’ll notify you the moment a nanny accepts — you don’t need to wait here.
+            </Text>
+            <Button title="Back to home" onPress={handleBackToHome} />
+            <Button
+              title="View booking details"
+              variant="outline"
+              onPress={handleViewDetails}
+            />
+            <TouchableOpacity
+              style={styles.cancelLink}
+              activeOpacity={0.7}
+              onPress={handleCancelRequest}
+              disabled={cancelBooking.isPending}
+            >
+              <Text style={styles.cancelLinkText}>
+                {cancelBooking.isPending ? 'Cancelling…' : 'Cancel request'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        <TouchableOpacity style={styles.linkButton} activeOpacity={0.7} onPress={handleBackToHome}>
-          <Text style={styles.linkButtonText}>Back to home</Text>
-        </TouchableOpacity>
+        {isApproved && (
+          <>
+            <Button
+              title="Complete payment"
+              icon="card-outline"
+              onPress={handleCompletePayment}
+            />
+            <Button
+              title="View booking details"
+              variant="outline"
+              onPress={handleViewDetails}
+            />
+            <Button title="Back to home" variant="text" onPress={handleBackToHome} />
+          </>
+        )}
 
-        {isPending && (
-          <TouchableOpacity
-            style={styles.linkButton}
-            activeOpacity={0.7}
-            onPress={handleCancelRequest}
-            disabled={cancelBooking.isPending}
-          >
-            <Text style={styles.cancelLinkText}>
-              {cancelBooking.isPending ? 'Cancelling…' : 'Cancel request'}
-            </Text>
-          </TouchableOpacity>
+        {isPaid && (
+          <>
+            <Button title="View booking details" onPress={handleViewDetails} />
+            <Button title="Back to home" variant="text" onPress={handleBackToHome} />
+          </>
         )}
       </View>
     </ScrollView>

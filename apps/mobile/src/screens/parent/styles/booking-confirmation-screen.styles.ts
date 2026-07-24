@@ -234,36 +234,24 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Actions
+  // Actions — the shared Button component owns the visuals now
   actions: {
     width: '100%',
     gap: spacing.sm,
     paddingTop: spacing.md,
   },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius['2xl'],
-    height: 56,
-    ...shadows.md,
+  actionsHint: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
   },
-  primaryButtonText: {
-    ...typeScale.labelLg,
-    color: colors.white,
-  },
-  linkButton: {
+  cancelLink: {
     paddingVertical: spacing.md,
     alignItems: 'center',
   },
-  linkButtonText: {
-    ...typeScale.labelMd,
-    color: colors.textMuted,
-  },
   cancelLinkText: {
-    ...typeScale.labelMd,
+    ...typeScale.labelSm,
     color: colors.error,
   },
 
