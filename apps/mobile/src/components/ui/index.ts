@@ -12,3 +12,6 @@ export { default as Avatar } from './avatar';
 export { default as SectionHeader } from './section-header';
 export { default as Divider } from './divider';
 export { default as StarRatingInput, RATING_LABELS } from './star-rating-input';
+export { default as Stepper } from './stepper';
+export { default as CollapsibleCard } from './collapsible-card';
+export { default as PulseRings } from './pulse-rings';
