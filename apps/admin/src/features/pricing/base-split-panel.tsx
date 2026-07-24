@@ -1,13 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Button, Card, Feedback, Field, Skeleton } from '@admin/components/ui';
+import { resolveExtraChildFee, type SkillFeeType } from '@nanny-app/shared';
+
+import { Button, Card, Feedback, Field, Select, Skeleton } from '@admin/components/ui';
 import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatAmount } from '@admin/lib/format';
 
 /** A representative booking used only to illustrate the split live. */
 const SAMPLE_HOURS = 3;
+
+/** Stands in for a null fee type — Select needs a real value to key an option on. */
+const NO_FEE = 'NONE';
+type ChildFeeChoice = SkillFeeType | typeof NO_FEE;
+
+const CHILD_FEE_OPTIONS: { value: ChildFeeChoice; label: string }[] = [
+  { value: 'FLAT', label: 'A flat amount per hour' },
+  { value: 'PERCENTAGE', label: 'A percentage of the base rate' },
+  { value: NO_FEE, label: 'Nothing — extra children are free' },
+];
 
 export function BaseSplitPanel() {
   const queryClient = useQueryClient();
@@ -18,6 +30,8 @@ export function BaseSplitPanel() {
 
   const [baseRate, setBaseRate] = useState('');
   const [nannyPercent, setNannyPercent] = useState(80);
+  const [childFeeType, setChildFeeType] = useState<SkillFeeType | null>('FLAT');
+  const [childFeeValue, setChildFeeValue] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [ready, setReady] = useState(false);
@@ -26,6 +40,8 @@ export function BaseSplitPanel() {
     if (config && !ready) {
       setBaseRate(String(config.standardHourlyRate));
       setNannyPercent(config.nannyPercent);
+      setChildFeeType(config.extraChildFeeType);
+      setChildFeeValue(String(config.extraChildFeeValue));
       setReady(true);
     }
   }, [config, ready]);
@@ -34,6 +50,15 @@ export function BaseSplitPanel() {
   const sampleTotal = (Number(baseRate) || 0) * SAMPLE_HOURS;
   const sampleNanny = Math.round(sampleTotal * (nannyPercent / 100) * 100) / 100;
   const samplePlatform = Math.round((sampleTotal - sampleNanny) * 100) / 100;
+
+  // What one extra child costs on the same sample booking — the same engine the
+  // server prices with, so this can't drift from the real charge.
+  const sampleChildFee = resolveExtraChildFee(Number(baseRate) || 0, {
+    childrenCount: (config?.includedChildrenPerBooking ?? 1) + 1,
+    includedChildren: config?.includedChildrenPerBooking ?? 1,
+    feeType: childFeeType,
+    feeValue: Number(childFeeValue) || 0,
+  });
 
   const saveMutation = useMutation({
     mutationFn: updatePlatformConfig,
@@ -53,10 +78,21 @@ export function BaseSplitPanel() {
       setFormError('Base hourly rate must be greater than 0.');
       return;
     }
+    const feeValue = Number(childFeeValue);
+    if (!Number.isFinite(feeValue) || feeValue < 0) {
+      setFormError('The extra-child fee cannot be negative.');
+      return;
+    }
+    if (childFeeType === 'PERCENTAGE' && feeValue > 100) {
+      setFormError('A percentage fee cannot exceed 100.');
+      return;
+    }
     saveMutation.mutate({
       standardHourlyRate: rate,
       nannyPercent,
       platformPercent,
+      extraChildFeeType: childFeeType,
+      extraChildFeeValue: feeValue,
     });
   }
 
@@ -156,11 +192,62 @@ export function BaseSplitPanel() {
           </section>
         </div>
 
+        <section className="config-section">
+          <h4 className="section-eyebrow">Extra child fee</h4>
+          <p className="config-section-lead">
+            Charged per child beyond the number included at the base rate. The included count and
+            the hard maximum are set on Booking&nbsp;Options.
+          </p>
+
+          <div className="split-control">
+            <Field label="Charge">
+              <Select
+                value={childFeeType ?? NO_FEE}
+                options={CHILD_FEE_OPTIONS}
+                onChange={(next) => {
+                  setSaved(false);
+                  setChildFeeType(next === NO_FEE ? null : next);
+                }}
+                aria-label="Extra child fee type"
+              />
+            </Field>
+
+            {childFeeType !== null && (
+              <div className="rate-field">
+                <span className="rate-prefix">{childFeeType === 'FLAT' ? 'EGP' : '%'}</span>
+                <input
+                  type="number"
+                  min="0"
+                  {...(childFeeType === 'PERCENTAGE' ? { max: '100' } : {})}
+                  step="0.5"
+                  value={childFeeValue}
+                  onChange={(e) => {
+                    setSaved(false);
+                    setChildFeeValue(e.target.value);
+                  }}
+                  aria-label="Extra child fee value"
+                  required
+                />
+                <span className="rate-suffix">/ child / hour</span>
+              </div>
+            )}
+          </div>
+        </section>
+
         <p className="split-example">
           On a {SAMPLE_HOURS}-hour booking of <strong>EGP {formatAmount(sampleTotal)}</strong>, the
           nanny earns <strong className="text-nanny">EGP {formatAmount(sampleNanny)}</strong> and
           the platform keeps{' '}
           <strong className="text-platform">EGP {formatAmount(samplePlatform)}</strong>.
+          {sampleChildFee.amountPerHour > 0 && (
+            <>
+              {' '}
+              One child beyond the {config?.includedChildrenPerBooking ?? 1} included adds{' '}
+              <strong>EGP {formatAmount(sampleChildFee.amountPerHour)}</strong> an hour — a further{' '}
+              <strong>EGP {formatAmount(sampleChildFee.amountPerHour * SAMPLE_HOURS)}</strong> on
+              this booking.
+            </>
+          )}
         </p>
       </Card>
     </form>

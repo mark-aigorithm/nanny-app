@@ -25,6 +25,7 @@ import {
   Skeleton,
   TriangleAlert,
   useToast,
+  Users,
   type LucideIcon,
 } from '@admin/components/ui';
 import {
@@ -45,6 +46,8 @@ const SETTINGS_KEYS = [
   'bookingWindowEndHour',
   'minBookingHours',
   'maxBookingHours',
+  'includedChildrenPerBooking',
+  'maxChildrenPerBooking',
   'minAdvanceBookingHours',
   'cancellationWindowHours',
   'broadcastRadiusKm',
@@ -93,6 +96,29 @@ const BOOKING_GROUPS: ConfigGroup[] = [
     fields: [
       { key: 'minBookingHours', label: 'Minimum', unit: 'hours', min: '1', max: '24' },
       { key: 'maxBookingHours', label: 'Maximum', unit: 'hours', min: '1', max: '24' },
+    ],
+  },
+  {
+    eyebrow: 'Children per booking',
+    lead:
+      'How many children one nanny covers at the base rate, and the most she will ever be sent to. ' +
+      'Anything above the included count is charged the extra-child fee set on Pricing & Fees.',
+    fields: [
+      {
+        key: 'includedChildrenPerBooking',
+        label: 'Included in the rate',
+        unit: 'children',
+        min: '1',
+        max: '10',
+      },
+      {
+        key: 'maxChildrenPerBooking',
+        label: 'Maximum per booking',
+        unit: 'children',
+        hint: 'Requests above this are rejected outright.',
+        min: '1',
+        max: '20',
+      },
     ],
   },
   {
@@ -236,6 +262,17 @@ function buildSummary(v: SettingsValues): SummaryLine[] {
           : `Bookings run ${v.minBookingHours}–${v.maxBookingHours} hours`,
     },
     {
+      icon: Users,
+      title:
+        v.includedChildrenPerBooking === v.maxChildrenPerBooking
+          ? `Exactly ${v.includedChildrenPerBooking} children per booking`
+          : `${v.includedChildrenPerBooking} children included, up to ${v.maxChildrenPerBooking}`,
+      detail:
+        v.includedChildrenPerBooking === v.maxChildrenPerBooking
+          ? 'No booking can be charged the extra-child fee.'
+          : 'Each child above the included count adds the extra-child fee.',
+    },
+    {
       icon: CalendarClock,
       title:
         v.minAdvanceBookingHours === 0
@@ -285,6 +322,11 @@ function findIssues(v: SettingsValues): string[] {
   if (v.minBookingHours > windowLength) {
     issues.push(
       `The booking window is only ${windowLength} hours long — shorter than the ${v.minBookingHours}-hour minimum booking.`,
+    );
+  }
+  if (v.includedChildrenPerBooking > v.maxChildrenPerBooking) {
+    issues.push(
+      'More children are included at the base rate than a booking is allowed to have.',
     );
   }
   if (v.pendingWarningMinutes >= v.pendingCriticalMinutes) {

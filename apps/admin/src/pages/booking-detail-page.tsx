@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 
+import { formatChildAge } from '@nanny-app/shared';
 import type { AdminBookingDetail } from '@nanny-app/shared';
 
 import {
@@ -84,6 +85,16 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
     { label: 'Starts', value: formatDateTime(booking.startTime) },
     { label: 'Ends', value: formatDateTime(booking.endTime) },
     { label: 'Duration', value: `${booking.durationHours} h` },
+    {
+      label: 'Children',
+      value:
+        booking.children.length > 0
+          ? booking.children
+              .map((c) => (c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears)))
+              .join(', ')
+          : `${booking.childrenCount}`,
+      wide: true,
+    },
     { label: 'Checked in', value: booking.nannyCheckedInAt ? formatDateTime(booking.nannyCheckedInAt) : DASH },
     { label: 'Checked out', value: booking.nannyCheckedOutAt ? formatDateTime(booking.nannyCheckedOutAt) : DASH },
     { label: 'Approved at', value: booking.adminApprovedAt ? formatDateTime(booking.adminApprovedAt) : DASH },
@@ -92,6 +103,13 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
   const pricing: DescriptionItem[] = [
     { label: 'Base rate / h', value: money(booking.baseRate) },
     { label: 'Effective rate / h', value: money(booking.effectiveHourlyRate) },
+    {
+      label: 'Extra children',
+      value:
+        booking.extraChildren > 0
+          ? `${booking.extraChildren} (+${money(booking.extraChildFeePerHour)}/h)`
+          : DASH,
+    },
     {
       label: 'Skill add-ons',
       value:

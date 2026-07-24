@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatAmount } from '@admin/lib/format';
 
 const HOUR_PRESETS = [1, 2, 3, 4, 6, 8];
+const CHILD_PRESETS = [1, 2, 3, 4];
 
 function feeLabel(feeType: 'FLAT' | 'PERCENTAGE' | null, feeValue: number): string {
   if (feeType === 'FLAT') return `+EGP ${formatAmount(feeValue)}/hr`;
@@ -26,6 +27,7 @@ export function CalculatorPanel() {
   );
 
   const [hours, setHours] = useState(3);
+  const [childrenCount, setChildrenCount] = useState(1);
   const [selected, setSelected] = useState<number[]>([]);
 
   const skillIds = useMemo(() => [...selected].sort(), [selected]);
@@ -35,8 +37,8 @@ export function CalculatorPanel() {
     isFetching,
     error,
   } = useQuery({
-    queryKey: ['price-preview', hours, skillIds],
-    queryFn: () => calculatePricePreview({ durationHours: hours, skillIds }),
+    queryKey: ['price-preview', hours, childrenCount, skillIds],
+    queryFn: () => calculatePricePreview({ durationHours: hours, childrenCount, skillIds }),
     placeholderData: keepPreviousData,
   });
 
@@ -73,6 +75,22 @@ export function CalculatorPanel() {
                 className="hour-input"
                 aria-label="Custom hours"
               />
+            </div>
+          </div>
+
+          <div className="calc-control">
+            <span className="field-label">Children</span>
+            <div className="hour-presets">
+              {CHILD_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`hour-chip${childrenCount === c ? ' selected' : ''}`}
+                  onClick={() => setChildrenCount(c)}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -131,6 +149,17 @@ export function CalculatorPanel() {
                   <span>Base rate</span>
                   <span>EGP {formatAmount(breakdown.baseRate)} / hr</span>
                 </div>
+
+                {breakdown.extraChildren > 0 && (
+                  <div className="breakdown-row breakdown-row--addon">
+                    <span>
+                      + {breakdown.extraChildren} extra child
+                      {breakdown.extraChildren === 1 ? '' : 'ren'} ·{' '}
+                      {breakdown.includedChildren} included
+                    </span>
+                    <span>+EGP {formatAmount(breakdown.extraChildFeePerHour)} / hr</span>
+                  </div>
+                )}
 
                 {breakdown.skillAddOns.map((addon) => (
                   <div className="breakdown-row breakdown-row--addon" key={addon.id}>
