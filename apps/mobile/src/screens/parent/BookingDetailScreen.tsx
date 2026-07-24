@@ -6,7 +6,6 @@ import {
   Pressable,
   Image,
   StatusBar,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +17,15 @@ import ParentShiftControlsCard from '@mobile/components/ParentShiftControlsCard'
 import ParentNannyContactCard from '@mobile/components/ParentNannyContactCard';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
-import { formatMoney, formatHourlyRateAmount } from '@mobile/lib/formatMoney';
-import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
+import { formatMoney, formatHourlyRate } from '@mobile/lib/formatMoney';
+import { confirmDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
+import {
+  formatBookingStatus,
+  formatPaymentMethod,
+  formatPaymentStatus,
+} from '@mobile/lib/formatBookingStatus';
+import { formatDurationHours } from '@mobile/lib/formatTime';
+import { formatChildAge, PaymentStatus } from '@nanny-app/shared';
 import type { BookingStatus } from '@nanny-app/shared';
 import { styles } from './styles/booking-detail-screen.styles';
 
@@ -85,26 +91,23 @@ export default function BookingDetailScreen() {
 
   const handleCancel = () => {
     if (!bookingId) return;
-    Alert.alert(
-      'Cancel booking',
-      'Are you sure you want to cancel? Cancellations within 24 hours of the booking are subject to a 50% fee.',
-      [
-        { text: 'Keep booking', style: 'cancel' },
-        {
-          text: 'Cancel booking',
-          style: 'destructive',
-          onPress: () => {
-            cancelBooking.mutate(
-              { id: Number(bookingId), reason: 'Cancelled by parent' },
-              {
-                onSuccess: () => handleBack(),
-                onError: (err) => Alert.alert('Error', err.message),
-              },
-            );
+    confirmDialog({
+      title: 'Cancel this booking?',
+      message:
+        'Cancellations within 24 hours of the booking are subject to a 50% fee.',
+      confirmLabel: 'Cancel booking',
+      cancelLabel: 'Keep booking',
+      destructive: true,
+      onConfirm: () =>
+        cancelBooking.mutate(
+          { id: Number(bookingId), reason: 'Cancelled by parent' },
+          {
+            onSuccess: () => handleBack(),
+            onError: (err) =>
+              noticeDialog({ title: 'Could not cancel', message: err.message }),
           },
-        },
-      ],
-    );
+        ),
+    });
   };
 
   if (isLoading || !booking) {
@@ -200,21 +203,62 @@ export default function BookingDetailScreen() {
             </View>
             <Text style={styles.detailValue}>{booking.durationHours} hours</Text>
           </View>
+          {booking.children.length > 0 && (
+            <View style={styles.detailRow}>
+              <View style={styles.detailLeft}>
+                <Ionicons name="people-outline" size={16} color={colors.textMuted} />
+                <Text style={styles.detailLabel}>Children</Text>
+              </View>
+              <Text style={styles.detailValue}>
+                {booking.children
+                  .map((c) => (c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears)))
+                  .join(', ')}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Payment Summary */}
         <View style={styles.paymentCard}>
+          {/* Every row carries its own working, matching the review step —
+              a bare "+EGP 120" gives the mother nothing to check. */}
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>
-              Base {formatHourlyRateAmount(booking.baseRate)} × {booking.durationHours}h
-            </Text>
+            <View style={styles.paymentRowLabel}>
+              <Text style={styles.paymentLabel}>Base rate</Text>
+              <Text style={styles.paymentMath}>
+                {formatHourlyRate(booking.baseRate)} × {formatDurationHours(booking.durationHours)}
+              </Text>
+            </View>
             <Text style={styles.paymentValue}>
               {formatMoney(booking.baseRate * booking.durationHours)}
             </Text>
           </View>
+          {booking.extraChildren > 0 && (
+            <View style={styles.paymentRow}>
+              <View style={styles.paymentRowLabel}>
+                <Text style={styles.paymentLabel}>
+                  + {booking.extraChildren} extra child
+                  {booking.extraChildren === 1 ? '' : 'ren'}
+                </Text>
+                <Text style={styles.paymentMath}>
+                  {formatHourlyRate(booking.extraChildFeePerHour)} ×{' '}
+                  {formatDurationHours(booking.durationHours)}
+                </Text>
+              </View>
+              <Text style={styles.paymentValue}>
+                {formatMoney(booking.extraChildFeePerHour * booking.durationHours)}
+              </Text>
+            </View>
+          )}
           {booking.skillAddOns.map((addon) => (
             <View style={styles.paymentRow} key={addon.id}>
-              <Text style={styles.paymentLabel}>+ {addon.name}</Text>
+              <View style={styles.paymentRowLabel}>
+                <Text style={styles.paymentLabel}>+ {addon.name}</Text>
+                <Text style={styles.paymentMath}>
+                  {formatHourlyRate(addon.amountPerHour)} ×{' '}
+                  {formatDurationHours(booking.durationHours)}
+                </Text>
+              </View>
               <Text style={styles.paymentValue}>
                 {formatMoney(addon.amountPerHour * booking.durationHours)}
               </Text>
@@ -256,10 +300,52 @@ export default function BookingDetailScreen() {
             <Text style={styles.paymentTotalLabel}>Total</Text>
             <Text style={styles.paymentTotalValue}>{formatMoney(booking.totalAmount)}</Text>
           </View>
-          {booking.payment && (
+          {/* What actually happened to the money. This used to be a single
+              row rendering the raw enum ("CARD") with no status, so a failed
+              or still-pending payment looked identical to a settled one. */}
+          {booking.payment ? (
+            <>
+              <View style={styles.paymentDivider} />
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Payment</Text>
+                <View style={styles.paymentStatusPill}>
+                  <Ionicons
+                    name={
+                      booking.payment.status === PaymentStatus.CAPTURED
+                        ? 'checkmark-circle'
+                        : booking.payment.status === PaymentStatus.FAILED
+                          ? 'alert-circle'
+                          : 'time-outline'
+                    }
+                    size={14}
+                    color={
+                      booking.payment.status === PaymentStatus.CAPTURED
+                        ? colors.successDark
+                        : booking.payment.status === PaymentStatus.FAILED
+                          ? colors.error
+                          : colors.textTertiary
+                    }
+                  />
+                  <Text style={styles.paymentStatusText}>
+                    {formatPaymentStatus(booking.payment.status)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Method</Text>
+                <Text style={styles.paymentValue}>
+                  {formatPaymentMethod(booking.payment.method)}
+                </Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Charged</Text>
+                <Text style={styles.paymentValue}>{formatMoney(booking.payment.amount)}</Text>
+              </View>
+            </>
+          ) : (
             <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Paid with</Text>
-              <Text style={styles.paymentValue}>{booking.payment.method}</Text>
+              <Text style={styles.paymentLabel}>Payment</Text>
+              <Text style={styles.paymentMutedValue}>Not started yet</Text>
             </View>
           )}
         </View>

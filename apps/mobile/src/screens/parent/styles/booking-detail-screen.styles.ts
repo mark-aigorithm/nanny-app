@@ -187,6 +187,32 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  paymentRowLabel: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  /** The arithmetic behind a row, e.g. "EGP 30/hr x 4h". */
+  paymentMath: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+  paymentMutedValue: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+  },
+  paymentStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupeLight,
+  },
+  paymentStatusText: {
+    ...typeScale.captionBold,
+    color: colors.textTertiary,
+  },
   paymentLabel: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
