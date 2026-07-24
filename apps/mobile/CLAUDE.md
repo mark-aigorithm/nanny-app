@@ -86,6 +86,9 @@ Before creating any new visual pattern, check if an existing component covers it
 | `SectionHeader` | "Title + See all" section headers |
 | `ScreenContainer` | SafeAreaView + background + StatusBar wrapper |
 | `Divider` | Horizontal line with optional "or" text |
+| `Stepper` | −/+ numeric stepper (supports `formatValue`) |
+| `CollapsibleCard` | Card with an expanding body and a header summary |
+| `PulseRings` | Expanding sonar rings for "searching" states |
 
 - Only create new UI components if no existing one covers the use case
 - Import from `@mobile/components/ui`
@@ -233,6 +236,22 @@ Call these tools in sequence — do not write a script:
 
 **Step 4 — Tear down**
 Kill the serve process from Step 2.
+
+### Previewing data-driven screens
+Most screens need React Query data (and route params) to render anything but a
+spinner. `src/__preview__/` holds thin wrappers that seed a `QueryClient` with
+realistic fixtures and set `globalThis.__PREVIEW_PARAMS__` (read by the
+`expo-router` web stub), then render the real screen. Point `COMPONENT` at one
+of those wrappers rather than at the screen itself.
+
+`vite.preview.config.ts` stubs the modules that can't run in a browser —
+`expo-constants`, `@mobile/lib/firebase` (initialises at import and throws
+without credentials), plus the existing expo stubs. Add an alias there when a
+new screen pulls in another native-only module.
+
+Fonts fall back to the browser default in previews (the app asks for
+`Manrope_700Bold`, which isn't a web family). Judge layout, colour and spacing
+from previews — not typeface.
 
 ### Rules
 - Never use a standalone Playwright script — always call MCP tools directly

@@ -6,10 +6,17 @@
     <title>Component Preview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 390px; height: 844px; background: #ffffff; overflow: visible; }
+
+      /*
+       * Known preview limitation: the app asks for the @expo-google-fonts
+       * family names ("Manrope_700Bold"), which don't exist as web families,
+       * so text falls back to the browser default here. Judge layout, colour
+       * and spacing from previews — not typeface.
+       */
     </style>
   </head>
   <body>

@@ -19,6 +19,12 @@ export default defineConfig({
       'expo-router': path.resolve(__dirname, 'src/mocks/expo-router-web.tsx'),
       // Stub expo-clipboard (ClipboardPasteButton ships JSX in .js files)
       'expo-clipboard': path.resolve(__dirname, 'src/mocks/expo-clipboard-web.tsx'),
+      // Stub expo-constants (pulls in expo-modules-core, whose .ts declaration
+      // files fail to bundle) — screens only read expoConfig.extra
+      'expo-constants': path.resolve(__dirname, 'src/mocks/expo-constants-web.tsx'),
+      // Stub the Firebase wrapper — it initialises at import time and throws
+      // without real credentials, which prevents the preview from mounting
+      '@mobile/lib/firebase': path.resolve(__dirname, 'src/mocks/firebase-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],

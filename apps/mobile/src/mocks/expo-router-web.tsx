@@ -12,7 +12,12 @@ export function useRouter() {
 }
 
 export function useLocalSearchParams<T = Record<string, string>>(): T {
-  return {} as T;
+  // A preview entry can seed route params on globalThis so param-driven screens
+  // render their real content instead of their "missing draft" fallback.
+  const { __PREVIEW_PARAMS__ } = globalThis as unknown as {
+    __PREVIEW_PARAMS__?: Record<string, string>;
+  };
+  return (__PREVIEW_PARAMS__ ?? {}) as T;
 }
 
 export function useGlobalSearchParams<T = Record<string, string>>(): T {

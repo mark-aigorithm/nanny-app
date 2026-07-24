@@ -6,6 +6,23 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@nanny-app/admin", "dev"],
       "port": 5173
+    },
+    {
+      "name": "mobile-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@nanny-app/mobile",
+        "exec",
+        "vite",
+        "preview",
+        "--config",
+        "vite.preview.config.ts",
+        "--port",
+        "3100",
+        "--strictPort"
+      ],
+      "port": 3100
     }
   ]
 }
