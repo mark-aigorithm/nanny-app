@@ -62,6 +62,22 @@ export function isPaymobPaymentRedirect(url: string): PaymobRedirectHint | null 
   }
 }
 
+/**
+ * The extension id the backend puts on the return URL alongside `bookingId`
+ * when the payment was for extra hours. Null for an ordinary booking payment.
+ */
+export function extractExtensionIdFromRedirect(url: string): string | null {
+  try {
+    const parsed = url.startsWith('http')
+      ? new URL(url)
+      : new URL(url.replace(APP_SCHEME_PREFIX, 'https://app/'));
+    return parsed.searchParams.get('extensionId') ?? parsed.searchParams.get('extension_id');
+  } catch {
+    const match = url.match(/[?&]extensionId=([^&]+)/i) ?? url.match(/[?&]extension_id=([^&]+)/i);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }
+}
+
 export function extractBookingIdFromRedirect(url: string): string | null {
   try {
     const parsed = url.startsWith('http')

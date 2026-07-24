@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
+import ParentShiftControlsCard from '@mobile/components/ParentShiftControlsCard';
 import ParentNannyContactCard from '@mobile/components/ParentNannyContactCard';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
@@ -148,6 +149,9 @@ export default function BookingDetailScreen() {
 
         {/* Parent-only "Start booking" PIN gate (shows only within the check-in window) */}
         <ParentStartPinCard booking={booking} />
+
+        {/* End / extend controls — only while the shift is actually running */}
+        <ParentShiftControlsCard booking={booking} />
 
         {/* Nanny Card */}
         <View style={styles.nannyCard}>

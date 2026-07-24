@@ -140,6 +140,37 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.warmLight,
         iconColor: colors.goldWarm,
       };
+    case 'booking_ended_by_parent':
+      return {
+        name: 'stop-circle',
+        backgroundColor: colors.warmLight,
+        iconColor: colors.goldWarm,
+      };
+    case 'booking_extension_requested':
+      return {
+        name: 'hourglass',
+        backgroundColor: colors.primaryMuted,
+        iconColor: colors.primary,
+      };
+    // The one the parent must act on — she still owes money for the hours.
+    case 'booking_extension_accepted':
+      return {
+        name: 'card',
+        backgroundColor: colors.successLight,
+        iconColor: colors.successDark,
+      };
+    case 'booking_extension_declined':
+      return {
+        name: 'close-circle',
+        backgroundColor: colors.errorLight,
+        iconColor: colors.error,
+      };
+    case 'booking_extended':
+      return {
+        name: 'time',
+        backgroundColor: colors.successLight,
+        iconColor: colors.successDark,
+      };
     default:
       return {
         name: 'notifications',

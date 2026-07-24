@@ -17,6 +17,7 @@ import { useNannyDashboard } from '@mobile/hooks/useNannies';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
+import NannyExtensionRequestCard from '@mobile/components/NannyExtensionRequestCard';
 import UpcomingShiftBanner from '@mobile/components/UpcomingShiftBanner';
 import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
@@ -75,6 +76,7 @@ export default function NannyDashboardScreen() {
           onPressCta={() => router.push({ pathname: '/(nanny)/profile', params: { edit: '1' } })}
         />
         <OngoingBookingBanner />
+        <NannyExtensionRequestCard />
         <UpcomingShiftBanner bookings={shiftBookings} />
 
         {/* Earnings Card */}

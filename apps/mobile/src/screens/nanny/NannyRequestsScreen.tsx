@@ -25,6 +25,7 @@ import {
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
+import NannyExtensionRequestCard from '@mobile/components/NannyExtensionRequestCard';
 import UpcomingShiftBanner, { confirmEndShift, confirmStartShift } from '@mobile/components/UpcomingShiftBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
@@ -233,6 +234,7 @@ export default function NannyRequestsScreen() {
         }
       >
         <OngoingBookingBanner />
+        <NannyExtensionRequestCard />
         {activeFilter === 'upcoming' ? <UpcomingShiftBanner bookings={requests} /> : null}
 
         {/* Filter chips */}

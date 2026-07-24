@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  BookingExtensionResponse,
   BookingListQuery,
   BookingOptions,
   BookingResponse,
@@ -256,6 +257,78 @@ export function useCheckOut() {
       // so the new earnings show up immediately.
       void qc.invalidateQueries({ queryKey: [NANNIES_KEY, 'dashboard'] });
     },
+  });
+}
+
+// ── Mid-shift controls ───────────────────────────────────────────────────────
+
+/**
+ * Parent ends a running shift early. Completes the booking — there is no undo,
+ * which is why the UI confirms first.
+ */
+export function useEndBooking() {
+  const qc = useQueryClient();
+  return useMutation<BookingResponse, Error, number>({
+    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/end`)),
+    onSuccess: (booking) => {
+      qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
+      void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+    },
+  });
+}
+
+/** Parent asks for extra hours. Creates a quote the nanny must answer. */
+export function useRequestExtension() {
+  const qc = useQueryClient();
+  return useMutation<BookingExtensionResponse, Error, { bookingId: number; hours: number }>({
+    mutationFn: ({ bookingId, hours }) =>
+      unwrap(api.post(`/bookings/${bookingId}/extensions`, { hours })),
+    // The booking carries `activeExtension`, so refreshing it is what moves the
+    // screen into its "waiting on your nanny" state.
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+/** Nanny accepts or declines the extra hours. */
+export function useRespondToExtension() {
+  const qc = useQueryClient();
+  return useMutation<BookingExtensionResponse, Error, { extensionId: number; accept: boolean }>({
+    mutationFn: ({ extensionId, accept }) =>
+      unwrap(api.post(`/bookings/extensions/${extensionId}/${accept ? 'accept' : 'decline'}`)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+/** Parent withdraws her own extension request. */
+export function useCancelExtension() {
+  const qc = useQueryClient();
+  return useMutation<BookingExtensionResponse, Error, number>({
+    mutationFn: (extensionId) =>
+      unwrap(api.post(`/bookings/extensions/${extensionId}/cancel`)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+/** Read one extension on its own — used by the extension checkout screen. */
+export function useBookingExtension(extensionId: number | undefined) {
+  return useQuery<BookingExtensionResponse>({
+    queryKey: [BOOKINGS_KEY, 'extension', extensionId],
+    queryFn: () => unwrap(api.get(`/bookings/extensions/${extensionId}`)),
+    enabled: !!extensionId,
+  });
+}
+
+/** Paymob checkout for extra hours the nanny has already agreed to. */
+export function useExtensionPaymobCheckout() {
+  const qc = useQueryClient();
+  return useMutation<
+    PaymobCheckoutSession,
+    Error,
+    { extensionId: number; method?: MockPayBookingRequest['method'] }
+  >({
+    mutationFn: ({ extensionId, method = PaymentMethod.CARD }) =>
+      unwrap(api.post(`/bookings/extensions/${extensionId}/pay/paymob`, { method })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
 }
 

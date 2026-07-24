@@ -106,6 +106,17 @@ function navigateFromNotification(
     return;
   }
 
+  // "Your nanny can stay" is the one push that needs money from the parent, so
+  // it goes straight to the extension checkout rather than the booking detail.
+  const extensionId = data?.['extensionId'];
+  if (data?.['type'] === 'booking_extension_accepted' && extensionId) {
+    router.push({
+      pathname: '/(parent)/book/extension-checkout',
+      params: { extensionId },
+    } as never);
+    return;
+  }
+
   const bookingId = data?.['bookingId'];
   if (bookingId) {
     navigateToBookingDetail(router, Number(bookingId), {
