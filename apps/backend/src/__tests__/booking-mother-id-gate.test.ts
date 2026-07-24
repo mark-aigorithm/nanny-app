@@ -45,6 +45,7 @@ const VALID_BODY = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
   skillIds: [] as number[],
+  children: [{ name: null, ageYears: 4 }],
 };
 
 const BASE_CONFIG = {
@@ -56,6 +57,10 @@ const BASE_CONFIG = {
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
+  includedChildrenPerBooking: 2,
+  maxChildrenPerBooking: 4,
+  extraChildFeeType: 'FLAT' as const,
+  extraChildFeeValue: 30,
   bookingWindowStartHour: 8,
   bookingWindowEndHour: 22,
 };
@@ -96,6 +101,10 @@ beforeEach(() => {
     durationHours: 4,
     baseRate: 100,
     effectiveHourlyRate: 100,
+    childrenCount: 1,
+    extraChildren: 0,
+    extraChildFeePerHour: 0,
+    bookedChildren: null,
     selectedSkillFees: null,
     subtotal: 400,
     durationMultiplier: 1,

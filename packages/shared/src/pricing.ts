@@ -25,6 +25,49 @@ export interface DurationRuleInput {
   multiplier: number;
 }
 
+/** The admin-configured extra-child rule, plus how many children were booked. */
+export interface ExtraChildFeeInput {
+  childrenCount: number;
+  /** How many children the base rate already covers. */
+  includedChildren: number;
+  /** null (or a 0 value) = extra children are free. */
+  feeType: SkillFeeType | null;
+  feeValue: number;
+}
+
+/**
+ * What the children on a booking add to the hourly rate.
+ *
+ * The first `includedChildren` are already paid for by the base rate; each one
+ * beyond that costs `feeValue` EGP/hour (FLAT) or that percent of the base rate
+ * per hour (PERCENTAGE). The charge is per extra child, so a 4-child booking
+ * against a 2-child allowance pays twice.
+ *
+ * Deliberately shaped like `resolveEffectiveRate`: the result is a per-HOUR
+ * amount that gets folded into `effectiveHourlyRate` exactly like a skill
+ * add-on, which is what makes duration tiers, Care Points and mid-shift
+ * extensions price multi-child bookings correctly without knowing this rule
+ * exists.
+ */
+export function resolveExtraChildFee(
+  baseRate: number,
+  { childrenCount, includedChildren, feeType, feeValue }: ExtraChildFeeInput,
+): { extraChildren: number; amountPerHour: number } {
+  // Fail to "no fee", not to NaN. A missing or malformed setting must never
+  // poison the hourly rate — an under-charge is recoverable, a NaN total is a
+  // booking nobody can pay for.
+  const count = Number.isFinite(childrenCount) ? Math.floor(childrenCount) : 1;
+  const included = Number.isFinite(includedChildren) ? Math.floor(includedChildren) : count;
+  const value = Number.isFinite(feeValue) ? feeValue : 0;
+
+  const extraChildren = Math.max(0, count - included);
+  if (extraChildren <= 0 || feeType == null || value <= 0) {
+    return { extraChildren, amountPerHour: 0 };
+  }
+  const perChildPerHour = feeType === 'FLAT' ? value : baseRate * (value / 100);
+  return { extraChildren, amountPerHour: round2(extraChildren * perChildPerHour) };
+}
+
 /**
  * Resolves the effective hourly rate from a base rate and the selected skill
  * add-ons. FLAT fees add EGP/hour; PERCENTAGE fees add a percent of the base
@@ -162,7 +205,7 @@ export function resolveDurationMultiplier(
 /**
  * Pure function — computes the full price breakdown for a booking.
  *
- *   effectiveHourlyRate = baseRate + selected skill add-on fees (per hour)
+ *   effectiveHourlyRate = baseRate + skill add-on fees + extra-child fee (per hour)
  *   subtotal            = effectiveHourlyRate × durationHours × durationMultiplier
  *   totalAmount         = max(0, subtotal − promo discount)   ← what the mother pays
  *   nannyAmount         = totalAmount × nannyPercent           ← what the nanny earns
@@ -172,11 +215,15 @@ export function resolveDurationMultiplier(
  * always 0 here (kept for back-compat with old persisted bookings). All money
  * values are rounded to 2dp; totalAmount is floored at 0 (discount is capped at
  * the subtotal so it can't go negative).
+ *
+ * `extraChildFee` is optional so callers that genuinely have no children context
+ * — the promo preview, old tests — keep pricing a single-child booking.
  */
 export function calculatePriceBreakdown({
   baseRate,
   durationHours,
   skillAddOns = [],
+  extraChildFee,
   durationMultiplier = 1,
   discountAmount = 0,
   nannyPercent,
@@ -185,12 +232,27 @@ export function calculatePriceBreakdown({
   baseRate: number;
   durationHours: number;
   skillAddOns?: SkillAddOnInput[];
+  extraChildFee?: ExtraChildFeeInput;
   durationMultiplier?: number;
   discountAmount?: number;
   nannyPercent: number;
   platformPercent: number;
 }): PriceBreakdown {
-  const { effectiveHourlyRate, applied } = resolveEffectiveRate(baseRate, skillAddOns);
+  const { effectiveHourlyRate: rateWithSkills, applied } = resolveEffectiveRate(
+    baseRate,
+    skillAddOns,
+  );
+  const children: ExtraChildFeeInput = extraChildFee ?? {
+    childrenCount: 1,
+    includedChildren: 1,
+    feeType: null,
+    feeValue: 0,
+  };
+  const { extraChildren, amountPerHour: extraChildFeePerHour } = resolveExtraChildFee(
+    baseRate,
+    children,
+  );
+  const effectiveHourlyRate = round2(rateWithSkills + extraChildFeePerHour);
   const rawSubtotal = round2(effectiveHourlyRate * durationHours);
   const subtotal = round2(rawSubtotal * durationMultiplier);
   const actualDiscount = round2(Math.min(discountAmount, subtotal));
@@ -202,6 +264,10 @@ export function calculatePriceBreakdown({
     baseRate: round2(baseRate),
     durationHours: round2(durationHours),
     skillAddOns: applied,
+    childrenCount: Math.max(1, Math.floor(children.childrenCount)),
+    includedChildren: Math.max(1, Math.floor(children.includedChildren)),
+    extraChildren,
+    extraChildFeePerHour,
     effectiveHourlyRate,
     subtotal,
     durationMultiplier,

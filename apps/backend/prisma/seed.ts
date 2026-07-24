@@ -19,6 +19,10 @@ const APP_SETTINGS: Record<string, string> = {
   booking_window_start_hour: '6',
   booking_window_end_hour: '22',
   reveal_phone_minutes: '45',
+  included_children_per_booking: '2',
+  max_children_per_booking: '4',
+  extra_child_fee_type: 'FLAT',
+  extra_child_fee_value: '30',
 };
 
 async function main() {

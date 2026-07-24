@@ -1,6 +1,8 @@
 import { Prisma, type BookingExtension } from '@prisma/client';
 import {
   type AppliedSkillFee,
+  type BookingChild,
+  BookingChildSchema,
   BookingStatus,
   BookingType,
   packageHoursCreditFor,
@@ -53,6 +55,7 @@ import {
   getPlatformConfig,
   getRevealPhoneMinutes,
 } from './app-settings.service';
+import { saveChildren } from './child.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -168,6 +171,18 @@ async function getUserByUid(uid: string) {
 /** Reads the persisted skill add-on snapshot back into typed form. */
 function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
+}
+
+/**
+ * The children snapshot off a booking row. Validated rather than cast: this
+ * column is null on every booking made before children were modelled, and a
+ * malformed row must degrade to "no children listed" rather than 500 an entire
+ * bookings list.
+ */
+function parseBookedChildren(raw: Prisma.JsonValue | null | undefined): BookingChild[] {
+  if (!Array.isArray(raw)) return [];
+  const parsed = BookingChildSchema.array().safeParse(raw);
+  return parsed.success ? parsed.data : [];
 }
 
 /**
@@ -297,6 +312,10 @@ function toBookingResponse(
     baseRate: Number(b.baseRate),
     effectiveHourlyRate: Number(b.effectiveHourlyRate),
     skillAddOns: parseSkillAddOns(b.selectedSkillFees),
+    children: parseBookedChildren(b.bookedChildren),
+    childrenCount: b.childrenCount,
+    extraChildren: b.extraChildren,
+    extraChildFeePerHour: Number(b.extraChildFeePerHour),
     subtotal: Number(b.subtotal),
     durationMultiplier: Number(b.durationMultiplier),
     discountAmount: Number(b.discountAmount),
@@ -839,6 +858,16 @@ export async function createBooking(
     throw errors.badRequest(`Maximum booking duration is ${config.maxBookingHours} hours.`);
   }
 
+  // The ceiling is an admin setting, so the shared schema can only require at
+  // least one child — the actual limit has to be checked here, where the current
+  // value is known and the message can say what it is.
+  const children = body.children;
+  if (children.length > config.maxChildrenPerBooking) {
+    throw errors.badRequest(
+      `One nanny can care for at most ${config.maxChildrenPerBooking} children in a single booking.`,
+    );
+  }
+
   // Lead time. Subsumes the old "cannot book in the past" check — at a 0-hour
   // minimum this is exactly that, which is why the message says so.
   if (startTime.getTime() < Date.now() + config.minAdvanceBookingHours * 3_600_000) {
@@ -856,6 +885,10 @@ export async function createBooking(
       type: BookingType.STANDARD,
       startTime,
       endTime,
+      // Part of the identity of the request, not incidental detail: the child
+      // count changes the price, so a resubmission with different children must
+      // create a re-priced booking rather than hand back the old one.
+      childrenCount: children.length,
     },
     include: bookingInclude,
   });
@@ -875,7 +908,8 @@ export async function createBooking(
 
   // Price once up-front (add-ons + duration tier, before any discount) to know
   // the subtotal and effective hourly rate.
-  const preBreakdown = buildBreakdown(pricingInputs, { durationHours, skillIds });
+  const childrenCount = children.length;
+  const preBreakdown = buildBreakdown(pricingInputs, { durationHours, skillIds, childrenCount });
 
   // Validate the promo against that subtotal so the discount can't exceed
   // what's owed.
@@ -887,7 +921,12 @@ export async function createBooking(
     discountAmount = validated.discountAmount;
   }
 
-  const breakdown = buildBreakdown(pricingInputs, { durationHours, skillIds, discountAmount });
+  const breakdown = buildBreakdown(pricingInputs, {
+    durationHours,
+    skillIds,
+    childrenCount,
+    discountAmount,
+  });
 
   const data: Prisma.BookingUncheckedCreateInput = {
     motherId: user.id,
@@ -916,6 +955,12 @@ export async function createBooking(
     nannyAmount: breakdown.nannyAmount,
     platformAmount: breakdown.platformAmount,
     selectedSkillFees: breakdown.skillAddOns as unknown as Prisma.InputJsonValue,
+    // The fee is already inside effectiveHourlyRate; these are snapshots so the
+    // breakdown can still be itemised after an admin changes the rule.
+    childrenCount: breakdown.childrenCount,
+    extraChildren: breakdown.extraChildren,
+    extraChildFeePerHour: breakdown.extraChildFeePerHour,
+    bookedChildren: children as unknown as Prisma.InputJsonValue,
     ...(promoCodeId ? { promoCodeId } : {}),
     ...(body.specialInstructions ? { specialInstructions: body.specialInstructions } : {}),
   };
@@ -934,11 +979,18 @@ export async function createBooking(
   // the claim and the discount is already in the total, but the code is not
   // consumed until the payment is captured (see redeemBookingPromoCodeOnCapture).
   // A request no nanny claims, or one the mother cancels, must not burn her code.
+  //
+  // "Save for next booking" runs in the same transaction as the create, so a
+  // failed booking never silently rewrites her saved family.
+  const wantsSaveChildren = body.saveChildren === true;
   let booking: BookingWithRelations;
-  if (willApplyPackageHours) {
+  if (willApplyPackageHours || wantsSaveChildren) {
     booking = await prisma.$transaction(async (tx) => {
       const created = await tx.booking.create({ data, include: bookingInclude });
-      return applyPackageHoursToBooking(tx, created, breakdown.skillAddOns);
+      if (wantsSaveChildren) await saveChildren(user.id, children, tx);
+      return willApplyPackageHours
+        ? applyPackageHoursToBooking(tx, created, breakdown.skillAddOns)
+        : created;
     });
   } else {
     booking = await prisma.booking.create({ data, include: bookingInclude });

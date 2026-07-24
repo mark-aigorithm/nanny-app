@@ -3,6 +3,7 @@ export * from './auth';
 export * from './platform';
 export * from './camera';
 export * from './skill';
+export * from './child';
 export * from './certification';
 export * from './package';
 export * from './duration-rule';

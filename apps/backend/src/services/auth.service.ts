@@ -4,8 +4,10 @@ import type {
 } from '@prisma/client';
 import {
   Role,
+  type Child as ChildDto,
   type RegisterRequest,
   type Role as ApiRole,
+  type SaveChildrenRequest,
   type SubmitIdRequest,
   type UpdateProfileRequest,
   type UserResponse,
@@ -14,6 +16,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { listChildren, saveChildren } from './child.service';
 
 /**
  * Project a Prisma role onto the API role enum. The shared schema exposes
@@ -160,6 +163,36 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
   });
 
   return toUserResponse(updated);
+}
+
+/** The current user's row, or a 404 telling the client to finish registration. */
+async function requireUser(decoded: DecodedIdToken): Promise<User> {
+  const user = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
+  if (!user || user.deletedAt) {
+    throw errors.notFound('User profile not found. Please complete registration.');
+  }
+  return user;
+}
+
+/** The mother's saved children, used to prefill the booking sheet. */
+export async function getMyChildren(decoded: DecodedIdToken): Promise<ChildDto[]> {
+  const user = await requireUser(decoded);
+  return listChildren(user.id);
+}
+
+/**
+ * Replaces the mother's saved children. Mothers only — a nanny has no family on
+ * file here, and letting her write one would just be dead data.
+ */
+export async function saveMyChildren(
+  decoded: DecodedIdToken,
+  body: SaveChildrenRequest,
+): Promise<ChildDto[]> {
+  const user = await requireUser(decoded);
+  if (user.role !== Role.MOTHER) {
+    throw errors.forbidden('Only mothers can save children.');
+  }
+  return saveChildren(user.id, body.children);
 }
 
 /**

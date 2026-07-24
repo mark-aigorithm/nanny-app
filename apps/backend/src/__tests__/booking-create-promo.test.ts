@@ -79,6 +79,9 @@ const PLATFORM_CONFIG = {
 const baseBody = {
   startTime: '2099-01-01T10:00:00',
   endTime: '2099-01-01T12:00:00',
+  // One child, so the extra-child fee contributes nothing and these promo
+  // assertions keep testing only the promo.
+  children: [{ name: null, ageYears: 4 }],
 };
 
 function makeBookingRow(overrides: Record<string, unknown> = {}) {

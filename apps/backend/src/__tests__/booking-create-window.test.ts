@@ -60,6 +60,10 @@ const BASE_CONFIG = {
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
+  includedChildrenPerBooking: 2,
+  maxChildrenPerBooking: 4,
+  extraChildFeeType: 'FLAT' as const,
+  extraChildFeeValue: 30,
   bookingWindowStartHour: 8,
   bookingWindowEndHour: 22,
 };
@@ -84,6 +88,10 @@ function bookingRow(start: Date, end: Date) {
     durationHours: 4,
     baseRate: 100,
     effectiveHourlyRate: 100,
+    childrenCount: 1,
+    extraChildren: 0,
+    extraChildFeePerHour: 0,
+    bookedChildren: null,
     selectedSkillFees: null,
     subtotal: 400,
     durationMultiplier: 1,
@@ -119,7 +127,11 @@ async function create(body: { startTime: string; endTime: string }) {
   mockPrisma.booking.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
     Promise.resolve(bookingRow(data['startTime'] as Date, data['endTime'] as Date)),
   );
-  const response = await createBooking(DECODED, { ...body, skillIds: [] });
+  const response = await createBooking(DECODED, {
+    ...body,
+    skillIds: [],
+    children: [{ name: null, ageYears: 4 }],
+  });
   return { response, data: mockPrisma.booking.create.mock.calls[0][0].data };
 }
 

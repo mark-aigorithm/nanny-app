@@ -8,8 +8,9 @@ import {
   wallClockField,
 } from './booking';
 import { PublicCertificationSchema } from './certification';
+import { BookingChildSchema } from './child';
 import { IdDocumentTypeSchema, IdVerificationStatusSchema } from './nanny';
-import { PublicSkillSchema } from './skill';
+import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
 
 // Re-export the shared pagination meta so admin consumers can import it alongside
 // the admin list/detail schemas.
@@ -114,6 +115,20 @@ export const PlatformConfigSchema = z.object({
   nannyPercent: z.number().min(0).max(100),
   /** Platform's share of each booking total, in percent. */
   platformPercent: z.number().min(0).max(100),
+  /**
+   * How many children one nanny covers at the base rate. Children beyond this
+   * are billed `extraChildFeeValue` each, per hour — see resolveExtraChildFee.
+   */
+  includedChildrenPerBooking: z.number().int().min(1).max(10),
+  /**
+   * Hard ceiling on children in a single booking, regardless of willingness to
+   * pay. One nanny can only mind so many, so the server rejects above this.
+   */
+  maxChildrenPerBooking: z.number().int().min(1).max(20),
+  /** null = extra children are free. FLAT = EGP/hour each; PERCENTAGE = % of base rate. */
+  extraChildFeeType: SkillFeeTypeSchema.nullable(),
+  /** Charge per extra child per hour, in EGP (FLAT) or percent (PERCENTAGE). */
+  extraChildFeeValue: z.number().min(0).max(100000),
   /** Maximum hours a mother can reserve in a single booking. */
   maxBookingHours: z.number().int().min(1).max(24),
   /** Minimum hours a mother can reserve in a single booking. */
@@ -179,13 +194,30 @@ export const UpdatePlatformConfigSchema = PlatformConfigSchema.partial()
       message: 'Pending warning threshold must be below the critical threshold',
       path: ['pendingWarningMinutes'],
     },
+  )
+  .refine(
+    (v) =>
+      v.extraChildFeeType !== 'PERCENTAGE' ||
+      v.extraChildFeeValue === undefined ||
+      v.extraChildFeeValue <= 100,
+    {
+      message: 'Percentage fee cannot exceed 100',
+      path: ['extraChildFeeValue'],
+    },
   );
+// `includedChildrenPerBooking <= maxChildrenPerBooking` cannot be refined here:
+// this schema is `.partial()`, so raising the minimum alone would sail past a
+// refine that can only see the fields the admin actually sent. It lives in
+// `assertCoherentConfig`, where the update is merged over the current config —
+// the same reason the min/max booking-hours rule lives there.
 export type UpdatePlatformConfigInput = z.infer<typeof UpdatePlatformConfigSchema>;
 
 /** Admin pricing calculator input — previews a full breakdown for a scenario. */
 export const PricePreviewSchema = z.object({
   durationHours: z.number().positive().max(24),
   skillIds: z.array(z.number().int()).default([]),
+  /** Children on the hypothetical booking — drives the extra-child fee line. */
+  childrenCount: z.number().int().min(1).max(20).default(1),
   discountAmount: z.number().min(0).optional(),
 });
 export type PricePreviewInput = z.infer<typeof PricePreviewSchema>;
@@ -275,6 +307,11 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   baseRate: z.number(),
   effectiveHourlyRate: z.number(),
   skillAddOns: z.array(AppliedSkillFeeSchema),
+  /** Who the booking was for, snapshotted at creation (names included). */
+  children: z.array(BookingChildSchema),
+  childrenCount: z.number(),
+  extraChildren: z.number(),
+  extraChildFeePerHour: z.number(),
   subtotal: z.number(),
   durationMultiplier: z.number(),
   serviceFeePercent: z.number(),

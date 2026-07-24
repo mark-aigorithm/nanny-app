@@ -132,6 +132,37 @@ describe('getPlatformConfig', () => {
     expect(config.pendingCriticalMinutes).toBe(30);
   });
 
+  it('round-trips the extra-child fee type, which is a string not a number', async () => {
+    // The regression the per-field parser exists to prevent: every setting used
+    // to go through parseFloat, which turns 'PERCENTAGE' into NaN and silently
+    // falls back to the default — an admin's saved change appearing not to save.
+    mockPrisma.appSettings.findMany.mockResolvedValue(
+      rows({ extra_child_fee_type: 'PERCENTAGE', extra_child_fee_value: '15' }),
+    );
+    const config = await getPlatformConfig();
+    expect(config.extraChildFeeType).toBe('PERCENTAGE');
+    expect(config.extraChildFeeValue).toBe(15);
+  });
+
+  it('reads a cleared fee type (empty string) as no fee at all', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(rows({ extra_child_fee_type: '' }));
+    expect((await getPlatformConfig()).extraChildFeeType).toBeNull();
+  });
+
+  it('falls back to no fee on an unrecognised fee type', async () => {
+    // Never charge for something we can't parse.
+    mockPrisma.appSettings.findMany.mockResolvedValue(rows({ extra_child_fee_type: 'WEIRD' }));
+    expect((await getPlatformConfig()).extraChildFeeType).toBeNull();
+  });
+
+  it('includes children defaults for unseeded keys', async () => {
+    const config = await getPlatformConfig();
+    expect(config.includedChildrenPerBooking).toBe(2);
+    expect(config.maxChildrenPerBooking).toBe(4);
+    expect(config.extraChildFeeType).toBe('FLAT');
+    expect(config.extraChildFeeValue).toBe(30);
+  });
+
   it('reads seeded matching/SLA values', async () => {
     mockPrisma.appSettings.findMany.mockResolvedValue(
       rows({
@@ -188,5 +219,24 @@ describe('updatePlatformConfig — coherence guard', () => {
     await expect(
       updatePlatformConfig({ bookingWindowStartHour: 0, bookingWindowEndHour: 0 }),
     ).resolves.toBeDefined();
+  });
+
+  it('rejects including more children at the base rate than are allowed at all', async () => {
+    // Saved max is 4 (the default); including 6 free would be incoherent, and the
+    // .partial() request schema can't see the max to catch it.
+    await expect(updatePlatformConfig({ includedChildrenPerBooking: 6 })).rejects.toThrow(
+      /cannot exceed the maximum children per booking/i,
+    );
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('stores a cleared fee type as an empty string, not the text "null"', async () => {
+    // String(null) would write "null", which parseFeeType would then have to
+    // special-case. Writing '' keeps the read side honest.
+    await updatePlatformConfig({ extraChildFeeType: null });
+    const upsert = mockPrisma.appSettings.upsert.mock.calls.find(
+      (c) => c[0].where.key === 'extra_child_fee_type',
+    );
+    expect(upsert?.[0].create.value).toBe('');
   });
 });

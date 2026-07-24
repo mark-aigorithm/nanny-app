@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { BookingChildSchema } from './child';
 import { PublicDurationRuleSchema } from './duration-rule';
 import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
 
@@ -56,7 +57,15 @@ export const PriceBreakdownSchema = z.object({
   durationHours: z.number(),
   /** Selected per-skill add-ons applied to the hourly rate. */
   skillAddOns: z.array(AppliedSkillFeeSchema),
-  /** baseRate + sum of add-on per-hour fees. */
+  /** How many children this booking covers (always ≥ 1). */
+  childrenCount: z.number(),
+  /** How many the base rate already covers, per the platform config. */
+  includedChildren: z.number(),
+  /** childrenCount − includedChildren, floored at 0. */
+  extraChildren: z.number(),
+  /** EGP the extra children add to the hourly rate (0 when there are none). */
+  extraChildFeePerHour: z.number(),
+  /** baseRate + add-on per-hour fees + the extra-child fee. */
   effectiveHourlyRate: z.number(),
   subtotal: z.number(),
   /** Duration tier factor applied to the subtotal (1 = none). */
@@ -273,6 +282,17 @@ export const BookingResponseSchema = z.object({
   effectiveHourlyRate: z.number(),
   /** Selected per-skill add-ons applied to this booking. */
   skillAddOns: z.array(AppliedSkillFeeSchema),
+  /**
+   * Who the booking is for, snapshotted at creation. Names are only populated
+   * for the mother and the nanny who holds the booking — the open-requests pool
+   * gets ages only. Empty on bookings created before children were modelled.
+   */
+  children: z.array(BookingChildSchema),
+  childrenCount: z.number(),
+  /** Children charged above the included allowance (0 on most bookings). */
+  extraChildren: z.number(),
+  /** EGP those extra children added to the hourly rate. */
+  extraChildFeePerHour: z.number(),
   subtotal: z.number(),
   durationMultiplier: z.number(),
   discountAmount: z.number(),
@@ -375,6 +395,18 @@ export const CreateBookingSchema = z.object({
   /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */
   skillIds: z.array(z.number().int()).default([]),
   /**
+   * The children this booking is for. Required — the count drives the price and
+   * the nanny needs to know what she is accepting. There is no `.max()` here on
+   * purpose: the ceiling is an admin setting, so only the server can enforce it
+   * and say what the current limit actually is.
+   */
+  children: z.array(BookingChildSchema).min(1, 'Tell us who the booking is for.'),
+  /**
+   * Replace the mother's saved children with `children`, so her next booking is
+   * prefilled. Drives the "Save for next booking" toggle in the booking sheet.
+   */
+  saveChildren: z.boolean().optional(),
+  /**
    * Apply the mother's prepaid package hours to this booking. Omitted or true
    * means apply them; set false to save the hours for a later booking and pay
    * cash instead. Optional rather than `.default(true)` so existing callers
@@ -412,6 +444,13 @@ export const PricingConfigSchema = z.object({
   skillAddOns: z.array(PublicSkillSchema),
   /** Duration discount/surcharge tiers, ascending by minHours. */
   durationRules: z.array(PublicDurationRuleSchema),
+  /** Children one nanny covers at the base rate before the extra fee starts. */
+  includedChildrenPerBooking: z.number().int(),
+  /** Hard ceiling on children in a single booking — the server rejects above it. */
+  maxChildrenPerBooking: z.number().int(),
+  /** null = extra children are free. FLAT = EGP/hour each; PERCENTAGE = % of base rate. */
+  extraChildFeeType: SkillFeeTypeSchema.nullable(),
+  extraChildFeeValue: z.number(),
 });
 export type PricingConfig = z.infer<typeof PricingConfigSchema>;
 

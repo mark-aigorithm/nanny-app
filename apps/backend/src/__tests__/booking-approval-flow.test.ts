@@ -227,6 +227,7 @@ describe('createBooking (broadcast)', () => {
       startTime: `${dateIso}T10:00:00`,
       endTime: `${dateIso}T13:00:00`,
       skillIds: [],
+      children: [{ name: null, ageYears: 4 }],
     });
 
     expect(result.status).toBe(BookingStatus.PENDING);

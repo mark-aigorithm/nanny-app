@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 
 import {
   RegisterRequestSchema,
+  SaveChildrenSchema,
   SubmitIdRequestSchema,
   UpdateProfileRequestSchema,
 } from '@nanny-app/shared';
@@ -10,7 +11,14 @@ import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
-import { registerUser, getMe, submitId, updateProfile } from '@backend/services/auth.service';
+import {
+  registerUser,
+  getMe,
+  getMyChildren,
+  saveMyChildren,
+  submitId,
+  updateProfile,
+} from '@backend/services/auth.service';
 
 export const authRouter = Router();
 
@@ -67,6 +75,39 @@ authRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const user = await submitId(req.firebaseUser, req.body);
       res.json(ok(user));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * GET /auth/children
+ * The mother's saved children, used to prefill the booking sheet.
+ */
+authRouter.get('/children', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.firebaseUser) throw errors.unauthorized();
+    res.json(ok(await getMyChildren(req.firebaseUser)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /auth/children
+ * Replaces the mother's saved children with the set sent. PUT rather than POST
+ * because the body is the complete new state, not an addition — which is what
+ * the booking sheet's "save for next booking" toggle means.
+ */
+authRouter.put(
+  '/children',
+  requireAuth,
+  validateBody(SaveChildrenSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await saveMyChildren(req.firebaseUser, req.body)));
     } catch (err) {
       next(err);
     }

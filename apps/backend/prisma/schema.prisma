@@ -209,6 +209,7 @@ model User {
   deletedAt            DateTime?             @map("deleted_at")
 
   nannyProfile             NannyProfile?
+  children                 Child[]                   @relation("UserChildren")
   bookingsAsMother         Booking[]                 @relation("BookingMother")
   cancelledBookings        Booking[]                 @relation("BookingCancelledBy")
   approvedBookings         Booking[]                 @relation("BookingAdminApprover")
@@ -287,6 +288,26 @@ model NannyProfile {
 /// Admin-curated catalog of nanny specialties (e.g. "French speaker",
 /// "Works with disabilities"). Controlled replacement for the free-text
 /// NannyProfile.specialties array. Linked to nannies via NannySkill.
+/// A child in a mother's family. Saved once and used to prefill every later
+/// booking; a booking then stores its own id-less snapshot (Booking.bookedChildren)
+/// so editing or removing a child here never rewrites a past booking's record.
+/// The count is what drives the extra-child fee — see resolveExtraChildFee.
+model Child {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  user      User      @relation("UserChildren", fields: [userId], references: [id])
+  /// Optional — a mother may give ages only, which is all pricing needs.
+  name      String?
+  /// Whole years. 0 means under one year old.
+  ageYears  Int       @map("age_years")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([userId, deletedAt])
+  @@map("children")
+}
+
 model Skill {
   id          Int           @id @default(autoincrement())
   name        String        @unique
@@ -769,6 +790,16 @@ model Booking {
   platformAmount           Decimal              @default(0) @map("platform_amount") @db.Decimal(10, 2)
   /// Snapshot of the selected skill add-ons for the price breakdown display.
   selectedSkillFees        Json?                @map("selected_skill_fees")
+  /// How many children this booking covers, how many of those were billed above
+  /// the included allowance, and what they added to the hourly rate. The fee is
+  /// already inside effectiveHourlyRate — these are kept so the breakdown can be
+  /// itemised without re-deriving it from a config that may since have changed.
+  /// Defaults describe every booking made before children were modelled.
+  childrenCount            Int                  @default(1) @map("children_count")
+  extraChildren            Int                  @default(0) @map("extra_children")
+  extraChildFeePerHour     Decimal              @default(0) @map("extra_child_fee_per_hour") @db.Decimal(10, 2)
+  /// Snapshot of who the booking was for (name + age), like selectedSkillFees.
+  bookedChildren           Json?                @map("booked_children")
   specialInstructions      String?              @map("special_instructions") @db.Text
   /// Location snapshot copied from the mother's profile at creation time —
   /// used to radius-filter the nanny broadcast (see notifyBookingBroadcast).

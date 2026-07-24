@@ -2,6 +2,12 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getStandardHourlyRate: jest.fn().mockResolvedValue(120),
   getServiceFeePercent: jest.fn().mockResolvedValue(0),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+  getPlatformConfig: jest.fn().mockResolvedValue({
+    includedChildrenPerBooking: 2,
+    maxChildrenPerBooking: 4,
+    extraChildFeeType: 'FLAT',
+    extraChildFeeValue: 30,
+  }),
 }));
 
 jest.mock('@backend/services/skill.service', () => ({
@@ -48,6 +54,26 @@ describe('buildBreakdown', () => {
   it('rejects an unknown skill id', async () => {
     const inputs = await getPricingInputs();
     expect(() => buildBreakdown(inputs, { durationHours: 2, skillIds: [999] })).toThrow();
+  });
+
+  it('applies the configured extra-child fee to the hourly rate', async () => {
+    const inputs = await getPricingInputs();
+    // 4 children, 2 included → 2 extra × EGP 30 on top of the 120 base.
+    const b = buildBreakdown(inputs, { durationHours: 2, skillIds: [], childrenCount: 4 });
+    expect(b.extraChildren).toBe(2);
+    expect(b.extraChildFeePerHour).toBe(60);
+    expect(b.effectiveHourlyRate).toBe(180);
+    expect(b.subtotal).toBe(360);
+  });
+
+  it('defaults to one child when the caller has no children context', async () => {
+    // The promo preview and the admin re-price go through here without children;
+    // they must keep pricing exactly as they did before the rule existed.
+    const inputs = await getPricingInputs();
+    const b = buildBreakdown(inputs, { durationHours: 2, skillIds: [] });
+    expect(b.childrenCount).toBe(1);
+    expect(b.extraChildFeePerHour).toBe(0);
+    expect(b.effectiveHourlyRate).toBe(120);
   });
 });
 

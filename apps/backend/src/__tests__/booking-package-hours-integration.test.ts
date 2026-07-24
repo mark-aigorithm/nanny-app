@@ -132,12 +132,22 @@ const PLATFORM_CONFIG = {
   broadcastRadiusKm: 10,
   pendingWarningMinutes: 15,
   pendingCriticalMinutes: 30,
+  includedChildrenPerBooking: 2,
+  maxChildrenPerBooking: 4,
+  extraChildFeeType: 'FLAT' as const,
+  extraChildFeeValue: 30,
   bookingWindowStartHour: 0,
   bookingWindowEndHour: 0,
 };
 
 // 4 hours at the fixed platform rate of 100 → subtotal 400, nanny 320, platform 80.
-const baseBody = { startTime: '2099-01-01T10:00:00', endTime: '2099-01-01T14:00:00' };
+// One child, so the extra-child fee adds nothing and these assertions keep
+// testing only the package-hours math.
+const baseBody = {
+  startTime: '2099-01-01T10:00:00',
+  endTime: '2099-01-01T14:00:00',
+  children: [{ name: null, ageYears: 4 }],
+};
 
 function bookingRow(overrides: Record<string, unknown> = {}) {
   const start = new Date('2099-01-01T10:00:00.000Z');
@@ -158,6 +168,10 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     durationHours: 4,
     baseRate: 100,
     effectiveHourlyRate: 100,
+    childrenCount: 1,
+    extraChildren: 0,
+    extraChildFeePerHour: 0,
+    bookedChildren: [{ name: null, ageYears: 4 }],
     selectedSkillFees: [],
     subtotal: 400,
     durationMultiplier: 1,

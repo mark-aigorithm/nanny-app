@@ -3,10 +3,12 @@ import type {
   PricingConfig,
   PublicDurationRule,
   PublicSkill,
+  SkillFeeType,
 } from '@nanny-app/shared';
 
 import { errors } from '@backend/lib/errors';
 import {
+  getPlatformConfig,
   getRevenueSplit,
   getServiceFeePercent,
   getStandardHourlyRate,
@@ -26,15 +28,26 @@ export interface PricingInputs {
   platformPercent: number;
   addOnSkills: PublicSkill[];
   durationRules: PublicDurationRule[];
+  /** Children covered by the base rate, and what each one beyond that costs. */
+  includedChildren: number;
+  maxChildren: number;
+  extraChildFeeType: SkillFeeType | null;
+  extraChildFeeValue: number;
 }
 
-/** Loads the current base rate, revenue split, add-on skills and duration tiers. */
+/**
+ * Loads the base rate, revenue split, add-on skills, duration tiers and the
+ * extra-child rule. `getPlatformConfig` already carries the base rate and split,
+ * but the two dedicated readers are kept so the call sites that only want one of
+ * them don't have to load the whole config.
+ */
 export async function getPricingInputs(): Promise<PricingInputs> {
-  const [baseRate, split, addOnSkills, durationRules] = await Promise.all([
+  const [baseRate, split, addOnSkills, durationRules, config] = await Promise.all([
     getStandardHourlyRate(),
     getRevenueSplit(),
     listActiveSkills(),
     listActiveDurationRules(),
+    getPlatformConfig(),
   ]);
   return {
     baseRate,
@@ -42,6 +55,10 @@ export async function getPricingInputs(): Promise<PricingInputs> {
     platformPercent: split.platformPercent,
     addOnSkills,
     durationRules,
+    includedChildren: config.includedChildrenPerBooking,
+    maxChildren: config.maxChildrenPerBooking,
+    extraChildFeeType: config.extraChildFeeType,
+    extraChildFeeValue: config.extraChildFeeValue,
   };
 }
 
@@ -52,7 +69,13 @@ export async function getPricingInputs(): Promise<PricingInputs> {
  */
 export function buildBreakdown(
   inputs: PricingInputs,
-  opts: { durationHours: number; skillIds: number[]; discountAmount?: number },
+  opts: {
+    durationHours: number;
+    skillIds: number[];
+    /** Defaults to 1 for callers with no children context (e.g. promo preview). */
+    childrenCount?: number;
+    discountAmount?: number;
+  },
 ): PriceBreakdown {
   const uniqueIds = Array.from(new Set(opts.skillIds));
   const selected: SkillAddOnInput[] = uniqueIds.map((id) => {
@@ -67,6 +90,12 @@ export function buildBreakdown(
     baseRate: inputs.baseRate,
     durationHours: opts.durationHours,
     skillAddOns: selected,
+    extraChildFee: {
+      childrenCount: opts.childrenCount ?? 1,
+      includedChildren: inputs.includedChildren,
+      feeType: inputs.extraChildFeeType,
+      feeValue: inputs.extraChildFeeValue,
+    },
     durationMultiplier,
     discountAmount: opts.discountAmount ?? 0,
     nannyPercent: inputs.nannyPercent,
@@ -91,6 +120,10 @@ export async function getPricingConfig(): Promise<PricingConfig> {
     platformPercent: inputs.platformPercent,
     skillAddOns: inputs.addOnSkills,
     durationRules: inputs.durationRules,
+    includedChildrenPerBooking: inputs.includedChildren,
+    maxChildrenPerBooking: inputs.maxChildren,
+    extraChildFeeType: inputs.extraChildFeeType,
+    extraChildFeeValue: inputs.extraChildFeeValue,
   };
 }
 
@@ -98,6 +131,7 @@ export async function getPricingConfig(): Promise<PricingConfig> {
 export async function previewBreakdown(opts: {
   durationHours: number;
   skillIds: number[];
+  childrenCount?: number;
   discountAmount?: number;
 }): Promise<PriceBreakdown> {
   const inputs = await getPricingInputs();

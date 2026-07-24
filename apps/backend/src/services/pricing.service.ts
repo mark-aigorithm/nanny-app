@@ -8,6 +8,8 @@ export {
   calculatePriceBreakdown,
   resolveDurationMultiplier,
   resolveEffectiveRate,
+  resolveExtraChildFee,
   type DurationRuleInput,
+  type ExtraChildFeeInput,
   type SkillAddOnInput,
 } from '@nanny-app/shared';

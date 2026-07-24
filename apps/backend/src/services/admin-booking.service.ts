@@ -1,11 +1,13 @@
 import { BookingStatus, NotificationType, Prisma } from '@prisma/client';
 
+import { BookingChildSchema } from '@nanny-app/shared';
 import type {
   AdminBooking,
   AdminBookingDetail,
   AdminBookingStatusFilter,
   AdminListQuery,
   AppliedSkillFee,
+  BookingChild,
   PaginationMeta,
   RejectAdminBookingInput,
   SetBookingStatusInput,
@@ -75,6 +77,13 @@ function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkil
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
 }
 
+/** Validated, not cast — the column is null on pre-children bookings. */
+function parseBookedChildren(raw: Prisma.JsonValue | null | undefined): BookingChild[] {
+  if (!Array.isArray(raw)) return [];
+  const parsed = BookingChildSchema.array().safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
+
 function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
   return {
@@ -110,6 +119,10 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     baseRate: row.baseRate.toNumber(),
     effectiveHourlyRate: row.effectiveHourlyRate.toNumber(),
     skillAddOns: parseSkillAddOns(row.selectedSkillFees),
+    children: parseBookedChildren(row.bookedChildren),
+    childrenCount: row.childrenCount,
+    extraChildren: row.extraChildren,
+    extraChildFeePerHour: row.extraChildFeePerHour.toNumber(),
     subtotal: row.subtotal.toNumber(),
     durationMultiplier: row.durationMultiplier.toNumber(),
     serviceFeePercent: row.serviceFeePercent.toNumber(),
@@ -546,9 +559,12 @@ export async function updateBookingTimes(
   }
 
   // Re-price on the new duration using the per-hour rate already snapshotted on
-  // the booking (base rate + any selected skill add-ons), the current duration
-  // tiers and revenue split. selectedSkillFees / effectiveHourlyRate are kept
-  // as-is. Legacy bookings created before effectiveHourlyRate fall back to baseRate.
+  // the booking (base rate + selected skill add-ons + any extra-child fee), the
+  // current duration tiers and revenue split. selectedSkillFees /
+  // effectiveHourlyRate and the children columns are kept as-is — changing the
+  // times doesn't change who the booking is for, and the child fee is already
+  // inside this per-hour figure, so no children input is passed below.
+  // Legacy bookings created before effectiveHourlyRate fall back to baseRate.
   const [split, durationRules] = await Promise.all([
     getRevenueSplit(),
     listActiveDurationRules(),

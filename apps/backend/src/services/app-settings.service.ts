@@ -1,5 +1,5 @@
 import { bookingWindowLengthHours, REVEAL_PHONE_EARLY_MINUTES } from '@nanny-app/shared';
-import type { PlatformConfig, UpdatePlatformConfigInput } from '@nanny-app/shared';
+import type { PlatformConfig, SkillFeeType, UpdatePlatformConfigInput } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -19,6 +19,10 @@ const KEYS = {
   BOOKING_WINDOW_START_HOUR: 'booking_window_start_hour',
   BOOKING_WINDOW_END_HOUR: 'booking_window_end_hour',
   REVEAL_PHONE_MINUTES: 'reveal_phone_minutes',
+  INCLUDED_CHILDREN_PER_BOOKING: 'included_children_per_booking',
+  MAX_CHILDREN_PER_BOOKING: 'max_children_per_booking',
+  EXTRA_CHILD_FEE_TYPE: 'extra_child_fee_type',
+  EXTRA_CHILD_FEE_VALUE: 'extra_child_fee_value',
 } as const;
 
 const DEFAULTS: PlatformConfig = {
@@ -38,25 +42,57 @@ const DEFAULTS: PlatformConfig = {
   bookingWindowStartHour: 6,
   bookingWindowEndHour: 22,
   revealPhoneMinutes: REVEAL_PHONE_EARLY_MINUTES,
+  includedChildrenPerBooking: 2,
+  maxChildrenPerBooking: 4,
+  extraChildFeeType: 'FLAT',
+  extraChildFeeValue: 30,
 };
 
-/** Maps each PlatformConfig field to its app_settings key. */
-const FIELD_TO_KEY: Record<keyof PlatformConfig, string> = {
-  serviceFeePercent: KEYS.SERVICE_FEE_PERCENT,
-  standardHourlyRate: KEYS.STANDARD_HOURLY_RATE,
-  nannyPercent: KEYS.NANNY_PERCENT,
-  platformPercent: KEYS.PLATFORM_PERCENT,
-  maxBookingHours: KEYS.MAX_BOOKING_HOURS,
-  minBookingHours: KEYS.MIN_BOOKING_HOURS,
-  minAdvanceBookingHours: KEYS.MIN_ADVANCE_BOOKING_HOURS,
-  cancellationWindowHours: KEYS.CANCELLATION_WINDOW_HOURS,
-  broadcastRadiusKm: KEYS.BROADCAST_RADIUS_KM,
-  pendingWarningMinutes: KEYS.PENDING_WARNING_MINUTES,
-  pendingCriticalMinutes: KEYS.PENDING_CRITICAL_MINUTES,
-  bookingWindowStartHour: KEYS.BOOKING_WINDOW_START_HOUR,
-  bookingWindowEndHour: KEYS.BOOKING_WINDOW_END_HOUR,
-  revealPhoneMinutes: KEYS.REVEAL_PHONE_MINUTES,
+/**
+ * Every setting is one app_settings row of TEXT, so each field also declares how
+ * to read that text back.
+ *
+ * Not every setting is a number: `extraChildFeeType` is an enum, and running it
+ * through `parseFloat` would yield NaN and silently fall back to the default —
+ * an admin turning the fee off would appear to save and then find it still on.
+ * Declaring the parser per field makes a non-numeric setting a supported shape
+ * rather than an exception waiting to be forgotten.
+ */
+type FieldSpec =
+  | { key: string; parse: 'number' }
+  | { key: string; parse: 'feeType' };
+
+const FIELD_SPECS: Record<keyof PlatformConfig, FieldSpec> = {
+  serviceFeePercent: { key: KEYS.SERVICE_FEE_PERCENT, parse: 'number' },
+  standardHourlyRate: { key: KEYS.STANDARD_HOURLY_RATE, parse: 'number' },
+  nannyPercent: { key: KEYS.NANNY_PERCENT, parse: 'number' },
+  platformPercent: { key: KEYS.PLATFORM_PERCENT, parse: 'number' },
+  maxBookingHours: { key: KEYS.MAX_BOOKING_HOURS, parse: 'number' },
+  minBookingHours: { key: KEYS.MIN_BOOKING_HOURS, parse: 'number' },
+  minAdvanceBookingHours: { key: KEYS.MIN_ADVANCE_BOOKING_HOURS, parse: 'number' },
+  cancellationWindowHours: { key: KEYS.CANCELLATION_WINDOW_HOURS, parse: 'number' },
+  broadcastRadiusKm: { key: KEYS.BROADCAST_RADIUS_KM, parse: 'number' },
+  pendingWarningMinutes: { key: KEYS.PENDING_WARNING_MINUTES, parse: 'number' },
+  pendingCriticalMinutes: { key: KEYS.PENDING_CRITICAL_MINUTES, parse: 'number' },
+  bookingWindowStartHour: { key: KEYS.BOOKING_WINDOW_START_HOUR, parse: 'number' },
+  bookingWindowEndHour: { key: KEYS.BOOKING_WINDOW_END_HOUR, parse: 'number' },
+  revealPhoneMinutes: { key: KEYS.REVEAL_PHONE_MINUTES, parse: 'number' },
+  includedChildrenPerBooking: { key: KEYS.INCLUDED_CHILDREN_PER_BOOKING, parse: 'number' },
+  maxChildrenPerBooking: { key: KEYS.MAX_CHILDREN_PER_BOOKING, parse: 'number' },
+  extraChildFeeType: { key: KEYS.EXTRA_CHILD_FEE_TYPE, parse: 'feeType' },
+  extraChildFeeValue: { key: KEYS.EXTRA_CHILD_FEE_VALUE, parse: 'number' },
 };
+
+/** All PlatformConfig fields, typed so the loops below stay exhaustive. */
+const CONFIG_FIELDS = Object.keys(FIELD_SPECS) as (keyof PlatformConfig)[];
+
+/** Every config field except the one enum — i.e. those `parseFloat` can own. */
+type NumericConfigField = Exclude<keyof PlatformConfig, 'extraChildFeeType'>;
+
+/** Empty string is how a cleared fee type is stored — it reads back as null. */
+function parseFeeType(raw: string): SkillFeeType | null {
+  return raw === 'FLAT' || raw === 'PERCENTAGE' ? raw : null;
+}
 
 /** Returns the platform service fee % from app_settings (default 6 if not seeded). */
 export async function getServiceFeePercent(): Promise<number> {
@@ -128,17 +164,30 @@ export async function getRevealPhoneMinutes(): Promise<number> {
 /** Returns the full platform config, falling back to defaults for unseeded keys. */
 export async function getPlatformConfig(): Promise<PlatformConfig> {
   const rows = await prisma.appSettings.findMany({
-    where: { key: { in: Object.values(FIELD_TO_KEY) }, deletedAt: null },
+    where: {
+      key: { in: CONFIG_FIELDS.map((f) => FIELD_SPECS[f].key) },
+      deletedAt: null,
+    },
   });
   const byKey = new Map(rows.map((r) => [r.key, r.value]));
 
   const config = { ...DEFAULTS };
-  for (const field of Object.keys(FIELD_TO_KEY) as (keyof PlatformConfig)[]) {
-    const raw = byKey.get(FIELD_TO_KEY[field]);
-    if (raw !== undefined) {
-      const parsed = parseFloat(raw);
-      if (!Number.isNaN(parsed)) config[field] = parsed;
+  for (const field of CONFIG_FIELDS) {
+    const spec = FIELD_SPECS[field];
+    const raw = byKey.get(spec.key);
+    if (raw === undefined) continue;
+
+    if (spec.parse === 'feeType') {
+      // No NaN guard to hide behind here: an unrecognised value means "no fee",
+      // which is the safe reading — never charge for something we can't parse.
+      config.extraChildFeeType = parseFeeType(raw);
+      continue;
     }
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) continue;
+    // `parse: 'number'` is declared only for the numeric fields, so reaching
+    // here rules out extraChildFeeType — the one field that isn't a number.
+    config[field as NumericConfigField] = parsed;
   }
   return config;
 }
@@ -168,6 +217,11 @@ function assertCoherentConfig(next: PlatformConfig): void {
       `The booking window is only ${windowLength} hours long, which is shorter than the ${next.minBookingHours}-hour minimum booking.`,
     );
   }
+  if (next.includedChildrenPerBooking > next.maxChildrenPerBooking) {
+    throw errors.badRequest(
+      'The children included at the base rate cannot exceed the maximum children per booking.',
+    );
+  }
 }
 
 /** Upserts the provided settings and returns the resulting full config. */
@@ -179,8 +233,11 @@ export async function updatePlatformConfig(
   const writes = (Object.keys(input) as (keyof PlatformConfig)[])
     .filter((field) => input[field] !== undefined)
     .map((field) => {
-      const key = FIELD_TO_KEY[field];
-      const value = String(input[field]);
+      const key = FIELD_SPECS[field].key;
+      // A cleared fee type is stored as an empty string rather than the literal
+      // "null" String() would give, so parseFeeType reads it back as no fee.
+      const raw = input[field];
+      const value = raw === null ? '' : String(raw);
       return prisma.appSettings.upsert({
         where: { key },
         create: { key, value },
