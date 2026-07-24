@@ -1,28 +1,10 @@
 import React, { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  Animated,
-  Easing,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import type { ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, typeScale, borderRadius, spacing, shadows } from '@mobile/theme';
-
-// Android needs this opt-in before LayoutAnimation does anything at all.
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface CollapsibleCardProps {
   title: string;
@@ -50,16 +32,33 @@ export default function CollapsibleCard({
 }: CollapsibleCardProps) {
   const [open, setOpen] = useState(defaultOpen);
   const chevron = useRef(new Animated.Value(defaultOpen ? 1 : 0)).current;
+  const bodyFade = useRef(new Animated.Value(defaultOpen ? 1 : 0)).current;
 
+  /**
+   * Deliberately no LayoutAnimation here. It is unsupported on the New
+   * Architecture (the default from Expo SDK 54 / RN 0.81), where calling it
+   * can throw — and because it ran before setOpen, one throw meant the card
+   * never toggled at all. react-native-web shims it to a no-op, so the web
+   * preview passed while devices did nothing. Opacity on the native driver
+   * works everywhere.
+   */
   const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    Animated.timing(chevron, {
-      toValue: open ? 0 : 1,
-      duration: 200,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-    setOpen((prev) => !prev);
+    const next = !open;
+    setOpen(next);
+    Animated.parallel([
+      Animated.timing(chevron, {
+        toValue: next ? 1 : 0,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(bodyFade, {
+        toValue: next ? 1 : 0,
+        duration: next ? 180 : 0,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const rotate = chevron.interpolate({
@@ -78,7 +77,9 @@ export default function CollapsibleCard({
         </Animated.View>
       </Pressable>
 
-      {open && <View style={styles.body}>{children}</View>}
+      {open && (
+        <Animated.View style={[styles.body, { opacity: bodyFade }]}>{children}</Animated.View>
+      )}
     </View>
   );
 }
