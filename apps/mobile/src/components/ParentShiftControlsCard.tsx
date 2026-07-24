@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { BookingResponse } from '@nanny-app/shared';
@@ -14,6 +14,7 @@ import {
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors, borderRadius, shadows, spacing, typeScale } from '@mobile/theme';
+import { confirmDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
 
 interface Props {
   booking: BookingResponse;
@@ -71,57 +72,51 @@ export default function ParentShiftControlsCard({ booking }: Props) {
   if (role !== Role.MOTHER || !isRunning) return null;
 
   const handleEnd = () => {
-    Alert.alert(
-      'End this booking?',
-      `This ends the shift now and ${nannyName} will be told you're done. The hours you've already paid for aren't refunded.`,
-      [
-        { text: 'Keep going', style: 'cancel' },
-        {
-          text: 'End booking',
-          style: 'destructive',
-          onPress: () =>
-            endBooking.mutate(booking.id, {
-              onError: (err) => Alert.alert('Could not end the booking', err.message),
-            }),
-        },
-      ],
-    );
+    confirmDialog({
+      title: 'End this booking?',
+      message: `This ends the shift now and ${nannyName} will be told you're done. The hours you've already paid for aren't refunded.`,
+      confirmLabel: 'End booking',
+      cancelLabel: 'Keep going',
+      destructive: true,
+      onConfirm: () =>
+        endBooking.mutate(booking.id, {
+          onError: (err) =>
+            noticeDialog({ title: 'Could not end the booking', message: err.message }),
+        }),
+    });
   };
 
   const handlePickHours = (hours: number) => {
-    Alert.alert(
-      `Ask for ${hourLabel(hours).toLowerCase()}?`,
-      `We'll send a request to ${nannyName} to confirm she can stay. If she accepts, you'll be asked to pay for the extra time before it's added to your booking.`,
-      [
-        { text: 'Not now', style: 'cancel' },
-        {
-          text: 'Send request',
-          onPress: () =>
-            requestExtension.mutate(
-              { bookingId: booking.id, hours },
-              {
-                onSuccess: () => setPicking(false),
-                onError: (err) => Alert.alert('Could not send the request', err.message),
-              },
-            ),
-        },
-      ],
-    );
+    confirmDialog({
+      title: `Ask for ${hourLabel(hours).toLowerCase()}?`,
+      message: `We'll send a request to ${nannyName} to confirm she can stay. If she accepts, you'll be asked to pay for the extra time before it's added to your booking.`,
+      confirmLabel: 'Send request',
+      cancelLabel: 'Not now',
+      onConfirm: () =>
+        requestExtension.mutate(
+          { bookingId: booking.id, hours },
+          {
+            onSuccess: () => setPicking(false),
+            onError: (err) =>
+              noticeDialog({ title: 'Could not send the request', message: err.message }),
+          },
+        ),
+    });
   };
 
   const handleWithdraw = () => {
     if (!extension) return;
-    Alert.alert('Withdraw this request?', `${nannyName} will no longer be asked to stay longer.`, [
-      { text: 'Keep waiting', style: 'cancel' },
-      {
-        text: 'Withdraw',
-        style: 'destructive',
-        onPress: () =>
-          cancelExtension.mutate(extension.id, {
-            onError: (err) => Alert.alert('Could not withdraw', err.message),
-          }),
-      },
-    ]);
+    confirmDialog({
+      title: 'Withdraw this request?',
+      message: `${nannyName} will no longer be asked to stay longer.`,
+      confirmLabel: 'Withdraw',
+      cancelLabel: 'Keep waiting',
+      destructive: true,
+      onConfirm: () =>
+        cancelExtension.mutate(extension.id, {
+          onError: (err) => noticeDialog({ title: 'Could not withdraw', message: err.message }),
+        }),
+    });
   };
 
   // ── Accepted: she owes money, and this is her route to checkout ───────────

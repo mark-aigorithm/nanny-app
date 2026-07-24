@@ -3,6 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
 import { useFonts } from 'expo-font';
 import {
   Manrope_400Regular,
@@ -79,6 +81,9 @@ export default function RootLayout() {
         <StatusBar style="auto" />
         <ProfileLoader />
         <Stack screenOptions={{ headerShown: false }} />
+        {/* Global confirmation dialog — mounted at the root so every area of
+            the app (parent, nanny, auth) gets the same themed popup. */}
+        <ConfirmDialogHost />
       </SafeAreaProvider>
     </QueryClientProvider>
   );

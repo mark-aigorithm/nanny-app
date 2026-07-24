@@ -8,7 +8,6 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -28,6 +27,7 @@ import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
 import { useCareLogs, useCreateCareLog } from '@mobile/hooks/useCareLogs';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { styles } from './styles/care-log-screen.styles';
+import { chooseDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -95,10 +95,7 @@ export default function CareLogScreen() {
 
   function openSheet(category: CategoryConfig) {
     if (!bookingId) {
-      Alert.alert(
-        'No active booking',
-        'You need an in-progress booking to add care log entries.',
-      );
+      noticeDialog({ title: 'No active booking', message: 'You need an in-progress booking to add care log entries.' });
       return;
     }
     setSheetCategory(category);
@@ -140,7 +137,7 @@ export default function CareLogScreen() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission needed', 'Allow camera access to capture evidence.');
+        noticeDialog({ title: 'Permission needed', message: 'Allow camera access to capture evidence.' });
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -151,7 +148,7 @@ export default function CareLogScreen() {
         setEvidenceUris((prev) => [...prev, result.assets[0]!.uri]);
       }
     } catch (err) {
-      Alert.alert('Could not open camera', err instanceof Error ? err.message : 'Unknown error');
+      noticeDialog({ title: 'Could not open camera', message: err instanceof Error ? err.message : 'Unknown error' });
     }
   }
 
@@ -159,7 +156,7 @@ export default function CareLogScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission needed', 'Allow photo access to attach evidence.');
+        noticeDialog({ title: 'Permission needed', message: 'Allow photo access to attach evidence.' });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -170,20 +167,19 @@ export default function CareLogScreen() {
         setEvidenceUris((prev) => [...prev, result.assets[0]!.uri]);
       }
     } catch (err) {
-      Alert.alert('Could not open photos', err instanceof Error ? err.message : 'Unknown error');
+      noticeDialog({ title: 'Could not open photos', message: err instanceof Error ? err.message : 'Unknown error' });
     }
   }
 
   function handleAddEvidence() {
-    Alert.alert(
-      'Add evidence',
-      'Where do you want to grab the photo from?',
-      [
-        { text: 'Take photo', onPress: pickFromCamera },
-        { text: 'Choose from library', onPress: pickFromLibrary },
-        { text: 'Cancel', style: 'cancel' },
+    chooseDialog({
+      title: 'Add evidence',
+      message: 'Where do you want to grab the photo from?',
+      choices: [
+        { label: 'Take photo', onPress: pickFromCamera },
+        { label: 'Choose from library', onPress: pickFromLibrary },
       ],
-    );
+    });
   }
 
   function removeEvidence(uri: string) {
@@ -193,7 +189,7 @@ export default function CareLogScreen() {
   async function handleSave() {
     if (!sheetCategory || !bookingId) return;
     if (sheetCategory.type === 'CUSTOM' && !customLabel.trim()) {
-      Alert.alert('Custom label required', 'Give this entry a short title.');
+      noticeDialog({ title: 'Custom label required', message: 'Give this entry a short title.' });
       return;
     }
 
@@ -213,7 +209,7 @@ export default function CareLogScreen() {
 
       closeSheet();
     } catch (err) {
-      Alert.alert('Could not save entry', err instanceof Error ? err.message : 'Unknown error');
+      noticeDialog({ title: 'Could not save entry', message: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setIsUploading(false);
     }

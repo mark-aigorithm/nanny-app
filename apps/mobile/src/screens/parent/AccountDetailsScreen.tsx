@@ -9,7 +9,6 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,6 +19,7 @@ import { useUpdateProfile } from '@mobile/hooks/useMe';
 import { isLocalImageUri, uploadImageToFirebase } from '@mobile/lib/storage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { styles } from './styles/account-details-screen.styles';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 export default function AccountDetailsScreen() {
   const router = useRouter();
@@ -67,10 +67,7 @@ export default function AccountDetailsScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          'Please allow photo library access to pick a profile picture.',
-        );
+        noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to pick a profile picture.' });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -83,10 +80,7 @@ export default function AccountDetailsScreen() {
         setPhotoUri(result.assets[0].uri);
       }
     } catch (err) {
-      Alert.alert(
-        'Could not open photos',
-        err instanceof Error ? err.message : 'Something went wrong.',
-      );
+      noticeDialog({ title: 'Could not open photos', message: err instanceof Error ? err.message : 'Something went wrong.' });
     }
   }
 
@@ -99,7 +93,7 @@ export default function AccountDetailsScreen() {
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Missing name', 'Please enter your first and last name.');
+      noticeDialog({ title: 'Missing name', message: 'Please enter your first and last name.' });
       return;
     }
 
@@ -130,10 +124,7 @@ export default function AccountDetailsScreen() {
 
       setIsEditing(false);
     } catch (err) {
-      Alert.alert(
-        'Could not save profile',
-        err instanceof Error ? err.message : 'Something went wrong.',
-      );
+      noticeDialog({ title: 'Could not save profile', message: err instanceof Error ? err.message : 'Something went wrong.' });
     }
   };
 

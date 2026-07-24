@@ -6,7 +6,6 @@ import {
   Pressable,
   TextInput,
   Linking,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,6 +15,7 @@ import { MOCK_FAQS } from '@mobile/mocks';
 import { getProfileReturnHref } from '@mobile/lib/profileUtils';
 import { useSupportContact } from '@mobile/hooks/useSupport';
 import { styles } from './styles/customer-support-screen.styles';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 export default function CustomerSupportScreen() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function CustomerSupportScreen() {
    */
   const openExternal = (url: string) => {
     Linking.openURL(url).catch(() => {
-      Alert.alert('Couldn’t open that', 'Please try another way to reach us.');
+      noticeDialog({ title: 'Couldn’t open that', message: 'Please try another way to reach us.' });
     });
   };
 

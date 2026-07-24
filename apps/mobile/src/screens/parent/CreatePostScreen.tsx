@@ -8,7 +8,6 @@ import {
   Image,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,6 +21,7 @@ import type { CreatePostUiType } from '@mobile/types';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/create-post-screen.styles';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 const POST_TYPES: CreatePostUiType[] = ['Q&A', 'Marketplace', 'Event'];
 
@@ -135,7 +135,7 @@ export default function CreatePostScreen() {
       await createPost.mutateAsync(payload);
       exitCreatePost();
     } catch (err) {
-      Alert.alert('Could not create post', err instanceof Error ? err.message : 'Unknown error');
+      noticeDialog({ title: 'Could not create post', message: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setSubmitting(false);
     }

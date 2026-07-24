@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BookingResponse } from '@nanny-app/shared';
 
@@ -7,6 +7,7 @@ import { Button } from '@mobile/components/ui';
 import { useBookingList, useRespondToExtension } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { colors, borderRadius, shadows, spacing, typeScale } from '@mobile/theme';
+import { confirmDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
 
 /** mm:ss until the given instant, clamped at 0. */
 function formatRemaining(msLeft: number): string {
@@ -63,7 +64,10 @@ export default function NannyExtensionRequestCard() {
     const run = () =>
       respond.mutate(
         { extensionId: extension.id, accept },
-        { onError: (err) => Alert.alert('Could not send your answer', err.message) },
+        {
+          onError: (err) =>
+            noticeDialog({ title: 'Could not send your answer', message: err.message }),
+        },
       );
 
     if (accept) {
@@ -71,14 +75,14 @@ export default function NannyExtensionRequestCard() {
       return;
     }
 
-    Alert.alert(
-      'Decline the extra hours?',
-      `${motherName} will be told you can't stay longer. Your shift still ends at the original time.`,
-      [
-        { text: 'Go back', style: 'cancel' },
-        { text: 'Decline', style: 'destructive', onPress: run },
-      ],
-    );
+    confirmDialog({
+      title: 'Decline the extra hours?',
+      message: `${motherName} will be told you can't stay longer. Your shift still ends at the original time.`,
+      confirmLabel: 'Decline',
+      cancelLabel: 'Go back',
+      destructive: true,
+      onConfirm: run,
+    });
   };
 
   return (

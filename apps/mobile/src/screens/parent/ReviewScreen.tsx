@@ -5,7 +5,6 @@ import {
   ScrollView,
   Pressable,
   StatusBar,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +15,7 @@ import { useCreateReview } from '@mobile/hooks/useNannies';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import ReviewForm from '@mobile/components/ReviewForm';
 import { styles } from './styles/review-screen.styles';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 export default function ReviewScreen() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function ReviewScreen() {
       },
       {
         onSuccess: () => handleExit(),
-        onError: (err) => Alert.alert('Could not submit review', getApiErrorMessage(err)),
+        onError: (err) => noticeDialog({ title: 'Could not submit review', message: getApiErrorMessage(err) }),
       },
     );
   };

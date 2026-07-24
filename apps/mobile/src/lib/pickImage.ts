@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 /**
  * Prompt the user to pick a single image from their photo library and return
@@ -11,7 +11,7 @@ export async function pickImageFromLibrary(): Promise<string | null> {
   try {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to upload your ID.');
+      noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to upload your ID.' });
       return null;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -24,10 +24,7 @@ export async function pickImageFromLibrary(): Promise<string | null> {
     }
     return null;
   } catch (err) {
-    Alert.alert(
-      'Could not open photos',
-      err instanceof Error ? err.message : 'Something went wrong.',
-    );
+    noticeDialog({ title: 'Could not open photos', message: err instanceof Error ? err.message : 'Something went wrong.' });
     return null;
   }
 }

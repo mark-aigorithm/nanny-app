@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Modal, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, Modal, ScrollView, StatusBar } from 'react-native';
 
 import { useUnratedCompletedBooking } from '@mobile/hooks/useMandatoryReview';
 import { useCreateReview } from '@mobile/hooks/useNannies';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import ReviewForm from '@mobile/components/ReviewForm';
 import { styles } from './styles/mandatory-review-gate.styles';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 /**
  * Blocks the parent app until the mother rates every completed booking. A
@@ -55,7 +56,7 @@ export default function MandatoryReviewGate() {
           setRating(0);
           setComment('');
         },
-        onError: (err) => Alert.alert('Could not submit review', getApiErrorMessage(err)),
+        onError: (err) => noticeDialog({ title: 'Could not submit review', message: getApiErrorMessage(err) }),
       },
     );
   };

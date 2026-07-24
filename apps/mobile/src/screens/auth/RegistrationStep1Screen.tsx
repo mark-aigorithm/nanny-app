@@ -10,7 +10,6 @@ import {
   Modal,
   Platform,
   Image,
-  Alert,
 } from 'react-native';
 import DateTimePicker, {
   type DateTimePickerEvent,
@@ -25,6 +24,7 @@ import Button from '@mobile/components/ui/button';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { validatePhone } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 /** Format a Date as 'mm/dd/yyyy' — the storage format expected by step 3. */
 function formatDob(d: Date): string {
@@ -88,10 +88,7 @@ export default function RegistrationStep1Screen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          'Please allow photo library access to pick a profile picture.',
-        );
+        noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to pick a profile picture.' });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -104,10 +101,7 @@ export default function RegistrationStep1Screen() {
         patch({ photoUri: result.assets[0].uri });
       }
     } catch (err) {
-      Alert.alert(
-        'Could not open photos',
-        err instanceof Error ? err.message : 'Something went wrong.',
-      );
+      noticeDialog({ title: 'Could not open photos', message: err instanceof Error ? err.message : 'Something went wrong.' });
     }
   }
 

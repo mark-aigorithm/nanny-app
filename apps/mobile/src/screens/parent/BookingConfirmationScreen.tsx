@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +26,7 @@ import {
 } from '@mobile/hooks/useBookings';
 import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
+import { confirmDialog } from '@mobile/store/confirmDialogStore';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { styles } from './styles/booking-confirmation-screen.styles';
 
@@ -157,22 +157,18 @@ export default function BookingConfirmationScreen() {
    */
   const handleCancelRequest = () => {
     if (!booking) return;
-    Alert.alert(
-      'Cancel this request?',
-      'We’ll stop looking for a nanny. You can book again at any time.',
-      [
-        { text: 'Keep looking', style: 'cancel' },
-        {
-          text: 'Cancel request',
-          style: 'destructive',
-          onPress: () =>
-            cancelBooking.mutate(
-              { id: booking.id, reason: 'Cancelled by parent' },
-              { onSuccess: () => router.replace('/(parent)/home') },
-            ),
-        },
-      ],
-    );
+    confirmDialog({
+      title: 'Cancel this request?',
+      message: 'We’ll stop looking for a nanny. You can book again at any time.',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep looking',
+      destructive: true,
+      onConfirm: () =>
+        cancelBooking.mutate(
+          { id: booking.id, reason: 'Cancelled by parent' },
+          { onSuccess: () => router.replace('/(parent)/home') },
+        ),
+    });
   };
 
   const handleBackToHome = () => {

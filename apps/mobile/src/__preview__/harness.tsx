@@ -49,6 +49,10 @@ export const PRICING_CONFIG: PricingConfig = {
     { minHours: 6, multiplier: 0.95, label: 'Half day' },
     { minHours: 8, multiplier: 0.9, label: 'Full day' },
   ],
+  includedChildrenPerBooking: 2,
+  maxChildrenPerBooking: 4,
+  extraChildFeeType: 'FLAT',
+  extraChildFeeValue: 30,
 };
 
 export const REWARD_CONFIG: RewardConfig = {
