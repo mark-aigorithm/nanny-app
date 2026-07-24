@@ -180,6 +180,8 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     nannyCheckedOutAt: null,
     startPinExpiresAt: null,
     payments: [],
+    // Matches bookingInclude: the relation is always present, empty by default.
+    extensions: [],
     review: null,
     createdAt: start,
     ...overrides,
@@ -289,7 +291,7 @@ describe('createBooking — applying prepaid package hours', () => {
 
     expect(mockRedeem).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ userId: 10, bookingId: 4, hoursNeeded: 4 }),
+      expect.objectContaining({ userId: 10, scope: { bookingId: 4 }, hoursNeeded: 4 }),
     );
   });
 
@@ -383,7 +385,7 @@ describe('cancelBooking — reversing prepaid package hours', () => {
 
     await cancelBooking(DECODED, 4, CANCEL);
 
-    expect(mockRefundHours).toHaveBeenCalledWith(expect.anything(), 4);
+    expect(mockRefundHours).toHaveBeenCalledWith(expect.anything(), { bookingId: 4 });
     const data = creditUpdate();
     expect(data.discountAmount).toBe(0);
     expect(data.totalAmount).toBe(400);

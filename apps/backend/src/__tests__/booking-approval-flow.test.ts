@@ -150,6 +150,8 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
     payments: [],
+    // Matches bookingInclude: the relation is always present, empty by default.
+    extensions: [],
     review: null,
     createdAt: new Date('2026-07-12T00:00:00.000Z'),
     ...overrides,

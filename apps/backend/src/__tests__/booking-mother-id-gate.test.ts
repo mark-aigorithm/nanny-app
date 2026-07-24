@@ -119,6 +119,8 @@ beforeEach(() => {
     startPinHash: null,
     startPinExpiresAt: null,
     payments: [],
+    // Matches bookingInclude: the relation is always present, empty by default.
+    extensions: [],
     review: null,
     createdAt: NOW_UTC,
   });

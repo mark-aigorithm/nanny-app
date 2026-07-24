@@ -270,7 +270,7 @@ describe('redeemPackageHours (FIFO)', () => {
     mockPurchaseLookups({}, { 1: '0.00', 2: '8.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 99, hoursNeeded: 6 });
+    const res = await redeemPackageHours(prisma as never, { userId: 7, scope: { bookingId: 99 }, hoursNeeded: 6 });
 
     expect(res.hoursApplied).toBe(6);
     expect(res.maxSkillsAllowed).toBe(3); // max across consumed buckets
@@ -283,7 +283,7 @@ describe('redeemPackageHours (FIFO)', () => {
     mockPurchaseLookups({}, { 1: '0.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 99, hoursNeeded: 6 });
+    const res = await redeemPackageHours(prisma as never, { userId: 7, scope: { bookingId: 99 }, hoursNeeded: 6 });
     expect(res.hoursApplied).toBe(2);
   });
 
@@ -292,7 +292,7 @@ describe('redeemPackageHours (FIFO)', () => {
     mockPurchaseLookups({}, { 1: '1.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    await redeemPackageHours(prisma as never, { userId: 7, bookingId: 42, hoursNeeded: 3 });
+    await redeemPackageHours(prisma as never, { userId: 7, scope: { bookingId: 42 }, hoursNeeded: 3 });
 
     // A conditional decrement — never an absolute write computed from the read
     // above, which would lose concurrent updates and could go negative.
@@ -309,6 +309,9 @@ describe('redeemPackageHours (FIFO)', () => {
         hours: -3,
         balanceAfter: 1,
         bookingId: 42,
+        // The unused side of the scope is written explicitly, so an extension's
+        // movements can never be confused with a booking's.
+        bookingExtensionId: null,
         reason: expect.stringContaining('42'),
       },
     });
@@ -319,7 +322,7 @@ describe('redeemPackageHours (FIFO)', () => {
     m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
     m.packagePurchase.updateMany.mockResolvedValue({ count: 0 });
 
-    const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 42, hoursNeeded: 4 });
+    const res = await redeemPackageHours(prisma as never, { userId: 7, scope: { bookingId: 42 }, hoursNeeded: 4 });
 
     expect(res.hoursApplied).toBe(0);
     expect(res.purchaseIds).toEqual([]);
@@ -328,7 +331,7 @@ describe('redeemPackageHours (FIFO)', () => {
 
   it('returns zero applied hours and no purchaseIds when there is nothing to redeem from', async () => {
     m.packagePurchase.findMany.mockResolvedValue([]);
-    const res = await redeemPackageHours(prisma as never, { userId: 7, bookingId: 99, hoursNeeded: 6 });
+    const res = await redeemPackageHours(prisma as never, { userId: 7, scope: { bookingId: 99 }, hoursNeeded: 6 });
     expect(res).toEqual({ hoursApplied: 0, maxSkillsAllowed: 0, purchaseIds: [] });
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
   });
@@ -340,10 +343,10 @@ describe('refundPackageHours', () => {
     mockPurchaseLookups({ 1: bucket({ id: 1, hoursRemaining: '1.00' }) }, { 1: '4.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    const refunded = await refundPackageHours(prisma as never, 42);
+    const refunded = await refundPackageHours(prisma as never, { bookingId: 42 });
 
     expect(m.packageHoursLedger.findMany).toHaveBeenCalledWith({
-      where: { bookingId: 42, type: 'REDEMPTION', deletedAt: null },
+      where: { bookingId: 42, bookingExtensionId: null, type: 'REDEMPTION', deletedAt: null },
     });
     // Soft-delete filter on the bucket lookup.
     expect(m.packagePurchase.findFirst).toHaveBeenCalledWith({
@@ -363,6 +366,7 @@ describe('refundPackageHours', () => {
         hours: 3,
         balanceAfter: 4,
         bookingId: 42,
+        bookingExtensionId: null,
         reason: expect.stringContaining('42'),
       },
     });
@@ -379,7 +383,7 @@ describe('refundPackageHours', () => {
     );
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    const refunded = await refundPackageHours(prisma as never, 42);
+    const refunded = await refundPackageHours(prisma as never, { bookingId: 42 });
     expect(refunded).toBe(6);
     expect(m.packagePurchase.updateMany).toHaveBeenCalledTimes(2);
     expect(m.packageHoursLedger.create).toHaveBeenCalledTimes(2);
@@ -389,7 +393,7 @@ describe('refundPackageHours', () => {
     mockLedgerFindMany([{ id: 10, purchaseId: 1, userId: 7, hours: '-3.00' }]);
     mockPurchaseLookups({ 1: bucket({ id: 1, status: 'EXPIRED', hoursRemaining: '0.00' }) }, {});
 
-    const refunded = await refundPackageHours(prisma as never, 42);
+    const refunded = await refundPackageHours(prisma as never, { bookingId: 42 });
     expect(refunded).toBe(0);
     expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
     expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
@@ -397,7 +401,7 @@ describe('refundPackageHours', () => {
 
   it('returns 0 when there is nothing to refund for that booking', async () => {
     m.packageHoursLedger.findMany.mockResolvedValue([]);
-    expect(await refundPackageHours(prisma as never, 42)).toBe(0);
+    expect(await refundPackageHours(prisma as never, { bookingId: 42 })).toBe(0);
   });
 
   it('is idempotent — a second call for the same bookingId is a no-op', async () => {
@@ -408,7 +412,7 @@ describe('refundPackageHours', () => {
     mockPurchaseLookups({ 1: bucket({ id: 1, hoursRemaining: '1.00' }) }, { 1: '4.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
 
-    const refunded = await refundPackageHours(prisma as never, 42);
+    const refunded = await refundPackageHours(prisma as never, { bookingId: 42 });
 
     expect(refunded).toBe(0);
     expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();

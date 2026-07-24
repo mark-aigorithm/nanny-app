@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type BookingExtension } from '@prisma/client';
 import {
   type AppliedSkillFee,
   BookingStatus,
@@ -9,8 +9,10 @@ import {
   PaymentStatus,
   bookingLeadTimeMessage,
   bookingWindowMessage,
+  extendablePresetHours,
   isBookingWithinDailyWindow,
   PLATFORM_TIMEZONE,
+  type BookingExtensionResponse,
   type BookingListQuery,
   type BookingOptions,
   type BookingResponse,
@@ -19,6 +21,7 @@ import {
   type GenerateStartPinResponse,
   type MockPayBookingRequest,
   type PaginationMeta,
+  type PlatformConfig,
   type PricingConfig,
   type RedeemBookingPointsRequest,
   type ValidateBookingPromoRequest,
@@ -26,6 +29,7 @@ import {
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
+  BookingExtensionStatus,
   IdVerificationStatus,
   NannyBookingDecision,
   NotificationReferenceType,
@@ -83,6 +87,16 @@ export const START_PIN_MAX_ATTEMPTS = 5;
 /** Round to 2 decimals for money/hour math. */
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
+/**
+ * An extension still awaiting an outcome. Declared as a mutable array because
+ * `bookingInclude` is `as const`, which would otherwise freeze it into a
+ * readonly tuple Prisma's filter types reject.
+ */
+const OPEN_EXTENSION_STATUSES: BookingExtensionStatus[] = [
+  BookingExtensionStatus.PENDING_NANNY,
+  BookingExtensionStatus.ACCEPTED,
+];
+
 // ── Prisma include shape ──────────────────────────────────────────────────────
 
 export const bookingInclude = {
@@ -104,9 +118,44 @@ export const bookingInclude = {
   // attempts kept for history. Taking 1 here keeps the response shape unchanged.
   payments: { orderBy: { id: 'desc' }, take: 1 },
   review: true,
+  // Only the extension still in flight is carried on the booking payload — it
+  // drives the mother's "waiting on your nanny" / "Pay now" states and the
+  // nanny's prompt. Settled ones are history and are fetched on demand.
+  extensions: {
+    where: { deletedAt: null, status: { in: OPEN_EXTENSION_STATUSES } },
+    orderBy: { id: 'desc' },
+    take: 1,
+  },
 } as const;
 
 export type BookingWithRelations = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
+
+/**
+ * Everything `toBookingResponse` needs from platform config. Bundled rather
+ * than passed as loose numbers because the extension fields need the booking
+ * window and max duration alongside the phone-reveal window, and a positional
+ * list of four numbers is a bug waiting to happen.
+ */
+export interface BookingResponseContext {
+  revealPhoneMinutes: number;
+  bookingWindowStartHour: number;
+  bookingWindowEndHour: number;
+  maxBookingHours: number;
+}
+
+/** Narrow a full platform config down to what the response mapper reads. */
+function toResponseContext(cfg: PlatformConfig): BookingResponseContext {
+  return {
+    revealPhoneMinutes: cfg.revealPhoneMinutes,
+    bookingWindowStartHour: cfg.bookingWindowStartHour,
+    bookingWindowEndHour: cfg.bookingWindowEndHour,
+    maxBookingHours: cfg.maxBookingHours,
+  };
+}
+
+export async function getBookingResponseContext(): Promise<BookingResponseContext> {
+  return toResponseContext(await getPlatformConfig());
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -154,10 +203,64 @@ export function nannyPhoneIfRevealable(
   return inWindow ? phone : null;
 }
 
+/**
+ * Serialise an extension. `newEndTime` gets the platform offset for the same
+ * reason the booking's startTime/endTime do — it is a time of day the mother
+ * reads off the string. Every other timestamp here is a bare instant.
+ */
+export function toBookingExtensionResponse(e: BookingExtension): BookingExtensionResponse {
+  return {
+    id: e.id,
+    bookingId: e.bookingId,
+    status: e.status,
+    hours: Number(e.hours),
+    newEndTime: toPlatformIso(e.newEndTime),
+    hourlyRate: Number(e.hourlyRate),
+    subtotal: Number(e.subtotal),
+    discountAmount: Number(e.discountAmount),
+    packageHoursApplied: Number(e.packageHoursApplied),
+    packageSkillsCovered: e.packageSkillsCovered,
+    packageCreditAmount: Number(e.packageCreditAmount),
+    rewardCreditHoursApplied: Number(e.rewardCreditHoursApplied),
+    rewardCreditPoints: e.rewardCreditPoints,
+    rewardCreditAmount: Number(e.rewardCreditAmount),
+    totalAmount: Number(e.totalAmount),
+    nannyAmount: Number(e.nannyAmount),
+    requestedAt: e.requestedAt.toISOString(),
+    nannyRespondedAt: e.nannyRespondedAt?.toISOString() ?? null,
+    expiresAt: e.expiresAt.toISOString(),
+    paidAt: e.paidAt?.toISOString() ?? null,
+  };
+}
+
+/**
+ * Which extension presets this booking could still take. Empty unless the shift
+ * is actually running and nothing is already in flight — an extension request
+ * is only meaningful mid-shift, and two overlapping requests would race for the
+ * same end time.
+ */
+function extendableHoursFor(
+  b: BookingWithRelations,
+  ctx: BookingResponseContext,
+): number[] {
+  if (b.status !== BookingStatus.IN_PROGRESS) return [];
+  if (b.extensions.length > 0) return [];
+  return extendablePresetHours({
+    startWall: toPlatformWallClock(b.startTime),
+    endWall: toPlatformWallClock(b.endTime),
+    durationHours: Number(b.durationHours),
+    windowStartHour: ctx.bookingWindowStartHour,
+    windowEndHour: ctx.bookingWindowEndHour,
+    maxBookingHours: ctx.maxBookingHours,
+  });
+}
+
 function toBookingResponse(
   b: BookingWithRelations,
-  revealPhoneMinutes: number,
+  ctx: BookingResponseContext,
 ): BookingResponse {
+  const revealPhoneMinutes = ctx.revealPhoneMinutes;
+  const extendableHours = extendableHoursFor(b, ctx);
   return {
     id: b.id,
     motherId: b.motherId,
@@ -213,6 +316,10 @@ function toBookingResponse(
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
     nannyCheckedInAt: b.nannyCheckedInAt?.toISOString() ?? null,
     nannyCheckedOutAt: b.nannyCheckedOutAt?.toISOString() ?? null,
+    motherEndedAt: b.motherEndedAt?.toISOString() ?? null,
+    activeExtension: b.extensions[0] ? toBookingExtensionResponse(b.extensions[0]) : null,
+    canExtend: extendableHours.length > 0,
+    extendableHours,
     startPinActive:
       b.startPinExpiresAt != null && b.startPinExpiresAt.getTime() > Date.now(),
     hasCamera: (b.nannyProfile?.user.cameras?.length ?? 0) > 0,
@@ -442,6 +549,107 @@ export async function notifyNannyBookingConfirmed(
   );
 }
 
+/** Tell the nanny her shift was closed early by the parent. */
+async function notifyNannyBookingEndedByParent(booking: BookingWithRelations): Promise<void> {
+  if (!booking.nannyProfile) return;
+  const motherName = `${booking.mother.firstName} ${booking.mother.lastName}`;
+  await notifyUserBookingEvent(
+    // nannyProfile.userId, not the nested user.id — same value, but it's the
+    // column the ownership checks already read and it survives a narrower include.
+    booking.nannyProfile.userId,
+    NotificationType.BOOKING_ENDED_BY_PARENT,
+    'booking_ended_by_parent',
+    'Shift ended',
+    `${motherName} ended the booking. You're all done — thank you!`,
+    booking.id,
+  );
+}
+
+/**
+ * Return whatever an extension reserved and close it in a non-paid terminal
+ * state. Safe to call on a row that is already settled — the status guard makes
+ * it a no-op, and both underlying refunds are themselves idempotent, so a retry
+ * or a race can't hand back the same hours or points twice.
+ *
+ * Lives here rather than in booking-extension.service so that service can
+ * depend on this one without the two importing each other.
+ */
+export async function settleExtensionUnpaid(
+  extensionId: number,
+  status: 'DECLINED' | 'EXPIRED' | 'CANCELLED',
+): Promise<void> {
+  const refunded = await prisma.$transaction(async (tx) => {
+    const ext = await tx.bookingExtension.findFirst({
+      where: { id: extensionId, deletedAt: null },
+    });
+    if (!ext) return null;
+    // Only an OPEN extension can be settled. A PAID one has already moved the
+    // booking's end time, and re-crediting it would be fabricating money.
+    if (!OPEN_EXTENSION_STATUSES.includes(ext.status)) return null;
+
+    await refundPackageHours(tx, { bookingExtensionId: ext.id });
+
+    const pointsToReturn = ext.rewardCreditPoints;
+    if (pointsToReturn > 0) {
+      await refundBookingRedemption(tx, {
+        userId: ext.motherId,
+        scope: { bookingExtensionId: ext.id },
+        points: pointsToReturn,
+      });
+    }
+
+    await tx.bookingExtension.update({
+      where: { id: ext.id },
+      data: {
+        status: BookingExtensionStatus[status],
+        // Zero the reservations so the row can't be read as still holding them.
+        packageHoursApplied: 0,
+        packageSkillsCovered: 0,
+        packageCreditAmount: 0,
+        rewardCreditHoursApplied: 0,
+        rewardCreditPoints: 0,
+        rewardCreditAmount: 0,
+      },
+    });
+    return { motherId: ext.motherId, points: pointsToReturn };
+  });
+
+  if (refunded && refunded.points > 0) {
+    // Best-effort: the points are already back, so failing to say so must not
+    // surface as an error on the caller's request.
+    try {
+      await notifyPointsRefunded(refunded.motherId, refunded.points);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[rewards] failed to notify extension points refund', { extensionId, err });
+    }
+  }
+}
+
+/** Close every open extension on a booking — used when the shift ends. */
+export async function releaseOpenExtensionsForBooking(
+  bookingId: number,
+  reason: string,
+): Promise<void> {
+  const open = await prisma.bookingExtension.findMany({
+    where: { bookingId, deletedAt: null, status: { in: OPEN_EXTENSION_STATUSES } },
+    select: { id: true },
+  });
+  for (const ext of open) {
+    try {
+      await settleExtensionUnpaid(ext.id, 'CANCELLED');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[booking] failed to release an open extension', {
+        bookingId,
+        extensionId: ext.id,
+        reason,
+        err,
+      });
+    }
+  }
+}
+
 export async function assertNoConflict(
   nannyProfileId: number,
   startTime: Date,
@@ -525,7 +733,7 @@ async function applyPackageHoursToBooking(
 
   const redeem = await redeemPackageHours(tx, {
     userId: booking.motherId,
-    bookingId: booking.id,
+    scope: { bookingId: booking.id },
     hoursNeeded: plan.hoursToRedeem,
   });
   if (redeem.hoursApplied <= 0) return booking;
@@ -657,7 +865,7 @@ export async function createBooking(
       bookingId: existingPending.id,
       motherId: user.id,
     });
-    return toBookingResponse(existingPending, config.revealPhoneMinutes);
+    return toBookingResponse(existingPending, toResponseContext(config));
   }
 
   // Load base rate, revenue split, add-on skills and duration tiers once, then
@@ -738,7 +946,7 @@ export async function createBooking(
 
   await notifyBookingBroadcast(booking);
 
-  return toBookingResponse(booking, config.revealPhoneMinutes);
+  return toBookingResponse(booking, toResponseContext(config));
 }
 
 /**
@@ -813,7 +1021,7 @@ export async function listBookings(
       : { motherId: user.id }),
   };
 
-  const [total, bookings, revealPhoneMinutes] = await Promise.all([
+  const [total, bookings, ctx] = await Promise.all([
     prisma.booking.count({ where }),
     prisma.booking.findMany({
       where,
@@ -822,11 +1030,11 @@ export async function listBookings(
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     }),
-    getRevealPhoneMinutes(),
+    getBookingResponseContext(),
   ]);
 
   return {
-    bookings: bookings.map((b) => toBookingResponse(b, revealPhoneMinutes)),
+    bookings: bookings.map((b) => toBookingResponse(b, ctx)),
     meta: {
       page: query.page,
       limit: query.limit,
@@ -858,7 +1066,7 @@ export async function listAvailableBookings(
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
-  const [radiusKm, busy, open, revealPhoneMinutes] = await Promise.all([
+  const [radiusKm, busy, open, ctx] = await Promise.all([
     getBroadcastRadiusKm(),
     prisma.booking.findMany({
       where: {
@@ -879,7 +1087,7 @@ export async function listAvailableBookings(
       orderBy: { startTime: 'asc' },
       take: 50,
     }),
-    getRevealPhoneMinutes(),
+    getBookingResponseContext(),
   ]);
 
   const nannyPoint = toLatLng(nannyProfile.user.latitude, nannyProfile.user.longitude);
@@ -889,7 +1097,7 @@ export async function listAvailableBookings(
       isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm),
   );
 
-  return available.map((b) => toBookingResponse(b, revealPhoneMinutes));
+  return available.map((b) => toBookingResponse(b, ctx));
 }
 
 export async function getBooking(
@@ -909,7 +1117,7 @@ export async function getBooking(
     (booking.nannyProfile?.userId === user.id);
   if (!isOwner) throw errors.forbidden('Access denied.');
 
-  return toBookingResponse(booking, await getRevealPhoneMinutes());
+  return toBookingResponse(booking, await getBookingResponseContext());
 }
 
 export async function cancelBooking(
@@ -972,7 +1180,7 @@ export async function cancelBooking(
     include: bookingInclude,
   });
 
-  return { booking: toBookingResponse(updated, await getRevealPhoneMinutes()), refundAmount };
+  return { booking: toBookingResponse(updated, await getBookingResponseContext()), refundAmount };
 }
 
 /**
@@ -1079,7 +1287,7 @@ async function applyNannyDecision(
     await notifyMotherNannyClaimed(updated);
   }
 
-  return toBookingResponse(updated, await getRevealPhoneMinutes());
+  return toBookingResponse(updated, await getBookingResponseContext());
 }
 
 /** Nanny accepts a booking request (informational; does not confirm). */
@@ -1169,7 +1377,7 @@ export async function mockPayBooking(
     await notifyNannyBookingConfirmed(updatedBooking);
   }
 
-  return { booking: toBookingResponse(updatedBooking, await getRevealPhoneMinutes()), payment };
+  return { booking: toBookingResponse(updatedBooking, await getBookingResponseContext()), payment };
 }
 
 /**
@@ -1204,7 +1412,7 @@ export async function redeemBookingPoints(
   const updated = await prisma.$transaction(async (tx) => {
     const { hours, pointsCost, discount: rawDiscount } = await applyBookingRedemption(tx, {
       userId: user.id,
-      bookingId,
+      scope: { bookingId },
       redeemHours: body.hours,
       perHour,
       durationHours: Number(booking.durationHours),
@@ -1231,7 +1439,7 @@ export async function redeemBookingPoints(
     updated.rewardCreditPoints,
     Number(updated.rewardCreditHoursApplied),
   );
-  return toBookingResponse(updated, await getRevealPhoneMinutes());
+  return toBookingResponse(updated, await getBookingResponseContext());
 }
 
 /**
@@ -1251,7 +1459,7 @@ async function refundBookingIfApplied(
   const updated = await prisma.$transaction(async (tx) => {
     await refundBookingRedemption(tx, {
       userId: booking.motherId,
-      bookingId: booking.id,
+      scope: { bookingId: booking.id },
       points,
     });
     return tx.booking.update({
@@ -1295,7 +1503,7 @@ async function refundPackageHoursIfApplied(
   }
 
   return prisma.$transaction(async (tx) => {
-    await refundPackageHours(tx, booking.id);
+    await refundPackageHours(tx, { bookingId: booking.id });
     return tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -1325,7 +1533,7 @@ export async function refundBookingPoints(
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
 
   const updated = await refundBookingIfApplied(booking);
-  return toBookingResponse(updated ?? booking, await getRevealPhoneMinutes());
+  return toBookingResponse(updated ?? booking, await getBookingResponseContext());
 }
 
 /**
@@ -1467,7 +1675,113 @@ export async function checkInBooking(
     `${nannyName} has started your booking.`,
   );
 
-  return toBookingResponse(updated, await getRevealPhoneMinutes());
+  return toBookingResponse(updated, await getBookingResponseContext());
+}
+
+/**
+ * Everything that must happen when a shift closes, regardless of who closed it.
+ * The nanny checking out and the mother ending early differ only in which
+ * timestamp they stamp — the status flip, the notification, the Care Points and
+ * the referral conversion are identical, and keeping them in one place is what
+ * stops the two paths from drifting.
+ *
+ * `endedBy` selects the timestamp: the nanny's check-out, or the mother's early
+ * end. They are deliberately separate columns so both apps and the admin can
+ * report who actually ended the shift.
+ */
+async function completeBooking(
+  booking: BookingWithRelations,
+  endedBy: 'NANNY' | 'MOTHER',
+): Promise<BookingWithRelations> {
+  validateStatusTransition(booking.status, BookingStatus.COMPLETED);
+
+  const now = new Date();
+  const updated = await prisma.booking.update({
+    where: { id: booking.id },
+    data: {
+      status: BookingStatus.COMPLETED,
+      ...(endedBy === 'NANNY' ? { nannyCheckedOutAt: now } : { motherEndedAt: now }),
+    },
+    include: bookingInclude,
+  });
+
+  // A shift that has ended can't gain hours. Release anything still in flight
+  // BEFORE the notifications, so the mother is never told "your nanny accepted"
+  // for an extension that can no longer happen.
+  await releaseOpenExtensionsForBooking(updated.id, 'The booking ended.');
+
+  if (endedBy === 'NANNY') {
+    await notifyMotherBookingEvent(
+      updated,
+      'BOOKING_COMPLETED',
+      'Booking complete',
+      'Your booking is complete — leave a review?',
+    );
+  } else {
+    await notifyNannyBookingEndedByParent(updated);
+  }
+
+  // Award Care Points for the completed booking. Best-effort + idempotent — a
+  // reward failure must never block the shift from closing.
+  try {
+    await awardPointsForBooking({
+      bookingId: updated.id,
+      motherId: updated.motherId,
+      durationHours: Number(updated.durationHours),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[rewards] failed to award points on booking completion', {
+      bookingId: updated.id,
+      endedBy,
+      err,
+    });
+  }
+
+  // If this parent was referred, their first completed booking pays out the
+  // referrer. Same best-effort + idempotent contract as the points award above.
+  try {
+    await convertReferralForBooking({
+      refereeUserId: updated.motherId,
+      bookingId: updated.id,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[referrals] failed to convert referral on booking completion', {
+      bookingId: updated.id,
+      endedBy,
+      err,
+    });
+  }
+
+  return updated;
+}
+
+/**
+ * The mother ends a running shift early from her app. The hours she already
+ * paid for are not refunded — she is choosing to stop early, and the nanny
+ * showed up for the slot that was booked.
+ */
+export async function endBookingByMother(
+  decoded: DecodedIdToken,
+  bookingId: number,
+): Promise<BookingResponse> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can end a booking.');
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: bookingInclude,
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
+
+  if (booking.status !== BookingStatus.IN_PROGRESS) {
+    throw errors.badRequest(`Only a booking that is under way can be ended. This one is ${booking.status}.`);
+  }
+
+  const updated = await completeBooking(booking, 'MOTHER');
+  return toBookingResponse(updated, await getBookingResponseContext());
 }
 
 /** Nanny checks out — marks booking COMPLETED. Requires IN_PROGRESS. */
@@ -1489,54 +1803,6 @@ export async function checkOutBooking(
     throw errors.badRequest(`Cannot check out a booking in status ${booking.status}.`);
   }
 
-  validateStatusTransition(booking.status, BookingStatus.COMPLETED);
-
-  const updated = await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: BookingStatus.COMPLETED,
-      nannyCheckedOutAt: new Date(),
-    },
-    include: bookingInclude,
-  });
-
-  await notifyMotherBookingEvent(
-    updated,
-    'BOOKING_COMPLETED',
-    'Booking complete',
-    'Your booking is complete — leave a review?',
-  );
-
-  // Award Care Points for the completed booking. Best-effort + idempotent — a
-  // reward failure must never block a nanny's checkout.
-  try {
-    await awardPointsForBooking({
-      bookingId: updated.id,
-      motherId: updated.motherId,
-      durationHours: Number(updated.durationHours),
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[rewards] failed to award points on checkout', {
-      bookingId: updated.id,
-      err,
-    });
-  }
-
-  // If this parent was referred, their first completed booking pays out the
-  // referrer. Same best-effort + idempotent contract as the points award above.
-  try {
-    await convertReferralForBooking({
-      refereeUserId: updated.motherId,
-      bookingId: updated.id,
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[referrals] failed to convert referral on checkout', {
-      bookingId: updated.id,
-      err,
-    });
-  }
-
-  return toBookingResponse(updated, await getRevealPhoneMinutes());
+  const updated = await completeBooking(booking, 'NANNY');
+  return toBookingResponse(updated, await getBookingResponseContext());
 }

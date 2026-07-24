@@ -253,7 +253,7 @@ describe('grantPoints', () => {
 });
 
 describe('applyBookingRedemption', () => {
-  const params = { userId: 29, bookingId: 101, redeemHours: 2, perHour: 50, durationHours: 3 };
+  const params = { userId: 29, scope: { bookingId: 101 }, redeemHours: 2, perHour: 50, durationHours: 3 };
 
   it('deducts points, records a REDEEM entry, and returns the discount', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
@@ -326,7 +326,7 @@ describe('refundBookingRedemption', () => {
 
     await refundBookingRedemption(mockPrisma as never, {
       userId: 29,
-      bookingId: 101,
+      scope: { bookingId: 101 },
       points: 200,
     });
 
@@ -344,7 +344,7 @@ describe('refundBookingRedemption', () => {
   it('is a no-op when there are no points to refund', async () => {
     await refundBookingRedemption(mockPrisma as never, {
       userId: 29,
-      bookingId: 101,
+      scope: { bookingId: 101 },
       points: 0,
     });
     expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();

@@ -15,8 +15,14 @@ jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn() },
     booking: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
-    // getRevealPhoneMinutes (via toBookingResponse) reads this; null → default.
-    appSettings: { findFirst: jest.fn().mockResolvedValue(null) },
+    // Closing a shift releases any extension still in flight; none here.
+    bookingExtension: { findMany: jest.fn().mockResolvedValue([]) },
+    // getBookingResponseContext (via toBookingResponse) reads the platform
+    // config; empty → every field falls back to its default.
+    appSettings: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -93,6 +99,8 @@ function makeBooking(overrides: Partial<{
       user: nannyProfileUser,
     },
     payments: [],
+    // Matches bookingInclude: the relation is always present, empty by default.
+    extensions: [],
     type: 'STANDARD',
     durationHours: 3,
     baseRate: 100,

@@ -55,6 +55,16 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'referral_joined';
     case 'CAMERA_REQUESTED':
       return 'camera_requested';
+    case 'BOOKING_ENDED_BY_PARENT':
+      return 'booking_ended_by_parent';
+    case 'BOOKING_EXTENSION_REQUESTED':
+      return 'booking_extension_requested';
+    case 'BOOKING_EXTENSION_ACCEPTED':
+      return 'booking_extension_accepted';
+    case 'BOOKING_EXTENSION_DECLINED':
+      return 'booking_extension_declined';
+    case 'BOOKING_EXTENDED':
+      return 'booking_extended';
     default:
       return 'marketplace_message';
   }

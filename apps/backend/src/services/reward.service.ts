@@ -227,11 +227,28 @@ export async function awardPointsForBooking(input: {
  * the points spent so the caller can lower the amount charged. Never called on
  * a failed payment — points are only ever spent when the booking is paid.
  */
+/**
+ * What a points movement was spent on: a booking, or a mid-shift extension of
+ * one. Exactly one id is ever set, so an extension's REDEEM row stays
+ * distinguishable from the parent booking's own.
+ */
+export type RewardScope = { bookingId: number } | { bookingExtensionId: number };
+
+/** The ledger columns for a scope — the unused side is explicitly null. */
+function rewardScopeColumns(scope: RewardScope): {
+  bookingId: number | null;
+  bookingExtensionId: number | null;
+} {
+  return 'bookingId' in scope
+    ? { bookingId: scope.bookingId, bookingExtensionId: null }
+    : { bookingId: null, bookingExtensionId: scope.bookingExtensionId };
+}
+
 export async function applyBookingRedemption(
   db: Db,
   params: {
     userId: number;
-    bookingId: number;
+    scope: RewardScope;
     redeemHours: number;
     perHour: number;
     durationHours: number;
@@ -265,7 +282,7 @@ export async function applyBookingRedemption(
       type: 'REDEEM',
       points: -pointsCost,
       balanceAfter,
-      bookingId: params.bookingId,
+      ...rewardScopeColumns(params.scope),
       reason: `Redeemed ${hours} free hour${hours === 1 ? '' : 's'} at checkout`,
     },
   });
@@ -295,7 +312,7 @@ export async function notifyPointsRedeemed(
  */
 export async function refundBookingRedemption(
   db: Db,
-  params: { userId: number; bookingId: number; points: number },
+  params: { userId: number; scope: RewardScope; points: number },
 ): Promise<void> {
   if (params.points <= 0) return;
   const wallet = await getOrCreateWallet(params.userId, db);
@@ -311,7 +328,7 @@ export async function refundBookingRedemption(
       type: 'REFUND',
       points: params.points,
       balanceAfter,
-      bookingId: params.bookingId,
+      ...rewardScopeColumns(params.scope),
       reason: 'Refunded — payment not completed',
     },
   });

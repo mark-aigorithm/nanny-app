@@ -124,6 +124,32 @@ export async function creditPurchaseHours(
 }
 
 /**
+ * What a package-hours movement was drawn for: a booking, or a mid-shift
+ * extension of one. Exactly one id is ever set. The ledger carries a separate
+ * uniqueness key per scope, so keeping them distinct is what makes a refund
+ * idempotent — an extension recorded under its parent booking's id would
+ * collide with the booking's own movements.
+ */
+export type PackageHoursScope = { bookingId: number } | { bookingExtensionId: number };
+
+/** The ledger columns for a scope — the unused side is explicitly null. */
+function scopeColumns(scope: PackageHoursScope): {
+  bookingId: number | null;
+  bookingExtensionId: number | null;
+} {
+  return 'bookingId' in scope
+    ? { bookingId: scope.bookingId, bookingExtensionId: null }
+    : { bookingId: null, bookingExtensionId: scope.bookingExtensionId };
+}
+
+/** How a scope reads in a ledger `reason` string. */
+function scopeLabel(scope: PackageHoursScope): string {
+  return 'bookingId' in scope
+    ? `booking #${scope.bookingId}`
+    : `extension #${scope.bookingExtensionId}`;
+}
+
+/**
  * FIFO consume across a user's active buckets, soonest-to-expire first.
  * Returns the hours actually applied (short of `hoursNeeded` when the
  * balance runs out) plus the free-skill allowance (the max maxSkillsSnapshot
@@ -131,7 +157,7 @@ export async function creditPurchaseHours(
  */
 export async function redeemPackageHours(
   db: Db,
-  params: { userId: number; bookingId: number; hoursNeeded: number },
+  params: { userId: number; scope: PackageHoursScope; hoursNeeded: number },
 ): Promise<{ hoursApplied: number; maxSkillsAllowed: number; purchaseIds: number[] }> {
   const buckets = await activeBuckets(params.userId, db);
   let remaining = round2(params.hoursNeeded);
@@ -168,8 +194,8 @@ export async function redeemPackageHours(
         type: 'REDEMPTION',
         hours: -take,
         balanceAfter,
-        bookingId: params.bookingId,
-        reason: `Applied ${take}h to booking #${params.bookingId}`,
+        ...scopeColumns(params.scope),
+        reason: `Applied ${take}h to ${scopeLabel(params.scope)}`,
       },
     });
 
@@ -182,20 +208,21 @@ export async function redeemPackageHours(
 }
 
 /**
- * Reverse a booking's redemption into the originating buckets (skips buckets that have since
+ * Reverse a scope's redemption into the originating buckets (skips buckets that have since
  * expired). Idempotent: a REDEMPTION row that already has a matching REFUND row for this
- * bookingId + purchaseId is skipped, so calling this twice for the same booking (client retry,
- * an admin/user cancel race, a webhook replay) only refunds once. The ledger itself is the guard
- * — no separate "already refunded" flag is needed.
+ * scope + purchaseId is skipped, so calling this twice for the same booking or extension
+ * (client retry, an admin/user cancel race, a webhook replay) only refunds once. The ledger
+ * itself is the guard — no separate "already refunded" flag is needed.
  */
-export async function refundPackageHours(db: Db, bookingId: number): Promise<number> {
+export async function refundPackageHours(db: Db, scope: PackageHoursScope): Promise<number> {
+  const scopeWhere = scopeColumns(scope);
   const debits = await db.packageHoursLedger.findMany({
-    where: { bookingId, type: 'REDEMPTION', deletedAt: null },
+    where: { ...scopeWhere, type: 'REDEMPTION', deletedAt: null },
   });
   if (debits.length === 0) return 0;
 
   const existingRefunds = await db.packageHoursLedger.findMany({
-    where: { bookingId, type: 'REFUND', deletedAt: null },
+    where: { ...scopeWhere, type: 'REFUND', deletedAt: null },
   });
   const alreadyRefundedPurchaseIds = new Set(existingRefunds.map((r) => r.purchaseId));
 
@@ -232,8 +259,8 @@ export async function refundPackageHours(db: Db, bookingId: number): Promise<num
         type: 'REFUND',
         hours: restore,
         balanceAfter,
-        bookingId,
-        reason: `Refunded ${restore}h from booking #${bookingId}`,
+        ...scopeWhere,
+        reason: `Refunded ${restore}h from ${scopeLabel(scope)}`,
       },
     });
     refunded = round2(refunded + restore);

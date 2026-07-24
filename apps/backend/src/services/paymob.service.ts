@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentPurpose, PaymentStatus } from '@prisma/client';
+import { BookingExtensionStatus, BookingStatus, PaymentPurpose, PaymentStatus, Prisma } from '@prisma/client';
 import type { CreatePaymobIntentionRequest } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 
@@ -35,6 +35,7 @@ import {
   finalizePackagePaymentCaptured,
   finalizePackagePaymentFailed,
 } from '@backend/services/package-payment.service';
+import { applyPaidExtension } from '@backend/services/booking-extension.service';
 import { redeemBookingPromoCodeOnCapture } from '@backend/services/promo-code.service';
 
 const PAYMENT_TIMEOUT_REASON = 'Payment timed out waiting for Paymob confirmation.';
@@ -208,6 +209,47 @@ export async function createPaymobIntentionForBooking(
     throw errors.badRequest('This booking is already paid.');
   }
 
+  return openIntention({
+    user: { ...user, phone: user.phone },
+    owner: { bookingId },
+    purpose: PaymentPurpose.BOOKING,
+    amount: booking.totalAmount,
+    attempts,
+    redirectionQuery: `bookingId=${encodeURIComponent(bookingId)}`,
+    method: body.method,
+  });
+}
+
+/**
+ * Open (or resume) a Paymob intention for whatever a payment is FOR. Bookings
+ * and mid-shift extensions differ only in the row that owns the payment and the
+ * amount owed — every step below (resume a fresh attempt, retire an abandoned
+ * one, insert a new attempt, call Paymob, unwind on failure) is identical, and
+ * duplicating it per payment type is how the two would drift apart.
+ */
+async function openIntention(params: {
+  user: { id: number; email: string; firstName: string; lastName: string; phone: string };
+  owner: { bookingId: number } | { bookingExtensionId: number };
+  purpose: PaymentPurpose;
+  amount: Prisma.Decimal;
+  attempts: { id: number; status: PaymentStatus; paymobClientSecret: string | null; paymobIntentionId: string | null; paymobIntentionAttempt: number; paymobReconcileAnchorAt: Date | null; createdAt: Date }[];
+  redirectionQuery: string;
+  method: CreatePaymobIntentionRequest['method'];
+}): Promise<{
+  paymentId: number;
+  clientSecret: string;
+  publicKey: string;
+  intentionId: string;
+}> {
+  // Re-assert enablement here rather than trusting the caller: binding it to a
+  // const and throwing on the disabled case narrows it to the configured shape
+  // for the rest of the function.
+  const paymob = config.paymob;
+  if (!paymob.enabled) {
+    throw errors.badRequest('Paymob is not configured on this server.');
+  }
+  const { user, owner, attempts } = params;
+
   const latest = attempts[0];
   if (
     latest &&
@@ -225,7 +267,7 @@ export async function createPaymobIntentionForBooking(
       return {
         paymentId: latest.id,
         clientSecret: latest.paymobClientSecret,
-        publicKey: config.paymob.publicKey,
+        publicKey: paymob.publicKey,
         intentionId: latest.paymobIntentionId,
       };
     }
@@ -233,14 +275,14 @@ export async function createPaymobIntentionForBooking(
 
   const anchor = new Date();
   const nextReconcile = new Date(anchor.getTime() + PAYMOB_RECONCILE_OFFSETS_MS[0]);
-  const notificationUrl = `${config.paymob.publicApiUrl}${PAYMOB_WEBHOOK_PATH}`;
+  const notificationUrl = `${paymob.publicApiUrl}${PAYMOB_WEBHOOK_PATH}`;
 
   const nextIntentionAttempt = (latest?.paymobIntentionAttempt ?? 0) + 1;
 
   // Retire any still-PENDING attempt so the reconciler stops polling the link
   // the parent has abandoned in favour of this new one.
   await prisma.payment.updateMany({
-    where: { bookingId, status: PaymentStatus.PENDING, deletedAt: null },
+    where: { ...owner, status: PaymentStatus.PENDING, deletedAt: null },
     data: {
       status: PaymentStatus.FAILED,
       failureReason: 'Superseded by a new payment attempt.',
@@ -253,11 +295,12 @@ export async function createPaymobIntentionForBooking(
   // this insert starts a clean one, so the history is never overwritten.
   const payment = await prisma.payment.create({
     data: {
-      bookingId,
+      ...owner,
+      purpose: params.purpose,
       motherId: user.id,
-      amount: booking.totalAmount,
+      amount: params.amount,
       currency: 'EGP',
-      method: body.method,
+      method: params.method,
       status: PaymentStatus.PENDING,
       paymobIntentionAttempt: nextIntentionAttempt,
       paymobReconcileAnchorAt: anchor,
@@ -268,8 +311,8 @@ export async function createPaymobIntentionForBooking(
 
   const merchantOrderId = buildPaymobMerchantOrderId(payment.id, nextIntentionAttempt);
 
-  const amountCents = Math.round(Number(booking.totalAmount) * 100);
-  const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
+  const amountCents = Math.round(Number(params.amount) * 100);
+  const api = createPaymobApiClient(paymob.secretKey, paymob.apiBaseUrl);
 
   const billing_data: Record<string, string | boolean> = {
     apartment: 'NA',
@@ -288,13 +331,13 @@ export async function createPaymobIntentionForBooking(
     delivery_needed: false,
   };
 
-  const redirectionUrl = `${config.paymob.publicApiUrl}${PAYMOB_RETURN_PATH}?bookingId=${encodeURIComponent(bookingId)}`;
+  const redirectionUrl = `${paymob.publicApiUrl}${PAYMOB_RETURN_PATH}?${params.redirectionQuery}`;
 
   try {
     const intention = await api.createIntention({
       amount: amountCents,
       currency: 'EGP',
-      payment_methods: config.paymob.paymentMethodIds,
+      payment_methods: paymob.paymentMethodIds,
       billing_data,
       merchant_order_id: merchantOrderId,
       special_reference: merchantOrderId,
@@ -314,7 +357,7 @@ export async function createPaymobIntentionForBooking(
     return {
       paymentId: payment.id,
       clientSecret: intention.client_secret,
-      publicKey: config.paymob.publicKey,
+      publicKey: paymob.publicKey,
       intentionId: intention.id,
     };
   } catch (err) {
@@ -331,6 +374,114 @@ export async function createPaymobIntentionForBooking(
     });
     throw err;
   }
+}
+
+/**
+ * Checkout for extra hours the nanny has already agreed to. The mother is only
+ * ever sent here once the extension is ACCEPTED and still owes money — a
+ * request the nanny hasn't answered has no agreed price to charge.
+ */
+export async function createPaymobIntentionForExtension(
+  decoded: DecodedIdToken,
+  extensionId: number,
+  body: CreatePaymobIntentionRequest,
+): Promise<{
+  paymentId: number;
+  clientSecret: string;
+  publicKey: string;
+  intentionId: string;
+}> {
+  if (!config.paymob.enabled) {
+    throw errors.badRequest('Paymob is not configured on this server.');
+  }
+
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can pay for extra hours.');
+  if (!user.phone) {
+    throw errors.badRequest('Add a phone number to your profile before paying.');
+  }
+
+  const extension = await prisma.bookingExtension.findFirst({
+    where: { id: extensionId, deletedAt: null },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
+  });
+  if (!extension) throw errors.notFound('Extension request not found.');
+  if (extension.motherId !== user.id) throw errors.forbidden('Access denied.');
+
+  if (extension.status !== BookingExtensionStatus.ACCEPTED) {
+    throw errors.badRequest(
+      `These extra hours can't be paid for — the request is ${extension.status.toLowerCase()}.`,
+    );
+  }
+  if (extension.expiresAt.getTime() <= Date.now()) {
+    throw errors.badRequest('This extension request has expired. Ask your nanny again.');
+  }
+  if (Number(extension.totalAmount) <= 0) {
+    throw errors.badRequest('There is nothing to pay for this extension.');
+  }
+
+  const attempts = extension.payments;
+  if (attempts.some((p) => p.status === PaymentStatus.CAPTURED)) {
+    throw errors.badRequest('These extra hours are already paid for.');
+  }
+
+  return openIntention({
+    user: { ...user, phone: user.phone },
+    owner: { bookingExtensionId: extensionId },
+    purpose: PaymentPurpose.BOOKING_EXTENSION,
+    amount: extension.totalAmount,
+    attempts,
+    // Carries both ids so the app can land on the booking and know which
+    // extension it just paid for.
+    redirectionQuery: `bookingId=${encodeURIComponent(extension.bookingId)}&extensionId=${encodeURIComponent(extensionId)}`,
+    method: body.method,
+  });
+}
+
+/**
+ * Settle a captured extension payment. Unlike a booking payment there is no
+ * status transition to guard — `applyPaidExtension` owns that, and is itself
+ * idempotent on the extension's status, so a replayed webhook is a no-op.
+ */
+async function finalizeExtensionPaymentCaptured(
+  paymentId: number,
+  paymobTransactionId: string | null,
+) {
+  const extensionId = await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findFirst({
+      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
+    });
+    if (!payment) return null;
+
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.CAPTURED,
+        paymobTransactionId: paymobTransactionId ?? undefined,
+        failureReason: null,
+        paymobNextReconcileAt: null,
+        paymobClientSecret: null,
+      },
+    });
+
+    if (!payment.bookingExtensionId) {
+      // eslint-disable-next-line no-console
+      console.warn('[paymob] captured extension payment has no bookingExtensionId', { paymentId });
+      return null;
+    }
+    return payment.bookingExtensionId;
+  });
+
+  if (extensionId != null) await applyPaidExtension(extensionId);
+}
+
+/**
+ * Which settlement handler owns a payment purpose. A failed extension payment
+ * needs no special handling — the row is marked FAILED like any other and the
+ * extension stays ACCEPTED so the mother can retry until its deadline.
+ */
+function isExtensionPurpose(purpose: PaymentPurpose | null): boolean {
+  return purpose === PaymentPurpose.BOOKING_EXTENSION;
 }
 
 /** Poll Paymob for the latest intention state after the customer returns from checkout. */
@@ -407,6 +558,8 @@ export async function processPaymobWebhook(params: {
     const purpose = await getPaymentPurpose(paymentId);
     if (purpose === PaymentPurpose.PACKAGE) {
       await finalizePackagePaymentCaptured(paymentId, String(paymobTxnId));
+    } else if (isExtensionPurpose(purpose)) {
+      await finalizeExtensionPaymentCaptured(paymentId, String(paymobTxnId));
     } else {
       await finalizePaymentCaptured(paymentId, String(paymobTxnId));
     }
@@ -454,11 +607,14 @@ export async function reconcileStalePaymobPayments(): Promise<void> {
 
       // The row is already loaded, so purpose dispatch needs no extra query here.
       const isPackage = p.purpose === PaymentPurpose.PACKAGE;
+      const isExtension = isExtensionPurpose(p.purpose);
 
       if (mapped === 'captured') {
         const tid = extractLatestTransactionId(element);
         if (isPackage) {
           await finalizePackagePaymentCaptured(p.id, tid);
+        } else if (isExtension) {
+          await finalizeExtensionPaymentCaptured(p.id, tid);
         } else {
           await finalizePaymentCaptured(p.id, tid);
         }

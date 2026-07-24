@@ -31,6 +31,12 @@ jest.mock('@backend/services/booking.service', () => ({
   notifyNannyBookingConfirmed: jest.fn(),
 }));
 
+// paymob.service reaches booking-extension.service to settle extension
+// captures; stubbing it keeps this suite off the notification/firebase chain.
+jest.mock('@backend/services/booking-extension.service', () => ({
+  applyPaidExtension: jest.fn(),
+}));
+
 jest.mock('@backend/lib/paymob/client', () => ({
   createPaymobApiClient: jest.fn(),
 }));

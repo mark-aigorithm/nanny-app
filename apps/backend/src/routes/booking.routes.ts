@@ -5,11 +5,16 @@ import {
   CancelBookingSchema,
   type CheckInBookingRequest,
   CheckInBookingSchema,
+  type CreateBookingExtensionRequest,
+  CreateBookingExtensionSchema,
   CreateBookingSchema,
   CreateCareLogSchema,
+  type CreatePaymobIntentionRequest,
   CreatePaymobIntentionSchema,
   MockPayBookingSchema,
   RedeemBookingPointsSchema,
+  type RedeemExtensionPointsRequest,
+  RedeemExtensionPointsSchema,
   ValidateBookingPromoSchema,
 } from '@nanny-app/shared';
 
@@ -25,6 +30,7 @@ import {
   checkOutBooking,
   createBooking,
   declineBooking,
+  endBookingByMother,
   generateStartPin,
   getBooking,
   getBookingOptions,
@@ -40,9 +46,17 @@ import {
   getBookingCamera,
   notifyNannyToStartCamera,
 } from '@backend/services/booking-camera.service';
+import {
+  cancelBookingExtension,
+  getBookingExtension,
+  redeemExtensionPoints,
+  requestBookingExtension,
+  respondToBookingExtension,
+} from '@backend/services/booking-extension.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
 import {
   createPaymobIntentionForBooking,
+  createPaymobIntentionForExtension,
   syncPaymobPaymentForBooking,
 } from '@backend/services/paymob.service';
 
@@ -310,6 +324,140 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const booking = await checkOutBooking(req.firebaseUser, routeIdParam(req.params['id']));
       res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Mid-shift controls (parent) ──────────────────────────────────────────────
+
+// The parent ends a running shift early. Mother-only; enforced in the service.
+bookingRouter.post(
+  '/:id/end',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const booking = await endBookingByMother(req.firebaseUser, routeIdParam(req.params['id']));
+      res.json(ok(booking));
+    } catch (err) { next(err); }
+  },
+);
+
+// The parent asks for extra hours. Creates a quote for the nanny to answer.
+bookingRouter.post(
+  '/:id/extensions',
+  requireAuth,
+  validateBody(CreateBookingExtensionSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const extension = await requestBookingExtension(
+        req.firebaseUser,
+        routeIdParam(req.params['id']),
+        req.body as CreateBookingExtensionRequest,
+      );
+      res.status(201).json(ok(extension));
+    } catch (err) { next(err); }
+  },
+);
+
+// Extensions are addressed by their own id from here on — they outlive the
+// screen that created them and both roles act on them independently.
+bookingRouter.get(
+  '/extensions/:extensionId',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const extension = await getBookingExtension(
+        req.firebaseUser,
+        routeIdParam(req.params['extensionId']),
+      );
+      res.json(ok(extension));
+    } catch (err) { next(err); }
+  },
+);
+
+// Nanny answers. Accept/decline are separate routes rather than a body flag so
+// the two are distinguishable in access logs and rate limits.
+bookingRouter.post(
+  '/extensions/:extensionId/accept',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const extension = await respondToBookingExtension(
+        req.firebaseUser,
+        routeIdParam(req.params['extensionId']),
+        true,
+      );
+      res.json(ok(extension));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/extensions/:extensionId/decline',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const extension = await respondToBookingExtension(
+        req.firebaseUser,
+        routeIdParam(req.params['extensionId']),
+        false,
+      );
+      res.json(ok(extension));
+    } catch (err) { next(err); }
+  },
+);
+
+// The parent withdraws her own request.
+bookingRouter.post(
+  '/extensions/:extensionId/cancel',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const extension = await cancelBookingExtension(
+        req.firebaseUser,
+        routeIdParam(req.params['extensionId']),
+      );
+      res.json(ok(extension));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/extensions/:extensionId/redeem-points',
+  requireAuth,
+  validateBody(RedeemExtensionPointsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const extension = await redeemExtensionPoints(
+        req.firebaseUser,
+        routeIdParam(req.params['extensionId']),
+        req.body as RedeemExtensionPointsRequest,
+      );
+      res.json(ok(extension));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/extensions/:extensionId/pay/paymob',
+  requireAuth,
+  validateBody(CreatePaymobIntentionSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const result = await createPaymobIntentionForExtension(
+        req.firebaseUser,
+        routeIdParam(req.params['extensionId']),
+        req.body as CreatePaymobIntentionRequest,
+      );
+      res.json(ok(result));
     } catch (err) { next(err); }
   },
 );
