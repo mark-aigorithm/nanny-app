@@ -118,7 +118,7 @@ export default function BookingDetailScreen() {
   const statusStyle = getStatusStyle(booking.status);
   const nannyName = booking.nanny
     ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
-    : 'Nanny TBD';
+    : null;
   const nannyPhoto = booking.nanny?.avatarUrl ?? '';
   const dateDisplay = fmtBookingDate(booking.date);
   const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
@@ -153,21 +153,26 @@ export default function BookingDetailScreen() {
         {/* End / extend controls — only while the shift is actually running */}
         <ParentShiftControlsCard booking={booking} />
 
-        {/* Nanny Card */}
-        <View style={styles.nannyCard}>
-          {nannyPhoto ? (
-            <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
-          ) : (
-            <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-              <Ionicons name="person" size={24} color={colors.primary} />
-            </View>
-          )}
-          <View style={styles.nannyInfo}>
-            <View style={styles.nannyNameRow}>
-              <Text style={styles.nannyName}>{nannyName}</Text>
+        {/* Nanny card — only once someone has actually claimed the request.
+            While it is still being broadcast there is no nanny to show, and a
+            silhouette labelled "Nanny TBD" reads as a real person who failed
+            to load rather than as a request still being matched. */}
+        {nannyName && (
+          <View style={styles.nannyCard}>
+            {nannyPhoto ? (
+              <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+            ) : (
+              <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="person" size={24} color={colors.primary} />
+              </View>
+            )}
+            <View style={styles.nannyInfo}>
+              <View style={styles.nannyNameRow}>
+                <Text style={styles.nannyName}>{nannyName}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Nanny phone — revealed only within the configured window before start */}
         <ParentNannyContactCard booking={booking} onRefresh={refetch} />

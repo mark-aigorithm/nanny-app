@@ -179,7 +179,7 @@ function BookingCard({
 }) {
   const nannyName = booking.nanny
     ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
-    : 'Nanny TBD';
+    : null;
   const nannyPhoto = booking.nanny?.avatarUrl;
   const dateDisplay = fmtBookingDate(booking.date);
   const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
@@ -191,7 +191,7 @@ function BookingCard({
   return (
     <View style={cardStyle}>
       <View style={styles.nannyRow}>
-        {variant !== 'cancelled' ? (
+        {variant !== 'cancelled' && nannyName ? (
           <View style={styles.nannyPhotoWrapper}>
             {nannyPhoto ? (
               <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
@@ -203,9 +203,15 @@ function BookingCard({
           </View>
         ) : null}
         <View style={styles.nannyInfo}>
-          <Text style={styles.nannyName}>{nannyName}</Text>
+          {/* Unclaimed requests have no one to name, so the date leads instead
+              of a placeholder identity — the status badge carries the rest. */}
+          <Text style={styles.nannyName}>{nannyName ?? dateDisplay}</Text>
           <Text style={styles.bookedTimesText}>
-            {variant === 'cancelled' ? dateDisplay : `${dateDisplay} · ${timeDisplay}`}
+            {nannyName
+              ? variant === 'cancelled'
+                ? dateDisplay
+                : `${dateDisplay} · ${timeDisplay}`
+              : timeDisplay}
           </Text>
           {isCompleted && !variant ? (
             <Text style={styles.bookedTimesText}>{formatMoney(booking.totalAmount)} total</Text>
