@@ -69,7 +69,11 @@ const config: ExpoConfig = {
     // Firebase's Swift pods cannot be integrated as static libraries, so iOS
     // needs framework linkage. This and withIosFirebasePods are two halves of
     // one fix and must stay together -- see that plugin for the full story.
-    ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+    // android.minSdkVersion 26: react-native-vlc-media-player (live camera
+    // monitor) declares minSdk 26, and the manifest merger refuses to build an
+    // app whose floor (Expo's default 24) is lower than a library's. Raising it
+    // drops Android 7.x — required to ship VLC, which has no lower-floor release.
+    ['expo-build-properties', { android: { minSdkVersion: 26 }, ios: { useFrameworks: 'static' } }],
     './plugins/withIosFirebasePods',
     // RTSP playback for the parent's live camera monitor. libVLC handles RTSP
     // on both platforms; AVPlayer (expo-video/react-native-video) cannot play
