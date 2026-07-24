@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { BookingStatus, Prisma } from '@prisma/client';
 
 import type {
   CreatePromoCodeInput,
@@ -113,14 +113,31 @@ export async function validatePromoCode(
   if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
     throw errors.badRequest('This promo code has expired.');
   }
-  if (row.maxUsage !== null && row.usageCount >= row.maxUsage) {
-    throw errors.badRequest('This promo code has been fully redeemed.');
+  // A code is only *consumed* once its booking is paid, so usage caps must also
+  // count the bookings currently holding it unpaid. Without this a mother could
+  // sit on any number of pending requests all claiming a one-per-customer code.
+  const reservedWhere: Prisma.BookingWhereInput = {
+    promoCodeId: row.id,
+    deletedAt: null,
+    status: {
+      in: [BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.PENDING_CONFIRMATION],
+    },
+  };
+
+  if (row.maxUsage !== null) {
+    const reserved = await prisma.booking.count({ where: reservedWhere });
+    if (row.usageCount + reserved >= row.maxUsage) {
+      throw errors.badRequest('This promo code has been fully redeemed.');
+    }
   }
   if (row.maxUsagePerUser !== null) {
-    const used = await prisma.promoCodeRedemption.count({
-      where: { promoCodeId: row.id, userId, deletedAt: null },
-    });
-    if (used >= row.maxUsagePerUser) {
+    const [used, reserved] = await Promise.all([
+      prisma.promoCodeRedemption.count({
+        where: { promoCodeId: row.id, userId, deletedAt: null },
+      }),
+      prisma.booking.count({ where: { ...reservedWhere, motherId: userId } }),
+    ]);
+    if (used + reserved >= row.maxUsagePerUser) {
       throw errors.badRequest('You have already used this promo code.');
     }
   }
@@ -135,6 +152,9 @@ export async function validatePromoCode(
  * Records consumption of a promo code inside the caller's transaction:
  * increments usageCount and inserts a redemption row. Kept separate from
  * validatePromoCode so validation never writes.
+ *
+ * Call this only once a booking's payment is CAPTURED — see
+ * {@link redeemBookingPromoCodeOnCapture}.
  */
 export async function redeemPromoCode(
   tx: Prisma.TransactionClient,
@@ -150,5 +170,40 @@ export async function redeemPromoCode(
       userId: args.userId,
       bookingId: args.bookingId,
     },
+  });
+}
+
+/**
+ * Consumes the promo code a booking reserved, at the moment its payment is
+ * captured — a code is spent only against care that was actually paid for.
+ *
+ * Creating a booking merely *reserves* the discount (the code is stored on the
+ * booking and reflected in its total). Requests that no nanny ever claims, that
+ * the mother cancels, or whose payment fails must leave the code untouched.
+ *
+ * Idempotent: Paymob can deliver the same capture webhook more than once, and
+ * the redemption row for a booking is the marker that it has already been
+ * counted. Must be called inside the same transaction that captures the payment.
+ */
+export async function redeemBookingPromoCodeOnCapture(
+  tx: Prisma.TransactionClient,
+  bookingId: number,
+): Promise<void> {
+  const booking = await tx.booking.findUnique({
+    where: { id: bookingId },
+    select: { promoCodeId: true, motherId: true },
+  });
+  if (!booking?.promoCodeId) return;
+
+  const already = await tx.promoCodeRedemption.findFirst({
+    where: { bookingId, promoCodeId: booking.promoCodeId, deletedAt: null },
+    select: { id: true },
+  });
+  if (already) return;
+
+  await redeemPromoCode(tx, {
+    promoCodeId: booking.promoCodeId,
+    userId: booking.motherId,
+    bookingId,
   });
 }

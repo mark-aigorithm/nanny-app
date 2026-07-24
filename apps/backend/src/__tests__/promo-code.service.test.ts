@@ -3,16 +3,23 @@ import type { Prisma } from '@prisma/client';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     promoCode: { findFirst: jest.fn(), update: jest.fn() },
-    promoCodeRedemption: { count: jest.fn(), create: jest.fn() },
+    promoCodeRedemption: { count: jest.fn(), create: jest.fn(), findFirst: jest.fn() },
+    // Usage caps also count bookings holding the code unpaid.
+    booking: { count: jest.fn(), findUnique: jest.fn() },
   },
 }));
 
 import { prisma } from '@backend/db/prisma';
-import { validatePromoCode, redeemPromoCode } from '@backend/services/promo-code.service';
+import {
+  validatePromoCode,
+  redeemPromoCode,
+  redeemBookingPromoCodeOnCapture,
+} from '@backend/services/promo-code.service';
 
 const mockPrisma = prisma as unknown as {
   promoCode: { findFirst: jest.Mock; update: jest.Mock };
-  promoCodeRedemption: { count: jest.Mock; create: jest.Mock };
+  promoCodeRedemption: { count: jest.Mock; create: jest.Mock; findFirst: jest.Mock };
+  booking: { count: jest.Mock; findUnique: jest.Mock };
 };
 
 const dec = (n: number) => ({ toNumber: () => n });
@@ -36,6 +43,7 @@ function makeCode(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockPrisma.promoCodeRedemption.count.mockResolvedValue(0);
+  mockPrisma.booking.count.mockResolvedValue(0);
 });
 
 describe('validatePromoCode', () => {
@@ -102,5 +110,73 @@ describe('redeemPromoCode', () => {
     expect((tx.promoCodeRedemption.create as jest.Mock).mock.calls[0][0]).toEqual({
       data: { promoCodeId: 23, userId: 29, bookingId: 4 },
     });
+  });
+});
+
+describe('redeemBookingPromoCodeOnCapture', () => {
+  /** A tx double that also carries the booking lookup the helper does. */
+  function makeTx(
+    booking: { promoCodeId: number | null; motherId: number } | null,
+    existingRedemption: { id: number } | null = null,
+  ) {
+    return {
+      booking: { findUnique: jest.fn().mockResolvedValue(booking) },
+      promoCode: { update: jest.fn().mockResolvedValue({}) },
+      promoCodeRedemption: {
+        findFirst: jest.fn().mockResolvedValue(existingRedemption),
+        create: jest.fn().mockResolvedValue({}),
+      },
+    } as unknown as Prisma.TransactionClient;
+  }
+
+  it('consumes the code the booking reserved', async () => {
+    const tx = makeTx({ promoCodeId: 23, motherId: 29 });
+
+    await redeemBookingPromoCodeOnCapture(tx, 4);
+
+    expect((tx.promoCode.update as jest.Mock).mock.calls[0][0]).toEqual({
+      where: { id: 23 },
+      data: { usageCount: { increment: 1 } },
+    });
+    expect((tx.promoCodeRedemption.create as jest.Mock).mock.calls[0][0]).toEqual({
+      data: { promoCodeId: 23, userId: 29, bookingId: 4 },
+    });
+  });
+
+  it('does nothing when the booking reserved no code', async () => {
+    const tx = makeTx({ promoCodeId: null, motherId: 29 });
+
+    await redeemBookingPromoCodeOnCapture(tx, 4);
+
+    expect(tx.promoCode.update as jest.Mock).not.toHaveBeenCalled();
+    expect(tx.promoCodeRedemption.create as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  // Paymob can deliver the same capture webhook twice; the second must be a no-op.
+  it('is idempotent when a redemption already exists for the booking', async () => {
+    const tx = makeTx({ promoCodeId: 23, motherId: 29 }, { id: 77 });
+
+    await redeemBookingPromoCodeOnCapture(tx, 4);
+
+    expect(tx.promoCode.update as jest.Mock).not.toHaveBeenCalled();
+    expect(tx.promoCodeRedemption.create as jest.Mock).not.toHaveBeenCalled();
+  });
+});
+
+describe('validatePromoCode usage caps', () => {
+  it('counts bookings holding the code unpaid against maxUsagePerUser', async () => {
+    mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ maxUsagePerUser: 1 }));
+    mockPrisma.promoCodeRedemption.count.mockResolvedValue(0);
+    // Nothing redeemed yet, but one pending booking is already claiming it.
+    mockPrisma.booking.count.mockResolvedValue(1);
+
+    await expect(validatePromoCode('SAVE10', 100, 29)).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('counts bookings holding the code unpaid against maxUsage', async () => {
+    mockPrisma.promoCode.findFirst.mockResolvedValue(makeCode({ maxUsage: 5, usageCount: 4 }));
+    mockPrisma.booking.count.mockResolvedValue(1);
+
+    await expect(validatePromoCode('SAVE10', 100, 29)).rejects.toMatchObject({ statusCode: 400 });
   });
 });

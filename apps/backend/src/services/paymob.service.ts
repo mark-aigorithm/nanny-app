@@ -35,6 +35,7 @@ import {
   finalizePackagePaymentCaptured,
   finalizePackagePaymentFailed,
 } from '@backend/services/package-payment.service';
+import { redeemBookingPromoCodeOnCapture } from '@backend/services/promo-code.service';
 
 const PAYMENT_TIMEOUT_REASON = 'Payment timed out waiting for Paymob confirmation.';
 
@@ -127,6 +128,11 @@ async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: s
       });
       return null;
     }
+
+    // The money is captured and the booking is about to be confirmed — this is
+    // the only moment a reserved promo code is actually spent. Idempotent, so a
+    // replayed webhook can't increment the code's usage twice.
+    await redeemBookingPromoCodeOnCapture(tx, booking.id);
 
     return tx.booking.update({
       where: { id: booking.id },

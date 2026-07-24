@@ -153,7 +153,7 @@ describe('createBooking (promo wiring)', () => {
     expect(mockPrisma.promoCodeRedemption.create).not.toHaveBeenCalled();
   });
 
-  it('applies a valid promo code, sets promoCodeId, and redeems atomically', async () => {
+  it('reserves a valid promo code on the booking without consuming it', async () => {
     mockPrisma.promoCode.findFirst.mockResolvedValue({
       id: 23,
       code: 'SAVE50',
@@ -166,34 +166,25 @@ describe('createBooking (promo wiring)', () => {
       expiresAt: null,
       deletedAt: null,
     });
-    const tx = {
-      booking: {
-        create: jest.fn().mockResolvedValue(
-          makeBookingRow({ promoCodeId: 23, discountAmount: 50, totalAmount: 162 }),
-        ),
-      },
-      promoCode: { update: jest.fn().mockResolvedValue({}) },
-      promoCodeRedemption: { create: jest.fn().mockResolvedValue({}) },
-    };
-    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
+    mockPrisma.booking.create.mockResolvedValue(
+      makeBookingRow({ promoCodeId: 23, discountAmount: 50, totalAmount: 162 }),
+    );
 
     const res = await createBooking(DECODED, { ...baseBody, promoCode: 'SAVE50' } as never);
 
-    const data = tx.booking.create.mock.calls[0][0].data;
+    const data = mockPrisma.booking.create.mock.calls[0][0].data;
     expect(data.promoCodeId).toBe(23);
     expect(data.discountAmount).toBe(50);
     expect(data.subtotal).toBe(200); // priced subtotal before discount
     expect(data.serviceFeeAmount).toBe(0); // legacy fee retired under the split
     expect(data.totalAmount).toBe(150); // 200 − 50
     expect(data.nannyAmount).toBe(120); // 80% of 150
-    expect(tx.promoCode.update).toHaveBeenCalledWith({
-      where: { id: 23 },
-      data: { usageCount: { increment: 1 } },
-    });
-    expect(tx.promoCodeRedemption.create).toHaveBeenCalledWith({
-      data: { promoCodeId: 23, userId: 10, bookingId: 4 },
-    });
     expect(res.discountAmount).toBe(50);
+
+    // The code is only spent once the payment is captured — a request that no
+    // nanny claims, or that the mother cancels, must leave it usable.
+    expect(mockPrisma.promoCode.update).not.toHaveBeenCalled();
+    expect(mockPrisma.promoCodeRedemption.create).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid promo code and writes nothing', async () => {

@@ -61,7 +61,7 @@ import {
   redeemPackageHours,
   refundPackageHours,
 } from './package-hours.service';
-import { redeemPromoCode, validatePromoCode } from './promo-code.service';
+import { redeemBookingPromoCodeOnCapture, validatePromoCode } from './promo-code.service';
 import { convertReferralForBooking } from './referral.service';
 import {
   applyBookingRedemption,
@@ -722,19 +722,14 @@ export async function createBooking(
   const willApplyPackageHours =
     wantsPackageHours && (await getAvailableHours(user.id)) > 0;
 
+  // The promo code is only RESERVED here — `promoCodeId` on the booking records
+  // the claim and the discount is already in the total, but the code is not
+  // consumed until the payment is captured (see redeemBookingPromoCodeOnCapture).
+  // A request no nanny claims, or one the mother cancels, must not burn her code.
   let booking: BookingWithRelations;
-  if (promoCodeId || willApplyPackageHours) {
-    const appliedPromoCodeId = promoCodeId;
+  if (willApplyPackageHours) {
     booking = await prisma.$transaction(async (tx) => {
       const created = await tx.booking.create({ data, include: bookingInclude });
-      if (appliedPromoCodeId) {
-        await redeemPromoCode(tx, {
-          promoCodeId: appliedPromoCodeId,
-          userId: user.id,
-          bookingId: created.id,
-        });
-      }
-      if (!willApplyPackageHours) return created;
       return applyPackageHoursToBooking(tx, created, breakdown.skillAddOns);
     });
   } else {
@@ -1158,6 +1153,8 @@ export async function mockPayBooking(
     // booking APPROVED so the mother can retry payment.
     if (body.succeed) {
       validateStatusTransition(booking.status, BookingStatus.CONFIRMED);
+      // Money changed hands — only now is the reserved promo code consumed.
+      await redeemBookingPromoCodeOnCapture(tx, bookingId);
     }
     const bk = await tx.booking.update({
       where: { id: bookingId },
