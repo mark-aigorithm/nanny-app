@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, spacing, typeScale } from '@mobile/theme';
+import { borderRadius, colors, fontFamily, spacing, typeScale } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -37,39 +37,34 @@ export const styles = StyleSheet.create({
     gap: spacing.lg,
   },
 
-  // "You have {n}h prepaid" summary card
+  // Prepaid balance summary card
   hoursRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
+  hoursTextWrap: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
   hoursText: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
-    flex: 1,
   },
-
-  // Active-package banner
-  banner: {
-    backgroundColor: colors.warmLight,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.goldWarm,
-  },
-  bannerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  bannerText: {
-    ...typeScale.bodySm,
-    color: colors.textPrimary,
-    flex: 1,
+  hoursSubtext: {
+    ...typeScale.caption,
+    color: colors.textMuted,
   },
 
   sectionTitle: {
     ...typeScale.headingSm,
     color: colors.textPrimary,
     marginTop: spacing.sm,
+  },
+  sectionHint: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    marginTop: -spacing.sm,
   },
 
   center: {
@@ -99,34 +94,111 @@ export const styles = StyleSheet.create({
 
   // Package card
   packageCard: {
-    gap: spacing.sm,
+    gap: spacing.md,
+  },
+  packageCardFeatured: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: -spacing.md,
+    right: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  featuredBadgeText: {
+    ...typeScale.caption,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
   },
   packageHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
+  },
+  packageHeaderText: {
+    flex: 1,
+    gap: spacing.xxs,
   },
   packageName: {
     ...typeScale.headingSm,
     color: colors.textPrimary,
-    flex: 1,
-  },
-  packageHours: {
-    ...typeScale.headingSm,
-    color: colors.primaryDark,
   },
   packageDescription: {
     ...typeScale.bodySm,
     color: colors.textSecondary,
   },
+  packageHoursBadge: {
+    minWidth: 60,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+  },
+  packageHoursValue: {
+    ...typeScale.headingLg,
+    color: colors.primaryDark,
+  },
+  packageHoursUnit: {
+    ...typeScale.caption,
+    color: colors.textTertiary,
+  },
+
+  // Per-hour rate — the number the decision actually turns on
+  rateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  rateValue: {
+    ...typeScale.displaySm,
+    color: colors.textPrimary,
+  },
+  rateUnit: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+  },
+  savingPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.successLight,
+  },
+  savingPillText: {
+    ...typeScale.captionBold,
+    color: colors.successText,
+  },
+
   packageMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  metaChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupeLight,
   },
-  packageMeta: {
+  metaChipText: {
+    ...typeScale.caption,
+    color: colors.textTertiary,
+  },
+  disabledReason: {
     ...typeScale.caption,
     color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: -spacing.xs,
   },
 });

@@ -46,13 +46,14 @@ beforeEach(() => {
 });
 
 describe('ServicesHubScreen', () => {
-  it('shows the hero and the four service tiles', () => {
+  it('shows the hero and the five service tiles', () => {
     const { getByText } = renderScreen();
     getByText('Book a Nanny');
     getByText('Community');
     getByText('Marketplace');
     getByText('Events & Meetups');
     getByText('Care Points');
+    getByText('Prepaid hours');
   });
 
   it('navigates to each destination', () => {
@@ -75,6 +76,9 @@ describe('ServicesHubScreen', () => {
       pathname: '/(parent)/rewards',
       params: { returnTo: 'services' },
     });
+
+    fireEvent.press(getByText('Prepaid hours'));
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/packages');
   });
 
   it('gates booking and Care Points for guests but leaves browsing open', () => {
@@ -92,6 +96,13 @@ describe('ServicesHubScreen', () => {
     expect(mockPush).not.toHaveBeenCalled();
     expect(useRegisterPromptStore.getState().message).toBe(
       'Create your free account to earn Care Points.',
+    );
+
+    useRegisterPromptStore.setState({ message: null });
+    fireEvent.press(getByText('Prepaid hours'));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(useRegisterPromptStore.getState().message).toBe(
+      'Create your free account to buy prepaid care hours.',
     );
 
     fireEvent.press(getByText('Community'));

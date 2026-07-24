@@ -21,6 +21,7 @@ const TILES: {
   { key: 'marketplace', label: 'Marketplace', icon: 'storefront-outline' },
   { key: 'events', label: 'Events & Meetups', icon: 'calendar-outline' },
   { key: 'rewards', label: 'Care Points', icon: 'gift-outline' },
+  { key: 'packages', label: 'Prepaid hours', icon: 'time-outline' },
 ];
 
 export default function ServicesHubScreen() {
@@ -50,15 +51,23 @@ export default function ServicesHubScreen() {
           params: { returnTo: 'services' },
         } as never);
         break;
+      case 'packages':
+        router.push('/(parent)/packages' as never);
+        break;
       default:
         break;
     }
   };
 
-  const tileHandler = (key: string) =>
-    key === 'rewards'
-      ? gate(() => openTile(key), 'Create your free account to earn Care Points.')
-      : () => openTile(key);
+  const GATED_TILE_COPY: Record<string, string> = {
+    rewards: 'Create your free account to earn Care Points.',
+    packages: 'Create your free account to buy prepaid care hours.',
+  };
+
+  const tileHandler = (key: string) => {
+    const gateCopy = GATED_TILE_COPY[key];
+    return gateCopy ? gate(() => openTile(key), gateCopy) : () => openTile(key);
+  };
 
   return (
     <View style={styles.container}>
