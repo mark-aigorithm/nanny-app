@@ -24,7 +24,7 @@ import { useCreateBooking, usePricingConfig, useValidatePromo } from '@mobile/ho
 import { usePackageHours, usePackages } from '@mobile/hooks/usePackages';
 import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { getApiErrorMessage } from '@mobile/lib/api';
-import { formatMoney } from '@mobile/lib/formatMoney';
+import { formatHourlyRate, formatMoney } from '@mobile/lib/formatMoney';
 import { formatDurationHours } from '@mobile/lib/formatTime';
 import {
   getBookingDateDisplay,
@@ -482,23 +482,44 @@ export default function BookingStep1Screen() {
             icon="receipt-outline"
           >
             <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>
-                Base {hourlyRate != null ? formatMoney(hourlyRate, { fractionDigits: 0 }) : '—'} ×{' '}
-                {formatDurationHours(hours)}
-              </Text>
+              <View style={styles.priceRowLabel}>
+                <Text style={styles.priceLabel}>Base rate</Text>
+                <Text style={styles.priceMath}>
+                  {hourlyRate != null ? formatHourlyRate(hourlyRate) : '—'} ×{' '}
+                  {formatDurationHours(hours)}
+                </Text>
+              </View>
               <Text style={styles.priceValue}>{formatMoney(baseCost)}</Text>
             </View>
+
+            {/* Each specialty shows its own arithmetic. A bare "+EGP 120" gave
+                the mother no way to check where it came from, and percentage
+                add-ons are resolved to money by the pricing engine, so the
+                configured "+15%" never appeared anywhere she could see. */}
             {breakdown?.skillAddOns.map((addon) => (
               <View style={styles.priceRow} key={addon.id}>
-                <Text style={styles.addOnRowLabel}>+ {addon.name}</Text>
+                <View style={styles.priceRowLabel}>
+                  <Text style={styles.addOnRowLabel}>+ {addon.name}</Text>
+                  <Text style={styles.priceMath}>
+                    {formatHourlyRate(addon.amountPerHour)} × {formatDurationHours(hours)}
+                  </Text>
+                </View>
                 <Text style={styles.addOnRowValue}>
                   +{formatMoney(addon.amountPerHour * hours)}
                 </Text>
               </View>
             ))}
+
             {durationDiscount > 0.005 && (
               <View style={styles.priceRow}>
-                <Text style={styles.promoLabel}>Longer-booking discount</Text>
+                <View style={styles.priceRowLabel}>
+                  <Text style={styles.promoLabel}>Longer-booking discount</Text>
+                  {breakdown && (
+                    <Text style={styles.priceMath}>
+                      {Math.round((1 - breakdown.durationMultiplier) * 100)}% off {formatDurationHours(hours)}+
+                    </Text>
+                  )}
+                </View>
                 <Text style={styles.promoValue}>–{formatMoney(durationDiscount)}</Text>
               </View>
             )}

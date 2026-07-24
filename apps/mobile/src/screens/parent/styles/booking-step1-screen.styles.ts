@@ -288,9 +288,18 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
+  priceRowLabel: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
   priceLabel: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
+  },
+  /** The arithmetic behind a row, e.g. "EGP 30/hr × 4h". */
+  priceMath: {
+    ...typeScale.caption,
+    color: colors.textMuted,
   },
   priceValue: {
     ...typeScale.labelMd,
