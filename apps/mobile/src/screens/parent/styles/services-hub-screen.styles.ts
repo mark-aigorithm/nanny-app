@@ -7,30 +7,18 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
-  FLOATING_NAV_CLEARANCE,
+  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.xl,
-    paddingBottom: FLOATING_NAV_CLEARANCE + spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
     gap: spacing.lg,
-  },
-
-  // Uber-style big screen title
-  screenTitle: {
-    ...typeScale.displayMd,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
 
   // Hero tile: Book a Nanny

@@ -283,7 +283,7 @@ export default function BookingDetailScreen() {
           {booking.packageHoursApplied > 0 && (
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>
-                Prepaid hours · {booking.packageHoursApplied}h
+                Package hours · {booking.packageHoursApplied}h
                 {booking.packageSkillsCovered > 0 ? ` + ${booking.packageSkillsCovered} free skills` : ''}
               </Text>
               <Text style={styles.paymentValue}>–{formatMoney(booking.packageCreditAmount)}</Text>

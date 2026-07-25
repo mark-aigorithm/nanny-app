@@ -12,9 +12,12 @@ import {
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
-    backgroundColor: colors.background,
+  },
+  loadingCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,

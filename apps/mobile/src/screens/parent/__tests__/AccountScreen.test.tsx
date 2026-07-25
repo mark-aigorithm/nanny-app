@@ -85,14 +85,17 @@ describe('Account screen', () => {
   it('routes the quick tiles', () => {
     const { getByText } = renderScreen();
 
+    fireEvent.press(getByText('Account details'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(parent)/account-details',
+      params: { returnTo: 'mother-profile' },
+    });
+
     fireEvent.press(getByText('Help'));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/(parent)/customer-support',
       params: { returnTo: 'mother-profile' },
     });
-
-    fireEvent.press(getByText('Wallet'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/payment-methods');
 
     fireEvent.press(getByText('Inbox'));
     expect(mockPush).toHaveBeenCalledWith('/(parent)/messages');
@@ -110,7 +113,7 @@ describe('Account screen', () => {
       params: { returnTo: 'mother-profile' },
     });
 
-    fireEvent.press(getByText('Prepaid hours'));
+    fireEvent.press(getByText('Packages'));
     expect(mockPush).toHaveBeenCalledWith('/(parent)/packages');
 
     fireEvent.press(getByText('Refer a friend'));

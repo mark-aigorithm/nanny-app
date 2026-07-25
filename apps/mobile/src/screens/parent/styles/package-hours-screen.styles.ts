@@ -1,38 +1,13 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, spacing, typeScale, borderRadius as br, shadows } from '@mobile/theme';
+import { colors, screenPadding, spacing, typeScale, borderRadius as br, shadows } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing['3xl'],
-    paddingBottom: spacing.md,
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-  },
-
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: screenPadding,
     paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },

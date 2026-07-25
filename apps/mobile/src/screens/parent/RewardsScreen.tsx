@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { RewardLedgerEntry } from '@nanny-app/shared';
 
-import { Card, IconCircle } from '@mobile/components/ui';
+import { Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { useRewardConfig, useRewardHistory, useRewardWallet } from '@mobile/hooks/useRewards';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
@@ -59,14 +59,8 @@ export default function RewardsScreen() {
   const handleBack = () => router.replace(getProfileReturnHref(returnTo) as never);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable style={styles.headerIconBtn} onPress={handleBack} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Care Points</Text>
-        <View style={styles.headerIconBtn} />
-      </View>
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader title="Care Points" onBack={handleBack} />
 
       <ScrollView
         style={styles.scroll}
@@ -158,6 +152,6 @@ export default function RewardsScreen() {
           </Pressable>
         )}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }

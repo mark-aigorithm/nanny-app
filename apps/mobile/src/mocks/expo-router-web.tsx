@@ -11,6 +11,14 @@ export function useRouter() {
   };
 }
 
+// Some screens import the imperative `router` singleton rather than the hook.
+export const router = {
+  push: (route: any) => console.log('[preview] router.push', route),
+  replace: (route: any) => console.log('[preview] router.replace', route),
+  back: () => console.log('[preview] router.back'),
+  canGoBack: () => false,
+};
+
 export function useLocalSearchParams<T = Record<string, string>>(): T {
   // A preview entry can seed route params on globalThis so param-driven screens
   // render their real content instead of their "missing draft" fallback.

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { PublicPackage } from '@nanny-app/shared';
 
-import { Card, Button, IconCircle } from '@mobile/components/ui';
+import { Card, Button, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { usePackages, usePackageHours } from '@mobile/hooks/usePackages';
 import { usePricingConfig } from '@mobile/hooks/useBookings';
@@ -13,7 +13,14 @@ import { getApiErrorMessage } from '@mobile/lib/api';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { styles } from './styles/packages-screen.styles';
 
-/** What one prepaid hour costs under this package. */
+/** Why buy a package — kept lightweight so the screen never reads as empty. */
+const HOW_IT_WORKS: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
+  { icon: 'pricetag-outline', text: 'Buy once and lower your rate on every booking' },
+  { icon: 'flash-outline', text: 'Hours apply automatically at checkout' },
+  { icon: 'time-outline', text: 'Use them any time before they expire' },
+];
+
+/** What one hour costs under this package. */
 function hourlyRateOf(pkg: PublicPackage): number {
   return pkg.hours > 0 ? pkg.price / pkg.hours : 0;
 }
@@ -54,22 +61,30 @@ function PackageCard({
             <Text style={styles.packageDescription}>{pkg.description}</Text>
           ) : null}
         </View>
-        <View style={styles.packageHoursBadge}>
-          <Text style={styles.packageHoursValue}>{pkg.hours}</Text>
-          <Text style={styles.packageHoursUnit}>hours</Text>
+        <View style={styles.hoursBadge}>
+          <Text style={styles.hoursBadgeValue}>{pkg.hours}</Text>
+          <Text style={styles.hoursBadgeUnit}>hours</Text>
         </View>
       </View>
 
       {/* The number that actually drives the decision. */}
-      <View style={styles.rateRow}>
-        <Text style={styles.rateValue}>
-          {formatMoney(perHour, { fractionDigits: 0 })}
-          <Text style={styles.rateUnit}> / hour</Text>
-        </Text>
-        {percentOff > 0 && (
-          <View style={styles.savingPill}>
-            <Text style={styles.savingPillText}>Save {percentOff}%</Text>
-          </View>
+      <View style={styles.rateBlock}>
+        <View style={styles.rateRow}>
+          <Text style={styles.rateValue}>
+            {formatMoney(perHour, { fractionDigits: 0 })}
+            <Text style={styles.rateUnit}> / hour</Text>
+          </Text>
+          {percentOff > 0 && (
+            <View style={styles.savingPill}>
+              <Ionicons name="trending-down" size={12} color={colors.successText} />
+              <Text style={styles.savingPillText}>Save {percentOff}%</Text>
+            </View>
+          )}
+        </View>
+        {percentOff > 0 && standardRate != null && (
+          <Text style={styles.rateCompare}>
+            {formatMoney(standardRate, { fractionDigits: 0 })} / hour pay-as-you-go
+          </Text>
         )}
       </View>
 
@@ -78,14 +93,23 @@ function PackageCard({
           <Ionicons name="calendar-outline" size={13} color={colors.textTertiary} />
           <Text style={styles.metaChipText}>Valid {pkg.validityDays} days</Text>
         </View>
-        <View style={styles.metaChip}>
-          <Ionicons name="sparkles-outline" size={13} color={colors.textTertiary} />
-          <Text style={styles.metaChipText}>{pkg.maxSkills} free skills</Text>
-        </View>
+        {pkg.maxSkills > 0 && (
+          <View style={styles.metaChip}>
+            <Ionicons name="sparkles-outline" size={13} color={colors.textTertiary} />
+            <Text style={styles.metaChipText}>{pkg.maxSkills} free skills</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.cardDivider} />
+
+      <View style={styles.totalRow}>
+        <Text style={styles.totalLabel}>Total</Text>
+        <Text style={styles.totalValue}>{formatMoney(pkg.price)}</Text>
       </View>
 
       <Button
-        title={`Buy · ${formatMoney(pkg.price)}`}
+        title="Buy package"
         onPress={() =>
           router.push({
             pathname: '/(parent)/packages/checkout',
@@ -125,7 +149,7 @@ export default function PackagesScreen() {
   const disabledReason = hasActivePackage
     ? 'Use up or wait out your current package before buying another.'
     : packageHours.isError
-      ? 'Couldn’t check your prepaid balance — pull to refresh.'
+      ? 'Couldn’t check your package balance — pull to refresh.'
       : null;
 
   const availableHours = packageHours.data?.availableHours ?? 0;
@@ -147,17 +171,9 @@ export default function PackagesScreen() {
     return dates[0] ?? null;
   }, [packageHours.data]);
 
-  const handleBack = () => router.back();
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable style={styles.headerIconBtn} onPress={handleBack} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Packages</Text>
-        <View style={styles.headerIconBtn} />
-      </View>
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader title="Packages" />
 
       <ScrollView
         style={styles.scroll}
@@ -168,36 +184,34 @@ export default function PackagesScreen() {
         }
       >
         <Pressable onPress={() => router.push('/(parent)/package-hours' as never)}>
-          <Card shadow="md">
-            <View style={styles.hoursRow}>
-              <IconCircle icon="time-outline" size="md" backgroundColor={colors.primaryMuted} iconColor={colors.primary} />
-              <View style={styles.hoursTextWrap}>
-                <Text style={styles.hoursText}>
-                  {availableHours > 0
-                    ? `${availableHours}h prepaid available`
-                    : 'No prepaid hours yet'}
-                </Text>
-                <Text style={styles.hoursSubtext}>
-                  {availableHours > 0
-                    ? soonestExpiry
-                      ? `Expires ${new Date(soonestExpiry).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}`
-                      : 'Applied automatically to your next booking'
-                    : 'Buy a bundle below to lower your hourly rate'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          <Card shadow="md" style={styles.balanceCard}>
+            <View style={styles.balanceIcon}>
+              <Ionicons name="time" size={22} color={colors.primaryDark} />
             </View>
+            <View style={styles.balanceTextWrap}>
+              <Text style={styles.balanceValue}>
+                {availableHours > 0 ? `${availableHours}h available` : 'No package yet'}
+              </Text>
+              <Text style={styles.balanceSubtext}>
+                {availableHours > 0
+                  ? soonestExpiry
+                    ? `Expires ${new Date(soonestExpiry).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}`
+                    : 'Applied automatically to your next booking'
+                  : 'Buy a package below to lower your hourly rate'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </Card>
         </Pressable>
 
-        <Text style={styles.sectionTitle}>Available packages</Text>
+        <Text style={styles.sectionTitle}>Choose a package</Text>
         {standardRate != null && (
           <Text style={styles.sectionHint}>
-            Pay-as-you-go is {formatMoney(standardRate, { fractionDigits: 0 })}/hour. Prepaid hours
+            Pay-as-you-go is {formatMoney(standardRate, { fractionDigits: 0 })}/hour. Package hours
             are applied to your bookings automatically.
           </Text>
         )}
@@ -216,7 +230,7 @@ export default function PackagesScreen() {
           <Card style={styles.emptyCard}>
             <IconCircle icon="cube-outline" size="lg" backgroundColor={colors.warmLight} iconColor={colors.goldWarm} />
             <Text style={styles.emptyTitle}>No packages available</Text>
-            <Text style={styles.emptyBody}>Check back later for prepaid hour bundles.</Text>
+            <Text style={styles.emptyBody}>Check back later for new packages.</Text>
           </Card>
         )}
 
@@ -230,7 +244,19 @@ export default function PackagesScreen() {
             bestValue={pkg.id === bestValueId}
           />
         ))}
+
+        {!packages.isLoading && !packages.isError && list.length > 0 && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>How packages work</Text>
+            {HOW_IT_WORKS.map((item) => (
+              <View key={item.text} style={styles.infoRow}>
+                <Ionicons name={item.icon} size={18} color={colors.primaryDark} />
+                <Text style={styles.infoRowText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }

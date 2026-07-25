@@ -1,10 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import type { PackagePurchase } from '@nanny-app/shared';
 
-import { Card, IconCircle } from '@mobile/components/ui';
+import { Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { usePackageHours } from '@mobile/hooks/usePackages';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
@@ -55,17 +54,9 @@ export default function PackageHoursScreen() {
   const availableHours = hours.data?.availableHours ?? 0;
   const buckets = hours.data?.buckets ?? [];
 
-  const handleBack = () => router.back();
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable style={styles.headerIconBtn} onPress={handleBack} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>My Hours</Text>
-        <View style={styles.headerIconBtn} />
-      </View>
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader title="My Hours" />
 
       <ScrollView
         style={styles.scroll}
@@ -81,7 +72,7 @@ export default function PackageHoursScreen() {
             <View style={styles.heroBadge}>
               <Ionicons name="time" size={18} color={colors.primaryDark} />
             </View>
-            <Text style={styles.heroLabel}>Prepaid Hours</Text>
+            <Text style={styles.heroLabel}>Package Hours</Text>
           </View>
           <Text style={styles.heroBalance}>{availableHours}h available</Text>
         </Card>
@@ -102,7 +93,7 @@ export default function PackageHoursScreen() {
           <Card style={styles.emptyCard}>
             <IconCircle icon="time-outline" size="lg" backgroundColor={colors.warmLight} iconColor={colors.goldWarm} />
             <Text style={styles.emptyTitle}>No packages yet</Text>
-            <Text style={styles.emptyBody}>Buy a prepaid hour bundle to see it here.</Text>
+            <Text style={styles.emptyBody}>Buy a package to see it here.</Text>
           </Card>
         )}
 
@@ -110,6 +101,6 @@ export default function PackageHoursScreen() {
           <PackageBucketRow key={bucket.id} bucket={bucket} />
         ))}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }

@@ -1,61 +1,45 @@
 import { StyleSheet } from 'react-native';
 
-import { borderRadius, colors, fontFamily, spacing, typeScale } from '@mobile/theme';
+import { borderRadius, colors, fontFamily, screenPadding, spacing, typeScale } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing['3xl'],
-    paddingBottom: spacing.md,
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-  },
-
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: screenPadding,
     paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },
 
-  // Prepaid balance summary card
-  hoursRow: {
+  // ── Balance summary card ──────────────────────────────────────────────
+  balanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
-  hoursTextWrap: {
+  balanceIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balanceTextWrap: {
     flex: 1,
     gap: spacing.xxs,
   },
-  hoursText: {
-    ...typeScale.labelMd,
+  balanceValue: {
+    ...typeScale.headingSm,
     color: colors.textPrimary,
   },
-  hoursSubtext: {
+  balanceSubtext: {
     ...typeScale.caption,
     color: colors.textMuted,
   },
 
+  // ── Section intro ─────────────────────────────────────────────────────
   sectionTitle: {
     ...typeScale.headingSm,
     color: colors.textPrimary,
@@ -64,7 +48,7 @@ export const styles = StyleSheet.create({
   sectionHint: {
     ...typeScale.bodySm,
     color: colors.textMuted,
-    marginTop: -spacing.sm,
+    marginTop: -spacing.xs,
   },
 
   center: {
@@ -92,9 +76,9 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Package card
+  // ── Package card ──────────────────────────────────────────────────────
   packageCard: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   packageCardFeatured: {
     borderWidth: 1.5,
@@ -119,7 +103,7 @@ export const styles = StyleSheet.create({
   },
   packageHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
@@ -135,27 +119,31 @@ export const styles = StyleSheet.create({
     ...typeScale.bodySm,
     color: colors.textSecondary,
   },
-  packageHoursBadge: {
-    minWidth: 60,
+  hoursBadge: {
+    minWidth: 62,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
     backgroundColor: colors.primaryMuted,
     alignItems: 'center',
   },
-  packageHoursValue: {
+  hoursBadgeValue: {
     ...typeScale.headingLg,
     color: colors.primaryDark,
   },
-  packageHoursUnit: {
+  hoursBadgeUnit: {
     ...typeScale.caption,
     color: colors.textTertiary,
   },
 
-  // Per-hour rate — the number the decision actually turns on
+  // Value: the per-hour rate the decision turns on
+  rateBlock: {
+    gap: spacing.xxs,
+  },
   rateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   rateValue: {
     ...typeScale.displaySm,
@@ -165,7 +153,15 @@ export const styles = StyleSheet.create({
     ...typeScale.bodyMd,
     color: colors.textMuted,
   },
+  rateCompare: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
   savingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -195,10 +191,51 @@ export const styles = StyleSheet.create({
     ...typeScale.caption,
     color: colors.textTertiary,
   },
+
+  // Total + CTA footer, split by a hairline
+  cardDivider: {
+    height: 1,
+    backgroundColor: colors.warmBorder,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  totalLabel: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+  },
+  totalValue: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
   disabledReason: {
     ...typeScale.caption,
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: -spacing.xs,
+  },
+
+  // ── "How packages work" explainer ────────────────────────────────────
+  infoCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.warmSubtle,
+  },
+  infoTitle: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  infoRowText: {
+    flex: 1,
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
   },
 });

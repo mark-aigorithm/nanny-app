@@ -63,7 +63,7 @@ All visual constants are centralized in `src/theme/` and imported via `@mobile/t
 | `spacing.ts` | `spacing` — scale (xxs→4xl); `screenPadding` — standard horizontal padding (24) |
 | `borders.ts` | `borderRadius` — scale (sm→full) |
 | `shadows.ts` | `shadows` — elevation presets as `ViewStyle` |
-| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT`, `FLOATING_NAV_CLEARANCE` — bottom content clearance for the parent floating pill tab bar (vs `BOTTOM_NAV_HEIGHT`, the nanny bar's in-flow height) |
+| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT` (nanny in-flow bar), `FLOATING_NAV_CLEARANCE` (parent floating pill), and the parent-tab helpers `PARENT_TAB_CONTENT_TOP(_WITH_SEARCH)`, `PARENT_TAB_SCROLL_BOTTOM`, `PARENT_TAB_FAB_BOTTOM` |
 | `index.ts` | Barrel re-export of all above |
 
 ---
@@ -78,7 +78,8 @@ Before creating any new visual pattern, check if an existing component covers it
 | `TextInputField` | Form inputs with label, error, password toggle |
 | `Card` | White card container with shadow |
 | `Chip` | Filter pills / tag chips (active/inactive) |
-| `Header` | Screen headers with back button |
+| `StackHeader` | **Standard** large left-aligned title header for secondary/detail/section screens (back chevron, `subtitle`, `rightElement`) |
+| `Header` | Legacy centered-title header — prefer `StackHeader` for new screens |
 | `SearchBar` | Search input bars |
 | `Avatar` | Circular profile images |
 | `Badge` | Notification dots / count badges |
@@ -105,6 +106,27 @@ Every screen's `StyleSheet.create` block lives in a **dedicated style file**, no
 - Each style file imports only from `@mobile/theme` — no hardcoded values
 - The screen file imports: `import { styles } from './styles/[screen-name].styles';`
 - Screen files only retain theme imports that are used **directly in JSX** (e.g. icon `color` props)
+
+---
+
+## Screen Layout & Chrome
+
+Every screen shares one scaffold so layouts don't drift. The full rationale + visual guidance is
+in the `nanny-app-mobile-design` skill; the mandatory rules are:
+
+- **Wrap every screen in `<ScreenContainer useSafeArea={false}>`** — it owns the background +
+  translucent `StatusBar`. Never hand-roll a `<View style={{flex:1, backgroundColor}}>` root or a
+  screen-level `<StatusBar>`.
+- **Use a shared header, never a hand-rolled one:**
+  - Primary bottom-tab screens → `ParentTabHeader` / `NannyTabHeader` (absolute overlay).
+  - Every other screen (secondary/detail + the Services/Account section tabs) →
+    `StackHeader` (large left-aligned title; `showBackButton={false}` for a section tab).
+- **The header owns the top inset** — never set `paddingTop: STATUS_BAR_HEIGHT`/`HEADER_HEIGHT` on
+  a screen's scroll content.
+- **Horizontal content padding is `screenPadding` (24)** on every screen.
+- **Bottom clearance uses a token, never a magic number:** parent floating-tab screens
+  `PARENT_TAB_SCROLL_BOTTOM`; nanny bottom-nav screens `BOTTOM_NAV_HEIGHT + spacing.lg`; plain
+  stack screens (no nav bar) `spacing['4xl']`.
 
 ---
 

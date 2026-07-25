@@ -3,17 +3,14 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Pressable,
 } from 'react-native';
 import type { NotificationResponse } from '@nanny-app/shared';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
-import NannyBottomNav from '@mobile/components/NannyBottomNav';
-import { IconCircle } from '@mobile/components/ui';
+import { IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -28,7 +25,7 @@ import {
   type NotificationFilter,
 } from '@mobile/lib/notificationUtils';
 import { colors } from '@mobile/theme';
-import { styles } from '../parent/styles/notifications-screen.styles';
+import { styles } from './styles/nanny-notifications-screen.styles';
 
 const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -36,7 +33,6 @@ const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [
 ];
 
 export default function NannyNotificationsScreen() {
-  const router = useRouter();
   const [filter, setFilter] = useState<NotificationFilter>('all');
 
   const {
@@ -75,28 +71,17 @@ export default function NannyNotificationsScreen() {
       : 'No notifications yet. Booking updates and messages will appear here.';
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={16} color={colors.textDark} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        {showMarkAllRead ? (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => markAllRead.mutate()}
-            disabled={markAllRead.isPending}
-          >
-            <Text style={styles.markAllRead}>Mark all read</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-      </View>
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader
+        title="Notifications"
+        rightElement={
+          showMarkAllRead ? (
+            <Pressable onPress={() => markAllRead.mutate()} disabled={markAllRead.isPending} hitSlop={8}>
+              <Text style={styles.markAllRead}>Mark all read</Text>
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -122,11 +107,10 @@ export default function NannyNotificationsScreen() {
             const countLabel =
               option.key === 'unread' && unreadCount > 0 ? ` (${unreadCount})` : '';
             return (
-              <TouchableOpacity
+              <Pressable
                 key={option.key}
                 style={[styles.pill, isActive ? styles.pillActive : styles.pillInactive]}
                 onPress={() => setFilter(option.key)}
-                activeOpacity={0.8}
               >
                 <Text
                   style={[
@@ -137,7 +121,7 @@ export default function NannyNotificationsScreen() {
                   {option.label}
                   {countLabel}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </ScrollView>
@@ -192,9 +176,7 @@ export default function NannyNotificationsScreen() {
           </>
         )}
       </ScrollView>
-
-      <NannyBottomNav activeTab="dashboard" />
-    </View>
+    </ScreenContainer>
   );
 }
 
@@ -209,8 +191,7 @@ function NotificationCard({
   const icon = getNotificationIcon(notification.type);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Pressable
       onPress={onPress}
       style={[styles.card, isUnread ? styles.cardUnread : styles.cardRead]}
     >
@@ -233,6 +214,6 @@ function NotificationCard({
           {notification.body}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

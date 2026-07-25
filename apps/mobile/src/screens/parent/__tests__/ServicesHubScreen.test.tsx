@@ -53,7 +53,7 @@ describe('ServicesHubScreen', () => {
     getByText('Marketplace');
     getByText('Events & Meetups');
     getByText('Care Points');
-    getByText('Prepaid hours');
+    getByText('Packages');
   });
 
   it('navigates to each destination', () => {
@@ -77,7 +77,7 @@ describe('ServicesHubScreen', () => {
       params: { returnTo: 'services' },
     });
 
-    fireEvent.press(getByText('Prepaid hours'));
+    fireEvent.press(getByText('Packages'));
     expect(mockPush).toHaveBeenCalledWith('/(parent)/packages');
   });
 
@@ -99,10 +99,10 @@ describe('ServicesHubScreen', () => {
     );
 
     useRegisterPromptStore.setState({ message: null });
-    fireEvent.press(getByText('Prepaid hours'));
+    fireEvent.press(getByText('Packages'));
     expect(mockPush).not.toHaveBeenCalled();
     expect(useRegisterPromptStore.getState().message).toBe(
-      'Create your free account to buy prepaid care hours.',
+      'Create your free account to buy care packages.',
     );
 
     fireEvent.press(getByText('Community'));

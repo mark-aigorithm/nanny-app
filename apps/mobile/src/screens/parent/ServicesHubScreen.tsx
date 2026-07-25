@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import BottomNav from '@mobile/components/BottomNav';
-import { IconCircle } from '@mobile/components/ui';
+import { IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
 import { colors } from '@mobile/theme';
@@ -21,7 +21,7 @@ const TILES: {
   { key: 'marketplace', label: 'Marketplace', icon: 'storefront-outline' },
   { key: 'events', label: 'Events & Meetups', icon: 'calendar-outline' },
   { key: 'rewards', label: 'Care Points', icon: 'gift-outline' },
-  { key: 'packages', label: 'Prepaid hours', icon: 'time-outline' },
+  { key: 'packages', label: 'Packages', icon: 'time-outline' },
 ];
 
 export default function ServicesHubScreen() {
@@ -61,7 +61,7 @@ export default function ServicesHubScreen() {
 
   const GATED_TILE_COPY: Record<string, string> = {
     rewards: 'Create your free account to earn Care Points.',
-    packages: 'Create your free account to buy prepaid care hours.',
+    packages: 'Create your free account to buy care packages.',
   };
 
   const tileHandler = (key: string) => {
@@ -70,16 +70,14 @@ export default function ServicesHubScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader title="Services" showBackButton={false} />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.screenTitle}>Services</Text>
-
         <Pressable
           style={({ pressed }) => [styles.heroTile, pressed && styles.tilePressed]}
           onPress={openBooking}
@@ -107,6 +105,6 @@ export default function ServicesHubScreen() {
       </ScrollView>
 
       <BottomNav activeTab="services" />
-    </View>
+    </ScreenContainer>
   );
 }

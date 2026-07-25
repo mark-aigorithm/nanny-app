@@ -13,7 +13,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReferralListItem } from '@nanny-app/shared';
 
-import { Button, Card, IconCircle } from '@mobile/components/ui';
+import { Button, Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { useReferralSummary } from '@mobile/hooks/useReferrals';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
@@ -92,14 +92,8 @@ export default function ReferAFriendScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable style={styles.headerIconBtn} onPress={handleBack} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Refer a friend</Text>
-        <View style={styles.headerIconBtn} />
-      </View>
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader title="Refer a friend" onBack={handleBack} />
 
       <ScrollView
         style={styles.scroll}
@@ -250,6 +244,6 @@ export default function ReferAFriendScreen() {
           </>
         )}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }

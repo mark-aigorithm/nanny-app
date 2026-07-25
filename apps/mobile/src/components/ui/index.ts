@@ -6,6 +6,7 @@ export { default as Card } from './card';
 export { default as Chip } from './chip';
 export { default as IconCircle } from './icon-circle';
 export { default as Header } from './header';
+export { default as StackHeader } from './stack-header';
 export { default as SearchBar } from './search-bar';
 export { default as Badge } from './badge';
 export { default as Avatar } from './avatar';

@@ -7,37 +7,20 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
-  FLOATING_NAV_CLEARANCE,
+  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.xl,
-    paddingBottom: FLOATING_NAV_CLEARANCE + spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
     gap: spacing.lg,
   },
 
-  // Name header (Uber-style: big bold name left, avatar right)
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.lg,
-  },
-  name: {
-    ...typeScale.displayLg,
-    color: colors.textPrimary,
-    flex: 1,
-  },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,9 +115,5 @@ export const styles = StyleSheet.create({
   },
   listItemDestructive: {
     color: colors.errorDark,
-  },
-  listDivider: {
-    height: 1,
-    backgroundColor: colors.borderSubtle,
   },
 });

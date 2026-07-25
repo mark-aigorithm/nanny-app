@@ -63,7 +63,10 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.taupeHeader,
+    // Blend with the cream page background (matches NannyTabHeader + StackHeader)
+    // rather than a distinct taupe band — a clean, airy home header à la
+    // Instagram/Airbnb, and consistent chrome across the app.
+    backgroundColor: colors.background,
     zIndex: 100,
   },
   headerRow: {

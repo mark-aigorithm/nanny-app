@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import BottomNav from '@mobile/components/BottomNav';
-import { Avatar, IconCircle } from '@mobile/components/ui';
+import { Avatar, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
@@ -15,12 +15,12 @@ import { styles } from './styles/mother-profile-wallet-screen.styles';
 // Uber-style Account tab: name header, 2x2 quick tiles, promo cards, list.
 // Screen-specific config stays local (see CLAUDE.md).
 const QUICK_TILES: {
-  key: 'help' | 'wallet' | 'inbox' | 'notifications';
+  key: 'account' | 'help' | 'inbox' | 'notifications';
   label: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
 }[] = [
+  { key: 'account', label: 'Account details', icon: 'person-circle-outline' },
   { key: 'help', label: 'Help', icon: 'help-buoy-outline' },
-  { key: 'wallet', label: 'Wallet', icon: 'wallet-outline' },
   { key: 'inbox', label: 'Inbox', icon: 'mail-outline' },
   { key: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
 ];
@@ -41,14 +41,17 @@ export default function MotherProfileWalletScreen() {
 
   const handleTilePress = (key: (typeof QUICK_TILES)[number]['key']) => {
     switch (key) {
+      case 'account':
+        router.push({
+          pathname: '/(parent)/account-details',
+          params: { returnTo: 'mother-profile' },
+        } as never);
+        break;
       case 'help':
         router.push({
           pathname: '/(parent)/customer-support',
           params: { returnTo: 'mother-profile' },
         } as never);
-        break;
-      case 'wallet':
-        router.push('/(parent)/payment-methods' as never);
         break;
       case 'inbox':
         router.push('/(parent)/messages' as never);
@@ -60,25 +63,24 @@ export default function MotherProfileWalletScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader
+        title={displayName || 'Account'}
+        showBackButton={false}
+        rightElement={
+          <Avatar
+            uri={profile?.avatarUrl ?? undefined}
+            size="lg"
+            fallbackInitial={profile?.firstName?.[0]}
+          />
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Name header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {displayName}
-          </Text>
-          <Avatar
-            uri={profile?.avatarUrl ?? undefined}
-            size="xl"
-            fallbackInitial={profile?.firstName?.[0]}
-          />
-        </View>
         <View style={styles.statusPill}>
           {isVerified ? (
             <>
@@ -136,7 +138,7 @@ export default function MotherProfileWalletScreen() {
           onPress={() => router.push('/(parent)/packages' as never)}
         >
           <View style={styles.promoTextWrap}>
-            <Text style={styles.promoTitle}>Prepaid hours</Text>
+            <Text style={styles.promoTitle}>Packages</Text>
             <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
           </View>
           <IconCircle icon="time-outline" size="lg" />
@@ -162,22 +164,6 @@ export default function MotherProfileWalletScreen() {
         <View style={styles.listSection}>
           <Pressable
             style={styles.listItem}
-            onPress={() =>
-              router.push({
-                pathname: '/(parent)/account-details',
-                params: { returnTo: 'mother-profile' },
-              } as never)
-            }
-          >
-            <Ionicons name="person-circle-outline" size={22} color={colors.textPrimary} />
-            <Text style={styles.listItemLabel}>Account details</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-          </Pressable>
-
-          <View style={styles.listDivider} />
-
-          <Pressable
-            style={styles.listItem}
             disabled={signOut.isPending}
             onPress={() =>
               signOut.mutate(undefined, {
@@ -194,6 +180,6 @@ export default function MotherProfileWalletScreen() {
       </ScrollView>
 
       <BottomNav activeTab="account" />
-    </View>
+    </ScreenContainer>
   );
 }

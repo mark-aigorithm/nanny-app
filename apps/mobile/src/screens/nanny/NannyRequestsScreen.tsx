@@ -4,12 +4,12 @@ import {
   Text,
   ScrollView,
   Pressable,
-  StatusBar,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ScreenContainer } from '@mobile/components/ui';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { formatChildrenSummary, type BookingResponse } from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
@@ -225,9 +225,7 @@ export default function NannyRequestsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
+    <ScreenContainer useSafeArea={false}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -284,6 +282,6 @@ export default function NannyRequestsScreen() {
       <NannyTabHeader title="Booking requests" />
 
       <NannyBottomNav activeTab="requests" />
-    </View>
+    </ScreenContainer>
   );
 }

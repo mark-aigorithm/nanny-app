@@ -417,7 +417,7 @@ export default function BookingStep1Screen() {
           <View style={styles.prepaidRow}>
             <Ionicons name="time-outline" size={16} color={colors.successDark} />
             <Text style={styles.prepaidText}>
-              {prepaidHours}h prepaid will be applied to this booking
+              {prepaidHours}h from your package will be applied to this booking
             </Text>
           </View>
         ) : (
@@ -429,7 +429,7 @@ export default function BookingStep1Screen() {
               <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
               <View style={styles.packageNudgeBody}>
                 <Text style={styles.packageNudgeTitle}>
-                  Save up to {bestPackagePercentOff}% with prepaid hours
+                  Save up to {bestPackagePercentOff}% with packages
                 </Text>
                 <Text style={styles.packageNudgeSub}>
                   Buy a bundle once — it applies to your bookings automatically.

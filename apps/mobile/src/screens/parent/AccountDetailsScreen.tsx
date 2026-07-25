@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
-import { useSignOut } from '@mobile/hooks/useAuth';
 import { useUpdateProfile } from '@mobile/hooks/useMe';
 import { isLocalImageUri, uploadImageToFirebase } from '@mobile/lib/storage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -24,7 +23,6 @@ import { noticeDialog } from '@mobile/store/confirmDialogStore';
 export default function AccountDetailsScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
-  const signOut = useSignOut();
   const updateProfile = useUpdateProfile();
   const profile = useUserProfileStore((s) => s.profile);
 
@@ -126,14 +124,6 @@ export default function AccountDetailsScreen() {
     } catch (err) {
       noticeDialog({ title: 'Could not save profile', message: err instanceof Error ? err.message : 'Something went wrong.' });
     }
-  };
-
-  const handleSignOut = () => {
-    signOut.mutate(undefined, {
-      onSuccess: () => {
-        router.replace('/');
-      },
-    });
   };
 
   return (
@@ -239,16 +229,6 @@ export default function AccountDetailsScreen() {
             </Text>
           </Pressable>
         )}
-
-        <Pressable
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-          disabled={signOut.isPending}
-        >
-          <Text style={styles.signOutButtonText}>
-            {signOut.isPending ? 'Signing out\u2026' : 'Sign out'}
-          </Text>
-        </Pressable>
       </ScrollView>
 
       <View style={styles.header} pointerEvents="box-none">

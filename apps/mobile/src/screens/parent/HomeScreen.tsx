@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentActiveBookingCard from '@mobile/components/ParentActiveBookingCard';
-import { Button } from '@mobile/components/ui';
+import { Button, ScreenContainer } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
@@ -43,9 +43,7 @@ export default function HomeScreen() {
   const { gate: idGate } = useIdGate();
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
-
+    <ScreenContainer useSafeArea={false}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -116,6 +114,6 @@ export default function HomeScreen() {
       <ParentTabHeader />
 
       <BottomNav activeTab="home" />
-    </View>
+    </ScreenContainer>
   );
 }

@@ -6,51 +6,21 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
-  HEADER_HEIGHT,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  loadingCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: HEADER_HEIGHT + spacing.lg,
+    paddingTop: spacing.xs,
     paddingHorizontal: screenPadding,
     paddingBottom: spacing['4xl'],
     gap: spacing['2xl'],
-  },
-
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerTitle: {
-    ...typeScale.headingLg,
-    color: colors.textPrimary,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   // Status badge

@@ -3,13 +3,12 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
   Image,
-  StatusBar,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -45,9 +44,9 @@ export default function NannyBookingDetailScreen() {
 
   if (isLoading || !booking) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+      <ScreenContainer useSafeArea={false} style={styles.loadingCenter}>
         <ActivityIndicator color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -58,8 +57,8 @@ export default function NannyBookingDetailScreen() {
   const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader title="Booking details" onBack={handleBack} />
 
       <ScrollView
         style={styles.scrollView}
@@ -165,17 +164,6 @@ export default function NannyBookingDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
-
-      {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <Pressable style={styles.iconBtn} onPress={handleBack} hitSlop={8}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Booking details</Text>
-          <View style={styles.iconBtn} />
-        </View>
-      </View>
-    </View>
+    </ScreenContainer>
   );
 }

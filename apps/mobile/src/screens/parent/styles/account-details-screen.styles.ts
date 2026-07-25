@@ -145,21 +145,4 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.white,
   },
-
-  // Sign-out button (destructive)
-  signOutButton: {
-    height: 56,
-    marginTop: 16,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1.5,
-    borderColor: colors.error,
-    backgroundColor: colors.errorLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signOutButtonText: {
-    ...typeScale.labelLg,
-    fontFamily: fontFamily.bold,
-    color: colors.error,
-  },
 });

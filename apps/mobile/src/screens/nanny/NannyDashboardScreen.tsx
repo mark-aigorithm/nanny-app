@@ -4,12 +4,12 @@ import {
   Text,
   ScrollView,
   Pressable,
-  StatusBar,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ScreenContainer } from '@mobile/components/ui';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { sortBookingsByStartTime } from '@mobile/hooks/useBookingShiftTimer';
@@ -54,9 +54,7 @@ export default function NannyDashboardScreen() {
   const loadingBookings = loadingShift;
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
+    <ScreenContainer useSafeArea={false}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -160,6 +158,6 @@ export default function NannyDashboardScreen() {
       <NannyTabHeader title="Dashboard" />
 
       <NannyBottomNav activeTab="dashboard" />
-    </View>
+    </ScreenContainer>
   );
 }

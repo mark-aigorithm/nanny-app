@@ -12,11 +12,6 @@ import {
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
   // Scroll
   scrollView: {
     flex: 1,

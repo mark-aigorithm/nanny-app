@@ -7,63 +7,20 @@ import {
   borderRadius,
   shadows,
   screenPadding,
-  STATUS_BAR_HEIGHT,
-  HEADER_HEIGHT,
 } from '@mobile/theme';
 
-const FOOTER_HEIGHT = 88;
-
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
   // Scroll
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: HEADER_HEIGHT + spacing.lg,
-    paddingBottom: FOOTER_HEIGHT + spacing['2xl'],
+    paddingTop: spacing.xs,
+    paddingBottom: spacing['4xl'],
     paddingHorizontal: screenPadding,
     gap: spacing['2xl'],
   },
 
-  // Header
-  header: {
-    position: 'absolute',
-    top: spacing.xs,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253,250,248,0.92)',
-    zIndex: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  headerTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: 18,
-    lineHeight: 24,
-    color: colors.textPrimary,
-  },
-  headerSubtitle: {
-    fontFamily: fontFamily.medium,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.textMuted,
-  },
   iconBtn: {
     width: 36,
     height: 36,
@@ -225,40 +182,10 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Footer
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(252,249,247,0.9)',
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 34 : spacing['2xl'],
-    zIndex: 100,
-  },
-  sendUpdateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    height: 56,
-    borderRadius: borderRadius.full,
-    borderWidth: 2,
-    borderColor: colors.success,
-    backgroundColor: colors.transparent,
-  },
-  sendUpdateText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.success,
-  },
-
   // Bottom Sheet
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -324,7 +251,7 @@ export const styles = StyleSheet.create({
   },
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   pickerSheet: {
@@ -353,36 +280,9 @@ export const styles = StyleSheet.create({
     color: colors.primary,
   },
 
-  // Toggle
-  toggleRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  toggleBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(227,213,202,0.3)',
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.success,
-  },
-  toggleText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textMuted,
-  },
-  toggleTextActive: {
-    color: colors.white,
-  },
-
   // Notes
   notesInput: {
-    backgroundColor: 'rgba(227,213,202,0.2)',
+    backgroundColor: colors.taupeLight,
     borderRadius: borderRadius.md,
     padding: spacing.lg,
     height: 88,
@@ -422,6 +322,54 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontSize: 14,
     lineHeight: 20,
+    color: colors.textMuted,
+  },
+
+  // Evidence (moved out of the screen file)
+  evidenceSection: {
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  evidenceRow: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  evidenceThumbWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  evidenceThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  evidenceThumbRemove: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.xs,
+    width: 22,
+    height: 22,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  evidenceAddBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.taupe,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.taupeLight,
+  },
+  evidenceAddBtnText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
     color: colors.textMuted,
   },
 });

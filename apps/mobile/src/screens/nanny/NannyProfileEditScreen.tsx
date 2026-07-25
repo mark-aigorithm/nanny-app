@@ -6,7 +6,6 @@ import {
   Pressable,
   Image,
   TextInput,
-  StatusBar,
   KeyboardAvoidingView,
   Platform,
   Switch,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ScreenContainer } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
@@ -217,9 +217,9 @@ export default function NannyProfileEditScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+      <ScreenContainer useSafeArea={false} style={styles.loadingCenter}>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -237,13 +237,12 @@ export default function NannyProfileEditScreen() {
   if (availabilityLabel) stats.push({ value: availabilityLabel, label: 'availability' });
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <StatusBar barStyle="dark-content" />
-
-      <ScrollView
+    <ScreenContainer useSafeArea={false}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -586,6 +585,7 @@ export default function NannyProfileEditScreen() {
       />
 
       <NannyBottomNav activeTab="profile" />
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }

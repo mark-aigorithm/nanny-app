@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -21,6 +20,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import type { CareLogResponse, CareLogType } from '@nanny-app/shared';
 
+import { ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
@@ -216,7 +216,24 @@ export default function CareLogScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer useSafeArea={false}>
+      <StackHeader
+        title="Care log"
+        subtitle={TODAY_LABEL}
+        onBack={() => router.back()}
+        rightElement={
+          activeBooking ? (
+            <Pressable
+              style={styles.endShiftBtn}
+              onPress={() => confirmEndShift(activeBooking, checkOut, () => router.back())}
+              disabled={checkOut.isPending}
+            >
+              <Text style={styles.endShiftBtnText}>End shift</Text>
+            </Pressable>
+          ) : undefined
+        }
+      />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -311,35 +328,6 @@ export default function CareLogScreen() {
         </View>
       </ScrollView>
 
-      {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Pressable style={styles.iconBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <View>
-              <Text style={styles.headerTitle}>Care log</Text>
-              <Text style={styles.headerSubtitle}>{TODAY_LABEL}</Text>
-            </View>
-          </View>
-          {activeBooking ? (
-            <Pressable
-              style={styles.endShiftBtn}
-              onPress={() => confirmEndShift(activeBooking, checkOut, () => router.back())}
-              disabled={checkOut.isPending}
-            >
-              <Text style={styles.endShiftBtnText}>End shift</Text>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.iconBtn}>
-              <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-
       {/* Bottom Sheet */}
       <Modal
         visible={sheetCategory !== null}
@@ -420,27 +408,27 @@ export default function CareLogScreen() {
               />
 
               {/* Evidence */}
-              <View style={evidenceStyles.section}>
+              <View style={styles.evidenceSection}>
                 <Text style={styles.timeSelectorLabel}>EVIDENCE</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={evidenceStyles.row}
+                  contentContainerStyle={styles.evidenceRow}
                 >
                   {evidenceUris.map((uri) => (
-                    <View key={uri} style={evidenceStyles.thumbWrap}>
-                      <Image source={{ uri }} style={evidenceStyles.thumb} />
+                    <View key={uri} style={styles.evidenceThumbWrap}>
+                      <Image source={{ uri }} style={styles.evidenceThumb} />
                       <Pressable
-                        style={evidenceStyles.thumbRemove}
+                        style={styles.evidenceThumbRemove}
                         onPress={() => removeEvidence(uri)}
                       >
                         <Ionicons name="close" size={14} color={colors.white} />
                       </Pressable>
                     </View>
                   ))}
-                  <Pressable style={evidenceStyles.addBtn} onPress={handleAddEvidence}>
+                  <Pressable style={styles.evidenceAddBtn} onPress={handleAddEvidence}>
                     <Ionicons name="camera-outline" size={22} color={colors.textMuted} />
-                    <Text style={evidenceStyles.addBtnText}>Add photo</Text>
+                    <Text style={styles.evidenceAddBtnText}>Add photo</Text>
                   </Pressable>
                 </ScrollView>
               </View>
@@ -489,55 +477,6 @@ export default function CareLogScreen() {
           )}
         </KeyboardAvoidingView>
       </Modal>
-
-    </View>
+    </ScreenContainer>
   );
 }
-
-const evidenceStyles = StyleSheet.create({
-  section: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  row: {
-    gap: 10,
-    paddingVertical: 4,
-  },
-  thumbWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  thumb: {
-    width: '100%',
-    height: '100%',
-  },
-  thumbRemove: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.taupe,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(227,213,202,0.15)',
-  },
-  addBtnText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-});
