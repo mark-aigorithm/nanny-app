@@ -6,10 +6,14 @@ import { UpdateRewardConfigSchema } from '@nanny-app/shared';
 import {
   Button,
   Card,
+  Coins,
   ErrorState,
   Feedback,
   Field,
+  Gift,
+  ICON_SIZE,
   LoadingState,
+  Sparkles,
   StaleRefreshBanner,
   useToast,
 } from '@admin/components/ui';
@@ -57,6 +61,27 @@ const REFERRAL_FIELDS: NumericField[] = [
     hint: 'Credited immediately when a new parent signs up with a referral code.',
   },
 ];
+
+/** A modern on/off pill toggle, styled from theme tokens. */
+function Switch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className="switch">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="switch-track">
+        <span className="switch-thumb" />
+      </span>
+      <span className="switch-label">{label}</span>
+    </label>
+  );
+}
 
 type FormState = {
   enabled: boolean;
@@ -162,7 +187,7 @@ export function RewardsConfigPanel() {
         />
       )}
       {form && (
-        <Card title="Care Points program">
+        <form onSubmit={handleSubmit} className="reward-config">
           {error != null && (
             <StaleRefreshBanner
               message={apiErrorMessage(error)}
@@ -170,78 +195,105 @@ export function RewardsConfigPanel() {
               retrying={isFetching}
             />
           )}
-          <form onSubmit={handleSubmit}>
-            <label className="reward-toggle">
-              <input
-                type="checkbox"
-                checked={form.enabled}
-                onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
-              />
-              <span>
-                <span className="reward-toggle-title">Program enabled</span>
-                <span className="reward-toggle-hint">
-                  When off, no points are earned and redemptions are blocked.
-                </span>
+
+          {/* ── Earning & redemption ─────────────────────────── */}
+          <section className={`card reward-section${form.enabled ? '' : ' reward-section--off'}`}>
+            <header className="reward-section-head">
+              <span className="reward-section-icon">
+                <Coins size={ICON_SIZE.stat} />
               </span>
-            </label>
+              <div className="reward-section-heading">
+                <h3>Earning &amp; redemption</h3>
+                <p>How parents earn Care Points and cash them in for free care hours.</p>
+              </div>
+              <Switch
+                checked={form.enabled}
+                onChange={(v) => setForm({ ...form, enabled: v })}
+                label={form.enabled ? 'Enabled' : 'Off'}
+              />
+            </header>
 
             <div className="form-grid">
               {FIELDS.map((field) => (
                 <Field key={field.key} label={field.label} hint={field.hint}>
-                  <input
-                    type="number"
-                    min={field.min ?? '0'}
-                    step="1"
-                    value={form[field.key]}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                    required
-                  />
+                  <div className="input-suffix">
+                    <input
+                      type="number"
+                      min={field.min ?? '0'}
+                      step="1"
+                      value={form[field.key]}
+                      onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                      required
+                    />
+                    <span>pts</span>
+                  </div>
                 </Field>
               ))}
             </div>
 
-            <p className="reward-rate-preview">
-              {earnPreview} {redeemPreview}
-            </p>
-
-            <label className="reward-toggle">
-              <input
-                type="checkbox"
-                checked={form.referralEnabled}
-                onChange={(e) => setForm({ ...form, referralEnabled: e.target.checked })}
-              />
+            <p className="reward-callout">
+              <Sparkles size={ICON_SIZE.inline} />
               <span>
-                <span className="reward-toggle-title">Referrals enabled</span>
-                <span className="reward-toggle-hint">
-                  When off, referral codes stop working and pending referrals stop paying
-                  out. Points already awarded are unaffected.
-                </span>
+                {earnPreview} {redeemPreview}
               </span>
-            </label>
+            </p>
+          </section>
+
+          {/* ── Referrals ────────────────────────────────────── */}
+          <section
+            className={`card reward-section${form.referralEnabled ? '' : ' reward-section--off'}`}
+          >
+            <header className="reward-section-head">
+              <span className="reward-section-icon reward-section-icon--referral">
+                <Gift size={ICON_SIZE.stat} />
+              </span>
+              <div className="reward-section-heading">
+                <h3>Referral program</h3>
+                <p>Reward both parents when an invited parent joins and completes their first booking.</p>
+              </div>
+              <Switch
+                checked={form.referralEnabled}
+                onChange={(v) => setForm({ ...form, referralEnabled: v })}
+                label={form.referralEnabled ? 'Enabled' : 'Off'}
+              />
+            </header>
 
             <div className="form-grid">
               {REFERRAL_FIELDS.map((field) => (
                 <Field key={field.key} label={field.label} hint={field.hint}>
-                  <input
-                    type="number"
-                    min={field.min ?? '0'}
-                    step="1"
-                    value={form[field.key]}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                    required
-                  />
+                  <div className="input-suffix">
+                    <input
+                      type="number"
+                      min={field.min ?? '0'}
+                      step="1"
+                      value={form[field.key]}
+                      onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                      required
+                    />
+                    <span>pts</span>
+                  </div>
                 </Field>
               ))}
             </div>
 
-            <p className="reward-rate-preview">{referralPreview}</p>
+            <p className={`reward-callout${form.referralEnabled ? '' : ' reward-callout--warn'}`}>
+              <Sparkles size={ICON_SIZE.inline} />
+              <span>{referralPreview}</span>
+            </p>
+          </section>
 
+          <footer className="reward-save-bar">
             {formError && <Feedback tone="error">{formError}</Feedback>}
-            <Button type="submit" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? 'Saving…' : 'Save Care Points'}
-            </Button>
-          </form>
-        </Card>
+            <div className="reward-save-bar-actions">
+              <span className="reward-save-hint">
+                Changes apply to future bookings and redemptions.
+              </span>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving…' : 'Save Care Points'}
+              </Button>
+            </div>
+          </footer>
+        </form>
       )}
     </>
   );

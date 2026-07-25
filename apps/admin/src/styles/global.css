@@ -2689,41 +2689,178 @@ h3 {
 /* ============================================================
    Care Points (rewards)
    ============================================================ */
-.reward-toggle {
+/* Config form — sectioned cards with a header, switch, and callout */
+.reward-config {
   display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  padding: 0.875rem 1rem;
-  border: 1px solid var(--color-warm-border);
+  flex-direction: column;
+}
+.reward-section {
+  transition: opacity 150ms ease;
+}
+.reward-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.reward-section-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-  margin-bottom: 1.25rem;
-  cursor: pointer;
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
 }
-.reward-toggle input {
-  margin-top: 0.15rem;
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--color-primary-dark);
+.reward-section-icon--referral {
+  background: rgba(184, 157, 120, 0.16);
+  color: var(--color-bronze);
 }
-.reward-toggle-title {
-  display: block;
-  font-weight: 600;
+.reward-section-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.reward-section-heading h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--color-text-primary);
 }
-.reward-toggle-hint {
-  display: block;
-  font-size: 0.8125rem;
+.reward-section-heading p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
   color: var(--color-text-muted);
-  margin-top: 0.15rem;
 }
-.reward-rate-preview {
-  margin: 1rem 0 1.25rem;
-  padding: 0.75rem 0.875rem;
+/* Dim (but keep editable) a section whose program is switched off. */
+.reward-section--off .form-grid,
+.reward-section--off .reward-callout {
+  opacity: 0.5;
+}
+
+/* Toggle switch */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: none;
+  cursor: pointer;
+  user-select: none;
+}
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-taupe);
+  transition: background 150ms ease;
+}
+.switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  transition: transform 150ms ease;
+}
+.switch input:checked + .switch-track {
+  background: var(--color-primary-dark);
+}
+.switch input:checked + .switch-track .switch-thumb {
+  transform: translateX(18px);
+}
+.switch input:focus-visible + .switch-track {
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+.switch-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Number input with a unit adornment (e.g. "pts") */
+.input-suffix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-suffix input {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+.input-suffix > span {
+  position: absolute;
+  right: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* Accent callout that restates the configured rates in plain terms */
+.reward-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.8rem 1rem;
   background: var(--color-warm-subtle);
+  border: 1px solid var(--color-warm-border);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.reward-callout svg {
+  flex: none;
+  margin-top: 0.1rem;
+  color: var(--color-primary-dark);
+}
+.reward-callout--warn {
+  border-left-color: var(--color-warning);
+}
+.reward-callout--warn svg {
+  color: var(--color-warning);
+}
+
+/* Sticky save bar spanning the form */
+.reward-save-bar {
+  position: sticky;
+  bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+.reward-save-bar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.reward-save-hint {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
 }
 .reward-modal-lead {
   color: var(--color-text-secondary);
