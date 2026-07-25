@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
+  calculatePriceBreakdown,
   formatChildAge,
+  resolveDurationMultiplier,
   resolveEffectiveRate,
   resolveExtraChildFee,
   type BookingChild,
@@ -59,14 +61,17 @@ function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): numbe
 }
 
 /**
- * Chip label: the name, plus what it adds to THIS booking. Free skills
- * carry no suffix — "+EGP 0.00" on half the list was pure noise.
+ * Chip label: the name, plus what the skill adds to the HOURLY rate — a per-hour
+ * figure, matching the "Your hourly rate" card below, so the numbers on this
+ * screen all speak the same unit. Free skills carry no suffix — "+EGP 0.00" on
+ * half the list was pure noise.
  */
-function addOnChipLabel(skill: PublicSkill, baseRate: number | null, hours: number): string {
-  if (baseRate == null || hours <= 0) return skill.name;
-  const amount = addOnAmount(skill, baseRate, hours);
-  if (amount <= 0.005) return skill.name;
-  return `${skill.name} · +${formatMoney(amount, { fractionDigits: 0 })}`;
+function addOnChipLabel(skill: PublicSkill, baseRate: number | null): string {
+  if (baseRate == null) return skill.name;
+  // `addOnAmount` for a single hour is exactly the per-hour add-on.
+  const perHour = addOnAmount(skill, baseRate, 1);
+  if (perHour <= 0.005) return skill.name;
+  return `${skill.name} · +${formatMoney(perHour, { fractionDigits: 0 })}/hr`;
 }
 
 /**
@@ -90,28 +95,46 @@ export default function BookingCareDetailsScreen() {
 
   // Coming back from the review step must restore exactly what she chose, so the
   // params win over her saved family whenever they carry anything.
+  const cameWithChildren = useMemo(
+    () => parseChildrenParam(params.children).length > 0,
+    [params.children],
+  );
   const [children, setChildren] = useState<DraftChild[]>(() => {
     const fromParams = parseChildrenParam(params.children);
+    // Never start empty. The stepper floors at one child and the CTA needs a
+    // count to enable; waiting on the saved-children query to seed left the
+    // screen stuck at "0 children" whenever that request was slow or errored.
     return fromParams.length > 0
       ? fromParams.map((c) => ({ name: c.name ?? '', ageYears: c.ageYears }))
-      : [];
+      : [{ name: '', ageYears: DEFAULT_CHILD_AGE }];
   });
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>(() =>
     parseSkillIdsParam(params.skillIds),
   );
-  const [saveChildren, setSaveChildren] = useState(params.saveChildren === '1');
+  // On by default so her family carries to the next booking without a tap. The
+  // param is only ever '0' once she has explicitly turned it off and moved on,
+  // so returning from the review step still respects that choice.
+  const [saveChildren, setSaveChildren] = useState(params.saveChildren !== '0');
 
-  // Prefill from her saved family on first arrival. Guarded on `children` being
-  // empty so this can never clobber a selection she has already made — including
-  // the one restored from params above, which resolves before this runs.
+  // The default child above is a placeholder her saved family should replace —
+  // but only on first arrival, and never over a real selection (restored params,
+  // or a count she has since changed). This latch tracks "the draft is now hers".
+  const childrenSettled = useRef(cameWithChildren);
+
+  // Prefill from her saved family once, on first arrival. Guarded by the latch so
+  // it can swap the placeholder for her real family but never clobber a choice
+  // she has already made.
   useEffect(() => {
-    if (!savedLoaded || children.length > 0) return;
-    const seed =
-      savedChildren && savedChildren.length > 0
-        ? savedChildren.map((c) => ({ name: c.name ?? '', ageYears: c.ageYears }))
-        : [{ name: '', ageYears: DEFAULT_CHILD_AGE }];
-    setChildren(seed.slice(0, Math.max(1, maxChildren)));
-  }, [savedLoaded, savedChildren, children.length, maxChildren]);
+    if (childrenSettled.current || !savedLoaded) return;
+    childrenSettled.current = true;
+    if (savedChildren && savedChildren.length > 0) {
+      setChildren(
+        savedChildren
+          .slice(0, Math.max(1, maxChildren))
+          .map((c) => ({ name: c.name ?? '', ageYears: c.ageYears })),
+      );
+    }
+  }, [savedLoaded, savedChildren, maxChildren]);
 
   const extraChildren = Math.max(0, children.length - includedChildren);
 
@@ -134,7 +157,30 @@ export default function BookingCareDetailsScreen() {
     return { rate: effectiveHourlyRate + amountPerHour, childFeePerHour: amountPerHour };
   }, [pricing, selectedAddOns, children.length]);
 
+  // The whole-booking total — base + skills + extra children across the
+  // duration, with the longer-booking discount applied. Runs the same engine as
+  // the review step and the server, so the footer's number is what she'll pay.
+  const bookingTotal = useMemo(() => {
+    if (!pricing || hours <= 0) return null;
+    return calculatePriceBreakdown({
+      baseRate: pricing.standardHourlyRate,
+      durationHours: hours,
+      skillAddOns: selectedAddOns,
+      extraChildFee: {
+        childrenCount: children.length,
+        includedChildren: pricing.includedChildrenPerBooking,
+        feeType: pricing.extraChildFeeType,
+        feeValue: pricing.extraChildFeeValue,
+      },
+      durationMultiplier: resolveDurationMultiplier(hours, pricing.durationRules),
+      discountAmount: 0,
+      nannyPercent: pricing.nannyPercent,
+      platformPercent: pricing.platformPercent,
+    }).totalAmount;
+  }, [pricing, hours, selectedAddOns, children.length]);
+
   const setCount = (next: number) => {
+    childrenSettled.current = true;
     setChildren((prev) => {
       if (next === prev.length) return prev;
       if (next < prev.length) return prev.slice(0, next);
@@ -147,6 +193,7 @@ export default function BookingCareDetailsScreen() {
   };
 
   const patchChild = (index: number, patch: Partial<DraftChild>) => {
+    childrenSettled.current = true;
     setChildren((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
   };
 
@@ -296,8 +343,11 @@ export default function BookingCareDetailsScreen() {
           <Switch
             value={saveChildren}
             onValueChange={setSaveChildren}
-            trackColor={{ false: colors.neutralLight, true: colors.primary }}
+            trackColor={{ false: colors.taupe, true: colors.primary }}
             thumbColor={colors.white}
+            // Without this the off-state track has no fill on iOS, so a white
+            // thumb over a white card left the toggle invisible.
+            ios_backgroundColor={colors.taupe}
           />
         </View>
 
@@ -312,7 +362,7 @@ export default function BookingCareDetailsScreen() {
               {addOns.map((skill) => (
                 <Chip
                   key={skill.id}
-                  label={addOnChipLabel(skill, hourlyRate, hours)}
+                  label={addOnChipLabel(skill, hourlyRate)}
                   active={selectedSkillIds.includes(skill.id)}
                   onPress={() => toggleSkill(skill.id)}
                   size="sm"
@@ -349,8 +399,8 @@ export default function BookingCareDetailsScreen() {
 
       <BookingSummaryBar
         summary={summaryLine}
-        total={effectiveRate ? `${formatMoney(effectiveRate.rate, { fractionDigits: 0 })}/hr` : null}
-        totalLabel="Hourly rate"
+        total={bookingTotal != null ? formatMoney(bookingTotal) : null}
+        totalLabel="Estimated total"
         ctaLabel="Continue to review"
         onPress={handleContinue}
         disabled={children.length === 0}

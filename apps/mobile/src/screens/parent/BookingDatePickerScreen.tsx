@@ -22,7 +22,9 @@ import {
 } from '@nanny-app/shared';
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
+import BookingLocationSection from '@mobile/components/BookingLocationSection';
 import { Stepper } from '@mobile/components/ui';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { fmtBookingDate, useBookingOptions, usePricingConfig } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingTime, formatDurationHours, formatHour24 } from '@mobile/lib/formatTime';
@@ -403,8 +405,20 @@ export default function BookingDatePickerScreen() {
     setStartWall(nextStart);
   };
 
+  // Every mother sets a home pin at registration, so this only trips for legacy
+  // accounts missing one. Gate only when we KNOW it's absent — never while the
+  // profile is still loading (null), which would wrongly block the flow.
+  const profile = useUserProfileStore((s) => s.profile);
+  const missingLocation =
+    profile != null && (profile.latitude == null || profile.longitude == null);
+
   const canContinue =
-    !!options && !!startWall && !!endWall && durationMinutes !== null && durationMinutes > 0;
+    !!options &&
+    !!startWall &&
+    !!endWall &&
+    durationMinutes !== null &&
+    durationMinutes > 0 &&
+    !missingLocation;
 
   const handleContinue = () => {
     if (!canContinue || !startWall || !endWall || durationMinutes === null) return;
@@ -605,9 +619,11 @@ export default function BookingDatePickerScreen() {
     ? 'Select a day'
     : !startWall
       ? 'Select a start time'
-      : breakdown
-        ? `Continue · ${formatMoney(breakdown.totalAmount)}`
-        : 'Continue';
+      : missingLocation
+        ? 'Add your address'
+        : breakdown
+          ? `Continue · ${formatMoney(breakdown.totalAmount)}`
+          : 'Continue';
 
   return (
     <View style={styles.container}>
@@ -741,6 +757,10 @@ export default function BookingDatePickerScreen() {
                 )}
               </View>
             </View>
+
+            {/* Where — a confirmation of the mother's saved home, so the nanny is
+                sent to the right place before she commits. */}
+            <BookingLocationSection />
           </>
         )}
       </ScrollView>
