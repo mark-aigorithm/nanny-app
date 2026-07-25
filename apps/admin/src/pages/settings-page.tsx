@@ -430,6 +430,17 @@ export function SettingsPage() {
   const issues = values ? findIssues(values) : [];
   const dirty = form != null && config != null && SETTINGS_KEYS.some((k) => form[k] !== String(config[k]));
 
+  /**
+   * Both sections hit the same backend, so a server outage fails them together.
+   * When the primary config load fails the page can't function, so we show one
+   * page-level error whose retry refetches everything — never two stacked
+   * "couldn't load" blocks.
+   */
+  function retryAll() {
+    void refetch();
+    void refetchSupport();
+  }
+
   function renderGroup(group: ConfigGroup) {
     if (!form) return null;
     return (
@@ -467,15 +478,16 @@ export function SettingsPage() {
         subtitle="When care can be booked and for how long, how far a request travels, and the pending-booking thresholds. Hours are local time — rates and fees live on the Pricing & Fees page."
       />
 
+      {error != null ? (
+        <ErrorState
+          message={apiErrorMessage(error)}
+          onRetry={retryAll}
+          retrying={isFetching || supportFetching}
+        />
+      ) : (
       <div className="settings-layout">
         <div className="settings-main">
-          {error != null ? (
-            <ErrorState
-              message={apiErrorMessage(error)}
-              onRetry={() => void refetch()}
-              retrying={isFetching}
-            />
-          ) : isLoading || !form ? (
+          {isLoading || !form ? (
             <ConfigSkeleton />
           ) : (
             <form id="platform-config-form" onSubmit={handleSubmit}>
@@ -598,6 +610,7 @@ export function SettingsPage() {
           )}
         </aside>
       </div>
+      )}
     </section>
   );
 }
