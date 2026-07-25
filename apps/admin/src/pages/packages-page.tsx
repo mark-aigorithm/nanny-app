@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { ErrorState, PageHeader, TableSkeleton } from '@admin/components/ui';
+import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
 import { PackageForm } from '@admin/features/packages/package-form';
 import { PackageTable } from '@admin/features/packages/package-table';
 import { PurchasesTab } from '@admin/features/package-purchases/purchases-tab';
@@ -48,14 +48,25 @@ export function PackagesPage() {
           <>
             <PackageForm />
             {isLoading && <TableSkeleton columns={6} />}
-            {error != null && (
+            {error != null && !packages && (
               <ErrorState
                 message={apiErrorMessage(error)}
                 onRetry={() => void refetch()}
                 retrying={isFetching}
               />
             )}
-            {packages && <PackageTable packages={packages} />}
+            {packages && (
+              <>
+                {error != null && (
+                  <StaleRefreshBanner
+                    message={apiErrorMessage(error)}
+                    onRetry={() => void refetch()}
+                    retrying={isFetching}
+                  />
+                )}
+                <PackageTable packages={packages} />
+              </>
+            )}
           </>
         )}
         {tab === 'purchases' && <PurchasesTab />}

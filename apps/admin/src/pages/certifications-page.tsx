@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { ErrorState, PageHeader, TableSkeleton } from '@admin/components/ui';
+import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
 import { CertificationForm } from '@admin/features/certifications/certification-form';
 import { CertificationTable } from '@admin/features/certifications/certification-table';
 import { fetchCertifications } from '@admin/lib/api';
@@ -20,14 +20,25 @@ export function CertificationsPage() {
       />
       <CertificationForm />
       {isLoading && <TableSkeleton columns={4} />}
-      {error != null && (
+      {error != null && !certifications && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
-      {certifications && <CertificationTable certifications={certifications} />}
+      {certifications && (
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <CertificationTable certifications={certifications} />
+        </>
+      )}
     </section>
   );
 }

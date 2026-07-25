@@ -138,6 +138,11 @@ export function useDashboardStats() {
     data,
     isLoading: bookingsQuery.isLoading || nanniesQuery.isLoading || promoQuery.isLoading,
     isFetching: bookingsQuery.isFetching || nanniesQuery.isFetching || promoQuery.isFetching,
+    // True once every underlying query has loaded at least once — lets the page
+    // tell a first-load failure (show a full error) apart from a background
+    // refetch failure (keep the numbers, show a non-blocking banner).
+    hasData:
+      bookingsQuery.data != null && nanniesQuery.data != null && promoQuery.data != null,
     error: bookingsQuery.error ?? nanniesQuery.error ?? promoQuery.error,
     refetch: () => {
       void bookingsQuery.refetch();

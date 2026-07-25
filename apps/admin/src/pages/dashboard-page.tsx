@@ -20,6 +20,7 @@ import {
   ICON_SIZE,
   PageHeader,
   Skeleton,
+  StaleRefreshBanner,
   StatCard,
   Ticket,
   UserPlus,
@@ -43,15 +44,18 @@ function formatEgp(value: number): string {
 }
 
 export function DashboardPage() {
-  const { data, isLoading, error, refetch, isFetching } = useDashboardStats();
+  const { data, isLoading, error, hasData, refetch, isFetching } = useDashboardStats();
   const { stats } = data;
 
   return (
     <section>
       <PageHeader title="Dashboard" subtitle="A snapshot of bookings, nannies, and revenue." />
 
-      {error != null && (
+      {error != null && !hasData && (
         <ErrorState message={apiErrorMessage(error)} onRetry={refetch} retrying={isFetching} />
+      )}
+      {error != null && hasData && (
+        <StaleRefreshBanner message={apiErrorMessage(error)} onRetry={refetch} retrying={isFetching} />
       )}
 
       <div className="stat-grid">

@@ -29,6 +29,7 @@ import {
   Pencil,
   PromptDialog,
   Select,
+  StaleRefreshBanner,
   Table,
   TableSkeleton,
   useToast,
@@ -359,8 +360,15 @@ export function BookingsPage() {
         />
       </div>
       {isLoading && <TableSkeleton columns={10} />}
-      {error != null && (
+      {error != null && !bookings && (
         <ErrorState
+          message={apiErrorMessage(error)}
+          onRetry={() => void refetch()}
+          retrying={isFetching}
+        />
+      )}
+      {bookings && error != null && (
+        <StaleRefreshBanner
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}

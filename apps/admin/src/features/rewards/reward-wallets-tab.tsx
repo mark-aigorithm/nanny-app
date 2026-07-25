@@ -13,6 +13,7 @@ import {
   Input,
   MenuItem,
   Pagination,
+  StaleRefreshBanner,
   Table,
   TableSkeleton,
 } from '@admin/components/ui';
@@ -132,7 +133,7 @@ export function RewardWalletsTab() {
       </div>
 
       {isLoading && <TableSkeleton columns={5} />}
-      {error != null && (
+      {error != null && !wallets && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -140,24 +141,33 @@ export function RewardWalletsTab() {
         />
       )}
       {wallets && (
-        <Table
-          columns={columns}
-          rows={wallets}
-          rowKey={(w) => w.userId}
-          empty={appliedSearch ? 'No parents match your search.' : 'No parent wallets yet.'}
-        />
-      )}
-      {wallets && meta && (
-        <Pagination
-          page={meta.page}
-          totalPages={meta.totalPages}
-          total={meta.total}
-          limit={meta.limit}
-          onPageChange={setPage}
-          limitOptions={ADMIN_PAGE_SIZES}
-          onLimitChange={setLimit}
-          label="wallets"
-        />
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <Table
+            columns={columns}
+            rows={wallets}
+            rowKey={(w) => w.userId}
+            empty={appliedSearch ? 'No parents match your search.' : 'No parent wallets yet.'}
+          />
+          {meta && (
+            <Pagination
+              page={meta.page}
+              totalPages={meta.totalPages}
+              total={meta.total}
+              limit={meta.limit}
+              onPageChange={setPage}
+              limitOptions={ADMIN_PAGE_SIZES}
+              onLimitChange={setLimit}
+              label="wallets"
+            />
+          )}
+        </>
       )}
 
       {historyFor && (

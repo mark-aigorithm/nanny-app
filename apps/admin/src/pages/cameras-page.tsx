@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import type { Camera } from '@nanny-app/shared';
 
-import { ErrorState, PageHeader, TableSkeleton } from '@admin/components/ui';
+import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
 import { CameraForm } from '@admin/features/cameras/camera-form';
 import { CameraTable } from '@admin/features/cameras/camera-table';
 import { fetchCameras } from '@admin/lib/api';
@@ -28,14 +28,25 @@ export function CamerasPage() {
         onDone={() => setEditing(null)}
       />
       {isLoading && <TableSkeleton columns={5} />}
-      {error != null && (
+      {error != null && !cameras && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
-      {cameras && <CameraTable cameras={cameras} onEdit={setEditing} />}
+      {cameras && (
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <CameraTable cameras={cameras} onEdit={setEditing} />
+        </>
+      )}
     </section>
   );
 }

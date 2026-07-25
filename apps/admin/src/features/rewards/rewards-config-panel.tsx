@@ -10,6 +10,7 @@ import {
   Feedback,
   Field,
   LoadingState,
+  StaleRefreshBanner,
   useToast,
 } from '@admin/components/ui';
 import { fetchRewardConfig, updateRewardConfig } from '@admin/lib/api';
@@ -153,7 +154,7 @@ export function RewardsConfigPanel() {
           <LoadingState label="Loading Care Points settings…" />
         </Card>
       )}
-      {error != null && (
+      {error != null && !form && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -162,6 +163,13 @@ export function RewardsConfigPanel() {
       )}
       {form && (
         <Card title="Care Points program">
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
           <form onSubmit={handleSubmit}>
             <label className="reward-toggle">
               <input

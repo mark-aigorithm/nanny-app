@@ -12,6 +12,7 @@ import {
   DetailHeader,
   ErrorState,
   LoadingState,
+  StaleRefreshBanner,
 } from '@admin/components/ui';
 import { fetchBooking } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -51,14 +52,25 @@ export function BookingDetailPage() {
       />
 
       {isLoading && <LoadingState label="Loading booking…" />}
-      {error != null && (
+      {error != null && !booking && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
-      {booking && <BookingSections booking={booking} />}
+      {booking && (
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <BookingSections booking={booking} />
+        </>
+      )}
     </section>
   );
 }

@@ -749,6 +749,22 @@ h3 {
   color: var(--color-success-text);
 }
 
+/* Inline banner shown above a table when a background refresh fails but the
+   previously loaded rows are still on screen. */
+.stale-refresh-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .empty-state {
   padding: 2.5rem 1rem;
   text-align: center;

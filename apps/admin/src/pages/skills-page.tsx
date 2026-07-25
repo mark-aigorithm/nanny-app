@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { ErrorState, PageHeader, TableSkeleton } from '@admin/components/ui';
+import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
 import { SkillForm } from '@admin/features/skills/skill-form';
 import { SkillTable } from '@admin/features/skills/skill-table';
 import { fetchSkills } from '@admin/lib/api';
@@ -20,14 +20,25 @@ export function SkillsPage() {
       />
       <SkillForm />
       {isLoading && <TableSkeleton columns={4} />}
-      {error != null && (
+      {error != null && !skills && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
-      {skills && <SkillTable skills={skills} />}
+      {skills && (
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <SkillTable skills={skills} />
+        </>
+      )}
     </section>
   );
 }

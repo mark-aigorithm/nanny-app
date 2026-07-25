@@ -10,6 +10,7 @@ import {
   ErrorState,
   FilterSelect,
   Pagination,
+  StaleRefreshBanner,
   Table,
   TableSkeleton,
 } from '@admin/components/ui';
@@ -151,7 +152,7 @@ export function NannyReviewTab() {
         />
       </div>
       {isLoading && <TableSkeleton columns={6} />}
-      {error != null && (
+      {error != null && !nannies && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -159,26 +160,35 @@ export function NannyReviewTab() {
         />
       )}
       {nannies && (
-        <Table
-          wrap
-          columns={columns}
-          rows={nannies}
-          rowKey={(nanny) => nanny.id}
-          empty="No nannies with this status."
-          onRowClick={(nanny) => navigate(`/users/nannies/${nanny.id}`)}
-        />
-      )}
-      {nannies && meta && (
-        <Pagination
-          page={meta.page}
-          totalPages={meta.totalPages}
-          total={meta.total}
-          limit={meta.limit}
-          onPageChange={setPage}
-          limitOptions={ADMIN_PAGE_SIZES}
-          onLimitChange={setLimit}
-          label="nannies"
-        />
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <Table
+            wrap
+            columns={columns}
+            rows={nannies}
+            rowKey={(nanny) => nanny.id}
+            empty="No nannies with this status."
+            onRowClick={(nanny) => navigate(`/users/nannies/${nanny.id}`)}
+          />
+          {meta && (
+            <Pagination
+              page={meta.page}
+              totalPages={meta.totalPages}
+              total={meta.total}
+              limit={meta.limit}
+              onPageChange={setPage}
+              limitOptions={ADMIN_PAGE_SIZES}
+              onLimitChange={setLimit}
+              label="nannies"
+            />
+          )}
+        </>
       )}
     </>
   );

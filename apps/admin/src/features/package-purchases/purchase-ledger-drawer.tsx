@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import type { PackageHoursLedgerEntry } from '@nanny-app/shared';
 
-import { Badge, ErrorState, LoadingState, Modal } from '@admin/components/ui';
+import { Badge, ErrorState, LoadingState, Modal, StaleRefreshBanner } from '@admin/components/ui';
 import { fetchPackagePurchaseDetail } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatDateTime, formatEgp, formatHours } from '@admin/lib/format';
@@ -44,7 +44,7 @@ export function PurchaseLedgerDrawer({ id, onClose }: Props) {
   return (
     <Modal title={data ? `${data.packageName} — ${data.buyerName}` : 'Package purchase'} onClose={onClose}>
       {isLoading && <LoadingState label="Loading purchase…" />}
-      {error != null && (
+      {error != null && !data && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -53,6 +53,13 @@ export function PurchaseLedgerDrawer({ id, onClose }: Props) {
       )}
       {data && (
         <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
           <div className="purchase-ledger-summary">
             <div>
               <span className="purchase-ledger-balance">{formatHours(data.hoursRemaining)}</span>

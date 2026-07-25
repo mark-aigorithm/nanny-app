@@ -31,6 +31,7 @@ export { TableSkeleton } from './table-skeleton';
 
 // Feedback
 export { ErrorState } from './error-state';
+export { StaleRefreshBanner } from './stale-refresh-banner';
 export { ToastProvider, useToast } from './toast';
 
 // Overlays

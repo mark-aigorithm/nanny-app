@@ -10,6 +10,7 @@ import {
   ICON_SIZE,
   LoadingState,
   Modal,
+  StaleRefreshBanner,
 } from '@admin/components/ui';
 import { fetchWalletHistory } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -59,8 +60,15 @@ export function WalletHistoryModal({ wallet, onClose }: Props) {
       </div>
 
       {isLoading && <LoadingState label="Loading history…" />}
-      {error != null && (
+      {error != null && !data && (
         <ErrorState
+          message={apiErrorMessage(error)}
+          onRetry={() => void refetch()}
+          retrying={isFetching}
+        />
+      )}
+      {data && error != null && (
+        <StaleRefreshBanner
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}

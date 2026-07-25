@@ -14,6 +14,7 @@ import {
   ErrorState,
   FilterSelect,
   Pagination,
+  StaleRefreshBanner,
   Table,
   TableSkeleton,
 } from '@admin/components/ui';
@@ -149,7 +150,7 @@ export function MothersTab() {
         />
       </div>
       {isLoading && <TableSkeleton columns={8} />}
-      {error != null && (
+      {error != null && !mothers && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -157,26 +158,35 @@ export function MothersTab() {
         />
       )}
       {mothers && (
-        <Table
-          wrap
-          columns={columns}
-          rows={mothers}
-          rowKey={(mother) => mother.id}
-          empty="No mommies with this status."
-          onRowClick={(mother) => navigate(`/users/mothers/${mother.id}`)}
-        />
-      )}
-      {mothers && meta && (
-        <Pagination
-          page={meta.page}
-          totalPages={meta.totalPages}
-          total={meta.total}
-          limit={meta.limit}
-          onPageChange={setPage}
-          limitOptions={ADMIN_PAGE_SIZES}
-          onLimitChange={setLimit}
-          label="mommies"
-        />
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <Table
+            wrap
+            columns={columns}
+            rows={mothers}
+            rowKey={(mother) => mother.id}
+            empty="No mommies with this status."
+            onRowClick={(mother) => navigate(`/users/mothers/${mother.id}`)}
+          />
+          {meta && (
+            <Pagination
+              page={meta.page}
+              totalPages={meta.totalPages}
+              total={meta.total}
+              limit={meta.limit}
+              onPageChange={setPage}
+              limitOptions={ADMIN_PAGE_SIZES}
+              onLimitChange={setLimit}
+              label="mommies"
+            />
+          )}
+        </>
       )}
     </>
   );

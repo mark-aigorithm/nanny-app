@@ -11,6 +11,7 @@ import {
   ErrorState,
   Field,
   PageHeader,
+  StaleRefreshBanner,
   Table,
   TableSkeleton,
   useToast,
@@ -108,7 +109,7 @@ export function AdminsPage() {
         </form>
       </Card>
       {isLoading && <TableSkeleton columns={4} />}
-      {error != null && (
+      {error != null && !admins && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -116,7 +117,16 @@ export function AdminsPage() {
         />
       )}
       {admins && (
-        <Table columns={columns} rows={admins} rowKey={(admin) => admin.id} empty="No admins yet." />
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <Table columns={columns} rows={admins} rowKey={(admin) => admin.id} empty="No admins yet." />
+        </>
       )}
     </section>
   );

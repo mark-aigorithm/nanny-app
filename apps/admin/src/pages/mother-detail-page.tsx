@@ -18,6 +18,7 @@ import {
   LoadingState,
   Pencil,
   PromptDialog,
+  StaleRefreshBanner,
   StatCard,
   useToast,
 } from '@admin/components/ui';
@@ -169,7 +170,7 @@ export function MotherDetailPage() {
       />
 
       {isLoading && <LoadingState label="Loading account…" />}
-      {error != null && (
+      {error != null && !mother && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -178,6 +179,13 @@ export function MotherDetailPage() {
       )}
       {mother && (
         <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
           <div className="stat-grid">
             <StatCard
               label="Bookings placed"

@@ -8,6 +8,7 @@ import {
   FilterSelect,
   Input,
   Pagination,
+  StaleRefreshBanner,
   TableSkeleton,
 } from '@admin/components/ui';
 import { fetchPackagePurchases } from '@admin/lib/api';
@@ -81,31 +82,44 @@ export function PurchasesTab() {
       </div>
 
       {isLoading && <TableSkeleton columns={8} />}
-      {error != null && (
+
+      {/* Full-page error only when there's nothing to fall back on. */}
+      {error != null && !purchases && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
+
       {purchases && (
-        <PurchaseTable
-          rows={purchases}
-          onRowClick={setSelectedId}
-          hasActiveFilters={status !== 'ALL' || appliedSearch !== ''}
-        />
-      )}
-      {purchases && meta && (
-        <Pagination
-          page={meta.page}
-          totalPages={meta.totalPages}
-          total={meta.total}
-          limit={meta.limit}
-          onPageChange={setPage}
-          limitOptions={ADMIN_PAGE_SIZES}
-          onLimitChange={setLimit}
-          label="purchases"
-        />
+        <>
+          {/* A background refresh failed, but the last loaded rows are still valid. */}
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <PurchaseTable
+            rows={purchases}
+            onRowClick={setSelectedId}
+            hasActiveFilters={status !== 'ALL' || appliedSearch !== ''}
+          />
+          {meta && (
+            <Pagination
+              page={meta.page}
+              totalPages={meta.totalPages}
+              total={meta.total}
+              limit={meta.limit}
+              onPageChange={setPage}
+              limitOptions={ADMIN_PAGE_SIZES}
+              onLimitChange={setLimit}
+              label="purchases"
+            />
+          )}
+        </>
       )}
 
       {selectedId != null && (

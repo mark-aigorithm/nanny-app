@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { ErrorState, PageHeader, TableSkeleton } from '@admin/components/ui';
+import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
 import { PromoCodeForm } from '@admin/features/promo-codes/promo-code-form';
 import { PromoCodeTable } from '@admin/features/promo-codes/promo-code-table';
 import { fetchPromoCodes } from '@admin/lib/api';
@@ -20,14 +20,25 @@ export function PromoCodesPage() {
       />
       <PromoCodeForm />
       {isLoading && <TableSkeleton columns={8} />}
-      {error != null && (
+      {error != null && !promoCodes && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
-      {promoCodes && <PromoCodeTable promoCodes={promoCodes} />}
+      {promoCodes && (
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <PromoCodeTable promoCodes={promoCodes} />
+        </>
+      )}
     </section>
   );
 }

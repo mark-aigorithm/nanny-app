@@ -14,6 +14,7 @@ import {
   ErrorState,
   LoadingState,
   PromptDialog,
+  StaleRefreshBanner,
   useToast,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
@@ -122,7 +123,7 @@ export function NannyDetailPage() {
       />
 
       {isLoading && <LoadingState label="Loading nanny…" />}
-      {error != null && (
+      {error != null && !nanny && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
@@ -132,6 +133,13 @@ export function NannyDetailPage() {
 
       {nanny && (
         <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
           <Card title="Profile">
             <DescriptionList items={profileItems(nanny)} />
           </Card>
