@@ -1,12 +1,14 @@
 import { useState } from 'react';
 
 import { PageHeader } from '@admin/components/ui';
+import { IdReviewTab } from '@admin/features/id-reviews/id-review-tab';
 import { NannyReviewTab } from '@admin/features/nannies/nanny-review-tab';
 import { MothersTab } from '@admin/features/users/mothers-tab';
 
 const TABS = [
   { id: 'mommies', label: 'Mommies' },
   { id: 'nannies', label: 'Nannies' },
+  { id: 'idReview', label: 'ID Review' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -38,6 +40,7 @@ export function UsersPage() {
       <div className="subtab-panel">
         {tab === 'mommies' && <MothersTab />}
         {tab === 'nannies' && <NannyReviewTab />}
+        {tab === 'idReview' && <IdReviewTab />}
       </div>
     </section>
   );

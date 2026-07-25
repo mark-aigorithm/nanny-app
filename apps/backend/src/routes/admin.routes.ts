@@ -3,6 +3,8 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import {
   AdminBookingListQuerySchema,
   type AdminBookingListQuery,
+  AdminIdReviewListQuerySchema,
+  type AdminIdReviewListQuery,
   AdminMotherListQuerySchema,
   type AdminMotherListQuery,
   AdminNannyListQuerySchema,
@@ -59,6 +61,7 @@ import {
   rejectNanny,
   setNannySkills,
 } from '@backend/services/admin-nanny.service';
+import { listIdReviews } from '@backend/services/admin-id-review.service';
 import {
   getPackagePurchaseDetail,
   listPackagePurchases,
@@ -337,6 +340,22 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await rejectMother(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Combined ID review queue (parents + nannies, one KYC gallery) ──
+
+adminRouter.get(
+  '/id-reviews',
+  validateQuery(AdminIdReviewListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = res.locals['validatedQuery'] as AdminIdReviewListQuery;
+      const { reviews, meta } = await listIdReviews(query);
+      res.json(okPaged(reviews, meta));
     } catch (err) {
       next(err);
     }

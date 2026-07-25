@@ -496,6 +496,54 @@ export const UpdateAdminMotherSchema = z
 export type UpdateAdminMotherInput = z.infer<typeof UpdateAdminMotherSchema>;
 
 // ──────────────────────────────────────────────────────────────
+// Combined ID review queue (parents + nannies in one KYC gallery)
+// ──────────────────────────────────────────────────────────────
+
+/** Which account roles the combined ID-review gallery can be narrowed to. */
+export const AdminIdReviewRoleFilterSchema = z.enum(['ALL', 'MOTHER', 'NANNY']);
+export type AdminIdReviewRoleFilter = z.infer<typeof AdminIdReviewRoleFilterSchema>;
+
+/** Verification-status filter for the ID-review queue (same states as the per-role lists). */
+export const AdminIdReviewStatusFilterSchema = z.enum([
+  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+]);
+export type AdminIdReviewStatusFilter = z.infer<typeof AdminIdReviewStatusFilterSchema>;
+
+/**
+ * One card in the combined ID-review gallery. Parents and nannies are pooled
+ * into a single queue keyed off the shared User row, where KYC state lives.
+ */
+export const AdminIdReviewSchema = z.object({
+  /**
+   * Id to pass to this role's approve/reject endpoint — the User id for a
+   * MOTHER, the NannyProfile id for a NANNY (those endpoints are keyed
+   * differently). Use `userId` for a stable, cross-role identity.
+   */
+  id: z.number().int(),
+  /** Underlying User id — unique across the queue, so it keys the React list. */
+  userId: z.number().int(),
+  role: z.enum(['MOTHER', 'NANNY']),
+  name: z.string(),
+  avatarUrl: z.string().nullable(),
+  location: z.string().nullable(),
+  idDocumentType: IdDocumentTypeSchema.nullable(),
+  idDocumentFrontUrl: z.string().nullable(),
+  idDocumentBackUrl: z.string().nullable(),
+  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  rejectionReason: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AdminIdReview = z.infer<typeof AdminIdReviewSchema>;
+
+/** Paginated ID-review queue query (GET /admin/id-reviews). Defaults to the pending queue. */
+export const AdminIdReviewListQuerySchema = AdminListQuerySchema.extend({
+  status: AdminIdReviewStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
+  role: AdminIdReviewRoleFilterSchema.catch('ALL').default('ALL'),
+});
+export type AdminIdReviewListQuery = z.infer<typeof AdminIdReviewListQuerySchema>;
+
+// ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)
 // ──────────────────────────────────────────────────────────────
 

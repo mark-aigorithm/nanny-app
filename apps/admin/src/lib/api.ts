@@ -2,6 +2,9 @@ import type {
   AdminBooking,
   AdminBookingDetail,
   AdminBookingStatusFilter,
+  AdminIdReview,
+  AdminIdReviewRoleFilter,
+  AdminIdReviewStatusFilter,
   AdminListQuery,
   AdminMother,
   AdminMotherDetail,
@@ -425,6 +428,19 @@ export async function rejectMother(id: string, reason?: string): Promise<AdminMo
     reason ? { reason } : {},
   );
   return res.data.data;
+}
+
+// ── Combined ID review queue (parents + nannies) ───────────────
+
+export async function fetchIdReviews(
+  status: AdminIdReviewStatusFilter,
+  role: AdminIdReviewRoleFilter,
+  { page, limit }: AdminListQuery,
+): Promise<Paged<AdminIdReview[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminIdReview[]>>('/admin/id-reviews', {
+    params: { status, role, page, limit },
+  });
+  return { data: res.data.data, meta: res.data.meta };
 }
 
 export async function fetchAdmins(): Promise<AdminUser[]> {
