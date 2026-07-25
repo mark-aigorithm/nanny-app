@@ -17,7 +17,7 @@ export { MOCK_PROFILE } from './profile';
 export { MOCK_FAQS } from './support';
 export { MOCK_REVIEWS } from './reviews';
 export { MOCK_NANNY_PROFILE } from './nanny-profile';
-export { MOCK_BOOKING_DETAIL, MOCK_PAYMENT_METHODS, MOCK_TIME_SLOTS } from './bookings';
+export { MOCK_BOOKING_DETAIL, MOCK_TIME_SLOTS } from './bookings';
 export { MOCK_PRODUCT_DETAIL, MOCK_SIMILAR_PRODUCTS } from './marketplace';
 export { MOCK_ACCOUNT_DETAILS } from './profile';
 export {

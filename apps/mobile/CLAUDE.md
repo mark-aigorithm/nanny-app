@@ -147,7 +147,6 @@ Business constants, configuration values, and reusable filter definitions live i
 |---|---|
 | `registration.ts` | `AGE_OPTIONS`, `PREFERENCE_OPTIONS` |
 | `otp.ts` | `OTP_LENGTH`, `RESEND_SECONDS` |
-| `booking.ts` | `PAYMENT_TYPES` (booking durations come from `GET /bookings/options`, not a constant) |
 | `filters.ts` | `HOME_FILTER_TABS`, `FilterTab`, `SORT_OPTIONS`, `INITIAL_SEARCH_FILTERS` |
 | `community.ts` | `TAGS` |
 | `index.ts` | Barrel re-export of all above |

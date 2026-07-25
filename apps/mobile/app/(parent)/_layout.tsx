@@ -33,7 +33,6 @@ export default function ParentLayout() {
         <Tabs.Screen name="community-feed" options={{ headerShown: false }} />
         <Tabs.Screen name="booking-history" options={{ headerShown: false }} />
         <Tabs.Screen name="account-details" options={{ headerShown: false }} />
-        <Tabs.Screen name="payment-methods" options={{ headerShown: false }} />
         <Tabs.Screen name="create-post" options={{ headerShown: false }} />
         <Tabs.Screen name="post-detail" options={{ headerShown: false }} />
         <Tabs.Screen name="create-event" options={{ headerShown: false }} />

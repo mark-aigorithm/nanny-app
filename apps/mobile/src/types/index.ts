@@ -17,7 +17,6 @@ export type {
   PastBooking,
   BookingConfirmation,
   BookingDetail,
-  PaymentMethod,
   TimeSlot,
 } from './booking';
 

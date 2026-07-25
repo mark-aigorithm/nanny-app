@@ -51,16 +51,6 @@ export interface BookingDetail {
   paymentMethod: string;
 }
 
-export interface PaymentMethod {
-  id: string;
-  type: 'visa' | 'mastercard' | 'amex' | 'apple_pay' | 'google_pay';
-  last4: string;
-  expiryMonth: number;
-  expiryYear: number;
-  isDefault: boolean;
-  cardholderName: string;
-}
-
 export interface TimeSlot {
   id: string;
   label: string;

@@ -1,4 +1,4 @@
-import type { BookingConfirmation, UpcomingBooking, PastBooking, BookingDetail, PaymentMethod, TimeSlot } from '@mobile/types';
+import type { BookingConfirmation, UpcomingBooking, PastBooking, BookingDetail, TimeSlot } from '@mobile/types';
 import { IMG_ELENA_BOOKING, IMG_SARAH_HOME, IMG_NANNY_ELENA_SEARCH } from './images';
 
 export const MOCK_BOOKING: BookingConfirmation = {
@@ -66,36 +66,6 @@ export const MOCK_BOOKING_DETAIL: BookingDetail = {
   platformFee: '$13.44',
   paymentMethod: 'Visa ending in 4242',
 };
-
-export const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: 'pm1',
-    type: 'visa',
-    last4: '4242',
-    expiryMonth: 12,
-    expiryYear: 2027,
-    isDefault: true,
-    cardholderName: 'Sarah Johnson',
-  },
-  {
-    id: 'pm2',
-    type: 'mastercard',
-    last4: '8888',
-    expiryMonth: 6,
-    expiryYear: 2026,
-    isDefault: false,
-    cardholderName: 'Sarah Johnson',
-  },
-  {
-    id: 'pm3',
-    type: 'apple_pay',
-    last4: '',
-    expiryMonth: 0,
-    expiryYear: 0,
-    isDefault: false,
-    cardholderName: 'Sarah Johnson',
-  },
-];
 
 export const MOCK_TIME_SLOTS: TimeSlot[] = [
   { id: 'ts1', label: '8:00 AM', startTime: '08:00', endTime: '09:00', available: true },
