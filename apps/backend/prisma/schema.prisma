@@ -95,6 +95,9 @@ enum PaymentPurpose {
   PACKAGE
   /// Extra hours added to an already-running booking. See BookingExtension.
   BOOKING_EXTENSION
+  /// The mother paying the difference after an admin edit raised the total of an
+  /// already-paid booking. See BookingAdjustment.
+  BOOKING_ADJUSTMENT
 
   @@map("payment_purpose")
 }
@@ -237,6 +240,8 @@ model User {
   packageHoursLedger       PackageHoursLedger[]      @relation("PackageHoursLedgerUser")
   packageHoursGrants       PackageHoursLedger[]      @relation("PackageHoursLedgerAdmin")
   bookingExtensions        BookingExtension[]        @relation("BookingExtensionMother")
+  bookingAdjustments       BookingAdjustment[]       @relation("BookingAdjustmentMother")
+  bookingAdjustmentGrants  BookingAdjustment[]       @relation("BookingAdjustmentAdmin")
 
   @@index([role])
   @@index([deletedAt])
@@ -840,6 +845,7 @@ model Booking {
   careLogs           CareLog[]
   packageHoursLedger PackageHoursLedger[]
   extensions         BookingExtension[]
+  adjustments        BookingAdjustment[]
 
   @@index([motherId])
   @@index([nannyProfileId])
@@ -907,6 +913,49 @@ model BookingExtension {
   @@map("booking_extensions")
 }
 
+/// Lifecycle of an admin-created balance adjustment. When an admin edit raises
+/// the total of an already-paid booking, the mother owes the difference: a
+/// PENDING_PAYMENT row is created, she pays it in-app (PAID), or an admin/later
+/// edit voids it (CANCELLED). Unlike an extension it changes no hours — the
+/// booking snapshot was already updated by the edit; this only settles money.
+enum BookingAdjustmentStatus {
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+
+  @@map("booking_adjustment_status")
+}
+
+/// A "pay the difference" obligation raised by an admin edit. `amountEgp` is the
+/// positive delta the mother must pay. One adjustment accrues one payment row per
+/// attempt (same pattern as Booking / BookingExtension); consumers take the newest.
+model BookingAdjustment {
+  id        Int                     @id @default(autoincrement())
+  bookingId Int                     @map("booking_id")
+  booking   Booking                 @relation(fields: [bookingId], references: [id])
+  motherId  Int                     @map("mother_id")
+  mother    User                    @relation("BookingAdjustmentMother", fields: [motherId], references: [id])
+  status    BookingAdjustmentStatus @default(PENDING_PAYMENT)
+  /// The difference the mother owes, in EGP. Always positive.
+  amountEgp Decimal                 @map("amount_egp") @db.Decimal(10, 2)
+  /// Human-readable note of what the edit changed, surfaced to the mother.
+  reason    String?
+  /// The admin who made the edit that created this obligation.
+  createdById Int?                  @map("created_by_id")
+  createdBy   User?                 @relation("BookingAdjustmentAdmin", fields: [createdById], references: [id])
+  paidAt    DateTime?               @map("paid_at")
+  createdAt DateTime                @default(now()) @map("created_at")
+  updatedAt DateTime                @updatedAt @map("updated_at")
+  deletedAt DateTime?               @map("deleted_at")
+
+  payments Payment[]
+
+  @@index([bookingId])
+  @@index([motherId])
+  @@index([status])
+  @@map("booking_adjustments")
+}
+
 model Payment {
   id                      Int              @id @default(autoincrement())
   /// Nullable + polymorphic: a payment covers either a Booking, a
@@ -921,6 +970,11 @@ model Payment {
   packagePurchase         PackagePurchase? @relation(fields: [packagePurchaseId], references: [id])
   bookingExtensionId      Int?              @map("booking_extension_id")
   bookingExtension        BookingExtension? @relation(fields: [bookingExtensionId], references: [id])
+  /// Set when this payment settles an admin-created balance adjustment (the
+  /// mother paying the difference after an edit raised the total). Mutually
+  /// exclusive with the other owner ids; `purpose` disambiguates.
+  bookingAdjustmentId     Int?              @map("booking_adjustment_id")
+  bookingAdjustment       BookingAdjustment? @relation(fields: [bookingAdjustmentId], references: [id])
   purpose                 PaymentPurpose   @default(BOOKING)
   motherId                Int              @map("mother_id")
   mother                  User             @relation("PaymentMother", fields: [motherId], references: [id])
@@ -954,6 +1008,7 @@ model Payment {
   /// flows look payments up by owner to find the latest attempt. Extensions
   /// resolve their newest attempt the same way.
   @@index([bookingExtensionId])
+  @@index([bookingAdjustmentId])
   @@index([packagePurchaseId])
   @@index([bookingId])
   @@map("payments")
@@ -1227,6 +1282,12 @@ enum NotificationType {
   BOOKING_EXTENSION_DECLINED
   /// The extension was paid for and the booking's end time has moved.
   BOOKING_EXTENDED
+  /// An admin edited the booking's details (schedule/children/skills/etc).
+  BOOKING_EDITED
+  /// An admin refunded part or all of a booking (money or Care Points).
+  BOOKING_REFUNDED
+  /// An admin edit raised the total; the mother owes the difference and must pay.
+  BOOKING_BALANCE_DUE
 
   @@map("notification_type")
 }

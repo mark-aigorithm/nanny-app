@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  BookingAdjustmentResponse,
   BookingExtensionResponse,
   BookingListQuery,
   BookingOptions,
@@ -328,6 +329,29 @@ export function useExtensionPaymobCheckout() {
   >({
     mutationFn: ({ extensionId, method = PaymentMethod.CARD }) =>
       unwrap(api.post(`/bookings/extensions/${extensionId}/pay/paymob`, { method })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+/** Open balance-due obligations on a booking (admin edit raised the total). */
+export function useBookingAdjustments(bookingId: number | undefined) {
+  return useQuery<BookingAdjustmentResponse[]>({
+    queryKey: [BOOKINGS_KEY, 'adjustments', bookingId],
+    queryFn: () => unwrap(api.get(`/bookings/${bookingId}/adjustments`)),
+    enabled: !!bookingId,
+  });
+}
+
+/** Paymob checkout for the difference owed after an admin edit. */
+export function useAdjustmentPaymobCheckout() {
+  const qc = useQueryClient();
+  return useMutation<
+    PaymobCheckoutSession,
+    Error,
+    { adjustmentId: number; method?: MockPayBookingRequest['method'] }
+  >({
+    mutationFn: ({ adjustmentId, method = PaymentMethod.CARD }) =>
+      unwrap(api.post(`/bookings/adjustments/${adjustmentId}/pay/paymob`, { method })),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
   });
 }

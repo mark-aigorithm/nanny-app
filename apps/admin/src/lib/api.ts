@@ -1,7 +1,14 @@
 import type {
   AdminBooking,
   AdminBookingDetail,
+  AdminBookingEditContext,
   AdminBookingStatusFilter,
+  AdminEditBookingInput,
+  AdminEditBookingCommitInput,
+  AdminEditCommitResponse,
+  AdminEditPreviewResponse,
+  AdminRefundBookingInput,
+  AdminRefundResponse,
   AdminIdReview,
   AdminIdReviewRoleFilter,
   AdminIdReviewStatusFilter,
@@ -356,6 +363,46 @@ export async function updateBookingTimes(
 ): Promise<AdminBooking> {
   const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
     `/admin/bookings/${id}/times`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function fetchBookingEditContext(id: number): Promise<AdminBookingEditContext> {
+  const res = await apiClient.get<ApiEnvelope<AdminBookingEditContext>>(
+    `/admin/bookings/${id}/edit/context`,
+  );
+  return res.data.data;
+}
+
+export async function previewBookingEdit(
+  id: number,
+  input: AdminEditBookingInput,
+): Promise<AdminEditPreviewResponse> {
+  const res = await apiClient.post<ApiEnvelope<AdminEditPreviewResponse>>(
+    `/admin/bookings/${id}/edit/preview`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function applyBookingEdit(
+  id: number,
+  input: AdminEditBookingCommitInput,
+): Promise<AdminEditCommitResponse> {
+  const res = await apiClient.post<ApiEnvelope<AdminEditCommitResponse>>(
+    `/admin/bookings/${id}/edit`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function refundBooking(
+  id: number,
+  input: AdminRefundBookingInput,
+): Promise<AdminRefundResponse> {
+  const res = await apiClient.post<ApiEnvelope<AdminRefundResponse>>(
+    `/admin/bookings/${id}/refund`,
     input,
   );
   return res.data.data;

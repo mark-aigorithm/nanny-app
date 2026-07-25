@@ -106,6 +106,7 @@ export async function validatePromoCode(
   code: string,
   applicableAmount: number,
   userId: number,
+  opts?: { excludeBookingId?: number },
 ): Promise<{ promoCodeId: number; discountAmount: number }> {
   const row = await prisma.promoCode.findFirst({ where: { code, deletedAt: null } });
   if (!row) throw errors.notFound(`Promo code "${code}" not found.`);
@@ -116,12 +117,15 @@ export async function validatePromoCode(
   // A code is only *consumed* once its booking is paid, so usage caps must also
   // count the bookings currently holding it unpaid. Without this a mother could
   // sit on any number of pending requests all claiming a one-per-customer code.
+  // An admin re-validating a code on a booking that already holds it must not
+  // count that booking against its own cap — hence excludeBookingId.
   const reservedWhere: Prisma.BookingWhereInput = {
     promoCodeId: row.id,
     deletedAt: null,
     status: {
       in: [BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.PENDING_CONFIRMATION],
     },
+    ...(opts?.excludeBookingId ? { id: { not: opts.excludeBookingId } } : {}),
   };
 
   if (row.maxUsage !== null) {

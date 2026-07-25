@@ -229,7 +229,7 @@ export async function createPaymobIntentionForBooking(
  */
 async function openIntention(params: {
   user: { id: number; email: string; firstName: string; lastName: string; phone: string };
-  owner: { bookingId: number } | { bookingExtensionId: number };
+  owner: { bookingId: number } | { bookingExtensionId: number } | { bookingAdjustmentId: number };
   purpose: PaymentPurpose;
   amount: Prisma.Decimal;
   attempts: { id: number; status: PaymentStatus; paymobClientSecret: string | null; paymobIntentionId: string | null; paymobIntentionAttempt: number; paymobReconcileAnchorAt: Date | null; createdAt: Date }[];
@@ -484,6 +484,108 @@ function isExtensionPurpose(purpose: PaymentPurpose | null): boolean {
   return purpose === PaymentPurpose.BOOKING_EXTENSION;
 }
 
+function isAdjustmentPurpose(purpose: PaymentPurpose | null): boolean {
+  return purpose === PaymentPurpose.BOOKING_ADJUSTMENT;
+}
+
+/**
+ * Checkout for the difference the mother owes after an admin edit raised the
+ * total of a booking she'd already paid for. The booking snapshot was already
+ * re-priced when the edit committed; this only settles the money. She can only
+ * be sent here while the adjustment is PENDING_PAYMENT.
+ */
+export async function createPaymobIntentionForAdjustment(
+  decoded: DecodedIdToken,
+  adjustmentId: number,
+  body: CreatePaymobIntentionRequest,
+): Promise<{
+  paymentId: number;
+  clientSecret: string;
+  publicKey: string;
+  intentionId: string;
+}> {
+  if (!config.paymob.enabled) {
+    throw errors.badRequest('Paymob is not configured on this server.');
+  }
+
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can pay a balance due.');
+  if (!user.phone) {
+    throw errors.badRequest('Add a phone number to your profile before paying.');
+  }
+
+  const adjustment = await prisma.bookingAdjustment.findFirst({
+    where: { id: adjustmentId, deletedAt: null },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
+  });
+  if (!adjustment) throw errors.notFound('Balance due not found.');
+  if (adjustment.motherId !== user.id) throw errors.forbidden('Access denied.');
+  if (adjustment.status !== 'PENDING_PAYMENT') {
+    throw errors.badRequest(`This balance can't be paid — it is ${adjustment.status.toLowerCase()}.`);
+  }
+  if (Number(adjustment.amountEgp) <= 0) {
+    throw errors.badRequest('There is nothing to pay for this adjustment.');
+  }
+
+  const attempts = adjustment.payments;
+  if (attempts.some((p) => p.status === PaymentStatus.CAPTURED)) {
+    throw errors.badRequest('This balance is already paid.');
+  }
+
+  return openIntention({
+    user: { ...user, phone: user.phone },
+    owner: { bookingAdjustmentId: adjustmentId },
+    purpose: PaymentPurpose.BOOKING_ADJUSTMENT,
+    amount: adjustment.amountEgp,
+    attempts,
+    redirectionQuery: `bookingId=${encodeURIComponent(adjustment.bookingId)}&adjustmentId=${encodeURIComponent(adjustmentId)}`,
+    method: body.method,
+  });
+}
+
+/**
+ * Settle a captured adjustment payment: mark the adjustment PAID and stamp when.
+ * Idempotent on the adjustment's status, so a replayed webhook is a no-op. Like
+ * an extension there is no booking status transition to guard — the edit already
+ * moved the booking to its new snapshot; this only records that the difference
+ * was paid.
+ */
+async function finalizeAdjustmentPaymentCaptured(
+  paymentId: number,
+  paymobTransactionId: string | null,
+) {
+  await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findFirst({
+      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
+    });
+    if (!payment) return;
+
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.CAPTURED,
+        paymobTransactionId: paymobTransactionId ?? undefined,
+        failureReason: null,
+        paymobNextReconcileAt: null,
+        paymobClientSecret: null,
+      },
+    });
+
+    if (!payment.bookingAdjustmentId) {
+      // eslint-disable-next-line no-console
+      console.warn('[paymob] captured adjustment payment has no bookingAdjustmentId', { paymentId });
+      return;
+    }
+
+    // Conditional status guard — a replayed capture matches zero rows rather than
+    // re-stamping paidAt.
+    await tx.bookingAdjustment.updateMany({
+      where: { id: payment.bookingAdjustmentId, status: 'PENDING_PAYMENT', deletedAt: null },
+      data: { status: 'PAID', paidAt: new Date() },
+    });
+  });
+}
+
 /** Poll Paymob for the latest intention state after the customer returns from checkout. */
 export async function syncPaymobPaymentForBooking(
   decoded: DecodedIdToken,
@@ -560,6 +662,8 @@ export async function processPaymobWebhook(params: {
       await finalizePackagePaymentCaptured(paymentId, String(paymobTxnId));
     } else if (isExtensionPurpose(purpose)) {
       await finalizeExtensionPaymentCaptured(paymentId, String(paymobTxnId));
+    } else if (isAdjustmentPurpose(purpose)) {
+      await finalizeAdjustmentPaymentCaptured(paymentId, String(paymobTxnId));
     } else {
       await finalizePaymentCaptured(paymentId, String(paymobTxnId));
     }
@@ -608,6 +712,7 @@ export async function reconcileStalePaymobPayments(): Promise<void> {
       // The row is already loaded, so purpose dispatch needs no extra query here.
       const isPackage = p.purpose === PaymentPurpose.PACKAGE;
       const isExtension = isExtensionPurpose(p.purpose);
+      const isAdjustment = isAdjustmentPurpose(p.purpose);
 
       if (mapped === 'captured') {
         const tid = extractLatestTransactionId(element);
@@ -615,6 +720,8 @@ export async function reconcileStalePaymobPayments(): Promise<void> {
           await finalizePackagePaymentCaptured(p.id, tid);
         } else if (isExtension) {
           await finalizeExtensionPaymentCaptured(p.id, tid);
+        } else if (isAdjustment) {
+          await finalizeAdjustmentPaymentCaptured(p.id, tid);
         } else {
           await finalizePaymentCaptured(p.id, tid);
         }

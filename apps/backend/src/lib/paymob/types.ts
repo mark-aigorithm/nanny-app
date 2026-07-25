@@ -24,6 +24,24 @@ export type PaymobTransactionHmacPayload = {
   };
 };
 
+/**
+ * Body for Paymob's refund endpoint (POST /api/acceptance/void_refund/refund).
+ * `amount_cents` less than the captured amount performs a partial refund; Paymob
+ * tracks the cumulative refunded amount on the transaction (`refunded_amount_cents`).
+ */
+export type PaymobRefundBody = {
+  transaction_id: string;
+  amount_cents: number;
+};
+
+export type PaymobRefundResult = {
+  /** The refund transaction id Paymob assigns (distinct from the original). */
+  id: string;
+  /** Cumulative amount refunded against the original transaction, in cents. */
+  refundedAmountCents: number | null;
+  success: boolean;
+};
+
 export type PaymobIntentionCreateBody = {
   amount: number;
   currency: string;

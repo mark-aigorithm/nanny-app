@@ -1,6 +1,6 @@
 import { AppError } from '@backend/lib/errors';
 
-import type { PaymobIntentionCreateBody } from './types';
+import type { PaymobIntentionCreateBody, PaymobRefundResult } from './types';
 
 export type PaymobIntentionCreateResult = {
   id: string;
@@ -71,6 +71,46 @@ export function createPaymobApiClient(secretKey: string, apiBaseUrl: string) {
       }
 
       return { id: String(id), client_secret: clientSecret };
+    },
+
+    /**
+     * Refund (fully or partially) an already-captured transaction. `amountCents`
+     * below the captured amount is a partial refund — Paymob accumulates the
+     * total refunded on the original transaction. Uses the Accept API refund
+     * endpoint (not the intention API), authenticated with the same secret key.
+     */
+    async refund(params: { transactionId: string; amountCents: number }): Promise<PaymobRefundResult> {
+      const url = `${base}/api/acceptance/void_refund/refund`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Token ${secretKey}`,
+        },
+        body: JSON.stringify({
+          transaction_id: params.transactionId,
+          amount_cents: params.amountCents,
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = await readPaymobError(res);
+        throw new AppError(`Paymob refund failed: ${msg}`, 502);
+      }
+
+      const data = (await res.json()) as Record<string, unknown>;
+      const id = data['id'];
+      if (typeof id !== 'string' && typeof id !== 'number') {
+        throw new AppError('Paymob refund response missing id.', 502);
+      }
+      const refundedRaw = data['refunded_amount_cents'];
+      return {
+        id: String(id),
+        refundedAmountCents: typeof refundedRaw === 'number' ? refundedRaw : null,
+        // A refund Paymob accepted but that "errored" (e.g. already refunded)
+        // comes back with success=false; treat only an explicit false as failure.
+        success: data['success'] !== false,
+      };
     },
 
     /** Public read — used to poll intention state when callbacks are delayed. */

@@ -163,6 +163,27 @@ export const BookingExtensionResponseSchema = z.object({
 export type BookingExtensionResponse = z.infer<typeof BookingExtensionResponseSchema>;
 
 /**
+ * Lifecycle of an admin-created "pay the difference" obligation on a booking the
+ * mother had already paid for. PENDING_PAYMENT → PAID is the happy path.
+ */
+export const BookingAdjustmentStatusSchema = z.enum(['PENDING_PAYMENT', 'PAID', 'CANCELLED']);
+export type BookingAdjustmentStatus = z.infer<typeof BookingAdjustmentStatusSchema>;
+
+/** A balance the mother owes after an admin edit raised her booking total. */
+export const BookingAdjustmentResponseSchema = z.object({
+  id: z.number().int(),
+  bookingId: z.number().int(),
+  status: BookingAdjustmentStatusSchema,
+  /** The difference owed, in EGP. Always positive. */
+  amountEgp: z.number(),
+  /** A short note of what the edit changed. */
+  reason: z.string().nullable(),
+  createdAt: z.string(),
+  paidAt: z.string().nullable(),
+});
+export type BookingAdjustmentResponse = z.infer<typeof BookingAdjustmentResponseSchema>;
+
+/**
  * Request extra hours on a running booking. Restricted to the presets so the
  * mid-shift path stays a single tap — the server re-validates the value against
  * the same list, the platform's daily booking window and the max duration.

@@ -15,6 +15,7 @@ import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
 import ParentShiftControlsCard from '@mobile/components/ParentShiftControlsCard';
 import ParentNannyContactCard from '@mobile/components/ParentNannyContactCard';
+import { AmountDueCard } from '@mobile/components/booking/AmountDueCard';
 import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney, formatHourlyRate } from '@mobile/lib/formatMoney';
@@ -149,6 +150,9 @@ export default function BookingDetailScreen() {
         <View style={[styles.statusBadge, statusStyle.badge]}>
           <Text style={[styles.statusText, statusStyle.text]}>{formatBookingStatus(booking.status)}</Text>
         </View>
+
+        {/* Balance due after an admin edit raised the total — prompt to pay the difference. */}
+        <AmountDueCard bookingId={booking.id} />
 
         {/* Parent-only "Start booking" PIN gate (shows only within the check-in window) */}
         <ParentStartPinCard booking={booking} />

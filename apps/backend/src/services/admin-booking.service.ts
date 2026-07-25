@@ -129,6 +129,8 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     serviceFeeAmount: row.serviceFeeAmount.toNumber(),
     nannyAmount: row.nannyAmount.toNumber(),
     platformAmount: row.platformAmount.toNumber(),
+    rewardCreditHours: row.rewardCreditHoursApplied.toNumber(),
+    packageHoursApplied: row.packageHoursApplied.toNumber(),
     payment: payment
       ? {
           status: payment.status,

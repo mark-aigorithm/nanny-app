@@ -53,9 +53,11 @@ import {
   requestBookingExtension,
   respondToBookingExtension,
 } from '@backend/services/booking-extension.service';
+import { listBookingAdjustments } from '@backend/services/booking-adjustment.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
 import {
   createPaymobIntentionForBooking,
+  createPaymobIntentionForAdjustment,
   createPaymobIntentionForExtension,
   syncPaymobPaymentForBooking,
 } from '@backend/services/paymob.service';
@@ -458,6 +460,35 @@ bookingRouter.post(
         req.body as CreatePaymobIntentionRequest,
       );
       res.json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/adjustments/:adjustmentId/pay/paymob',
+  requireAuth,
+  validateBody(CreatePaymobIntentionSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const result = await createPaymobIntentionForAdjustment(
+        req.firebaseUser,
+        routeIdParam(req.params['adjustmentId']),
+        req.body as CreatePaymobIntentionRequest,
+      );
+      res.json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.get(
+  '/:id/adjustments',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const rows = await listBookingAdjustments(req.firebaseUser, routeIdParam(req.params['id']));
+      res.json(ok(rows));
     } catch (err) { next(err); }
   },
 );

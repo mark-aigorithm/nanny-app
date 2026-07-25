@@ -3,6 +3,9 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import {
   AdminBookingListQuerySchema,
   type AdminBookingListQuery,
+  AdminEditBookingSchema,
+  AdminEditBookingCommitSchema,
+  AdminRefundBookingSchema,
   AdminIdReviewListQuerySchema,
   type AdminIdReviewListQuery,
   AdminMotherListQuerySchema,
@@ -54,6 +57,12 @@ import {
   setBookingStatus,
   updateBookingTimes,
 } from '@backend/services/admin-booking.service';
+import {
+  applyBookingEdit,
+  getBookingEditContext,
+  previewBookingEdit,
+  refundBooking,
+} from '@backend/services/admin-booking-edit.service';
 import {
   approveNanny,
   getAdminNanny,
@@ -220,6 +229,61 @@ adminRouter.patch(
       if (!req.firebaseUser) throw errors.unauthorized();
       res.json(
         ok(await updateBookingTimes(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Full booking editor (edit inputs → re-price → settle money) ──
+
+adminRouter.get('/bookings/:id/edit/context', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getBookingEditContext(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/bookings/:id/edit/preview',
+  validateBody(AdminEditBookingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await previewBookingEdit(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/bookings/:id/edit',
+  validateBody(AdminEditBookingCommitSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await applyBookingEdit(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/bookings/:id/refund',
+  validateBody(AdminRefundBookingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await refundBooking(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
       );
     } catch (err) {
       next(err);

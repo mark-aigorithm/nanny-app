@@ -318,6 +318,9 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   serviceFeeAmount: z.number(),
   nannyAmount: z.number(),
   platformAmount: z.number(),
+  // Applied credits — so the admin editor can seed the current points/package state.
+  rewardCreditHours: z.number(),
+  packageHoursApplied: z.number(),
   // Full payment record (supersedes the list's flat `paymentStatus`).
   payment: AdminBookingPaymentSchema.nullable(),
   // Notes & lifecycle.
@@ -362,6 +365,171 @@ export const UpdateBookingTimesSchema = z.object({
   endTime: wallClockField('endTime'),
 });
 export type UpdateBookingTimesInput = z.infer<typeof UpdateBookingTimesSchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Admin booking editor (edit inputs → re-price → settle the money delta)
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * The editable inputs of a booking — everything the mother originally chose that
+ * affects the price. The admin edits these; the server re-prices with the same
+ * engine and gates as booking creation, so a manual money override is never
+ * needed (and never allowed).
+ *
+ * Wall-clock in PLATFORM_TIMEZONE, same contract as CreateBookingSchema.
+ */
+export const AdminEditBookingSchema = z.object({
+  startTime: wallClockField('startTime'),
+  endTime: wallClockField('endTime'),
+  /** Who the booking is for; drives the extra-child fee. At least one child. */
+  children: z.array(BookingChildSchema).min(1),
+  /** Selected paid skill add-ons. Unknown/inactive ids are rejected server-side. */
+  skillIds: z.array(z.number().int()).default([]),
+  /**
+   * Promo code to apply. `null` clears an existing promo; `undefined` leaves the
+   * current one unchanged. Only changeable before payment (see the service).
+   */
+  promoCode: z.string().trim().min(1).max(32).nullable().optional(),
+  /** Apply available prepaid package hours. `undefined` = apply (default), `false` = skip. */
+  usePackageHours: z.boolean().optional(),
+  /** Care Points hours to redeem. 0/undefined = none. Bounded by the wallet server-side. */
+  carePointsHours: z.number().int().min(0).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+});
+export type AdminEditBookingInput = z.infer<typeof AdminEditBookingSchema>;
+
+/** Commit variant: carries the optimistic revision token + a soft-warning ack. */
+export const AdminEditBookingCommitSchema = AdminEditBookingSchema.extend({
+  /** booking.updatedAt ISO echoed from the preview — rejects a stale edit (409). */
+  revision: z.string().min(1),
+  /** The admin has seen and accepted the soft (override-able) warnings. */
+  acknowledgeSoftWarnings: z.boolean().default(false),
+});
+export type AdminEditBookingCommitInput = z.infer<typeof AdminEditBookingCommitSchema>;
+
+/**
+ * A validation finding on a proposed edit. `block` prevents Save entirely (the
+ * edit would violate a booking option); `warn` is override-able by an admin who
+ * knowingly accepts it (e.g. an out-of-window time on a running booking).
+ */
+export const AdminEditWarningSchema = z.object({
+  code: z.string(),
+  severity: z.enum(['block', 'warn']),
+  message: z.string(),
+  field: z.string().optional(),
+});
+export type AdminEditWarning = z.infer<typeof AdminEditWarningSchema>;
+
+/** Compact money snapshot for the old-vs-new comparison in the preview rail. */
+export const BookingMoneySummarySchema = z.object({
+  totalAmount: z.number(),
+  subtotal: z.number(),
+  discountAmount: z.number(),
+  effectiveHourlyRate: z.number(),
+  durationHours: z.number(),
+  durationMultiplier: z.number(),
+  nannyAmount: z.number(),
+  platformAmount: z.number(),
+  packageHoursApplied: z.number(),
+  packageCreditAmount: z.number(),
+  rewardCreditHours: z.number(),
+  rewardCreditPoints: z.number().int(),
+  rewardCreditAmount: z.number(),
+});
+export type BookingMoneySummary = z.infer<typeof BookingMoneySummarySchema>;
+
+/** Dry-run result of a proposed edit (POST /admin/bookings/:id/edit/preview). */
+export const AdminEditPreviewResponseSchema = z.object({
+  old: BookingMoneySummarySchema,
+  new: BookingMoneySummarySchema,
+  /** Sum of captured payments (amount − refundedAmount) tied to the booking. */
+  amountPaid: z.number(),
+  /** new.totalAmount − amountPaid. Negative = overpaid (refundable); positive = owes. */
+  delta: z.number(),
+  refundableAmount: z.number(),
+  balanceDueAmount: z.number(),
+  warnings: z.array(AdminEditWarningSchema),
+  /** booking.updatedAt to echo back on commit for optimistic concurrency. */
+  revision: z.string(),
+});
+export type AdminEditPreviewResponse = z.infer<typeof AdminEditPreviewResponseSchema>;
+
+/**
+ * Everything the admin editor needs to render bounded inputs (one GET call):
+ * the selectable add-ons, the children/duration/window limits, the mother's
+ * Care Points wallet + redemption rules, and her available prepaid package hours.
+ */
+export const AdminBookingEditContextSchema = z.object({
+  skillAddOns: z.array(PublicSkillSchema),
+  includedChildrenPerBooking: z.number().int(),
+  maxChildrenPerBooking: z.number().int(),
+  minBookingHours: z.number().int(),
+  maxBookingHours: z.number().int(),
+  bookingWindowStartHour: z.number().int(),
+  bookingWindowEndHour: z.number().int(),
+  carePoints: z.object({
+    pointsBalance: z.number().int(),
+    redemptionPointsPerHour: z.number().int(),
+    minRedemptionPoints: z.number().int(),
+  }),
+  availablePackageHours: z.number(),
+});
+export type AdminBookingEditContext = z.infer<typeof AdminBookingEditContextSchema>;
+
+/** Settlement summary attached to the commit / refund responses. */
+export const BookingSettlementSchema = z.object({
+  delta: z.number(),
+  amountPaid: z.number(),
+  refundableAmount: z.number(),
+  balanceDueAmount: z.number(),
+  /** The BookingAdjustment id created when the mother owes more; null otherwise. */
+  adjustmentId: z.number().int().nullable(),
+});
+export type BookingSettlement = z.infer<typeof BookingSettlementSchema>;
+
+export const AdminEditCommitResponseSchema = z.object({
+  booking: AdminBookingDetailSchema,
+  settlement: BookingSettlementSchema,
+});
+export type AdminEditCommitResponse = z.infer<typeof AdminEditCommitResponseSchema>;
+
+/**
+ * Refund a booking overpayment (POST /admin/bookings/:id/refund).
+ * PAYMOB: money back to the card via Paymob's refund API (amount defaults to the
+ * full refundable amount). CARE_POINTS: the admin grants a custom number of
+ * points — the EGP charge-difference is shown in the UI only for reference, so
+ * there is no fixed EGP→points conversion here.
+ */
+export const AdminRefundBookingSchema = z
+  .object({
+    method: z.enum(['PAYMOB', 'CARE_POINTS']),
+    /** EGP to refund via Paymob. Omit to refund the full refundable amount. */
+    amount: z.number().positive().optional(),
+    /** Care Points to grant (CARE_POINTS only). */
+    points: z.number().int().positive().optional(),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .superRefine((v, ctx) => {
+    if (v.method === 'CARE_POINTS' && v.points === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['points'],
+        message: 'Points are required for a Care Points refund',
+      });
+    }
+  });
+export type AdminRefundBookingInput = z.infer<typeof AdminRefundBookingSchema>;
+
+export const AdminRefundResponseSchema = z.object({
+  method: z.enum(['PAYMOB', 'CARE_POINTS']),
+  /** EGP refunded to the card (PAYMOB); null for a Care Points refund. */
+  refundedAmount: z.number().nullable(),
+  /** Points granted (CARE_POINTS); null for a Paymob refund. */
+  grantedPoints: z.number().int().nullable(),
+  booking: AdminBookingDetailSchema,
+});
+export type AdminRefundResponse = z.infer<typeof AdminRefundResponseSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Nanny review queue (admin vetting of new nanny registrations)

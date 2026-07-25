@@ -1068,6 +1068,71 @@ h3 {
   margin-top: 1px;
 }
 
+/* Hard blockers on a booking edit read as errors, not amber warnings. */
+.summary-issues--block {
+  background: var(--color-error-light);
+}
+
+.summary-issues--block > li {
+  color: var(--color-error);
+}
+
+/* Booking editor — child-age grid, live price preview + delta, refund picker */
+.child-ages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.price-preview-list .summary-line {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.preview-delta {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-warm-subtle);
+}
+
+.preview-delta--due {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.preview-delta--refund {
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
+}
+
+.preview-softwarn {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ack-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.refund-methods {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.refund-methods .addon-chip {
+  flex: 1;
+}
+
 .rail-actions {
   display: flex;
   align-items: center;

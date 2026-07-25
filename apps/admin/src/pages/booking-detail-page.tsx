@@ -17,6 +17,10 @@ import {
 import { fetchBooking } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatDateTime } from '@admin/lib/format';
+import { BookingEditor } from '@admin/features/bookings/booking-editor';
+
+/** Statuses in which the booking's details are still editable (pre-service). */
+const EDITABLE_STATUSES = new Set(['PENDING', 'APPROVED', 'CONFIRMED']);
 
 function money(n: number): string {
   return `EGP ${n.toFixed(2)}`;
@@ -68,6 +72,7 @@ export function BookingDetailPage() {
               retrying={isFetching}
             />
           )}
+          {EDITABLE_STATUSES.has(booking.status) && <BookingEditor booking={booking} />}
           <BookingSections booking={booking} />
         </>
       )}

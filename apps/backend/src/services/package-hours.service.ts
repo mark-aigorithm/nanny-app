@@ -1,4 +1,9 @@
 import type { PackageHoursBalance, PackagePurchase } from '@nanny-app/shared';
+import {
+  packageHoursCreditFor,
+  planPackageHoursRedemption,
+  resolvePackageHourValue,
+} from '@nanny-app/shared';
 import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
@@ -266,6 +271,162 @@ export async function refundPackageHours(db: Db, scope: PackageHoursScope): Prom
     refunded = round2(refunded + restore);
   }
   return refunded;
+}
+
+/**
+ * Re-point a booking's package-hour reservation to a freshly re-priced total, in
+ * place — the recompute path for an admin edit. Unlike refund + redeem this
+ * writes NO REFUND rows and never inserts a duplicate REDEMPTION for a bucket the
+ * booking already drew from: it restores the old draw, then REVIVES/updates the
+ * existing REDEMPTION rows (or soft-deletes the ones no longer used). Two reasons
+ * this matters:
+ *   1. The (booking_id, purchase_id, type) unique key forbids a second live
+ *      REDEMPTION row for the same bucket — a plain re-redeem would collide.
+ *   2. `refundPackageHours` keys its idempotency off REFUND rows; writing REFUND
+ *      rows here would make a later cancel think the (new) hours were already
+ *      returned and skip them. So we move balances in place instead.
+ *
+ * Returns the new credit basis for the caller to fold into the booking snapshot.
+ * `totalAmountBeforePackage` is the booking total with promo + Care Points
+ * already applied but BEFORE any package credit — the same figure createBooking
+ * feeds `planPackageHoursRedemption`.
+ */
+export async function reapplyPackageHoursForBooking(
+  db: Db,
+  params: {
+    bookingId: number;
+    userId: number;
+    baseRate: number;
+    durationMultiplier: number;
+    durationHours: number;
+    totalAmountBeforePackage: number;
+    skillFeesPerHour: number[];
+    /** Skip package hours entirely (the admin turned `usePackageHours` off). */
+    apply: boolean;
+  },
+): Promise<{ hoursApplied: number; skillsCovered: number; creditAmount: number }> {
+  // Every REDEMPTION row this booking ever wrote, live or soft-deleted — the
+  // soft-deleted ones are revivable slots so a re-drawn bucket updates its row
+  // rather than colliding on the unique key.
+  const priorRows = await db.packageHoursLedger.findMany({
+    where: { bookingId: params.bookingId, type: 'REDEMPTION' },
+  });
+  const reusable = new Map(priorRows.map((r) => [r.purchaseId, r]));
+
+  // 1. Restore the CURRENT (live) reservation back to its buckets.
+  for (const row of priorRows) {
+    if (row.deletedAt) continue;
+    const restore = Math.abs(Number(row.hours));
+    if (restore > 0) {
+      await db.packagePurchase.updateMany({
+        where: { id: row.purchaseId, status: 'ACTIVE', deletedAt: null },
+        data: { hoursRemaining: { increment: restore } },
+      });
+    }
+  }
+
+  const drawnPurchaseIds = new Set<number>();
+  let hoursApplied = 0;
+  let skillsCovered = 0;
+  let creditAmount = 0;
+
+  if (params.apply) {
+    // 2. Plan the new draw against the freshly restored balances.
+    const summary = await getRedeemableSummary(params.userId, db);
+    const plan = planPackageHoursRedemption({
+      baseRate: params.baseRate,
+      durationMultiplier: params.durationMultiplier || 1,
+      totalAmount: params.totalAmountBeforePackage,
+      durationHours: params.durationHours,
+      availableHours: summary.availableHours,
+      maxSkillsAllowed: summary.maxSkillsAllowed,
+      skillFeesPerHour: params.skillFeesPerHour,
+    });
+
+    if (plan.hoursToRedeem > 0) {
+      // 3. FIFO draw across active buckets, updating/reviving each bucket's row.
+      const buckets = await activeBuckets(params.userId, db);
+      let remaining = round2(plan.hoursToRedeem);
+      let maxSkillsAllowed = 0;
+
+      for (const b of buckets) {
+        if (remaining <= 0) break;
+        const take = round2(Math.min(Number(b.hoursRemaining), remaining));
+        if (take <= 0) continue;
+
+        const debited = await db.packagePurchase.updateMany({
+          where: { id: b.id, status: 'ACTIVE', deletedAt: null, hoursRemaining: { gte: take } },
+          data: { hoursRemaining: { decrement: take } },
+        });
+        if (debited.count === 0) continue;
+
+        const fresh = await db.packagePurchase.findFirst({
+          where: { id: b.id },
+          select: { hoursRemaining: true },
+        });
+        const balanceAfter = round2(Number(fresh?.hoursRemaining ?? 0));
+
+        const existing = reusable.get(b.id);
+        if (existing) {
+          await db.packageHoursLedger.update({
+            where: { id: existing.id },
+            data: {
+              hours: -take,
+              balanceAfter,
+              deletedAt: null,
+              reason: `Applied ${take}h to booking #${params.bookingId}`,
+            },
+          });
+          reusable.delete(b.id);
+        } else {
+          await db.packageHoursLedger.create({
+            data: {
+              purchaseId: b.id,
+              userId: params.userId,
+              type: 'REDEMPTION',
+              hours: -take,
+              balanceAfter,
+              bookingId: params.bookingId,
+              reason: `Applied ${take}h to booking #${params.bookingId}`,
+            },
+          });
+        }
+
+        drawnPurchaseIds.add(b.id);
+        maxSkillsAllowed = Math.max(maxSkillsAllowed, b.maxSkillsSnapshot);
+        remaining = round2(remaining - take);
+      }
+
+      hoursApplied = round2(plan.hoursToRedeem - remaining);
+      if (hoursApplied > 0) {
+        const actual = resolvePackageHourValue({
+          baseRate: params.baseRate,
+          durationMultiplier: params.durationMultiplier || 1,
+          maxSkillsAllowed,
+          skillFeesPerHour: params.skillFeesPerHour,
+        });
+        creditAmount = packageHoursCreditFor({
+          hoursApplied,
+          creditPerHour: actual.creditPerHour,
+          totalAmount: params.totalAmountBeforePackage,
+        });
+        skillsCovered = actual.skillsCovered;
+      }
+    }
+  }
+
+  // 4. Soft-delete any prior REDEMPTION row for a bucket we no longer draw from,
+  // so `refundPackageHours` (which scans live rows) only ever sees the current
+  // reservation. Rows already reused above were removed from `reusable`.
+  for (const [purchaseId, row] of reusable) {
+    if (drawnPurchaseIds.has(purchaseId) || row.deletedAt) continue;
+    await db.packageHoursLedger.update({
+      where: { id: row.id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  return { hoursApplied, skillsCovered, creditAmount };
 }
 
 /** Lazy expiry: flip past-due ACTIVE buckets to EXPIRED + a forfeiture ledger row. */
