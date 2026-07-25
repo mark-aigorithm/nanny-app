@@ -10,7 +10,7 @@ type Props = {
   compact?: boolean;
 };
 
-const STEP_LABELS = ['When', 'Care', 'Review', 'Confirm'] as const;
+const STEP_LABELS = ['Where & when', 'Care', 'Review', 'Confirm'] as const;
 
 /**
  * Four-segment progress rail for the booking flow. Completed segments are

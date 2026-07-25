@@ -49,9 +49,6 @@ const DURATION_STEP_MINUTES = 60;
 /** Start times are offered every 5 minutes — the stepper walks one notch at a time. */
 const START_STEP_MINUTES = 5;
 
-/** Durations offered as one-tap shortcuts; the stepper covers everything else. */
-const QUICK_DURATION_HOURS = [2, 3, 4, 6, 8];
-
 type RailDay = {
   dateIso: string;
   year: number;
@@ -348,6 +345,20 @@ export default function BookingDatePickerScreen() {
     };
   }, [pricing, durationMinutes, maxDuration]);
 
+  /**
+   * The duration-tier discount already baked into the current total, surfaced so
+   * the mother sees the saving she's getting — not just a lower number. Derived
+   * from the breakdown's multiplier, so it tracks the admin-configured rules.
+   */
+  const appliedDurationDiscount = useMemo(() => {
+    if (!breakdown || breakdown.durationMultiplier >= 1) return null;
+    const rawSubtotal = breakdown.effectiveHourlyRate * breakdown.durationHours;
+    const amount = rawSubtotal - breakdown.subtotal;
+    const percentOff = Math.round((1 - breakdown.durationMultiplier) * 100);
+    if (amount <= 0 || percentOff <= 0) return null;
+    return { amount, percentOff, originalTotal: rawSubtotal };
+  }, [breakdown]);
+
   const selectDate = (dateIso: string, year: number, month: number) => {
     setSelectedDateIso(dateIso);
     setTimeError(null);
@@ -634,7 +645,7 @@ export default function BookingDatePickerScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <BookingStepProgress step={1} title="When do you need care?" />
+        <BookingStepProgress step={1} title="Where and when do you need care?" />
 
         {isLoading && <ActivityIndicator color={colors.primary} />}
         {error != null && (
@@ -645,6 +656,10 @@ export default function BookingDatePickerScreen() {
 
         {options && (
           <>
+            {/* Where first — the mother confirms the address the nanny will be
+                sent to before choosing when. */}
+            <BookingLocationSection />
+
             <View style={styles.noticePill}>
               <Ionicons name="information-circle-outline" size={15} color={colors.textTertiary} />
               <Text style={styles.advanceNotice}>
@@ -715,39 +730,15 @@ export default function BookingDatePickerScreen() {
                   />
                 </View>
 
-                <View style={styles.quickRow}>
-                  {QUICK_DURATION_HOURS.map((hrs) => hrs * 60)
-                    .filter((m) => durationChoices.includes(m))
-                    .map((minutes) => {
-                      const isSelected = durationMinutes === minutes;
-                      // Shown but greyed out, so it stays visible that a longer
-                      // booking exists and is simply too late in the day for it.
-                      const disabled = !availableDurations.includes(minutes);
-                      return (
-                        <Pressable
-                          key={minutes}
-                          style={[
-                            styles.durationChip,
-                            isSelected && styles.durationChipSelected,
-                            disabled && styles.durationChipDisabled,
-                          ]}
-                          onPress={() => {
-                            if (!disabled) setSelectedDurationMinutes(minutes);
-                          }}
-                          disabled={disabled}
-                        >
-                          <Text
-                            style={[
-                              styles.durationChipText,
-                              isSelected && styles.durationChipTextSelected,
-                            ]}
-                          >
-                            {formatMinutes(minutes)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                </View>
+                {nextDurationDeal && (
+                  <View style={styles.dealBanner}>
+                    <Ionicons name="pricetag-outline" size={15} color={colors.successDark} />
+                    <Text style={styles.dealText}>
+                      Add {formatMinutes(nextDurationDeal.addMinutes)} ({nextDurationDeal.minHours}h
+                      total) to save {nextDurationDeal.percentOff}% on the whole booking
+                    </Text>
+                  </View>
+                )}
 
                 {durationCapped && startWall && (
                   <Text style={styles.durationHint}>
@@ -757,10 +748,6 @@ export default function BookingDatePickerScreen() {
                 )}
               </View>
             </View>
-
-            {/* Where — a confirmation of the mother's saved home, so the nanny is
-                sent to the right place before she commits. */}
-            <BookingLocationSection />
           </>
         )}
       </ScrollView>
@@ -780,20 +767,13 @@ export default function BookingDatePickerScreen() {
         summary={summaryLine}
         placeholder="Choose a day and time"
         total={breakdown ? formatMoney(breakdown.totalAmount) : null}
+        originalTotal={
+          appliedDurationDiscount ? formatMoney(appliedDurationDiscount.originalTotal) : null
+        }
         ctaLabel={ctaLabel}
         onPress={handleContinue}
         disabled={!canContinue}
-      >
-        {nextDurationDeal && (
-          <View style={styles.dealBanner}>
-            <Ionicons name="pricetag-outline" size={15} color={colors.successDark} />
-            <Text style={styles.dealText}>
-              Add {formatMinutes(nextDurationDeal.addMinutes)} ({nextDurationDeal.minHours}h
-              total) and save {nextDurationDeal.percentOff}% on the whole booking
-            </Text>
-          </View>
-        )}
-      </BookingSummaryBar>
+      />
     </View>
   );
 }

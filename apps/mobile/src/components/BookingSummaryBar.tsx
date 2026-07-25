@@ -12,6 +12,8 @@ interface BookingSummaryBarProps {
   placeholder?: string;
   /** Formatted total, e.g. "EGP 480". Hidden while null. */
   total?: string | null;
+  /** Pre-discount total, shown struck-through beside `total` when a discount applies. */
+  originalTotal?: string | null;
   totalLabel?: string;
   ctaLabel: string;
   onPress: () => void;
@@ -33,6 +35,7 @@ export default function BookingSummaryBar({
   summary,
   placeholder = 'Nothing selected yet',
   total,
+  originalTotal,
   totalLabel = 'Estimated total',
   ctaLabel,
   onPress,
@@ -69,28 +72,35 @@ export default function BookingSummaryBar({
         </View>
 
         {total != null && (
-          <Animated.Text
-            style={[
-              styles.total,
-              {
-                opacity: flash.interpolate({
-                  inputRange: [0, 0.4, 1],
-                  outputRange: [0.35, 1, 1],
-                }),
-                transform: [
-                  {
-                    translateY: flash.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [6, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-            numberOfLines={1}
-          >
-            {total}
-          </Animated.Text>
+          <View style={styles.totalWrap}>
+            {originalTotal != null && (
+              <Text style={styles.totalStrike} numberOfLines={1}>
+                {originalTotal}
+              </Text>
+            )}
+            <Animated.Text
+              style={[
+                styles.total,
+                {
+                  opacity: flash.interpolate({
+                    inputRange: [0, 0.4, 1],
+                    outputRange: [0.35, 1, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: flash.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [6, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {total}
+            </Animated.Text>
+          </View>
         )}
       </View>
 

@@ -43,6 +43,14 @@ export const styles = StyleSheet.create({
   summaryValueMuted: {
     color: colors.textPlaceholder,
   },
+  totalWrap: {
+    alignItems: 'flex-end',
+  },
+  totalStrike: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
   total: {
     ...typeScale.headingLg,
     color: colors.primaryDark,

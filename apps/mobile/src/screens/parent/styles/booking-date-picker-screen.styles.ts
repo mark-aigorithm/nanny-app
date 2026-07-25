@@ -216,11 +216,6 @@ export const styles = StyleSheet.create({
     ...typeScale.bodySm,
     color: colors.textMuted,
   },
-  quickRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
   durationChip: {
     minWidth: 52,
     paddingHorizontal: spacing.lg,
@@ -231,9 +226,6 @@ export const styles = StyleSheet.create({
   },
   durationChipSelected: {
     backgroundColor: colors.primaryDark,
-  },
-  durationChipDisabled: {
-    opacity: 0.4,
   },
   durationChipText: {
     ...typeScale.labelMd,
@@ -252,7 +244,7 @@ export const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 
-  // Longer-booking nudge, rendered inside the summary bar
+  // Longer-booking nudge, rendered inside the "How long?" card
   dealBanner: {
     flexDirection: 'row',
     alignItems: 'center',
