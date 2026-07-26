@@ -7,6 +7,7 @@ import type { BookingResponse } from '@nanny-app/shared';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '@mobile/theme';
 import { useBookingList, fmtBookingDate } from '@mobile/hooks/useBookings';
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
+import { AmountDueCard } from '@mobile/components/booking/AmountDueCard';
 
 // The mother's live order, Uber-style: always visible on Home so she can jump
 // back to "finding a nanny", pay the moment one accepts, or track the visit.
@@ -20,12 +21,17 @@ const PRIORITY: Record<string, number> = {
   CONFIRMED: 3,
 };
 
+/**
+ * An unpaid balance-due outranks everything: it is money owed on a booking that
+ * is otherwise about to start and will be refused at the door until she pays.
+ */
+function rank(b: BookingResponse): number {
+  if (b.balanceDue) return -1;
+  return PRIORITY[b.status] ?? 9;
+}
+
 function pickActive(bookings: BookingResponse[]): BookingResponse | null {
-  return (
-    [...bookings].sort(
-      (a, b) => (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9),
-    )[0] ?? null
-  );
+  return [...bookings].sort((a, b) => rank(a) - rank(b))[0] ?? null;
 }
 
 type Look = {
@@ -39,6 +45,22 @@ type Look = {
 
 function lookFor(b: BookingResponse): Look {
   const nanny = b.nanny ? `${b.nanny.firstName} ${b.nanny.lastName}` : 'your nanny';
+
+  // Checked before status: an admin edit that raised the total leaves the
+  // booking CONFIRMED but unpaid, and it cannot start until she settles it.
+  // Showing "UPCOMING · Tap to view" there is what made Home look fine while
+  // the shift was silently blocked.
+  if (b.balanceDue) {
+    return {
+      dark: true,
+      eyebrow: 'PAYMENT DUE',
+      title: 'Your booking was updated',
+      cta: 'Complete your payment to start',
+      icon: 'alert-circle',
+      pulse: false,
+    };
+  }
+
   switch (b.status) {
     case 'APPROVED':
       return {
@@ -163,6 +185,9 @@ export default function ParentActiveBookingCard() {
       </View>
     </Pressable>
 
+      {/* Balance due after an admin edit — replaces the Start gate, which the
+          server would refuse while the booking is unsettled. */}
+      <AmountDueCard booking={active} />
       <ParentStartPinCard booking={active} />
     </View>
   );

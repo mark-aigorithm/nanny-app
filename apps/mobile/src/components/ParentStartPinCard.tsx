@@ -49,11 +49,15 @@ export default function ParentStartPinCard({ booking }: Props) {
 
   const inWindow = useMemo(() => {
     if (booking.status !== 'CONFIRMED') return false;
+    // An admin edit that raised the total leaves the booking CONFIRMED but
+    // unsettled. The server refuses to mint a PIN in that state, so offering
+    // Start here would only produce an error — AmountDueCard takes this slot.
+    if (booking.balanceDue) return false;
     const startMs = new Date(booking.startTime).getTime();
     const endMs = new Date(booking.endTime).getTime();
     const earliest = startMs - CHECK_IN_EARLY_MINUTES * 60_000;
     return now >= earliest && now <= endMs;
-  }, [booking.status, booking.startTime, booking.endTime, now]);
+  }, [booking.status, booking.balanceDue, booking.startTime, booking.endTime, now]);
 
   // Drop a revealed PIN once it expires so the parent can regenerate cleanly.
   const pinExpired = expiresAt != null && now >= expiresAt;

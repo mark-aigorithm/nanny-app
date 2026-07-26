@@ -152,7 +152,7 @@ export default function BookingDetailScreen() {
         </View>
 
         {/* Balance due after an admin edit raised the total — prompt to pay the difference. */}
-        <AmountDueCard bookingId={booking.id} />
+        <AmountDueCard booking={booking} />
 
         {/* Parent-only "Start booking" PIN gate (shows only within the check-in window) */}
         <ParentStartPinCard booking={booking} />

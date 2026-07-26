@@ -78,7 +78,7 @@ export default function NannyRequestsScreen() {
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
   const checkOut = useCheckOut();
   const acceptBooking = useAcceptBooking();
-  const { nearestBooking, canCheckIn, canCheckOut } = useBookingShiftTimer(
+  const { nearestBooking, canCheckIn, canCheckOut, blockedByBalanceDue } = useBookingShiftTimer(
     activeFilter === 'upcoming' ? requests : [],
   );
 
@@ -97,6 +97,11 @@ export default function NannyRequestsScreen() {
       isInProgress &&
       nearestBooking?.id === booking.id &&
       canCheckOut;
+    // She is at the door inside the window, but the parent owes a balance after
+    // an admin edit — the server will refuse check-in, so say why rather than
+    // silently dropping the Start button.
+    const showBalanceBlocked =
+      activeFilter === 'upcoming' && nearestBooking?.id === booking.id && blockedByBalanceDue;
     const isClaiming = acceptBooking.isPending && acceptBooking.variables === booking.id;
 
     return (
@@ -172,6 +177,14 @@ export default function NannyRequestsScreen() {
             </Pressable>
             <Text style={styles.decisionNote}>
               First to accept gets the booking. The parent pays once you accept.
+            </Text>
+          </View>
+        ) : showBalanceBlocked ? (
+          <View style={styles.blockedNote}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.goldWarm} />
+            <Text style={styles.blockedNoteText}>
+              Waiting on the parent — her booking was updated and she has a balance to pay
+              before this shift can start.
             </Text>
           </View>
         ) : showStart || showEnd ? (

@@ -2,21 +2,23 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import type { BookingResponse } from '@nanny-app/shared';
 
 import { Button } from '@mobile/components/ui';
-import { useBookingAdjustments } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { colors, spacing, borderRadius, typeScale, shadows } from '@mobile/theme';
 
 /**
  * Shown on a paid booking when our team edited it and the total went up: the
- * mother owes the difference. Fetches her open balance-due obligations and,
- * if any, prompts her to pay via the adjustment checkout.
+ * mother owes the difference, and until she pays it the booking cannot start.
+ *
+ * Reads `booking.balanceDue` rather than fetching, so this card and the Start
+ * gate it replaces can never disagree about whether money is owed — they are
+ * driven off the same payload in the same render.
  */
-export function AmountDueCard({ bookingId }: { bookingId: number }) {
+export function AmountDueCard({ booking }: { booking: BookingResponse }) {
   const router = useRouter();
-  const { data: adjustments } = useBookingAdjustments(bookingId);
-  const pending = adjustments?.find((a) => a.status === 'PENDING_PAYMENT');
+  const pending = booking.balanceDue;
   if (!pending) return null;
 
   return (
@@ -28,15 +30,15 @@ export function AmountDueCard({ bookingId }: { bookingId: number }) {
       <Text style={styles.amount}>{formatMoney(pending.amountEgp)}</Text>
       <Text style={styles.note}>
         {pending.reason
-          ? `Your booking was updated (${pending.reason}). Pay the difference to keep it confirmed.`
-          : 'Your booking total went up after an update. Pay the difference to keep it confirmed.'}
+          ? `Your booking was updated (${pending.reason}). Complete your payment to start this booking.`
+          : 'Your booking total went up after an update. Complete your payment to start this booking.'}
       </Text>
       <Button
-        title="Pay the difference"
+        title="Complete payment"
         onPress={() =>
           router.push({
             pathname: '/(parent)/book/adjustment-checkout',
-            params: { adjustmentId: String(pending.id), bookingId: String(bookingId) },
+            params: { adjustmentId: String(pending.id), bookingId: String(booking.id) },
           })
         }
       />

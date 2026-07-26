@@ -137,6 +137,24 @@ export const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
+  // Shift is in its check-in window but the parent still owes a balance, so
+  // there is no Start button — this explains the gap where it would be.
+  blockedNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warmLight,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  blockedNoteText: {
+    ...typeScale.caption,
+    flex: 1,
+    color: colors.goldWarm,
+    lineHeight: 16,
+  },
+
   // Action buttons
   actionsRow: {
     flexDirection: 'row',

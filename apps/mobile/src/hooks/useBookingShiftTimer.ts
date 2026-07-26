@@ -17,6 +17,12 @@ export interface ShiftTimerState {
   countdownLabel: string;
   canCheckIn: boolean;
   canCheckOut: boolean;
+  /**
+   * True when the shift is otherwise startable but the parent still owes money
+   * after an admin edit. The nanny cannot start — the parent has to settle
+   * first — so the UI shows the reason instead of a Start button she can't use.
+   */
+  blockedByBalanceDue: boolean;
 }
 
 const STARTING_SOON_MS = 60 * 60_000;
@@ -104,13 +110,21 @@ export function useBookingShiftTimer(bookings: BookingResponse[]): ShiftTimerSta
     return formatCountdown(nearestBooking, phase, now);
   }, [nearestBooking, phase, now]);
 
-  const canCheckIn = useMemo(() => {
+  // "Inside the window on a confirmed booking" — the timing half of check-in,
+  // kept separate from the money half so the UI can tell "not yet" (stay quiet)
+  // apart from "blocked on the parent's payment" (say so).
+  const inCheckInWindow = useMemo(() => {
     if (!nearestBooking || nearestBooking.status !== 'CONFIRMED') return false;
     const startMs = new Date(nearestBooking.startTime).getTime();
     const endMs = new Date(nearestBooking.endTime).getTime();
     const earliestCheckIn = startMs - CHECK_IN_EARLY_MINUTES * 60_000;
     return now >= earliestCheckIn && now <= endMs;
   }, [nearestBooking, now]);
+
+  // The server refuses check-in outright while a balance-due is open, so a
+  // Start button here could only ever produce an error.
+  const blockedByBalanceDue = inCheckInWindow && Boolean(nearestBooking?.balanceDue);
+  const canCheckIn = inCheckInWindow && !blockedByBalanceDue;
 
   const canCheckOut = nearestBooking?.status === 'IN_PROGRESS';
 
@@ -138,6 +152,7 @@ export function useBookingShiftTimer(bookings: BookingResponse[]): ShiftTimerSta
     countdownLabel,
     canCheckIn: Boolean(canCheckIn),
     canCheckOut: Boolean(canCheckOut),
+    blockedByBalanceDue,
   };
 }
 

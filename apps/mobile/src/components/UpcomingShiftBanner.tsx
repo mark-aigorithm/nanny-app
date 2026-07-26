@@ -43,7 +43,8 @@ export function confirmEndShift(
   });
 }
 export default function UpcomingShiftBanner({ bookings }: Props) {
-  const { nearestBooking, phase, countdownLabel, canCheckIn } = useBookingShiftTimer(bookings);
+  const { nearestBooking, phase, countdownLabel, canCheckIn, blockedByBalanceDue } =
+    useBookingShiftTimer(bookings);
 
   if (!nearestBooking || phase === 'idle' || phase === 'in_progress') {
     return null;
@@ -74,7 +75,11 @@ export default function UpcomingShiftBanner({ bookings }: Props) {
         <Text style={styles.title} numberOfLines={1}>
           {motherName}
         </Text>
-        <Text style={styles.meta}>{dateTime}</Text>
+        <Text style={styles.meta}>
+          {blockedByBalanceDue
+            ? 'Waiting on parent payment — she must settle a balance before you can start.'
+            : dateTime}
+        </Text>
       </View>
 
       {canCheckIn ? (
@@ -108,7 +113,12 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
   },
   containerSoon: {
-    backgroundColor: colors.primaryMuted,
+    // Opaque, NOT colors.primaryMuted. Android renders a translucent background
+    // combined with borderWidth + borderRadius as a filled border-coloured slab
+    // with the background painted only inside the padding box -- the tint reads
+    // as a hard-edged rectangle floating inside a sage frame. surfaceMuted is
+    // the flat equivalent of primaryMuted composited over colors.background.
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.primary,
   },
