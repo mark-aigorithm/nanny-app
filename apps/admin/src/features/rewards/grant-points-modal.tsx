@@ -64,7 +64,7 @@ export function GrantPointsModal({ wallet, onClose }: Props) {
         </>
       }
     >
-      <form id="grant-points-form" onSubmit={handleSubmit}>
+      <form id="grant-points-form" className="reward-modal-form" onSubmit={handleSubmit}>
         <p className="reward-modal-lead">
           Current balance: <strong>{wallet.pointsBalance}</strong> Care Points. Enter a positive
           amount to grant, or a negative amount to revoke. The parent is notified.

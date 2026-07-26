@@ -2932,6 +2932,16 @@ h3 {
   font-size: 0.875rem;
   margin: 0 0 1rem;
 }
+/* Even vertical rhythm between the lead, each field, and the error feedback so
+   one field's hint never collides with the next field's label. */
+.reward-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.reward-modal-form .reward-modal-lead {
+  margin-bottom: 0;
+}
 .reward-pill {
   display: inline-block;
   padding: 0.15rem 0.6rem;
