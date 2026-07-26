@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Image,
   ActivityIndicator,
   StatusBar,
@@ -188,8 +189,19 @@ function BookingCard({
   const statusStyle = variant === 'cancelled' || isCompleted ? styles.completedBadge : styles.statusBadge;
   const statusTextStyle = variant === 'cancelled' || isCompleted ? styles.completedBadgeText : styles.statusBadgeText;
 
+  // Secondary actions still live inside the card. They are nested touchables,
+  // so a tap on one is handled there and never falls through to the card.
+  const hasFooterAction = Boolean(onLeaveReview && isCompleted && !booking.myReview);
+
   return (
-    <View style={cardStyle}>
+    <Pressable
+      style={({ pressed }) => [cardStyle, pressed && styles.cardPressed]}
+      onPress={() => onViewDetails(String(booking.id))}
+      accessibilityRole="button"
+      accessibilityLabel={`${nannyName ?? 'Booking'} on ${dateDisplay}, ${formatBookingStatus(
+        booking.status,
+      )}. View details.`}
+    >
       <View style={styles.nannyRow}>
         {variant !== 'cancelled' && nannyName ? (
           <View style={styles.nannyPhotoWrapper}>
@@ -216,6 +228,11 @@ function BookingCard({
           {isCompleted && !variant ? (
             <Text style={styles.bookedTimesText}>{formatMoney(booking.totalAmount)} total</Text>
           ) : null}
+        </View>
+
+        {/* The card itself is the tap target now, so it needs to look like one. */}
+        <View style={styles.cardChevron}>
+          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
         </View>
       </View>
 
@@ -274,23 +291,23 @@ function BookingCard({
         </TouchableOpacity>
       ) : null}
 
-      <View style={styles.cardDivider} />
-
-      <View style={styles.cardActions}>
-        <TouchableOpacity activeOpacity={0.7} onPress={() => onViewDetails(String(booking.id))}>
-          <Text style={styles.viewDetailsText}>View details</Text>
-        </TouchableOpacity>
-        {onLeaveReview && isCompleted && !booking.myReview ? (
-          <TouchableOpacity
-            style={styles.leaveReviewRow}
-            activeOpacity={0.7}
-            onPress={() => onLeaveReview(String(booking.id))}
-          >
-            <Ionicons name="star" size={14} color={colors.gold} />
-            <Text style={styles.leaveReviewText}>Leave review</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-    </View>
+      {/* Only drawn when something still sits below it — a divider with an
+          empty row under it was what the old "View details" link left behind. */}
+      {hasFooterAction ? (
+        <>
+          <View style={styles.cardDivider} />
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={styles.leaveReviewRow}
+              activeOpacity={0.7}
+              onPress={() => onLeaveReview!(String(booking.id))}
+            >
+              <Ionicons name="star" size={14} color={colors.gold} />
+              <Text style={styles.leaveReviewText}>Leave review</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : null}
+    </Pressable>
   );
 }

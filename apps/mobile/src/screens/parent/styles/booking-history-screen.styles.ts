@@ -101,6 +101,23 @@ export const styles = StyleSheet.create({
     elevation: 3,
   },
 
+  // The whole card is pressable (it opens the booking detail), so it gets the
+  // same gentle press feedback the other tappable cards use.
+  cardPressed: {
+    opacity: 0.9,
+  },
+  // Trailing affordance in the header row — same recipe as the chevron on the
+  // Home active-booking card so the two read as the same kind of thing.
+  cardChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+
   // Nanny Row (shared)
   nannyRow: {
     flexDirection: 'row',
@@ -203,10 +220,6 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  viewDetailsText: {
-    ...typeScale.labelMd,
-    color: colors.primary,
   },
   cancelText: {
     ...typeScale.labelMd,
