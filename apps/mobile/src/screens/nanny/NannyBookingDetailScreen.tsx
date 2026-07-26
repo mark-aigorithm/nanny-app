@@ -11,6 +11,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
+import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
@@ -123,6 +124,14 @@ export default function NannyBookingDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Allergies and the parent's notes. Above earnings on purpose: this
+            is the part of the booking she has to act on. */}
+        <CareNotesCard
+          bookingChildren={booking.children}
+          specialInstructions={booking.specialInstructions}
+          emphasis="warning"
+        />
 
         {/* Earnings — the nanny only sees what she takes home. */}
         <View style={styles.paymentCard}>

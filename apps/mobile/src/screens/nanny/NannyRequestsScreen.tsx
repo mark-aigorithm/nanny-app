@@ -11,7 +11,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@mobile/components/ui';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
-import { formatChildrenSummary, type BookingResponse } from '@nanny-app/shared';
+import {
+  formatAllergySummary,
+  formatChildrenSummary,
+  hasAllergyWarning,
+  type BookingResponse,
+} from '@nanny-app/shared';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import {
@@ -140,6 +145,21 @@ export default function NannyRequestsScreen() {
             </View>
           )}
         </View>
+
+        {/* Allergies before she claims, so she can pass on a child she can't
+            safely take. formatAllergySummary falls back to the age when a child
+            has no name, so this carries the risk without the identity. */}
+        {hasAllergyWarning(booking.children) && (
+          <View style={styles.allergyBanner}>
+            <Ionicons name="warning" size={16} color={colors.error} />
+            <View style={styles.allergyBannerBody}>
+              <Text style={styles.allergyBannerLabel}>ALLERGY</Text>
+              <Text style={styles.allergyBannerText}>
+                {formatAllergySummary(booking.children)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Mother's review (past bookings) */}
         {activeFilter === 'past' && booking.myReview ? (

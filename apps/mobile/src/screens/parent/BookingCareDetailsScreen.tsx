@@ -51,7 +51,7 @@ const MAX_CHILD_AGE = 17;
  */
 const DEFAULT_CHILD_AGE = 3;
 
-type DraftChild = { name: string; ageYears: number };
+type DraftChild = { name: string; ageYears: number; allergies: string };
 
 /** What a skill add-on costs across the whole booking, in money. */
 function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): number {
@@ -105,8 +105,12 @@ export default function BookingCareDetailsScreen() {
     // count to enable; waiting on the saved-children query to seed left the
     // screen stuck at "0 children" whenever that request was slow or errored.
     return fromParams.length > 0
-      ? fromParams.map((c) => ({ name: c.name ?? '', ageYears: c.ageYears }))
-      : [{ name: '', ageYears: DEFAULT_CHILD_AGE }];
+      ? fromParams.map((c) => ({
+          name: c.name ?? '',
+          ageYears: c.ageYears,
+          allergies: c.allergies ?? '',
+        }))
+      : [{ name: '', ageYears: DEFAULT_CHILD_AGE, allergies: '' }];
   });
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>(() =>
     parseSkillIdsParam(params.skillIds),
@@ -131,7 +135,11 @@ export default function BookingCareDetailsScreen() {
       setChildren(
         savedChildren
           .slice(0, Math.max(1, maxChildren))
-          .map((c) => ({ name: c.name ?? '', ageYears: c.ageYears })),
+          .map((c) => ({
+            name: c.name ?? '',
+            ageYears: c.ageYears,
+            allergies: c.allergies ?? '',
+          })),
       );
     }
   }, [savedLoaded, savedChildren, maxChildren]);
@@ -187,6 +195,7 @@ export default function BookingCareDetailsScreen() {
       const added = Array.from({ length: next - prev.length }, () => ({
         name: '',
         ageYears: DEFAULT_CHILD_AGE,
+        allergies: '',
       }));
       return [...prev, ...added];
     });
@@ -208,6 +217,7 @@ export default function BookingCareDetailsScreen() {
     const payload: BookingChild[] = children.map((c) => ({
       name: c.name.trim() ? c.name.trim() : null,
       ageYears: c.ageYears,
+      allergies: c.allergies.trim() ? c.allergies.trim() : null,
     }));
     router.push({
       pathname: '/(parent)/book/booking-step-1',
@@ -326,6 +336,22 @@ export default function BookingCareDetailsScreen() {
                   max={MAX_CHILD_AGE}
                   formatValue={formatChildAge}
                   size="sm"
+                />
+              </View>
+
+              {/* Allergies sit on the child, not in the free-text notes at the
+                  end of the flow: a note can be skimmed, and this is the one
+                  thing the nanny is shown as a warning she has to read. */}
+              <View style={styles.allergyRow}>
+                <Ionicons name="alert-circle-outline" size={16} color={colors.goldWarm} />
+                <TextInput
+                  style={styles.allergyInput}
+                  value={child.allergies}
+                  onChangeText={(allergies) => patchChild(index, { allergies })}
+                  placeholder="Allergies (optional)"
+                  placeholderTextColor={colors.textPlaceholder}
+                  autoCapitalize="sentences"
+                  maxLength={300}
                 />
               </View>
             </View>

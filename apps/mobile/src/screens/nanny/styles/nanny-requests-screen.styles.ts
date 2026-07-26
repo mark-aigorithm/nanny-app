@@ -137,6 +137,35 @@ export const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
+  // Allergy banner on an open request — red rather than the warm amber used
+  // for "waiting on payment", because this one is about the child's safety and
+  // must not read as the same class of notice.
+  allergyBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.errorLight,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.error,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  allergyBannerBody: {
+    flex: 1,
+    gap: 2,
+  },
+  allergyBannerLabel: {
+    ...typeScale.captionBold,
+    color: colors.error,
+    letterSpacing: 0.8,
+  },
+  allergyBannerText: {
+    ...typeScale.bodySm,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+
   // Shift is in its check-in window but the parent still owes a balance, so
   // there is no Start button — this explains the gap where it would be.
   blockedNote: {

@@ -171,6 +171,25 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
 
+  // Allergies — same pill field as the name, with a warm icon so it reads as
+  // the safety line on the card rather than one more optional detail.
+  allergyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  allergyInput: {
+    flex: 1,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.full,
+    height: 40,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.regular,
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+
   // Save-for-next-time toggle
   saveRow: {
     flexDirection: 'row',
