@@ -26,8 +26,40 @@ export const ChildAgeYearsSchema = z.number().int().min(0).max(17);
 export const BookingChildSchema = z.object({
   name: z.string().trim().max(80).nullable().default(null),
   ageYears: ChildAgeYearsSchema,
+  /**
+   * Anything the nanny must not feed or expose this child to. Free text because
+   * allergies don't fit a catalog — "peanuts, and cats make her wheeze" is a
+   * real answer. Defaults to null so snapshots written before this field
+   * existed still parse instead of failing a whole bookings list.
+   */
+  allergies: z.string().trim().max(300).nullable().default(null),
 });
 export type BookingChild = z.infer<typeof BookingChildSchema>;
+
+/** Children on this booking who have an allergy recorded. */
+export function childrenWithAllergies(
+  children: readonly BookingChild[],
+): BookingChild[] {
+  return children.filter((c) => c.allergies != null && c.allergies.trim().length > 0);
+}
+
+/** True when any child on the booking has an allergy the nanny must know about. */
+export function hasAllergyWarning(children: readonly BookingChild[]): boolean {
+  return childrenWithAllergies(children).length > 0;
+}
+
+/**
+ * "Lina: peanuts · Omar: dairy" — the allergy line the nanny reads.
+ *
+ * Falls back to the age when a child has no name, because this string is also
+ * shown in the open requests pool where the mother is still anonymous. Safety
+ * information travels; identity does not.
+ */
+export function formatAllergySummary(children: readonly BookingChild[]): string {
+  return childrenWithAllergies(children)
+    .map((c) => `${c.name?.trim() || formatChildAge(c.ageYears)}: ${c.allergies!.trim()}`)
+    .join(' · ');
+}
 
 /** A child saved on the mother's profile, used to prefill her next booking. */
 export const ChildSchema = BookingChildSchema.extend({

@@ -7,6 +7,7 @@ type ChildRow = {
   id: number;
   name: string | null;
   ageYears: number;
+  allergies: string | null;
   createdAt: Date;
 };
 
@@ -15,6 +16,7 @@ function toDto(row: ChildRow): Child {
     id: row.id,
     name: row.name,
     ageYears: row.ageYears,
+    allergies: row.allergies,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -24,7 +26,7 @@ export async function listChildren(userId: number): Promise<Child[]> {
   const rows = await prisma.child.findMany({
     where: { userId, deletedAt: null },
     orderBy: { id: 'asc' },
-    select: { id: true, name: true, ageYears: true, createdAt: true },
+    select: { id: true, name: true, ageYears: true, allergies: true, createdAt: true },
   });
   return rows.map(toDto);
 }
@@ -51,7 +53,12 @@ export async function saveChildren(
     });
     if (children.length > 0) {
       await client.child.createMany({
-        data: children.map((c) => ({ userId, name: c.name, ageYears: c.ageYears })),
+        data: children.map((c) => ({
+          userId,
+          name: c.name,
+          ageYears: c.ageYears,
+          allergies: c.allergies,
+        })),
       });
     }
   };
@@ -75,7 +82,7 @@ async function listChildrenIn(
   const rows = await client.child.findMany({
     where: { userId, deletedAt: null },
     orderBy: { id: 'asc' },
-    select: { id: true, name: true, ageYears: true, createdAt: true },
+    select: { id: true, name: true, ageYears: true, allergies: true, createdAt: true },
   });
   return rows.map(toDto);
 }

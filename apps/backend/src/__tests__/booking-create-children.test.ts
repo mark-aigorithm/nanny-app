@@ -86,7 +86,11 @@ const WINDOW = {
   skillIds: [] as number[],
 };
 
-const kid = (ageYears: number, name: string | null = null) => ({ name, ageYears });
+const kid = (ageYears: number, name: string | null = null, allergies: string | null = null) => ({
+  name,
+  ageYears,
+  allergies,
+});
 
 function bookingRow() {
   return {
@@ -201,6 +205,21 @@ describe('createBooking — pricing and snapshot', () => {
     expect(data.bookedChildren).toEqual([kid(2, 'Lina'), kid(4, 'Omar'), kid(7)]);
   });
 
+  // The allergy is the reason this snapshot matters at all: the nanny reads it
+  // off the booking, so it has to survive the write and not be dropped as an
+  // unrecognised key.
+  it('snapshots each child allergy alongside the name and age', async () => {
+    await createBooking(DECODED, {
+      ...WINDOW,
+      children: [kid(2, 'Lina', 'Peanuts, sesame'), kid(4, 'Omar')],
+    });
+
+    expect(createdData().bookedChildren).toEqual([
+      { name: 'Lina', ageYears: 2, allergies: 'Peanuts, sesame' },
+      { name: 'Omar', ageYears: 4, allergies: null },
+    ]);
+  });
+
   it('charges nothing extra at or below the included allowance', async () => {
     await createBooking(DECODED, { ...WINDOW, children: [kid(3), kid(6)] });
     const data = createdData();
@@ -214,7 +233,7 @@ describe('createBooking — saving children for next time', () => {
   it('replaces the saved set when asked', async () => {
     await createBooking(DECODED, {
       ...WINDOW,
-      children: [kid(2, 'Lina'), kid(5, 'Omar')],
+      children: [kid(2, 'Lina', 'Peanuts'), kid(5, 'Omar')],
       saveChildren: true,
     });
 
@@ -222,10 +241,12 @@ describe('createBooking — saving children for next time', () => {
     expect(mockPrisma.child.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: 10, deletedAt: null } }),
     );
+    // The allergy is saved with the child, so her next booking prefills it and
+    // she doesn't have to remember to retype it every time.
     expect(mockPrisma.child.createMany).toHaveBeenCalledWith({
       data: [
-        { userId: 10, name: 'Lina', ageYears: 2 },
-        { userId: 10, name: 'Omar', ageYears: 5 },
+        { userId: 10, name: 'Lina', ageYears: 2, allergies: 'Peanuts' },
+        { userId: 10, name: 'Omar', ageYears: 5, allergies: null },
       ],
     });
   });

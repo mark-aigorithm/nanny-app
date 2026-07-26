@@ -45,7 +45,7 @@ const VALID_BODY = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
   skillIds: [] as number[],
-  children: [{ name: null, ageYears: 4 }],
+  children: [{ name: null, ageYears: 4, allergies: null }],
 };
 
 const BASE_CONFIG = {

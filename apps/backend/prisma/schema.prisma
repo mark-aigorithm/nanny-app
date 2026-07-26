@@ -305,6 +305,11 @@ model Child {
   name      String?
   /// Whole years. 0 means under one year old.
   ageYears  Int       @map("age_years")
+  /// Free text — anything the nanny must not feed or expose this child to.
+  /// Deliberately not a catalog: real answers ("peanuts, and cats make her
+  /// wheeze") don't enumerate. Surfaced to the nanny as a warning, and copied
+  /// into Booking.bookedChildren at booking time like the rest of the snapshot.
+  allergies String?   @db.Text
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")

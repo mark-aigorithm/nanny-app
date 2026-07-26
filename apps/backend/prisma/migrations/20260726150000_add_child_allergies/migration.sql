@@ -1,0 +1,11 @@
+-- Allergies a nanny must know about, on the mother's saved children.
+--
+-- Nullable with no default and no backfill: existing rows genuinely have no
+-- allergy on record, and NULL says that. It must NOT be confused with "no
+-- allergies" — the UI reads NULL as "not asked yet", so an empty warning banner
+-- never implies a child is safe to feed anything.
+--
+-- The per-booking copy lives in bookings.booked_children (JSON), so it needs no
+-- column change; snapshots written before this migration simply lack the key
+-- and parse back as null.
+ALTER TABLE "children" ADD COLUMN "allergies" TEXT;

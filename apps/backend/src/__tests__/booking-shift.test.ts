@@ -400,6 +400,33 @@ describe('booking shift transitions', () => {
       expect(result.balanceDue).toBeNull();
     });
 
+    // Snapshots written before allergies existed have no such key. They must
+    // read back as "not recorded" rather than failing the whole payload — a
+    // bookings list that 500s because of one legacy row is the worse outcome.
+    it('reads a pre-allergies child snapshot back with allergies null', async () => {
+      const booking = makeBooking({ status: PrismaBookingStatus.IN_PROGRESS });
+      const withLegacyChildren = {
+        ...booking,
+        bookedChildren: [
+          { name: 'Lina', ageYears: 3 },
+          { name: 'Omar', ageYears: 6, allergies: 'Dairy' },
+        ],
+      };
+      mockPrisma.booking.findUnique.mockResolvedValue(withLegacyChildren);
+      mockPrisma.booking.update.mockResolvedValue({
+        ...withLegacyChildren,
+        status: PrismaBookingStatus.COMPLETED,
+        nannyCheckedOutAt: new Date(),
+      });
+
+      const result = await checkOutBooking({ uid: 'firebase-nanny' } as never, 4);
+
+      expect(result.children).toEqual([
+        { name: 'Lina', ageYears: 3, allergies: null },
+        { name: 'Omar', ageYears: 6, allergies: 'Dairy' },
+      ]);
+    });
+
     it('rejects check-out from CONFIRMED', async () => {
       const booking = makeBooking({ status: PrismaBookingStatus.CONFIRMED });
       mockPrisma.booking.findUnique.mockResolvedValue(booking);

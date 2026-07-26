@@ -178,7 +178,7 @@ async function broadcastTo(
     startTime: '2099-01-01T10:00:00',
     endTime: '2099-01-01T13:00:00',
     skillIds,
-    children: [{ name: null, ageYears: 4 }],
+    children: [{ name: null, ageYears: 4, allergies: null }],
   });
 
   return mockNotify.mock.calls

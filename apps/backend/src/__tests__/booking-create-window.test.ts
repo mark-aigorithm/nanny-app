@@ -131,7 +131,7 @@ async function create(body: { startTime: string; endTime: string }) {
   const response = await createBooking(DECODED, {
     ...body,
     skillIds: [],
-    children: [{ name: null, ageYears: 4 }],
+    children: [{ name: null, ageYears: 4, allergies: null }],
   });
   return { response, data: mockPrisma.booking.create.mock.calls[0][0].data };
 }
