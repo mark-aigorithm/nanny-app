@@ -14,6 +14,7 @@ import {
   extendablePresetHours,
   isBookingWithinDailyWindow,
   PLATFORM_TIMEZONE,
+  type BookingAdjustmentResponse,
   type BookingExtensionResponse,
   type BookingListQuery,
   type BookingOptions,
@@ -31,6 +32,7 @@ import {
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 import {
+  BookingAdjustmentStatus,
   BookingExtensionStatus,
   IdVerificationStatus,
   NannyBookingDecision,
@@ -95,6 +97,11 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
  * `bookingInclude` is `as const`, which would otherwise freeze it into a
  * readonly tuple Prisma's filter types reject.
  */
+/** How many open requests a nanny's pool returns at most. */
+const OPEN_POOL_PAGE_SIZE = 50;
+/** How many to read before the in-JS radius + skill filters narrow them down. */
+const OPEN_POOL_SCAN_LIMIT = 200;
+
 const OPEN_EXTENSION_STATUSES: BookingExtensionStatus[] = [
   BookingExtensionStatus.PENDING_NANNY,
   BookingExtensionStatus.ACCEPTED,
@@ -126,6 +133,15 @@ export const bookingInclude = {
   // nanny's prompt. Settled ones are history and are fetched on demand.
   extensions: {
     where: { deletedAt: null, status: { in: OPEN_EXTENSION_STATUSES } },
+    orderBy: { id: 'desc' },
+    take: 1,
+  },
+  // Only the UNSETTLED balance-due is carried. An admin edit that raises the
+  // total of an already-paid booking leaves the status CONFIRMED, so this is
+  // the sole signal that money is still owed — the Start/check-in gates read it.
+  // At most one can be open at a time (admin edits are refused while one is).
+  adjustments: {
+    where: { deletedAt: null, status: BookingAdjustmentStatus.PENDING_PAYMENT },
     orderBy: { id: 'desc' },
     take: 1,
   },
@@ -216,6 +232,70 @@ export function nannyPhoneIfRevealable(
   const earliest = b.startTime.getTime() - revealMinutes * 60_000;
   const inWindow = now >= earliest && now <= b.endTime.getTime();
   return inWindow ? phone : null;
+}
+
+/**
+ * The skills a booking requires, read back off its add-on snapshot.
+ *
+ * These are the add-ons the mother selected and was priced for, so they are
+ * requirements and not preferences — including the ones that carry no fee. A
+ * nanny who lacks any of them cannot deliver what was billed.
+ */
+function requiredSkillIds(b: { selectedSkillFees: Prisma.JsonValue | null }): number[] {
+  return parseSkillAddOns(b.selectedSkillFees).map((s) => s.id);
+}
+
+/** The skill ids a nanny actually holds, from her NannySkill join rows. */
+function heldSkillIds(nannySkills: { skillId: number }[] | undefined): Set<number> {
+  return new Set((nannySkills ?? []).map((ns) => ns.skillId));
+}
+
+/**
+ * Strict match: the nanny must hold EVERY skill the booking asks for. A partial
+ * match is not a match — the mother paid per skill. An empty requirement list
+ * matches everyone, which is what keeps plain bookings broadcasting as before.
+ */
+function matchesSkills(required: number[], held: Set<number>): boolean {
+  return required.every((id) => held.has(id));
+}
+
+/**
+ * The unpaid balance-due on a booking, or null. `bookingInclude` already filters
+ * to PENDING_PAYMENT and takes the newest, so this is just the head — but every
+ * caller that means "is this booking actually settled?" goes through this one
+ * helper rather than re-deriving it from status.
+ */
+function openBalanceDue(b: BookingWithRelations): BookingWithRelations['adjustments'][number] | null {
+  return b.adjustments[0] ?? null;
+}
+
+/** Serialise a balance-due obligation for the client. */
+function toBookingAdjustmentResponse(
+  a: NonNullable<ReturnType<typeof openBalanceDue>>,
+): BookingAdjustmentResponse {
+  return {
+    id: a.id,
+    bookingId: a.bookingId,
+    status: a.status,
+    amountEgp: Number(a.amountEgp),
+    reason: a.reason,
+    createdAt: a.createdAt.toISOString(),
+    paidAt: a.paidAt?.toISOString() ?? null,
+  };
+}
+
+/**
+ * Guard for anything that starts a shift. A booking whose total went up after
+ * payment stays CONFIRMED, so the status check above these call sites is not
+ * enough on its own — care must not begin on an unpaid balance.
+ */
+function assertNoBalanceDue(b: BookingWithRelations): void {
+  const due = openBalanceDue(b);
+  if (due) {
+    throw errors.badRequest(
+      `This booking has an unpaid balance of ${Number(due.amountEgp).toFixed(2)} EGP. It must be paid before the booking can start.`,
+    );
+  }
 }
 
 /**
@@ -342,6 +422,7 @@ function toBookingResponse(
     startPinActive:
       b.startPinExpiresAt != null && b.startPinExpiresAt.getTime() > Date.now(),
     hasCamera: (b.nannyProfile?.user.cameras?.length ?? 0) > 0,
+    balanceDue: openBalanceDue(b) ? toBookingAdjustmentResponse(openBalanceDue(b)!) : null,
     payment: latestPayment(b)
       ? {
           id: latestPayment(b)!.id,
@@ -495,13 +576,19 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       select: {
         userId: true,
         user: { select: { latitude: true, longitude: true } },
+        // The requested add-ons live in a JSON column, so the skill match can't
+        // be pushed into the WHERE clause — it happens in JS alongside radius.
+        nannySkills: { where: { deletedAt: null }, select: { skillId: true } },
       },
     }),
   ]);
 
   const bookingPoint = toLatLng(booking.latitude, booking.longitude);
-  const nannies = candidates.filter((n) =>
-    isWithinRadius(bookingPoint, toLatLng(n.user.latitude, n.user.longitude), radiusKm),
+  const required = requiredSkillIds(booking);
+  const nannies = candidates.filter(
+    (n) =>
+      isWithinRadius(bookingPoint, toLatLng(n.user.latitude, n.user.longitude), radiusKm) &&
+      matchesSkills(required, heldSkillIds(n.nannySkills)),
   );
 
   const admins = await prisma.user.findMany({
@@ -1099,10 +1186,14 @@ export async function listBookings(
 /**
  * The open broadcast pool a nanny can claim: unassigned PENDING requests that
  * start in the future and don't overlap any booking the nanny already holds.
- * Soonest-starting first. Filtered to the configured broadcast radius around
- * each request's location — the pool matches what the nanny was notified
- * about. Requests or nannies without coordinates, or radius 0, bypass the
- * distance filter (never hide work because a profile is incomplete).
+ * Soonest-starting first.
+ *
+ * Filtered on the same two axes as the broadcast notification, so the pool
+ * matches what the nanny was pushed about:
+ *  - the configured broadcast radius around each request's location. Requests
+ *    or nannies without coordinates, or radius 0, bypass the distance filter
+ *    (never hide work because a profile is incomplete);
+ *  - the skill add-ons the request was priced for — she must hold all of them.
  */
 export async function listAvailableBookings(
   decoded: DecodedIdToken,
@@ -1114,7 +1205,11 @@ export async function listAvailableBookings(
 
   const nannyProfile = await prisma.nannyProfile.findUnique({
     where: { userId: user.id, deletedAt: null },
-    select: { id: true, user: { select: { latitude: true, longitude: true } } },
+    select: {
+      id: true,
+      user: { select: { latitude: true, longitude: true } },
+      nannySkills: { where: { deletedAt: null }, select: { skillId: true } },
+    },
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
@@ -1137,17 +1232,25 @@ export async function listAvailableBookings(
       },
       include: bookingInclude,
       orderBy: { startTime: 'asc' },
-      take: 50,
+      // Read a wider slice than we return, because radius and skills are both
+      // filtered in JS below. Taking exactly the page size here would let 50
+      // far-away or mis-skilled requests fill the window and show her an empty
+      // pool while matching work sat just behind them.
+      take: OPEN_POOL_SCAN_LIMIT,
     }),
     getBookingResponseContext(),
   ]);
 
   const nannyPoint = toLatLng(nannyProfile.user.latitude, nannyProfile.user.longitude);
-  const available = open.filter(
-    (b) =>
-      !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime) &&
-      isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm),
-  );
+  const held = heldSkillIds(nannyProfile.nannySkills);
+  const available = open
+    .filter(
+      (b) =>
+        !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime) &&
+        isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm) &&
+        matchesSkills(requiredSkillIds(b), held),
+    )
+    .slice(0, OPEN_POOL_PAGE_SIZE);
 
   return available.map((b) => toBookingResponse(b, ctx));
 }
@@ -1261,6 +1364,7 @@ async function applyNannyDecision(
 
   const nannyProfile = await prisma.nannyProfile.findUnique({
     where: { userId: user.id, deletedAt: null },
+    include: { nannySkills: { where: { deletedAt: null }, select: { skillId: true } } },
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
@@ -1284,6 +1388,18 @@ async function applyNannyDecision(
     if (booking.nannyProfileId === null) {
       if (decision === 'DECLINED') {
         throw errors.badRequest('This booking is not assigned to you.');
+      }
+
+      // The pool she saw is filtered on skills, but a stale list or a direct
+      // API call must not let her claim work she can't deliver — the mother was
+      // priced for these add-ons.
+      const missing = requiredSkillIds(booking).filter(
+        (id) => !heldSkillIds(nannyProfile.nannySkills).has(id),
+      );
+      if (missing.length > 0) {
+        throw errors.badRequest(
+          'This request needs skills that are not on your profile, so you cannot accept it.',
+        );
       }
 
       await assertNoConflict(nannyProfile.id, booking.startTime, booking.endTime);
@@ -1613,6 +1729,7 @@ export async function generateStartPin(
   if (booking.status !== BookingStatus.CONFIRMED) {
     throw errors.badRequest(`Cannot start a booking in status ${booking.status}.`);
   }
+  assertNoBalanceDue(booking);
 
   const now = new Date();
   const earliestStart = new Date(
@@ -1665,6 +1782,9 @@ export async function checkInBooking(
   if (booking.status !== BookingStatus.CONFIRMED) {
     throw errors.badRequest(`Cannot check in to a booking in status ${booking.status}.`);
   }
+  // Re-checked here and not just on the parent's side: a PIN generated before
+  // the admin edit is still valid, and would otherwise walk past the gate.
+  assertNoBalanceDue(booking);
 
   const now = new Date();
   const earliestCheckIn = new Date(

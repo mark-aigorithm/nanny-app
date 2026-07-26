@@ -117,6 +117,7 @@ function bookingRow(start: Date, end: Date) {
     payments: [],
     // Matches bookingInclude: the relation is always present, empty by default.
     extensions: [],
+    adjustments: [],
     review: null,
     createdAt: NOW_UTC,
   };

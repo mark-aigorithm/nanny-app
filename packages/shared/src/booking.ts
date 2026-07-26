@@ -370,6 +370,16 @@ export const BookingResponseSchema = z.object({
    * on the booking actually being IN_PROGRESS.
    */
   hasCamera: z.boolean(),
+  /**
+   * An unpaid "pay the difference" obligation raised by an admin edit, or null.
+   *
+   * A booking whose total went up AFTER it was paid stays CONFIRMED — the status
+   * says the slot is held, not that the money is settled. This field is the only
+   * thing that distinguishes the two, so anything that means "fully paid" (the
+   * parent's Start gate, the nanny's check-in) must read it and not the status.
+   * Settled and cancelled adjustments are not carried here.
+   */
+  balanceDue: BookingAdjustmentResponseSchema.nullable(),
   payment: BookingPaymentSummarySchema.nullable(),
   myReview: BookingMyReviewSchema.nullable(),
   createdAt: z.string(),

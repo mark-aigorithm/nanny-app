@@ -152,6 +152,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
     payments: [],
     // Matches bookingInclude: the relation is always present, empty by default.
     extensions: [],
+    adjustments: [],
     review: null,
     createdAt: new Date('2026-07-12T00:00:00.000Z'),
     ...overrides,

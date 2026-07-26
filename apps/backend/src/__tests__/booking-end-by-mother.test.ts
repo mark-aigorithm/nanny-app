@@ -74,6 +74,7 @@ function makeBooking(status: string = PrismaBookingStatus.IN_PROGRESS) {
     },
     payments: [],
     extensions: [],
+    adjustments: [],
     type: 'STANDARD',
     durationHours: 3,
     baseRate: 100,

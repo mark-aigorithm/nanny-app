@@ -196,6 +196,7 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     payments: [],
     // Matches bookingInclude: the relation is always present, empty by default.
     extensions: [],
+    adjustments: [],
     review: null,
     createdAt: start,
     ...overrides,

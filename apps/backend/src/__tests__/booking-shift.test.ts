@@ -75,6 +75,19 @@ const nannyProfileUser = {
   address: null,
 };
 
+/** A PENDING_PAYMENT balance-due row, shaped like `bookingInclude.adjustments`. */
+function pendingAdjustment() {
+  return {
+    id: 77,
+    bookingId: 4,
+    status: 'PENDING_PAYMENT',
+    amountEgp: 106,
+    reason: 'duration 3h → 4h',
+    paidAt: null,
+    createdAt: new Date(),
+  };
+}
+
 function makeBooking(overrides: Partial<{
   status: string;
   startTime: Date;
@@ -82,6 +95,7 @@ function makeBooking(overrides: Partial<{
   startPinHash: string | null;
   startPinExpiresAt: Date | null;
   startPinAttempts: number;
+  adjustments: ReturnType<typeof pendingAdjustment>[];
 }> = {}) {
   const startTime = overrides.startTime ?? new Date(Date.now() + 10 * 60_000);
   const endTime = overrides.endTime ?? new Date(startTime.getTime() + 3 * 3_600_000);
@@ -101,6 +115,7 @@ function makeBooking(overrides: Partial<{
     payments: [],
     // Matches bookingInclude: the relation is always present, empty by default.
     extensions: [],
+    adjustments: overrides.adjustments ?? [],
     type: 'STANDARD',
     durationHours: 3,
     baseRate: 100,
@@ -192,6 +207,24 @@ describe('booking shift transitions', () => {
       await expect(
         generateStartPin({ uid: 'firebase-mother' } as never, 4),
       ).rejects.toThrow(AppError);
+      expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+    });
+
+    // An admin edit that raises the total of an already-paid booking leaves it
+    // CONFIRMED and opens a PENDING_PAYMENT adjustment. Status alone therefore
+    // does NOT mean "settled" — the shift must not start on an unpaid balance.
+    it('rejects while a balance-due adjustment is unpaid', async () => {
+      mockPrisma.booking.findUnique.mockResolvedValue(
+        makeBooking({
+          startPinHash: null,
+          startPinExpiresAt: null,
+          adjustments: [pendingAdjustment()],
+        }),
+      );
+
+      await expect(
+        generateStartPin({ uid: 'firebase-mother' } as never, 4),
+      ).rejects.toThrow(/balance/i);
       expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     });
   });
@@ -294,6 +327,20 @@ describe('booking shift transitions', () => {
         checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
       ).rejects.toThrow(AppError);
     });
+
+    // Belt-and-braces behind the parent-side block: a PIN generated BEFORE the
+    // admin edit raised the total is still valid, so the balance must be
+    // re-checked here too or a stale PIN walks straight past the gate.
+    it('rejects a valid PIN while a balance-due adjustment is unpaid', async () => {
+      mockPrisma.booking.findUnique.mockResolvedValue(
+        makeBooking({ adjustments: [pendingAdjustment()] }),
+      );
+
+      await expect(
+        checkInBooking({ uid: 'firebase-nanny' } as never, 4, DEFAULT_PIN),
+      ).rejects.toThrow(/balance/i);
+      expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('checkOutBooking', () => {
@@ -316,6 +363,41 @@ describe('booking shift transitions', () => {
           type: 'BOOKING_COMPLETED',
         }),
       );
+    });
+
+    // The mobile clients gate their Start UI on this field, so it has to ride
+    // on the booking payload rather than needing a second round-trip.
+    it('carries an open balance-due on the booking response', async () => {
+      const booking = makeBooking({
+        status: PrismaBookingStatus.IN_PROGRESS,
+        adjustments: [pendingAdjustment()],
+      });
+      mockPrisma.booking.findUnique.mockResolvedValue(booking);
+      mockPrisma.booking.update.mockResolvedValue({
+        ...booking,
+        status: PrismaBookingStatus.COMPLETED,
+        nannyCheckedOutAt: new Date(),
+      });
+
+      const result = await checkOutBooking({ uid: 'firebase-nanny' } as never, 4);
+
+      expect(result.balanceDue).toEqual(
+        expect.objectContaining({ id: 77, status: 'PENDING_PAYMENT', amountEgp: 106 }),
+      );
+    });
+
+    it('leaves balanceDue null when nothing is owed', async () => {
+      const booking = makeBooking({ status: PrismaBookingStatus.IN_PROGRESS });
+      mockPrisma.booking.findUnique.mockResolvedValue(booking);
+      mockPrisma.booking.update.mockResolvedValue({
+        ...booking,
+        status: PrismaBookingStatus.COMPLETED,
+        nannyCheckedOutAt: new Date(),
+      });
+
+      const result = await checkOutBooking({ uid: 'firebase-nanny' } as never, 4);
+
+      expect(result.balanceDue).toBeNull();
     });
 
     it('rejects check-out from CONFIRMED', async () => {

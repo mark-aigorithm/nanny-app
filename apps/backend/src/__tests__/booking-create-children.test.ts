@@ -134,6 +134,7 @@ function bookingRow() {
     startPinExpiresAt: null,
     payments: [],
     extensions: [],
+    adjustments: [],
     review: null,
     createdAt: NOW_UTC,
   };
