@@ -74,7 +74,11 @@ function seedForm(booking: AdminBookingDetail): EditorForm {
     children:
       booking.children.length > 0
         ? booking.children.map((c) => ({ ...c }))
-        : Array.from({ length: Math.max(1, booking.childrenCount) }, () => ({ name: null, ageYears: 0 })),
+        : Array.from({ length: Math.max(1, booking.childrenCount) }, () => ({
+            name: null,
+            ageYears: 0,
+            allergies: null,
+          })),
     skillIds: booking.skillAddOns.map((s) => s.id),
     promoCode: booking.promoCode ?? '',
     usePackageHours: booking.packageHoursApplied > 0,
@@ -240,7 +244,7 @@ function EditorForm({
 
   function setChildCount(count: number) {
     const next = [...form.children];
-    while (next.length < count) next.push({ name: null, ageYears: 0 });
+    while (next.length < count) next.push({ name: null, ageYears: 0, allergies: null });
     next.length = count;
     setForm({ ...form, children: next });
   }

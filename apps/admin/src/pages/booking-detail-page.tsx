@@ -107,7 +107,11 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
       value:
         booking.children.length > 0
           ? booking.children
-              .map((c) => (c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears)))
+              .map((c) => {
+                const who = c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears);
+                // Support needs to see the allergy the nanny was warned about.
+                return c.allergies ? `${who} — allergies: ${c.allergies}` : who;
+              })
               .join(', ')
           : `${booking.childrenCount}`,
       wide: true,
