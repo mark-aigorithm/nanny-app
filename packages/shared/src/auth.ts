@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { IdDocumentTypeSchema, IdVerificationStatusSchema, idTypeRequiresBack } from './nanny';
+import {
+  AvailabilityTypeSchema,
+  IdDocumentTypeSchema,
+  IdVerificationStatusSchema,
+  WeeklyScheduleSchema,
+  idTypeRequiresBack,
+} from './nanny';
 
 // ──────────────────────────────────────────────────────────────
 // Auth — shared Zod schemas
@@ -42,6 +48,16 @@ export const RegisterRequestSchema = z
     idDocumentType: IdDocumentTypeSchema.optional(),
     idDocumentFrontUrl: z.string().url().optional(),
     idDocumentBackUrl: z.string().url().optional(),
+    // Nanny profile fields captured at registration. Mothers omit these; the
+    // second refine below makes the essentials mandatory for nannies.
+    avatarUrl: z.string().url().optional(),
+    bio: z.string().trim().max(600).optional(),
+    yearsOfExperience: z.number().int().min(0).max(60).optional(),
+    ageRanges: z.array(z.string()).optional(),
+    availabilityType: AvailabilityTypeSchema.optional(),
+    schedule: WeeklyScheduleSchema.optional(),
+    certificationIds: z.array(z.number().int().positive()).optional(),
+    skillIds: z.array(z.number().int().positive()).optional(),
   })
   .refine(
     (v) =>
@@ -52,6 +68,15 @@ export const RegisterRequestSchema = z
     {
       message: 'Nannies must upload a valid ID (both sides for a national ID).',
       path: ['idDocumentFrontUrl'],
+    },
+  )
+  .refine(
+    (v) =>
+      v.role !== 'NANNY' ||
+      (!!v.avatarUrl && !!v.bio && v.yearsOfExperience !== undefined && !!v.availabilityType),
+    {
+      message: 'Nannies must provide a photo, bio, years of experience, and availability.',
+      path: ['bio'],
     },
   );
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;

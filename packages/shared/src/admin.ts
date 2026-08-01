@@ -9,7 +9,12 @@ import {
 } from './booking';
 import { PublicCertificationSchema } from './certification';
 import { BookingChildSchema } from './child';
-import { IdDocumentTypeSchema, IdVerificationStatusSchema } from './nanny';
+import {
+  AvailabilityTypeSchema,
+  IdDocumentTypeSchema,
+  IdVerificationStatusSchema,
+  WeeklyScheduleSchema,
+} from './nanny';
 import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
 
 // Re-export the shared pagination meta so admin consumers can import it alongside
@@ -662,6 +667,26 @@ export const UpdateAdminMotherSchema = z
     message: 'At least one field must be provided',
   });
 export type UpdateAdminMotherInput = z.infer<typeof UpdateAdminMotherSchema>;
+
+/**
+ * Partial update for a nanny account (PATCH /admin/nannies/:id). Mirrors
+ * `UpdateAdminMotherSchema`'s precedent, extended with the nanny profile
+ * fields captured at registration so admins can correct them post-signup.
+ */
+export const UpdateAdminNannySchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(80).optional(),
+    lastName: z.string().trim().min(1).max(80).optional(),
+    location: z.string().trim().max(200).optional(),
+    bio: z.string().trim().max(600).optional(),
+    yearsOfExperience: z.number().int().min(0).max(60).optional(),
+    ageRanges: z.array(z.string()).optional(),
+    availabilityType: AvailabilityTypeSchema.optional(),
+    schedule: WeeklyScheduleSchema.optional(),
+    certificationIds: z.array(z.number().int().positive()).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Provide at least one field to update.' });
+export type UpdateAdminNanny = z.infer<typeof UpdateAdminNannySchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Combined ID review queue (parents + nannies in one KYC gallery)
