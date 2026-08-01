@@ -137,9 +137,9 @@ export default function BookingStep1Screen() {
   // ── Care Points ─────────────────────────────────────────────────────────
   // Points can only be redeemed against a booking that exists, so here they are
   // *reserved*: the choice rides through the flow and is applied automatically
-  // on the confirmation screen the moment a nanny accepts. Which is why the
-  // saving is never folded into `total` below — that number is what gets
-  // charged now.
+  // on the confirmation screen the moment a nanny accepts — which is still
+  // BEFORE her card is charged. So the amount she actually pays is the total net
+  // of the reserved hours; that net figure is what the price card and CTA show.
   const pointsPerHour = rewardConfig?.redemptionPointsPerHour ?? 0;
   const pointsBalance = wallet?.pointsBalance ?? 0;
   const maxPointHours =
@@ -150,7 +150,10 @@ export default function BookingStep1Screen() {
       : 1;
   const canUsePoints =
     (rewardConfig?.enabled ?? false) && maxPointHours >= minPointHours && hours > 0;
-  const pointsSaving = breakdown ? pointsHours * breakdown.effectiveHourlyRate : 0;
+  // Mirror the server cap: the credit funds free hours, it never drives what is
+  // owed below zero.
+  const pointsSaving = breakdown ? Math.min(pointsHours * breakdown.effectiveHourlyRate, total) : 0;
+  const netTotal = Math.max(0, total - pointsSaving);
 
   const totalSaved = durationDiscount + promoDiscount + pointsSaving;
 
@@ -487,7 +490,7 @@ export default function BookingStep1Screen() {
         ) : (
           <CollapsibleCard
             title="Price details"
-            summary={formatMoney(total)}
+            summary={formatMoney(netTotal)}
             icon="receipt-outline"
           >
             <View style={styles.priceRow}>
@@ -557,15 +560,25 @@ export default function BookingStep1Screen() {
                 <Text style={styles.promoValue}>–{formatMoney(promoDiscount)}</Text>
               </View>
             )}
+            {pointsHours > 0 && (
+              <View style={styles.priceRow}>
+                <View style={styles.priceRowLabel}>
+                  <Text style={styles.promoLabel}>
+                    {pointsHours} free hour{pointsHours === 1 ? '' : 's'} · Care Points
+                  </Text>
+                  <Text style={styles.priceMath}>applied when a nanny accepts</Text>
+                </View>
+                <Text style={styles.promoValue}>–{formatMoney(pointsSaving)}</Text>
+              </View>
+            )}
             <View style={styles.priceDivider} />
             <View style={styles.priceRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>{formatMoney(total)}</Text>
+              <Text style={styles.totalValue}>{formatMoney(netTotal)}</Text>
             </View>
             {pointsHours > 0 && (
               <Text style={styles.pendingCreditNote}>
-                {pointsHours} free hour{pointsHours === 1 ? '' : 's'} reserved (−
-                {formatMoney(pointsSaving)}) — applied once a nanny accepts, before you pay.
+                Care Points are applied the moment a nanny accepts — before your card is charged.
               </Text>
             )}
           </CollapsibleCard>
@@ -606,9 +619,9 @@ export default function BookingStep1Screen() {
 
       <BookingSummaryBar
         summary={summaryLine}
-        total={formatMoney(total)}
+        total={formatMoney(netTotal)}
         totalLabel="You’ll pay"
-        ctaLabel={`Request care · ${formatMoney(total)}`}
+        ctaLabel={`Request care · ${formatMoney(netTotal)}`}
         onPress={() => void handleProceed()}
         disabled={!canProceed}
         loading={isPricingLoading || createBooking.isPending}
