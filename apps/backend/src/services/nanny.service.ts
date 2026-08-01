@@ -163,6 +163,92 @@ async function requireNannyUser(uid: string) {
   return user;
 }
 
+/** The writable subset of a nanny profile — shared by self-service, registration, and admin-edit writers. */
+export type NannyProfileWritable = {
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string | null;
+  location?: string;
+  bio?: string;
+  yearsOfExperience?: number;
+  ageRanges?: string[];
+  availabilityType?: UpdateNannyProfileRequest['availabilityType'];
+  schedule?: WeeklySchedule;
+  certificationIds?: number[];
+};
+
+/**
+ * Core nanny-profile writer, extracted so registration (Task 3) and the admin
+ * edit path (Task 5) can share it with the nanny self-service path here. This
+ * is the single interface all three callers use — signature stays exactly
+ * `(tx, { userId, nannyProfileId, fields })`.
+ *
+ * Must run inside a caller-provided transaction, with the `NannyProfile` row
+ * already existing (callers upsert/find it first so `nannyProfileId` is
+ * always concrete). Writes `User` (firstName/lastName/avatarUrl/address),
+ * upserts `NannyProfile` (bio/yearsOfExperience/ageRanges/schedule/
+ * availabilityType, recomputing `isProfileComplete`), and reconciles
+ * certification links. Since callers only pass the fields they're writing,
+ * fields omitted from this call are re-read from the DB (inside the same
+ * tx) so the `isProfileComplete` recompute still sees the nanny's current
+ * bio/location/yearsOfExperience rather than treating them as missing.
+ */
+export async function writeNannyProfileFields(
+  tx: PrismaTypes.TransactionClient,
+  params: { userId: number; nannyProfileId: number; fields: NannyProfileWritable },
+): Promise<void> {
+  const { userId, nannyProfileId, fields } = params;
+  const { firstName, lastName, avatarUrl, location, certificationIds, ...profileFields } = fields;
+
+  const userNeedsUpdate =
+    firstName !== undefined ||
+    lastName !== undefined ||
+    avatarUrl !== undefined ||
+    location !== undefined;
+
+  const currentUser = userNeedsUpdate
+    ? await tx.user.update({
+        where: { id: userId },
+        data: {
+          ...(firstName !== undefined && { firstName }),
+          ...(lastName !== undefined && { lastName }),
+          ...(avatarUrl !== undefined && { avatarUrl }),
+          ...(location !== undefined && { address: location }),
+        },
+      })
+    : await tx.user.findUniqueOrThrow({ where: { id: userId } });
+
+  const currentProfile = await tx.nannyProfile.findUnique({ where: { id: nannyProfileId } });
+
+  const mergedBio = profileFields.bio ?? currentProfile?.bio;
+  // Completeness reads location from the user row now.
+  const mergedLocation = location ?? currentUser.address;
+  const mergedYears =
+    profileFields.yearsOfExperience !== undefined
+      ? profileFields.yearsOfExperience
+      : currentProfile?.yearsOfExperience;
+
+  const isProfileComplete =
+    getMissingNannyProfileFields({
+      bio: mergedBio ?? null,
+      location: mergedLocation ?? null,
+      yearsOfExperience: mergedYears ?? null,
+    }).length === 0;
+
+  await tx.nannyProfile.upsert({
+    where: { userId },
+    create: { userId, ...profileFields, isProfileComplete },
+    update: { ...profileFields, isProfileComplete },
+    select: { id: true },
+  });
+
+  // Reconcile the certification links inside the same transaction so the
+  // profile write and its tags stay atomic.
+  if (certificationIds !== undefined) {
+    await reconcileNannyCertifications(tx, nannyProfileId, certificationIds);
+  }
+}
+
 // ── Self profile (nanny managing own profile) ─────────────────────────────────
 
 export async function getNannyProfile(decoded: DecodedIdToken): Promise<NannyProfileResponse> {
@@ -177,63 +263,28 @@ export async function updateNannyProfile(
 ): Promise<NannyProfileResponse> {
   const user = await requireNannyUser(decoded.uid);
 
-  // `location` is the nanny's free-text home label. It now lives on the user
-  // row (users.address), the single source of truth for proximity search, so
-  // it is pulled out of the nanny-profile write path and applied to the user.
-  // `certificationIds` are reconciled into the NannyCertification join, not
-  // written as a scalar column, so they are pulled out too.
-  const { firstName, lastName, avatarUrl, location, certificationIds, ...profileFields } = body;
-
   const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx) => {
-    const u =
-      firstName !== undefined ||
-      lastName !== undefined ||
-      avatarUrl !== undefined ||
-      location !== undefined
-        ? await tx.user.update({
-            where: { id: user.id },
-            data: {
-              ...(firstName !== undefined && { firstName }),
-              ...(lastName !== undefined && { lastName }),
-              ...(avatarUrl !== undefined && { avatarUrl }),
-              ...(location !== undefined && { address: location }),
-            },
-          })
-        : user;
-
-    const existing = user.nannyProfile;
-    const mergedBio = profileFields.bio ?? existing?.bio;
-    // Completeness reads location from the user row now.
-    const mergedLocation = location ?? user.address;
-    const mergedYears =
-      profileFields.yearsOfExperience !== undefined
-        ? profileFields.yearsOfExperience
-        : existing?.yearsOfExperience;
-
-    const isProfileComplete =
-      getMissingNannyProfileFields({
-        bio: mergedBio ?? null,
-        location: mergedLocation ?? null,
-        yearsOfExperience: mergedYears ?? null,
-      }).length === 0;
-
-    const upserted = await tx.nannyProfile.upsert({
+    // Ensure the profile row exists (upsert-by-userId) before writing, so the
+    // core writer always has a concrete nannyProfileId to reconcile tags
+    // against — mirrors the create-or-update semantics the old inline upsert had.
+    const profileRow = await tx.nannyProfile.upsert({
       where: { userId: user.id },
-      create: { userId: user.id, ...profileFields, isProfileComplete },
-      update: { ...profileFields, isProfileComplete },
+      create: { userId: user.id },
+      update: {},
       select: { id: true },
     });
 
-    // Reconcile the certification links (nanny self-service) inside the same
-    // transaction so the profile write and its tags stay atomic.
-    if (certificationIds !== undefined) {
-      await reconcileNannyCertifications(tx, upserted.id, certificationIds);
-    }
+    await writeNannyProfileFields(tx, {
+      userId: user.id,
+      nannyProfileId: profileRow.id,
+      fields: body,
+    });
 
-    // Re-read with the tag joins so the response reflects the reconciled
-    // certifications (the upsert snapshot predates the reconcile above).
+    // Re-read both rows so the response reflects everything the writer just
+    // did (the user update, the profile upsert, and the reconciled tags).
+    const u = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
     const p = await tx.nannyProfile.findUniqueOrThrow({
-      where: { id: upserted.id },
+      where: { id: profileRow.id },
       include: nannyTagsInclude,
     });
 
