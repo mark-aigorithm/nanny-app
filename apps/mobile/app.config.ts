@@ -29,6 +29,12 @@ const config: ExpoConfig = {
     supportsTablet: false,
     bundleIdentifier: 'com.nannyapp.mobile',
     googleServicesFile: "./GoogleService-Info.plist",
+    // Standard HTTPS/Firebase only — exempt encryption. Setting this stops
+    // TestFlight/App Store Connect asking the export-compliance question on
+    // every build.
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
     // Deliberately no `config.googleMapsApiKey` here. Setting it pulls in the
     // react-native-google-maps pod, which cannot build under the framework
     // linkage Firebase requires (react-native-maps#4868, #5742 -- unresolved
