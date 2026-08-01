@@ -314,6 +314,23 @@ h3 {
   box-shadow: 0 0 0 3px var(--color-primary-muted);
 }
 
+/* Drop the native number spin-buttons everywhere — their cramped up/down
+   arrows render inconsistently across browsers and clash with the flat, warm
+   fields. Applied admin-wide (not just `.field`) so every input — modals,
+   pricing panels, inline table cells — reads the same. The UI uses explicit
+   +/− controls where stepping matters. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .field-hint {
   font-size: 0.75rem;
   color: var(--color-text-muted);
