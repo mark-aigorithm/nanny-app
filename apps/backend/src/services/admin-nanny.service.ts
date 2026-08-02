@@ -8,6 +8,7 @@ import type {
   PaginationMeta,
   RejectNannyInput,
   SetNannySkillsInput,
+  UpdateAdminNanny,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
@@ -17,6 +18,7 @@ import {
   createInAppNotification,
   dispatchPush,
 } from '@backend/services/notification.service';
+import { writeNannyProfileFields } from '@backend/services/nanny.service';
 
 const nannyInclude = {
   user: {
@@ -311,4 +313,29 @@ export async function setNannySkills(
     include: nannyInclude,
   });
   return toDto(updated);
+}
+
+/**
+ * Admin edits a nanny's profile fields (PATCH /admin/nannies/:id) — the
+ * registration-captured fields (name, location, bio, experience, age ranges,
+ * availability, schedule, certifications). Reuses `writeNannyProfileFields`,
+ * the same core writer registration and the (now-removed) nanny self-service
+ * path used, so the completeness recompute and certification reconcile stay
+ * identical across every writer of a nanny profile.
+ */
+export async function updateAdminNanny(
+  nannyProfileId: number,
+  input: UpdateAdminNanny,
+): Promise<AdminNannyDetail> {
+  const profile = await findReviewableNanny(nannyProfileId);
+
+  await prisma.$transaction((tx) =>
+    writeNannyProfileFields(tx, {
+      userId: profile.user.id,
+      nannyProfileId: profile.id,
+      fields: input,
+    }),
+  );
+
+  return getAdminNanny(nannyProfileId);
 }

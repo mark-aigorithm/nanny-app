@@ -31,6 +31,7 @@ import {
   SetBookingStatusSchema,
   SetNannySkillsSchema,
   UpdateAdminMotherSchema,
+  UpdateAdminNannySchema,
   UpdateBookingTimesSchema,
   UpdateCameraSchema,
   UpdateDurationRuleSchema,
@@ -69,6 +70,7 @@ import {
   listAdminNannies,
   rejectNanny,
   setNannySkills,
+  updateAdminNanny,
 } from '@backend/services/admin-nanny.service';
 import { listIdReviews } from '@backend/services/admin-id-review.service';
 import {
@@ -315,6 +317,18 @@ adminRouter.get('/nannies/:id', async (req: Request, res: Response, next: NextFu
     next(err);
   }
 });
+
+adminRouter.patch(
+  '/nannies/:id',
+  validateBody(UpdateAdminNannySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateAdminNanny(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 adminRouter.post(
   '/nannies/:id/approve',
