@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useValidateReferralCode } from '@mobile/hooks/useReferrals';
@@ -17,34 +17,25 @@ interface Props {
 }
 
 /**
- * Optional referral code entry on the final signup step. Collapsed behind a
- * text prompt so it never competes with the primary flow, and validated live
- * once something is typed — the validate endpoint is optional-auth precisely
- * so this can run before the account exists.
+ * Optional referral code entry on the final signup step. Always visible — it
+ * used to be collapsed behind a text prompt, which read as decoration and left
+ * invitees with nowhere obvious to enter their code. Validated live once
+ * something is typed; the validate endpoint is optional-auth precisely so this
+ * can run before the account exists.
  */
 export default function ReferralCodeField({ value, onChange }: Props) {
-  const [expanded, setExpanded] = useState(value.length > 0);
   const check = useValidateReferralCode(value);
-
-  if (!expanded) {
-    return (
-      <Pressable
-        style={styles.prompt}
-        onPress={() => setExpanded(true)}
-        accessibilityRole="button"
-      >
-        <Ionicons name="gift-outline" size={16} color={colors.primaryDark} />
-        <Text style={styles.promptText}>Have a referral code?</Text>
-      </Pressable>
-    );
-  }
 
   const trimmed = value.trim();
   const result = check.data;
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>Referral code (optional)</Text>
+      <View style={styles.labelRow}>
+        <Ionicons name="gift-outline" size={16} color={colors.primaryDark} />
+        <Text style={styles.label}>Referral code (optional)</Text>
+      </View>
+      <Text style={styles.hint}>Invited by a friend? Enter their code to start with Care Points.</Text>
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
@@ -78,17 +69,6 @@ export default function ReferralCodeField({ value, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  prompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  promptText: {
-    ...typeScale.labelMd,
-    color: colors.primaryDark,
-  },
   wrap: {
     gap: spacing.sm,
     padding: spacing.lg,
@@ -97,9 +77,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.warmBorder,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   label: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
+  },
+  hint: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
   },
   inputRow: {
     flexDirection: 'row',
