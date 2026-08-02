@@ -1,27 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   Image,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
-  Switch,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
-import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
+import { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
-import { useNannyProfile, useUpdateNannyProfile } from '@mobile/hooks/useNannyProfile';
-import { useCertificationCatalog } from '@mobile/hooks/useNannies';
+import { useNannyProfile } from '@mobile/hooks/useNannyProfile';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { AvailabilityType } from '@nanny-app/shared';
 import type { AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
@@ -29,7 +26,6 @@ import type { AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '
 // ─── Working hours types & helpers ───────────────────────────────────────────
 
 type DaySchedule = { available: boolean; startTime: string; endTime: string };
-type PickerTarget = { day: number; field: 'start' | 'end' };
 
 const DAY_NAMES: Record<number, string> = {
   1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 0: 'Sun',
@@ -58,17 +54,7 @@ function apiScheduleToUi(schedule: WeeklySchedule | null | undefined): Record<nu
   return result;
 }
 
-function uiScheduleToApi(schedule: Record<number, DaySchedule>): WeeklySchedule {
-  const result: WeeklySchedule = {};
-  for (const [day, slot] of Object.entries(schedule)) {
-    result[day] = slot;
-  }
-  return result;
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const AGE_RANGE_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
 
 const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityTypeValue }[] = [
   { label: 'Full-time', value: AvailabilityType.FULL_TIME },
@@ -80,140 +66,34 @@ const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityTypeValue }[] = 
 
 export default function NannyProfileEditScreen() {
   const router = useRouter();
-  const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { data: nannyProfile, isLoading } = useNannyProfile();
-  const { data: certCatalog } = useCertificationCatalog();
-  const updateProfile = useUpdateNannyProfile();
   const signOut = useSignOut();
 
-  const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [experience, setExperience] = useState('');
-  const [selectedCertificationIds, setSelectedCertificationIds] = useState<number[]>([]);
   const [selectedAgeRanges, setSelectedAgeRanges] = useState<string[]>([]);
   const [availabilityType, setAvailabilityType] = useState<AvailabilityTypeValue>(AvailabilityType.OCCASIONAL);
 
   const [schedule, setSchedule] = useState<Record<number, DaySchedule>>(
     () => structuredClone(DEFAULT_SCHEDULE),
   );
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
-  // Certification chips = the active catalog, plus any the nanny already holds
-  // that are no longer active (so a deactivated tag stays visible/removable and
-  // never silently disappears from her profile).
-  const certificationOptions = useMemo(() => {
-    const options = [...(certCatalog ?? [])];
-    const known = new Set(options.map((c) => c.id));
-    for (const held of nannyProfile?.certifications ?? []) {
-      if (!known.has(held.id)) options.push(held);
-    }
-    return options;
-  }, [certCatalog, nannyProfile]);
-
-  // Populate form from the loaded profile (also used to discard edits on cancel)
-  const resetFields = () => {
+  // Populate display state from the loaded profile (read-only — there is no
+  // edit mode to sync back from).
+  useEffect(() => {
     if (!nannyProfile) return;
     setFirstName(nannyProfile.firstName);
     setLastName(nannyProfile.lastName);
     setBio(nannyProfile.bio ?? '');
     setLocation(nannyProfile.location ?? '');
     setExperience(nannyProfile.yearsOfExperience?.toString() ?? '');
-    setSelectedCertificationIds(nannyProfile.certifications.map((c) => c.id));
     setSelectedAgeRanges(nannyProfile.ageRanges);
     setAvailabilityType(nannyProfile.availabilityType);
     setSchedule(apiScheduleToUi(nannyProfile.schedule));
-  };
-
-  // Populate form when profile data loads
-  useEffect(() => {
-    resetFields();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nannyProfile]);
-
-  // Open in edit mode when navigated here with ?edit=1 (e.g. from the
-  // "Complete profile" banner), then clear the param so a later manual visit
-  // doesn't force edit mode again.
-  useEffect(() => {
-    if (edit === '1') {
-      setIsEditing(true);
-      router.setParams({ edit: undefined });
-    }
-  }, [edit, router]);
-
-  const handleToggleEdit = () => {
-    if (isEditing) resetFields(); // closing without saving discards changes
-    setIsEditing((prev) => !prev);
-  };
-
-  const toggleCertification = (id: number) => {
-    setSelectedCertificationIds((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  };
-
-  const toggleAgeRange = (range: string) => {
-    setSelectedAgeRanges((prev) =>
-      prev.includes(range) ? prev.filter((r) => r !== range) : [...prev, range],
-    );
-  };
-
-  const handleSave = () => {
-    updateProfile.mutate(
-      {
-        firstName: firstName.trim() || undefined,
-        lastName: lastName.trim() || undefined,
-        bio: bio || undefined,
-        location: location || undefined,
-        yearsOfExperience: experience ? parseInt(experience, 10) : undefined,
-        certificationIds: selectedCertificationIds,
-        ageRanges: selectedAgeRanges,
-        availabilityType,
-        schedule: uiScheduleToApi(schedule),
-      },
-      { onSuccess: () => setIsEditing(false) },
-    );
-  };
-
-  // ── Working hours handlers ─────────────────────────────────────────────────
-
-  const toggleDay = (day: number) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [day]: { ...prev[day]!, available: !prev[day]!.available },
-    }));
-  };
-
-  const openPicker = (day: number, field: 'start' | 'end') => {
-    setPickerTarget({ day, field });
-  };
-
-  const handleTimeSelect = (time: string) => {
-    if (!pickerTarget) return;
-    setSchedule((prev) => ({
-      ...prev,
-      [pickerTarget.day]: {
-        ...prev[pickerTarget.day]!,
-        ...(pickerTarget.field === 'start' ? { startTime: time } : { endTime: time }),
-      },
-    }));
-    setPickerTarget(null);
-  };
-
-  const copyToAllActiveDays = () => {
-    const firstActive = DAY_ORDER.find((d) => schedule[d]?.available);
-    if (!firstActive) return;
-    const { startTime, endTime } = schedule[firstActive]!;
-    setSchedule((prev) => {
-      const next = { ...prev };
-      for (const day of DAY_ORDER) {
-        if (next[day]?.available) next[day] = { ...next[day]!, startTime, endTime };
-      }
-      return next;
-    });
-  };
 
   if (isLoading) {
     return (
@@ -250,7 +130,7 @@ export default function NannyProfileEditScreen() {
       >
         {/* Photo + identity */}
         <View style={styles.photoSection}>
-          <Pressable style={styles.photoWrapper} disabled={!isEditing}>
+          <View style={styles.photoWrapper}>
             {nannyProfile?.avatarUrl ? (
               <Image source={{ uri: nannyProfile.avatarUrl }} style={styles.photo} resizeMode="cover" />
             ) : (
@@ -258,281 +138,92 @@ export default function NannyProfileEditScreen() {
                 <Ionicons name="person" size={40} color={colors.textPlaceholder} />
               </View>
             )}
-            {isEditing && (
-              <View style={styles.cameraBadge}>
-                <Ionicons name="camera" size={14} color={colors.white} />
-              </View>
-            )}
-          </Pressable>
+          </View>
 
-          {isEditing ? (
-            <Pressable>
-              <Text style={styles.changePhotoText}>Change photo</Text>
-            </Pressable>
-          ) : (
-            <>
-              {fullName ? <Text style={styles.viewName}>{fullName}</Text> : null}
-              {location ? (
-                <View style={styles.viewLocationRow}>
-                  <Ionicons name="location-outline" size={15} color={colors.textTertiary} />
-                  <Text style={styles.viewLocationText}>{location}</Text>
-                </View>
-              ) : null}
-            </>
-          )}
+          {fullName ? <Text style={styles.viewName}>{fullName}</Text> : null}
+          {location ? (
+            <View style={styles.viewLocationRow}>
+              <Ionicons name="location-outline" size={15} color={colors.textTertiary} />
+              <Text style={styles.viewLocationText}>{location}</Text>
+            </View>
+          ) : null}
         </View>
 
-        {isEditing ? (
-          <>
-            {/* Basic Info */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Basic information</Text>
+        <ProfileVisibilityBanner note="Your profile is managed by NannyNow. Contact support to update it." />
 
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>First name</Text>
-                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Last name</Text>
-                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Bio</Text>
-                <TextInput
-                  style={styles.textArea}
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  textAlignVertical="top"
-                  placeholder="Tell parents about yourself..."
-                  placeholderTextColor={colors.textPlaceholder}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Location</Text>
-                <TextInput style={styles.input} value={location} onChangeText={setLocation} autoCapitalize="words" />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Years of experience</Text>
-                <TextInput style={styles.input} value={experience} onChangeText={setExperience} keyboardType="number-pad" />
-              </View>
-            </View>
-
-            {/* Certifications */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Certifications</Text>
-              {certificationOptions.length > 0 ? (
-                <View style={styles.certsRow}>
-                  {certificationOptions.map((cert) => {
-                    const isSelected = selectedCertificationIds.includes(cert.id);
-                    return (
-                      <Pressable
-                        key={cert.id}
-                        style={[styles.ageChip, isSelected && styles.ageChipSelected]}
-                        onPress={() => toggleCertification(cert.id)}
-                      >
-                        <Text style={[styles.ageChipText, isSelected && styles.ageChipTextSelected]}>
-                          {cert.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+        {/* Stats */}
+        {stats.length > 0 ? (
+          <View style={styles.statStrip}>
+            {stats.map((stat, i) => (
+              <React.Fragment key={stat.label}>
+                {i > 0 ? <View style={styles.statDivider} /> : null}
+                <View style={styles.statCol}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
                 </View>
-              ) : (
-                <Text style={styles.certChipText}>No certifications available yet.</Text>
-              )}
-            </View>
+              </React.Fragment>
+            ))}
+          </View>
+        ) : null}
 
-            {/* Age Range */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Age range</Text>
-              <View style={styles.ageChipsRow}>
-                {AGE_RANGE_OPTIONS.map((range) => {
-                  const isSelected = selectedAgeRanges.includes(range);
-                  return (
-                    <Pressable
-                      key={range}
-                      style={[styles.ageChip, isSelected && styles.ageChipSelected]}
-                      onPress={() => toggleAgeRange(range)}
-                    >
-                      <Text style={[styles.ageChipText, isSelected && styles.ageChipTextSelected]}>
-                        {range}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+        {/* About */}
+        {bio ? (
+          <View style={styles.formSection}>
+            <Text style={styles.sectionLabel}>About</Text>
+            <Text style={styles.viewBio}>{bio}</Text>
+          </View>
+        ) : null}
 
-            {/* Availability Type */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Availability</Text>
-              <View style={styles.availabilityRow}>
-                {AVAILABILITY_OPTIONS.map((option) => {
-                  const isSelected = availabilityType === option.value;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      style={[styles.availabilityChip, isSelected && styles.availabilityChipSelected]}
-                      onPress={() => setAvailabilityType(option.value)}
-                    >
-                      <Text style={[styles.availabilityChipText, isSelected && styles.availabilityChipTextSelected]}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Working Hours */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Working hours</Text>
-              <View style={styles.scheduleCard}>
-                {DAY_ORDER.map((day, index) => {
-                  const slot = schedule[day]!;
-                  return (
-                    <View key={day}>
-                      <View style={styles.dayRow}>
-                        <Text style={styles.dayLabel}>{DAY_NAMES[day]}</Text>
-                        <View style={styles.timePills}>
-                          {slot.available ? (
-                            <>
-                              <Pressable style={styles.timePill} onPress={() => openPicker(day, 'start')}>
-                                <Text style={styles.timePillText}>{formatTimeDisplay(slot.startTime)}</Text>
-                              </Pressable>
-                              <Text style={styles.timeSeparator}>→</Text>
-                              <Pressable style={styles.timePill} onPress={() => openPicker(day, 'end')}>
-                                <Text style={styles.timePillText}>{formatTimeDisplay(slot.endTime)}</Text>
-                              </Pressable>
-                            </>
-                          ) : (
-                            <Text style={styles.dayOffLabel}>Day off</Text>
-                          )}
-                        </View>
-                        <Switch
-                          value={slot.available}
-                          onValueChange={() => toggleDay(day)}
-                          trackColor={{ false: colors.neutralLight, true: colors.primary }}
-                          thumbColor={colors.white}
-                        />
-                      </View>
-                      {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
-                    </View>
-                  );
-                })}
-              </View>
-              <Pressable style={styles.copyButton} onPress={copyToAllActiveDays}>
-                <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                <Text style={styles.copyButtonText}>Copy first day's hours to all active days</Text>
-              </Pressable>
-            </View>
-
-            {/* Save */}
-            <Pressable
-              style={[styles.saveButton, updateProfile.isPending && { opacity: 0.6 }]}
-              onPress={handleSave}
-              disabled={updateProfile.isPending}
-            >
-              {updateProfile.isPending ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Text style={styles.saveButtonText}>Save changes</Text>
-              )}
-            </Pressable>
-
-            {updateProfile.isError && (
-              <Text style={{ color: colors.error, textAlign: 'center', marginTop: 8 }}>
-                {updateProfile.error instanceof Error ? updateProfile.error.message : 'Failed to save.'}
-              </Text>
-            )}
-          </>
-        ) : (
-          <>
-            <ProfileVisibilityBanner
-              ctaLabel="Complete profile"
-              onPressCta={() => setIsEditing(true)}
-            />
-
-            {/* Stats */}
-            {stats.length > 0 ? (
-              <View style={styles.statStrip}>
-                {stats.map((stat, i) => (
-                  <React.Fragment key={stat.label}>
-                    {i > 0 ? <View style={styles.statDivider} /> : null}
-                    <View style={styles.statCol}>
-                      <Text style={styles.statValue}>{stat.value}</Text>
-                      <Text style={styles.statLabel}>{stat.label}</Text>
-                    </View>
-                  </React.Fragment>
-                ))}
-              </View>
-            ) : null}
-
-            {/* About */}
-            {bio ? (
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>About</Text>
-                <Text style={styles.viewBio}>{bio}</Text>
-              </View>
-            ) : null}
-
-            {/* Age range */}
-            {selectedAgeRanges.length > 0 ? (
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>Age range</Text>
-                <View style={styles.certsRow}>
-                  {selectedAgeRanges.map((range) => (
-                    <View key={range} style={styles.certChip}>
-                      <Text style={styles.certChipText}>{range}</Text>
-                    </View>
-                  ))}
+        {/* Age range */}
+        {selectedAgeRanges.length > 0 ? (
+          <View style={styles.formSection}>
+            <Text style={styles.sectionLabel}>Age range</Text>
+            <View style={styles.certsRow}>
+              {selectedAgeRanges.map((range) => (
+                <View key={range} style={styles.certChip}>
+                  <Text style={styles.certChipText}>{range}</Text>
                 </View>
-              </View>
-            ) : null}
-
-            {/* Certifications */}
-            {nannyProfile && nannyProfile.certifications.length > 0 ? (
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>Certifications</Text>
-                <View style={styles.certsRow}>
-                  {nannyProfile.certifications.map((cert) => (
-                    <View key={cert.id} style={styles.certChip}>
-                      <Text style={styles.certChipText}>{cert.name}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-
-            {/* Working Hours */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionLabel}>Working hours</Text>
-              <View style={styles.scheduleCard}>
-                {DAY_ORDER.map((day, index) => {
-                  const slot = schedule[day]!;
-                  return (
-                    <View key={day}>
-                      <View style={styles.dayRow}>
-                        <Text style={styles.dayLabel}>{DAY_NAMES[day]}</Text>
-                        <Text style={[styles.viewHoursText, !slot.available && styles.viewHoursOff]}>
-                          {slot.available
-                            ? `${formatTimeDisplay(slot.startTime)} – ${formatTimeDisplay(slot.endTime)}`
-                            : 'Day off'}
-                        </Text>
-                      </View>
-                      {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
-                    </View>
-                  );
-                })}
-              </View>
+              ))}
             </View>
-          </>
-        )}
+          </View>
+        ) : null}
+
+        {/* Certifications */}
+        {nannyProfile && nannyProfile.certifications.length > 0 ? (
+          <View style={styles.formSection}>
+            <Text style={styles.sectionLabel}>Certifications</Text>
+            <View style={styles.certsRow}>
+              {nannyProfile.certifications.map((cert) => (
+                <View key={cert.id} style={styles.certChip}>
+                  <Text style={styles.certChipText}>{cert.name}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Working Hours */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionLabel}>Working hours</Text>
+          <View style={styles.scheduleCard}>
+            {DAY_ORDER.map((day, index) => {
+              const slot = schedule[day]!;
+              return (
+                <View key={day}>
+                  <View style={styles.dayRow}>
+                    <Text style={styles.dayLabel}>{DAY_NAMES[day]}</Text>
+                    <Text style={[styles.viewHoursText, !slot.available && styles.viewHoursOff]}>
+                      {slot.available
+                        ? `${formatTimeDisplay(slot.startTime)} – ${formatTimeDisplay(slot.endTime)}`
+                        : 'Day off'}
+                    </Text>
+                  </View>
+                  {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Sign out */}
         <Pressable
@@ -555,34 +246,7 @@ export default function NannyProfileEditScreen() {
         </Pressable>
       </ScrollView>
 
-      <NannyTabHeader
-        title="Profile"
-        leftSlot={
-          <Pressable
-            onPress={handleToggleEdit}
-            hitSlop={8}
-            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Ionicons
-              name={isEditing ? 'close' : 'create-outline'}
-              size={22}
-              color={colors.textDark}
-            />
-          </Pressable>
-        }
-      />
-
-      <TimeSelectSheet
-        visible={pickerTarget !== null}
-        title={pickerTarget?.field === 'start' ? 'Start time' : 'End time'}
-        value={
-          pickerTarget
-            ? schedule[pickerTarget.day]?.[pickerTarget.field === 'start' ? 'startTime' : 'endTime'] ?? '08:00'
-            : '08:00'
-        }
-        onSelect={handleTimeSelect}
-        onClose={() => setPickerTarget(null)}
-      />
+      <NannyTabHeader title="Profile" />
 
       <NannyBottomNav activeTab="profile" />
       </KeyboardAvoidingView>

@@ -45,23 +45,6 @@ export const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.surface,
   },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    borderWidth: 2,
-    borderColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  changePhotoText: {
-    ...typeScale.labelSm,
-    color: colors.primary,
-  },
 
   // Form sections
   formSection: {
@@ -73,33 +56,6 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  fieldLabel: {
-    ...typeScale.labelMd,
-    color: colors.textTertiary,
-  },
-  input: {
-    height: 56,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  textArea: {
-    height: 120,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.textPrimary,
-    textAlignVertical: 'top',
   },
   // Certifications
   certsRow: {
@@ -119,67 +75,6 @@ export const styles = StyleSheet.create({
   certChipText: {
     ...typeScale.labelSm,
     color: colors.textTertiary,
-  },
-  addCertButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-  },
-  addCertText: {
-    ...typeScale.labelSm,
-    color: colors.primary,
-  },
-
-  // Age range
-  ageChipsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  ageChip: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.taupe,
-  },
-  ageChipSelected: {
-    backgroundColor: colors.primary,
-  },
-  ageChipText: {
-    ...typeScale.labelSm,
-    color: colors.textTertiary,
-  },
-  ageChipTextSelected: {
-    color: colors.white,
-  },
-
-  // Availability type
-  availabilityRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  availabilityChip: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.taupe,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  availabilityChipSelected: {
-    backgroundColor: colors.primary,
-  },
-  availabilityChipText: {
-    ...typeScale.labelSm,
-    color: colors.textTertiary,
-  },
-  availabilityChipTextSelected: {
-    color: colors.white,
   },
 
   // Working hours
@@ -205,74 +100,6 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     color: colors.textPrimary,
   },
-  timePills: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  timePill: {
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  timePillText: {
-    ...typeScale.labelSm,
-    color: colors.textPrimary,
-  },
-  timeSeparator: {
-    ...typeScale.bodyMd,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.xxs,
-  },
-  dayOffLabel: {
-    flex: 1,
-    ...typeScale.labelSm,
-    color: colors.textMuted,
-  },
-  copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingTop: spacing.md,
-  },
-  copyButtonText: {
-    ...typeScale.labelSm,
-    color: colors.primary,
-  },
-
-  // Time picker modal (iOS)
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  pickerSheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    paddingBottom: spacing['3xl'],
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: screenPadding,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  pickerTitle: {
-    ...typeScale.headingMd,
-    color: colors.textPrimary,
-  },
-  pickerDone: {
-    ...typeScale.labelMd,
-    fontFamily: fontFamily.bold,
-    color: colors.primary,
-  },
-
   // Save button
   saveButton: {
     height: 56,

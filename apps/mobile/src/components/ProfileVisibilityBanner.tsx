@@ -13,8 +13,11 @@ import {
 import { useNannyProfile } from '@mobile/hooks/useNannyProfile';
 
 interface Props {
-  ctaLabel: string;
-  onPressCta: () => void;
+  /** Actionable CTA — pass together with `onPressCta`. Omit for a read-only note instead. */
+  ctaLabel?: string;
+  onPressCta?: () => void;
+  /** Non-interactive text shown instead of a CTA button (e.g. when there's no edit flow). */
+  note?: string;
 }
 
 /** Joins labels into a natural sentence fragment: "a", "a and b", "a, b and c". */
@@ -30,7 +33,7 @@ function joinNaturally(items: string[]): string {
  * because required fields are missing. Renders nothing while loading or once the
  * profile is complete. The missing-field rule lives in `@nanny-app/shared`.
  */
-export default function ProfileVisibilityBanner({ ctaLabel, onPressCta }: Props) {
+export default function ProfileVisibilityBanner({ ctaLabel, onPressCta, note }: Props) {
   const { data, isLoading } = useNannyProfile();
 
   if (isLoading || !data) return null;
@@ -64,14 +67,18 @@ export default function ProfileVisibilityBanner({ ctaLabel, onPressCta }: Props)
         ))}
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-        onPress={onPressCta}
-        accessibilityRole="button"
-        accessibilityLabel={ctaLabel}
-      >
-        <Text style={styles.ctaText}>{ctaLabel}</Text>
-      </Pressable>
+      {onPressCta && ctaLabel ? (
+        <Pressable
+          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+          onPress={onPressCta}
+          accessibilityRole="button"
+          accessibilityLabel={ctaLabel}
+        >
+          <Text style={styles.ctaText}>{ctaLabel}</Text>
+        </Pressable>
+      ) : note ? (
+        <Text style={styles.body}>{note}</Text>
+      ) : null}
     </View>
   );
 }
