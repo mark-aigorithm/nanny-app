@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 
-import { CreateReviewSchema, NannyBookedSlotsQuerySchema, NannyListQuerySchema, UpdateNannyProfileRequestSchema } from '@nanny-app/shared';
+import { CreateReviewSchema, NannyBookedSlotsQuerySchema, NannyListQuerySchema } from '@nanny-app/shared';
 
 import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import { requireApprovedNanny } from '@backend/middleware/nanny.middleware';
@@ -15,7 +15,6 @@ import {
   getNannyProfile,
   getNannyPublicProfile,
   listNannies,
-  updateNannyProfile,
 } from '@backend/services/nanny.service';
 import { listActiveSkills } from '@backend/services/skill.service';
 import { listActiveCertifications } from '@backend/services/certification.service';
@@ -37,7 +36,8 @@ nannyRouter.get(
   },
 );
 
-// ── Self profile (authenticated nanny managing own profile) ───────────────────
+// ── Self profile (authenticated nanny reading her own profile; profile fields
+// are set at registration and edited only by admins — see nanny.service.ts) ──
 
 nannyRouter.get(
   '/profile',
@@ -46,19 +46,6 @@ nannyRouter.get(
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
       const profile = await getNannyProfile(req.firebaseUser);
-      res.json(ok(profile));
-    } catch (err) { next(err); }
-  },
-);
-
-nannyRouter.put(
-  '/profile',
-  requireAuth,
-  validateBody(UpdateNannyProfileRequestSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!req.firebaseUser) throw errors.unauthorized();
-      const profile = await updateNannyProfile(req.firebaseUser, req.body);
       res.json(ok(profile));
     } catch (err) { next(err); }
   },

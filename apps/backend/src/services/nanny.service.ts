@@ -249,49 +249,13 @@ export async function writeNannyProfileFields(
   }
 }
 
-// ── Self profile (nanny managing own profile) ─────────────────────────────────
+// ── Self profile (nanny reading her own profile; set at registration, edited
+// only by admins — see writeNannyProfileFields above) ─────────────────────────
 
 export async function getNannyProfile(decoded: DecodedIdToken): Promise<NannyProfileResponse> {
   const user = await requireNannyUser(decoded.uid);
   if (!user.nannyProfile) throw errors.notFound('Nanny profile not found.');
   return toNannyProfileResponse(user, user.nannyProfile);
-}
-
-export async function updateNannyProfile(
-  decoded: DecodedIdToken,
-  body: UpdateNannyProfileRequest,
-): Promise<NannyProfileResponse> {
-  const user = await requireNannyUser(decoded.uid);
-
-  const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx) => {
-    // Ensure the profile row exists (upsert-by-userId) before writing, so the
-    // core writer always has a concrete nannyProfileId to reconcile tags
-    // against — mirrors the create-or-update semantics the old inline upsert had.
-    const profileRow = await tx.nannyProfile.upsert({
-      where: { userId: user.id },
-      create: { userId: user.id },
-      update: {},
-      select: { id: true },
-    });
-
-    await writeNannyProfileFields(tx, {
-      userId: user.id,
-      nannyProfileId: profileRow.id,
-      fields: body,
-    });
-
-    // Re-read both rows so the response reflects everything the writer just
-    // did (the user update, the profile upsert, and the reconciled tags).
-    const u = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
-    const p = await tx.nannyProfile.findUniqueOrThrow({
-      where: { id: profileRow.id },
-      include: nannyTagsInclude,
-    });
-
-    return [u, p] as const;
-  });
-
-  return toNannyProfileResponse(updatedUser, updatedProfile);
 }
 
 // ── Public nanny listing ──────────────────────────────────────────────────────
