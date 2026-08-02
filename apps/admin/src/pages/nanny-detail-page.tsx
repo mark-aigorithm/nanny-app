@@ -18,8 +18,15 @@ import {
   useToast,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
+import { NannyProfileEditor } from '@admin/features/nannies/nanny-profile-editor';
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
-import { approveNanny, fetchNanny, fetchSkills, rejectNanny } from '@admin/lib/api';
+import {
+  approveNanny,
+  fetchCertifications,
+  fetchNanny,
+  fetchSkills,
+  rejectNanny,
+} from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 function formatDate(iso: string): string {
@@ -48,6 +55,7 @@ export function NannyDetailPage() {
   const { id = '' } = useParams();
   const [rejecting, setRejecting] = useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [idOpen, setIdOpen] = useState(false);
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -60,6 +68,12 @@ export function NannyDetailPage() {
 
   const { data: allSkills } = useQuery({ queryKey: ['skills'], queryFn: fetchSkills });
   const activeSkills = (allSkills ?? []).filter((s) => s.isActive);
+
+  const { data: allCertifications } = useQuery({
+    queryKey: ['certifications'],
+    queryFn: fetchCertifications,
+  });
+  const activeCertifications = (allCertifications ?? []).filter((c) => c.isActive);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['nanny', id] });
@@ -141,7 +155,20 @@ export function NannyDetailPage() {
             />
           )}
           <Card title="Profile">
-            <DescriptionList items={profileItems(nanny)} />
+            {editingProfile ? (
+              <NannyProfileEditor
+                nanny={nanny}
+                certifications={activeCertifications}
+                onDone={() => setEditingProfile(false)}
+              />
+            ) : (
+              <div className="detail-skills">
+                <DescriptionList items={profileItems(nanny)} />
+                <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
+                  Edit profile
+                </Button>
+              </div>
+            )}
           </Card>
 
           <Card title="Earnings">

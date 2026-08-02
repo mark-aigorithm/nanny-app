@@ -50,6 +50,7 @@ import type {
   Skill,
   SupportContact,
   UpdateAdminMotherInput,
+  UpdateAdminNanny,
   UpdateBookingTimesInput,
   UpdateCameraInput,
   UpdateCertificationInput,
@@ -434,6 +435,17 @@ export async function rejectNanny(id: string, reason?: string): Promise<AdminNan
   const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
     `/admin/nannies/${id}/reject`,
     reason ? { reason } : {},
+  );
+  return res.data.data;
+}
+
+export async function updateNanny(
+  id: number,
+  input: UpdateAdminNanny,
+): Promise<AdminNannyDetail> {
+  const res = await apiClient.patch<ApiEnvelope<AdminNannyDetail>>(
+    `/admin/nannies/${id}`,
+    input,
   );
   return res.data.data;
 }

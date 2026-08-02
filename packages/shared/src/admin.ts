@@ -580,11 +580,20 @@ export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
 
 /**
  * Nanny detail page (GET /admin/nannies/:id): the list fields plus the underlying
- * User id and the nanny's lifetime earnings ("amount gained").
+ * User id, the nanny's lifetime earnings ("amount gained"), the raw first/last
+ * name split, and the registration-captured fields the KYC list view doesn't
+ * need but the admin profile editor seeds from (age ranges, availability,
+ * weekly schedule). Mirrors the `AdminMotherDetailSchema` precedent.
  */
 export const AdminNannyDetailSchema = AdminNannySchema.extend({
   /** The underlying User id — distinct from `id`, which is the NannyProfile id. */
   userId: z.number().int(),
+  /** Raw first/last name split so the profile editor can bind them without re-parsing `name`. */
+  firstName: z.string(),
+  lastName: z.string(),
+  ageRanges: z.array(z.string()),
+  availabilityType: AvailabilityTypeSchema,
+  schedule: WeeklyScheduleSchema.nullable(),
   /** Lifetime earnings: sum of `nannyAmount` across the nanny's COMPLETED bookings (EGP). */
   amountGained: z.number(),
   /** Number of COMPLETED bookings contributing to `amountGained`. */

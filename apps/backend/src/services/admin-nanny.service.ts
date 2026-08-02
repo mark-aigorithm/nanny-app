@@ -9,6 +9,7 @@ import type {
   RejectNannyInput,
   SetNannySkillsInput,
   UpdateAdminNanny,
+  WeeklySchedule,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
@@ -120,6 +121,24 @@ export async function listAdminNannies(
 }
 
 /**
+ * Detail DTO: the list fields plus the raw first/last name split and the
+ * registration-captured fields (age ranges, availability, weekly schedule)
+ * the profile editor seeds from — mirrors `toMotherDetailDto`'s precedent.
+ */
+function toDetailDto(
+  row: AdminNannyRow,
+): Omit<AdminNannyDetail, 'userId' | 'amountGained' | 'completedBookings'> {
+  return {
+    ...toDto(row),
+    firstName: row.user.firstName,
+    lastName: row.user.lastName,
+    ageRanges: row.ageRanges,
+    availabilityType: row.availabilityType,
+    schedule: (row.schedule as WeeklySchedule) ?? null,
+  };
+}
+
+/**
  * Full detail for a single nanny (admin detail page): profile + skills, the
  * underlying User id, and lifetime earnings ("amount gained") aggregated from
  * `nannyAmount` across her COMPLETED bookings.
@@ -138,7 +157,7 @@ export async function getAdminNanny(id: number): Promise<AdminNannyDetail> {
   });
 
   return {
-    ...toDto(profile),
+    ...toDetailDto(profile),
     userId: profile.user.id,
     amountGained: earnings._sum.nannyAmount?.toNumber() ?? 0,
     completedBookings: earnings._count,
