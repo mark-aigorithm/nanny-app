@@ -8,6 +8,7 @@ import {
   screenPadding,
   STATUS_BAR_HEIGHT,
   borderRadius,
+  shadows,
 } from '@mobile/theme';
 
 const HEADER_CONTENT_HEIGHT = 56;
@@ -61,7 +62,7 @@ export const styles = StyleSheet.create({
     borderRadius: 3,
   },
   miniProgressFill: {
-    width: '80%',
+    width: '100%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
@@ -78,7 +79,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   progressBarFill: {
-    width: '80%',
+    width: '100%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
@@ -113,92 +114,160 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // Upload cards group
-  uploadGroup: {
+  // Form sections
+  sectionBlock: {
     gap: spacing.md,
   },
-
-  // A single upload card (empty state)
-  uploadCard: {
-    borderWidth: 1.5,
-    borderColor: colors.warmBorder,
-    borderStyle: 'dashed',
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  sectionLabel: {
+    ...typeScale.captionBold,
+    color: colors.textTertiary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  fieldGroup: {
     gap: spacing.sm,
-    minHeight: 160,
   },
-  uploadCardFilled: {
-    borderStyle: 'solid',
-    borderColor: colors.primary,
-    padding: 0,
-    overflow: 'hidden',
+  fieldLabel: {
+    ...typeScale.labelMd,
+    color: colors.textSecondary,
   },
-  uploadIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadTitle: {
-    ...typeScale.bodyMd,
-    fontFamily: fontFamily.bold,
+  input: {
+    height: 56,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
     color: colors.textPrimary,
   },
-  uploadHint: {
-    ...typeScale.labelMd,
+  textArea: {
+    height: 120,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textPrimary,
+    textAlignVertical: 'top',
+  },
+
+  // Generic tag chips — age ranges, certifications, skills
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupe,
+  },
+  chipSelected: {
+    backgroundColor: colors.primary,
+  },
+  chipText: {
+    ...typeScale.labelSm,
+    color: colors.textTertiary,
+  },
+  chipTextSelected: {
+    color: colors.white,
+  },
+  emptyHint: {
+    ...typeScale.labelSm,
     color: colors.textTertiary,
   },
 
-  // Filled preview
-  previewImage: {
-    width: '100%',
-    height: 200,
-  },
-  previewOverlay: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+  // Availability type — equal-width chip row
+  availabilityRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.overlay,
-    borderRadius: borderRadius.full,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
+    gap: spacing.sm,
   },
-  previewOverlayText: {
-    ...typeScale.labelMd,
+  availabilityChip: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupe,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availabilityChipSelected: {
+    backgroundColor: colors.primary,
+  },
+  availabilityChipText: {
+    ...typeScale.labelSm,
+    color: colors.textTertiary,
+  },
+  availabilityChipTextSelected: {
     color: colors.white,
-    fontFamily: fontFamily.bold,
-  },
-  previewBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.full,
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-  },
-  previewBadgeText: {
-    ...typeScale.labelMd,
-    color: colors.successText,
-    fontFamily: fontFamily.bold,
   },
 
+  // Working hours
+  scheduleCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    ...shadows.sm,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  dayDivider: {
+    height: 1,
+    backgroundColor: colors.borderSubtle,
+  },
+  dayLabel: {
+    width: 36,
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.semiBold,
+    color: colors.textPrimary,
+  },
+  timePills: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  timePill: {
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  timePillText: {
+    ...typeScale.labelSm,
+    color: colors.textPrimary,
+  },
+  timeSeparator: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.xxs,
+  },
+  dayOffLabel: {
+    flex: 1,
+    ...typeScale.labelSm,
+    color: colors.textMuted,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.md,
+  },
+  copyButtonText: {
+    ...typeScale.labelSm,
+    color: colors.primary,
+  },
+
+  // Inline form-level error
   errorText: {
-    ...typeScale.bodySm,
+    ...typeScale.bodyMd,
     color: colors.error,
+    textAlign: 'center',
   },
 
   // Footer

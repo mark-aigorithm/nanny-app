@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     borderRadius: 3,
   },
   miniProgressFill: {
-    width: '75%',
+    width: '60%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   progressBarFill: {
-    width: '75%',
+    width: '60%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,

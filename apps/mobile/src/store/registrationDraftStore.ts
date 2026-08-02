@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { IdDocumentType } from '@nanny-app/shared';
+import type { AvailabilityType, IdDocumentType, WeeklySchedule } from '@nanny-app/shared';
 import type { Role } from '@mobile/types';
 
 export type RegistrationDraft = {
@@ -26,6 +26,17 @@ export type RegistrationDraft = {
   latitude: number | null;
   longitude: number | null;
   preferences: string[];
+  // Nanny-only — professional details captured on the "register-nanny-details"
+  // screen. Mothers leave these at their defaults. Kept as strings where the
+  // profile-edit screen also keeps them as strings (bio, yearsOfExperience) —
+  // parsed into the API shape only when building the register request.
+  bio: string;
+  yearsOfExperience: string;
+  ageRanges: string[];
+  availabilityType: AvailabilityType | null;
+  schedule: WeeklySchedule | null;
+  certificationIds: number[];
+  skillIds: number[];
   // Step 4 — terms
   termsAcceptedAt: number | null;
 };
@@ -52,6 +63,13 @@ const INITIAL: RegistrationDraft = {
   latitude: null,
   longitude: null,
   preferences: ['Background checked', 'CPR certified'],
+  bio: '',
+  yearsOfExperience: '',
+  ageRanges: [],
+  availabilityType: null,
+  schedule: null,
+  certificationIds: [],
+  skillIds: [],
   termsAcceptedAt: null,
 };
 

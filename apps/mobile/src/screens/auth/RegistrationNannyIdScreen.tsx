@@ -64,7 +64,7 @@ export default function RegistrationNannyIdScreen() {
       return;
     }
     setFormError(null);
-    router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+    router.push({ pathname: '/(auth)/register-nanny-details', params: { role } });
   }
 
   return (

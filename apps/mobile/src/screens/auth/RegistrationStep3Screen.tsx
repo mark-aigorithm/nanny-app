@@ -106,14 +106,20 @@ export default function RegistrationStep3Screen() {
           // only for a passport). Upload happens here, after the Firebase
           // account exists (uploadImageToFirebase needs the signed-in uid) and
           // before the profile is saved so the resulting URLs go out with the
-          // register request.
+          // register request. The profile photo (required for nannies since
+          // RegistrationStep1Screen) uploads alongside it, for the same reason.
           let idDocumentFrontUrl: string | undefined;
           let idDocumentBackUrl: string | undefined;
+          let avatarUrl: string | undefined;
           const idDocumentType = draft.idDocumentType ?? undefined;
           if (apiRole === 'NANNY') {
             const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
             if (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri)) {
               setFormError('Your ID is missing. Please go back and upload it.');
+              return;
+            }
+            if (!draft.photoUri) {
+              setFormError('Your profile photo is missing. Please go back and add it.');
               return;
             }
             try {
@@ -122,6 +128,7 @@ export default function RegistrationStep3Screen() {
               if (needsBack && draft.idBackUri) {
                 idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
               }
+              avatarUrl = await uploadImageToFirebase(draft.photoUri, 'avatars');
             } catch (err) {
               setFormError(
                 err instanceof Error
@@ -149,6 +156,18 @@ export default function RegistrationStep3Screen() {
               idDocumentType,
               idDocumentFrontUrl,
               idDocumentBackUrl,
+              ...(apiRole === 'NANNY' && {
+                avatarUrl,
+                bio: draft.bio,
+                yearsOfExperience: draft.yearsOfExperience
+                  ? parseInt(draft.yearsOfExperience, 10)
+                  : undefined,
+                ageRanges: draft.ageRanges,
+                availabilityType: draft.availabilityType ?? undefined,
+                schedule: draft.schedule ?? undefined,
+                certificationIds: draft.certificationIds,
+                skillIds: draft.skillIds,
+              }),
             },
             {
               onSuccess: async () => {

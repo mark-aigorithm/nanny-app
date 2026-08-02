@@ -47,6 +47,9 @@ const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 export default function RegistrationStep1Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
+  // Nannies get one extra step (register-nanny-details) inserted before the
+  // final step, so their progress indicator counts "OF 5" instead of "OF 4".
+  const isNanny = role === 'nanny';
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -107,6 +110,10 @@ export default function RegistrationStep1Screen() {
 
   function handleContinue() {
     setFormError(null);
+    if (!draft.photoUri) {
+      setFormError('Please add a profile photo.');
+      return;
+    }
     if (!draft.firstName.trim() || !draft.lastName.trim()) {
       setFormError('Please enter your first and last name.');
       return;
@@ -143,7 +150,7 @@ export default function RegistrationStep1Screen() {
 
         {/* Progress bar */}
         <View style={styles.progressBarTrack}>
-          <View style={styles.progressBarFill} />
+          <View style={[styles.progressBarFill, isNanny && styles.progressBarFillNanny]} />
         </View>
 
         {/* Scrollable body */}
@@ -154,7 +161,9 @@ export default function RegistrationStep1Screen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 1 OF 4 — PERSONAL INFO</Text>
+          <Text style={styles.stepLabel}>
+            {isNanny ? 'STEP 1 OF 5' : 'STEP 1 OF 4'} — PERSONAL INFO
+          </Text>
 
           {/* Photo picker */}
           <View style={styles.photoSection}>
@@ -170,6 +179,9 @@ export default function RegistrationStep1Screen() {
                 {draft.photoUri ? 'Change photo' : 'Add photo'}
               </Text>
             </Pressable>
+            {!draft.photoUri && (
+              <Text style={styles.photoRequiredHint}>A profile photo is required</Text>
+            )}
           </View>
 
           {/* Form */}
@@ -238,7 +250,7 @@ export default function RegistrationStep1Screen() {
 
         {/* Fixed footer */}
         <View style={styles.footer}>
-          <Button title="Continue" onPress={handleContinue} />
+          <Button title="Continue" onPress={handleContinue} disabled={!draft.photoUri} />
         </View>
 
         {/* Android: native modal dialog, no custom wrapper needed. */}
