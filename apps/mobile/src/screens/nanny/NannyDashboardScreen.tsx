@@ -8,7 +8,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@mobile/components/ui';
 import { colors, HEADER_HEIGHT } from '@mobile/theme';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -34,7 +33,6 @@ const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; icon
 ];
 
 export default function NannyDashboardScreen() {
-  const router = useRouter();
   const {
     data: dashboard,
     isLoading: loadingDashboard,
@@ -69,10 +67,7 @@ export default function NannyDashboardScreen() {
           />
         }
       >
-        <ProfileVisibilityBanner
-          ctaLabel="Complete profile"
-          onPressCta={() => router.push({ pathname: '/(nanny)/profile', params: { edit: '1' } })}
-        />
+        <ProfileVisibilityBanner note="Your profile is managed by NannyNow. Contact support to update it." />
         <OngoingBookingBanner />
         <NannyExtensionRequestCard />
         <UpcomingShiftBanner bookings={shiftBookings} />
