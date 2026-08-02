@@ -8,7 +8,6 @@ jest.mock('@backend/db/prisma', () => ({
     },
     user: { update: jest.fn() },
     booking: { aggregate: jest.fn() },
-    skill: { findMany: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -44,7 +43,6 @@ const mockPrisma = prisma as unknown as {
   };
   user: { update: jest.Mock };
   booking: { aggregate: jest.Mock };
-  skill: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
 const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
@@ -93,6 +91,9 @@ function makeRow(
 }
 
 type TxMock = {
+  skill: {
+    findMany: jest.Mock;
+  };
   nannySkill: {
     findMany: jest.Mock;
     updateMany: jest.Mock;
@@ -103,6 +104,11 @@ type TxMock = {
 
 function makeTx(existingRows: Array<Record<string, unknown>>): TxMock {
   return {
+    skill: {
+      // Validation now runs inside the transaction (`reconcileNannySkills`);
+      // individual tests override this when they need specific ids to pass.
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     nannySkill: {
       findMany: jest.fn().mockResolvedValue(existingRows),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -302,7 +308,10 @@ describe('setNannySkills', () => {
   });
 
   it('throws badRequest (400) when a skill id is unknown or inactive', async () => {
-    mockPrisma.skill.findMany.mockResolvedValue([{ id: 1 }]); // only 1 of 2 valid
+    const tx = makeTx([]);
+    tx.skill.findMany.mockResolvedValue([{ id: 1 }]); // only 1 of 2 valid
+    mockPrisma.$transaction.mockImplementation((cb: (tx: TxMock) => unknown) => cb(tx));
+
     await expect(setNannySkills(19, { skillIds: [1, 2] })).rejects.toMatchObject({
       statusCode: 400,
     });
@@ -311,12 +320,12 @@ describe('setNannySkills', () => {
   it('creates new links, reactivates soft-deleted, and removes unwanted', async () => {
     // Desired: s1 (already active), s2 (soft-deleted → reactivate), s3 (new).
     // Existing s4 is active but not desired → soft-delete.
-    mockPrisma.skill.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
     const tx = makeTx([
       { id: 11, skillId: 1, deletedAt: null },
       { id: 12, skillId: 2, deletedAt: new Date() },
       { id: 14, skillId: 4, deletedAt: null },
     ]);
+    tx.skill.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
     mockPrisma.$transaction.mockImplementation((cb: (tx: TxMock) => unknown) => cb(tx));
     mockPrisma.nannyProfile.findUniqueOrThrow.mockResolvedValue(
       stubProfileRow([
@@ -360,7 +369,7 @@ describe('setNannySkills', () => {
 
     const result = await setNannySkills(19, { skillIds: [] });
 
-    expect(mockPrisma.skill.findMany).not.toHaveBeenCalled(); // no ids to validate
+    expect(tx.skill.findMany).not.toHaveBeenCalled(); // no ids to validate
     expect(tx.nannySkill.updateMany).toHaveBeenCalledWith({
       where: { id: { in: [11] } },
       data: { deletedAt: expect.any(Date) },

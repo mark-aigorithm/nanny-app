@@ -78,7 +78,12 @@ describe('registerUser — ID verification defaults', () => {
   it('starts a nanny at PENDING_REVIEW with the ID stored on the user row', async () => {
     const tx = {
       user: { create: jest.fn(({ data }) => Promise.resolve(userRowFromData(data))) },
-      nannyProfile: { create: jest.fn().mockResolvedValue({}) },
+      nannyProfile: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+      // Registration also reconciles the (here, empty) certification/skill
+      // selections in the same tx — see auth-register-nanny-profile.test.ts
+      // for the dedicated coverage of that behavior.
+      nannyCertification: { findMany: jest.fn().mockResolvedValue([]) },
+      nannySkill: { findMany: jest.fn().mockResolvedValue([]) },
     };
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
@@ -90,7 +95,9 @@ describe('registerUser — ID verification defaults', () => {
     expect(created.idDocumentFrontUrl).toBe(NANNY_BODY.idDocumentFrontUrl);
     expect(created.idDocumentBackUrl).toBe(NANNY_BODY.idDocumentBackUrl);
     // A nanny profile is created, but it no longer carries the ID docs.
-    expect(tx.nannyProfile.create).toHaveBeenCalledWith({ data: { userId: 'user-1' } });
+    expect(tx.nannyProfile.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ userId: 'user-1' }) }),
+    );
     expect(res.idVerificationStatus).toBe('PENDING_REVIEW');
   });
 

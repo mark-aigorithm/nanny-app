@@ -3,6 +3,7 @@ import type {
   Role as PrismaRole,
 } from '@prisma/client';
 import {
+  getMissingNannyProfileFields,
   Role,
   type Child as ChildDto,
   type RegisterRequest,
@@ -16,6 +17,8 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
+import { reconcileNannyCertifications } from '@backend/services/certification.service';
 import { listChildren, saveChildren } from './child.service';
 
 /**
@@ -123,16 +126,40 @@ export async function registerUser(
         idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
         idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
         idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
+        avatarUrl: isNanny ? (body.avatarUrl ?? null) : null,
       },
     });
 
     if (isNanny) {
-      // Home location (address + coordinates) lives solely on the user row now;
-      // proximity search and the booking broadcast read it from there, so
-      // nothing is mirrored onto the profile.
-      await tx.nannyProfile.create({
-        data: { userId: user.id },
+      // Home location (address + coordinates) lives solely on the user row;
+      // proximity search and the booking broadcast read it from there, so it
+      // is not mirrored onto the profile — but completeness still needs it,
+      // so it feeds the same getMissingNannyProfileFields check every other
+      // profile writer uses.
+      const isProfileComplete =
+        getMissingNannyProfileFields({
+          bio: body.bio ?? null,
+          location: body.address ?? null,
+          yearsOfExperience: body.yearsOfExperience ?? null,
+        }).length === 0;
+
+      const profile = await tx.nannyProfile.create({
+        data: {
+          userId: user.id,
+          bio: body.bio ?? null,
+          yearsOfExperience: body.yearsOfExperience ?? null,
+          ageRanges: body.ageRanges ?? [],
+          schedule: body.schedule,
+          availabilityType: body.availabilityType,
+          isProfileComplete,
+        },
       });
+
+      // Reconcile the catalog links the nanny selected during sign-up, inside
+      // the same transaction as the profile create so the whole registration
+      // is atomic.
+      await reconcileNannyCertifications(tx, profile.id, body.certificationIds ?? []);
+      await reconcileNannySkills(tx, profile.id, body.skillIds ?? []);
     }
 
     return user;

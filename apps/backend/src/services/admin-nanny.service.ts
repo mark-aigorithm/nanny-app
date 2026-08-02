@@ -235,12 +235,64 @@ export async function rejectNanny(id: number, input: RejectNannyInput): Promise<
 }
 
 /**
+ * Reconcile a nanny's skill links to exactly `skillIds`, run inside a
+ * caller-provided transaction (the admin skill-editor and registration, which
+ * populates the profile with the skills chosen during sign-up). Every desired
+ * id must reference an active, non-deleted skill in the catalog — unlike
+ * certifications, a stale/deactivated skill is never grandfathered in, since
+ * skills carry the fee shown to parents. Rows no longer wanted are
+ * soft-deleted; previously soft-deleted rows are reactivated because the
+ * `@@unique([nannyProfileId, skillId])` constraint spans soft-deleted rows
+ * too, so a plain create would collide.
+ */
+export async function reconcileNannySkills(
+  tx: Prisma.TransactionClient,
+  nannyProfileId: number,
+  skillIds: number[],
+): Promise<void> {
+  const desiredIds = [...new Set(skillIds)];
+  if (desiredIds.length > 0) {
+    const valid = await tx.skill.findMany({
+      where: { id: { in: desiredIds }, deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+    if (valid.length !== desiredIds.length) {
+      throw errors.badRequest('One or more skills are invalid or inactive.');
+    }
+  }
+
+  const existingRows = await tx.nannySkill.findMany({
+    where: { nannyProfileId },
+    select: { id: true, skillId: true, deletedAt: true },
+  });
+  const desired = new Set(desiredIds);
+  const bySkillId = new Map(existingRows.map((r) => [r.skillId, r]));
+
+  // Soft-delete rows that are currently active but no longer wanted.
+  const toRemove = existingRows
+    .filter((r) => r.deletedAt === null && !desired.has(r.skillId))
+    .map((r) => r.id);
+  if (toRemove.length > 0) {
+    await tx.nannySkill.updateMany({
+      where: { id: { in: toRemove } },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  // Add or reactivate the desired skills.
+  for (const skillId of desiredIds) {
+    const row = bySkillId.get(skillId);
+    if (!row) {
+      await tx.nannySkill.create({ data: { nannyProfileId, skillId } });
+    } else if (row.deletedAt !== null) {
+      await tx.nannySkill.update({ where: { id: row.id }, data: { deletedAt: null } });
+    }
+  }
+}
+
+/**
  * Replaces a nanny's assigned skills with exactly `skillIds` (admin action).
- * Reconciles the NannySkill join rows in one transaction: soft-deletes rows no
- * longer wanted, reactivates previously soft-deleted ones, and creates the rest.
- * Reactivation (rather than insert) is required because the `@@unique`
- * constraint spans soft-deleted rows too. Unknown or inactive skill ids are
- * rejected so the assignment can never reference a skill parents can't see.
+ * Reconciliation itself is shared with registration via `reconcileNannySkills`.
  */
 export async function setNannySkills(
   nannyProfileId: number,
@@ -252,46 +304,7 @@ export async function setNannySkills(
   });
   if (!nanny) throw errors.notFound('Nanny not found');
 
-  const desiredIds = [...new Set(input.skillIds)];
-  if (desiredIds.length > 0) {
-    const valid = await prisma.skill.findMany({
-      where: { id: { in: desiredIds }, deletedAt: null, isActive: true },
-      select: { id: true },
-    });
-    if (valid.length !== desiredIds.length) {
-      throw errors.badRequest('One or more skills are invalid or inactive.');
-    }
-  }
-
-  await prisma.$transaction(async (tx) => {
-    const existingRows = await tx.nannySkill.findMany({
-      where: { nannyProfileId },
-      select: { id: true, skillId: true, deletedAt: true },
-    });
-    const desired = new Set(desiredIds);
-    const bySkillId = new Map(existingRows.map((r) => [r.skillId, r]));
-
-    // Soft-delete rows that are currently active but no longer wanted.
-    const toRemove = existingRows
-      .filter((r) => r.deletedAt === null && !desired.has(r.skillId))
-      .map((r) => r.id);
-    if (toRemove.length > 0) {
-      await tx.nannySkill.updateMany({
-        where: { id: { in: toRemove } },
-        data: { deletedAt: new Date() },
-      });
-    }
-
-    // Add or reactivate the desired skills.
-    for (const skillId of desiredIds) {
-      const row = bySkillId.get(skillId);
-      if (!row) {
-        await tx.nannySkill.create({ data: { nannyProfileId, skillId } });
-      } else if (row.deletedAt !== null) {
-        await tx.nannySkill.update({ where: { id: row.id }, data: { deletedAt: null } });
-      }
-    }
-  });
+  await prisma.$transaction((tx) => reconcileNannySkills(tx, nannyProfileId, input.skillIds));
 
   const updated = await prisma.nannyProfile.findUniqueOrThrow({
     where: { id: nannyProfileId },
