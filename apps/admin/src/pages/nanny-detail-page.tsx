@@ -18,7 +18,11 @@ import {
   useToast,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
-import { NannyProfileEditor } from '@admin/features/nannies/nanny-profile-editor';
+import {
+  NannyProfileEditor,
+  availabilityLabel,
+  formatWorkingHours,
+} from '@admin/features/nannies/nanny-profile-editor';
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
 import {
   approveNanny,
@@ -259,6 +263,12 @@ function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
       label: 'Experience',
       value: nanny.yearsOfExperience !== null ? `${nanny.yearsOfExperience} yrs` : DASH,
     },
+    { label: 'Availability', value: availabilityLabel(nanny.availabilityType) },
+    {
+      label: 'Age ranges',
+      value: nanny.ageRanges.length > 0 ? nanny.ageRanges.join(', ') : DASH,
+    },
+    { label: 'Working hours', value: formatWorkingHours(nanny.schedule) ?? DASH, wide: true },
     {
       label: 'Certifications',
       value:

@@ -67,6 +67,23 @@ function getDay(schedule: WeeklySchedule, day: string): DaySchedule {
   return schedule[day] ?? DEFAULT_DAY;
 }
 
+/** Human label for an availability type, e.g. "Full-time". Shared with the read-only view. */
+export function availabilityLabel(value: AvailabilityTypeValue): string {
+  return AVAILABILITY_OPTIONS.find((o) => o.value === value)?.label ?? value;
+}
+
+/**
+ * One-line summary of the weekly working hours for the read-only view, e.g.
+ * "Monday 08:00–18:00, Tuesday 08:00–18:00". Returns null when nothing is set.
+ */
+export function formatWorkingHours(schedule: WeeklySchedule | null): string | null {
+  if (!schedule) return null;
+  const active = DAY_ORDER.map((day) => ({ day, slot: schedule[day] }))
+    .filter((d): d is { day: string; slot: DaySchedule } => Boolean(d.slot?.available))
+    .map(({ day, slot }) => `${DAY_NAMES[day] ?? day} ${slot.startTime}–${slot.endTime}`);
+  return active.length > 0 ? active.join(', ') : null;
+}
+
 /** A modern on/off pill toggle, styled from theme tokens (mirrors rewards-config-panel's Switch). */
 function Switch({
   checked,

@@ -150,7 +150,7 @@ export const AvailabilityTypeSchema = z.enum(['FULL_TIME', 'PART_TIME', 'OCCASIO
 export const AvailabilityType = AvailabilityTypeSchema.enum;
 export type AvailabilityType = z.infer<typeof AvailabilityTypeSchema>;
 
-/** Shape returned by GET /nanny/profile and PUT /nanny/profile. */
+/** Shape returned by GET /nanny/profile. */
 export const NannyProfileResponseSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
