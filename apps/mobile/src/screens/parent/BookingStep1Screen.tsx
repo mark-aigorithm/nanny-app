@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ import {
 } from '@mobile/lib/bookingDraft';
 
 import { useIdGateStore } from '@mobile/store/idGateStore';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
@@ -73,6 +74,21 @@ export default function BookingStep1Screen() {
 
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
+
+  const pendingPromoCode = usePendingPromoStore((s) => s.pendingPromoCode);
+  const clearPendingPromo = usePendingPromoStore((s) => s.clear);
+
+  // A campaign tap can hand a code to the booking flow. Prefill it once, then
+  // clear it so it never rides along into a future, unrelated booking.
+  useEffect(() => {
+    if (pendingPromoCode) {
+      setPromoCode(pendingPromoCode);
+      clearPendingPromo();
+    }
+    // Run once on mount; the store is a one-shot handoff.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [instructions, setInstructions] = useState('');
   const [pointsHours, setPointsHours] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);

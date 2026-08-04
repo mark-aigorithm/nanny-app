@@ -16,6 +16,7 @@ import {
   type AdminPackagePurchaseListQuery,
   CreateAdminSchema,
   CreateCameraSchema,
+  CreateCampaignSchema,
   CreateCertificationSchema,
   CreatePackageSchema,
   CreateDurationRuleSchema,
@@ -37,6 +38,7 @@ import {
   UpdateDurationRuleSchema,
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
+  UpdateCampaignSchema,
   UpdateCertificationSchema,
   UpdatePackageSchema,
   UpdateRewardConfigSchema,
@@ -111,6 +113,12 @@ import {
   listPromoCodes,
   updatePromoCode,
 } from '@backend/services/promo-code.service';
+import {
+  createCampaign,
+  deleteCampaign,
+  listCampaigns,
+  updateCampaign,
+} from '@backend/services/campaign.service';
 import {
   createSkill,
   deleteSkill,
@@ -511,6 +519,48 @@ adminRouter.delete(
     }
   },
 );
+
+// ── Campaigns (Home-screen promo carousel) ─────────────────────
+
+adminRouter.get('/campaigns', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listCampaigns()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/campaigns',
+  validateBody(CreateCampaignSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createCampaign(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/campaigns/:id',
+  validateBody(UpdateCampaignSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateCampaign(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/campaigns/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await deleteCampaign(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Skills (nanny specialty catalog) ───────────────────────────
 
