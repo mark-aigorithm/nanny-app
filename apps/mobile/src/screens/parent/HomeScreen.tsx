@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
+import CampaignCarousel from '@mobile/components/CampaignCarousel';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentActiveBookingCard from '@mobile/components/ParentActiveBookingCard';
 import { Button, ScreenContainer } from '@mobile/components/ui';
@@ -88,6 +89,8 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.primary} />
         </Pressable>
+
+        <CampaignCarousel />
 
         {/* How it works */}
         <View style={styles.section}>
