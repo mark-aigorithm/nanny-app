@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import CampaignCarousel from '@mobile/components/CampaignCarousel';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
@@ -10,6 +10,7 @@ import { Button, ScreenContainer } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 
@@ -42,6 +43,18 @@ export default function HomeScreen() {
   const router = useRouter();
   const { isGuest, gate } = useGuestGate();
   const { gate: idGate } = useIdGate();
+  const clearPendingPromo = usePendingPromoStore((s) => s.clear);
+
+  // A promo code from an abandoned campaign tap must never leak into a later,
+  // unrelated booking. Home is where every new booking starts, so clear any
+  // stale pending code whenever Home regains focus (a return from an
+  // abandoned flow). The happy path (campaign → Step 1) never re-focuses
+  // Home in between, so Step 1 still reads the code before this can run.
+  useFocusEffect(
+    useCallback(() => {
+      clearPendingPromo();
+    }, [clearPendingPromo]),
+  );
 
   return (
     <ScreenContainer useSafeArea={false}>
