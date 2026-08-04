@@ -15,6 +15,7 @@ import { BookingsPage } from './pages/bookings-page';
 import { BookingDetailPage } from './pages/booking-detail-page';
 import { PricingFeesPage } from './pages/pricing-fees-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
+import { CampaignsPage } from './pages/campaigns-page';
 import { RewardsPage } from './pages/rewards-page';
 import { SettingsPage } from './pages/settings-page';
 import { SkillsPage } from './pages/skills-page';
@@ -55,6 +56,7 @@ export function App() {
               <Route path="nannies" element={<Navigate to="/users" replace />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
+              <Route path="campaigns" element={<CampaignsPage />} />
               <Route path="skills" element={<SkillsPage />} />
               <Route path="certifications" element={<CertificationsPage />} />
               <Route path="packages" element={<PackagesPage />} />

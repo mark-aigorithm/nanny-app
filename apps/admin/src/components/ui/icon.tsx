@@ -14,6 +14,7 @@ export {
   Sparkles,
   BadgeCheck,
   Package,
+  Megaphone,
   Video,
   Settings,
   ShieldCheck,

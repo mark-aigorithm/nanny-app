@@ -410,6 +410,7 @@ model Package {
   deletedAt    DateTime? @map("deleted_at")
 
   purchases PackagePurchase[]
+  campaigns Campaign[]
 
   @@index([deletedAt])
   @@map("packages")
@@ -542,6 +543,13 @@ enum DiscountType {
   @@map("discount_type")
 }
 
+enum CampaignTargetType {
+  PACKAGE
+  PROMO_CODE
+
+  @@map("campaign_target_type")
+}
+
 /// Admin-configured duration pricing tiers. When a booking's durationHours is
 /// at least `minHours`, the highest matching tier's `multiplier` is applied to
 /// the subtotal (e.g. a 3-hour booking at multiplier 0.90 gets a 10% discount).
@@ -582,10 +590,41 @@ model PromoCode {
 
   redemptions PromoCodeRedemption[]
   bookings    Booking[]
+  campaigns   Campaign[]
 
   @@index([isActive])
   @@index([deletedAt])
   @@map("promo_codes")
+}
+
+/// Admin-curated promotional card shown as a carousel on the parent Home
+/// screen. Links to exactly one target — a Package or a PromoCode — enforced
+/// at the service + shared-schema layer. Engagement counters are incremented
+/// atomically; "total usage" for the admin table is read from the target.
+model Campaign {
+  id              Int                @id @default(autoincrement())
+  title           String
+  subtitle        String?            @db.Text
+  imageUrl        String             @map("image_url")
+  targetType      CampaignTargetType @map("target_type")
+  packageId       Int?               @map("package_id")
+  promoCodeId     Int?               @map("promo_code_id")
+  isActive        Boolean            @default(true) @map("is_active")
+  startsAt        DateTime?          @map("starts_at")
+  endsAt          DateTime?          @map("ends_at")
+  sortOrder       Int                @default(0) @map("sort_order")
+  impressionCount Int                @default(0) @map("impression_count")
+  clickCount      Int                @default(0) @map("click_count")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt      @map("updated_at")
+  deletedAt       DateTime?          @map("deleted_at")
+
+  package   Package?   @relation(fields: [packageId], references: [id])
+  promoCode PromoCode? @relation(fields: [promoCodeId], references: [id])
+
+  @@index([deletedAt])
+  @@index([isActive, sortOrder])
+  @@map("campaigns")
 }
 
 model PromoCodeRedemption {
