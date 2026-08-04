@@ -50,6 +50,9 @@ export default function Stepper({
   return (
     <View style={[styles.track, style]}>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Decrease"
+        accessibilityState={{ disabled: !canDecrement }}
         style={({ pressed }) => [
           styles.button,
           { width: btnSize, height: btnSize },
@@ -72,6 +75,9 @@ export default function Stepper({
       </Text>
 
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Increase"
+        accessibilityState={{ disabled: !canIncrement }}
         style={({ pressed }) => [
           styles.button,
           { width: btnSize, height: btnSize },
