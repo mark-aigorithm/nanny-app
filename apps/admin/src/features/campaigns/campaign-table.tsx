@@ -29,12 +29,18 @@ type CampaignTableProps = {
   campaigns: Campaign[];
 };
 
-/** An ISO datetime (or null) → a `<input type="datetime-local">` value (YYYY-MM-DDTHH:mm). */
+/** A stored UTC ISO datetime (or null) → a `<input type="datetime-local">` value in the
+ *  browser's LOCAL wall-clock (YYYY-MM-DDTHH:mm), so it round-trips losslessly through
+ *  dateTimeLocalToIso (which parses the value as local). */
 function isoToDateTimeLocal(iso: string | null): string {
-  return iso ? iso.slice(0, 16) : '';
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** A `<input type="datetime-local">` value → an ISO 8601 datetime, or null when cleared. */
+/** A `<input type="datetime-local">` value (local wall-clock) → an ISO 8601 UTC datetime,
+ *  or null when cleared. Matches how the create form interprets the same input. */
 function dateTimeLocalToIso(value: string): string | null {
   return value ? new Date(value).toISOString() : null;
 }
