@@ -24,9 +24,11 @@ import type {
   AdminPackagePurchaseListQuery,
   AdminUser,
   Camera,
+  Campaign,
   Certification,
   CreateAdminInput,
   CreateCameraInput,
+  CreateCampaignInput,
   CreateCertificationInput,
   CreateDurationRuleInput,
   CreatePromoCodeInput,
@@ -53,6 +55,7 @@ import type {
   UpdateAdminNanny,
   UpdateBookingTimesInput,
   UpdateCameraInput,
+  UpdateCampaignInput,
   UpdateCertificationInput,
   UpdateDurationRuleInput,
   UpdatePlatformConfigInput,
@@ -216,6 +219,27 @@ export async function updatePackage(
 
 export async function deletePackage(id: number): Promise<void> {
   await apiClient.delete(`/admin/packages/${id}`);
+}
+
+// ── Campaigns (Home-screen promo carousel) ─────────────────────
+
+export async function fetchCampaigns(): Promise<Campaign[]> {
+  const res = await apiClient.get<ApiEnvelope<Campaign[]>>('/admin/campaigns');
+  return res.data.data;
+}
+
+export async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
+  const res = await apiClient.post<ApiEnvelope<Campaign>>('/admin/campaigns', input);
+  return res.data.data;
+}
+
+export async function updateCampaign(id: number, input: UpdateCampaignInput): Promise<Campaign> {
+  const res = await apiClient.patch<ApiEnvelope<Campaign>>(`/admin/campaigns/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteCampaign(id: number): Promise<void> {
+  await apiClient.delete(`/admin/campaigns/${id}`);
 }
 
 export async function fetchCameras(): Promise<Camera[]> {
