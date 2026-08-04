@@ -6,6 +6,7 @@ export * from './skill';
 export * from './child';
 export * from './certification';
 export * from './package';
+export * from './campaign';
 export * from './duration-rule';
 export * from './pricing';
 export * from './nanny';
