@@ -163,7 +163,11 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
     { label: 'Subtotal', value: money(booking.subtotal) },
     { label: 'Duration multiplier', value: `×${booking.durationMultiplier}` },
     { label: 'Discount', value: booking.discountAmount > 0 ? `−${money(booking.discountAmount)}` : DASH },
-    { label: 'Service fee', value: money(booking.serviceFeeAmount) },
+    // Legacy service fee: the nanny/platform split replaced it, so current bookings are
+    // always 0. Only surface the row for old bookings that actually charged one.
+    ...(booking.serviceFeeAmount > 0
+      ? [{ label: 'Service fee', value: money(booking.serviceFeeAmount) }]
+      : []),
     { label: 'Total', value: <strong>{money(booking.totalAmount)}</strong> },
     { label: 'Nanny earns', value: money(booking.nannyAmount) },
     { label: 'Platform keeps', value: money(booking.platformAmount) },
