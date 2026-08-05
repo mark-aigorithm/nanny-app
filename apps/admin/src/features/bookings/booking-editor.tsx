@@ -86,7 +86,15 @@ function seedForm(booking: AdminBookingDetail): EditorForm {
   };
 }
 
-export function BookingEditor({ booking }: { booking: AdminBookingDetail }) {
+export function BookingEditor({
+  booking,
+  onDone,
+}: {
+  booking: AdminBookingDetail;
+  /** Called once the edit is committed (or its refund follow-up closes) so the
+   * page can swap back to the read-only view. */
+  onDone?: () => void;
+}) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -133,11 +141,14 @@ export function BookingEditor({ booking }: { booking: AdminBookingDetail }) {
       queryClient.setQueryData(['booking', String(booking.id)], res.booking);
       void queryClient.invalidateQueries({ queryKey: ['bookings'] });
       if (res.settlement.refundableAmount > 0) {
+        // Stay mounted for the refund follow-up; onDone fires when it closes.
         setRefundFor(res.settlement.refundableAmount);
       } else if (res.settlement.balanceDueAmount > 0) {
         toast.success('Booking updated', `The mother was asked to pay ${formatEgp(res.settlement.balanceDueAmount)}.`);
+        onDone?.();
       } else {
         toast.success('Booking updated', 'The new details are saved.');
+        onDone?.();
       }
     },
     onError: (err) => toast.error('Couldn’t save the edit', apiErrorMessage(err)),
@@ -211,7 +222,10 @@ export function BookingEditor({ booking }: { booking: AdminBookingDetail }) {
         <RefundModal
           bookingId={booking.id}
           refundableAmount={refundFor}
-          onClose={() => setRefundFor(null)}
+          onClose={() => {
+            setRefundFor(null);
+            onDone?.();
+          }}
           onRefunded={(result) => {
             queryClient.setQueryData(['booking', String(booking.id)], result.booking);
             void queryClient.invalidateQueries({ queryKey: ['bookings'] });
@@ -222,6 +236,7 @@ export function BookingEditor({ booking }: { booking: AdminBookingDetail }) {
                 ? `${formatEgp(result.refundedAmount ?? 0)} was refunded to the card.`
                 : `${result.grantedPoints ?? 0} Care Points were granted.`,
             );
+            onDone?.();
           }}
         />
       )}

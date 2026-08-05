@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { formatChildAge } from '@nanny-app/shared';
@@ -6,6 +7,7 @@ import type { AdminBookingDetail } from '@nanny-app/shared';
 
 import {
   Badge,
+  Button,
   Card,
   DescriptionList,
   type DescriptionItem,
@@ -40,11 +42,26 @@ const DASH = <span className="table-empty">—</span>;
 
 export function BookingDetailPage() {
   const { id = '' } = useParams();
+  const [editing, setEditing] = useState(false);
   const { data: booking, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['booking', id],
     queryFn: () => fetchBooking(id),
     enabled: id !== '',
   });
+
+  const canEdit = booking != null && EDITABLE_STATUSES.has(booking.status);
+
+  const actions = canEdit ? (
+    editing ? (
+      <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+        Cancel
+      </Button>
+    ) : (
+      <Button size="sm" onClick={() => setEditing(true)}>
+        Edit booking
+      </Button>
+    )
+  ) : undefined;
 
   return (
     <section>
@@ -53,6 +70,7 @@ export function BookingDetailPage() {
         backLabel="Back to bookings"
         title="Booking details"
         subtitle={booking ? `${booking.mother.name} · ${statusLabel(booking.status)}` : undefined}
+        actions={actions}
       />
 
       {isLoading && <LoadingState label="Loading booking…" />}
@@ -72,8 +90,11 @@ export function BookingDetailPage() {
               retrying={isFetching}
             />
           )}
-          {EDITABLE_STATUSES.has(booking.status) && <BookingEditor booking={booking} />}
-          <BookingSections booking={booking} />
+          {canEdit && editing ? (
+            <BookingEditor booking={booking} onDone={() => setEditing(false)} />
+          ) : (
+            <BookingSections booking={booking} />
+          )}
         </>
       )}
     </section>
