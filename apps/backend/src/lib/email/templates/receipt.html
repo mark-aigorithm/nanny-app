@@ -1,0 +1,68 @@
+<h1 style="margin:0 0 8px; font-family:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif; font-size:20px; font-weight:700; color:#1b1c1b;">
+  Payment received
+</h1>
+<p style="margin:0 0 24px; font-size:14px; line-height:22px; color:#444842;">
+  Hi {{parentName}}, thanks for your payment. Here's your receipt for booking #{{bookingId}}.
+</p>
+
+<!-- Total paid -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+  <tr>
+    <td style="background-color:#f0edeb; border-radius:12px; padding:20px 24px;">
+      <p style="margin:0 0 4px; font-size:12px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:#7a7a7a;">
+        Total paid
+      </p>
+      <p style="margin:0; font-size:28px; font-weight:800; color:#6a9b6a;">{{formatMoney totalAmount currency}}</p>
+    </td>
+  </tr>
+</table>
+
+<!-- Booking details -->
+<p style="margin:0 0 8px; font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:#7a7a7a;">
+  Booking details
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px; font-size:14px;">
+  <tr>
+    <td style="padding:8px 0; border-bottom:1px solid #ebddd2; color:#7a7a7a;">Nanny</td>
+    <td style="padding:8px 0; border-bottom:1px solid #ebddd2; text-align:right; color:#1b1c1b; font-weight:600;">{{nannyName}}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px 0; border-bottom:1px solid #ebddd2; color:#7a7a7a;">Date</td>
+    <td style="padding:8px 0; border-bottom:1px solid #ebddd2; text-align:right; color:#1b1c1b; font-weight:600;">{{bookingDate}}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px 0; border-bottom:1px solid #ebddd2; color:#7a7a7a;">Time</td>
+    <td style="padding:8px 0; border-bottom:1px solid #ebddd2; text-align:right; color:#1b1c1b; font-weight:600;">{{startTime}} – {{endTime}}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px 0; color:#7a7a7a;">Duration</td>
+    <td style="padding:8px 0; text-align:right; color:#1b1c1b; font-weight:600;">{{durationHours}} hours</td>
+  </tr>
+</table>
+
+<!-- Payment breakdown -->
+<p style="margin:0 0 8px; font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:#7a7a7a;">
+  Payment breakdown
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px; font-size:14px;">
+  <tr>
+    <td style="padding:8px 0; color:#444842;">Subtotal</td>
+    <td style="padding:8px 0; text-align:right; color:#1b1c1b;">{{formatMoney subtotal currency}}</td>
+  </tr>
+  {{#if discountAmount}}
+  <tr>
+    <td style="padding:8px 0; color:#444842;">Discount</td>
+    <td style="padding:8px 0; text-align:right; color:#6a9b6a;">-{{formatMoney discountAmount currency}}</td>
+  </tr>
+  {{/if}}
+  <tr>
+    <td style="padding:12px 0 0; border-top:2px solid #e3d5ca; color:#1b1c1b; font-weight:700;">Total</td>
+    <td style="padding:12px 0 0; border-top:2px solid #e3d5ca; text-align:right; color:#1b1c1b; font-weight:700;">{{formatMoney totalAmount currency}}</td>
+  </tr>
+</table>
+
+<!-- Reference -->
+<p style="margin:0; font-size:12px; line-height:18px; color:#7a7a7a;">
+  Payment reference: {{paymentReference}}<br />
+  Paid on {{paymentDate}}
+</p>

@@ -55,6 +55,12 @@ jest.mock('@backend/services/booking-extension.service', () => ({
   applyPaidExtension: jest.fn(),
 }));
 
+// The receipt email fires alongside the nanny notification on capture; stub it
+// so the suite can assert it's sent on success and skipped on the guard paths.
+jest.mock('@backend/services/email.service', () => ({
+  sendReceiptEmail: jest.fn(),
+}));
+
 jest.mock('@backend/lib/paymob/client', () => ({
   createPaymobApiClient: jest.fn(),
 }));
@@ -65,6 +71,7 @@ import {
   canTransitionBookingStatus,
   notifyNannyBookingConfirmed,
 } from '@backend/services/booking.service';
+import { sendReceiptEmail } from '@backend/services/email.service';
 import { reconcileStalePaymobPayments } from '@backend/services/paymob.service';
 
 const mockPrisma = prisma as unknown as {
@@ -82,6 +89,7 @@ const mockPrisma = prisma as unknown as {
 const mockCreateApiClient = createPaymobApiClient as jest.Mock;
 const mockCanTransition = canTransitionBookingStatus as jest.Mock;
 const mockNotifyConfirmed = notifyNannyBookingConfirmed as jest.Mock;
+const mockSendReceipt = sendReceiptEmail as jest.Mock;
 
 function staleRow(overrides: Record<string, unknown> = {}) {
   const anchor = new Date(Date.now() - 5 * 60_000);
@@ -144,6 +152,14 @@ describe('finalizePaymentCaptured (reached via reconcileStalePaymobPayments)', (
     expect(mockNotifyConfirmed).toHaveBeenCalledWith(
       expect.objectContaining({ id: 42, status: BookingStatus.CONFIRMED }),
     );
+    // The paying parent's receipt goes out alongside the nanny notification,
+    // carrying the confirmed booking and the captured transaction id.
+    expect(mockSendReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        booking: expect.objectContaining({ id: 42, status: BookingStatus.CONFIRMED }),
+        paymobTransactionId: '555',
+      }),
+    );
     // The payment itself is still marked CAPTURED with the transaction id extracted
     // from the intention element.
     expect(mockPrisma.payment.update).toHaveBeenCalledWith(
@@ -187,6 +203,8 @@ describe('finalizePaymentCaptured (reached via reconcileStalePaymobPayments)', (
     expect(mockCanTransition).not.toHaveBeenCalled();
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     expect(mockNotifyConfirmed).not.toHaveBeenCalled();
+    // No booking confirmed ⇒ no receipt sent.
+    expect(mockSendReceipt).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();
   });
@@ -211,6 +229,8 @@ describe('finalizePaymentCaptured (reached via reconcileStalePaymobPayments)', (
 
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
     expect(mockNotifyConfirmed).not.toHaveBeenCalled();
+    // The confirm gate refused, so no receipt is sent either.
+    expect(mockSendReceipt).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       '[paymob] refusing to confirm a booking with no captured payment',
       expect.objectContaining({ paymentId: 100, bookingId: 42 }),

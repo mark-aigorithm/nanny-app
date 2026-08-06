@@ -15,6 +15,7 @@ export * from './care-log';
 export * from './community';
 export * from './messaging';
 export * from './notifications';
+export * from './email';
 export * from './rewards';
 export * from './referrals';
 export * from './support';

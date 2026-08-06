@@ -30,6 +30,24 @@ const ConfigSchema = z.object({
   PAYMOB_API_BASE_URL: z.string().optional(),
   /** Public origin of this API, e.g. https://api.example.com (no trailing slash). Used to build notification_url. */
   PUBLIC_API_URL: z.string().optional(),
+
+  // Transactional email — all optional; feature enabled only when a full
+  // transport is configured (see buildEmailConfig). Two ways to configure it:
+  //  1. Generic SMTP: SMTP_HOST (+ port/user/password/from).
+  //  2. Gmail shortcut: GMAIL_USER + GMAIL_APP_PASSWORD — host/port/TLS are
+  //     fixed for Gmail, so those two are enough.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  /** "true" forces an implicit-TLS connection; otherwise inferred from the port (465 ⇒ true). */
+  SMTP_SECURE: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  /** A Gmail address used as the SMTP account (and default From). */
+  GMAIL_USER: z.string().optional(),
+  /** A Gmail App Password (not the account password). 16 chars, spaces optional. */
+  GMAIL_APP_PASSWORD: z.string().optional(),
+  /** Envelope From, e.g. "NannyApp <no-reply@nannyapp.com>". Defaults to GMAIL_USER when using the Gmail shortcut. */
+  EMAIL_FROM: z.string().optional(),
 });
 
 const parsed = ConfigSchema.safeParse(process.env);
@@ -85,6 +103,55 @@ function buildPaymobConfig():
   };
 }
 
+function buildEmailConfig():
+  | { enabled: false }
+  | {
+      enabled: true;
+      host: string;
+      port: number;
+      secure: boolean;
+      user: string;
+      pass: string;
+      from: string;
+    } {
+  const from = raw.EMAIL_FROM?.trim();
+
+  // 1. Generic SMTP takes precedence when a host is given.
+  const host = raw.SMTP_HOST?.trim();
+  if (host) {
+    const user = raw.SMTP_USER?.trim();
+    const pass = raw.SMTP_PASSWORD?.trim();
+    const port = raw.SMTP_PORT;
+    // A no-op until every piece is present, so an unconfigured environment
+    // silently skips sending rather than crashing at startup.
+    if (!user || !pass || !from || !port) {
+      return { enabled: false };
+    }
+    // Explicit SMTP_SECURE wins; otherwise implicit TLS is the standard for 465.
+    const secure =
+      raw.SMTP_SECURE?.trim() ? raw.SMTP_SECURE.trim().toLowerCase() === 'true' : port === 465;
+    return { enabled: true, host, port, secure, user, pass, from };
+  }
+
+  // 2. Gmail shortcut: the account + App Password is all that's needed — Gmail's
+  // host, port and implicit TLS are fixed. From defaults to the Gmail address.
+  const gmailUser = raw.GMAIL_USER?.trim();
+  const gmailPass = raw.GMAIL_APP_PASSWORD?.trim().replace(/\s+/g, '');
+  if (gmailUser && gmailPass) {
+    return {
+      enabled: true,
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      user: gmailUser,
+      pass: gmailPass,
+      from: from || `NannyApp <${gmailUser}>`,
+    };
+  }
+
+  return { enabled: false };
+}
+
 export const config = {
   nodeEnv: raw.NODE_ENV,
   port: raw.PORT,
@@ -98,6 +165,7 @@ export const config = {
     storageBucket: raw.FIREBASE_STORAGE_BUCKET,
   },
   paymob: buildPaymobConfig(),
+  email: buildEmailConfig(),
 } as const;
 
 export type Config = typeof config;

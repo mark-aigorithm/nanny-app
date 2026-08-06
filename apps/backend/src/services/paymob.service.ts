@@ -37,6 +37,7 @@ import {
 } from '@backend/services/package-payment.service';
 import { applyPaidExtension } from '@backend/services/booking-extension.service';
 import { redeemBookingPromoCodeOnCapture } from '@backend/services/promo-code.service';
+import { sendReceiptEmail } from '@backend/services/email.service';
 
 const PAYMENT_TIMEOUT_REASON = 'Payment timed out waiting for Paymob confirmation.';
 
@@ -144,6 +145,10 @@ async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: s
 
   if (confirmedBooking) {
     await notifyNannyBookingConfirmed(confirmedBooking);
+    // Email the paying parent their receipt. Best-effort inside — gated by the
+    // same non-null `confirmedBooking`, so the PENDING-status transaction guard
+    // above means a replayed webhook can't send it twice.
+    await sendReceiptEmail({ booking: confirmedBooking, paymobTransactionId });
   }
 }
 

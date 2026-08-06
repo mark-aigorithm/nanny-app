@@ -228,6 +228,7 @@ model User {
   messagesSent             Message[]
   notifications            Notification[]
   deviceTokens             DeviceToken[]
+  emailLogs                EmailLog[]
   initiatedConversations   Conversation[]            @relation("ConversationInitiator")
   promoRedemptions         PromoCodeRedemption[]
   cameras                  Camera[]                  @relation("NannyCameras")
@@ -1383,6 +1384,59 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Email
+// ──────────────────────────────────────────────────────────────
+
+/// Named transactional email templates. Each value maps to an HTML template
+/// the backend renders (apps/backend/src/lib/email/templates). Kept in sync
+/// with the shared EmailTemplate enum in @nanny-app/shared.
+enum EmailTemplate {
+  /// Payment receipt sent to the paying parent once a booking payment captures.
+  RECEIPT
+
+  @@map("email_template")
+}
+
+/// Delivery outcome of a single send attempt.
+enum EmailStatus {
+  SENT
+  FAILED
+
+  @@map("email_status")
+}
+
+/// Audit trail of every transactional email the backend attempts to send — one
+/// row per attempt (SENT or FAILED), kept for delivery debugging and so a
+/// receipt can be traced back to its booking. Sending is best-effort, so a
+/// FAILED row (with the transport error) is the only signal a send didn't land.
+model EmailLog {
+  id             Int                        @id @default(autoincrement())
+  /// Recipient address copied at send time (not a live FK) so the log stays
+  /// accurate even if the user later changes or deletes their email.
+  recipientEmail String                     @map("recipient_email")
+  /// The user emailed, when known. Nullable with no cascade so the audit row
+  /// outlives user deletion.
+  userId         Int?                       @map("user_id")
+  user           User?                      @relation(fields: [userId], references: [id])
+  template       EmailTemplate
+  subject        String
+  status         EmailStatus
+  /// Transport error message when status = FAILED; null on success.
+  error          String?                    @db.Text
+  /// Soft polymorphic reference to what the email concerned (e.g. BOOKING + id),
+  /// reusing the notification reference enum. No FK constraint.
+  referenceType  NotificationReferenceType? @map("reference_type")
+  referenceId    Int?                       @map("reference_id")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  deletedAt      DateTime?                  @map("deleted_at")
+
+  @@index([userId])
+  @@index([template, status])
+  @@map("email_logs")
 }
 
 // ──────────────────────────────────────────────────────────────
