@@ -1,9 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import type { AdminSection } from '@nanny-app/shared';
+
 import { AdminLayout } from './components/admin-layout';
 import { ToastProvider } from './components/ui';
 import { AuthProvider, RequireAuth } from './lib/auth';
+import {
+  NoAccess,
+  PermissionsProvider,
+  RequireSection,
+  usePermissions,
+} from './lib/permissions';
 import { AdminsPage } from './pages/admins-page';
 import { CamerasPage } from './pages/cameras-page';
 import { DashboardPage } from './pages/dashboard-page';
@@ -32,6 +40,24 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Wraps a page in the privilege its section requires. */
+function Guarded({ section, children }: { section: AdminSection; children: React.ReactNode }) {
+  return <RequireSection section={section}>{children}</RequireSection>;
+}
+
+/** Superuser-only route — operators and admins get bounced to their landing page. */
+function SuperuserOnly({ children }: { children: React.ReactNode }) {
+  const { role, landingPath } = usePermissions();
+  if (role === 'SUPERUSER') return children;
+  return landingPath === null ? <NoAccess /> : <Navigate to={landingPath} replace />;
+}
+
+/** Anything unrecognised goes to the first page this account may open. */
+function LandingRedirect() {
+  const { landingPath } = usePermissions();
+  return landingPath === null ? <NoAccess /> : <Navigate to={landingPath} replace />;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -43,30 +69,151 @@ export function App() {
             <Route
               element={
                 <RequireAuth>
-                  <AdminLayout />
+                  <PermissionsProvider>
+                    <AdminLayout />
+                  </PermissionsProvider>
                 </RequireAuth>
               }
             >
-              <Route index element={<DashboardPage />} />
-              <Route path="bookings" element={<BookingsPage />} />
-              <Route path="bookings/:id" element={<BookingDetailPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="users/mothers/:id" element={<MotherDetailPage />} />
-              <Route path="users/nannies/:id" element={<NannyDetailPage />} />
+              <Route
+                index
+                element={
+                  <Guarded section="dashboard">
+                    <DashboardPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="bookings"
+                element={
+                  <Guarded section="bookings">
+                    <BookingsPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="bookings/:id"
+                element={
+                  <Guarded section="bookings">
+                    <BookingDetailPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="users"
+                element={
+                  <Guarded section="users">
+                    <UsersPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="users/mothers/:id"
+                element={
+                  <Guarded section="users">
+                    <MotherDetailPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="users/nannies/:id"
+                element={
+                  <Guarded section="users">
+                    <NannyDetailPage />
+                  </Guarded>
+                }
+              />
               {/* Legacy path — the Nannies page is now a tab under Users. */}
               <Route path="nannies" element={<Navigate to="/users" replace />} />
-              <Route path="admins" element={<AdminsPage />} />
-              <Route path="promo-codes" element={<PromoCodesPage />} />
-              <Route path="campaigns" element={<CampaignsPage />} />
-              <Route path="marketplace" element={<MarketplacePage />} />
-              <Route path="skills" element={<SkillsPage />} />
-              <Route path="certifications" element={<CertificationsPage />} />
-              <Route path="packages" element={<PackagesPage />} />
-              <Route path="rewards" element={<RewardsPage />} />
-              <Route path="pricing" element={<PricingFeesPage />} />
-              <Route path="cameras" element={<CamerasPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route
+                path="admins"
+                element={
+                  <SuperuserOnly>
+                    <AdminsPage />
+                  </SuperuserOnly>
+                }
+              />
+              <Route
+                path="promo-codes"
+                element={
+                  <Guarded section="promoCodes">
+                    <PromoCodesPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="campaigns"
+                element={
+                  <Guarded section="campaigns">
+                    <CampaignsPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="marketplace"
+                element={
+                  <Guarded section="marketplace">
+                    <MarketplacePage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="skills"
+                element={
+                  <Guarded section="skills">
+                    <SkillsPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="certifications"
+                element={
+                  <Guarded section="certifications">
+                    <CertificationsPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="packages"
+                element={
+                  <Guarded section="packages">
+                    <PackagesPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="rewards"
+                element={
+                  <Guarded section="rewards">
+                    <RewardsPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="pricing"
+                element={
+                  <Guarded section="pricing">
+                    <PricingFeesPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="cameras"
+                element={
+                  <Guarded section="cameras">
+                    <CamerasPage />
+                  </Guarded>
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  <Guarded section="settings">
+                    <SettingsPage />
+                  </Guarded>
+                }
+              />
+              <Route path="*" element={<LandingRedirect />} />
             </Route>
             </Routes>
           </AuthProvider>

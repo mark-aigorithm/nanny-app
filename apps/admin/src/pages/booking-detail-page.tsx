@@ -18,6 +18,7 @@ import {
 } from '@admin/components/ui';
 import { fetchBooking } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { formatDateTime } from '@admin/lib/format';
 import { BookingEditor } from '@admin/features/bookings/booking-editor';
 
@@ -41,6 +42,7 @@ function statusTone(status: string): 'neutral' | 'success' | 'danger' {
 const DASH = <span className="table-empty">—</span>;
 
 export function BookingDetailPage() {
+  const canManage = useCanManage('bookings');
   const { id = '' } = useParams();
   const [editing, setEditing] = useState(false);
   const { data: booking, isLoading, error, refetch, isFetching } = useQuery({
@@ -49,7 +51,7 @@ export function BookingDetailPage() {
     enabled: id !== '',
   });
 
-  const canEdit = booking != null && EDITABLE_STATUSES.has(booking.status);
+  const canEdit = canManage && booking != null && EDITABLE_STATUSES.has(booking.status);
 
   const actions = canEdit ? (
     editing ? (

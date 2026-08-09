@@ -18,6 +18,7 @@ import { ListingTable } from '@admin/features/marketplace/listing-table';
 import { OfficialListingForm } from '@admin/features/marketplace/official-listing-form';
 import { fetchMarketplaceListings } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 
 const STATUS_FILTERS: { value: AdminMarketplaceStatusFilter; label: string }[] = [
@@ -28,6 +29,7 @@ const STATUS_FILTERS: { value: AdminMarketplaceStatusFilter; label: string }[] =
 ];
 
 export function MarketplacePage() {
+  const canManage = useCanManage('marketplace');
   const [status, setStatus] = useState<AdminMarketplaceStatusFilter>('PENDING');
   const { page, limit, setPage, setLimit, reset } = usePagination();
 
@@ -45,7 +47,7 @@ export function MarketplacePage() {
         subtitle="Review what mothers list for sale before it reaches the feed, and publish official listings of your own."
       />
 
-      <OfficialListingForm />
+      {canManage && <OfficialListingForm />}
 
       <p className="panel-lead">
         New and edited listings wait here until you approve them. Rejecting one sends the seller

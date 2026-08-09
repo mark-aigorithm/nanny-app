@@ -11,6 +11,7 @@ import {
   updateDurationRule,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type Mode = 'discount' | 'multiplier';
 
@@ -122,6 +123,7 @@ function CreateRuleForm() {
 }
 
 function RuleRow({ rule }: { rule: DurationRule }) {
+  const canManage = useCanManage('pricing');
   const queryClient = useQueryClient();
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['duration-rules'] });
 
@@ -151,6 +153,7 @@ function RuleRow({ rule }: { rule: DurationRule }) {
         </Badge>
       </td>
       <td>
+        {canManage && (
         <div className="row-actions">
           <Button
             variant="ghost"
@@ -173,12 +176,14 @@ function RuleRow({ rule }: { rule: DurationRule }) {
             Delete
           </Button>
         </div>
+        )}
       </td>
     </tr>
   );
 }
 
 export function DurationRulesPanel() {
+  const canManage = useCanManage('pricing');
   const { data: rules, isLoading, error } = useQuery({
     queryKey: ['duration-rules'],
     queryFn: fetchDurationRules,
@@ -186,7 +191,7 @@ export function DurationRulesPanel() {
 
   return (
     <>
-      <CreateRuleForm />
+      {canManage && <CreateRuleForm />}
       {isLoading && <TableSkeleton rows={4} columns={6} />}
       {error != null && <Feedback tone="error">{apiErrorMessage(error)}</Feedback>}
       {rules && rules.length === 0 && (

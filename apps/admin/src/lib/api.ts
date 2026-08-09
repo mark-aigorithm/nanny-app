@@ -56,6 +56,7 @@ import type {
   SupportContact,
   UpdateAdminMotherInput,
   UpdateAdminNanny,
+  UpdateAdminUserInput,
   UpdateBookingTimesInput,
   UpdateCameraInput,
   UpdateCampaignInput,
@@ -538,6 +539,18 @@ export async function fetchAdmins(): Promise<AdminUser[]> {
 export async function createAdmin(input: CreateAdminInput): Promise<AdminUser> {
   const res = await apiClient.post<ApiEnvelope<AdminUser>>('/admin/admins', input);
   return res.data.data;
+}
+
+export async function updateAdmin(
+  id: number,
+  input: UpdateAdminUserInput,
+): Promise<AdminUser> {
+  const res = await apiClient.patch<ApiEnvelope<AdminUser>>(`/admin/admins/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteAdmin(id: number): Promise<void> {
+  await apiClient.delete(`/admin/admins/${id}`);
 }
 
 // ── Package purchases (admin visibility into the consumption ledger) ──

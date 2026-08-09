@@ -7,6 +7,7 @@ import { PackageTable } from '@admin/features/packages/package-table';
 import { PurchasesTab } from '@admin/features/package-purchases/purchases-tab';
 import { fetchPackages } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 const TABS = [
   { id: 'packages', label: 'Packages' },
@@ -16,6 +17,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]['id'];
 
 export function PackagesPage() {
+  const canManage = useCanManage('packages');
   const [tab, setTab] = useState<TabId>('packages');
   const { data: packages, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['packages'],
@@ -46,7 +48,7 @@ export function PackagesPage() {
       <div className="subtab-panel">
         {tab === 'packages' && (
           <>
-            <PackageForm />
+            {canManage && <PackageForm />}
             {isLoading && <TableSkeleton columns={6} />}
             {error != null && !packages && (
               <ErrorState

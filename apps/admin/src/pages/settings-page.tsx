@@ -35,6 +35,7 @@ import {
   updateSupportContact,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 /**
  * Booking-window limits + matching/SLA settings — pricing lives on Pricing & Fees.
@@ -336,6 +337,7 @@ function findIssues(v: SettingsValues): string[] {
 }
 
 export function SettingsPage() {
+  const canManage = useCanManage('settings');
   const queryClient = useQueryClient();
   const toast = useToast();
   const { data: config, isLoading, error, refetch, isFetching } = useQuery({
@@ -519,9 +521,11 @@ export function SettingsPage() {
               <Card>
                 <div className="card-header">
                   <h3>Support contact</h3>
-                  <Button type="submit" disabled={saveSupportMutation.isPending}>
-                    {saveSupportMutation.isPending ? 'Saving…' : 'Save contact'}
-                  </Button>
+                  {canManage && (
+                    <Button type="submit" disabled={saveSupportMutation.isPending}>
+                      {saveSupportMutation.isPending ? 'Saving…' : 'Save contact'}
+                    </Button>
+                  )}
                 </div>
                 <p className="panel-lead">
                   How parents reach you from the app’s help screen. Leave a field blank to hide that
@@ -580,29 +584,35 @@ export function SettingsPage() {
 
               {formError && <Feedback tone="error">{formError}</Feedback>}
 
-              <div className="rail-actions">
-                <Button
-                  type="submit"
-                  form="platform-config-form"
-                  disabled={!dirty || issues.length > 0 || saveMutation.isPending}
-                >
-                  {saveMutation.isPending ? 'Saving…' : 'Save changes'}
-                </Button>
-                {dirty && (
+              {canManage && (
+                <div className="rail-actions">
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (config) setForm(toForm(config));
-                      setFormError(null);
-                    }}
+                    type="submit"
+                    form="platform-config-form"
+                    disabled={!dirty || issues.length > 0 || saveMutation.isPending}
                   >
-                    Discard
+                    {saveMutation.isPending ? 'Saving…' : 'Save changes'}
                   </Button>
-                )}
-              </div>
-              <p className={dirty ? 'rail-note rail-note--dirty' : 'rail-note'}>
-                {dirty ? 'Unsaved changes to the settings above.' : 'Everything above is saved.'}
+                  {dirty && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (config) setForm(toForm(config));
+                        setFormError(null);
+                      }}
+                    >
+                      Discard
+                    </Button>
+                  )}
+                </div>
+              )}
+              <p className={dirty && canManage ? 'rail-note rail-note--dirty' : 'rail-note'}>
+                {!canManage
+                  ? 'You have view-only access to booking options.'
+                  : dirty
+                    ? 'Unsaved changes to the settings above.'
+                    : 'Everything above is saved.'}
               </p>
             </div>
           ) : (

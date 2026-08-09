@@ -8,8 +8,10 @@ import { CameraForm } from '@admin/features/cameras/camera-form';
 import { CameraTable } from '@admin/features/cameras/camera-table';
 import { fetchCameras } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 export function CamerasPage() {
+  const canManage = useCanManage('cameras');
   const [editing, setEditing] = useState<Camera | null>(null);
   const { data: cameras, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['cameras'],
@@ -22,11 +24,13 @@ export function CamerasPage() {
         title="Cameras"
         subtitle="Manage camera streams and optionally assign them to a nanny."
       />
-      <CameraForm
-        key={editing?.id ?? 'new'}
-        editing={editing ?? undefined}
-        onDone={() => setEditing(null)}
-      />
+      {canManage && (
+        <CameraForm
+          key={editing?.id ?? 'new'}
+          editing={editing ?? undefined}
+          onDone={() => setEditing(null)}
+        />
+      )}
       {isLoading && <TableSkeleton columns={5} />}
       {error != null && !cameras && (
         <ErrorState

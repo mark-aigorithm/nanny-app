@@ -19,6 +19,7 @@ import {
 } from '@admin/components/ui';
 import { fetchRewardConfig, updateRewardConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type NumericKey =
   | 'pointsPerBookedHour'
@@ -94,6 +95,7 @@ type FormState = {
 };
 
 export function RewardsConfigPanel() {
+  const canManage = useCanManage('rewards');
   const queryClient = useQueryClient();
   const toast = useToast();
   const { data: config, isLoading, error, refetch, isFetching } = useQuery({
@@ -288,9 +290,11 @@ export function RewardsConfigPanel() {
               <span className="reward-save-hint">
                 Changes apply to future bookings and redemptions.
               </span>
-              <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? 'Saving…' : 'Save Care Points'}
-              </Button>
+              {canManage && (
+                <Button type="submit" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? 'Saving…' : 'Save Care Points'}
+                </Button>
+              )}
             </div>
           </footer>
         </form>

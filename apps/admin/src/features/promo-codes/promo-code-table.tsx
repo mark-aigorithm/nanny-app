@@ -19,6 +19,7 @@ import {
 } from '@admin/components/ui';
 import { deletePromoCode, updatePromoCode } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type PromoCodeTableProps = {
   promoCodes: PromoCode[];
@@ -29,6 +30,7 @@ function discountLabel(promo: PromoCode): string {
 }
 
 export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
+  const canManage = useCanManage('promoCodes');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [deleting, setDeleting] = useState<PromoCode | null>(null);
@@ -89,7 +91,7 @@ export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
       header: '',
       align: 'right',
       render: (promo) => (
-        <ActionMenu label={`Actions for promo code ${promo.code}`}>
+        <ActionMenu label={`Actions for promo code ${promo.code}`} disabled={!canManage}>
           <MenuItem
             icon={promo.isActive ? <Power size={ICON_SIZE.menu} /> : <Check size={ICON_SIZE.menu} />}
             disabled={toggleMutation.isPending}

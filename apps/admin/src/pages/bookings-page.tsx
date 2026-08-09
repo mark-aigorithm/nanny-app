@@ -43,6 +43,7 @@ import {
   updateBookingTimes,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import {
   formatDateTime,
   fromDateTimeLocalInput,
@@ -105,6 +106,7 @@ function pendingTone(mins: number, sla: SlaThresholds): 'neutral' | 'warning' | 
 }
 
 export function BookingsPage() {
+  const canManage = useCanManage('bookings');
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
   const [editing, setEditing] = useState<{ id: number; start: string; end: string } | null>(null);
   const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
@@ -298,7 +300,8 @@ export function BookingsPage() {
       render: (booking) => {
         const isPending = booking.status === 'PENDING';
         const isTerminal = TERMINAL_STATUSES.has(booking.status);
-        if (!isPending && isTerminal) {
+        // A view-only operator can browse the queue but not act on it.
+        if (!canManage || (!isPending && isTerminal)) {
           return <span className="table-empty">—</span>;
         }
         return (

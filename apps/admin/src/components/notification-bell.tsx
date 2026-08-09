@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { fetchBookings, fetchNannies } from '../lib/api';
+import { usePermissions } from '../lib/permissions';
 
 // Poll the pending queues so the admin sees new requests without a manual
 // refresh. Reuses the same query keys as the Nannies/Bookings pages, so their
@@ -12,17 +13,25 @@ const POLL_MS = 30_000;
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { can } = usePermissions();
+
+  // Each queue is only polled by someone who could act on it — an operator
+  // without Users would otherwise get a 403 every 30 seconds.
+  const canSeeNannies = can('users', 'VIEW');
+  const canSeeBookings = can('bookings', 'VIEW');
 
   // Only the pending counts are needed — fetch a single row and read meta.total.
   const { data: pendingNannies } = useQuery({
     queryKey: ['admin-nannies', 'PENDING_REVIEW', 'count'],
     queryFn: () => fetchNannies('PENDING_REVIEW', { page: 1, limit: 1 }),
     refetchInterval: POLL_MS,
+    enabled: canSeeNannies,
   });
   const { data: pendingBookings } = useQuery({
     queryKey: ['bookings', 'PENDING', 'count'],
     queryFn: () => fetchBookings('PENDING', { page: 1, limit: 1 }),
     refetchInterval: POLL_MS,
+    enabled: canSeeBookings,
   });
 
   const nannyCount = pendingNannies?.meta.total ?? 0;
@@ -47,6 +56,10 @@ export function NotificationBell() {
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
+
+  // Nothing to watch — don't render a bell that can never light up. Placed
+  // after every hook so the hook order stays stable across renders.
+  if (!canSeeNannies && !canSeeBookings) return null;
 
   return (
     <div className="notif" ref={containerRef}>

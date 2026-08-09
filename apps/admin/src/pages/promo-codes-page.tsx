@@ -5,8 +5,10 @@ import { PromoCodeForm } from '@admin/features/promo-codes/promo-code-form';
 import { PromoCodeTable } from '@admin/features/promo-codes/promo-code-table';
 import { fetchPromoCodes } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 export function PromoCodesPage() {
+  const canManage = useCanManage('promoCodes');
   const { data: promoCodes, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['promo-codes'],
     queryFn: fetchPromoCodes,
@@ -18,7 +20,7 @@ export function PromoCodesPage() {
         title="Promo Codes"
         subtitle="Create discount codes and control how often they can be redeemed."
       />
-      <PromoCodeForm />
+      {canManage && <PromoCodeForm />}
       {isLoading && <TableSkeleton columns={8} />}
       {error != null && !promoCodes && (
         <ErrorState

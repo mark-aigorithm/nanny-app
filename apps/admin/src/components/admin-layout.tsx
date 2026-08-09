@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
-import { fetchAdminMe } from '../lib/api';
+import type { AdminSection } from '@nanny-app/shared';
+
 import { useAuth } from '../lib/auth';
+import { usePermissions } from '../lib/permissions';
 import { NotificationBell } from './notification-bell';
 import {
   BadgeCheck,
@@ -31,22 +32,24 @@ import {
   Wallet,
 } from './ui';
 
-type NavItem = { to: string; label: string; icon: LucideIcon };
+type NavItem = { to: string; label: string; icon: LucideIcon; section?: AdminSection };
 
+// `section` is what the sidebar filters on — an operator only sees the entries
+// they can open. The Admins link has no section: it's superuser-only.
 const navItems: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/bookings', label: 'Bookings', icon: CalendarClock },
-  { to: '/users', label: 'Users', icon: Users },
-  { to: '/promo-codes', label: 'Promo Codes', icon: Ticket },
-  { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
-  { to: '/marketplace', label: 'Marketplace', icon: Store },
-  { to: '/skills', label: 'Nanny Skills', icon: Sparkles },
-  { to: '/certifications', label: 'Certifications', icon: BadgeCheck },
-  { to: '/packages', label: 'Packages', icon: Package },
-  { to: '/rewards', label: 'Care Points', icon: Gift },
-  { to: '/pricing', label: 'Pricing & Fees', icon: Wallet },
-  { to: '/cameras', label: 'Cameras', icon: Video },
-  { to: '/settings', label: 'Booking Options', icon: Settings },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
+  { to: '/bookings', label: 'Bookings', icon: CalendarClock, section: 'bookings' },
+  { to: '/users', label: 'Users', icon: Users, section: 'users' },
+  { to: '/promo-codes', label: 'Promo Codes', icon: Ticket, section: 'promoCodes' },
+  { to: '/campaigns', label: 'Campaigns', icon: Megaphone, section: 'campaigns' },
+  { to: '/marketplace', label: 'Marketplace', icon: Store, section: 'marketplace' },
+  { to: '/skills', label: 'Nanny Skills', icon: Sparkles, section: 'skills' },
+  { to: '/certifications', label: 'Certifications', icon: BadgeCheck, section: 'certifications' },
+  { to: '/packages', label: 'Packages', icon: Package, section: 'packages' },
+  { to: '/rewards', label: 'Care Points', icon: Gift, section: 'rewards' },
+  { to: '/pricing', label: 'Pricing & Fees', icon: Wallet, section: 'pricing' },
+  { to: '/cameras', label: 'Cameras', icon: Video, section: 'cameras' },
+  { to: '/settings', label: 'Booking Options', icon: Settings, section: 'settings' },
 ];
 
 const COLLAPSE_KEY = 'admin-sidebar-collapsed';
@@ -65,15 +68,15 @@ function initials(value: string): string {
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
-  const { data: me } = useQuery({ queryKey: ['admin-me'], queryFn: fetchAdminMe });
+  const { role, can } = usePermissions();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
   const links: NavItem[] = [
-    ...navItems,
-    ...(me?.role === 'SUPERUSER'
-      ? [{ to: '/admins', label: 'Admins', icon: ShieldCheck } as NavItem]
+    ...navItems.filter((item) => item.section === undefined || can(item.section, 'VIEW')),
+    ...(role === 'SUPERUSER'
+      ? [{ to: '/admins', label: 'Team', icon: ShieldCheck } as NavItem]
       : []),
   ];
 

@@ -23,6 +23,7 @@ import {
 } from '@admin/components/ui';
 import { deleteCampaign, fetchPackages, fetchPromoCodes, updateCampaign } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { uploadImageToFirebase } from '@admin/lib/storage';
 
 type CampaignTableProps = {
@@ -56,6 +57,7 @@ function campaignStatus(c: Campaign): Status {
 }
 
 export function CampaignTable({ campaigns }: CampaignTableProps) {
+  const canManage = useCanManage('campaigns');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -127,7 +129,7 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
       header: '',
       align: 'right',
       render: (c) => (
-        <ActionMenu label={`Actions for campaign ${c.title}`}>
+        <ActionMenu label={`Actions for campaign ${c.title}`} disabled={!canManage}>
           <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(c)}>
             Edit
           </MenuItem>

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ADMIN_MAX_PAGE_SIZE, type AdminBooking, type AdminNanny, type PromoCode } from '@nanny-app/shared';
 
 import { fetchBookings, fetchNannies, fetchPromoCodes } from '@admin/lib/api';
+import { usePermissions } from '@admin/lib/permissions';
 
 // Reporting sums client-side; fetch the largest allowed page (matches the old
 // server-side cap). There is no dedicated stats API yet.
@@ -26,6 +27,18 @@ export type DashboardData = {
   bookingsByStatus: StatusSlice[];
   bookingsOverTime: TimePoint[];
   nannyBreakdown: StatusSlice[];
+};
+
+/**
+ * Which underlying sections the viewer may read. The dashboard aggregates the
+ * Bookings, Users and Promo Codes lists, so an operator without one of them
+ * gets a dashboard with that source's tiles and charts left out — rather than a
+ * page of 403s.
+ */
+export type DashboardSources = {
+  bookings: boolean;
+  nannies: boolean;
+  promoCodes: boolean;
 };
 
 const BOOKING_STATUS_ORDER: { key: AdminBooking['status']; label: string }[] = [
@@ -86,15 +99,28 @@ function countBy<T, K extends string>(items: T[], key: (item: T) => K): Map<K, n
  * endpoints (no dedicated stats API yet). Cheap at current data volumes.
  */
 export function useDashboardStats() {
+  const { can } = usePermissions();
+  const sources: DashboardSources = {
+    bookings: can('bookings', 'VIEW'),
+    nannies: can('users', 'VIEW'),
+    promoCodes: can('promoCodes', 'VIEW'),
+  };
+
   const bookingsQuery = useQuery({
     queryKey: ['bookings', 'ALL', 'stats'],
     queryFn: () => fetchBookings('ALL', STATS_PAGE),
+    enabled: sources.bookings,
   });
   const nanniesQuery = useQuery({
     queryKey: ['admin-nannies', 'ALL', 'stats'],
     queryFn: () => fetchNannies('ALL', STATS_PAGE),
+    enabled: sources.nannies,
   });
-  const promoQuery = useQuery({ queryKey: ['promo-codes'], queryFn: fetchPromoCodes });
+  const promoQuery = useQuery({
+    queryKey: ['promo-codes'],
+    queryFn: fetchPromoCodes,
+    enabled: sources.promoCodes,
+  });
 
   const bookings: AdminBooking[] = bookingsQuery.data?.data ?? [];
   const nannies: AdminNanny[] = nanniesQuery.data?.data ?? [];
@@ -134,15 +160,25 @@ export function useDashboardStats() {
     };
   }, [bookings, nannies, promoCodes]);
 
+  // A source the viewer can't read is "settled with nothing", not pending —
+  // otherwise a disabled query would leave the page loading forever.
+  const loaded = (enabled: boolean, hasData: boolean) => !enabled || hasData;
+
   return {
     data,
-    isLoading: bookingsQuery.isLoading || nanniesQuery.isLoading || promoQuery.isLoading,
+    sources,
+    isLoading:
+      (sources.bookings && bookingsQuery.isLoading) ||
+      (sources.nannies && nanniesQuery.isLoading) ||
+      (sources.promoCodes && promoQuery.isLoading),
     isFetching: bookingsQuery.isFetching || nanniesQuery.isFetching || promoQuery.isFetching,
-    // True once every underlying query has loaded at least once — lets the page
+    // True once every permitted query has loaded at least once — lets the page
     // tell a first-load failure (show a full error) apart from a background
     // refetch failure (keep the numbers, show a non-blocking banner).
     hasData:
-      bookingsQuery.data != null && nanniesQuery.data != null && promoQuery.data != null,
+      loaded(sources.bookings, bookingsQuery.data != null) &&
+      loaded(sources.nannies, nanniesQuery.data != null) &&
+      loaded(sources.promoCodes, promoQuery.data != null),
     error: bookingsQuery.error ?? nanniesQuery.error ?? promoQuery.error,
     refetch: () => {
       void bookingsQuery.refetch();

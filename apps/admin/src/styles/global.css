@@ -3534,3 +3534,110 @@ input[type='number'] {
   color: var(--color-primary-dark);
   font-weight: 600;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Operator permission matrix (Team → add / edit access)
+   ───────────────────────────────────────────────────────────── */
+
+.operator-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.perm-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.perm-matrix-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.perm-matrix-hint {
+  flex: 1 1 16rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.perm-matrix-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perm-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.perm-row:nth-child(odd) {
+  background: var(--color-surface-muted);
+}
+
+.perm-row-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.perm-row-choices {
+  display: flex;
+  gap: 0.35rem;
+}
+
+/* The radio itself is hidden — the label is the target, so the three levels
+   read as one segmented control rather than a column of loose radios. */
+.perm-choice {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.perm-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.perm-choice:hover {
+  border-color: var(--color-primary);
+}
+
+.perm-choice--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+/* Keyboard focus has to stay visible even though the input is off-screen. */
+.perm-choice:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

@@ -19,6 +19,7 @@ import {
 } from '@admin/components/ui';
 import { fetchRewardWallets } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 
 import { GrantPointsModal } from './grant-points-modal';
@@ -34,6 +35,7 @@ function initials(name: string): string {
 }
 
 export function RewardWalletsTab() {
+  const canManage = useCanManage('rewards');
   const { page, limit, setPage, setLimit } = usePagination();
   const [search, setSearch] = useState('');
   // Server-side search, debounced so we don't refetch on every keystroke.
@@ -107,9 +109,11 @@ export function RewardWalletsTab() {
           <MenuItem icon={<History size={ICON_SIZE.menu} />} onSelect={() => setHistoryFor(w)}>
             View history
           </MenuItem>
-          <MenuItem icon={<Gift size={ICON_SIZE.menu} />} onSelect={() => setGrantFor(w)}>
-            Grant / revoke points
-          </MenuItem>
+          {canManage && (
+            <MenuItem icon={<Gift size={ICON_SIZE.menu} />} onSelect={() => setGrantFor(w)}>
+              Grant / revoke points
+            </MenuItem>
+          )}
         </ActionMenu>
       ),
     },

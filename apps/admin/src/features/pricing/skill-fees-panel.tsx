@@ -15,6 +15,7 @@ import {
 } from '@admin/components/ui';
 import { fetchSkills, updateSkill } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type FeeChoice = 'NONE' | SkillFeeType;
 
@@ -79,6 +80,7 @@ function SkillFeeRow({ skill, draft, dirty, disabled, onChange }: SkillFeeRowPro
 }
 
 export function SkillFeesPanel() {
+  const canManage = useCanManage('pricing');
   const queryClient = useQueryClient();
   const toast = useToast();
   const { data: skills, isLoading, error } = useQuery({
@@ -133,6 +135,7 @@ export function SkillFeesPanel() {
     <Card>
       <div className="card-header">
         <h3>Per-skill add-on fees</h3>
+        {canManage && (
         <div className="card-header-actions">
           {dirtySkills.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setDrafts({})}>
@@ -150,6 +153,7 @@ export function SkillFeesPanel() {
                 : 'Save changes'}
           </Button>
         </div>
+        )}
       </div>
       <p className="panel-lead">
         Set what each specialty adds to the hourly rate when a parent selects it as a

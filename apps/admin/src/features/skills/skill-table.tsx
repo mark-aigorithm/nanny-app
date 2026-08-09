@@ -22,12 +22,14 @@ import {
 } from '@admin/components/ui';
 import { deleteSkill, updateSkill } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type SkillTableProps = {
   skills: Skill[];
 };
 
 export function SkillTable({ skills }: SkillTableProps) {
+  const canManage = useCanManage('skills');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState<Skill | null>(null);
@@ -76,7 +78,7 @@ export function SkillTable({ skills }: SkillTableProps) {
       header: '',
       align: 'right',
       render: (skill) => (
-        <ActionMenu label={`Actions for ${skill.name}`}>
+        <ActionMenu label={`Actions for ${skill.name}`} disabled={!canManage}>
           <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(skill)}>
             Edit
           </MenuItem>

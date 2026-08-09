@@ -29,6 +29,7 @@ import {
   updateOfficialListing,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { formatDateTime, formatEgp } from '@admin/lib/format';
 
 import { OfficialListingEditModal } from './official-listing-form';
@@ -50,6 +51,7 @@ type ListingTableProps = {
 };
 
 export function ListingTable({ listings }: ListingTableProps) {
+  const canManage = useCanManage('marketplace');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [rejecting, setRejecting] = useState<AdminMarketplaceListing | null>(null);
@@ -153,7 +155,7 @@ export function ListingTable({ listings }: ListingTableProps) {
       header: '',
       align: 'right',
       render: (listing) => (
-        <ActionMenu label={`Actions for ${listing.title}`}>
+        <ActionMenu label={`Actions for ${listing.title}`} disabled={!canManage}>
           {!listing.isOfficial && (
             <MenuItem
               icon={<Check size={ICON_SIZE.menu} />}

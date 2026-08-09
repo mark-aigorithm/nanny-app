@@ -22,6 +22,7 @@ import {
 } from '@admin/components/ui';
 import { deletePackage, updatePackage } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { formatDateTime, formatEgp } from '@admin/lib/format';
 
 type PackageTableProps = {
@@ -39,6 +40,7 @@ function dateInputToIso(value: string): string | null {
 }
 
 export function PackageTable({ packages }: PackageTableProps) {
+  const canManage = useCanManage('packages');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState<Package | null>(null);
@@ -105,7 +107,7 @@ export function PackageTable({ packages }: PackageTableProps) {
       header: '',
       align: 'right',
       render: (pkg) => (
-        <ActionMenu label={`Actions for ${pkg.name}`}>
+        <ActionMenu label={`Actions for ${pkg.name}`} disabled={!canManage}>
           <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(pkg)}>
             Edit
           </MenuItem>

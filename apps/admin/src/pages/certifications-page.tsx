@@ -5,8 +5,10 @@ import { CertificationForm } from '@admin/features/certifications/certification-
 import { CertificationTable } from '@admin/features/certifications/certification-table';
 import { fetchCertifications } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 export function CertificationsPage() {
+  const canManage = useCanManage('certifications');
   const { data: certifications, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['certifications'],
     queryFn: fetchCertifications,
@@ -18,7 +20,7 @@ export function CertificationsPage() {
         title="Certifications"
         subtitle="Curate the credentials nannies can add to their profile (e.g. CPR, First Aid). Nannies pick from the active list themselves."
       />
-      <CertificationForm />
+      {canManage && <CertificationForm />}
       {isLoading && <TableSkeleton columns={4} />}
       {error != null && !certifications && (
         <ErrorState

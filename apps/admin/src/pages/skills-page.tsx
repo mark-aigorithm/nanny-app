@@ -5,8 +5,10 @@ import { SkillForm } from '@admin/features/skills/skill-form';
 import { SkillTable } from '@admin/features/skills/skill-table';
 import { fetchSkills } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 export function SkillsPage() {
+  const canManage = useCanManage('skills');
   const { data: skills, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['skills'],
     queryFn: fetchSkills,
@@ -18,7 +20,7 @@ export function SkillsPage() {
         title="Nanny Skills"
         subtitle="Curate the specialties nannies can be tagged with (e.g. French speaker, works with disabilities). Assign them to nannies from the New Nannies page."
       />
-      <SkillForm />
+      {canManage && <SkillForm />}
       {isLoading && <TableSkeleton columns={4} />}
       {error != null && !skills && (
         <ErrorState

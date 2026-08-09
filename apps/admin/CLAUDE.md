@@ -34,6 +34,24 @@ auth, Zod. Shared types come from `@nanny-app/shared`. Icons: `lucide-react`. Ch
 - **No `window.confirm` / `window.prompt` / `alert`.** Use `ConfirmDialog` / `PromptDialog` / toasts.
 - **No hand-rolled `<table>`, `<select>`, or popover** when the shared component fits.
 
+## Privileges (operators)
+
+An `OPERATOR` only reaches the sections the superuser granted. `lib/permissions.tsx` holds the one
+`/admin/me` fetch and exposes it globally:
+
+- `usePermissions()` → `{ me, role, can(section, level), landingPath }`; `useCanManage(section)` is
+  the shorthand for the write check. Both delegate to `hasSectionAccess` in `@nanny-app/shared` —
+  **never re-implement the rule**, and never gate on `role` directly except for the superuser-only
+  Team page.
+- Routes are wrapped in `<RequireSection section=…>` in `app.tsx`; the sidebar filters `navItems` by
+  their `section`. A new page needs an entry in both, plus a row in the backend's route table.
+- Write controls (create forms, `ActionMenu` items, Save buttons) render only when
+  `useCanManage('<section>')` — a view-only operator sees the page, not the controls.
+- Queries whose section the viewer lacks must be `enabled: can(…)` so the page degrades instead of
+  firing 403s (see `use-dashboard-stats.ts` and `notification-bell.tsx`).
+
+---
+
 ## Data + feedback conventions
 
 - Server state via TanStack Query; HTTP via the axios instance in `lib/api-client.ts`; typed

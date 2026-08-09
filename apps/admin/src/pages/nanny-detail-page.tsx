@@ -32,6 +32,7 @@ import {
   rejectNanny,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
@@ -56,6 +57,7 @@ function statusTone(
 const DASH = <span className="table-empty">—</span>;
 
 export function NannyDetailPage() {
+  const canManage = useCanManage('users');
   const { id = '' } = useParams();
   const [rejecting, setRejecting] = useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
@@ -113,7 +115,7 @@ export function NannyDetailPage() {
           View ID
         </Button>
       )}
-      {nanny.idVerificationStatus !== 'APPROVED' && (
+      {canManage && nanny.idVerificationStatus !== 'APPROVED' && (
         <Button
           size="sm"
           disabled={mutating}
@@ -122,7 +124,7 @@ export function NannyDetailPage() {
           Approve
         </Button>
       )}
-      {nanny.idVerificationStatus === 'PENDING_REVIEW' && (
+      {canManage && nanny.idVerificationStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
           Reject
         </Button>
@@ -168,9 +170,11 @@ export function NannyDetailPage() {
             ) : (
               <div className="detail-skills">
                 <DescriptionList items={profileItems(nanny)} />
-                <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
-                  Edit profile
-                </Button>
+                {canManage && (
+                  <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
+                    Edit profile
+                  </Button>
+                )}
               </div>
             )}
           </Card>
@@ -213,9 +217,11 @@ export function NannyDetailPage() {
                 ) : (
                   <p className="table-subtext">No skills assigned yet.</p>
                 )}
-                <Button size="sm" variant="ghost" onClick={() => setEditingSkills(true)}>
-                  Edit skills
-                </Button>
+                {canManage && (
+                  <Button size="sm" variant="ghost" onClick={() => setEditingSkills(true)}>
+                    Edit skills
+                  </Button>
+                )}
               </div>
             )}
           </Card>

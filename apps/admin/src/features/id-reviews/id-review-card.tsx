@@ -20,6 +20,7 @@ import {
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { approveMother, approveNanny, rejectMother, rejectNanny } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { idStatusLabel, idStatusTone } from '@admin/lib/id-status';
 
 function formatDate(iso: string): string {
@@ -93,8 +94,11 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
     onError: (err) => toast.error('Couldn’t reject ID', apiErrorMessage(err)),
   });
 
+  const canManage = useCanManage('users');
   const mutating = approveMutation.isPending || rejectMutation.isPending;
-  const canReview = review.idVerificationStatus === 'PENDING_REVIEW';
+  // A view-only operator still sees the document and its state, but the
+  // approve/reject pair is what actually changes an account — so it's gated.
+  const canReview = canManage && review.idVerificationStatus === 'PENDING_REVIEW';
   const hasImages = Boolean(review.idDocumentFrontUrl || review.idDocumentBackUrl);
   const showBack = review.idDocumentType != null && idTypeRequiresBack(review.idDocumentType);
   const idTypeLabel = review.idDocumentType ? ID_TYPE_LABEL[review.idDocumentType] : 'No ID on file';

@@ -22,12 +22,14 @@ import {
 } from '@admin/components/ui';
 import { deleteCertification, updateCertification } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type CertificationTableProps = {
   certifications: Certification[];
 };
 
 export function CertificationTable({ certifications }: CertificationTableProps) {
+  const canManage = useCanManage('certifications');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState<Certification | null>(null);
@@ -77,7 +79,7 @@ export function CertificationTable({ certifications }: CertificationTableProps) 
       header: '',
       align: 'right',
       render: (cert) => (
-        <ActionMenu label={`Actions for ${cert.name}`}>
+        <ActionMenu label={`Actions for ${cert.name}`} disabled={!canManage}>
           <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(cert)}>
             Edit
           </MenuItem>

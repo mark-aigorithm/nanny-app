@@ -26,6 +26,7 @@ import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { MotherEditForm } from '@admin/features/users/mother-edit-form';
 import { approveMother, fetchMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
@@ -46,6 +47,7 @@ function statusTone(
 const DASH = <span className="table-empty">—</span>;
 
 export function MotherDetailPage() {
+  const canManage = useCanManage('users');
   const { id = '' } = useParams();
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -85,17 +87,19 @@ export function MotherDetailPage() {
 
   const mutating = approveMutation.isPending || rejectMutation.isPending;
   const hasId = Boolean(mother?.idDocumentFrontUrl || mother?.idDocumentBackUrl);
-  const canReview = mother?.idVerificationStatus === 'PENDING_REVIEW';
+  const canReview = canManage && mother?.idVerificationStatus === 'PENDING_REVIEW';
 
   const actions = mother ? (
     <>
       <Badge tone={mother.isActive ? 'success' : 'danger'}>
         {mother.isActive ? 'active' : 'deactivated'}
       </Badge>
-      <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-        <Pencil size={ICON_SIZE.inline} aria-hidden />
-        Edit
-      </Button>
+      {canManage && (
+        <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+          <Pencil size={ICON_SIZE.inline} aria-hidden />
+          Edit
+        </Button>
+      )}
       {hasId && (
         <Button variant="ghost" size="sm" onClick={() => setIdOpen(true)}>
           View ID

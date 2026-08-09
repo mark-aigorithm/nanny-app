@@ -44,8 +44,16 @@ function formatEgp(value: number): string {
 }
 
 export function DashboardPage() {
-  const { data, isLoading, error, hasData, refetch, isFetching } = useDashboardStats();
+  const { data, sources, isLoading, error, hasData, refetch, isFetching } = useDashboardStats();
   const { stats } = data;
+
+  // Each tile is fed by a section the viewer may not hold. Rather than showing a
+  // confident zero, the tile is left out entirely.
+  const approvalHint = sources.bookings && sources.nannies
+    ? 'Bookings + nanny reviews'
+    : sources.bookings
+      ? 'Bookings'
+      : 'Nanny reviews';
 
   return (
     <section>
@@ -59,90 +67,108 @@ export function DashboardPage() {
       )}
 
       <div className="stat-grid">
-        <StatCard
-          label="Total bookings"
-          value={stats.totalBookings}
-          loading={isLoading}
-          icon={<ClipboardList size={ICON_SIZE.stat} />}
-        />
-        <StatCard
-          label="Awaiting approval"
-          value={stats.pendingApprovals}
-          hint="Bookings + nanny reviews"
-          loading={isLoading}
-          iconTone="gold"
-          icon={<CircleAlert size={ICON_SIZE.stat} />}
-        />
-        <StatCard
-          label="Revenue (completed)"
-          value={formatEgp(stats.grossRevenue)}
-          loading={isLoading}
-          iconTone="gold"
-          icon={<Wallet size={ICON_SIZE.stat} />}
-        />
-        <StatCard
-          label="Active nannies"
-          value={stats.activeNannies}
-          loading={isLoading}
-          icon={<Users size={ICON_SIZE.stat} />}
-        />
-        <StatCard
-          label="Nannies to review"
-          value={stats.pendingNannies}
-          loading={isLoading}
-          icon={<UserPlus size={ICON_SIZE.stat} />}
-        />
-        <StatCard
-          label="Active promo codes"
-          value={stats.activePromoCodes}
-          loading={isLoading}
-          iconTone="bronze"
-          icon={<Ticket size={ICON_SIZE.stat} />}
-        />
+        {sources.bookings && (
+          <StatCard
+            label="Total bookings"
+            value={stats.totalBookings}
+            loading={isLoading}
+            icon={<ClipboardList size={ICON_SIZE.stat} />}
+          />
+        )}
+        {(sources.bookings || sources.nannies) && (
+          <StatCard
+            label="Awaiting approval"
+            value={stats.pendingApprovals}
+            hint={approvalHint}
+            loading={isLoading}
+            iconTone="gold"
+            icon={<CircleAlert size={ICON_SIZE.stat} />}
+          />
+        )}
+        {sources.bookings && (
+          <StatCard
+            label="Revenue (completed)"
+            value={formatEgp(stats.grossRevenue)}
+            loading={isLoading}
+            iconTone="gold"
+            icon={<Wallet size={ICON_SIZE.stat} />}
+          />
+        )}
+        {sources.nannies && (
+          <StatCard
+            label="Active nannies"
+            value={stats.activeNannies}
+            loading={isLoading}
+            icon={<Users size={ICON_SIZE.stat} />}
+          />
+        )}
+        {sources.nannies && (
+          <StatCard
+            label="Nannies to review"
+            value={stats.pendingNannies}
+            loading={isLoading}
+            icon={<UserPlus size={ICON_SIZE.stat} />}
+          />
+        )}
+        {sources.promoCodes && (
+          <StatCard
+            label="Active promo codes"
+            value={stats.activePromoCodes}
+            loading={isLoading}
+            iconTone="bronze"
+            icon={<Ticket size={ICON_SIZE.stat} />}
+          />
+        )}
       </div>
 
       <div className="chart-grid">
-        <ChartCard
-          title="Bookings over time"
-          subtitle="New requests, last 14 days"
-          icon={<CalendarClock size={ICON_SIZE.inline} />}
-          loading={isLoading}
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={data.bookingsOverTime}
-              margin={{ top: 8, right: 12, bottom: 0, left: -18 }}
-            >
-              <CartesianGrid stroke="var(--color-warm-subtle)" vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd" />
-              <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="count"
-                name="Bookings"
-                stroke="var(--chart-1)"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        {sources.bookings && (
+          <ChartCard
+            title="Bookings over time"
+            subtitle="New requests, last 14 days"
+            icon={<CalendarClock size={ICON_SIZE.inline} />}
+            loading={isLoading}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={data.bookingsOverTime}
+                margin={{ top: 8, right: 12, bottom: 0, left: -18 }}
+              >
+                <CartesianGrid stroke="var(--color-warm-subtle)" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  name="Bookings"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2.5}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
 
-        <DonutCard
-          title="Bookings by status"
-          subtitle="All bookings"
-          loading={isLoading}
-          slices={data.bookingsByStatus}
-        />
+        {sources.bookings && (
+          <DonutCard
+            title="Bookings by status"
+            subtitle="All bookings"
+            loading={isLoading}
+            slices={data.bookingsByStatus}
+          />
+        )}
 
-        <DonutCard
-          title="Nanny approvals"
-          subtitle="Registration pipeline"
-          loading={isLoading}
-          slices={data.nannyBreakdown}
-        />
+        {sources.nannies && (
+          <DonutCard
+            title="Nanny approvals"
+            subtitle="Registration pipeline"
+            loading={isLoading}
+            slices={data.nannyBreakdown}
+          />
+        )}
       </div>
     </section>
   );

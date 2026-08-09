@@ -6,6 +6,7 @@ import { resolveExtraChildFee, type SkillFeeType } from '@nanny-app/shared';
 import { Button, Card, Feedback, Field, Select, Skeleton } from '@admin/components/ui';
 import { fetchPlatformConfig, updatePlatformConfig } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 import { formatAmount } from '@admin/lib/format';
 
 /** A representative booking used only to illustrate the split live. */
@@ -22,6 +23,7 @@ const CHILD_FEE_OPTIONS: { value: ChildFeeChoice; label: string }[] = [
 ];
 
 export function BaseSplitPanel() {
+  const canManage = useCanManage('pricing');
   const queryClient = useQueryClient();
   const { data: config, isLoading, error } = useQuery({
     queryKey: ['platform-config'],
@@ -111,9 +113,11 @@ export function BaseSplitPanel() {
       <Card>
         <div className="card-header">
           <h3>Base rate &amp; revenue split</h3>
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? 'Saving…' : 'Save changes'}
-          </Button>
+          {canManage && (
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+          )}
         </div>
 
         {formError && <Feedback tone="error">{formError}</Feedback>}

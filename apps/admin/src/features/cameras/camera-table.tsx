@@ -18,6 +18,7 @@ import {
 } from '@admin/components/ui';
 import { deleteCamera } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useCanManage } from '@admin/lib/permissions';
 
 type CameraTableProps = {
   cameras: Camera[];
@@ -25,6 +26,7 @@ type CameraTableProps = {
 };
 
 export function CameraTable({ cameras, onEdit }: CameraTableProps) {
+  const canManage = useCanManage('cameras');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [deleting, setDeleting] = useState<Camera | null>(null);
@@ -67,7 +69,7 @@ export function CameraTable({ cameras, onEdit }: CameraTableProps) {
       header: '',
       align: 'right',
       render: (camera) => (
-        <ActionMenu label={`Actions for ${camera.name}`}>
+        <ActionMenu label={`Actions for ${camera.name}`} disabled={!canManage}>
           <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => onEdit(camera)}>
             Edit
           </MenuItem>
