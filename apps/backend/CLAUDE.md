@@ -39,6 +39,25 @@ prisma/
 
 ---
 
+## Admin Privileges (console roles)
+
+Three roles reach the console: `ADMIN` and `SUPERUSER` (everything), and `OPERATOR` (only the
+sections the superuser granted, stored as a JSON map in `users.admin_permissions`).
+
+- **`src/lib/admin-permissions.ts` is the source of truth.** Every admin route declares what it
+  requires in `ADMIN_ROUTE_PERMISSIONS`. The table is **deny-by-default** — a route with no entry is
+  refused, so adding an endpoint without declaring its privilege makes it unreachable, not open.
+- Enforcement is mounted once: `adminRouter.use(requireAuth, requireAdmin, requireSectionAccess)`.
+  **Never add a per-route privilege check** — add a row to the table instead.
+- `hasSectionAccess` (in `@nanny-app/shared`) is the only place the rules are evaluated; the admin
+  UI calls the same function, so the sidebar and the API can't disagree.
+- **`admin-permissions.test.ts` walks the live router** and fails if any route is undeclared or any
+  entry is stale. If it fails, the fix is a table row — not a change to the test.
+- `PUT /config` is privilege-scoped by *body key* (`CONFIG_KEY_SECTIONS`), because one row is edited
+  by both Pricing & Fees and Booking Options.
+
+---
+
 ## Error Handling
 
 - Throw `AppError(message, statusCode)` from services for expected errors.

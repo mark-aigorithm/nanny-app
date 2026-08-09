@@ -57,6 +57,7 @@ import {
   getPlatformConfig,
   getRevealPhoneMinutes,
 } from './app-settings.service';
+import { listConsoleUserIdsForSection } from './admin-user.service';
 import { saveChildren } from './child.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
@@ -591,10 +592,9 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       matchesSkills(required, heldSkillIds(n.nannySkills)),
   );
 
-  const admins = await prisma.user.findMany({
-    where: { deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
-    select: { id: true },
-  });
+  // Only console accounts that can actually open the Bookings queue — an
+  // operator scoped to, say, Marketplace shouldn't be pinged about a booking.
+  const adminIds = await listConsoleUserIdsForSection('bookings');
 
   const recipients: Array<{ userId: number; title: string; body: string }> = [
     ...nannies.map((n) => ({
@@ -602,8 +602,8 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       title: 'New care request',
       body: `A parent needs care on ${dateLabel}. Accept to claim it — first to accept gets the booking.`,
     })),
-    ...admins.map((a) => ({
-      userId: a.id,
+    ...adminIds.map((id) => ({
+      userId: id,
       title: 'New booking request',
       body: `A new booking request for ${dateLabel} was created.`,
     })),

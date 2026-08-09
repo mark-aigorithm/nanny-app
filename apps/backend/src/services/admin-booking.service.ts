@@ -198,7 +198,7 @@ async function resolveAdminId(adminFirebaseUid: string): Promise<number> {
     where: {
       firebaseUid: adminFirebaseUid,
       deletedAt: null,
-      role: { in: ['ADMIN', 'SUPERUSER'] },
+      role: { in: ['ADMIN', 'SUPERUSER', 'OPERATOR'] },
     },
     select: { id: true },
   });

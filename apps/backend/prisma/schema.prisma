@@ -34,6 +34,9 @@ enum Role {
   NANNY
   ADMIN
   SUPERUSER
+  /// Admin-console account whose reach is defined per section by the superuser.
+  /// The granted sections live in `users.admin_permissions`.
+  OPERATOR
 
   @@map("role")
 }
@@ -179,6 +182,10 @@ model User {
   // Nullable: social sign-in creates a User before the role is chosen;
   // `/auth/set-role` (AUTH-08) fills it in.
   role                 Role?
+  /// OPERATOR only: the section → access-level map ("bookings": "MANAGE").
+  /// Shaped by OperatorPermissionsSchema in @nanny-app/shared and always parsed
+  /// through it on read — never trusted raw. Null for every other role.
+  adminPermissions     Json?                 @map("admin_permissions")
   isEmailVerified      Boolean               @default(false) @map("is_email_verified")
   isPhoneVerified      Boolean               @default(false) @map("is_phone_verified")
   isActive             Boolean               @default(true) @map("is_active")

@@ -37,6 +37,7 @@ import {
   SetNannySkillsSchema,
   UpdateAdminMotherSchema,
   UpdateAdminNannySchema,
+  UpdateAdminUserSchema,
   UpdateBookingTimesSchema,
   UpdateCameraSchema,
   UpdateDurationRuleSchema,
@@ -54,7 +55,11 @@ import {
 import { ok, okPaged } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
 import { routeIdParam } from '@backend/lib/route-param';
-import { requireAdmin, requireSuperuser } from '@backend/middleware/admin.middleware';
+import {
+  requireAdmin,
+  requireSectionAccess,
+  requireSuperuser,
+} from '@backend/middleware/admin.middleware';
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import {
@@ -95,12 +100,14 @@ import {
 import {
   approveMother,
   createAdminUser,
+  deleteAdminUser,
   getAdminMother,
   getAdminProfile,
   listAdminMothers,
   listAdminUsers,
   rejectMother,
   updateAdminMother,
+  updateAdminUser,
 } from '@backend/services/admin-user.service';
 import {
   getPlatformConfig,
@@ -165,7 +172,11 @@ import {
 
 export const adminRouter = Router();
 
-adminRouter.use(requireAuth, requireAdmin);
+// Every admin endpoint is gated here: authenticated → holds a console role →
+// holds the privilege its route declares in `lib/admin-permissions.ts`. That
+// last check is deny-by-default, so a route added without a declared privilege
+// is unreachable rather than open.
+adminRouter.use(requireAuth, requireAdmin, requireSectionAccess);
 
 // ── Current admin (role drives UI visibility) ─────────────────
 
@@ -565,6 +576,33 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.status(201).json(ok(await createAdminUser(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/admins/:id',
+  requireSuperuser,
+  validateBody(UpdateAdminUserSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateAdminUser(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/admins/:id',
+  requireSuperuser,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      await deleteAdminUser(routeIdParam(req.params.id), req.adminUser.id);
+      res.json(ok({ success: true }));
     } catch (err) {
       next(err);
     }

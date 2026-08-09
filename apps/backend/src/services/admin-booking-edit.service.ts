@@ -82,7 +82,11 @@ type EditBookingRow = Prisma.BookingGetPayload<{ include: typeof editInclude }>;
 
 async function resolveAdminId(adminFirebaseUid: string): Promise<number> {
   const admin = await prisma.user.findFirst({
-    where: { firebaseUid: adminFirebaseUid, deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
+    where: {
+      firebaseUid: adminFirebaseUid,
+      deletedAt: null,
+      role: { in: ['ADMIN', 'SUPERUSER', 'OPERATOR'] },
+    },
     select: { id: true },
   });
   if (!admin) throw errors.forbidden('Admin access required');

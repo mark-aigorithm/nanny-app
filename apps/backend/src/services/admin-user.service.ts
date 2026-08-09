@@ -1,18 +1,23 @@
 import { IdVerificationStatus, type Prisma } from '@prisma/client';
 
+import { hasSectionAccess } from '@nanny-app/shared';
 import type {
   AdminListQuery,
   AdminMother,
   AdminMotherDetail,
   AdminMotherStatusFilter,
+  AdminRole,
+  AdminSection,
   AdminUser,
   CreateAdminInput,
   PaginationMeta,
   RejectNannyInput,
   UpdateAdminMotherInput,
+  UpdateAdminUserInput,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
+import { effectivePermissions } from '@backend/lib/admin-permissions';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
@@ -87,14 +92,24 @@ function toMotherDetailDto(row: AdminMotherRow): AdminMotherDetail {
   };
 }
 
-type AdminUserRow = {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: 'ADMIN' | 'SUPERUSER';
-  createdAt: Date;
-};
+/** Roles that can sign in to the admin console. */
+const CONSOLE_ROLES = ['ADMIN', 'SUPERUSER', 'OPERATOR'] as const;
+
+const adminUserSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  role: true,
+  adminPermissions: true,
+  isActive: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+type AdminUserRow = Omit<
+  Prisma.UserGetPayload<{ select: typeof adminUserSelect }>,
+  'role'
+> & { role: AdminRole };
 
 function toDto(row: AdminUserRow): AdminUser {
   return {
@@ -104,22 +119,19 @@ function toDto(row: AdminUserRow): AdminUser {
     name: `${row.firstName} ${row.lastName === '-' ? '' : row.lastName}`.trim(),
     email: row.email,
     role: row.role,
+    // ADMIN/SUPERUSER get the full map so the console can gate on one field
+    // regardless of role, instead of special-casing them in the UI.
+    permissions: effectivePermissions(row.role, row.adminPermissions),
+    isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
-/** Profile of the calling admin — the UI uses `role` to gate superuser tabs. */
+/** Profile of the calling account — the console gates its whole UI on this. */
 export async function getAdminProfile(firebaseUid: string): Promise<AdminUser> {
   const row = await prisma.user.findFirst({
-    where: { firebaseUid, deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
+    where: { firebaseUid, deletedAt: null, role: { in: [...CONSOLE_ROLES] } },
+    select: adminUserSelect,
   });
   if (!row) throw errors.forbidden('Admin access required');
   return toDto(row as AdminUserRow);
@@ -127,18 +139,85 @@ export async function getAdminProfile(firebaseUid: string): Promise<AdminUser> {
 
 export async function listAdminUsers(): Promise<AdminUser[]> {
   const rows = await prisma.user.findMany({
-    where: { deletedAt: null, role: { in: ['ADMIN', 'SUPERUSER'] } },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
+    where: { deletedAt: null, role: { in: [...CONSOLE_ROLES] } },
+    select: adminUserSelect,
     orderBy: { createdAt: 'asc' },
   });
   return rows.map((row) => toDto(row as AdminUserRow));
+}
+
+/**
+ * Ids of the console accounts that may view a section — the recipient list for
+ * admin-facing notifications. An operator without the section isn't told about
+ * work they can't open.
+ */
+export async function listConsoleUserIdsForSection(section: AdminSection): Promise<number[]> {
+  const rows = await prisma.user.findMany({
+    where: { deletedAt: null, isActive: true, role: { in: [...CONSOLE_ROLES] } },
+    select: { id: true, role: true, adminPermissions: true },
+  });
+  return rows
+    .filter((row) => {
+      const role = row.role as AdminRole;
+      return hasSectionAccess(role, effectivePermissions(role, row.adminPermissions), section, 'VIEW');
+    })
+    .map((row) => row.id);
+}
+
+/** Loads a manageable console account, refusing the root account and 404ing otherwise. */
+async function findManageableAdmin(id: number): Promise<AdminUserRow> {
+  const row = await prisma.user.findFirst({
+    where: { id, deletedAt: null, role: { in: [...CONSOLE_ROLES] } },
+    select: adminUserSelect,
+  });
+  if (!row) throw errors.notFound('Account not found');
+  if (row.role === 'SUPERUSER') {
+    throw errors.forbidden('The superuser account cannot be modified here.');
+  }
+  return row as AdminUserRow;
+}
+
+/**
+ * Superuser edits an admin/operator: rename, re-scope an operator's sections,
+ * or suspend the account. Permissions are only meaningful for an OPERATOR —
+ * sending them for a full ADMIN is a no-op rather than an error, so the console
+ * can submit one payload shape.
+ */
+export async function updateAdminUser(
+  id: number,
+  input: UpdateAdminUserInput,
+): Promise<AdminUser> {
+  const existing = await findManageableAdmin(id);
+
+  const [firstName, ...rest] = (input.name ?? '').trim().split(/\s+/);
+  const row = await prisma.user.update({
+    where: { id },
+    data: {
+      ...(input.name !== undefined && { firstName: firstName ?? '', lastName: rest.join(' ') || '-' }),
+      ...(input.permissions !== undefined &&
+        existing.role === 'OPERATOR' && { adminPermissions: input.permissions }),
+      ...(input.isActive !== undefined && { isActive: input.isActive }),
+    },
+    select: adminUserSelect,
+  });
+  return toDto(row as AdminUserRow);
+}
+
+/**
+ * Superuser removes an admin/operator: soft-delete here (the repo never hard
+ * deletes) plus disabling the Firebase account, so an existing session can't
+ * keep working off a token that hasn't expired yet.
+ */
+export async function deleteAdminUser(id: number, actingUserId: number): Promise<void> {
+  if (id === actingUserId) throw errors.badRequest('You cannot remove your own account.');
+  await findManageableAdmin(id);
+
+  const row = await prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date(), isActive: false },
+    select: { firebaseUid: true },
+  });
+  await firebaseAuth.updateUser(row.firebaseUid, { disabled: true });
 }
 
 /** Paginated directory of mother (parent) accounts for the admin Users page. */
@@ -267,7 +346,11 @@ export async function updateAdminMother(
   return toMotherDetailDto(row);
 }
 
-/** Superuser creates an admin: Firebase Auth account + ADMIN user row. */
+/**
+ * Superuser creates a console account: Firebase Auth account + user row.
+ * An ADMIN gets the whole console; an OPERATOR gets only the sections in
+ * `permissions`, stored on the row and enforced by `requireSectionAccess`.
+ */
 export async function createAdminUser(input: CreateAdminInput): Promise<AdminUser> {
   const email = input.email.toLowerCase();
 
@@ -297,18 +380,13 @@ export async function createAdminUser(input: CreateAdminInput): Promise<AdminUse
       email,
       firstName: firstName ?? input.name.trim(),
       lastName,
-      role: 'ADMIN',
+      role: input.role,
+      // Full admins hold everything by role, so there's nothing to store.
+      ...(input.role === 'OPERATOR' && { adminPermissions: input.permissions }),
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
     },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
+    select: adminUserSelect,
   });
 
   return toDto(row as AdminUserRow);
