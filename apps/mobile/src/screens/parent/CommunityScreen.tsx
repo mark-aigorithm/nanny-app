@@ -104,6 +104,21 @@ export default function CommunityScreen() {
             );
           })}
         </ScrollView>
+
+        {/* Listings are reviewed before they go live, so a seller needs
+            somewhere to track hers — and to fix a rejected one. */}
+        {activeFilter === 'Marketplace' && (
+          <Pressable
+            style={styles.myListingsLink}
+            onPress={gate(
+              () => router.push('/(parent)/my-listings' as never),
+              'Create your free account to sell in the marketplace.',
+            )}
+          >
+            <Ionicons name="pricetags-outline" size={16} color={colors.primaryDark} />
+            <Text style={styles.myListingsText}>My listings</Text>
+          </Pressable>
+        )}
       </View>
 
       <FlatList

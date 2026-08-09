@@ -50,6 +50,21 @@ export const styles = StyleSheet.create({
   filterPillTextInactive: {
     color: colors.textTertiary,
   },
+
+  // "My listings" shortcut (Marketplace filter only)
+  myListingsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: spacing.xxs,
+    paddingHorizontal: screenPadding,
+    paddingTop: spacing.md,
+  },
+  myListingsText: {
+    ...typeScale.labelSm,
+    color: colors.primaryDark,
+  },
+
   list: {
     flex: 1,
   },

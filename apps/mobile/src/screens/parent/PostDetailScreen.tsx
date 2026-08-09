@@ -8,10 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { normalizePhone, whatsappLink } from '@nanny-app/shared';
 
 import CommentThread from '@mobile/components/community/CommentThread';
 import PostCard from '@mobile/components/community/PostCard';
@@ -57,8 +59,12 @@ export default function PostDetailScreen() {
   const createComment = useCreateComment();
   const contactSeller = useContactSeller();
 
+  // An official listing has no seller inbox — buyers reach the platform on the
+  // number the admin put on the listing instead of starting a chat.
+  const isOfficialListing = post?.type === 'marketplace' && post.isOfficial;
   const canMessageSeller =
-    post?.type === 'marketplace' && post.author.id !== currentUserId;
+    post?.type === 'marketplace' && !post.isOfficial && post.author.id !== currentUserId;
+  const officialContactPhone = isOfficialListing ? post?.contactPhone ?? null : null;
 
   const comments = useMemo(
     () => commentsData?.pages.flatMap((page) => page.comments) ?? [],
@@ -88,6 +94,15 @@ export default function PostDetailScreen() {
     });
     setReplyText('');
     setReplyToId(undefined);
+  };
+
+  const handleContactOfficial = async () => {
+    if (!officialContactPhone) return;
+    const waUrl = whatsappLink(officialContactPhone);
+    const canOpenWhatsapp = await Linking.canOpenURL(waUrl);
+    await Linking.openURL(
+      canOpenWhatsapp ? waUrl : `tel:${normalizePhone(officialContactPhone)}`,
+    );
   };
 
   const handleMessageSeller = async () => {
@@ -147,6 +162,19 @@ export default function PostDetailScreen() {
             'Create your free account to RSVP to events.',
           )}
         />
+
+        {officialContactPhone ? (
+          <Pressable
+            style={styles.messageSellerButton}
+            onPress={gate(
+              handleContactOfficial,
+              'Create your free account to contact NannyNow about this item.',
+            )}
+          >
+            <Ionicons name="logo-whatsapp" size={18} color={postDetailTheme.white} />
+            <Text style={styles.messageSellerButtonText}>Contact NannyNow</Text>
+          </Pressable>
+        ) : null}
 
         {canMessageSeller ? (
           <Pressable

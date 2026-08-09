@@ -11,9 +11,11 @@ import type {
   CommunityPostType,
   CreateCommentRequest,
   CreateCommunityPostRequest,
+  MyPostsQuery,
   PaginationMeta,
   ToggleLikeResponse,
   ToggleRsvpResponse,
+  UpdateCommunityPostRequest,
 } from '@nanny-app/shared';
 
 import { api, unwrap, unwrapPaginated } from '@mobile/lib/api';
@@ -77,6 +79,45 @@ export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation<CommunityPostResponse, Error, CreateCommunityPostRequest>({
     mutationFn: (body) => unwrap(api.post('/community/posts', body)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [COMMUNITY_KEY] });
+    },
+  });
+}
+
+/**
+ * The signed-in mother's own marketplace listings, in every moderation state —
+ * this is the only place a pending or rejected listing is visible to her.
+ */
+export function useMyListings() {
+  return useInfiniteQuery<PostsPage>({
+    queryKey: [COMMUNITY_KEY, 'my-listings'],
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const params: MyPostsQuery = {
+        page: pageParam as number,
+        limit: 20,
+        type: 'marketplace',
+      };
+      const { items, meta } = await unwrapPaginated<CommunityPostResponse[], PaginationMeta>(
+        api.get('/community/my-posts', { params }),
+      );
+      return { posts: items, meta };
+    },
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.page < lastPage.meta.totalPages ? lastPage.meta.page + 1 : undefined,
+  });
+}
+
+/** Edit a post. A marketplace listing goes back to pending review on save. */
+export function useUpdatePost() {
+  const qc = useQueryClient();
+  return useMutation<
+    CommunityPostResponse,
+    Error,
+    { postId: number; body: UpdateCommunityPostRequest }
+  >({
+    mutationFn: ({ postId, body }) => unwrap(api.patch(`/community/posts/${postId}`, body)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [COMMUNITY_KEY] });
     },

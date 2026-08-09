@@ -121,12 +121,15 @@ export type CommentsPage = {
   meta: PaginationMeta;
 };
 
-export type CommunityReturnTo = 'community' | 'community-feed';
+export type CommunityReturnTo = 'community' | 'community-feed' | 'my-listings';
 
 export function getCommunityReturnHref(params: {
   returnTo?: string;
   filter?: string;
 }): { pathname: string; params?: { filter: string } } {
+  if (params.returnTo === 'my-listings') {
+    return { pathname: '/(parent)/my-listings' };
+  }
   if (params.returnTo === 'community-feed') {
     return {
       pathname: '/(parent)/community-feed',

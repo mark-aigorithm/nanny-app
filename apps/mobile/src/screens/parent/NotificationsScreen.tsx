@@ -79,6 +79,23 @@ export default function NotificationsScreen() {
       });
       return;
     }
+    // A rejected listing needs fixing, so send her to My listings; an approved
+    // one is live, so open it in the feed.
+    if (notification.referenceType === 'community_post' && notification.referenceId) {
+      if (notification.type === 'marketplace_listing_rejected') {
+        router.push('/(parent)/my-listings' as never);
+      } else {
+        router.push({
+          pathname: '/(parent)/post-detail',
+          params: {
+            postId: notification.referenceId,
+            returnTo: 'community',
+            filter: 'Marketplace',
+          },
+        });
+      }
+      return;
+    }
     if (notification.referenceType === 'booking' && notification.referenceId) {
       navigateToBookingDetail(router, notification.referenceId, {
         focusCareLog: notification.type === 'care_log_entry',

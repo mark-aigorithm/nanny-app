@@ -23,6 +23,9 @@ type Props = {
   compact?: boolean;
 };
 
+/** Platform-authored listings are shown as the brand, never as the admin. */
+const OFFICIAL_SELLER_NAME = 'NannyNow';
+
 export default function PostCard({
   post,
   onPress,
@@ -31,7 +34,7 @@ export default function PostCard({
   onRsvpPress,
   compact = false,
 }: Props) {
-  const authorName = formatAuthorName(post.author);
+  const authorName = post.isOfficial ? OFFICIAL_SELLER_NAME : formatAuthorName(post.author);
   const avatarUri = resolveAvatarUri(authorName, post.author.avatarUrl);
   const primaryImageUri = post.imageUrls
     .map(resolveImageUri)
@@ -42,11 +45,44 @@ export default function PostCard({
       <View style={styles.authorRow}>
         <Image source={{ uri: avatarUri }} style={styles.avatar} />
         <View style={styles.authorInfo}>
-          <Text style={styles.authorName}>{formatAuthorName(post.author)}</Text>
+          <View style={styles.authorNameRow}>
+            <Text style={styles.authorName}>{authorName}</Text>
+            {post.isOfficial && (
+              <View style={styles.officialBadge}>
+                <Ionicons name="shield-checkmark" size={12} color={colors.primaryDark} />
+                <Text style={styles.officialBadgeText}>Official</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.authorTime}>{formatTimeAgo(post.createdAt)}</Text>
         </View>
         <PostTagChip type={post.type} />
       </View>
+
+      {/* Only the author is ever served a non-approved post, so this doubles as
+          her private status line on her own listing. */}
+      {post.moderationStatus !== 'approved' && (
+        <View
+          style={[
+            styles.statusChip,
+            post.moderationStatus === 'rejected' && styles.statusChipRejected,
+          ]}
+        >
+          <Ionicons
+            name={post.moderationStatus === 'rejected' ? 'alert-circle' : 'time-outline'}
+            size={14}
+            color={post.moderationStatus === 'rejected' ? colors.error : colors.textTertiary}
+          />
+          <Text
+            style={[
+              styles.statusChipText,
+              post.moderationStatus === 'rejected' && styles.statusChipTextRejected,
+            ]}
+          >
+            {post.moderationStatus === 'rejected' ? 'Needs changes' : 'Under review'}
+          </Text>
+        </View>
+      )}
 
       {post.type === 'qa' && (
         <Text style={styles.body} numberOfLines={compact ? 3 : undefined}>
@@ -150,10 +186,51 @@ const styles = StyleSheet.create({
   authorInfo: {
     flex: 1,
   },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   authorName: {
     ...typeScale.bodySm,
     fontWeight: '600',
     color: colors.textDark,
+  },
+  officialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    backgroundColor: colors.primaryMuted,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
+    borderRadius: borderRadius.full,
+  },
+  officialBadgeText: {
+    ...typeScale.caption,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xxs,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.sm,
+  },
+  statusChipRejected: {
+    backgroundColor: colors.errorLight,
+  },
+  statusChipText: {
+    ...typeScale.caption,
+    fontWeight: '600',
+    color: colors.textTertiary,
+  },
+  statusChipTextRejected: {
+    color: colors.error,
   },
   authorTime: {
     ...typeScale.caption,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COMMUNITY_TAGS, type CreateCommunityPostRequest } from '@nanny-app/shared';
 
-import { useCreatePost } from '@mobile/hooks/useCommunity';
-import { uiTypeToCreate, getCreatePostExitHref } from '@mobile/lib/communityUtils';
+import { useCommunityPost, useCreatePost, useUpdatePost } from '@mobile/hooks/useCommunity';
+import {
+  createTypeToUi,
+  uiTypeToCreate,
+  getCreatePostExitHref,
+} from '@mobile/lib/communityUtils';
 import type { CreatePostUiType } from '@mobile/types';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { colors } from '@mobile/theme';
@@ -38,7 +42,14 @@ function sanitizeInteger(value: string) {
 
 export default function CreatePostScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ type?: string; returnTo?: string; filter?: string }>();
+  const params = useLocalSearchParams<{
+    type?: string;
+    returnTo?: string;
+    filter?: string;
+    /** Set when editing an existing post — the screen doubles as the editor. */
+    postId?: string;
+  }>();
+  const editingId = params.postId ? Number(params.postId) : undefined;
   const initialType =
     params.type === 'marketplace' || params.type === 'event' || params.type === 'qa'
       ? params.type === 'qa'
@@ -61,6 +72,26 @@ export default function CreatePostScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const createPost = useCreatePost();
+  const updatePost = useUpdatePost();
+  const { data: existingPost } = useCommunityPost(editingId);
+
+  // Seed the form from the post being edited, once it arrives.
+  useEffect(() => {
+    if (!existingPost) return;
+    setPostType(createTypeToUi(existingPost.type));
+    setTitle(existingPost.title ?? '');
+    setBody(existingPost.body ?? '');
+    setPrice(existingPost.price !== null ? String(existingPost.price) : '');
+    setLocation(existingPost.location ?? '');
+    setMaxAttendees(existingPost.maxAttendees !== null ? String(existingPost.maxAttendees) : '');
+    if (existingPost.eventStartsAt) setEventDate(new Date(existingPost.eventStartsAt));
+    setSelectedTags(
+      existingPost.tags.filter((tag): tag is (typeof COMMUNITY_TAGS)[number] =>
+        (COMMUNITY_TAGS as readonly string[]).includes(tag),
+      ),
+    );
+    setImageUri(existingPost.imageUrls[0] ?? null);
+  }, [existingPost]);
 
   const exitCreatePost = () => {
     router.replace(getCreatePostExitHref(params) as never);
@@ -94,8 +125,34 @@ export default function CreatePostScreen() {
     try {
       let imageUrls: string[] = [];
       if (imageUri) {
-        const url = await uploadImageToFirebase(imageUri, 'community-posts');
+        // An https URI is a photo that is already in storage (we're editing and
+        // the seller kept it) — only a freshly picked local file needs uploading.
+        const url = imageUri.startsWith('http')
+          ? imageUri
+          : await uploadImageToFirebase(imageUri, 'community-posts');
         imageUrls = [url];
+      }
+
+      if (editingId) {
+        await updatePost.mutateAsync({
+          postId: editingId,
+          body: {
+            title: title.trim() || undefined,
+            body: body.trim() || undefined,
+            imageUrls,
+            ...(price.trim() ? { price: Number(price) } : {}),
+            ...(postType === 'Event'
+              ? {
+                  location: location.trim(),
+                  eventStartsAt: eventDate.toISOString(),
+                  maxAttendees: maxAttendees.trim() ? Number(maxAttendees) : null,
+                }
+              : {}),
+            tags: selectedTags,
+          },
+        });
+        exitCreatePost();
+        return;
       }
 
       const apiType = uiTypeToCreate(postType);
@@ -135,7 +192,10 @@ export default function CreatePostScreen() {
       await createPost.mutateAsync(payload);
       exitCreatePost();
     } catch (err) {
-      noticeDialog({ title: 'Could not create post', message: err instanceof Error ? err.message : 'Unknown error' });
+      noticeDialog({
+        title: editingId ? 'Could not save changes' : 'Could not create post',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -147,7 +207,9 @@ export default function CreatePostScreen() {
         <Pressable onPress={exitCreatePost} hitSlop={8}>
           <Ionicons name="close" size={24} color={colors.textDark} />
         </Pressable>
-        <Text style={styles.headerTitle}>Create post</Text>
+        <Text style={styles.headerTitle}>
+          {editingId ? (postType === 'Marketplace' ? 'Edit listing' : 'Edit post') : 'Create post'}
+        </Text>
         <Pressable
           style={[styles.postButton, (!canPost || submitting) && styles.postButtonDisabled]}
           disabled={!canPost || submitting}
@@ -156,7 +218,9 @@ export default function CreatePostScreen() {
           {submitting ? (
             <ActivityIndicator color={colors.white} size="small" />
           ) : (
-            <Text style={styles.postButtonText}>Post</Text>
+            <Text style={styles.postButtonText}>
+              {editingId ? (postType === 'Marketplace' ? 'Resubmit' : 'Save') : 'Post'}
+            </Text>
           )}
         </Pressable>
       </View>
@@ -167,25 +231,47 @@ export default function CreatePostScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.fieldGroup}>
-          <Text style={styles.sectionLabel}>Post type</Text>
-          <View style={styles.typeChipsRow}>
-            {POST_TYPES.map((type) => {
-              const isActive = type === postType;
-              return (
-                <Pressable
-                  key={type}
-                  style={[styles.typeChip, isActive && styles.typeChipActive]}
-                  onPress={() => setPostType(type)}
-                >
-                  <Text style={[styles.typeChipText, isActive && styles.typeChipTextActive]}>
-                    {type}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        {/* The type is fixed once a post exists — you edit a listing, not
+            turn it into an event. */}
+        {!editingId && (
+          <View style={styles.fieldGroup}>
+            <Text style={styles.sectionLabel}>Post type</Text>
+            <View style={styles.typeChipsRow}>
+              {POST_TYPES.map((type) => {
+                const isActive = type === postType;
+                return (
+                  <Pressable
+                    key={type}
+                    style={[styles.typeChip, isActive && styles.typeChipActive]}
+                    onPress={() => setPostType(type)}
+                  >
+                    <Text style={[styles.typeChipText, isActive && styles.typeChipTextActive]}>
+                      {type}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        )}
+
+        {postType === 'Marketplace' && (
+          <View style={styles.reviewNotice}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.textTertiary} />
+            <Text style={styles.reviewNoticeText}>
+              {editingId
+                ? 'Saving sends this listing back for review before it goes live again.'
+                : 'Listings are reviewed by our team before they appear in the marketplace.'}
+            </Text>
+          </View>
+        )}
+
+        {editingId && existingPost?.moderationStatus === 'rejected' && existingPost.rejectionReason && (
+          <View style={styles.rejectionNotice}>
+            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <Text style={styles.rejectionNoticeText}>{existingPost.rejectionReason}</Text>
+          </View>
+        )}
 
         {(postType === 'Marketplace' || postType === 'Event') && (
           <View style={styles.fieldGroup}>

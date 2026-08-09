@@ -230,4 +230,32 @@ export const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontFamily: fontFamily.semiBold,
   },
+
+  // Review-cycle notices (marketplace listings only)
+  reviewNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  reviewNoticeText: {
+    ...typeScale.bodySm,
+    flex: 1,
+    color: colors.textTertiary,
+  },
+  rejectionNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.errorLight,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  rejectionNoticeText: {
+    ...typeScale.bodySm,
+    flex: 1,
+    color: colors.error,
+  },
 });

@@ -171,6 +171,18 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.successLight,
         iconColor: colors.successDark,
       };
+    case 'marketplace_listing_approved':
+      return {
+        name: 'pricetag',
+        backgroundColor: colors.successLight,
+        iconColor: colors.successDark,
+      };
+    case 'marketplace_listing_rejected':
+      return {
+        name: 'alert-circle',
+        backgroundColor: colors.errorLight,
+        iconColor: colors.error,
+      };
     default:
       return {
         name: 'notifications',
