@@ -219,7 +219,8 @@ model User {
   actionedBookings         Booking[]                 @relation("BookingAdminActor")
   payments                 Payment[]                 @relation("PaymentMother")
   reviewsGiven             Review[]                  @relation("ReviewMother")
-  communityPosts           CommunityPost[]
+  communityPosts           CommunityPost[]           @relation("PostAuthor")
+  reviewedPosts            CommunityPost[]           @relation("PostReviewer")
   postLikes                PostLike[]
   comments                 Comment[]
   commentLikes             CommentLike[]
@@ -1123,25 +1124,48 @@ enum CommunityPostType {
   @@map("community_post_type")
 }
 
+/// Moderation state of a community post. Only MARKETPLACE listings are
+/// reviewed — Q&A and events are created APPROVED and never enter the queue.
+/// The column defaults to APPROVED so posts that predate moderation stay live.
+enum PostModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("post_moderation_status")
+}
+
 model CommunityPost {
-  id            Int               @id @default(autoincrement())
-  authorId      Int               @map("author_id")
-  author        User              @relation(fields: [authorId], references: [id])
-  type          CommunityPostType
-  title         String?
-  body          String?           @db.Text
-  imageUrls     String[]          @default([]) @map("image_urls")
-  price         Decimal?          @db.Decimal(10, 2)
-  location      String?
-  eventStartsAt DateTime?         @map("event_starts_at")
-  maxAttendees  Int?              @map("max_attendees")
-  rsvpCount     Int               @default(0) @map("rsvp_count")
-  tags          String[]          @default([])
-  likeCount     Int               @default(0) @map("like_count")
-  commentCount  Int               @default(0) @map("comment_count")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-  deletedAt     DateTime?         @map("deleted_at")
+  id               Int                  @id @default(autoincrement())
+  authorId         Int                  @map("author_id")
+  author           User                 @relation("PostAuthor", fields: [authorId], references: [id])
+  type             CommunityPostType
+  title            String?
+  body             String?              @db.Text
+  imageUrls        String[]             @default([]) @map("image_urls")
+  price            Decimal?             @db.Decimal(10, 2)
+  location         String?
+  eventStartsAt    DateTime?            @map("event_starts_at")
+  maxAttendees     Int?                 @map("max_attendees")
+  rsvpCount        Int                  @default(0) @map("rsvp_count")
+  tags             String[]             @default([])
+  likeCount        Int                  @default(0) @map("like_count")
+  commentCount     Int                  @default(0) @map("comment_count")
+  moderationStatus PostModerationStatus @default(APPROVED) @map("moderation_status")
+  /// Why an admin rejected the listing — shown to the seller so she can fix it.
+  rejectionReason  String?              @db.Text @map("rejection_reason")
+  reviewedAt       DateTime?            @map("reviewed_at")
+  reviewedById     Int?                 @map("reviewed_by_id")
+  reviewedBy       User?                @relation("PostReviewer", fields: [reviewedById], references: [id])
+  /// Platform-authored listing ("Sold by NannyNow"): skips review and is
+  /// pinned above seller listings in the marketplace feed.
+  isOfficial       Boolean              @default(false) @map("is_official")
+  /// Official listings only — the number buyers call/WhatsApp instead of
+  /// messaging a seller in-app. Stored in E.164 form.
+  contactPhone     String?              @map("contact_phone")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  deletedAt        DateTime?            @map("deleted_at")
 
   likes         PostLike[]
   comments      Comment[]
@@ -1150,6 +1174,7 @@ model CommunityPost {
 
   @@index([type, createdAt])
   @@index([authorId, createdAt])
+  @@index([type, moderationStatus, isOfficial, createdAt])
   @@map("community_posts")
 }
 
@@ -1333,6 +1358,10 @@ enum NotificationType {
   BOOKING_REFUNDED
   /// An admin edit raised the total; the mother owes the difference and must pay.
   BOOKING_BALANCE_DUE
+  /// An admin approved a marketplace listing — it is now live in the feed.
+  MARKETPLACE_LISTING_APPROVED
+  /// An admin rejected a marketplace listing; the seller must edit and resubmit.
+  MARKETPLACE_LISTING_REJECTED
 
   @@map("notification_type")
 }
@@ -1340,6 +1369,7 @@ enum NotificationType {
 enum NotificationReferenceType {
   CONVERSATION
   BOOKING
+  COMMUNITY_POST
 
   @@map("notification_reference_type")
 }

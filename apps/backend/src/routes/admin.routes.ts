@@ -8,6 +8,8 @@ import {
   AdminRefundBookingSchema,
   AdminIdReviewListQuerySchema,
   type AdminIdReviewListQuery,
+  AdminMarketplaceListQuerySchema,
+  type AdminMarketplaceListQuery,
   AdminMotherListQuerySchema,
   type AdminMotherListQuery,
   AdminNannyListQuerySchema,
@@ -18,6 +20,7 @@ import {
   CreateCameraSchema,
   CreateCampaignSchema,
   CreateCertificationSchema,
+  CreateOfficialListingSchema,
   CreatePackageSchema,
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
@@ -28,6 +31,7 @@ import {
   RewardWalletListQuerySchema,
   type RewardWalletListQuery,
   RejectAdminBookingSchema,
+  RejectListingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
   SetNannySkillsSchema,
@@ -40,6 +44,7 @@ import {
   UpdatePromoCodeSchema,
   UpdateCampaignSchema,
   UpdateCertificationSchema,
+  UpdateOfficialListingSchema,
   UpdatePackageSchema,
   UpdateRewardConfigSchema,
   UpdateSkillSchema,
@@ -75,6 +80,14 @@ import {
   updateAdminNanny,
 } from '@backend/services/admin-nanny.service';
 import { listIdReviews } from '@backend/services/admin-id-review.service';
+import {
+  approveListing,
+  createOfficialListing,
+  deleteOfficialListing,
+  listMarketplaceListings,
+  rejectListing,
+  updateOfficialListing,
+} from '@backend/services/admin-marketplace.service';
 import {
   getPackagePurchaseDetail,
   listPackagePurchases,
@@ -442,6 +455,89 @@ adminRouter.get(
       const query = res.locals['validatedQuery'] as AdminIdReviewListQuery;
       const { reviews, meta } = await listIdReviews(query);
       res.json(okPaged(reviews, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Marketplace moderation ─────────────────────────────────────
+
+adminRouter.get(
+  '/marketplace/listings',
+  validateQuery(AdminMarketplaceListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { status, page, limit } = res.locals[
+        'validatedQuery'
+      ] as AdminMarketplaceListQuery;
+      const { listings, meta } = await listMarketplaceListings(status, { page, limit });
+      res.json(okPaged(listings, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/marketplace/listings',
+  validateBody(CreateOfficialListingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const listing = await createOfficialListing(req.body, req.firebaseUser.uid);
+      res.status(201).json(ok(listing));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/marketplace/listings/:id/approve',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await approveListing(routeIdParam(req.params.id), req.firebaseUser.uid)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/marketplace/listings/:id/reject',
+  validateBody(RejectListingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await rejectListing(routeIdParam(req.params.id), req.body, req.firebaseUser.uid)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/marketplace/listings/:id',
+  validateBody(UpdateOfficialListingSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateOfficialListing(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/marketplace/listings/:id',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await deleteOfficialListing(routeIdParam(req.params.id));
+      res.json(ok({ deleted: true }));
     } catch (err) {
       next(err);
     }

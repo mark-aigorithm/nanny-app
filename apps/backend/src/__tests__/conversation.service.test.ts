@@ -3,6 +3,7 @@ import {
   CommunityPostType,
   ConversationType,
   MessageType,
+  PostModerationStatus,
 } from '@prisma/client';
 
 import { AppError } from '@backend/lib/errors';
@@ -93,6 +94,9 @@ const marketplacePost = {
   body: 'Gently used',
   imageUrls: ['https://example.com/stroller.jpg'],
   price: { toString: () => '2500' },
+  moderationStatus: PostModerationStatus.APPROVED,
+  isOfficial: false,
+  contactPhone: null,
   deletedAt: null,
   author: seller,
 };
@@ -138,6 +142,29 @@ describe('conversation.service', () => {
       ...marketplacePost,
       authorId: buyer.id,
       author: buyer,
+    } as never);
+
+    await expect(contactSeller(decoded, 22)).rejects.toEqual(
+      expect.objectContaining<Partial<AppError>>({ statusCode: 400 }),
+    );
+  });
+
+  it('hides a listing still awaiting review behind a 404', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...marketplacePost,
+      moderationStatus: PostModerationStatus.PENDING,
+    } as never);
+
+    await expect(contactSeller(decoded, 22)).rejects.toEqual(
+      expect.objectContaining<Partial<AppError>>({ statusCode: 404 }),
+    );
+  });
+
+  it('points buyers at the contact number on an official listing', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...marketplacePost,
+      isOfficial: true,
+      contactPhone: '+201001234567',
     } as never);
 
     await expect(contactSeller(decoded, 22)).rejects.toEqual(

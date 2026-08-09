@@ -5,6 +5,8 @@ import {
   CommunityFeedQuerySchema,
   CreateCommentSchema,
   CreateCommunityPostSchema,
+  MyPostsQuerySchema,
+  type MyPostsQuery,
   UpdateCommunityPostSchema,
 } from '@nanny-app/shared';
 
@@ -19,6 +21,7 @@ import {
   deletePost,
   getPost,
   listComments,
+  listMyPosts,
   listPosts,
   toggleCommentLike,
   toggleEventRsvp,
@@ -57,6 +60,24 @@ communityRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const post = await createPost(req.firebaseUser, req.body);
       res.status(201).json(ok(post));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// The signed-in author's own posts in every moderation state — backs the
+// mobile "My listings" screen.
+communityRouter.get(
+  '/my-posts',
+  requireAuth,
+  validateQuery(MyPostsQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const query = res.locals['validatedQuery'] as MyPostsQuery;
+      const result = await listMyPosts(req.firebaseUser, query);
+      res.json({ data: result.posts, error: null, meta: result.meta });
     } catch (err) {
       next(err);
     }

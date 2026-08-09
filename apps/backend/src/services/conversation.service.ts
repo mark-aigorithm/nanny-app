@@ -16,6 +16,7 @@ import {
   MessageType,
   NotificationReferenceType,
   NotificationType,
+  PostModerationStatus,
   Prisma,
   type User,
 } from '@prisma/client';
@@ -177,6 +178,14 @@ export async function contactSeller(
   if (!post) throw errors.notFound('Post not found');
   if (post.type !== CommunityPostType.MARKETPLACE) {
     throw errors.badRequest('Messaging is only available for marketplace posts');
+  }
+  // A listing awaiting review (or rejected) isn't public yet, and an official
+  // listing has no seller inbox — buyers use the contact number on it instead.
+  if (post.moderationStatus !== PostModerationStatus.APPROVED) {
+    throw errors.notFound('Post not found');
+  }
+  if (post.isOfficial) {
+    throw errors.badRequest('Use the contact number on this listing to get in touch.');
   }
   if (post.authorId === user.id) {
     throw errors.badRequest('You cannot message yourself about your own listing');

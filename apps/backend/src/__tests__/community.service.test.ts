@@ -1,14 +1,19 @@
 import { Role } from '@nanny-app/shared';
-import { CommunityPostType as PrismaCommunityPostType } from '@prisma/client';
+import {
+  CommunityPostType as PrismaCommunityPostType,
+  PostModerationStatus as PrismaPostModerationStatus,
+} from '@prisma/client';
 
 import { AppError } from '@backend/lib/errors';
 import {
   createPost,
   getPost,
   listComments,
+  listMyPosts,
   listPosts,
   toggleEventRsvp,
   togglePostLike,
+  updatePost,
 } from '@backend/services/community.service';
 
 jest.mock('@backend/db/prisma', () => ({
@@ -106,10 +111,26 @@ const samplePost = {
   tags: ['Parenting'],
   likeCount: 0,
   commentCount: 0,
+  moderationStatus: PrismaPostModerationStatus.APPROVED,
+  rejectionReason: null,
+  reviewedAt: null,
+  reviewedById: null,
+  isOfficial: false,
+  contactPhone: null,
   createdAt: new Date('2026-01-01T12:00:00Z'),
   updatedAt: new Date('2026-01-01T12:00:00Z'),
   deletedAt: null,
   author: motherUser,
+};
+
+const marketplacePost = {
+  ...samplePost,
+  id: 44,
+  type: PrismaCommunityPostType.MARKETPLACE,
+  title: 'Stroller',
+  body: 'Barely used',
+  price: 1200,
+  imageUrls: ['https://cdn.example.com/stroller.jpg'],
 };
 
 beforeEach(() => {
@@ -256,5 +277,217 @@ describe('community.service', () => {
         statusCode: 400,
       }),
     );
+  });
+});
+
+describe('community.service — marketplace moderation', () => {
+  it('creates a marketplace listing as PENDING review', async () => {
+    mockPrisma.communityPost.create.mockResolvedValue({
+      ...marketplacePost,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
+
+    const result = await createPost(decoded, {
+      type: 'marketplace',
+      title: 'Stroller',
+      price: 1200,
+      imageUrls: ['https://cdn.example.com/stroller.jpg'],
+      tags: [],
+    });
+
+    expect(mockPrisma.communityPost.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          moderationStatus: PrismaPostModerationStatus.PENDING,
+        }),
+      }),
+    );
+    expect(result.moderationStatus).toBe('pending');
+  });
+
+  it('leaves QA posts approved — only listings are reviewed', async () => {
+    mockPrisma.communityPost.create.mockResolvedValue(samplePost as never);
+
+    const result = await createPost(decoded, {
+      type: 'qa',
+      body: 'Hello community',
+      tags: [],
+      imageUrls: [],
+    });
+
+    expect(mockPrisma.communityPost.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ moderationStatus: expect.anything() }),
+      }),
+    );
+    expect(result.moderationStatus).toBe('approved');
+  });
+
+  it('scopes the feed to approved posts plus the signed-in author’s own', async () => {
+    mockPrisma.communityPost.count.mockResolvedValue(0);
+    mockPrisma.communityPost.findMany.mockResolvedValue([] as never);
+    mockPrisma.postLike.findMany.mockResolvedValue([]);
+    mockPrisma.eventRsvp.findMany.mockResolvedValue([]);
+
+    await listPosts(decoded, { page: 1, limit: 20 });
+
+    expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { moderationStatus: PrismaPostModerationStatus.APPROVED },
+            { authorId: motherUser.id },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('shows guests approved posts only', async () => {
+    mockPrisma.communityPost.count.mockResolvedValue(0);
+    mockPrisma.communityPost.findMany.mockResolvedValue([] as never);
+
+    await listPosts(null, { page: 1, limit: 20 });
+
+    expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ moderationStatus: PrismaPostModerationStatus.APPROVED }],
+        }),
+      }),
+    );
+  });
+
+  it('pins official listings to the top of the marketplace feed', async () => {
+    mockPrisma.communityPost.count.mockResolvedValue(0);
+    mockPrisma.communityPost.findMany.mockResolvedValue([] as never);
+    mockPrisma.postLike.findMany.mockResolvedValue([]);
+    mockPrisma.eventRsvp.findMany.mockResolvedValue([]);
+
+    await listPosts(decoded, { page: 1, limit: 20, type: 'marketplace' });
+
+    expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ isOfficial: 'desc' }, { createdAt: 'desc' }],
+      }),
+    );
+  });
+
+  it('keeps the mixed feed chronological', async () => {
+    mockPrisma.communityPost.count.mockResolvedValue(0);
+    mockPrisma.communityPost.findMany.mockResolvedValue([] as never);
+    mockPrisma.postLike.findMany.mockResolvedValue([]);
+    mockPrisma.eventRsvp.findMany.mockResolvedValue([]);
+
+    await listPosts(decoded, { page: 1, limit: 20 });
+
+    expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ createdAt: 'desc' }] }),
+    );
+  });
+
+  it('hides another member’s pending listing behind a 404', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...marketplacePost,
+      authorId: 999,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
+
+    await expect(getPost(decoded, 44)).rejects.toEqual(
+      expect.objectContaining<Partial<AppError>>({ statusCode: 404 }),
+    );
+  });
+
+  it('lets the author read her own rejected listing with the reason', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...marketplacePost,
+      moderationStatus: PrismaPostModerationStatus.REJECTED,
+      rejectionReason: 'Photos are too blurry',
+    } as never);
+    mockPrisma.postLike.findFirst.mockResolvedValue(null);
+    mockPrisma.eventRsvp.findFirst.mockResolvedValue(null);
+
+    const result = await getPost(decoded, 44);
+
+    expect(result.moderationStatus).toBe('rejected');
+    expect(result.rejectionReason).toBe('Photos are too blurry');
+  });
+
+  it('sends an edited listing back to review and clears the rejection', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...marketplacePost,
+      moderationStatus: PrismaPostModerationStatus.REJECTED,
+      rejectionReason: 'Photos are too blurry',
+    } as never);
+    mockPrisma.communityPost.update.mockResolvedValue({
+      ...marketplacePost,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
+    mockPrisma.postLike.findFirst.mockResolvedValue(null);
+    mockPrisma.eventRsvp.findFirst.mockResolvedValue(null);
+
+    const result = await updatePost(decoded, 44, { price: 999 });
+
+    expect(mockPrisma.communityPost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          moderationStatus: PrismaPostModerationStatus.PENDING,
+          rejectionReason: null,
+          reviewedAt: null,
+          reviewedById: null,
+        }),
+      }),
+    );
+    expect(result.moderationStatus).toBe('pending');
+  });
+
+  it('does not re-review an edited QA post', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue(samplePost as never);
+    mockPrisma.communityPost.update.mockResolvedValue(samplePost as never);
+    mockPrisma.postLike.findFirst.mockResolvedValue(null);
+    mockPrisma.eventRsvp.findFirst.mockResolvedValue(null);
+
+    await updatePost(decoded, 22, { body: 'Edited' });
+
+    expect(mockPrisma.communityPost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ moderationStatus: expect.anything() }),
+      }),
+    );
+  });
+
+  it('refuses to let a member edit an official listing', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...marketplacePost,
+      isOfficial: true,
+    } as never);
+
+    await expect(updatePost(decoded, 44, { price: 1 })).rejects.toEqual(
+      expect.objectContaining<Partial<AppError>>({ statusCode: 403 }),
+    );
+  });
+
+  it('returns the author’s own listings in every moderation state', async () => {
+    mockPrisma.communityPost.count.mockResolvedValue(1);
+    mockPrisma.communityPost.findMany.mockResolvedValue([
+      { ...marketplacePost, moderationStatus: PrismaPostModerationStatus.PENDING },
+    ] as never);
+    mockPrisma.postLike.findMany.mockResolvedValue([]);
+
+    const result = await listMyPosts(decoded, {
+      page: 1,
+      limit: 20,
+      type: 'marketplace',
+    });
+
+    expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          authorId: motherUser.id,
+          type: PrismaCommunityPostType.MARKETPLACE,
+        }),
+      }),
+    );
+    expect(result.posts[0]?.moderationStatus).toBe('pending');
   });
 });

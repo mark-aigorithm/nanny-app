@@ -9,13 +9,16 @@ import {
   type CommunityPostResponse,
   type CreateCommentRequest,
   type CreateCommunityPostRequest,
+  type MyPostsQuery,
   type PaginationMeta,
+  type PostModerationStatus,
   type ToggleLikeResponse,
   type ToggleRsvpResponse,
   type UpdateCommunityPostRequest,
 } from '@nanny-app/shared';
 import {
   CommunityPostType as PrismaCommunityPostType,
+  PostModerationStatus as PrismaPostModerationStatus,
   Prisma,
   type User,
 } from '@prisma/client';
@@ -53,6 +56,30 @@ function toPrismaPostType(type: CommunityPostType): PrismaCommunityPostType {
       return PrismaCommunityPostType.MARKETPLACE;
     case 'event':
       return PrismaCommunityPostType.EVENT;
+  }
+}
+
+function toApiModerationStatus(status: PrismaPostModerationStatus): PostModerationStatus {
+  switch (status) {
+    case PrismaPostModerationStatus.PENDING:
+      return 'pending';
+    case PrismaPostModerationStatus.REJECTED:
+      return 'rejected';
+    default:
+      return 'approved';
+  }
+}
+
+function toPrismaModerationStatus(
+  status: PostModerationStatus,
+): PrismaPostModerationStatus {
+  switch (status) {
+    case 'pending':
+      return PrismaPostModerationStatus.PENDING;
+    case 'rejected':
+      return PrismaPostModerationStatus.REJECTED;
+    case 'approved':
+      return PrismaPostModerationStatus.APPROVED;
   }
 }
 
@@ -98,6 +125,10 @@ function toPostResponse(
     commentCount: post.commentCount,
     likedByMe,
     rsvpdByMe,
+    moderationStatus: toApiModerationStatus(post.moderationStatus),
+    rejectionReason: post.rejectionReason,
+    isOfficial: post.isOfficial,
+    contactPhone: post.contactPhone,
     author: toAuthor(post.author),
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),
@@ -111,6 +142,17 @@ async function loadPostOrThrow(postId: number): Promise<PostWithAuthor> {
   });
   if (!post) throw errors.notFound('Post not found.');
   return post;
+}
+
+/**
+ * A post awaiting review or rejected by an admin is visible only to its author,
+ * who needs to see it (and the rejection reason) in "My listings". To everyone
+ * else — including guests — it does not exist.
+ */
+function assertPostVisible(post: PostWithAuthor, viewerId: number | null): void {
+  if (post.moderationStatus === PrismaPostModerationStatus.APPROVED) return;
+  if (viewerId !== null && post.authorId === viewerId) return;
+  throw errors.notFound('Post not found.');
 }
 
 async function getEngagementFlags(userId: number, postId: number) {
@@ -156,6 +198,8 @@ function mapCreateInput(body: CreateCommunityPostRequest, authorId: number) {
         body: body.body ?? null,
         price: new Prisma.Decimal(body.price),
         imageUrls: body.imageUrls,
+        // Listings go through admin review before they reach the feed.
+        moderationStatus: PrismaPostModerationStatus.PENDING,
       };
     case 'event':
       return {
@@ -193,14 +237,28 @@ export async function listPosts(
     deletedAt: null,
     ...(type ? { type: toPrismaPostType(type) } : {}),
     ...(tag ? { tags: { has: tag } } : {}),
+    // Approved posts are public; a signed-in author additionally sees her own
+    // pending/rejected listings so she can track them from the feed.
+    OR: [
+      { moderationStatus: PrismaPostModerationStatus.APPROVED },
+      ...(user ? [{ authorId: user.id }] : []),
+    ],
   };
+
+  // Official listings are pinned to the top of the marketplace feed. The mixed
+  // feed stays purely chronological so a promoted listing doesn't outrank
+  // fresh Q&A and event posts.
+  const orderBy: Prisma.CommunityPostOrderByWithRelationInput[] =
+    type === 'marketplace'
+      ? [{ isOfficial: 'desc' }, { createdAt: 'desc' }]
+      : [{ createdAt: 'desc' }];
 
   const [total, rows] = await Promise.all([
     prisma.communityPost.count({ where }),
     prisma.communityPost.findMany({
       where,
       include: postInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),
@@ -238,10 +296,56 @@ export async function getPost(
   const user = await getFeedReader(decoded);
 
   const post = await loadPostOrThrow(postId);
+  assertPostVisible(post, user?.id ?? null);
   const flags = user
     ? await getEngagementFlags(user.id, postId)
     : { likedByMe: false, rsvpdByMe: false };
   return toPostResponse(post, flags.likedByMe, flags.rsvpdByMe);
+}
+
+/**
+ * The author's own posts in any moderation state — backs the mobile
+ * "My listings" screen, where a seller edits and resubmits a rejected listing.
+ */
+export async function listMyPosts(
+  decoded: DecodedIdToken,
+  query: MyPostsQuery,
+): Promise<CommunityFeedResponse> {
+  const user = await getUserByUid(decoded.uid);
+  requireMother(user);
+
+  const { page, limit, type, status } = query;
+  const where: Prisma.CommunityPostWhereInput = {
+    deletedAt: null,
+    authorId: user.id,
+    ...(type ? { type: toPrismaPostType(type) } : {}),
+    ...(status ? { moderationStatus: toPrismaModerationStatus(status) } : {}),
+  };
+
+  const [total, rows] = await Promise.all([
+    prisma.communityPost.count({ where }),
+    prisma.communityPost.findMany({
+      where,
+      include: postInclude,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
+
+  const postIds = rows.map((p) => p.id);
+  const likes = postIds.length
+    ? await prisma.postLike.findMany({
+        where: { postId: { in: postIds }, userId: user.id, deletedAt: null },
+        select: { postId: true },
+      })
+    : [];
+  const likedSet = new Set(likes.map((l) => l.postId));
+
+  return {
+    posts: rows.map((post) => toPostResponse(post, likedSet.has(post.id), false)),
+    meta: buildPaginationMeta(page, limit, total),
+  };
 }
 
 export async function createPost(
@@ -271,10 +375,26 @@ export async function updatePost(
   if (existing.authorId !== user.id) {
     throw errors.forbidden('You can only edit your own posts.');
   }
+  if (existing.isOfficial) {
+    throw errors.forbidden('Official listings are managed from the admin console.');
+  }
+
+  // Any edit to a listing sends it back through review — including an edit to
+  // an already-approved one, so changed prices and photos are always seen.
+  const reReview =
+    existing.type === PrismaCommunityPostType.MARKETPLACE
+      ? {
+          moderationStatus: PrismaPostModerationStatus.PENDING,
+          rejectionReason: null,
+          reviewedAt: null,
+          reviewedById: null,
+        }
+      : {};
 
   const post = await prisma.communityPost.update({
     where: { id: postId },
     data: {
+      ...reReview,
       ...(body.title !== undefined ? { title: body.title } : {}),
       ...(body.body !== undefined ? { body: body.body } : {}),
       ...(body.imageUrls !== undefined ? { imageUrls: body.imageUrls } : {}),
@@ -321,7 +441,7 @@ export async function togglePostLike(
 ): Promise<ToggleLikeResponse> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
-  await loadPostOrThrow(postId);
+  assertPostVisible(await loadPostOrThrow(postId), user.id);
 
   return prisma.$transaction(async (tx) => {
     const existing = await tx.postLike.findFirst({
@@ -402,7 +522,7 @@ export async function listComments(
   query: CommentListQuery,
 ): Promise<CommentListResponse> {
   const user = await getFeedReader(decoded);
-  await loadPostOrThrow(postId);
+  assertPostVisible(await loadPostOrThrow(postId), user?.id ?? null);
 
   const { page, limit } = query;
   const where: Prisma.CommentWhereInput = {
@@ -457,7 +577,7 @@ export async function createComment(
 ): Promise<CommentResponse> {
   const user = await getUserByUid(decoded.uid);
   requireMother(user);
-  await loadPostOrThrow(postId);
+  assertPostVisible(await loadPostOrThrow(postId), user.id);
 
   if (body.parentCommentId) {
     const parent = await prisma.comment.findFirst({

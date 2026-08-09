@@ -65,6 +65,10 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'booking_extension_declined';
     case 'BOOKING_EXTENDED':
       return 'booking_extended';
+    case 'MARKETPLACE_LISTING_APPROVED':
+      return 'marketplace_listing_approved';
+    case 'MARKETPLACE_LISTING_REJECTED':
+      return 'marketplace_listing_rejected';
     default:
       return 'marketplace_message';
   }
@@ -79,6 +83,8 @@ function toApiReferenceType(
       return 'conversation';
     case 'BOOKING':
       return 'booking';
+    case 'COMMUNITY_POST':
+      return 'community_post';
     default:
       return null;
   }
