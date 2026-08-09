@@ -16,6 +16,7 @@ import {
   IdVerificationStatusSchema,
   WeeklyScheduleSchema,
 } from './nanny';
+import { AdminRoleSchema, OperatorPermissionsSchema } from './operator';
 import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
 import { PhoneNumberSchema } from './support';
 
@@ -820,18 +821,43 @@ export type UpdateOfficialListingInput = z.infer<typeof UpdateOfficialListingSch
 // Admin user management (superuser only)
 // ──────────────────────────────────────────────────────────────
 
-export const CreateAdminSchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
-});
+/**
+ * Creates an admin (full access) or an operator (access defined per section).
+ * SUPERUSER is deliberately not creatable — the root account is seeded.
+ */
+export const CreateAdminSchema = z
+  .object({
+    name: z.string().min(2).max(100),
+    email: z.string().email(),
+    password: z.string().min(8).max(128),
+    role: AdminRoleSchema.exclude(['SUPERUSER']).default('OPERATOR'),
+    /** Ignored for an ADMIN — full access isn't stored as a permission map. */
+    permissions: OperatorPermissionsSchema.default({}),
+  })
+  .refine((v) => v.role !== 'OPERATOR' || Object.values(v.permissions).some((l) => l !== 'NONE'), {
+    message: 'Give the operator access to at least one section.',
+    path: ['permissions'],
+  });
 export type CreateAdminInput = z.infer<typeof CreateAdminSchema>;
+
+/** Partial update of an admin/operator account (PATCH /admin/admins/:id). */
+export const UpdateAdminUserSchema = z
+  .object({
+    name: z.string().min(2).max(100).optional(),
+    permissions: OperatorPermissionsSchema.optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Provide at least one field to update.' });
+export type UpdateAdminUserInput = z.infer<typeof UpdateAdminUserSchema>;
 
 export const AdminUserSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   email: z.string(),
-  role: z.enum(['ADMIN', 'SUPERUSER']),
+  role: AdminRoleSchema,
+  /** Empty for ADMIN/SUPERUSER — see `effectivePermissions` on the backend. */
+  permissions: OperatorPermissionsSchema,
+  isActive: z.boolean(),
   createdAt: z.string(),
 });
 export type AdminUser = z.infer<typeof AdminUserSchema>;
