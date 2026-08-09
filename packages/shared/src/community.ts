@@ -23,6 +23,14 @@ export type CommunityTag = z.infer<typeof CommunityTagSchema>;
 export const CommunityPostTypeSchema = z.enum(['qa', 'marketplace', 'event']);
 export type CommunityPostType = z.infer<typeof CommunityPostTypeSchema>;
 
+/**
+ * Moderation state of a post. Only marketplace listings are reviewed — Q&A and
+ * event posts are always `approved`. A rejected listing stays visible to its
+ * author (with the reason) so she can edit and resubmit it.
+ */
+export const PostModerationStatusSchema = z.enum(['pending', 'approved', 'rejected']);
+export type PostModerationStatus = z.infer<typeof PostModerationStatusSchema>;
+
 const tagsField = z
   .array(CommunityTagSchema)
   .max(5, 'At most 5 tags allowed')
@@ -85,6 +93,20 @@ export const CommunityFeedQuerySchema = z.object({
 
 export type CommunityFeedQuery = z.infer<typeof CommunityFeedQuerySchema>;
 
+/**
+ * The author's own posts, whatever their moderation state — this is what the
+ * mobile "My listings" screen reads so a seller can see her pending and
+ * rejected listings alongside the live ones.
+ */
+export const MyPostsQuerySchema = z.object({
+  type: CommunityPostTypeSchema.optional(),
+  status: PostModerationStatusSchema.optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+});
+
+export type MyPostsQuery = z.infer<typeof MyPostsQuerySchema>;
+
 export const CommunityAuthorSchema = z.object({
   id: z.number().int(),
   firstName: z.string(),
@@ -110,6 +132,13 @@ export const CommunityPostResponseSchema = z.object({
   commentCount: z.number(),
   likedByMe: z.boolean(),
   rsvpdByMe: z.boolean(),
+  moderationStatus: PostModerationStatusSchema,
+  /** Set only when `moderationStatus` is `rejected`. */
+  rejectionReason: z.string().nullable(),
+  /** Platform-authored listing — shown as "NannyNow" with an Official badge. */
+  isOfficial: z.boolean(),
+  /** Official listings only — buyers call/WhatsApp this instead of messaging. */
+  contactPhone: z.string().nullable(),
   author: CommunityAuthorSchema,
   createdAt: z.string(),
   updatedAt: z.string(),

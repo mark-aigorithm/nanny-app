@@ -24,10 +24,16 @@ export const NotificationTypeSchema = z.enum([
   'booking_extension_accepted',
   'booking_extension_declined',
   'booking_extended',
+  'marketplace_listing_approved',
+  'marketplace_listing_rejected',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
-export const NotificationReferenceTypeSchema = z.enum(['conversation', 'booking']);
+export const NotificationReferenceTypeSchema = z.enum([
+  'conversation',
+  'booking',
+  'community_post',
+]);
 export type NotificationReferenceType = z.infer<typeof NotificationReferenceTypeSchema>;
 
 export const NotificationResponseSchema = z.object({

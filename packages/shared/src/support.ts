@@ -35,6 +35,20 @@ export function whatsappLink(number: string): string {
   return `https://wa.me/${number.replace(/\D/g, '')}`;
 }
 
+/**
+ * A required phone number in any readable format — validated against its
+ * canonical form. Used wherever a number is mandatory rather than an
+ * opt-in channel (e.g. the contact number on an official marketplace listing).
+ */
+export const PhoneNumberSchema = z
+  .string()
+  .trim()
+  .refine((v) => PHONE_PATTERN.test(normalizePhone(v)), {
+    message:
+      'Enter a valid phone number including the country code, e.g. +20 100 123 4567 ' +
+      '(spaces, dashes, parentheses, and dots are fine).',
+  });
+
 /** Accepts a valid phone number or an empty string (channel disabled). */
 const supportPhone = z
   .string()

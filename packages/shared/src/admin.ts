@@ -9,6 +9,7 @@ import {
 } from './booking';
 import { PublicCertificationSchema } from './certification';
 import { BookingChildSchema } from './child';
+import { CommunityTagSchema, PostModerationStatusSchema } from './community';
 import {
   AvailabilityTypeSchema,
   IdDocumentTypeSchema,
@@ -16,6 +17,7 @@ import {
   WeeklyScheduleSchema,
 } from './nanny';
 import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
+import { PhoneNumberSchema } from './support';
 
 // Re-export the shared pagination meta so admin consumers can import it alongside
 // the admin list/detail schemas.
@@ -744,6 +746,75 @@ export const AdminIdReviewListQuerySchema = AdminListQuerySchema.extend({
   role: AdminIdReviewRoleFilterSchema.catch('ALL').default('ALL'),
 });
 export type AdminIdReviewListQuery = z.infer<typeof AdminIdReviewListQuerySchema>;
+
+// ──────────────────────────────────────────────────────────────
+// Marketplace moderation (review queue + official listings)
+// ──────────────────────────────────────────────────────────────
+
+/** Moderation filter for the listing queue. Defaults to the pending queue. */
+export const AdminMarketplaceStatusFilterSchema = z.enum([
+  'ALL', 'PENDING', 'APPROVED', 'REJECTED',
+]);
+export type AdminMarketplaceStatusFilter = z.infer<typeof AdminMarketplaceStatusFilterSchema>;
+
+/** One row in the admin marketplace table. */
+export const AdminMarketplaceListingSchema = z.object({
+  /** CommunityPost id. */
+  id: z.number().int(),
+  title: z.string(),
+  body: z.string().nullable(),
+  price: z.number().nullable(),
+  imageUrls: z.array(z.string()),
+  tags: z.array(z.string()),
+  moderationStatus: PostModerationStatusSchema,
+  rejectionReason: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  /** Platform-authored listing — pinned in the feed and never reviewed. */
+  isOfficial: z.boolean(),
+  /** Official listings only: the number buyers contact instead of messaging. */
+  contactPhone: z.string().nullable(),
+  /** Seller. For an official listing this is the admin who created it. */
+  seller: z.object({
+    id: z.number().int(),
+    name: z.string(),
+    avatarUrl: z.string().nullable(),
+  }),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AdminMarketplaceListing = z.infer<typeof AdminMarketplaceListingSchema>;
+
+/** Paginated listing queue query (GET /admin/marketplace/listings). */
+export const AdminMarketplaceListQuerySchema = AdminListQuerySchema.extend({
+  status: AdminMarketplaceStatusFilterSchema.catch('PENDING').default('PENDING'),
+});
+export type AdminMarketplaceListQuery = z.infer<typeof AdminMarketplaceListQuerySchema>;
+
+/**
+ * The reason is mandatory here (unlike `RejectNannySchema`) — the seller has to
+ * know what to change before she resubmits.
+ */
+export const RejectListingSchema = z.object({
+  reason: z.string().trim().min(1, 'A reason is required').max(500),
+});
+export type RejectListingInput = z.infer<typeof RejectListingSchema>;
+
+/** Official ("Sold by NannyNow") listing an admin publishes directly. */
+export const CreateOfficialListingSchema = z.object({
+  title: z.string().trim().min(1, 'Product name is required').max(200),
+  body: z.string().trim().max(2000).optional(),
+  price: z.number().positive('Price must be greater than 0'),
+  imageUrls: z
+    .array(z.string().url())
+    .min(1, 'At least one image is required')
+    .max(4),
+  tags: z.array(CommunityTagSchema).max(5).default([]),
+  contactPhone: PhoneNumberSchema,
+});
+export type CreateOfficialListingInput = z.infer<typeof CreateOfficialListingSchema>;
+
+export const UpdateOfficialListingSchema = CreateOfficialListingSchema.partial();
+export type UpdateOfficialListingInput = z.infer<typeof UpdateOfficialListingSchema>;
 
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)
