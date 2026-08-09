@@ -13,6 +13,8 @@ import type {
   AdminIdReviewRoleFilter,
   AdminIdReviewStatusFilter,
   AdminListQuery,
+  AdminMarketplaceListing,
+  AdminMarketplaceStatusFilter,
   AdminMother,
   AdminMotherDetail,
   AdminMotherStatusFilter,
@@ -31,6 +33,7 @@ import type {
   CreateCampaignInput,
   CreateCertificationInput,
   CreateDurationRuleInput,
+  CreateOfficialListingInput,
   CreatePromoCodeInput,
   CreateSkillInput,
   DurationRule,
@@ -58,6 +61,7 @@ import type {
   UpdateCampaignInput,
   UpdateCertificationInput,
   UpdateDurationRuleInput,
+  UpdateOfficialListingInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
   UpdateRewardConfigInput,
@@ -555,4 +559,60 @@ export async function fetchPackagePurchaseDetail(
     `/admin/package-purchases/${id}`,
   );
   return res.data.data;
+}
+
+// ── Marketplace moderation ─────────────────────────────────────
+
+export async function fetchMarketplaceListings(
+  status: AdminMarketplaceStatusFilter,
+  { page, limit }: AdminListQuery,
+): Promise<Paged<AdminMarketplaceListing[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminMarketplaceListing[]>>(
+    '/admin/marketplace/listings',
+    { params: { status, page, limit } },
+  );
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function approveListing(id: number): Promise<AdminMarketplaceListing> {
+  const res = await apiClient.post<ApiEnvelope<AdminMarketplaceListing>>(
+    `/admin/marketplace/listings/${id}/approve`,
+  );
+  return res.data.data;
+}
+
+export async function rejectListing(
+  id: number,
+  reason: string,
+): Promise<AdminMarketplaceListing> {
+  const res = await apiClient.post<ApiEnvelope<AdminMarketplaceListing>>(
+    `/admin/marketplace/listings/${id}/reject`,
+    { reason },
+  );
+  return res.data.data;
+}
+
+export async function createOfficialListing(
+  input: CreateOfficialListingInput,
+): Promise<AdminMarketplaceListing> {
+  const res = await apiClient.post<ApiEnvelope<AdminMarketplaceListing>>(
+    '/admin/marketplace/listings',
+    input,
+  );
+  return res.data.data;
+}
+
+export async function updateOfficialListing(
+  id: number,
+  input: UpdateOfficialListingInput,
+): Promise<AdminMarketplaceListing> {
+  const res = await apiClient.patch<ApiEnvelope<AdminMarketplaceListing>>(
+    `/admin/marketplace/listings/${id}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function deleteOfficialListing(id: number): Promise<void> {
+  await apiClient.delete(`/admin/marketplace/listings/${id}`);
 }

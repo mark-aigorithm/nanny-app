@@ -8,6 +8,7 @@ import { AdminsPage } from './pages/admins-page';
 import { CamerasPage } from './pages/cameras-page';
 import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
+import { MarketplacePage } from './pages/marketplace-page';
 import { UsersPage } from './pages/users-page';
 import { MotherDetailPage } from './pages/mother-detail-page';
 import { NannyDetailPage } from './pages/nanny-detail-page';
@@ -57,6 +58,7 @@ export function App() {
               <Route path="admins" element={<AdminsPage />} />
               <Route path="promo-codes" element={<PromoCodesPage />} />
               <Route path="campaigns" element={<CampaignsPage />} />
+              <Route path="marketplace" element={<MarketplacePage />} />
               <Route path="skills" element={<SkillsPage />} />
               <Route path="certifications" element={<CertificationsPage />} />
               <Route path="packages" element={<PackagesPage />} />

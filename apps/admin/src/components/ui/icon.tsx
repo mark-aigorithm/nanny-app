@@ -15,6 +15,7 @@ export {
   BadgeCheck,
   Package,
   Megaphone,
+  Store,
   Video,
   Settings,
   ShieldCheck,

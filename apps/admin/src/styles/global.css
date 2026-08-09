@@ -3414,3 +3414,123 @@ input[type='number'] {
   border-radius: var(--radius-lg);
   font-size: 0.9rem;
 }
+
+/* ── Marketplace moderation (Marketplace) ───────────────── */
+
+/* Item cell: thumbnail beside the title + one-line description. */
+.listing-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.listing-cell-image {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  background: var(--color-surface-muted);
+}
+
+.listing-cell-image--empty {
+  display: block;
+  border: 1px dashed var(--color-warm-border);
+}
+
+.listing-cell-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.listing-cell-title {
+  font-weight: 600;
+}
+
+.listing-cell-body,
+.listing-reason {
+  overflow: hidden;
+  max-width: 32ch;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listing-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+/* Uploaded photos in the official-listing form. */
+.listing-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.listing-thumb {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-muted);
+}
+
+.listing-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.listing-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+
+.listing-thumb-remove:hover {
+  color: var(--color-error);
+}
+
+/* Tag chips in the official-listing form. */
+.tag-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag-toggle {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.tag-toggle--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
