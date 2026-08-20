@@ -78,6 +78,34 @@ export function applyBookingEdit(token: string, bookingId: number, input: object
   return send(token, 'post', `/admin/bookings/${bookingId}/edit`, input);
 }
 
+export type EditSettlement = {
+  delta: number;
+  amountPaid: number;
+  refundableAmount: number;
+  balanceDueAmount: number;
+  adjustmentId: number | null;
+};
+
+/**
+ * Preview then commit an edit in one step, threading the optimistic `revision`
+ * token the commit requires. Soft warnings are acknowledged: an admin editing a
+ * booking in the console sees and accepts them, and a test that didn't would be
+ * blocked by an out-of-window time it deliberately chose.
+ */
+export async function editBooking(
+  token: string,
+  bookingId: number,
+  input: AdminEditBookingInput,
+): Promise<{ settlement: EditSettlement }> {
+  const preview = (await previewBookingEdit(token, bookingId, input)) as { revision: string };
+
+  return (await send(token, 'post', `/admin/bookings/${bookingId}/edit`, {
+    ...input,
+    revision: preview.revision,
+    acknowledgeSoftWarnings: true,
+  })) as { settlement: EditSettlement };
+}
+
 export function refundBooking(
   token: string,
   bookingId: number,

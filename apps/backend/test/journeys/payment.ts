@@ -43,7 +43,9 @@ export async function createCheckoutSession(
     .set(...authHeader(token))
     .send({ method: 'CARD' });
 
-  if (response.status !== 201) {
+  // The booking route answers 201; the extension and adjustment routes answer
+  // 200. Accept both rather than making the helper care which is which.
+  if (response.status !== 201 && response.status !== 200) {
     throw new Error(
       `Creating a ${kind} intention for id ${id} failed with ${response.status}: ` +
         JSON.stringify(response.body),
