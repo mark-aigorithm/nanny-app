@@ -156,14 +156,50 @@ pnpm dev
 
 ## Running Tests
 
+### Tiers
+
+| Tier | Where | Needs the test stack? | Command |
+|---|---|---|---|
+| Unit / component | backend `src/__tests__`, shared, admin, mobile | no | `pnpm test:unit` |
+| Integration (real DB + HTTP) | backend `src/__integration__` | **yes** | `pnpm test:integration` |
+| E2E (browser) | `apps/admin/e2e` | **yes**, plus a backend on :3001 | `pnpm --filter=@nanny-app/admin test:e2e` |
+
+| Package | Runner |
+|---|---|
+| backend | Jest (two projects: `unit`, `integration`) |
+| shared | Vitest |
+| admin | Vitest + Testing Library + MSW; Playwright for E2E |
+| mobile | Jest (`jest-expo`) + React Native Testing Library |
+
+### The test stack
+
+Integration and E2E tests run against real services — a real PostGIS database and a real Firebase
+token path — so that a passing test means something. Everything is local, free and deterministic:
+
 ```bash
-pnpm test                                    # all tests
-pnpm test --filter=@nanny-app/backend        # single package
-pnpm test:coverage --filter=@nanny-app/backend  # with coverage
-cd apps/backend && pnpm test --watch         # watch mode
+pnpm test:env          # Postgres+PostGIS, Mailpit, Auth emulator, Paymob fake
 ```
 
-- **Coverage threshold**: 80% across lines/branches/functions (enforced in CI).
+| Service | Port | Notes |
+|---|---|---|
+| PostGIS (`nannyapp_test`) | 55432 | Separate port/volume from the dev DB on 5432 — tests truncate every table |
+| Mailpit | 1025 SMTP / 8025 HTTP | Assert on sent mail instead of mocking nodemailer |
+| Firebase Auth emulator | 9099 | Project `demo-nannyapp`; the backend, admin and mobile all point at it |
+| Paymob fake | 4010 | Signs webhooks with the real HMAC secret |
+
+**Why the Auth emulator matters:** all three surfaces authenticate through Firebase, so pointing
+them at one emulator lets tests mint and delete users freely while `verifyIdToken` still runs its
+real code path. Enabled per surface by an env var (`FIREBASE_AUTH_EMULATOR_HOST`,
+`VITE_FIREBASE_AUTH_EMULATOR_HOST`, `extra.firebaseAuthEmulatorHost`) that is unset in every real
+build.
+
+For an E2E run, also start the backend against that stack:
+
+```bash
+pnpm --filter=@nanny-app/backend start:test
+```
+
+- **Coverage threshold**: 80% across lines/branches/functions (planned; the CI gate is not yet wired).
 
 ---
 

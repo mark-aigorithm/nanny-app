@@ -154,11 +154,40 @@ pnpm db:seed
 
 ## Testing
 
-- Jest unit tests for every service function.
-- Prisma, Redis, Firebase, and S3 are mocked with `jest.mock()`.
-- No integration tests against real DB in CI (use contract tests or separate test environment).
-- Test files live at `src/__tests__/*.test.ts`.
-- Coverage threshold: 80% (enforced in CI).
+Two Jest projects, split by what they require — see `jest.config.cjs`.
+
+| Project | Location | Dependencies | Command |
+|---|---|---|---|
+| `unit` | `src/__tests__/*.test.ts` | none — Prisma, Firebase and S3 are `jest.mock()`ed | `pnpm test:unit` |
+| `integration` | `src/__integration__/*.test.ts` | real PostGIS DB, Auth emulator, Paymob fake | `pnpm test:integration` |
+
+- **Run them separately, never in one `jest` invocation.** The integration project must not be
+  parallelised — its tests truncate a shared database — and `maxWorkers` cannot be set per project.
+  `pnpm test` runs unit then integration in sequence.
+- **Unit tests are still the default** for a service function's logic: one function, one test,
+  mocked dependencies. Reach for an integration test when the thing under test *is* the database —
+  raw SQL / PostGIS, constraints, transactions, cascades — or the HTTP contract of a route.
+- **Start the stack first** (`pnpm test:env` from the repo root), or the integration project fails
+  at `globalSetup`.
+
+### Integration fixtures (`test/`)
+
+| Path | Purpose |
+|---|---|
+| `env.ts` | Loads `.env.test` and **refuses to run** unless `DATABASE_URL` targets `nannyapp_test` |
+| `db/global-setup.ts` | Once per run: `prisma migrate deploy`, then seeds `app_settings` |
+| `db/reset.ts` | Per test: truncate every table, restore the seeded settings |
+| `factories/` | `makeMother`, `makeNanny`, `makeBooking`, `makeOperator`, … — each creates the Firebase emulator account *and* the DB row, and returns a usable ID token |
+| `auth.ts` | `signInAs(email)` → a real ID token from the emulator; `authHeader(token)` for supertest |
+| `fakes/paymob-server.ts` | Stands in for Paymob; signs webhooks with the **production** HMAC helpers so it cannot drift from the verifier |
+
+- **Never hand-build an entity in an integration test** — add or extend a factory. And never
+  hand-compute a price: `makeBooking` runs the real `calculatePriceBreakdown` from
+  `@nanny-app/shared`, so totals stay correct when the pricing rules change.
+- Tests must be order-independent. `db/reset.ts` and `clearEmulatorUsers()` both run in
+  `beforeEach`; nothing may rely on a previous test's rows.
+
+- Coverage threshold: 80% (enforced in CI — not yet wired; see the CI plan).
 
 ---
 

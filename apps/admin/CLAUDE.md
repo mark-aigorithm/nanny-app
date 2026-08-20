@@ -64,12 +64,36 @@ An `OPERATOR` only reaches the sections the superuser granted. `lib/permissions.
 - Aggregate/reporting numbers are computed client-side from existing list endpoints (see
   `features/dashboard/use-dashboard-stats.ts`) — there is no `/admin/stats` API yet.
 
+## Testing
+
+| Tier | Location | Runner |
+|---|---|---|
+| Component / hook | `src/**/*.test.tsx` | Vitest + Testing Library, jsdom |
+| End-to-end | `e2e/*.spec.ts` | Playwright (Chromium + WebKit) |
+
+- **Mock the network, not `lib/api.ts`.** MSW intercepts at the transport layer
+  (`src/test/handlers.ts`), so `apiClient`'s token interceptor and 401 refresh-and-replay run for
+  real. Stubbing the api functions would skip exactly the code most likely to be wrong.
+- Unhandled requests **fail** the test (`onUnhandledRequest: 'error'`). Add a handler, or override
+  one locally with `server.use(...)` — `setup.ts` resets overrides between tests.
+- Render through `renderWithProviders` (`src/test/render.tsx`); a bare `render` throws on the first
+  React Query hook.
+- **Query by role and label first** (`getByRole('button', { name: … })`). The `Field` component
+  wraps its input in a `<label>`, so form controls already have accessible names. Reach for
+  `data-testid` only when there is no accessible name — an icon-only button, a table row.
+- E2E specs adopt a role via saved storage state rather than logging in each time — see
+  `e2e/roles.ts` and `e2e/global-setup.ts`. Add a role there, not in a spec.
+- E2E needs the full stack: `pnpm test:env` and `pnpm --filter=@nanny-app/backend start:test` from
+  the repo root. See the root CLAUDE.md.
+
 ## Commands (from `apps/admin`)
 
 ```bash
 pnpm dev         # Vite dev server on :5173 (proxies /api to the backend)
-pnpm typecheck   # tsc --noEmit (strict; must pass)
+pnpm typecheck   # tsc --noEmit for both the app and e2e (strict; must pass)
 pnpm build       # tsc -b && vite build
+pnpm test        # Vitest component/hook suite
+pnpm test:e2e    # Playwright (needs the test stack running)
 ```
 
 TypeScript is strict with `noUncheckedIndexedAccess` — guard indexed access and never use `any`.
