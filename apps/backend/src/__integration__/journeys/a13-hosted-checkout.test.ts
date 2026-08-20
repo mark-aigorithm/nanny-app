@@ -71,41 +71,54 @@ async function bookingAwaitingPayment() {
 }
 
 /**
- * Starts the app where the backend told Paymob to send the callback.
+ * Makes the app reachable at `PUBLIC_API_URL`.
  *
  * The fake is a separate process, so it cannot reach an in-process supertest
- * app — `notification_url` has to resolve to a real socket. The port comes from
- * `PUBLIC_API_URL` because that is the value the intention was created with.
+ * app — `notification_url` has to resolve to a real socket, at the address the
+ * intention was created with.
+ *
+ * Returns null when a backend is already serving that port: `pnpm start:test`
+ * is usually left running for the admin E2E suite, and it boots the same app
+ * from the same `.env.test` against the same database, so the loop is
+ * unaffected. Anything else holding the port is an error rather than a
+ * silently wrong test.
  */
-async function listenOnPublicApiPort(): Promise<Server> {
+async function serveOnPublicApiPort(): Promise<Server | null> {
   const port = Number(new URL(paymob.publicApiUrl).port);
 
-  return new Promise((resolve, reject) => {
-    const server = app.listen(port, '127.0.0.1', () => resolve(server));
-    server.on('error', (err: NodeJS.ErrnoException) => {
-      reject(
-        err.code === 'EADDRINUSE'
-          ? new Error(
-              `Port ${port} is already in use, so the fake's webhook would be delivered to ` +
-                'another process. Stop whatever is serving it (usually `pnpm start:test`, ' +
-                'started for the admin E2E run) and try again.',
-            )
-          : err,
-      );
+  try {
+    return await new Promise<Server>((resolve, reject) => {
+      const server = app.listen(port, '127.0.0.1', () => resolve(server));
+      server.on('error', reject);
     });
-  });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw err;
+  }
+
+  const health = await fetch(`${paymob.publicApiUrl}/health`).catch(() => null);
+  if (!health?.ok) {
+    throw new Error(
+      `Port ${port} is held by something that is not the NannyApp backend, so the fake's ` +
+        'webhook would be delivered to it instead. Free the port and try again.',
+    );
+  }
+
+  return null;
 }
 
 describe('A13 — hosted checkout loop', () => {
-  let server: Server;
+  /** Null when an already-running backend is serving the port — see above. */
+  let server: Server | null = null;
 
   beforeAll(async () => {
-    server = await listenOnPublicApiPort();
+    server = await serveOnPublicApiPort();
   });
 
   afterAll(async () => {
+    const started = server;
+    if (!started) return;
     await new Promise<void>((resolve, reject) => {
-      server.close((err) => (err ? reject(err) : resolve()));
+      started.close((err) => (err ? reject(err) : resolve()));
     });
   });
 
