@@ -21,6 +21,21 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
+    // No outputs: coverage is produced by `test:coverage`, not here. Declaring
+    // `coverage/**` made Turborepo warn on every run about files that were
+    // never going to exist.
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    // Never cached: the result depends on external services (the test database
+    // and the Auth emulator) that Turborepo cannot see, so a cache hit would
+    // report success for a stack that may not even be running.
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": []
+    },
     "clean": {
       "cache": false
     }

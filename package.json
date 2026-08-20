@@ -13,13 +13,27 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "test:env:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:env:down": "docker compose -f docker-compose.test.yml down -v",
+    "test:emulator": "firebase emulators:start --only auth --project demo-nannyapp",
+    "test:paymob": "pnpm --filter @nanny-app/backend exec ts-node --transpile-only -r tsconfig-paths/register test/fakes/paymob-server.ts",
+    "test:env": "pnpm test:env:up && concurrently --names \"emulator,paymob\" --prefix-colors \"yellow,magenta\" --kill-others \"pnpm test:emulator\" \"pnpm test:paymob\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@firebase/util", "protobufjs"]
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "protobufjs",
+      "esbuild",
+      "msw"
+    ]
   },
   "devDependencies": {
+    "concurrently": "^10.0.5",
+    "firebase-tools": "^15.28.1",
     "prettier": "^3.2.5",
     "turbo": "^2.0.0",
     "typescript": "^5.9.3"

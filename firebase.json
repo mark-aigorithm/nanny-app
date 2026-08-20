@@ -1,0 +1,13 @@
+{
+  "//": "Auth emulator only. Every surface authenticates through Firebase — the backend verifies tokens with firebase-admin, and both the admin and mobile apps sign in with the Firebase JS SDK — so pointing all three at this one emulator lets tests mint real tokens through the real code paths, with no network and no shared live project. Firestore/Storage/Functions are deliberately absent: nothing under test uses them yet.",
+  "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "127.0.0.1"
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  }
+}

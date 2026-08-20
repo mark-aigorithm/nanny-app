@@ -1,0 +1,55 @@
+# Services the automated test suites run against. Deliberately separate from
+# docker-compose.yml: that file owns the *development* database on port 5432,
+# and a test run truncates every table between tests. Its own container name,
+# port and volume mean a test run can never destroy dev data.
+#
+#   pnpm test:env:up     start
+#   pnpm test:env:down   stop and delete the volume
+
+# Explicit project name. Without it both compose files default to "nanny-app",
+# so Compose treats the dev database as an orphan of this project — and a
+# `down --remove-orphans` here would delete it. Separate names, separate worlds.
+name: nannyapp-test
+
+services:
+  postgres-test:
+    # PostGIS is mandatory, not a nicety. The migrations run
+    # `CREATE EXTENSION IF NOT EXISTS "postgis"`, and nanny.service.ts ranks
+    # search results with ST_DistanceSphere — a plain postgres image cannot
+    # apply the migrations at all.
+    image: postgis/postgis:16-3.4-alpine
+    container_name: nannyapp-db-test
+    restart: unless-stopped
+    ports:
+      - '55432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: nannyapp_test
+    # The suite blocks on this before running migrations, so an unready
+    # database surfaces as a wait rather than a connection-refused failure.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d nannyapp_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - pgdata-test:/var/lib/postgresql/data
+
+  # SMTP sink. email.service.ts talks to it as if it were a real relay, and
+  # tests assert on what was sent through the HTTP API on :8025 instead of
+  # mocking nodemailer.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: nannyapp-mailpit-test
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # HTTP API + web UI
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  pgdata-test:

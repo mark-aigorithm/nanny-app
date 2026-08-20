@@ -34,6 +34,15 @@ Thumbs.db
 
 # Testing
 coverage
+# Snapshot of the seeded app_settings, written by test/db/global-setup.ts and
+# restored after each truncate. Regenerated on every integration run.
+apps/backend/test/.baseline-settings.json
+# Playwright: reports, traces, and the signed-in browser states saved by
+# e2e/global-setup.ts (these hold real, if local, auth tokens).
+playwright-report
+test-results
+.playwright/.cache
+apps/admin/e2e/.auth
 
 # Expo
 apps/mobile/.expo
