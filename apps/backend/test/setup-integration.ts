@@ -10,10 +10,14 @@ import { prisma } from '@backend/db/prisma';
 
 import { clearEmulatorUsers } from './auth';
 import { resetDatabase } from './db/reset';
+import { resetPaymobFake } from './journeys/payment';
 
 beforeEach(async () => {
   await resetDatabase();
   await clearEmulatorUsers();
+  // Payment ids restart with the truncated tables, so stale intentions in the
+  // fake could otherwise alias a new test's merchant references.
+  await resetPaymobFake();
 });
 
 afterAll(async () => {

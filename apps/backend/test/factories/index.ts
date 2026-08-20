@@ -13,3 +13,5 @@ export {
 } from './user';
 
 export { makeBooking, type BookingOverrides } from './booking';
+export { makePackage, type PackageOverrides } from './package';
+export { makePromoCode, type PromoCodeOverrides } from './promo-code';

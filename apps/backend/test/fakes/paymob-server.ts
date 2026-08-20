@@ -29,6 +29,13 @@ type Intention = {
   /** Paymob's own order id, referenced by the webhook payload. */
   orderId: number;
   merchantOrderId: string | undefined;
+  /**
+   * Where the backend asked the webhook to be delivered and the customer to be
+   * redirected. Recorded so the checkout page can honour them the way the real
+   * Paymob does; tests that post the webhook themselves ignore both.
+   */
+  notificationUrl: string | undefined;
+  redirectionUrl: string | undefined;
   confirmed: boolean;
   transactionId: number | null;
   refundedAmountCents: number;
@@ -58,6 +65,8 @@ export function buildPaymobFake(): Express {
     const body = req.body as {
       amount?: number;
       special_reference?: string;
+      notification_url?: string;
+      redirection_url?: string;
     };
 
     const id = String(allocateId());
@@ -67,6 +76,8 @@ export function buildPaymobFake(): Express {
       amountCents: typeof body.amount === 'number' ? body.amount : 0,
       orderId: allocateId(),
       merchantOrderId: body.special_reference,
+      notificationUrl: body.notification_url,
+      redirectionUrl: body.redirection_url,
       confirmed: false,
       transactionId: null,
       refundedAmountCents: 0,
@@ -162,15 +173,21 @@ export function buildPaymobFake(): Express {
    * intention with an arbitrary reference is rejected with 401 even though its
    * signature is perfectly valid.
    *
-   * Body: { intentionId, success?: boolean }
+   * Body: { intentionId?, clientSecret?, success?: boolean } — the intention
+   * may be addressed by either handle. Backend pay routes return only the
+   * client secret, so journey helpers use that; earlier tests keep intentionId.
    */
   app.post('/__test__/pay', (req: Request, res: Response) => {
-    const { intentionId, success = true } = req.body as {
+    const { intentionId, clientSecret, success = true } = req.body as {
       intentionId?: string;
+      clientSecret?: string;
       success?: boolean;
     };
 
-    const intention = intentions.get(String(intentionId));
+    const intention =
+      intentionId !== undefined
+        ? intentions.get(String(intentionId))
+        : findByClientSecret(String(clientSecret ?? ''));
     if (!intention) {
       res.status(404).json({ detail: 'Intention not found' });
       return;

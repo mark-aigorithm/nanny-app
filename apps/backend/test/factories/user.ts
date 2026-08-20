@@ -35,6 +35,15 @@ function uniqueEmail(prefix: string): string {
 }
 
 /**
+ * Unique E.164-shaped phone number (`users.phone` is unique). Not a real
+ * Egyptian number, but paying via Paymob requires the column to be set, so
+ * mothers and nannies get one by default.
+ */
+function uniquePhone(): string {
+  return `+2010${String(process.pid % 10_000).padStart(4, '0')}${String(sequence).padStart(4, '0')}`;
+}
+
+/**
  * Fields any factory caller may override, minus the three the factory owns —
  * `firebaseUid` and `email` must stay in step with the emulator account, and
  * `role` is what distinguishes one factory from another. Everything else is
@@ -55,6 +64,7 @@ async function createUser(
     data: {
       firebaseUid,
       email,
+      phone: uniquePhone(),
       firstName: 'Test',
       lastName: prefix,
       role,
