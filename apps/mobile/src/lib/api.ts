@@ -4,7 +4,17 @@ import Constants from 'expo-constants';
 import { auth } from '@mobile/lib/firebase';
 
 
-const API_BASE_URL = "https://backend-beige-nine-55.vercel.app";
+/**
+ * Read from the Expo config's `extra` block, which app.config.ts populates from
+ * `API_BASE_URL` (see the mobile CLAUDE.md environment table). The literal
+ * fallback is the same URL app.config.ts already defaults to, so an unset
+ * environment behaves exactly as before — but a build can now be pointed at a
+ * local backend, which is what any end-to-end test against the test stack needs.
+ */
+const API_BASE_URL =
+  (Constants.expoConfig?.extra?.['apiBaseUrl'] as string | undefined) ??
+  'https://backend-beige-nine-55.vercel.app';
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10_000,
