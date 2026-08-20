@@ -10,6 +10,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:unit": "jest",
     "preview:web": "node scripts/generate-preview-entry.js && vite build --config vite.preview.config.ts"
   },
   "dependencies": {

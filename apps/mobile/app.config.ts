@@ -109,6 +109,11 @@ const config: ExpoConfig = {
     firebaseAppId: process.env['FIREBASE_APP_ID'] ?? '1:936472549582:android:eef4d3c4ad112865eb589f',
     firebaseStorageBucket: process.env['FIREBASE_STORAGE_BUCKET'] ?? 'nanny-now-d8518.firebasestorage.app',
     firebaseMessagingSenderId: process.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '936472549582',
+    // Points the Firebase JS SDK at the local Auth emulator for end-to-end
+    // tests. Unset in every real build, in which case lib/firebase.ts leaves
+    // auth alone. From an Android emulator the host machine is 10.0.2.2, so
+    // this is typically FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099.
+    firebaseAuthEmulatorHost: process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '',
     // Set OTP_BYPASS_ENABLED=true in your shell to skip phone OTP during local dev.
     // Uses email/password Firebase auth instead — still creates a real Firebase user
     // and a real JWT, so the backend registration path works end-to-end.
