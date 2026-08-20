@@ -46,7 +46,11 @@ test.describe('signed out', () => {
   test('redirects an anonymous visitor to the login page', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page).toHaveURL(/\/login/);
+    // Wait on the rendered form first. RequireAuth returns null until Firebase
+    // reports that there is no session, so immediately after `goto` the URL is
+    // still "/" through no fault of the redirect — asserting the URL first
+    // raced that restore, most visibly on WebKit.
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
   });
 });

@@ -28,6 +28,13 @@ export default defineConfig({
   forbidOnly: Boolean(process.env['CI']),
   reporter: process.env['CI'] ? [['html'], ['github']] : [['html', { open: 'never' }]],
 
+  // The console boots through two sequential async gates before it renders
+  // anything: RequireAuth returns null until Firebase restores the session, and
+  // PermissionsProvider then blocks on /admin/me. WebKit is materially slower
+  // through both, and the 5s default left first-navigation assertions racing a
+  // cold start. Specs also call `gotoConsole`, which waits for the shell.
+  expect: { timeout: 10_000 },
+
   globalSetup: './e2e/global-setup.ts',
 
   use: {

@@ -13,7 +13,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  * hard-coding credentials, and so global-setup and the specs cannot disagree
  * about which permissions a given operator actually has.
  */
-export type RoleName = 'superuser' | 'bookingsOperator';
+export type RoleName = 'superuser' | 'bookingsOperator' | 'mixedOperator';
 
 export type RoleDefinition = {
   email: string;
@@ -40,6 +40,17 @@ export const ROLES: Record<RoleName, RoleDefinition> = {
     password: 'test-password-123',
     role: 'OPERATOR',
     permissions: { bookings: 'MANAGE' },
+  },
+  /**
+   * Holds both levels at once, which is what makes VIEW distinguishable from
+   * MANAGE: with only one section granted you cannot tell "hidden because
+   * view-only" apart from "hidden because absent".
+   */
+  mixedOperator: {
+    email: 'e2e-mixed-operator@test.local',
+    password: 'test-password-123',
+    role: 'OPERATOR',
+    permissions: { bookings: 'MANAGE', users: 'VIEW' },
   },
 };
 
