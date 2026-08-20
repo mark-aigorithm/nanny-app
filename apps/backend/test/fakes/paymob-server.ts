@@ -55,6 +55,9 @@ function allocateId(): number {
 export function buildPaymobFake(): Express {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
+  // The checkout page posts an ordinary HTML form, which is how a browser (and
+  // the app's WebView) submits — nothing else on the fake sends form encoding.
+  app.use(express.urlencoded({ extended: false }));
 
   /**
    * POST /v1/intention/ — what createPaymobApiClient().createIntention calls.
@@ -145,6 +148,92 @@ export function buildPaymobFake(): Express {
     });
   });
 
+  // ── Hosted checkout ────────────────────────────────────────────────────────
+
+  /**
+   * GET /unifiedcheckout/ — the page the app opens in a WebView.
+   *
+   * The path and query (`publicKey`, `clientSecret`) are exactly what
+   * `buildPaymobCheckoutUrl` produces on mobile, so pointing the app's checkout
+   * origin at this fake is the only change needed to complete a payment without
+   * Paymob. What renders is deliberately plain HTML: Android exposes WebView
+   * content to the accessibility tree, so a UI driver taps the buttons by their
+   * visible text.
+   */
+  app.get('/unifiedcheckout/', (req: Request, res: Response) => {
+    const clientSecret = String(req.query['clientSecret'] ?? '');
+    const intention = findByClientSecret(clientSecret);
+
+    if (!intention) {
+      res.status(404).send(page('Unknown checkout', '<p>No intention matches that client secret.</p>'));
+      return;
+    }
+
+    res.send(
+      page(
+        'Test checkout',
+        `<p class="amount">EGP ${(intention.amountCents / 100).toFixed(2)}</p>
+         <p class="ref">Reference ${escapeHtml(intention.merchantOrderId ?? intention.id)}</p>
+         <form method="post" action="/unifiedcheckout/complete">
+           <input type="hidden" name="clientSecret" value="${escapeHtml(intention.clientSecret)}" />
+           <button type="submit" name="outcome" value="pay" class="pay">Pay now</button>
+           <button type="submit" name="outcome" value="decline" class="decline">Decline</button>
+         </form>`,
+      ),
+    );
+  });
+
+  /**
+   * POST /unifiedcheckout/complete — what the Pay / Decline buttons submit.
+   *
+   * Mirrors the order real Paymob works in, with one deliberate difference: the
+   * webhook is delivered *and awaited* before the redirect. Paymob races the
+   * two, so a test that redirected first would have to poll for the backend to
+   * catch up; awaiting makes "the WebView reached the return URL" mean "the
+   * payment has already been recorded", which is what removes the flake.
+   */
+  app.post('/unifiedcheckout/complete', (req: Request, res: Response) => {
+    void (async () => {
+      const body = req.body as { clientSecret?: string; outcome?: string };
+      const intention = findByClientSecret(String(body.clientSecret ?? ''));
+
+      if (!intention) {
+        res.status(404).send(page('Unknown checkout', '<p>No intention matches that client secret.</p>'));
+        return;
+      }
+
+      const success = body.outcome !== 'decline';
+      const callback = settleIntention(intention, success);
+
+      try {
+        await deliverWebhook(intention, callback);
+      } catch (err) {
+        // Loud rather than silent: with no webhook the payment never lands, and
+        // "the button did nothing" is a much harder failure to read than this.
+        res
+          .status(502)
+          .send(
+            page(
+              'Webhook delivery failed',
+              `<p>Could not POST the callback to <code>${escapeHtml(
+                intention.notificationUrl ?? '(none)',
+              )}</code>.</p><p>Is the backend running on that host?</p><pre>${escapeHtml(
+                String(err),
+              )}</pre>`,
+            ),
+          );
+        return;
+      }
+
+      if (!intention.redirectionUrl) {
+        res.send(page(success ? 'Paid' : 'Declined', '<p>No redirection URL was set.</p>'));
+        return;
+      }
+
+      res.redirect(302, buildReturnUrl(intention, success));
+    })();
+  });
+
   // ── Control surface ────────────────────────────────────────────────────────
 
   /**
@@ -193,20 +282,104 @@ export function buildPaymobFake(): Express {
       return;
     }
 
-    intention.confirmed = success;
-    intention.transactionId ??= allocateId();
-
-    const transaction = buildTransaction(intention, success);
-    const plaintext = buildTransactionHmacPlaintext(transaction as PaymobTransactionHmacPayload);
-    const hmac = computePaymobHmacHex(plaintext, requireHmacSecret());
-
-    res.json({
-      hmac,
-      body: { type: 'TRANSACTION', obj: transaction },
-    });
+    res.json(settleIntention(intention, success));
   });
 
   return app;
+}
+
+/** A signed callback, in the shape `/__test__/pay` hands to tests. */
+type SignedCallback = { hmac: string; body: { type: 'TRANSACTION'; obj: unknown } };
+
+/**
+ * Marks an intention settled and signs the resulting callback.
+ *
+ * Shared by `/__test__/pay` and the checkout page so a payment made through the
+ * UI and one made through the control surface are indistinguishable to the
+ * backend — the difference is only who posts the webhook.
+ */
+function settleIntention(intention: Intention, success: boolean): SignedCallback {
+  intention.confirmed = success;
+  intention.transactionId ??= allocateId();
+
+  const transaction = buildTransaction(intention, success);
+  const plaintext = buildTransactionHmacPlaintext(transaction as PaymobTransactionHmacPayload);
+  const hmac = computePaymobHmacHex(plaintext, requireHmacSecret());
+
+  return { hmac, body: { type: 'TRANSACTION', obj: transaction } };
+}
+
+/**
+ * Posts the callback to wherever the backend asked for it, signature in the
+ * query string — the same delivery the real Paymob performs server-side, which
+ * is why the app can be offline at this moment and the payment still lands.
+ */
+async function deliverWebhook(intention: Intention, callback: SignedCallback): Promise<void> {
+  if (!intention.notificationUrl) return;
+
+  const url = new URL(intention.notificationUrl);
+  url.searchParams.set('hmac', callback.hmac);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(callback.body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Webhook returned ${response.status}: ${await response.text()}`);
+  }
+}
+
+/**
+ * The URL the customer's browser lands on after checkout.
+ *
+ * Only the parameters the app actually reads are added — `parsePaymobQueryHint`
+ * looks at `success`, `pending`, `txn_response_code` and `error_occured`. The
+ * backend's own query (`bookingId`, `extensionId`, …) is already on
+ * `redirectionUrl` and is preserved.
+ */
+function buildReturnUrl(intention: Intention, success: boolean): string {
+  const url = new URL(intention.redirectionUrl ?? '');
+  url.searchParams.set('id', String(intention.transactionId ?? 0));
+  url.searchParams.set('order', String(intention.orderId));
+  url.searchParams.set('success', String(success));
+  url.searchParams.set('pending', 'false');
+  url.searchParams.set('error_occured', String(!success));
+  url.searchParams.set('txn_response_code', success ? 'APPROVED' : 'DECLINED');
+  return url.toString();
+}
+
+/** Minimal chrome so the WebView renders something legible at phone width. */
+function page(title: string, body: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeHtml(title)}</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #1a1a1a; }
+  h1 { font-size: 20px; }
+  .amount { font-size: 32px; font-weight: 700; margin: 24px 0 4px; }
+  .ref { color: #666; margin: 0 0 32px; }
+  button { display: block; width: 100%; padding: 16px; margin-bottom: 12px;
+           font-size: 18px; border: 0; border-radius: 8px; }
+  .pay { background: #1f9d55; color: #fff; }
+  .decline { background: #eee; color: #333; }
+  pre { white-space: pre-wrap; color: #a00; }
+</style>
+</head>
+<body><h1>${escapeHtml(title)}</h1>${body}</body>
+</html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function findByClientSecret(clientSecret: string): Intention | undefined {

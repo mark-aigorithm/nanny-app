@@ -114,6 +114,11 @@ const config: ExpoConfig = {
     // auth alone. From an Android emulator the host machine is 10.0.2.2, so
     // this is typically FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099.
     firebaseAuthEmulatorHost: process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '',
+    // Where the Paymob checkout WebView loads from. Empty in every real build,
+    // in which case paymobCheckout.ts uses Paymob's own host. End-to-end runs
+    // set it to the local Paymob fake — from an Android emulator the host
+    // machine is 10.0.2.2, so typically PAYMOB_CHECKOUT_ORIGIN=http://10.0.2.2:4010.
+    paymobCheckoutOrigin: process.env['PAYMOB_CHECKOUT_ORIGIN'] ?? '',
     // Set OTP_BYPASS_ENABLED=true in your shell to skip phone OTP during local dev.
     // Uses email/password Firebase auth instead — still creates a real Firebase user
     // and a real JWT, so the backend registration path works end-to-end.
