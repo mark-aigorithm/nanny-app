@@ -100,6 +100,26 @@ export async function shiftWindowToNow(bookingId: number, durationHours = 4): Pr
   });
 }
 
+/**
+ * Opens the platform's daily booking window to the full 24 hours.
+ *
+ * Needed by any test that both checks a booking in (which requires the window
+ * to contain the real "now") and then does something the 06:00–22:00 rule
+ * gates, such as extending it. Without this, whether the test passes depends on
+ * the wall-clock time the suite happens to run at — a booking shifted over an
+ * evening "now" cannot be extended, correctly, and the spec would fail only
+ * after 18:00. The window rule itself is asserted where it is the subject.
+ */
+export async function widenBookingWindow(): Promise<void> {
+  // Equal start and end hours is the platform's documented "no restriction"
+  // case (see bookingWindowLengthHours) — 0/23 would still leave a one-hour
+  // dead zone that a shifted booking can land in.
+  await prisma.appSettings.updateMany({
+    where: { key: { in: ['booking_window_start_hour', 'booking_window_end_hour'] } },
+    data: { value: '0' },
+  });
+}
+
 /** Parent reveals the start PIN; nanny checks in with it. Returns the booking. */
 export async function checkIn(
   motherToken: string,

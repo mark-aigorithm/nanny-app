@@ -26,6 +26,30 @@ const INTENTION_ROUTES: Record<PayableKind, (id: number) => string> = {
   adjustment: (id) => `/bookings/adjustments/${id}/pay/paymob`,
 };
 
+/**
+ * Buying a package is its own hop: the purchase row and the intention are
+ * created by one call, so there is nothing to open a checkout *against* until
+ * it has happened. Returns the purchase id alongside the session.
+ */
+export async function purchasePackage(
+  token: string,
+  packageId: number,
+): Promise<CheckoutSession & { purchaseId: number }> {
+  const response = await request(app)
+    .post(`/packages/${packageId}/purchase`)
+    .set(...authHeader(token))
+    .send({ packageId });
+
+  if (response.status !== 201) {
+    throw new Error(
+      `Purchasing package ${packageId} failed with ${response.status}: ` +
+        JSON.stringify(response.body),
+    );
+  }
+
+  return response.body.data as CheckoutSession & { purchaseId: number };
+}
+
 export type CheckoutSession = {
   paymentId: number;
   clientSecret: string;
