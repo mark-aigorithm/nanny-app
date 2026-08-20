@@ -8,8 +8,14 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "clean": "rm -rf dist"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.e2e.json",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.2.8",
@@ -26,10 +32,18 @@
   },
   "devDependencies": {
     "@nanny-app/config": "workspace:*",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^4.5.0",
+    "@vitest/ui": "^4.1.11",
+    "jsdom": "^30.0.1",
+    "msw": "^2.15.0",
     "typescript": "^5.9.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^4.1.11"
   }
 }
