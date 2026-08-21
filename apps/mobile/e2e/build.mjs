@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EMULATOR_ABI, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
+import { APP_ID, EMULATOR_ABI, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
 import { EMULATOR_ENV } from './emulator-env.mjs';
 
 const E2E_DIR = dirname(fileURLToPath(import.meta.url));
@@ -56,5 +56,26 @@ if (!existsSync(APK)) fail(`Gradle reported success but there is no APK at ${APK
 console.log(`[e2e] installing on ${device} …`);
 const install = spawnSync(adb, ['-s', device, 'install', '-r', APK], { stdio: 'inherit' });
 if (install.status !== 0) fail('adb install failed — see the output above.');
+
+/**
+ * Ahead-of-time compile the freshly installed app.
+ *
+ * Without this the first launch reliably ANRs. Expo's module system resolves
+ * its registry through kotlin-reflect, which on a JIT-only install spends 10+
+ * seconds of CPU building Kotlin's runtime metadata — past Android's startup
+ * budget, so the system kills the process before any JS runs ("Reason: Process
+ * failed to complete startup"). It reads like a hang and is really just cold
+ * dex. Compiling once here costs about 45 seconds and makes every later launch
+ * start in a couple of seconds.
+ */
+console.log(`[e2e] ahead-of-time compiling ${APP_ID} (about a minute) …`);
+const compile = spawnSync(adb, ['-s', device, 'shell', 'cmd', 'package', 'compile', '-m', 'speed', '-f', APP_ID], {
+  encoding: 'utf8',
+});
+if (compile.status !== 0 || !compile.stdout?.includes('Success')) {
+  // Not fatal: the app still runs, it just risks an ANR on first launch. Worth
+  // saying out loud rather than leaving a confusing failure for the flow.
+  console.warn(`[e2e] warning: AOT compile did not report success — first launch may ANR.`);
+}
 
 console.log('\n[e2e] installed. Start Metro, then run the flows:\n  pnpm e2e:metro\n');

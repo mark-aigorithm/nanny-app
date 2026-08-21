@@ -1,0 +1,62 @@
+# Shared opening steps for every flow. Not a test — the leading underscore
+# keeps run.mjs from treating it as one.
+#
+# Three things have to happen before any flow can assert anything, and none of
+# them are what `launchApp` does on its own:
+#
+#   1. State is cleared, so a previous run's session cannot make a sign-in flow
+#      pass without signing in.
+#   2. The app is opened through the **dev-client deep link** rather than its
+#      launcher icon. This is a debug build, so `expo-dev-launcher` intercepts a
+#      plain launch and shows its "which dev server?" chooser instead of the
+#      app. The link names the server, which lands straight in the JS app.
+#      `localhost` works because run.mjs sets up `adb reverse` for :8081.
+#   3. The developer menu, which dev-client shows on first launch of a freshly
+#      cleared install, is dismissed — it covers the whole screen.
+appId: com.nannyapp.mobile
+---
+# Clears state *and* pre-grants the runtime permissions, in one step because
+# they are coupled: clearing state revokes every grant, so granting anywhere
+# else would be undone here. Without this the app's own permission prompts
+# (notifications after sign-in, location on the search screens) are system
+# dialogs that land on top of whatever a flow is doing and fail it.
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+# Stopped again before the deep link: `launchApp` leaves the app sitting in
+# dev-launcher's "which server?" chooser, and a VIEW intent delivered to an
+# already-running launcher is ignored. The link has to start the process.
+- stopApp
+
+- openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+
+# The developer menu is the first thing dev-client puts on screen once it has
+# the bundle, and `clearState` resets its "already seen" flag every run — so it
+# is always here, and waiting for it unconditionally is correct rather than
+# optimistic. It must be dismissed *before* asserting anything about the app:
+# it is a modal, and Android drops the content behind a modal out of the
+# accessibility tree, so the app's own text is genuinely invisible to Maestro
+# until this is gone — however plainly it shows in a screenshot.
+#
+# The timeout is generous because this is where Metro serves ~1800 modules; on
+# a cold bundler cache that is a minute or more. Every later step is fast.
+#
+# Note the trailing `.*`: Maestro matches a text selector as a regex against a
+# node's *entire* text, not as a substring. The menu's copy lives in one node,
+# so the bare sentence fragment matches nothing.
+- extendedWaitUntil:
+    visible: 'This is the developer menu.*'
+    timeout: 180000
+- tapOn: 'Continue'
+
+# "Continue" only dismisses the onboarding copy — it leaves the developer menu
+# itself open (Reload, JS debugger, "Connected to: …"), which is still a modal
+# and still hides the app. Back closes it without depending on the menu's own
+# labels, which are Expo's to change.
+- back
+
+- extendedWaitUntil:
+    visible: 'Care you can trust'
+    timeout: 30000

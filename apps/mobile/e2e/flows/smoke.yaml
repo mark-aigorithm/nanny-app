@@ -7,11 +7,9 @@
 # that is safe: every control here has unique, stable copy.
 appId: com.nannyapp.mobile
 ---
-# clearState so a previous run's session cannot make this pass without signing in.
-- launchApp:
-    clearState: true
+# Clears state, opens through the dev-client link and dismisses the dev menu.
+- runFlow: _launch.yaml
 
-- assertVisible: 'Care you can trust'
 - tapOn: 'Get Started'
 
 - assertVisible: 'Create your account'
@@ -20,7 +18,11 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Welcome back'
 - tapOn: '(555) 000-0000'
 - inputText: ${MOTHER_PHONE}
-- tapOn: '••••••••'
+# Selected by its label rather than its placeholder: the placeholder is a run of
+# bullet characters, and a non-ASCII selector does not survive the round trip
+# through a Windows console into Maestro's regex.
+- tapOn:
+    below: 'Password'
 - inputText: ${PASSWORD}
 - hideKeyboard
 - tapOn: 'Sign in'

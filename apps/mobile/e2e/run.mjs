@@ -127,9 +127,40 @@ function seedAccounts() {
   if (result.status !== 0) fail('Seeding failed — see the output above.');
 }
 
+/**
+ * Maps :8081 inside the emulator to Metro on the host.
+ *
+ * Without this the dev-client link would have to name `10.0.2.2`, which works
+ * but bakes the emulator's host alias into every flow. `adb reverse` keeps the
+ * flows saying `localhost`, so they read the same as they would on a physical
+ * device over USB.
+ */
+function reverseMetroPort(adb, device) {
+  const result = spawnSync(adb, ['-s', device, 'reverse', 'tcp:8081', 'tcp:8081'], {
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    fail(`adb reverse for Metro failed: ${result.stderr?.trim() || 'unknown error'}`);
+  }
+}
+
+/**
+ * Silences the system UI that otherwise lands on top of the app mid-flow.
+ *
+ * The API 35 image ships a stylus, and Gboard greets the first tap into a text
+ * field with a full-screen "Try out your stylus" tutorial — which covers the
+ * form the flow is filling in and fails it on a selector that is genuinely
+ * there. Nothing in the app can prevent it; it has to be turned off on the
+ * device.
+ */
+function quietDeviceChrome(adb, device) {
+  spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'secure', 'stylus_handwriting_enabled', '0']);
+}
+
 function flowsToRun(requested) {
   const available = readdirSync(FLOWS_DIR)
-    .filter((name) => name.endsWith('.yaml'))
+    // `_`-prefixed files are shared subflows (see flows/_launch.yaml), not tests.
+    .filter((name) => name.endsWith('.yaml') && !name.startsWith('_'))
     .sort();
 
   if (requested.length === 0) return available;
@@ -184,6 +215,8 @@ async function main() {
   requireAppInstalled(adb, device);
   await requireBackend();
   await requireMetro();
+  reverseMetroPort(adb, device);
+  quietDeviceChrome(adb, device);
 
   console.log(`[e2e] device ${device}, maestro ${maestro}`);
   seedAccounts();

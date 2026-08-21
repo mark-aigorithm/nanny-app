@@ -128,6 +128,7 @@ missing command rather than failing inside a flow.
 | Path | What it is |
 |---|---|
 | `flows/*.yaml` | The flows themselves, named for `Docs/testing/e2e-flows.md` |
+| `flows/_launch.yaml` | Shared opening steps; `_`-prefixed files are subflows, not tests |
 | `accounts.mjs` | Who the lab signs in as — shared by the runner and the seeder |
 | `run.mjs` | Prerequisite checks → seeding → `maestro test` per flow |
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
@@ -152,6 +153,48 @@ ambiguous or absent (icon buttons, repeated labels, list cards), following
 delivers the webhook server-side exactly as Paymob does — so a flow can pay by
 tapping **Pay now** on a real page. See `apps/backend/test/fakes/paymob-server.ts`.
 
-**The emulator is not reset between flows.** Each flow starts with
-`launchApp: clearState: true`, which clears the app's own storage — that is what
-keeps them order-independent.
+**The emulator is not reset between flows.** Every flow opens with
+`runFlow: _launch.yaml`, which clears the app's own storage — that is what keeps
+them order-independent.
+
+## Why launching takes five steps
+
+`_launch.yaml` looks over-engineered until each step has cost you an afternoon.
+All five were found by watching a flow fail against a screen that looked fine:
+
+1. **`launchApp` with `permissions: all: allow`.** The app asks for notifications
+   after sign-in and location on the search screens. Those are *system* dialogs:
+   they land on top of whatever the flow is doing. Granting has to happen in the
+   same step as `clearState`, because clearing state revokes every grant.
+2. **`stopApp` before the deep link.** `launchApp` leaves the app in
+   dev-launcher's "which server?" chooser, and a VIEW intent delivered to an
+   already-running launcher is ignored.
+3. **`openLink` rather than a plain launch.** This is a debug build, so
+   `expo-dev-launcher` intercepts the launcher icon and shows its chooser instead
+   of the app. The link names the Metro server and lands straight in the JS.
+4. **Dismissing the developer menu — twice.** dev-client shows it on first launch
+   after a state clear. "Continue" only dismisses the onboarding copy and leaves
+   the menu itself open; `back` closes that.
+5. **Waiting on the menu, not the app.** Both are modals, and **Android drops
+   the content behind a modal out of the accessibility tree** — so the app's own
+   text is invisible to Maestro however plainly it renders in a screenshot.
+   Asserting on the app first is what makes this look like a broken selector.
+
+**Cold start ANRs without an AOT compile.** Expo resolves its module registry
+through kotlin-reflect, which on a JIT-only install burns 10+ seconds of CPU
+building Kotlin's runtime metadata — past Android's startup budget, so the
+system kills the process ("Reason: Process failed to complete startup") before
+any JS runs. `e2e:build` runs `pm compile -m speed -f` after installing, which
+costs about a minute once and makes every later launch start in a couple of
+seconds.
+
+**Maestro's text selectors are full-match regexes, not substrings.** A fragment
+of a longer string matches nothing — use `'Some prefix.*'`. And keep selectors
+ASCII: a non-ASCII placeholder (the password field's bullets) does not survive
+the round trip through a Windows console into Maestro's regex, which is why that
+field is selected by `below: 'Password'`.
+
+**Gboard's stylus tutorial.** The API 35 image ships a stylus, and Gboard greets
+the first tap into a text field with a full-screen "Try out your stylus" panel
+that covers the form. `run.mjs` turns it off (`stylus_handwriting_enabled 0`) as
+part of device prep.
