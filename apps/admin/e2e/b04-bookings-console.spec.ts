@@ -73,15 +73,21 @@ test('locks the override once a booking is completed', async ({ page }) => {
   await override(page, booking.mother.surname, 'in progress');
   await expect(updatedToast(page)).toBeVisible();
   await override(page, booking.mother.surname, 'completed');
-  expect((await getBooking(admin, booking.id)).status).toBe('COMPLETED');
 
   // The control stays rendered so the operator can still read the status, but
   // nothing more can be done to it — the server refuses too, so this is the UI
   // agreeing with the rule rather than inventing one.
+  //
+  // Waited on before the read-back, and not the other way round: the lock is
+  // rendered from the *refetched* list, so it is the signal that the second
+  // override has actually landed. Reading the API first raced it, and returned
+  // IN_PROGRESS often enough to show up as a flake.
   const select = statusSelectFor(page, booking.mother.surname);
   await expect(select).toBeVisible();
   await expect(select).toBeDisabled();
   await expect(select).toHaveAttribute('title', 'Completed bookings are locked');
+
+  expect((await getBooking(admin, booking.id)).status).toBe('COMPLETED');
 });
 
 /**
