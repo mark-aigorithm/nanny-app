@@ -115,6 +115,25 @@ export async function superuserToken(): Promise<string> {
   return signIn('e2e-superuser@test.local');
 }
 
+export type ConsoleAccount = {
+  email: string;
+  /** Rendered by the Team table as-is; the surname half is unique. */
+  name: string;
+  surname: string;
+  password: string;
+};
+
+/**
+ * Credentials for a console account a spec is about to create **through the
+ * console itself**. Nothing is provisioned here — that is the point, since the
+ * creating is what B1 is testing. `createAdminUser` makes the Firebase account,
+ * so the address only has to be one no previous run has claimed.
+ */
+export function uniqueConsoleAccount(): ConsoleAccount {
+  const { email, surname } = unique('operator');
+  return { email, name: `E2E ${surname}`, surname, password: PASSWORD };
+}
+
 // ── Fixtures ──────────────────────────────────────────────────────
 
 export type SeededMother = {
