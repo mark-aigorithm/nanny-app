@@ -27,21 +27,31 @@ On macOS/Linux the runner looks in `~/.maestro/bin/maestro`, the default for
 > side effect for a test runner. Add it by hand if you want `maestro` on the
 > command line.
 
-**2. Windows only: long path support.** The native build fails without it —
-`ninja: error: … Filename longer than 260 characters`, usually reported as the
-much less obvious `manifest 'build.ninja' still dirty after 100 tries`. React
-Native's codegen writes deep paths (`…/codegen/jni/react/renderer/components/…`)
-under pnpm's already-long store directories, which crosses the legacy 260-character
-limit. In an **administrator** PowerShell:
+**2. Windows only: path length.** The native build fails with
+`ninja: error: … Filename longer than 260 characters`, which surfaces as the far
+less obvious `manifest 'build.ninja' still dirty after 100 tries`. React Native's
+codegen writes deep paths (`…/codegen/jni/react/renderer/components/…`) beneath
+pnpm's store directories, and the longest measured 281 characters.
+
+The repo's `.npmrc` sets `virtual-store-dir-max-length=20`, which caps each store
+directory name at its 32-character hash and takes the worst path to about 254.
+**Changing that value requires a full reinstall** (`CI=true pnpm install` — pnpm
+must remove `node_modules`, and refuses to without a TTY otherwise), followed by
+`npx expo prebuild --platform android --clean`, because the generated project
+hard-codes the old store paths in `settings.gradle`.
+
+Enabling Windows long path support is worth doing as well:
 
 ```powershell
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force
 ```
 
-Reboot afterwards. Verify with
-`reg query "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled` — it must read `0x1`.
+but **on its own it does not fix this build**: a process only benefits if its own
+manifest declares long-path awareness, and the NDK's bundled `ninja` does not.
+Verified on this repo — the flag was set to `0x1` and the build failed
+identically.
 
-Only the native build needs this; the backend, admin and unit suites are unaffected.
+Only the native build is affected; the backend, admin and unit suites don't care.
 
 **3. Android emulator** — needs the SDK command-line tools, a system image and
 an AVD:
