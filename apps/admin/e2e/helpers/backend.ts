@@ -178,6 +178,38 @@ export async function seedMother(): Promise<SeededMother> {
 
 export type SeededNanny = SeededMother & { nannyProfileId: number };
 
+/**
+ * A nanny who has registered and submitted an ID, and is waiting to be vetted —
+ * what the ID-review queue and the Nannies tab exist to act on. Needs no admin
+ * token, because registration alone is what puts her in `PENDING_REVIEW`.
+ */
+export async function seedPendingNanny(): Promise<SeededMother> {
+  const { email, surname } = unique('nanny');
+  const token = await signUp(email);
+
+  const user = (await call('POST', '/auth/register', token, {
+    firstName: 'E2E',
+    lastName: surname,
+    email,
+    phone: uniquePhone(),
+    dateOfBirth: '1995-06-15',
+    role: 'NANNY',
+    termsAcceptedVersion: '1.0',
+    latitude: 30.0444,
+    longitude: 31.2357,
+    address: '2 Test Street, Cairo',
+    idDocumentType: 'PASSPORT',
+    idDocumentFrontUrl: ID_FRONT,
+    avatarUrl: AVATAR,
+    bio: 'Seeded for the admin E2E suite.',
+    yearsOfExperience: 5,
+    availabilityType: 'FULL_TIME',
+    ageRanges: ['0-1', '2-5'],
+  })) as { id: number };
+
+  return { token, id: user.id, email, surname, displayName: `E2E ${surname}` };
+}
+
 /** A registered, admin-approved nanny — the only kind that can claim a booking. */
 export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny> {
   const { email, surname } = unique('nanny');
@@ -224,10 +256,10 @@ export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny
   };
 }
 
-/** Wall-clock tomorrow at `hour`, in the offset-free format the API expects. */
-function wallClockTomorrow(hour: number): string {
+/** Wall-clock `daysAhead` days from now at `hour`, in the offset-free format the API expects. */
+function wallClockAhead(hour: number, daysAhead: number): string {
   const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 1);
+  date.setUTCDate(date.getUTCDate() + daysAhead);
   return `${date.toISOString().slice(0, 10)}T${String(hour).padStart(2, '0')}:00:00`;
 }
 
@@ -242,14 +274,24 @@ export type SeededBooking = {
  * Returns the mother too, since specs locate the row by her name.
  */
 export async function seedPendingBooking(
-  options: { startHour?: number; durationHours?: number; mother?: SeededMother } = {},
+  options: {
+    startHour?: number;
+    durationHours?: number;
+    mother?: SeededMother;
+    /**
+     * Days from today. Defaults to tomorrow; raise it to give one mother
+     * several bookings that cannot overlap, which is the cheap way to fill a
+     * list without paying for an account per row.
+     */
+    daysAhead?: number;
+  } = {},
 ): Promise<SeededBooking> {
-  const { startHour = 10, durationHours = 4 } = options;
+  const { startHour = 10, durationHours = 4, daysAhead = 1 } = options;
   const mother = options.mother ?? (await seedMother());
 
   const booking = (await call('POST', '/bookings', mother.token, {
-    startTime: wallClockTomorrow(startHour),
-    endTime: wallClockTomorrow(startHour + durationHours),
+    startTime: wallClockAhead(startHour, daysAhead),
+    endTime: wallClockAhead(startHour + durationHours, daysAhead),
     children: [{ name: 'E2E Child', ageYears: 3, allergies: null }],
   })) as { id: number; totalAmount: number };
 
@@ -318,4 +360,20 @@ export async function getBooking(adminToken: string, id: number): Promise<{
     totalAmount: number;
     cancellationReason: string | null;
   };
+}
+
+export type KycSubject = {
+  idVerificationStatus: string;
+  rejectionReason: string | null;
+};
+
+/**
+ * A parent's KYC state, straight from the API.
+ *
+ * Worth reading back rather than trusting the badge: the console decides an ID
+ * queue is "cleared" by re-fetching a filtered list, which would look identical
+ * if the row had merely stopped matching the filter for some other reason.
+ */
+export async function getMotherKyc(adminToken: string, id: number): Promise<KycSubject> {
+  return (await call('GET', `/admin/mothers/${id}`, adminToken)) as KycSubject;
 }

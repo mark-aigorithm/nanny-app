@@ -56,7 +56,13 @@ export function actionsFor(page: Page, surname: string): Locator {
   return rowFor(page, surname).getByRole('button', { name: /^Actions for/ });
 }
 
-/** The row's status-override dropdown, scoped the same way and for the same reason. */
+/**
+ * The row's status-override dropdown, scoped the same way and for the same reason.
+ *
+ * Queried as a `button`, not a `combobox`: `Select` is a plain `<button
+ * aria-haspopup="listbox">` that reveals a popover, and `aria-haspopup` does not
+ * change an element's role. A `combobox` query here matches nothing at all.
+ */
 export function statusSelectFor(page: Page, surname: string): Locator {
-  return rowFor(page, surname).getByRole('combobox', { name: /^Override status for/ });
+  return rowFor(page, surname).getByRole('button', { name: /^Override status for/ });
 }
