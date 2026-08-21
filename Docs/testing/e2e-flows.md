@@ -16,19 +16,25 @@ Maestro)**. It authors no tests.
 surfaces and an external payment provider:
 
 ```
-PENDING ──(admin console)──▶ APPROVED ──(mobile + Paymob)──▶ CONFIRMED
-   │                                                              │
-   │                                            (nanny mobile, PIN)│
-   ▼                                                              ▼
-CANCELLED ◀── any non-terminal                              IN_PROGRESS
-                                                                  │
-                                                    (nanny check-out)│
-                                                                  ▼
-                                                             COMPLETED
+PENDING ──(first nanny to accept)──▶ APPROVED ──(mobile + Paymob)──▶ CONFIRMED
+   │                                                                     │
+   │                                                   (nanny mobile, PIN)│
+   ▼                                                                     ▼
+CANCELLED ◀── any non-terminal                                     IN_PROGRESS
+                                                                         │
+                                                           (nanny check-out)│
+                                                                         ▼
+                                                                    COMPLETED
 ```
 <sub>Source: `VALID_TRANSITIONS` in [booking.service.ts:458](../../apps/backend/src/services/booking.service.ts:458).
-`PENDING_CONFIRMATION` is legacy-only — the current flow never produces it. `REFUNDED` is owned by
-the payments domain and is not reachable through the transition table.</sub>
+`PENDING → APPROVED` is normally the nanny's claim
+([`applyNannyDecision`](../../apps/backend/src/services/booking.service.ts:1357)), **not** an operator
+action: a booking is created unassigned and broadcast, and the first nanny to accept both claims it
+and approves it. `POST /admin/bookings/:id/approve` still exists but is an override that *requires a
+nanny already assigned* ([admin-booking.service.ts:283](../../apps/backend/src/services/admin-booking.service.ts:283)),
+so it cannot be the flagship path. `PENDING_CONFIRMATION` is legacy-only — the current flow never
+produces it. `REFUNDED` is owned by the payments domain and is not reachable through the transition
+table.</sub>
 
 Neither an admin-only Playwright run nor a mobile-only Maestro run can cover that on its own. So
 each flow below names a **driver**:
@@ -50,17 +56,66 @@ no live credentials and no network.
 Nothing ships without these. Each one either moves money, grants access, or decides whether a
 stranger is allowed near a child.
 
-### A1. Booking happy path, card payment · `UI:both`
-The flagship. Parent signs in → nanny search (PostGIS radius ranking) → nanny profile →
-`BookingStep1/2/3` (children, date/time, care details) → `BookingConfirmation` → **PENDING**.
-Operator approves in the console → **APPROVED**. Parent pays via the Paymob fake → webhook →
-**CONFIRMED**. Nanny accepts (advisory only). Nanny requests a start PIN, parent reads it out,
-nanny checks in → **IN_PROGRESS**. Nanny writes care logs; parent sees them in
-`CareActivityFeedScreen`. Nanny checks out → **COMPLETED**. Parent submits a review.
+**All twelve are covered.** Every one has an API journey in
+[`apps/backend/src/__integration__/journeys/`](../../apps/backend/src/__integration__/journeys);
+the table names the UI spec where one exists and says what driving a UI actually adds.
 
-**Assert:** status after every hop; `Payment` row reaches `CAPTURED`; the nanny/platform split
-matches the shared pricing engine exactly; a notification row exists per transition; the review
-moves the nanny's average rating.
+| Flow | API journey | UI spec | What the UI adds |
+|---|---|---|---|
+| A1 | `a01-booking-lifecycle` | `a01-booking-happy-path.yaml` | The whole journey on a device, paid in a real WebView |
+| A2 | `a02-admin-reject` | `a02-reject-booking.spec.ts` | The console's own reject action |
+| A3 | `a03-refund` | `a03-refund.spec.ts` | Refunding from the console |
+| A4 | `a04-promo-code` | `a04-promo-code.yaml` | That the discounted figure is the one the checkout page charges |
+| A5 | `a05-care-points` | `a05-care-points.yaml` | Hours reserved before a nanny exists, applied without a tap once one accepts |
+| A6 | `a06-package-hours` | `a06-package-purchase.yaml` | A second checkout, and the hours turning up where a mother looks |
+| A7 | `a07-extension` | `a07-extension.yaml` | The mid-shift card: ask, wait, pay for the extra hours |
+| A8 | `a08-time-edit-adjustment` | `a08-time-edit.spec.ts` | The console's edit preview and the delta it applies |
+| A9 | `a09-webhook-resilience` | — | Nothing — a dropped webhook has no UI |
+| A10 | `a10-nanny-onboarding` | `a10-nanny-onboarding.yaml` | The vetting gate: waiting screen, then dashboard |
+| A11 | `a11-mother-id-gate` | `a11-mother-id-gate.yaml` | That the gate is on the *action*, not on the app |
+| A12 | `a12-operator-access-matrix` | `a12-operator-ui.spec.ts` | The sidebar, and a direct URL to a forbidden section |
+
+Mobile specs live in `apps/mobile/e2e/flows/`, admin specs in `apps/admin/e2e/`. Two are
+deliberately narrower on mobile than described below: **A10 and A11 start from a seeded account
+rather than driving registration**, because registration ends at an ID upload that opens the
+Android photo picker and its crop screen — system UI that changes between OS versions, for the
+least return in the suite. What registration itself decides is asserted over HTTP in the matching
+API journeys. See `apps/mobile/e2e/README.md`.
+
+### A1. Booking happy path, card payment · `UI:mobile` (+ the nanny advanced over HTTP)
+The flagship, and the flow this catalogue previously described wrongly. **Care is broadcast
+Uber-style — the parent never searches for or picks a nanny, and no operator is in the path.**
+
+Parent signs in → `HomeScreen` "Book care" (ID-verification gate) → `BookingDatePickerScreen`
+(date, time, duration) → `BookingCareDetailsScreen` (children, skills, instructions) →
+`BookingStep1Screen` (review, promo code, Care Points, package hours) → `POST /bookings` →
+**PENDING with `nannyProfileId = null`**.
+
+The request is then broadcast to every *eligible* nanny — approved ID, complete profile, free for
+the window, inside `broadcast_radius_km`, holding every skill the request was priced for
+([`notifyBookingBroadcast`](../../apps/backend/src/services/booking.service.ts:555) and
+[`listAvailableBookings`](../../apps/backend/src/services/booking.service.ts:1198) filter on the
+same axes). `BookingConfirmationScreen` holds a live "searching" state with an elapsed timer while
+she waits. The **first nanny to accept** from `NannyRequestsScreen` claims the request, and that
+claim is what moves **PENDING → APPROVED** — guarded by an atomic status-conditioned `updateMany`
+so two nannies cannot claim the same request.
+
+The reveal on `BookingConfirmationScreen` then offers **Complete payment** → `BookingStep3Screen`
+(Paymob WebView) → webhook → **CONFIRMED**. (`booking-step-2` is a legacy redirect; there is no
+payment-method step.) Nanny requests a start PIN (`/bookings/:id/start-pin`), parent reads it out,
+nanny checks in → **IN_PROGRESS**. Nanny writes care logs; the parent reads them in the **Care log
+section of `BookingDetailScreen`** (`BookingCareLogSection` — there is no standalone care-log
+screen). Nanny checks out → **COMPLETED**. Parent submits a review, which is not optional: a
+completed unrated booking raises a blocking gate over the app.
+
+Driver note: nothing here needs a second UI driver. Maestro drives the mother; the nanny's four
+moves (accept, check in, care log, check out) are advanced over HTTP.
+
+**Assert:** status after every hop; the claim actually flips PENDING → APPROVED and a **second**
+nanny accepting the same request is refused ("no longer awaiting a nanny decision"); a nanny
+outside the radius or missing a priced skill never sees the request in her pool; `Payment` row
+reaches `CAPTURED`; the nanny/platform split matches the shared pricing engine exactly; a
+notification row exists per transition; the review moves the nanny's average rating.
 
 ### A2. Admin rejects a pending booking · `UI:admin`
 `PENDING → CANCELLED` via `/admin/bookings/:id/reject`. **Assert:** no `Payment` row was ever
@@ -105,8 +160,10 @@ returns 401 and leaves the booking APPROVED. Partly covered already by
 
 ### A10. Nanny onboarding and approval · `UI:both`
 Role selection → nanny details → location → ID upload → `PendingReviewScreen`. Admin approves in
-the ID-review queue → **the nanny becomes discoverable in parent search**, which is the assertion
-that matters. Reject path shows the reason in-app.
+the ID-review queue → **the nanny enters the broadcast pool**, which is the assertion that matters:
+a new request created afterwards is pushed to her and appears in `NannyRequestsScreen`, where she
+can claim it. (There is no parent-facing nanny search to become "discoverable" in.) Reject path
+shows the reason in-app.
 
 ### A11. Mother ID verification gates booking · `UI:mobile`
 Registration steps 1–3 → `UploadIdScreen` → `PENDING_REVIEW`. **Assert:** booking is refused while
@@ -188,8 +245,9 @@ and flake.
 - **Pricing arithmetic permutations** — shared unit tests plus backend integration. E2E proves the
   number reaches the screen; it should not enumerate the number.
 - **Zod schema matrices** — plan 2.
-- **PostGIS radius ranking correctness** — backend integration with fixed coordinates. E2E asserts
-  only that a nearby nanny appears and a distant one does not.
+- **Broadcast radius correctness** — backend integration with fixed coordinates. The radius now
+  decides who a request is *offered* to, not how a result list is ranked (there is no ranked list).
+  E2E asserts only that a nearby nanny gets the request in her pool and a distant one does not.
 - **Pagination and sort on every admin list** — component tests with MSW.
 - **HMAC signing variants** — already covered by `paymob-fake.smoke.test.ts` and the unit tests.
 - **Email bodies** — assert *one* message per flow via Mailpit; templates are unit-testable.
@@ -202,8 +260,12 @@ and flake.
    listed as out of scope in the environment plan and needs to land inside plans 4 and 6.
 2. **Live video (B7) and any WebSocket realtime** are likely not drivable by Maestro. Expect to
    assert the *signalling* (credentials issued, notification sent) and stop at the media stream.
-3. **Two-driver specs (A1, A7, A10, B6)** need a decision on orchestration: run Maestro and
-   Playwright in one harness, or advance the non-focus surface over HTTP. The second is far
-   cheaper and is the recommendation.
-4. **Seed determinism.** A1 needs a nanny within radius of a known parent coordinate; the current
-   factories place both in Cairo but do not guarantee ranking order.
+3. **Two-driver specs (A7, A10, B6)** need a decision on orchestration: run Maestro and Playwright
+   in one harness, or advance the non-focus surface over HTTP. The second is far cheaper and is the
+   recommendation. A1 is no longer among them — the operator left the booking path when care became
+   a broadcast, so it is Maestro plus HTTP.
+4. **Seed determinism.** A1 needs a seeded nanny who is *eligible* for the request: ID-approved,
+   profile complete, free for the window, inside `broadcast_radius_km` of the mother, and holding
+   every skill the request is priced for. The current factories place both parties in Cairo, but
+   the skill and availability halves of eligibility are not guaranteed — miss one and the request
+   simply never reaches her pool, which fails as a timeout rather than an assertion.

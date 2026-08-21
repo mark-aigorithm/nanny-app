@@ -163,13 +163,19 @@ pnpm dev
 | Unit / component | backend `src/__tests__`, shared, admin, mobile | no | `pnpm test:unit` |
 | Integration (real DB + HTTP) | backend `src/__integration__` | **yes** | `pnpm test:integration` |
 | E2E (browser) | `apps/admin/e2e` | **yes**, plus a backend on :3001 | `pnpm --filter=@nanny-app/admin test:e2e` |
+| E2E (device) | `apps/mobile/e2e` | **yes**, plus a backend, Metro and an Android emulator | `pnpm test:e2e:mobile` |
 
 | Package | Runner |
 |---|---|
 | backend | Jest (two projects: `unit`, `integration`) |
 | shared | Vitest |
 | admin | Vitest + Testing Library + MSW; Playwright for E2E |
-| mobile | Jest (`jest-expo`) + React Native Testing Library |
+| mobile | Jest (`jest-expo`) + React Native Testing Library; Maestro for device E2E |
+
+The device tier drives the real app on a real emulator and has more moving parts than the rest of
+the suite put together — a debug APK, Metro, an AVD, and a Maestro CLI that is not on `PATH`.
+Its prerequisites and the several non-obvious things that make a flow pass are in
+[apps/mobile/e2e/README.md](../apps/mobile/e2e/README.md); read that before touching a flow.
 
 ### The test stack
 
@@ -198,6 +204,15 @@ For an E2E run, also start the backend against that stack:
 ```bash
 pnpm --filter=@nanny-app/backend start:test
 ```
+
+The device tier needs two more processes on top of that — an emulator and Metro — and a one-time
+setup (Maestro CLI, an AVD, a debug build). All of it is in
+[apps/mobile/e2e/README.md](../apps/mobile/e2e/README.md).
+
+**Payment is exercised for real on both E2E tiers.** The Paymob fake serves the same
+`/unifiedcheckout/` page the app opens, signs its webhooks with the production HMAC helpers and
+delivers them itself — so a WebView completing a checkout is the production path with a local
+issuer, not a mock.
 
 - **Coverage threshold**: 80% across lines/branches/functions (planned; the CI gate is not yet wired).
 
