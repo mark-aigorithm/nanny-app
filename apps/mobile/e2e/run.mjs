@@ -20,8 +20,9 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ACCOUNTS, PASSWORD, localDigits } from './accounts.mjs';
+import { ACCOUNTS, PASSWORD, localDigits, placeholderEmail } from './accounts.mjs';
 import { APP_ID, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
+import { CARE_POINTS, PACKAGE, PLATFORM_SETTINGS, PROMO_CODES } from './fixtures.mjs';
 
 const E2E_DIR = dirname(fileURLToPath(import.meta.url));
 const MOBILE_DIR = resolve(E2E_DIR, '..');
@@ -30,6 +31,9 @@ const FLOWS_DIR = join(E2E_DIR, 'flows');
 
 /** Where the backend under test listens; the app reaches it at 10.0.2.2 from the emulator. */
 const BACKEND_URL = 'http://127.0.0.1:3001';
+
+/** Where the Firebase Auth emulator listens, for the same reason. */
+const AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
 
 /**
  * Locates the Maestro CLI.
@@ -101,9 +105,9 @@ async function requireBackend() {
   }
 }
 
-/** Provisions the accounts the flows sign in as, through the backend's own script. */
-function seedAccounts() {
-  console.log('[e2e] seeding accounts…');
+/** Provisions the accounts and catalogue rows the flows spend, through the backend's own script. */
+function seedLab() {
+  console.log('[e2e] seeding…');
   const result = spawnSync(
     'pnpm',
     [
@@ -120,7 +124,16 @@ function seedAccounts() {
       cwd: REPO_ROOT,
       stdio: 'inherit',
       shell: process.platform === 'win32',
-      env: { ...process.env, E2E_MOBILE_ACCOUNTS: JSON.stringify(Object.values(ACCOUNTS)) },
+      env: {
+        ...process.env,
+        E2E_MOBILE_ACCOUNTS: JSON.stringify(Object.values(ACCOUNTS)),
+        E2E_LAB_FIXTURES: JSON.stringify({
+          platformSettings: PLATFORM_SETTINGS,
+          promoCodes: Object.values(PROMO_CODES),
+          package: PACKAGE,
+          carePoints: CARE_POINTS,
+        }),
+      },
     },
   );
 
@@ -174,20 +187,42 @@ function flowsToRun(requested) {
   });
 }
 
+/**
+ * Protects a value that contains a space.
+ *
+ * Maestro's launcher is a `.bat`, which Node can only spawn through a shell —
+ * and with a shell the argv array is *concatenated*, not passed through, so a
+ * package name like "E2E Starter" arrives as two arguments and the second is
+ * read as a flow path. Values here are ours and never contain quotes.
+ */
+function quoteArg(value) {
+  return value.includes(' ') ? `"${value}"` : value;
+}
+
 function runFlow(maestro, flow) {
   console.log(`\n[e2e] ── ${flow} ─────────────────────────────`);
+
+  // The phones are what a flow types; the emails and URLs are what
+  // scripts/advance.js needs to drive the other side of a journey over HTTP.
+  const params = {
+    MOTHER_PHONE: localDigits(ACCOUNTS.mother.phone),
+    NANNY_PHONE: localDigits(ACCOUNTS.nanny.phone),
+    MOTHER_EMAIL: placeholderEmail(ACCOUNTS.mother.phone),
+    NANNY_EMAIL: placeholderEmail(ACCOUNTS.nanny.phone),
+    PASSWORD,
+    BACKEND_URL,
+    AUTH_EMULATOR_URL,
+    PROMO_CODE: PROMO_CODES.reusable.code,
+    PROMO_CODE_SINGLE_USE: PROMO_CODES.singleUse.code,
+    PACKAGE_NAME: PACKAGE.name,
+  };
 
   const result = spawnSync(
     maestro,
     [
       'test',
       join(FLOWS_DIR, flow),
-      '-e',
-      `MOTHER_PHONE=${localDigits(ACCOUNTS.mother.phone)}`,
-      '-e',
-      `NANNY_PHONE=${localDigits(ACCOUNTS.nanny.phone)}`,
-      '-e',
-      `PASSWORD=${PASSWORD}`,
+      ...Object.entries(params).flatMap(([key, value]) => ['-e', quoteArg(`${key}=${value}`)]),
     ],
     {
       cwd: E2E_DIR,
@@ -219,7 +254,7 @@ async function main() {
   quietDeviceChrome(adb, device);
 
   console.log(`[e2e] device ${device}, maestro ${maestro}`);
-  seedAccounts();
+  seedLab();
 
   const flows = flowsToRun(process.argv.slice(2));
   const failed = flows.filter((flow) => !runFlow(maestro, flow));

@@ -1,0 +1,188 @@
+# A1 — booking happy path, card payment. The flagship flow.
+#
+# The mother's whole journey on the device: request care → wait out the
+# broadcast → pay on a real checkout page in a WebView → watch the shift start
+# → read the care log → rate the nanny. The nanny's four moves happen over HTTP
+# (see scripts/advance.js), because Maestro drives one surface and running a
+# second UI driver alongside it is the expensive way to do the same thing.
+#
+# The catalogue describes this flow as "search → nanny profile → book" and the
+# admin approving the request. Neither is what the app does any more: care is
+# broadcast Uber-style, nobody picks a nanny, and the first nanny to accept is
+# what moves PENDING → APPROVED. This flow follows the app.
+appId: com.nannyapp.mobile
+env:
+  CARE_LOG_NOTE: 'Lunch: pasta and apple slices'
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+- assertVisible: 'Book care'
+- tapOn: 'Book care'
+
+# ── When ───────────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Pick a day'
+    timeout: 30000
+
+# The first card the rail offers, by index rather than by label. The rail drops
+# days whose slots have all passed, so whether the first card says "Today" or
+# "Tomorrow" depends on the clock and on the device's timezone relative to the
+# platform's.
+- tapOn:
+    id: 'booking.day'
+    index: 0
+
+# Care has to start soon: check-in opens fifteen minutes before the start time,
+# and a booking further out than that could never reach IN_PROGRESS.
+#
+# Selecting a day lands on the first whole HOUR still bookable, which can be
+# most of an hour away, so walk the stepper down to its floor — the earliest
+# start on offer, minutes from now. It disables there, so the extra taps are
+# no-ops and the count only has to be generous.
+- repeat:
+    times: 12
+    commands:
+      - tapOn:
+          id: 'booking.startTime.decrement'
+
+# Then back up two five-minute notches. The floor is the earliest start that
+# was legal when the screen loaded, and by the time the request is actually
+# submitted — three screens later — that moment has passed and the server
+# refuses it as "Cannot book in the past". Ten minutes of headroom clears the
+# walk comfortably while staying inside the check-in window.
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: 'booking.startTime.increment'
+
+- tapOn:
+    id: 'booking.cta'
+
+# ── Who ────────────────────────────────────────────────────────────────────
+# One child, aged three, is the screen's own default — a mother who has saved
+# no family sees exactly this, so accepting it is a real path, not a shortcut.
+- extendedWaitUntil:
+    visible: 'Who needs care?'
+    timeout: 20000
+- tapOn:
+    id: 'booking.cta'
+
+# ── Review → request ───────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Review your request'
+    timeout: 20000
+- tapOn:
+    id: 'booking.cta'
+
+# ── Broadcast ──────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- assertTrue: ${output.status == 'APPROVED'}
+
+# The screen polls every five seconds, so it flips on its own — no reload, no
+# re-navigation. That it does is part of what this flow is testing.
+- extendedWaitUntil:
+    visible: 'A nanny accepted!'
+    timeout: 30000
+
+# ── Pay ────────────────────────────────────────────────────────────────────
+- tapOn: 'Complete payment'
+
+# The Paymob fake serves this page at the very path the app builds, so the
+# WebView, the redirect and the webhook are all the production ones. Android
+# exposes WebView content to the accessibility tree, which is why a plain HTML
+# button can be tapped by its text.
+- extendedWaitUntil:
+    visible: 'Pay now'
+    timeout: 60000
+- tapOn: 'Pay now'
+
+- extendedWaitUntil:
+    visible: 'Payment successful'
+    timeout: 60000
+
+# Back on the confirmation screen, now settled.
+- extendedWaitUntil:
+    visible: "You're booked."
+    timeout: 30000
+
+# ── The shift ──────────────────────────────────────────────────────────────
+# All three of the nanny's moves run back to back while the mother is away from
+# the app, which is also how it happens in life: she is not watching the screen
+# while someone checks in, feeds her child and leaves.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-in
+- assertTrue: ${output.status == 'IN_PROGRESS'}
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-care-log
+      CARE_LOG_NOTE: ${CARE_LOG_NOTE}
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-out
+- assertTrue: ${output.status == 'COMPLETED'}
+
+# She comes back to the app. Reopening is also what clears the query cache, so
+# one relaunch is what lets the whole shift land at once — see _relaunch.yaml.
+- runFlow: _relaunch.yaml
+
+# ── Rate ───────────────────────────────────────────────────────────────────
+# Rating is not optional: a completed, unrated booking raises a modal over the
+# whole app until it is answered. Waiting for it is what proves the gate fires —
+# and submitting is what lets any later flow reach a screen at all.
+#
+# Two prompts actually appear for the same booking — the full-screen
+# MandatoryReviewGate and this bottom sheet on top of it, both fed by the same
+# "most recent booking is completed and unrated" condition. That is a defect,
+# not a race: the sheet is always the one in front, so it is the one a person
+# can answer, and the gate closes behind it once the review lands.
+- extendedWaitUntil:
+    visible: 'How was your booking with .*'
+    timeout: 120000
+
+# Selected by the accessibility label the control already carries, so five
+# identical star icons need no test-only instrumentation.
+- tapOn: 'Rate 5 stars'
+- tapOn: 'Submit rating'
+
+- extendedWaitUntil:
+    notVisible: 'Rate your booking'
+    timeout: 30000
+
+# ── The care log ───────────────────────────────────────────────────────────
+# Only readable from the booking's own screen — the standalone care-activity
+# feed screen exists but nothing in the app navigates to it.
+- tapOn: 'Activity'
+- extendedWaitUntil:
+    visible: 'Past'
+    timeout: 30000
+- tapOn: 'Past'
+- extendedWaitUntil:
+    visible: 'Past bookings'
+    timeout: 30000
+- tapOn: 'Completed'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${CARE_LOG_NOTE}
+    direction: DOWN
+    timeout: 30000

@@ -27,3 +27,15 @@ export const ACCOUNTS = {
 export function localDigits(phoneE164) {
   return phoneE164.startsWith(COUNTRY_CODE) ? phoneE164.slice(COUNTRY_CODE.length) : phoneE164;
 }
+
+/**
+ * The Firebase credential the app derives from a phone number.
+ *
+ * Sign-up is phone-only, so there is no real email anywhere — the app
+ * synthesizes one (`phoneToPlaceholderEmail` in src/lib/validation.ts) and the
+ * backend's seeder derives the same string. `scripts/advance.js` needs it to
+ * sign in over HTTP as the same person the flow is signed in as on the device.
+ */
+export function placeholderEmail(phoneE164) {
+  return `${phoneE164.replace(/\D/g, '')}@phone.nannyapp.local`;
+}

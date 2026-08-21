@@ -1,0 +1,18 @@
+# Reopens the app without clearing anything, the way a parent returns to it
+# after the shift has moved on without her.
+#
+# Not a test — the leading underscore keeps run.mjs from treating it as one.
+#
+# Why any flow needs this: React Query holds every response for sixty seconds
+# (`staleTime` in src/lib/queryClient.ts), so a screen already showing a booking
+# will not notice the same booking being checked into, logged against or checked
+# out of by the nanny. Reopening the app is the one thing that reliably empties
+# that cache — it lives in memory only.
+#
+# The session survives, so this lands straight on the mother's home screen. The
+# developer menu does not reappear either: dev-client only shows it on the first
+# launch after a state clear, which is `_launch.yaml`'s job, not this one.
+appId: com.nannyapp.mobile
+---
+- stopApp
+- openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'

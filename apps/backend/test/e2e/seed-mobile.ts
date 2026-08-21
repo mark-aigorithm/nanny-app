@@ -1,5 +1,7 @@
 /**
- * Provisions the accounts the mobile E2E lab signs in as.
+ * Provisions everything the mobile E2E lab spends: the accounts it signs in as,
+ * the catalogue rows its flows redeem, and the platform configuration those
+ * flows assume.
  *
  * Sibling of `seed-roles.ts`, and here for the same reason: the Firebase Admin
  * SDK, the Prisma client and the test environment all live in the backend, and
@@ -15,10 +17,13 @@
  *
  * Usage:
  *   E2E_MOBILE_ACCOUNTS='[{"phone":"+201100000001","password":"…","role":"MOTHER"}]' \
+ *   E2E_LAB_FIXTURES='{"platformSettings":{…},"promoCodes":[…],…}' \
  *     pnpm exec ts-node --transpile-only -r tsconfig-paths/register test/e2e/seed-mobile.ts
  *
- * Idempotent: a re-run resets the password and re-syncs the Firebase uid rather
- * than failing on the unique phone, so re-running the suite is always safe.
+ * Idempotent, and deliberately more than idempotent: unlike the integration
+ * suite, the lab's database is never truncated between runs, so this also
+ * *undoes* the previous run. Without that, the second run books a nanny who is
+ * already busy at that hour, and re-spends a code she has already used.
  */
 import '../env';
 
@@ -34,6 +39,21 @@ type AccountSpec = {
   role: Extract<Role, 'MOTHER' | 'NANNY'>;
   firstName?: string;
   lastName?: string;
+};
+
+type PromoSpec = {
+  code: string;
+  discountType: 'FLAT' | 'PERCENTAGE';
+  value: number;
+  maxUsage?: number;
+};
+
+/** Mirrors `apps/mobile/e2e/fixtures.mjs`, which is where these values live. */
+type LabFixtures = {
+  platformSettings: Record<string, string>;
+  promoCodes: PromoSpec[];
+  package: { name: string; hours: number; price: number; validityDays: number };
+  carePoints: number;
 };
 
 /** Cairo city centre — matches the seed data's region, so distance ranking behaves. */
@@ -60,7 +80,7 @@ async function ensureFirebaseUser(email: string, password: string): Promise<stri
   }
 }
 
-async function seedAccount(spec: AccountSpec): Promise<void> {
+async function seedAccount(spec: AccountSpec): Promise<number> {
   const email = placeholderEmail(spec.phone);
   const firebaseUid = await ensureFirebaseUser(email, spec.password);
 
@@ -116,15 +136,178 @@ async function seedAccount(spec: AccountSpec): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log(`[seed-mobile] ${spec.role.padEnd(6)} ${spec.phone}  (${email})`);
+  return user.id;
+}
+
+/**
+ * Puts the platform into the configuration the flows were written against.
+ *
+ * Written straight to `app_settings` rather than through `PUT /admin/config`,
+ * because that route is privilege-scoped and would need a superuser account the
+ * lab has no other use for. The keys are the service's own, so a rename shows
+ * up as a flow failing on a slot it can no longer pick — see
+ * `apps/mobile/e2e/fixtures.mjs` for why each value is what it is.
+ */
+async function configurePlatform(settings: Record<string, string>): Promise<void> {
+  for (const [key, value] of Object.entries(settings)) {
+    await prisma.appSettings.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value, deletedAt: null },
+    });
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] platform  ${Object.keys(settings).length} settings`);
+}
+
+/**
+ * Undoes the previous run for these accounts.
+ *
+ * Soft deletes throughout, which is enough because every read that matters
+ * filters on `deletedAt` — the nanny's double-booking guard, the promo code's
+ * per-user cap and the parent's live-booking card all do. The one exception is
+ * `package_purchases`, whose "at most one active package" rule is a partial
+ * unique index on (user_id, is_active_slot) that ignores `deleted_at`
+ * entirely — so the slot has to be released explicitly or the next purchase
+ * collides at the database.
+ */
+async function resetPreviousRun(userIds: number[]): Promise<void> {
+  const deletedAt = new Date();
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ motherId: { in: userIds } }, { nannyProfile: { userId: { in: userIds } } }],
+    },
+    select: { id: true },
+  });
+  const bookingIds = bookings.map((b) => b.id);
+
+  if (bookingIds.length > 0) {
+    // Children first: a booking's dependants outlive it otherwise, and the
+    // care-log and extension lists are read by booking id, not by status.
+    await prisma.bookingExtension.updateMany({
+      where: { bookingId: { in: bookingIds }, deletedAt: null },
+      data: { deletedAt },
+    });
+    await prisma.booking.updateMany({ where: { id: { in: bookingIds } }, data: { deletedAt } });
+  }
+
+  await prisma.promoCodeRedemption.updateMany({
+    where: { userId: { in: userIds }, deletedAt: null },
+    data: { deletedAt },
+  });
+
+  await prisma.packagePurchase.updateMany({
+    where: { userId: { in: userIds }, deletedAt: null },
+    data: { deletedAt, isActiveSlot: null, status: 'EXPIRED' },
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] reset     ${bookingIds.length} bookings`);
+}
+
+/** Upserts the codes A4 spends, resetting the counters a previous run moved. */
+async function seedPromoCodes(specs: PromoSpec[]): Promise<void> {
+  for (const spec of specs) {
+    const shape = {
+      discountType: spec.discountType,
+      value: spec.value,
+      maxUsage: spec.maxUsage ?? null,
+      maxUsagePerUser: null,
+      usageCount: 0,
+      isActive: true,
+      expiresAt: null,
+      deletedAt: null,
+    };
+    await prisma.promoCode.upsert({
+      where: { code: spec.code },
+      create: { code: spec.code, ...shape },
+      update: shape,
+    });
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] promo     ${specs.map((s) => s.code).join(', ')}`);
+}
+
+async function seedPackage(spec: LabFixtures['package']): Promise<void> {
+  const shape = {
+    hours: spec.hours,
+    price: spec.price,
+    validityDays: spec.validityDays,
+    description: 'Seeded for the mobile E2E lab.',
+    isActive: true,
+    expiresAt: null,
+    deletedAt: null,
+  };
+  await prisma.package.upsert({
+    where: { name: spec.name },
+    create: { name: spec.name, ...shape },
+    update: shape,
+  });
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] package   ${spec.name}`);
+}
+
+/**
+ * Sets the mother's Care Points balance to a known number.
+ *
+ * A grant, with a matching ledger entry, rather than a bare balance write: the
+ * wallet screen renders the ledger, and a balance with no history behind it
+ * would make A5's "the ledger balances" assertion vacuous.
+ */
+async function seedCarePoints(userId: number, points: number): Promise<void> {
+  const wallet = await prisma.rewardWallet.upsert({
+    where: { userId },
+    create: { userId, pointsBalance: points, lifetimeEarned: points },
+    update: { pointsBalance: points, deletedAt: null },
+  });
+
+  await prisma.rewardLedgerEntry.create({
+    data: {
+      walletId: wallet.id,
+      userId,
+      type: 'ADMIN_GRANT',
+      points,
+      balanceAfter: points,
+      reason: 'Seeded for the mobile E2E lab.',
+    },
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] points    ${points} to user ${userId}`);
 }
 
 async function main(): Promise<void> {
-  const raw = process.env['E2E_MOBILE_ACCOUNTS'];
-  if (!raw) throw new Error('E2E_MOBILE_ACCOUNTS is required (a JSON array of account specs).');
-
-  for (const spec of JSON.parse(raw) as AccountSpec[]) {
-    await seedAccount(spec);
+  const rawAccounts = process.env['E2E_MOBILE_ACCOUNTS'];
+  if (!rawAccounts) {
+    throw new Error('E2E_MOBILE_ACCOUNTS is required (a JSON array of account specs).');
   }
+  const rawFixtures = process.env['E2E_LAB_FIXTURES'];
+  if (!rawFixtures) {
+    throw new Error('E2E_LAB_FIXTURES is required (see apps/mobile/e2e/fixtures.mjs).');
+  }
+  const fixtures = JSON.parse(rawFixtures) as LabFixtures;
+
+  await configurePlatform(fixtures.platformSettings);
+
+  const specs = JSON.parse(rawAccounts) as AccountSpec[];
+  const userIds: number[] = [];
+  let motherId: number | null = null;
+  for (const spec of specs) {
+    const id = await seedAccount(spec);
+    userIds.push(id);
+    if (spec.role === Role.MOTHER && motherId === null) motherId = id;
+  }
+
+  // After the accounts exist (their ids are what it cleans up), before the
+  // fixtures — the reset soft-deletes purchases, so a package seeded first
+  // would still be fine, but the order reads as "undo, then set up".
+  await resetPreviousRun(userIds);
+
+  await seedPromoCodes(fixtures.promoCodes);
+  await seedPackage(fixtures.package);
+  if (motherId !== null) await seedCarePoints(motherId, fixtures.carePoints);
 }
 
 main()

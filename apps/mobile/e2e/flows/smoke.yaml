@@ -1,31 +1,15 @@
 # Proves the whole chain, and nothing more: Maestro drives the app, the app
 # reaches Metro, Firebase auth reaches the emulator, and /auth/me reaches the
 # backend. If this fails, no other flow's failure means anything yet.
-#
-# It signs in by visible text because the P0 screens are not instrumented yet —
-# testIDs arrive with the flows that need them. Sign-in is the one journey where
-# that is safe: every control here has unique, stable copy.
 appId: com.nannyapp.mobile
 ---
 # Clears state, opens through the dev-client link and dismisses the dev menu.
 - runFlow: _launch.yaml
 
-- tapOn: 'Get Started'
-
-- assertVisible: 'Create your account'
-- tapOn: 'Sign in'
-
-- assertVisible: 'Welcome back'
-- tapOn: '(555) 000-0000'
-- inputText: ${MOTHER_PHONE}
-# Selected by its label rather than its placeholder: the placeholder is a run of
-# bullet characters, and a non-ASCII selector does not survive the round trip
-# through a Windows console into Maestro's regex.
-- tapOn:
-    below: 'Password'
-- inputText: ${PASSWORD}
-- hideKeyboard
-- tapOn: 'Sign in'
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
 
 # The home screen the root gate routes a mother to. "Book care" renders for
 # guests too, so the guest card's absence is what proves the session is real —
