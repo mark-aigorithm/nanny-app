@@ -1,0 +1,112 @@
+# A5 — Care Points redemption.
+#
+# The wallet's own rules (the ledger, the caps, returning points when a booking
+# is cancelled) are settled over HTTP in a05-care-points.test.ts. What only the
+# app can show is the round trip a mother actually sees: a balance, hours
+# reserved before a nanny even exists, those hours applied on her behalf the
+# moment one accepts, a smaller amount on the checkout page, and a balance that
+# has gone down by exactly what she spent.
+#
+# The arithmetic is the assertion. Four hours at 120 is 480; two free hours at
+# 100 points each is 200 points off the balance and 240 off the bill, leaving
+# 240 to pay and 800 points in the wallet.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+# ── The balance ────────────────────────────────────────────────────────────
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Care Points'
+    timeout: 30000
+- tapOn: 'Care Points'
+
+- extendedWaitUntil:
+    visible: 'Your Care Points'
+    timeout: 30000
+- assertVisible: '1,000'
+- assertVisible: '100 points = 1 free care hour'
+
+# Care Points is a stack screen with no tab bar of its own, so getting back to
+# the tabs is a back press, not a tap on Home.
+- back
+- extendedWaitUntil:
+    visible: 'Services'
+    timeout: 30000
+- tapOn: 'Home'
+
+# ── Reserve two free hours ─────────────────────────────────────────────────
+- runFlow: _book-to-review.yaml
+
+- assertVisible: 'EGP 480.00'
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: 'booking.points.increment'
+
+# Reserved, not yet spent: there is no booking to redeem against until the
+# request exists, so the review step only promises the reduction.
+- assertVisible: 'EGP 240.00'
+- assertVisible: '2 free hours .* Care Points'
+
+- tapOn:
+    id: 'booking.cta'
+
+# ── Applied on acceptance, before the card is charged ──────────────────────
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- assertTrue: ${output.status == 'APPROVED'}
+
+- extendedWaitUntil:
+    visible: 'A nanny accepted!'
+    timeout: 30000
+
+# The screen redeems the reserved hours by itself here — the mother never taps
+# Apply. This card is the only place that shows it happened.
+- extendedWaitUntil:
+    visible: '2 free hours applied'
+    timeout: 30000
+- assertVisible: 'You saved EGP 240.00 with 200 points.'
+
+- tapOn: 'Complete payment'
+
+- extendedWaitUntil:
+    visible: 'EGP 240.00'
+    timeout: 60000
+- assertVisible: 'Pay now'
+- tapOn: 'Pay now'
+
+- extendedWaitUntil:
+    visible: 'Payment successful'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "You're booked."
+    timeout: 30000
+
+# ── The balance again ──────────────────────────────────────────────────────
+- tapOn: 'Back to home'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Care Points'
+    timeout: 30000
+- tapOn: 'Care Points'
+
+- extendedWaitUntil:
+    visible: 'Your Care Points'
+    timeout: 30000
+- assertVisible: '800'

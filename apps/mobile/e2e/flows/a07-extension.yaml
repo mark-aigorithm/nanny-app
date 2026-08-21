@@ -1,0 +1,79 @@
+# A7 — mid-care extension.
+#
+# The rules around an extension (decline, withdrawal, one open request at a
+# time, refusing to extend a booking that is not running) are settled over HTTP
+# in a07-extension.test.ts. What the app owns is the conversation: a card that
+# only appears mid-shift, a request the mother sends and can watch, and a
+# second checkout for the extra hours.
+#
+# It relaunches three times, once after each thing the nanny does off the
+# device. That is not caution — it is the only way a screen finds out. React
+# Query holds a booking for sixty seconds and nothing here invalidates it, so
+# the app genuinely does not notice a nanny answering while it is open. The
+# third relaunch is the sharpest case: `ExtensionCheckoutScreen` returns to the
+# booking believing it "re-reads on focus", but no focus manager is installed,
+# so the new end time only appears after the app is reopened.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+- runFlow: _book-and-pay.yaml
+
+# ── The shift starts ───────────────────────────────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-in
+- assertTrue: ${output.status == 'IN_PROGRESS'}
+
+- runFlow: _open-running-booking.yaml
+- assertVisible: '4 hours'
+
+# ── Ask for two more hours ─────────────────────────────────────────────────
+- assertVisible: 'SHIFT IN PROGRESS'
+- tapOn: 'Extend booking'
+
+# `.` stands in for the leading plus and the trailing question mark, both of
+# which are regex syntax and would otherwise have to be escaped.
+- tapOn: '.2 hours'
+- assertVisible: 'Ask for .2 hours.'
+- tapOn: 'Send request'
+
+- extendedWaitUntil:
+    visible: 'EXTENSION REQUESTED'
+    timeout: 30000
+
+# ── She agrees ─────────────────────────────────────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept-extension
+- assertTrue: ${output.status == 'ACCEPTED'}
+
+- runFlow: _open-running-booking.yaml
+
+- assertVisible: 'EXTRA HOURS CONFIRMED'
+- assertVisible: '.* can stay 2 more hours'
+- assertVisible: 'To pay'
+
+# ── Pay for them ───────────────────────────────────────────────────────────
+- tapOn: 'Pay now'
+- extendedWaitUntil:
+    visible: 'Extra hours'
+    timeout: 30000
+
+# The extension's own checkout, a separate intention from the booking's.
+- extendedWaitUntil:
+    visible: 'Pay now'
+    timeout: 60000
+- tapOn: 'Pay now'
+
+# ── The booking is longer ──────────────────────────────────────────────────
+- runFlow: _open-running-booking.yaml
+- assertVisible: '6 hours'
+- assertNotVisible: 'EXTRA HOURS CONFIRMED'

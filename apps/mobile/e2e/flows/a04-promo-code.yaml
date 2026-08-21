@@ -1,0 +1,88 @@
+# A4 — promo code end to end.
+#
+# What only the app can prove: that a discount applied on the review step is the
+# amount the checkout page actually charges, and that a refused code says so
+# where the mother can read it. The counting rules behind a code — consumed on
+# capture, per-user caps, expiry — are settled far more thoroughly over HTTP in
+# a04-promo-code.test.ts, so this does not re-derive them.
+#
+# Four hours at the standard 120/hr is 480; ten percent off is 432. Those
+# numbers are the assertion — a discount that renders but is not charged would
+# pass a looser test.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+- runFlow: _book-to-review.yaml
+
+- assertVisible: 'EGP 480.00'
+
+# ── A code that has already been spent ─────────────────────────────────────
+- tapOn:
+    id: 'booking.promoInput'
+- inputText: ${PROMO_CODE_EXHAUSTED}
+- hideKeyboard
+- tapOn:
+    id: 'booking.promoApply'
+- extendedWaitUntil:
+    visible: 'This promo code has been fully redeemed.'
+    timeout: 20000
+
+# Nothing was applied, so the price must not have moved.
+- assertVisible: 'EGP 480.00'
+
+# ── A code that works ──────────────────────────────────────────────────────
+- tapOn:
+    id: 'booking.promoInput'
+- eraseText
+- inputText: ${PROMO_CODE}
+- hideKeyboard
+- tapOn:
+    id: 'booking.promoApply'
+
+# `.*` stands in for the em dash between the code and the amount: a non-ASCII
+# selector is a needless hazard when the two ends of the string already pin it.
+- extendedWaitUntil:
+    visible: '${PROMO_CODE}.*EGP 48.00 off'
+    timeout: 20000
+- assertVisible: 'EGP 432.00'
+
+- tapOn:
+    id: 'booking.cta'
+
+# ── Pay the discounted amount ──────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- assertTrue: ${output.status == 'APPROVED'}
+
+- extendedWaitUntil:
+    visible: 'A nanny accepted!'
+    timeout: 30000
+- tapOn: 'Complete payment'
+
+# The fake renders the amount off the intention the backend created, so this is
+# the figure Paymob would be asked to charge — not something the app drew.
+- extendedWaitUntil:
+    visible: 'EGP 432.00'
+    timeout: 60000
+- assertVisible: 'Pay now'
+- tapOn: 'Pay now'
+
+- extendedWaitUntil:
+    visible: 'Payment successful'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "You're booked."
+    timeout: 30000
+- assertVisible: 'EGP 432.00'

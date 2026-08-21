@@ -1,5 +1,5 @@
 # Reopens the app without clearing anything, the way a parent returns to it
-# after the shift has moved on without her.
+# after the shift has moved on without her, and waits for ${EXPECT}.
 #
 # Not a test — the leading underscore keeps run.mjs from treating it as one.
 #
@@ -12,7 +12,19 @@
 # The session survives, so this lands straight on the mother's home screen. The
 # developer menu does not reappear either: dev-client only shows it on the first
 # launch after a state clear, which is `_launch.yaml`'s job, not this one.
+#
+# Wrapped in a retry, and that is the reason ${EXPECT} is a parameter rather
+# than something the caller asserts afterwards: the VIEW intent occasionally
+# does not start the app at all — the device is left on its own home screen and
+# nothing appears in logcat for two minutes. Without something to check against,
+# the retry would have no way to tell a lost intent from a slow launch.
 appId: com.nannyapp.mobile
 ---
-- stopApp
-- openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+- retry:
+    maxRetries: 2
+    commands:
+      - stopApp
+      - openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+      - extendedWaitUntil:
+          visible: ${EXPECT}
+          timeout: 90000

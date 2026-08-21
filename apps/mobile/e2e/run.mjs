@@ -20,7 +20,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ACCOUNTS, PASSWORD, localDigits, placeholderEmail } from './accounts.mjs';
+import { ACCOUNTS, ADMIN, PASSWORD, localDigits, placeholderEmail } from './accounts.mjs';
 import { APP_ID, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
 import { CARE_POINTS, PACKAGE, PLATFORM_SETTINGS, PROMO_CODES } from './fixtures.mjs';
 
@@ -132,6 +132,7 @@ function seedLab() {
           promoCodes: Object.values(PROMO_CODES),
           package: PACKAGE,
           carePoints: CARE_POINTS,
+          admin: ADMIN,
         }),
       },
     },
@@ -207,13 +208,19 @@ function runFlow(maestro, flow) {
   const params = {
     MOTHER_PHONE: localDigits(ACCOUNTS.mother.phone),
     NANNY_PHONE: localDigits(ACCOUNTS.nanny.phone),
+    GATED_MOTHER_PHONE: localDigits(ACCOUNTS.gatedMother.phone),
+    PENDING_NANNY_PHONE: localDigits(ACCOUNTS.pendingNanny.phone),
     MOTHER_EMAIL: placeholderEmail(ACCOUNTS.mother.phone),
     NANNY_EMAIL: placeholderEmail(ACCOUNTS.nanny.phone),
+    GATED_MOTHER_EMAIL: placeholderEmail(ACCOUNTS.gatedMother.phone),
+    PENDING_NANNY_EMAIL: placeholderEmail(ACCOUNTS.pendingNanny.phone),
+    ADMIN_EMAIL: ADMIN.email,
+    ADMIN_PASSWORD: ADMIN.password,
     PASSWORD,
     BACKEND_URL,
     AUTH_EMULATOR_URL,
     PROMO_CODE: PROMO_CODES.reusable.code,
-    PROMO_CODE_SINGLE_USE: PROMO_CODES.singleUse.code,
+    PROMO_CODE_EXHAUSTED: PROMO_CODES.exhausted.code,
     PACKAGE_NAME: PACKAGE.name,
   };
 
@@ -254,10 +261,18 @@ async function main() {
   quietDeviceChrome(adb, device);
 
   console.log(`[e2e] device ${device}, maestro ${maestro}`);
-  seedLab();
 
   const flows = flowsToRun(process.argv.slice(2));
-  const failed = flows.filter((flow) => !runFlow(maestro, flow));
+  // Re-seeded before every flow, not once per run. Each flow books the same
+  // nanny for the next few hours, and the second one to try would be refused
+  // for double-booking her — so without this the suite would only pass in the
+  // order it happened to be written in. Seeding undoes the previous flow as
+  // well as the previous run, which is also what makes a single flow runnable
+  // on its own.
+  const failed = flows.filter((flow) => {
+    seedLab();
+    return !runFlow(maestro, flow);
+  });
 
   console.log(`\n[e2e] ${flows.length - failed.length}/${flows.length} flows passed.`);
   if (failed.length > 0) {

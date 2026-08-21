@@ -39,13 +39,22 @@ type AccountSpec = {
   role: Extract<Role, 'MOTHER' | 'NANNY'>;
   firstName?: string;
   lastName?: string;
+  /** Defaults to APPROVED; A11 seeds a mother who has never uploaded an ID. */
+  idVerificationStatus?: 'PENDING_ID' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  /** Nannies only. Defaults to APPROVED; A10 seeds one still awaiting vetting. */
+  approvalStatus?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 };
+
+/** The console account the lab approves with; a superuser, so nothing is out of reach. */
+type AdminSpec = { email: string; password: string };
 
 type PromoSpec = {
   code: string;
   discountType: 'FLAT' | 'PERCENTAGE';
   value: number;
   maxUsage?: number;
+  /** Seeds a code that is already spent, so a flow can assert the refusal. */
+  usageCount?: number;
 };
 
 /** Mirrors `apps/mobile/e2e/fixtures.mjs`, which is where these values live. */
@@ -54,6 +63,7 @@ type LabFixtures = {
   promoCodes: PromoSpec[];
   package: { name: string; hours: number; price: number; validityDays: number };
   carePoints: number;
+  admin: AdminSpec;
 };
 
 /** Cairo city centre — matches the seed data's region, so distance ranking behaves. */
@@ -84,6 +94,12 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
   const email = placeholderEmail(spec.phone);
   const firebaseUid = await ensureFirebaseUser(email, spec.password);
 
+  // Both roles are gated on an approved ID — a mother cannot book without one
+  // and a nanny cannot reach her dashboard. The lab's baseline is "past the
+  // gate"; the flows that exercise a gate ask for an account on the wrong side
+  // of it, and are re-seeded before every run because they approve it.
+  const idVerificationStatus = spec.idVerificationStatus ?? 'APPROVED';
+
   const user = await prisma.user.upsert({
     where: { email },
     create: {
@@ -93,10 +109,7 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       firstName: spec.firstName ?? 'E2E',
       lastName: spec.lastName ?? (spec.role === Role.NANNY ? 'Nanny' : 'Mother'),
       role: spec.role,
-      // Both roles are gated on an approved ID — a mother cannot book without
-      // one and a nanny cannot reach her dashboard. Flows that exercise those
-      // gates set the status themselves; the lab's baseline is "past the gate".
-      idVerificationStatus: 'APPROVED',
+      idVerificationStatus,
       ...LOCATION,
       address: '1 Test Street, Cairo',
     },
@@ -106,7 +119,10 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       firebaseUid,
       phone: spec.phone,
       role: spec.role,
-      idVerificationStatus: 'APPROVED',
+      idVerificationStatus,
+      // Cleared so a flow that rejected this account last run does not leave a
+      // stale reason on the gate's copy.
+      idRejectionReason: null,
       deletedAt: null,
     },
   });
@@ -119,9 +135,9 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       // Required and has no schema default — omitting it fails at the DB.
       ageRanges: ['0-1', '2-5'],
       isProfileComplete: true,
-      // APPROVED: a PENDING_REVIEW nanny is invisible to search and cannot be
-      // booked. Flows testing the vetting gate downgrade it themselves.
-      approvalStatus: 'APPROVED' as const,
+      // A PENDING_REVIEW nanny is invisible to search and cannot be booked, so
+      // APPROVED is the baseline here too.
+      approvalStatus: spec.approvalStatus ?? ('APPROVED' as const),
       availabilityType: 'FULL_TIME' as const,
     };
 
@@ -140,13 +156,41 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
 }
 
 /**
+ * The console account the flows approve with.
+ *
+ * A superuser, because what these flows care about is the approval landing —
+ * which sections an operator may reach is A12's subject and is driven far more
+ * thoroughly by the admin suite. Its email is deliberately unlike the admin
+ * suite's, so the two labs never share an account.
+ */
+async function seedAdmin(spec: AdminSpec): Promise<void> {
+  const firebaseUid = await ensureFirebaseUser(spec.email, spec.password);
+
+  await prisma.user.upsert({
+    where: { email: spec.email },
+    create: {
+      firebaseUid,
+      email: spec.email,
+      firstName: 'E2E',
+      lastName: 'Lab',
+      role: Role.SUPERUSER,
+    },
+    update: { firebaseUid, role: Role.SUPERUSER, deletedAt: null },
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] ADMIN  ${spec.email}`);
+}
+
+/**
  * Puts the platform into the configuration the flows were written against.
  *
- * Written straight to `app_settings` rather than through `PUT /admin/config`,
- * because that route is privilege-scoped and would need a superuser account the
- * lab has no other use for. The keys are the service's own, so a rename shows
- * up as a flow failing on a slot it can no longer pick — see
- * `apps/mobile/e2e/fixtures.mjs` for why each value is what it is.
+ * Written straight to `app_settings` rather than through `PUT /admin/config`:
+ * seeding already owns a Prisma client, and going out over HTTP would make the
+ * lab's setup depend on the backend being up before it could configure it. The
+ * keys are the service's own, so a rename shows up as a flow failing on a slot
+ * it can no longer pick — see `apps/mobile/e2e/fixtures.mjs` for why each value
+ * is what it is.
  */
 async function configurePlatform(settings: Record<string, string>): Promise<void> {
   for (const [key, value] of Object.entries(settings)) {
@@ -215,7 +259,7 @@ async function seedPromoCodes(specs: PromoSpec[]): Promise<void> {
       value: spec.value,
       maxUsage: spec.maxUsage ?? null,
       maxUsagePerUser: null,
-      usageCount: 0,
+      usageCount: spec.usageCount ?? 0,
       isActive: true,
       expiresAt: null,
       deletedAt: null,
@@ -305,6 +349,7 @@ async function main(): Promise<void> {
   // would still be fine, but the order reads as "undo, then set up".
   await resetPreviousRun(userIds);
 
+  await seedAdmin(fixtures.admin);
   await seedPromoCodes(fixtures.promoCodes);
   await seedPackage(fixtures.package);
   if (motherId !== null) await seedCarePoints(motherId, fixtures.carePoints);

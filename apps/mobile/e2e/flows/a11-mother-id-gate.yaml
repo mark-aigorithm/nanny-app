@@ -1,0 +1,62 @@
+# A11 — a mother's ID gates booking.
+#
+# Unlike the nanny gate, this one does not lock her out of the app: she browses
+# freely and is stopped at the moment she tries to book, which is the only place
+# the rule exists on screen. Both halves are asserted here — the modal that
+# stops her, and the request that goes through once an operator has verified her.
+#
+# Scope note: the catalogue starts this flow at registration and walks to the ID
+# upload. That upload opens the Android photo picker and its crop screen, which
+# is system UI and the most fragile thing this suite could depend on; what the
+# gate does with each status is settled over HTTP in a11-mother-id-gate.test.ts.
+# This flow starts from a seeded mother who has never uploaded one — exactly
+# where registration leaves her.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${GATED_MOTHER_PHONE}
+
+# ── Stopped ────────────────────────────────────────────────────────────────
+# She reaches her home screen like anyone else. The gate is on the action, not
+# on the app.
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- tapOn: 'Book care'
+
+- extendedWaitUntil:
+    visible: 'Verify your identity'
+    timeout: 30000
+- assertNotVisible: 'Pick a day'
+
+- tapOn: 'Maybe later'
+
+# ── Verified ───────────────────────────────────────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: admin-approve-mother
+- assertTrue: ${output.status == 'APPROVED'}
+
+# Her profile is read once at startup and cached, so the app only learns of the
+# decision on the next open — see _relaunch.yaml.
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'Book care'
+
+# Straight through this time, and all the way to a real request — so this
+# asserts the server agrees with the app about her, not just that a modal
+# stopped appearing.
+- runFlow: _book-to-review.yaml
+- assertNotVisible: 'Verify your identity'
+- tapOn:
+    id: 'booking.cta'
+
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000

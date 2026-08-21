@@ -72,6 +72,11 @@ slow on this image that the system never finishes booting — `adb` reports the
 device while every `adb shell` hangs, which reads like a hang rather than the
 slow boot it is.
 
+`-gpu host` has been seen to segfault mid-run (a stack of `gles_v2_imp.cpp …
+error 0x501` lines, then the process dies), which takes the device out from
+under whatever flow was running. Restart it and re-run; if it recurs often,
+`-gpu swangle_indirect` is the next thing to try.
+
 **4. Build the app** (debug — no signing, no EAS):
 
 ```bash
@@ -128,16 +133,33 @@ missing command rather than failing inside a flow.
 | Path | What it is |
 |---|---|
 | `flows/*.yaml` | The flows themselves, named for `Docs/testing/e2e-flows.md` |
-| `flows/_launch.yaml` | Shared opening steps; `_`-prefixed files are subflows, not tests |
+| `flows/_*.yaml` | Shared subflows; the leading underscore is what keeps them out of the run |
+| `scripts/advance.js` | The other side of a two-sided journey, over HTTP |
 | `accounts.mjs` | Who the lab signs in as — shared by the runner and the seeder |
-| `run.mjs` | Prerequisite checks → seeding → `maestro test` per flow |
+| `fixtures.mjs` | What it spends: promo codes, a package, Care Points, platform settings |
+| `run.mjs` | Prerequisite checks → seed → `maestro test`, per flow |
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
 | `android.mjs` | Locating adb and the one device to drive |
 | `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command |
 
-Accounts are provisioned by `apps/backend/test/e2e/seed-mobile.ts`, which owns
-the Firebase Admin SDK and Prisma. Seeding is idempotent, so re-running a flow
-is always safe.
+The subflows are where the awkward parts live, and most flows are little more
+than a sequence of them:
+
+| Subflow | What it does |
+|---|---|
+| `_launch.yaml` | Cold start with state cleared — five steps, all of them load-bearing (below) |
+| `_sign-in.yaml` | Signs in `${PHONE}` from the welcome screen |
+| `_book-to-review.yaml` | Home → the review step, with a booking that starts in ten minutes |
+| `_book-and-pay.yaml` | The above, plus the nanny accepting and a real checkout |
+| `_relaunch.yaml` | Reopens the app and waits for `${EXPECT}` |
+| `_open-running-booking.yaml` | Reopens onto the detail screen of a shift under way |
+
+Everything the lab spends is provisioned by `apps/backend/test/e2e/seed-mobile.ts`,
+which owns the Firebase Admin SDK and Prisma. It runs **before every flow**, not
+once per run: each flow books the same nanny for the next few hours, and the
+second one to try would be refused for double-booking her. Seeding also *undoes*
+the previous flow — this database is never truncated — which is what makes any
+single flow runnable on its own.
 
 ## Notes
 
@@ -147,7 +169,24 @@ digits — the country code is a separate, fixed control.
 
 **Selectors.** Flows prefer visible text; `testID`s exist only where text is
 ambiguous or absent (icon buttons, repeated labels, list cards), following
-`testID="<screen>.<element>"`.
+`testID="<screen>.<element>"`. Before adding one, check for an
+`accessibilityLabel` — the star rating is driven by "Rate 5 stars", which the
+control already carried.
+
+**Two-sided journeys.** Maestro drives the mother (or the nanny) and
+`scripts/advance.js` does everything the other side has to do — accepting the
+request, checking in, writing a care log, checking out, approving an identity.
+It runs on the *host*, in Maestro's own JS sandbox: `127.0.0.1`, no `fetch`, no
+`require`. That last one is why every step lives in one file behind a `switch`
+rather than one script apiece.
+
+**The app does not notice work done behind its back.** React Query holds every
+response for a minute (`staleTime` in `src/lib/queryClient.ts`) and no focus
+manager is installed, so a screen showing a booking will not see the nanny check
+into it — nor, after paying for extra hours, the new end time, despite
+`ExtensionCheckoutScreen` returning to the booking believing it "re-reads on
+focus". Reopening the app is what empties that cache, which is what
+`_relaunch.yaml` is for and why A7 uses it three times.
 
 **Payment.** The Paymob fake serves the checkout page the WebView opens, and
 delivers the webhook server-side exactly as Paymob does — so a flow can pay by
@@ -198,3 +237,29 @@ field is selected by `below: 'Password'`.
 the first tap into a text field with a full-screen "Try out your stylus" panel
 that covers the form. `run.mjs` turns it off (`stylus_handwriting_enabled 0`) as
 part of device prep.
+
+**A lost VIEW intent.** Occasionally `openLink` simply does not start the app:
+the device sits on its own home screen and logcat shows nothing at all for two
+minutes. `_relaunch.yaml` retries, which is why it takes the selector to wait
+for as a parameter — without something to check, a retry cannot tell a lost
+intent from a slow launch.
+
+## What the flows deliberately do not cover
+
+**Registration, and the ID upload at the end of it.** A10 and A11 are described
+in the catalogue as starting from role selection and walking the forms through
+to an ID upload. That upload opens the Android photo picker and its crop
+screen — system UI that changes between OS versions and would be the most
+fragile thing in this suite, for the least return. Both flows instead start
+from a seeded account in exactly the state registration leaves it, and assert
+the part that only the app can show: the gate, and it lifting. What
+registration itself decides is covered over HTTP in
+`a10-nanny-onboarding.test.ts` and `a11-mother-id-gate.test.ts`.
+
+**Anything an API journey already proves.** A4 does not re-derive when a promo
+code's counter moves; A5 does not re-derive the ledger; A6 does not re-derive
+hour accounting. Those are settled in `src/__integration__/journeys/`, against
+the same database, far faster. The flows assert what is only true on a device:
+that the discounted figure is the one the checkout page charges, that points
+reserved before a nanny exists are applied without a tap once one accepts, and
+that bought hours turn up where a mother would look for them.

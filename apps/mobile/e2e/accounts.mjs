@@ -18,6 +18,43 @@ export const PASSWORD = 'E2ePassw0rd!';
 export const ACCOUNTS = {
   mother: { phone: '+201100000001', password: PASSWORD, role: 'MOTHER', firstName: 'Mona' },
   nanny: { phone: '+201100000002', password: PASSWORD, role: 'NANNY', firstName: 'Nadia' },
+  /**
+   * A mother who has never uploaded an ID, for A11. Separate from the one every
+   * other flow signs in as, because that one has to stay past the gate — a
+   * single account cannot be on both sides of it.
+   */
+  gatedMother: {
+    phone: '+201100000003',
+    password: PASSWORD,
+    role: 'MOTHER',
+    firstName: 'Gada',
+    idVerificationStatus: 'PENDING_ID',
+  },
+  /**
+   * A nanny who has submitted her ID and is waiting to be vetted, for A10.
+   * `idVerificationStatus` is what the root router actually gates a nanny on —
+   * PENDING_REVIEW holds her on the waiting screen, APPROVED lets her in.
+   */
+  pendingNanny: {
+    phone: '+201100000004',
+    password: PASSWORD,
+    role: 'NANNY',
+    firstName: 'Noha',
+    idVerificationStatus: 'PENDING_REVIEW',
+    approvalStatus: 'PENDING_REVIEW',
+  },
+};
+
+/**
+ * The console account the lab approves with.
+ *
+ * A superuser rather than a scoped operator: what these flows care about is the
+ * approval landing, and which sections an operator may reach is A12's subject
+ * and is driven far more thoroughly by the admin suite.
+ */
+export const ADMIN = {
+  email: 'e2e-mobile-lab@nannyapp.test',
+  password: 'E2eLabAdm1n!',
 };
 
 /**

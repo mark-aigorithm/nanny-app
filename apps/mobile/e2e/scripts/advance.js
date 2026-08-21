@@ -3,9 +3,10 @@
  *
  * Maestro drives exactly one surface: the app, signed in as one person. But
  * most P0 journeys need a second actor — a nanny who claims the request, checks
- * in, writes a care log, checks out. Running a second UI driver alongside the
- * first is the expensive way to do that; this is the cheap one, and it is the
- * same choice the admin suite makes when it needs the mobile side to move.
+ * in, writes a care log and checks out, or an operator who verifies someone's
+ * identity. Running a second UI driver alongside the first is the expensive way
+ * to do that; this is the cheap one, and it is the same choice the admin suite
+ * makes when it needs the mobile side to move.
  *
  * Invoked from a flow as:
  *
@@ -24,17 +25,23 @@
  * helper lives in this one file rather than a shared module, and why the whole
  * cross-surface seam is a switch at the bottom instead of a script per step.
  *
- * `-e` values passed to `maestro test` arrive as globals: MOTHER_EMAIL,
- * NANNY_EMAIL, PASSWORD, BACKEND_URL, AUTH_EMULATOR_URL.
+ * `-e` values passed to `maestro test` arrive as globals — the accounts
+ * (MOTHER_EMAIL, NANNY_EMAIL, GATED_MOTHER_EMAIL, PENDING_NANNY_EMAIL,
+ * PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD) and where to reach things
+ * (BACKEND_URL, AUTH_EMULATOR_URL). See run.mjs for the full list.
  */
 
 /** The emulator ignores the key but the endpoint still requires the parameter. */
 var IDENTITY_TOOLKIT = AUTH_EMULATOR_URL + '/identitytoolkit.googleapis.com/v1';
 
-function signIn(email) {
+function signIn(email, password) {
   var res = http.post(IDENTITY_TOOLKIT + '/accounts:signInWithPassword?key=fake-api-key', {
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email, password: PASSWORD, returnSecureToken: true }),
+    body: JSON.stringify({
+      email: email,
+      password: password === undefined ? PASSWORD : password,
+      returnSecureToken: true,
+    }),
   });
   var body = json(res.body);
   if (!body.idToken) {
@@ -125,7 +132,7 @@ function nannyCheckIn() {
   record(call('POST', nannyToken, '/bookings/' + booking.id + '/check-in', { pin: pin }));
 }
 
-/** The nanny writes one care log, which is what the parent's feed renders. */
+/** One care log, which is what the parent reads on the booking's own screen. */
 function nannyCareLog() {
   var motherToken = signIn(MOTHER_EMAIL);
   var booking = currentBooking(motherToken);
@@ -138,6 +145,26 @@ function nannyCareLog() {
   record(booking);
 }
 
+/**
+ * The nanny agrees to stay longer.
+ *
+ * The extension's id is read off the mother's own booking rather than tracked
+ * by the flow: `activeExtension` is exactly what her screen is rendering at
+ * this moment, so acting on it is acting on what she asked for.
+ */
+function nannyAcceptExtension() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+  var extension = booking.activeExtension;
+  if (!extension) throw new Error('Booking ' + booking.id + ' has no extension request.');
+
+  var nannyToken = signIn(NANNY_EMAIL);
+  var accepted = call('POST', nannyToken, '/bookings/extensions/' + extension.id + '/accept');
+  output.bookingId = String(booking.id);
+  output.status = accepted.status;
+  output.amount = String(accepted.totalAmount);
+}
+
 /** The nanny ends the shift, which completes the booking and opens the review. */
 function nannyCheckOut() {
   var motherToken = signIn(MOTHER_EMAIL);
@@ -147,10 +174,45 @@ function nannyCheckOut() {
   record(call('POST', nannyToken, '/bookings/' + booking.id + '/check-out'));
 }
 
+/**
+ * An operator verifies someone's identity.
+ *
+ * `queue` is the console's own review list, and the row is found by the email
+ * the lab seeded. Going through the queue rather than straight to an id is the
+ * point: someone who never reached the queue fails here, with a message saying
+ * so, instead of being approved anyway and passing for the wrong reason.
+ */
+function approveFromQueue(queue, email) {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var rows = call('GET', adminToken, '/admin/' + queue);
+  var match = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].email === email) match = rows[i];
+  }
+  if (!match) throw new Error(email + ' is not in the ' + queue + ' review queue.');
+
+  var approved = call('POST', adminToken, '/admin/' + queue + '/' + match.id + '/approve');
+  output.userId = String(match.id);
+  output.status = approved.idVerificationStatus;
+}
+
+/** A11: the mother's ID is verified, which is what opens booking to her. */
+function adminApproveMother() {
+  approveFromQueue('mothers', GATED_MOTHER_EMAIL);
+}
+
+/** A10: the nanny is vetted, which is what lets her past the waiting screen. */
+function adminApproveNanny() {
+  approveFromQueue('nannies', PENDING_NANNY_EMAIL);
+}
+
 var STEPS = {
   'nanny-accept': nannyAccept,
+  'admin-approve-mother': adminApproveMother,
+  'admin-approve-nanny': adminApproveNanny,
   'nanny-check-in': nannyCheckIn,
   'nanny-care-log': nannyCareLog,
+  'nanny-accept-extension': nannyAcceptExtension,
   'nanny-check-out': nannyCheckOut,
 };
 

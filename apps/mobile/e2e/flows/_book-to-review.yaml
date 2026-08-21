@@ -1,0 +1,62 @@
+# Takes a signed-in mother from her home screen to the review step, with the
+# booking that every P0 flow wants: starting in about ten minutes, one child,
+# four hours, no skills.
+#
+# Not a test — the leading underscore keeps run.mjs from treating it as one.
+# It stops short of submitting: the review step is where promo codes, Care
+# Points and packages live, so each flow does its own thing there.
+appId: com.nannyapp.mobile
+---
+- assertVisible: 'Book care'
+- tapOn: 'Book care'
+
+- extendedWaitUntil:
+    visible: 'Pick a day'
+    timeout: 30000
+
+# The first card the rail offers, by index rather than by label. The rail drops
+# days whose slots have all passed, so whether the first card says "Today" or
+# "Tomorrow" depends on the clock and on the device's timezone relative to the
+# platform's.
+- tapOn:
+    id: 'booking.day'
+    index: 0
+
+# Care has to start soon, because check-in opens only fifteen minutes before
+# the start time and a booking further out could never reach IN_PROGRESS.
+#
+# Selecting a day lands on the first whole HOUR still bookable, which can be
+# most of an hour away, so walk the stepper down to its floor — the earliest
+# start on offer, minutes from now. It disables there, so the extra taps are
+# no-ops and the count only has to be generous.
+- repeat:
+    times: 12
+    commands:
+      - tapOn:
+          id: 'booking.startTime.decrement'
+
+# Then back up two five-minute notches. The floor is the earliest start that
+# was legal when the screen loaded, and by the time the request is actually
+# submitted — two screens later — that moment has passed and the server refuses
+# it as "Cannot book in the past". Ten minutes of headroom clears the walk
+# comfortably while staying inside the check-in window.
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: 'booking.startTime.increment'
+
+- tapOn:
+    id: 'booking.cta'
+
+# One child, aged three, is the screen's own default — a mother who has saved
+# no family sees exactly this, so accepting it is a real path, not a shortcut.
+- extendedWaitUntil:
+    visible: 'Who needs care?'
+    timeout: 20000
+- tapOn:
+    id: 'booking.cta'
+
+- extendedWaitUntil:
+    visible: 'Review your request'
+    timeout: 20000

@@ -30,14 +30,19 @@ export const PLATFORM_SETTINGS = {
 };
 
 /**
- * Two codes, because A4 needs both halves of the story: one that keeps working
- * so a flow can be re-run, and one that must be refused the second time.
+ * Two codes, because A4 needs both halves of the story.
+ *
+ * The exhausted one starts already spent rather than being spent by the flow:
+ * what the app can uniquely prove is that a refusal *surfaces in the UI*, and
+ * that a code's counter is only consumed on capture is settled far more
+ * thoroughly by `a04-promo-code.test.ts` over HTTP. Buying a second booking to
+ * re-derive it here would cost a whole payment for a weaker assertion.
  */
 export const PROMO_CODES = {
   /** Percentage off, unlimited uses — the happy path. */
   reusable: { code: 'E2ETEN', discountType: 'PERCENTAGE', value: 10 },
-  /** Single use across all users; the seeder resets its counter every run. */
-  singleUse: { code: 'E2EONCE', discountType: 'FLAT', value: 50, maxUsage: 1 },
+  /** Single use, already used: the app must refuse it. */
+  exhausted: { code: 'E2ESPENT', discountType: 'FLAT', value: 50, maxUsage: 1, usageCount: 1 },
 };
 
 /**
