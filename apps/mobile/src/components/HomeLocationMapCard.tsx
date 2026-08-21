@@ -5,6 +5,7 @@ import MapView, { Marker } from 'react-native-maps';
 
 import { colors } from '@mobile/theme';
 import { useDeviceLocation } from '@mobile/hooks/useDeviceLocation';
+import { isMapAvailable } from '@mobile/lib/maps';
 import { styles } from './styles/home-location-map-card.styles';
 
 // Fallback map center when location permission is denied (Cairo).
@@ -92,6 +93,34 @@ export default function HomeLocationMapCard({
       mapRef.current?.animateToRegion({ ...DEFAULT_REGION, ...coords }, 600);
     }
   }, [coords]);
+
+  // A build with no Google Maps key cannot construct a MapView at all — it
+  // throws natively and takes the screen down. The pin can still be placed
+  // from the address search above or from the device's own location, so this
+  // stays a working location picker, just without the map.
+  if (!isMapAvailable()) {
+    return (
+      <>
+        <View style={styles.mapCard}>
+          <Pressable
+            style={styles.currentLocationButton}
+            onPress={handleUseCurrentLocation}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Use my current location"
+          >
+            <Ionicons name="locate" size={20} color={colors.primary} />
+          </Pressable>
+        </View>
+        <Text style={styles.mapHint}>
+          {pinCoords
+            ? 'Location set. Search for an address to change it.'
+            : 'Search for your address, or use your current location.'}
+        </Text>
+        {errorText && <Text style={styles.mapError}>{errorText}</Text>}
+      </>
+    );
+  }
 
   return (
     <>

@@ -18,6 +18,7 @@ import HomeLocationMapCard, { type HomeCoords } from '@mobile/components/HomeLoc
 import LocationSearchInput from '@mobile/components/LocationSearchInput';
 import { reverseGeocode } from '@mobile/lib/googlePlaces';
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { isMapAvailable } from '@mobile/lib/maps';
 import { useUpdateProfile } from '@mobile/hooks/useMe';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { styles } from './styles/booking-location-section.styles';
@@ -97,24 +98,29 @@ export default function BookingLocationSection() {
 
       {savedCoords ? (
         <Pressable style={styles.card} onPress={openEditor}>
-          <View style={styles.mapPreview}>
-            <MapView
-              style={styles.previewMap}
-              pointerEvents="none"
-              scrollEnabled={false}
-              zoomEnabled={false}
-              pitchEnabled={false}
-              rotateEnabled={false}
-              liteMode
-              region={{
-                ...savedCoords,
-                latitudeDelta: PREVIEW_DELTA,
-                longitudeDelta: PREVIEW_DELTA,
-              }}
-            >
-              <Marker coordinate={savedCoords} />
-            </MapView>
-          </View>
+          {/* The preview is the one part of this card that needs a map key.
+              Without one the address alone still says where the nanny is
+              going — see isMapAvailable. */}
+          {isMapAvailable() && (
+            <View style={styles.mapPreview}>
+              <MapView
+                style={styles.previewMap}
+                pointerEvents="none"
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+                liteMode
+                region={{
+                  ...savedCoords,
+                  latitudeDelta: PREVIEW_DELTA,
+                  longitudeDelta: PREVIEW_DELTA,
+                }}
+              >
+                <Marker coordinate={savedCoords} />
+              </MapView>
+            </View>
+          )}
           <View style={styles.cardBody}>
             <Text style={styles.cardLabel}>Your nanny comes to</Text>
             <Text style={styles.cardAddress} numberOfLines={2}>
