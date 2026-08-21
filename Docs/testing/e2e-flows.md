@@ -203,9 +203,19 @@ would skip the half that has to work for the new account to be able to sign in a
 asserted at the door: it disables the Firebase user, so the next attempt is refused by
 authentication rather than by a section check further in.
 
-### B2. Session lifecycle · `UI:admin`
+### B2. Session lifecycle · `UI:admin` — **covered** by `b02-session-lifecycle.spec.ts`
 Token refresh, the 401-replay interceptor in `api-client.ts`, logout, and a deep link to a
 protected page while anonymous → `/login` → redirect back after signing in.
+
+The 401 test is the one worth understanding before changing it, because the obvious version of it
+passes for the wrong reason. Failing the first call and asserting the page recovers proves nothing:
+React Query is configured `retry: 1`, and StrictMode mounts every effect twice in dev, so a second
+request arrives within milliseconds whether or not the interceptor exists — **verified by disabling
+the interceptor and watching that version still pass.** What discriminates is rejecting *the token
+the app is currently holding* and accepting any other: the request interceptor calls `getIdToken()`
+unforced, so retries and double-mounts all resend the stale one, and only the 401 handler's
+`getIdToken(true)` produces something new. Nothing else in the app forces a refresh, so a request
+that gets through is proof the handler ran.
 
 ### B3. Catalogue CRUD with downstream effect · `UI:admin`
 Skills, certifications, packages, promo codes, campaigns, duration rules, pricing & fees, booking

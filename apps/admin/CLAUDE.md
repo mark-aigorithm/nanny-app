@@ -83,6 +83,11 @@ An `OPERATOR` only reaches the sections the superuser granted. `lib/permissions.
   `data-testid` only when there is no accessible name — an icon-only button, a table row.
 - E2E specs adopt a role via saved storage state rather than logging in each time — see
   `e2e/roles.ts` and `e2e/global-setup.ts`. Add a role there, not in a spec.
+- **A recovery test must be able to fail.** The app retries a lot on its own — React Query is
+  `retry: 1` and StrictMode double-mounts every effect in dev — so "break one request, assert the
+  page still renders" passes with the recovery code deleted. Make the fault something only the code
+  under test can clear (see the 401 case in `e2e/b02-session-lifecycle.spec.ts`), then confirm it by
+  disabling that code and watching the test go red.
 - **A spec that needs a second session must use `newSignedOutPage`** (`e2e/helpers/session.ts`),
   never a bare `browser.newContext()`: the `browser` fixture applies the spec's own
   `test.use({ storageState })` to whatever it opens, so the "fresh" context comes back already
