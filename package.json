@@ -19,6 +19,7 @@
     "test:env:down": "docker compose -f docker-compose.test.yml down -v",
     "test:emulator": "firebase emulators:start --only auth --project demo-nannyapp",
     "test:paymob": "pnpm --filter @nanny-app/backend exec ts-node --transpile-only -r tsconfig-paths/register test/fakes/paymob-server.ts",
+    "test:e2e:mobile": "pnpm --filter @nanny-app/mobile test:e2e",
     "test:env": "pnpm test:env:up && concurrently --names \"emulator,paymob\" --prefix-colors \"yellow,magenta\" --kill-others \"pnpm test:emulator\" \"pnpm test:paymob\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules"
