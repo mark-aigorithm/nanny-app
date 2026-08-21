@@ -225,12 +225,30 @@ All placeholder/mock data lives in `src/mocks/`, organized by domain:
 - Test files live at `src/**/__tests__/*.test.tsx`.
 - Coverage threshold: 80% (enforced in CI).
 
+**End-to-end on a device**: Maestro drives the real app on an Android emulator against the local
+test stack — `pnpm test:e2e:mobile`. Flows live in `e2e/flows`; everything about running them, and
+the several non-obvious things that make one pass, is in [e2e/README.md](e2e/README.md).
+
+`testID`s are for those flows and follow `testID="<screen>.<element>"`. Add one **only** where a
+flow cannot select the control by what a person sees — an unlabelled icon button, a label that
+repeats on the screen, a caption carrying a live price. Check for an `accessibilityLabel` first:
+Maestro matches those as text, so a properly labelled control needs no test-only prop.
+
 ---
 
 ## Known Gotchas
 
 **Expo managed workflow limitations**
 Some native modules (e.g., react-native-maps with Google Maps on Android) require config plugins. Test early on a real device, not just Expo Go.
+
+**Maps need a key baked into the build**
+`GOOGLE_MAPS_API_KEY` is written into the Android manifest at *prebuild* time, so a build made
+without it has no key and cannot be given one later. `react-native-maps` used to throw a native
+`RuntimeException` the instant a `MapView` was constructed without one, taking the whole screen
+down — the booking flow's "Where" step and the registration location picker both died on arrival.
+`isMapAvailable()` in `src/lib/maps.ts` now guards both: without a key they render without the map
+and stay usable (an address can still be set by search or from the device). Set the variable and
+re-prebuild to get the maps back; iOS is unaffected, as it renders Apple Maps and needs no key.
 
 **pnpm + React Native**
 Metro bundler does not understand pnpm's symlink structure by default. You may need `resolver.nodeModulesPaths` or `unstable_enablePackageExports` in `metro.config.js`.

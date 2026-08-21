@@ -1,0 +1,86 @@
+# A6 — package purchase → hours → consumption.
+#
+# The ledger rules (hours credited only on capture, drawn down per booking,
+# returned on cancellation, reconciled when a webhook is lost) are settled over
+# HTTP in a06-package-hours.test.ts. What the app adds is the purchase itself:
+# a second checkout WebView, entirely separate from the booking one, and the
+# hours turning up where a mother would look for them.
+#
+# The seeded package is ten hours for 900 — 90/hour against the standard 120,
+# which is what makes it a saving worth advertising. Four of those hours cover
+# a four-hour booking outright, so the request that follows costs nothing.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+# ── Buy ────────────────────────────────────────────────────────────────────
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Packages'
+    timeout: 30000
+- tapOn: 'Packages'
+
+- extendedWaitUntil:
+    visible: 'Choose a package'
+    timeout: 30000
+- assertVisible: 'No package yet'
+- assertVisible: ${PACKAGE_NAME}
+- assertVisible: 'Save 25%'
+
+# Anchored below the package's own name so this stays right if the catalogue
+# ever holds more than one — every card carries the same button label.
+- tapOn:
+    text: 'Buy package'
+    below: ${PACKAGE_NAME}
+
+- extendedWaitUntil:
+    visible: 'Complete your payment to activate your package.'
+    timeout: 30000
+
+- extendedWaitUntil:
+    visible: 'EGP 900.00'
+    timeout: 60000
+- assertVisible: 'Pay now'
+- tapOn: 'Pay now'
+
+- extendedWaitUntil:
+    visible: 'Payment successful'
+    timeout: 60000
+
+# ── The hours ──────────────────────────────────────────────────────────────
+- tapOn: 'View my hours'
+- extendedWaitUntil:
+    visible: 'Package Hours'
+    timeout: 30000
+- assertVisible: '10h available'
+- assertVisible: ${PACKAGE_NAME}
+
+# ── Spend them ─────────────────────────────────────────────────────────────
+# One press is enough: checkout and its result screen each REPLACED the screen
+# before them, so the packages list is no longer on the stack — back from My
+# Hours goes straight home.
+- back
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+
+- runFlow: _book-to-review.yaml
+
+# The review step's estimate is still the pay-as-you-go price: the credit is
+# applied server-side when the request is created, so all the app can promise
+# here is that it will be.
+- assertVisible: '10h from your package will be applied to this booking'
+- tapOn:
+    id: 'booking.cta'
+
+# And this is the server's answer — four hours drawn from the package leave
+# nothing to charge.
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000
+- assertVisible: 'EGP 0.00'

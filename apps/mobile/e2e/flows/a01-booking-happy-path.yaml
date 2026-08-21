@@ -1,0 +1,88 @@
+# A1 — booking happy path, card payment. The flagship flow.
+#
+# The mother's whole journey on the device: request care → wait out the
+# broadcast → pay on a real checkout page in a WebView → watch the shift start
+# → read the care log → rate the nanny. The nanny's four moves happen over HTTP
+# (see scripts/advance.js), because Maestro drives one surface and running a
+# second UI driver alongside it is the expensive way to do the same thing.
+#
+# Care is broadcast Uber-style: nobody picks a nanny, there is no search and no
+# nanny profile in the app, and the first nanny to accept is what moves
+# PENDING → APPROVED. No operator is in this path.
+appId: com.nannyapp.mobile
+env:
+  CARE_LOG_NOTE: 'Lunch: pasta and apple slices'
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+# ── Request, then pay ──────────────────────────────────────────────────────
+- runFlow: _book-and-pay.yaml
+
+# ── The shift ──────────────────────────────────────────────────────────────
+# All three of the nanny's moves run back to back while the mother is away from
+# the app, which is also how it happens in life: she is not watching the screen
+# while someone checks in, feeds her child and leaves.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-in
+- assertTrue: ${output.status == 'IN_PROGRESS'}
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-care-log
+      CARE_LOG_NOTE: ${CARE_LOG_NOTE}
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-out
+- assertTrue: ${output.status == 'COMPLETED'}
+
+# ── Rate ───────────────────────────────────────────────────────────────────
+# She comes back to the app. Reopening is also what clears the query cache, so
+# one relaunch is what lets the whole shift land at once — see _relaunch.yaml.
+#
+# Rating is not optional: her most recently completed booking, left unrated,
+# raises a sheet over the whole app until it is answered. That it fires on open
+# is what this relaunch waits for, and is half of what this section asserts.
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'How was your booking with .*'
+
+# Selected by the accessibility label the control already carries, so five
+# identical star icons need no test-only instrumentation.
+- tapOn: 'Rate 5 stars'
+- tapOn: 'Submit rating'
+
+# The other half: submitting is the only thing that closes it.
+- extendedWaitUntil:
+    notVisible: 'How was your booking with .*'
+    timeout: 30000
+
+# ── The care log ───────────────────────────────────────────────────────────
+# Only readable from the booking's own screen — the standalone care-activity
+# feed screen exists but nothing in the app navigates to it.
+- tapOn: 'Activity'
+- extendedWaitUntil:
+    visible: 'Past'
+    timeout: 30000
+- tapOn: 'Past'
+- extendedWaitUntil:
+    visible: 'Past bookings'
+    timeout: 30000
+- tapOn: 'Completed'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${CARE_LOG_NOTE}
+    direction: DOWN
+    timeout: 30000

@@ -21,9 +21,12 @@ type ReviewFormProps = {
 };
 
 /**
- * The star rating + optional comment body shared by the standalone
- * `ReviewScreen` and the mandatory `MandatoryReviewGate`. Presentational only —
- * the consumer owns the booking/rating state, scroll container, and header.
+ * The star rating + optional comment body for `ReviewScreen` — the *optional*
+ * path, reached from a past booking in history. Presentational only: the
+ * consumer owns the booking/rating state, scroll container, and header.
+ *
+ * The mandatory prompt after a booking completes is a different component
+ * (`RatingPromptSheet`) with its own layout; the two share `StarRatingInput`.
  */
 export default function ReviewForm({
   nannyName,

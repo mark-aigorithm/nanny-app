@@ -122,6 +122,7 @@ export default function SignInScreen() {
                   <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
                 </View>
                 <TextInput
+                  testID="signIn.phone"
                   style={styles.phoneInput}
                   value={phone}
                   onChangeText={(val: string) => {
@@ -141,6 +142,7 @@ export default function SignInScreen() {
             {/* Password field */}
             <View style={styles.fieldGroup}>
               <TextInputField
+                testID="signIn.password"
                 label="Password"
                 value={password}
                 onChangeText={(val: string) => {

@@ -1,11 +1,31 @@
+import Constants from 'expo-constants';
+
+/** Paymob's own hosted checkout — what every real build talks to. */
 const DEFAULT_CHECKOUT_ORIGIN = 'https://accept.paymob.com';
+
+/**
+ * Where the unified checkout page is served from.
+ *
+ * Overridable purely so end-to-end tests can point the WebView at the local
+ * Paymob fake, which serves the same path and honours the same redirect
+ * contract. `paymobCheckoutOrigin` is empty in every real build, so this
+ * resolves to Paymob and production behaviour is unchanged.
+ *
+ * Read per call rather than at module load: `Constants` is populated by the
+ * time a checkout screen mounts, and this keeps the override testable.
+ */
+function checkoutOrigin(): string {
+  const configured = Constants.expoConfig?.extra?.['paymobCheckoutOrigin'] as string | undefined;
+  const trimmed = configured?.trim().replace(/\/$/, '');
+  return trimmed ? trimmed : DEFAULT_CHECKOUT_ORIGIN;
+}
 
 export function buildPaymobCheckoutUrl(publicKey: string, clientSecret: string): string {
   const params = new URLSearchParams({
     publicKey,
     clientSecret,
   });
-  return `${DEFAULT_CHECKOUT_ORIGIN}/unifiedcheckout/?${params.toString()}`;
+  return `${checkoutOrigin()}/unifiedcheckout/?${params.toString()}`;
 }
 
 /**

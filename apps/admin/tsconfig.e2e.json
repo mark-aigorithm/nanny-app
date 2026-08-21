@@ -1,0 +1,29 @@
+{
+  // Playwright specs and the test-runner configs.
+  //
+  // They cannot live in tsconfig.app.json: that one is `composite` and feeds
+  // the production `tsc -b` build, so adding e2e/ there would typecheck test
+  // code as part of shipping the app. This config exists purely so
+  // `pnpm typecheck` still covers it — nothing here is built.
+  "extends": "../../packages/config/tsconfig/base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@admin/*": ["src/*"],
+      "@shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["e2e", "playwright.config.ts", "vitest.config.ts"]
+}

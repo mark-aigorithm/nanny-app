@@ -1,0 +1,23 @@
+# Reopens the app and lands on the running booking's detail screen.
+#
+# Not a test — the leading underscore keeps run.mjs from treating it as one.
+#
+# The relaunch is not decoration: everything the nanny does happens off the
+# device, and a screen that already has the booking will not notice, because
+# React Query holds it for sixty seconds. Reopening is what empties that cache,
+# and it is what a parent does anyway.
+#
+# Home's live-booking card is the way in, which is also the shortest route a
+# parent has to a shift that is under way.
+appId: com.nannyapp.mobile
+---
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'IN PROGRESS'
+
+- tapOn: 'IN PROGRESS'
+
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000

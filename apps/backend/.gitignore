@@ -1,2 +1,6 @@
 .vercel
 .env*
+# Committed on purpose. Every value in it points at a local emulator, fake or
+# throwaway container, so there is nothing secret to leak — and the integration
+# suite cannot run without it. Never add a real credential to this file.
+!.env.test

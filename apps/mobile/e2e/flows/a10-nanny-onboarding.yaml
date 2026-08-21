@@ -1,0 +1,49 @@
+# A10 — nanny vetting gate.
+#
+# A nanny who has submitted her ID waits; an approved one works. That gate is
+# the whole point of the vetting queue, and the app is the only place it is
+# visible — the root router reads `idVerificationStatus` and sends her to a
+# waiting screen instead of her dashboard.
+#
+# Scope note: the catalogue describes this flow as starting from role selection
+# and walking the registration forms to the waiting screen. The registration
+# path ends at an ID upload, which opens the Android photo picker and its crop
+# screen — system UI that varies by OS version and would make this the most
+# fragile flow in the suite for the least return. Everything registration
+# actually decides is asserted over HTTP in a10-nanny-onboarding.test.ts, which
+# also covers the part with no UI at all: whether an unvetted nanny is offered
+# work. This flow starts from a seeded nanny in exactly the state registration
+# leaves her in.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${PENDING_NANNY_PHONE}
+
+# ── Waiting ────────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Your profile is under review'
+    timeout: 60000
+
+# She is signed in, so this is a gate rather than a failed login — and her
+# dashboard is genuinely out of reach, not merely not-yet-rendered.
+- assertNotVisible: 'Your earnings'
+
+# ── Vetted ─────────────────────────────────────────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: admin-approve-nanny
+- assertTrue: ${output.status == 'APPROVED'}
+
+# No relaunch here: this screen has its own way to re-read the decision, which
+# is what a nanny told to wait would actually press.
+- tapOn: 'Check status'
+
+- extendedWaitUntil:
+    visible: 'Your earnings'
+    timeout: 60000
+- assertNotVisible: 'Your profile is under review'

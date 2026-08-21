@@ -1,0 +1,11 @@
+{
+  // Test-only view of the project. The base tsconfig deliberately includes just
+  // `src` and `prisma`, because `pnpm build` compiles it with rootDir "." and
+  // anything listed there lands in dist/ — test fixtures must never ship.
+  //
+  // This file widens the include so ts-jest and `pnpm typecheck` see the test
+  // tree, without touching what the build emits.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "prisma/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

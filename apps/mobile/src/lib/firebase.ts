@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { getApps, initializeApp } from 'firebase/app';
 import {
   EmailAuthProvider as JsEmailAuthProvider,
+  connectAuthEmulator,
   createUserWithEmailAndPassword,
   getAuth,
   initializeAuth,
@@ -61,6 +62,17 @@ try {
   });
 } catch {
   jsAuth = getAuth(app);
+}
+
+// End-to-end tests run against the local Auth emulator, so accounts can be
+// created and signed into freely with no shared live project and no network.
+// Populated from FIREBASE_AUTH_EMULATOR_HOST by app.config.ts; empty in every
+// real build, where this is a no-op.
+const authEmulatorHost = Constants.expoConfig?.extra?.['firebaseAuthEmulatorHost'] as
+  | string
+  | undefined;
+if (authEmulatorHost) {
+  connectAuthEmulator(jsAuth, `http://${authEmulatorHost}`, { disableWarnings: true });
 }
 
 // ── Legacy-style `auth()` API shim ─────────────────────────────────────────

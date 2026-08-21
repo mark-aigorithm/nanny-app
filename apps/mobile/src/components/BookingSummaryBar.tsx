@@ -105,6 +105,10 @@ export default function BookingSummaryBar({
       </View>
 
       <Pressable
+        // Named for tests: this one control advances the date picker, the care
+        // step and the review step, and its label carries a live price on two
+        // of them — so there is no stable text to aim at.
+        testID="booking.cta"
         style={({ pressed }) => [
           styles.cta,
           disabled && styles.ctaDisabled,

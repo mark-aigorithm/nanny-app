@@ -1,0 +1,49 @@
+# Requests care and pays for it, ending on a confirmed booking.
+#
+# Not a test — the leading underscore keeps run.mjs from treating it as one.
+# Picks up from a signed-in mother's home screen; the nanny's acceptance is the
+# one step that happens off the device (see scripts/advance.js).
+#
+# Flows that want to *assert* something along the way — a promo discount, Care
+# Points, a package credit — spell these steps out themselves instead. This is
+# for the ones that just need a paid booking to exist.
+appId: com.nannyapp.mobile
+---
+- runFlow: _book-to-review.yaml
+- tapOn:
+    id: 'booking.cta'
+
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- assertTrue: ${output.status == 'APPROVED'}
+
+# The screen polls every five seconds, so it flips on its own — no reload, no
+# re-navigation. That it does is part of what this is testing.
+- extendedWaitUntil:
+    visible: 'A nanny accepted!'
+    timeout: 30000
+
+- tapOn: 'Complete payment'
+
+# The Paymob fake serves this page at the very path the app builds, so the
+# WebView, the redirect and the webhook are all the production ones. Android
+# exposes WebView content to the accessibility tree, which is why a plain HTML
+# button can be tapped by its text.
+- extendedWaitUntil:
+    visible: 'Pay now'
+    timeout: 60000
+- tapOn: 'Pay now'
+
+- extendedWaitUntil:
+    visible: 'Payment successful'
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible: "You're booked."
+    timeout: 30000

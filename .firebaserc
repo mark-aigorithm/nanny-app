@@ -1,0 +1,6 @@
+{
+  "//": "The `demo-` prefix is a Firebase convention meaning 'emulator only'. The CLI refuses to contact production for such a project id, so a misconfigured test can never reach the real nanny-now-d8518 project. Every surface must agree on this id: tokens minted by the emulator carry it as `aud`/`iss`, and firebase-admin rejects a token whose project id does not match its own.",
+  "projects": {
+    "default": "demo-nannyapp"
+  }
+}

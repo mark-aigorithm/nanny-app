@@ -1,0 +1,18 @@
+# Proves the whole chain, and nothing more: Maestro drives the app, the app
+# reaches Metro, Firebase auth reaches the emulator, and /auth/me reaches the
+# backend. If this fails, no other flow's failure means anything yet.
+appId: com.nannyapp.mobile
+---
+# Clears state, opens through the dev-client link and dismisses the dev menu.
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+# The home screen the root gate routes a mother to. "Book care" renders for
+# guests too, so the guest card's absence is what proves the session is real —
+# it is the only part of this screen that depends on /auth/me having answered.
+- assertVisible: 'Book care'
+- assertNotVisible: 'Create free account'

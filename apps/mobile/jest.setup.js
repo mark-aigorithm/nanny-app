@@ -55,6 +55,7 @@ jest.mock('@mobile/lib/api', () => {
 });
 
 // 3. Safe-area insets — no SafeAreaProvider is mounted in jest.
+// (mocks 4–7 follow the safe-area block below)
 jest.mock('react-native-safe-area-context', () => {
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 390, height: 844 };
@@ -68,5 +69,73 @@ jest.mock('react-native-safe-area-context', () => {
     },
     useSafeAreaInsets: () => inset,
     useSafeAreaFrame: () => frame,
+  };
+});
+
+// ── Native modules with no JS implementation under jest ─────────────────────
+// The four below are native Expo/RN modules: importing them in jest either
+// throws or returns undefined, so any screen that touches one cannot render.
+// Each previously had to be re-mocked per test file; the defaults here are
+// permissive ("granted", empty result) so a screen mounts, and a test that
+// cares about a specific outcome overrides with its own `jest.mock(...)`.
+
+// 4. Location — screens request permission on mount and read a position.
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  getForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  // Cairo city centre, matching the coordinates the backend factories use.
+  getCurrentPositionAsync: jest
+    .fn()
+    .mockResolvedValue({ coords: { latitude: 30.0444, longitude: 31.2357 } }),
+  watchPositionAsync: jest.fn().mockResolvedValue({ remove: jest.fn() }),
+  reverseGeocodeAsync: jest.fn().mockResolvedValue([]),
+  Accuracy: { Balanced: 3, High: 4 },
+}));
+
+// 5. Notifications — the push hook registers listeners at mount; each returns
+//    a subscription whose `remove` runs on unmount, so it must be a real fn.
+jest.mock('expo-notifications', () => ({
+  getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  getExpoPushTokenAsync: jest.fn().mockResolvedValue({ data: 'ExponentPushToken[test]' }),
+  setNotificationHandler: jest.fn(),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  removeNotificationSubscription: jest.fn(),
+  setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
+  AndroidImportance: { MAX: 5 },
+}));
+
+// 6. Image picker — defaults to the user cancelling, so no test accidentally
+//    proceeds into an upload path it did not intend to exercise.
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  requestCameraPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: true, assets: null }),
+  launchCameraAsync: jest.fn().mockResolvedValue({ canceled: true, assets: null }),
+  MediaTypeOptions: { Images: 'Images' },
+}));
+
+// 7. Maps — react-native-maps' native views render nothing under jest. Stub
+//    them as plain Views so a map screen's surrounding layout still renders
+//    and can be asserted on.
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const passthrough = (name) => {
+    const Component = (props) => React.createElement(View, props, props.children);
+    Component.displayName = name;
+    return Component;
+  };
+  const MapView = passthrough('MapView');
+  return {
+    __esModule: true,
+    default: MapView,
+    MapView,
+    Marker: passthrough('Marker'),
+    Callout: passthrough('Callout'),
+    Circle: passthrough('Circle'),
+    Polyline: passthrough('Polyline'),
+    PROVIDER_GOOGLE: 'google',
   };
 });

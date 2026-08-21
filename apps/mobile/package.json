@@ -10,6 +10,10 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:unit": "jest",
+    "test:e2e": "node e2e/run.mjs",
+    "e2e:build": "node e2e/build.mjs",
+    "e2e:metro": "node e2e/with-emulator-env.mjs expo start --clear",
     "preview:web": "node scripts/generate-preview-entry.js && vite build --config vite.preview.config.ts"
   },
   "dependencies": {
