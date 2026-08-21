@@ -58,9 +58,12 @@ stranger is allowed near a child.
 
 **All twelve have an API journey** in
 [`apps/backend/src/__integration__/journeys/`](../../apps/backend/src/__integration__/journeys), so
-every P0 flow is asserted end to end over real HTTP. Ten of them are also driven through a UI; the
-table names that spec and says what driving it actually adds. **A9 needs no UI** — a dropped webhook
-has none. **A8's is still to write**, and is the only P0 gap.
+every P0 flow is asserted end to end over real HTTP. Eleven are also driven through a UI; the table
+names that spec and says what driving it adds. **A9 needs no UI** — a dropped webhook has none.
+
+The spec file names do not map one-to-one onto flows: A8's admin half lives in `a03-refund.spec.ts`,
+because both start from the same paid booking and differ only in which way the edit moves the total.
+Look for a flow's coverage by reading the table, not by listing the directory.
 
 | Flow | API journey | UI spec | What the UI adds |
 |---|---|---|---|
@@ -71,7 +74,7 @@ has none. **A8's is still to write**, and is the only P0 gap.
 | A5 | `a05-care-points` | `a05-care-points.yaml` | Hours reserved before a nanny exists, applied without a tap once one accepts |
 | A6 | `a06-package-hours` | `a06-package-purchase.yaml` | A second checkout, and the hours turning up where a mother looks |
 | A7 | `a07-extension` | `a07-extension.yaml` | The mid-shift card: ask, wait, pay for the extra hours |
-| A8 | `a08-time-edit-adjustment` | **not written** | Would add the console's edit preview and the delta it applies — the one P0 UI half still outstanding |
+| A8 | `a08-time-edit-adjustment` | `a03-refund.spec.ts` | The console's edit preview and the delta it applies. Shares a file with A3 — one seeded paid booking serves both. The mother's half (settling the balance on `AdjustmentCheckoutScreen`) has no mobile flow yet |
 | A9 | `a09-webhook-resilience` | — | Nothing — a dropped webhook has no UI |
 | A10 | `a10-nanny-onboarding` | `a10-nanny-onboarding.yaml` | The vetting gate: waiting screen, then dashboard |
 | A11 | `a11-mother-id-gate` | `a11-mother-id-gate.yaml` | That the gate is on the *action*, not on the app |
@@ -187,9 +190,18 @@ independently of the UI. Worth driving as a matrix over all 13 sections × `NONE
 
 ## P1 — Core operations
 
-### B1. Superuser manages operators · `UI:admin`
+### B1. Superuser manages operators · `UI:admin` — **covered** by `b01-manage-operators.spec.ts`
 Create an operator, set per-section levels, delete. **Assert:** the operator's *next* session
 reflects the change — this is where a cached token or stale permission payload would show.
+
+Every assertion is therefore made in a second, signed-out browser context, which is the only thing
+that proves the hand-off: a grant is read once per session into `PermissionsProvider` from a single
+`/admin/me` call, so a spec that re-read the superuser's own page would pass while every operator
+kept their stale reach. The operator is *created through the form* rather than seeded, because
+`createAdminUser` provisions the Firebase account as a side effect of that call — seeding over HTTP
+would skip the half that has to work for the new account to be able to sign in at all. Removal is
+asserted at the door: it disables the Firebase user, so the next attempt is refused by
+authentication rather than by a section check further in.
 
 ### B2. Session lifecycle · `UI:admin`
 Token refresh, the 401-replay interceptor in `api-client.ts`, logout, and a deep link to a

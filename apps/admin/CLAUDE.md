@@ -83,6 +83,12 @@ An `OPERATOR` only reaches the sections the superuser granted. `lib/permissions.
   `data-testid` only when there is no accessible name — an icon-only button, a table row.
 - E2E specs adopt a role via saved storage state rather than logging in each time — see
   `e2e/roles.ts` and `e2e/global-setup.ts`. Add a role there, not in a spec.
+- **A spec that needs a second session must use `newSignedOutPage`** (`e2e/helpers/session.ts`),
+  never a bare `browser.newContext()`: the `browser` fixture applies the spec's own
+  `test.use({ storageState })` to whatever it opens, so the "fresh" context comes back already
+  signed in as that role, `/login` redirects to the dashboard, and the spec times out looking for a
+  password field. Needed whenever a change only takes effect on an account's *next* session — a
+  permission grant, for instance, is read once per session from `/admin/me`.
 - E2E needs the full stack: `pnpm test:env` and `pnpm --filter=@nanny-app/backend start:test` from
   the repo root. See the root CLAUDE.md.
 
