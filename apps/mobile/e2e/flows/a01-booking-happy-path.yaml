@@ -49,15 +49,9 @@ env:
 # She comes back to the app. Reopening is also what clears the query cache, so
 # one relaunch is what lets the whole shift land at once — see _relaunch.yaml.
 #
-# Rating is not optional: a completed, unrated booking raises a modal over the
-# whole app until it is answered, which is why it is what this relaunch waits
-# for — that it fires is the assertion.
-#
-# Two prompts actually appear for the same booking — the full-screen
-# MandatoryReviewGate and this bottom sheet on top of it, both fed by the same
-# "most recent booking is completed and unrated" condition. That is a defect,
-# not a race: the sheet is always the one in front, so it is the one a person
-# can answer, and the gate closes behind it once the review lands.
+# Rating is not optional: her most recently completed booking, left unrated,
+# raises a sheet over the whole app until it is answered. That it fires on open
+# is what this relaunch waits for, and is half of what this section asserts.
 - runFlow:
     file: _relaunch.yaml
     env:
@@ -68,8 +62,9 @@ env:
 - tapOn: 'Rate 5 stars'
 - tapOn: 'Submit rating'
 
+# The other half: submitting is the only thing that closes it.
 - extendedWaitUntil:
-    notVisible: 'Rate your booking'
+    notVisible: 'How was your booking with .*'
     timeout: 30000
 
 # ── The care log ───────────────────────────────────────────────────────────

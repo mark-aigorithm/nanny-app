@@ -238,6 +238,23 @@ the first tap into a text field with a full-screen "Try out your stylus" panel
 that covers the form. `run.mjs` turns it off (`stylus_handwriting_enabled 0`) as
 part of device prep.
 
+**There is a two-hour window each night when A1 and A7 cannot pass.** Between
+22:00 and midnight (platform time, `Africa/Cairo`) the date picker drops *today*
+from its day rail, so the flows book tomorrow at 00:00 instead of ten minutes
+from now, and check-in — which opens fifteen minutes before the start — refuses
+with "You can start this booking 15 minutes before the scheduled start time."
+
+The cause is in the picker, not here: `isDayBookable` and `selectDate` ask
+whether any whole *hour* boundary is still bookable, while `startCandidates`
+works in five-minute steps. With the lab's 24-hour care window the last slot is
+22:00, so from 22:00 onwards no boundary qualifies and the day is hidden —
+even though 22:45, 22:50 and 22:55 are all in the candidate list and legal
+(a booking may cross midnight when the window is a full day). Under the default
+06:00–22:00 window the two agree, because a booking starting in the final hour
+would run past the close anyway.
+
+Run those two flows outside that window, or fix the picker.
+
 **A lost VIEW intent.** Occasionally `openLink` simply does not start the app:
 the device sits on its own home screen and logcat shows nothing at all for two
 minutes. `_relaunch.yaml` retries, which is why it takes the selector to wait
