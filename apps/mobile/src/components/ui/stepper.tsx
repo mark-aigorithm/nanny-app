@@ -18,6 +18,12 @@ interface StepperProps {
   size?: 'sm' | 'md';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Names this stepper for end-to-end tests, as `<id>.decrement` /
+   * `<id>.increment`. Both buttons are unlabelled icons and several steppers
+   * share a screen, so there is nothing visible for a test to aim at.
+   */
+  testID?: string;
 }
 
 /**
@@ -35,6 +41,7 @@ export default function Stepper({
   size = 'md',
   disabled = false,
   style,
+  testID,
 }: StepperProps) {
   const canDecrement = !disabled && value > min;
   const canIncrement = !disabled && value < max;
@@ -50,6 +57,7 @@ export default function Stepper({
   return (
     <View style={[styles.track, style]}>
       <Pressable
+        {...(testID ? { testID: `${testID}.decrement` } : {})}
         accessibilityRole="button"
         accessibilityLabel="Decrease"
         accessibilityState={{ disabled: !canDecrement }}
@@ -75,6 +83,7 @@ export default function Stepper({
       </Text>
 
       <Pressable
+        {...(testID ? { testID: `${testID}.increment` } : {})}
         accessibilityRole="button"
         accessibilityLabel="Increase"
         accessibilityState={{ disabled: !canIncrement }}

@@ -463,6 +463,12 @@ export default function BookingDatePickerScreen() {
           return (
             <Pressable
               key={d.dateIso}
+              // Every card shares one id so a test can take the first offered
+              // day by index. Its label is a weekday or "Today", neither of
+              // which identifies a *bookable* day — the rail drops days whose
+              // slots have all passed, so which card comes first depends on
+              // the clock.
+              testID="booking.day"
               style={[styles.railCard, selected && styles.railCardSelected]}
               onPress={() => selectDate(d.dateIso, d.year, d.month)}
             >
@@ -570,6 +576,7 @@ export default function BookingDatePickerScreen() {
             </Text>
           </View>
           <Stepper
+            testID="booking.startTime"
             value={Math.max(startIndex, 0)}
             onChange={(index) => {
               const next = startCandidates[index];
@@ -720,6 +727,7 @@ export default function BookingDatePickerScreen() {
                     </Text>
                   </View>
                   <Stepper
+                    testID="booking.duration"
                     value={durationMinutes ?? minDuration}
                     onChange={setSelectedDurationMinutes}
                     min={minDuration}

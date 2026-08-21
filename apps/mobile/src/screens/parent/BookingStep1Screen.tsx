@@ -373,6 +373,7 @@ export default function BookingStep1Screen() {
           ) : (
             <View style={styles.promoInputRow}>
               <TextInput
+                testID="booking.promoInput"
                 style={styles.promoInput}
                 placeholder="Enter code"
                 placeholderTextColor={colors.textPlaceholder}
@@ -381,6 +382,7 @@ export default function BookingStep1Screen() {
                 autoCapitalize="characters"
               />
               <TouchableOpacity
+                testID="booking.promoApply"
                 style={[styles.promoApplyBtn, promoDisabled && styles.promoApplyBtnDisabled]}
                 onPress={handleApplyPromo}
                 activeOpacity={0.7}
@@ -412,6 +414,7 @@ export default function BookingStep1Screen() {
             </Text>
             <View style={styles.pointsRow}>
               <Stepper
+                testID="booking.points"
                 value={pointsHours}
                 onChange={handlePointsChange}
                 min={0}
