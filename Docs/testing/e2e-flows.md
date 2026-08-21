@@ -213,12 +213,32 @@ options, support contact, cameras. The pattern is the same for each and only wor
 **create in the console → assert it appears in the mobile-facing API** (`/bookings/options`,
 `/nanny/skills`, `/packages`, …). Half of these are static config with no other consumer.
 
-### B4. Bookings console · `UI:admin`
-Filter, search, paginate, open detail, change status, refund. The list is the operator's primary
-workspace.
+### B4. Bookings console · `UI:admin` — **covered** by `b04-bookings-console.spec.ts`
+Filter, paginate, open detail, change status, refund. The list is the operator's primary workspace.
+There is **no search** on this page — the catalogue previously claimed one; filters and paging are
+the only ways to narrow it, which is why paging is asserted rather than assumed.
 
-### B5. Users console and ID review queue · `UI:admin`
+Seeing, opening, rejecting and refunding are already covered by A1–A3, so B4 takes what is left:
+the status override, paging a queue longer than one screen, and the rule that a completed booking is
+locked. The paging tests seed eleven bookings for **one** mother on consecutive days — an account
+per row would cost a Firebase sign-up each, and overlapping times are refused.
+
+It also pins a gap, the same shape as A1's: **the override offers every status on every row**, while
+the server enforces `VALID_TRANSITIONS` — so "completed" on a new request is a guaranteed error
+toast. `PENDING` reaches only `APPROVED` (which needs a nanny) or `CANCELLED`.
+
+### B5. Users console and ID review queue · `UI:admin` — **covered** by `b05-users-and-id-review.spec.ts`
 Mother and nanny detail pages, approve/reject, the pending-ID queue draining as items are actioned.
+
+Each decision is read back over HTTP, not just off the badge: a filtered list would look identical
+if a row had stopped matching for some other reason. Rejection asserts the *reason* survives, since
+that is what the user is shown.
+
+Two things the specs had to work around, both worth knowing before writing more here. The gallery
+orders `createdAt: 'asc'` — correct for a work queue, since the longest wait should be dealt with
+first — but the E2E database is never truncated, so a freshly seeded person is always on the **last**
+page, and every filter change resets to the first. And that ordering is the **opposite** of the
+Mommies and Nannies tabs, which are newest-first: the same people, two views, two directions.
 
 ### B6. Marketplace listing lifecycle · `UI:both`
 Note the modelling: listings **are** community posts — `/community/posts` with a category, surfaced
