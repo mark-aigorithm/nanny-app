@@ -45,12 +45,35 @@ export default async function globalSetup(): Promise<void> {
   // that proves all 49 migrations still apply to an empty database.
   run('pnpm exec prisma migrate deploy');
 
+  await clearSettings();
+
   // Seeds app_settings (service fee, hourly rate, booking window). The service
   // layer falls back to identical in-code defaults for any missing key, so this
   // is about tests exercising the DB-backed path rather than the fallback.
   run('pnpm exec prisma db seed');
 
   await snapshotBaseline();
+}
+
+/**
+ * Empties `app_settings` so the seed below writes the defaults, not whatever is
+ * already there.
+ *
+ * `prisma/seed.ts` upserts with `update: {}` — deliberately, so re-seeding a
+ * real environment never clobbers an admin's edits. That makes it a no-op for
+ * any key that already exists, and this database is shared: the mobile E2E lab
+ * configures the platform for its own flows (a 24-hour care window, no booking
+ * lead time). Without this, those values would survive the seed, be captured as
+ * the baseline every later test is restored to, and quietly change what the
+ * whole integration suite is testing against.
+ */
+async function clearSettings(): Promise<void> {
+  const { prisma } = await import('../../src/db/prisma');
+  try {
+    await prisma.appSettings.deleteMany({});
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 /**
