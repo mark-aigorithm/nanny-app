@@ -56,9 +56,11 @@ no live credentials and no network.
 Nothing ships without these. Each one either moves money, grants access, or decides whether a
 stranger is allowed near a child.
 
-**All twelve are covered.** Every one has an API journey in
-[`apps/backend/src/__integration__/journeys/`](../../apps/backend/src/__integration__/journeys);
-the table names the UI spec where one exists and says what driving a UI actually adds.
+**All twelve have an API journey** in
+[`apps/backend/src/__integration__/journeys/`](../../apps/backend/src/__integration__/journeys), so
+every P0 flow is asserted end to end over real HTTP. Ten of them are also driven through a UI; the
+table names that spec and says what driving it actually adds. **A9 needs no UI** — a dropped webhook
+has none. **A8's is still to write**, and is the only P0 gap.
 
 | Flow | API journey | UI spec | What the UI adds |
 |---|---|---|---|
@@ -69,7 +71,7 @@ the table names the UI spec where one exists and says what driving a UI actually
 | A5 | `a05-care-points` | `a05-care-points.yaml` | Hours reserved before a nanny exists, applied without a tap once one accepts |
 | A6 | `a06-package-hours` | `a06-package-purchase.yaml` | A second checkout, and the hours turning up where a mother looks |
 | A7 | `a07-extension` | `a07-extension.yaml` | The mid-shift card: ask, wait, pay for the extra hours |
-| A8 | `a08-time-edit-adjustment` | `a08-time-edit.spec.ts` | The console's edit preview and the delta it applies |
+| A8 | `a08-time-edit-adjustment` | **not written** | Would add the console's edit preview and the delta it applies — the one P0 UI half still outstanding |
 | A9 | `a09-webhook-resilience` | — | Nothing — a dropped webhook has no UI |
 | A10 | `a10-nanny-onboarding` | `a10-nanny-onboarding.yaml` | The vetting gate: waiting screen, then dashboard |
 | A11 | `a11-mother-id-gate` | `a11-mother-id-gate.yaml` | That the gate is on the *action*, not on the app |
@@ -105,8 +107,11 @@ The reveal on `BookingConfirmationScreen` then offers **Complete payment** → `
 payment-method step.) Nanny requests a start PIN (`/bookings/:id/start-pin`), parent reads it out,
 nanny checks in → **IN_PROGRESS**. Nanny writes care logs; the parent reads them in the **Care log
 section of `BookingDetailScreen`** (`BookingCareLogSection` — there is no standalone care-log
-screen). Nanny checks out → **COMPLETED**. Parent submits a review, which is not optional: a
-completed unrated booking raises a blocking gate over the app.
+screen). Nanny checks out → **COMPLETED**. Parent submits a rating, which is not optional:
+`RatingPromptHost` raises a sheet over the app on next open, and only submitting closes it. It
+prompts for the **most recently completed** booking only — older unrated ones stay optionally
+rateable from booking history, per
+[the rating design](../superpowers/specs/2026-07-16-mandatory-rating-design.md).
 
 Driver note: nothing here needs a second UI driver. Maestro drives the mother; the nanny's four
 moves (accept, check in, care log, check out) are advanced over HTTP.
@@ -254,18 +259,25 @@ and flake.
 - **RBAC on all ~161 endpoints** — drive the matrix over HTTP in plan 1; E2E covers the console's
   UI-level enforcement only (A12).
 
-## Known blockers to resolve before writing P0/P1 specs
+## Blockers
 
-1. **`testID` / `data-testid` instrumentation does not exist.** Every flow above needs it. This is
-   listed as out of scope in the environment plan and needs to land inside plans 4 and 6.
-2. **Live video (B7) and any WebSocket realtime** are likely not drivable by Maestro. Expect to
-   assert the *signalling* (credentials issued, notification sent) and stop at the media stream.
-3. **Two-driver specs (A7, A10, B6)** need a decision on orchestration: run Maestro and Playwright
-   in one harness, or advance the non-focus surface over HTTP. The second is far cheaper and is the
-   recommendation. A1 is no longer among them — the operator left the booking path when care became
-   a broadcast, so it is Maestro plus HTTP.
-4. **Seed determinism.** A1 needs a seeded nanny who is *eligible* for the request: ID-approved,
-   profile complete, free for the window, inside `broadcast_radius_km` of the mother, and holding
-   every skill the request is priced for. The current factories place both parties in Cairo, but
-   the skill and availability halves of eligibility are not guaranteed — miss one and the request
-   simply never reaches her pool, which fails as a timeout rather than an assertion.
+Three of the four listed here were resolved by the P0 work; what they were replaced with is the
+pattern the P1 and P2 specs should follow, so they are kept rather than deleted.
+
+1. **Still open — live video (B7) and any WebSocket realtime** are likely not drivable by Maestro.
+   Expect to assert the *signalling* (credentials issued, notification sent) and stop at the media
+   stream.
+2. ~~Instrumentation does not exist.~~ **Resolved.** Mobile carries `testID="<screen>.<element>"`
+   on exactly the controls a flow cannot reach by visible text; the convention and the rule for
+   when to add one are in `apps/mobile/CLAUDE.md`. Check for an existing `accessibilityLabel`
+   first — Maestro matches Android `content-desc` as text, which is why the star controls need no
+   testID. Admin needs none: Playwright queries by role and label.
+3. ~~Two-driver specs need an orchestration decision.~~ **Resolved: advance the non-focus surface
+   over HTTP.** One driver per spec, always. A7 and A10 are Maestro plus HTTP via
+   `apps/mobile/e2e/scripts/advance.js`; B6 should be written the same way.
+4. ~~Seed determinism.~~ **Resolved for the mobile lab.** `apps/mobile/e2e/fixtures.mjs` and
+   `apps/backend/test/e2e/seed-mobile.ts` provision an eligible nanny, undo the previous run, and
+   set a full-24h care window with zero lead time so the suite does not pass or fail by time of
+   day. Two caveats survive: the seed runs before **every** flow, not once per suite, and a full-day
+   window exposes a picker bug that makes A1 and A7 unrunnable between 22:00 and midnight — see
+   `apps/mobile/e2e/README.md`.
