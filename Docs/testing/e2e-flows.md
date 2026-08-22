@@ -280,12 +280,39 @@ first — but the E2E database is never truncated, so a freshly seeded person is
 page, and every filter change resets to the first. And that ordering is the **opposite** of the
 Mommies and Nannies tabs, which are newest-first: the same people, two views, two directions.
 
-### B6. Marketplace listing lifecycle · `UI:both`
+### B6. Marketplace listing lifecycle · `UI:both` — **covered** by `b06-marketplace-moderation.spec.ts`
 Note the modelling: listings **are** community posts — `/community/posts` with a category, surfaced
-by `/community/my-posts`, moderated through `/admin/marketplace/listings`. Parent creates → PENDING
-→ admin approves → visible in `MarketplaceScreen` → buyer contacts seller, which auto-creates a
-conversation. Reject path: `MyListingsScreen` shows the reason → fix → resubmit (the most recent
-feature commit, so untested by construction).
+by `/community/my-posts`, moderated through `/admin/marketplace/listings`. There is no marketplace
+table, so "did it reach the marketplace" is a question about the community feed, never about an
+admin list.
+
+Written as one driver plus HTTP, per blocker 3: Playwright drives the console, and everything on the
+app's side — posting, editing, browsing the feed, "Contact seller" — is advanced by
+`e2e/helpers/backend.ts`. The full loop is covered: pending → approve → live → buyer contacts seller
+(which auto-creates the conversation), plus reject-with-reason → seller fixes → back in the queue →
+approve.
+
+**The trap this flow sets, and the reason the helper takes a viewer token:** an author always sees
+her own listing in any moderation state, because "My listings" has to show her a rejection so she can
+act on it. So visibility is only ever asserted through a **buyer's** token — asked with the seller's,
+every one of these tests passes before an admin has done anything at all. `listingVisibleTo` and
+`findInMarketplaceFeed` both require the viewer explicitly for that reason.
+
+Two behaviours were worth pinning on their own. Rejection doubles as a **takedown** — the menu item
+on a live listing reads "Take down", and it drops the listing out of the feed and closes the contact
+route with it. And an edit to an **already-approved** listing re-enters review rather than publishing
+through, which is what stops a seller quietly changing the price on something people can see.
+
+Not covered: the official-listing **form**. It uploads a photo to Firebase Storage and the test stack
+runs an Auth emulator only, so official listings are published over HTTP through the same route the
+form posts to; the console half — the Official badge, the Edit/Delete menu in place of
+Approve/Reject, and deleting — is still driven through the UI. A Storage emulator would close the
+gap.
+
+The queue is walked rather than paged to either end. Pending is oldest-first (a work queue serves the
+longest wait first) while every other filter is newest-first with official listings pinned above the
+rest, and the E2E database is never truncated — so both ends drift with every run that has ever
+executed. `findRow` walks while *Next page* is enabled, which is the only direction-agnostic answer.
 
 ### B7. Live camera session · `UI:mobile`
 Admin assigns a camera to a booking → `/bookings/:id/camera` returns stream credentials →
@@ -346,7 +373,8 @@ pattern the P1 and P2 specs should follow, so they are kept rather than deleted.
    testID. Admin needs none: Playwright queries by role and label.
 3. ~~Two-driver specs need an orchestration decision.~~ **Resolved: advance the non-focus surface
    over HTTP.** One driver per spec, always. A7 and A10 are Maestro plus HTTP via
-   `apps/mobile/e2e/scripts/advance.js`; B6 should be written the same way.
+   `apps/mobile/e2e/scripts/advance.js`; B6 was written the same way, with Playwright as the one
+   driver and `apps/admin/e2e/helpers/backend.ts` advancing the app's side.
 4. ~~Seed determinism.~~ **Resolved for the mobile lab.** `apps/mobile/e2e/fixtures.mjs` and
    `apps/backend/test/e2e/seed-mobile.ts` provision an eligible nanny, undo the previous run, and
    set a full-24h care window with zero lead time so the suite does not pass or fail by time of
