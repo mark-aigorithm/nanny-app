@@ -4,5 +4,20 @@
     "superpowers@claude-plugins-official": true,
     "supabase@claude-plugins-official": true,
     "playwright@claude-plugins-official": true
+  },
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/reap-strays.mjs\" --under \"$CLAUDE_PROJECT_DIR\" || true",
+            "timeout": 20,
+            "statusMessage": "Reaping stray dev processes"
+          }
+        ]
+      }
+    ]
   }
 }
