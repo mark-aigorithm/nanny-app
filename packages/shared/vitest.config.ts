@@ -9,5 +9,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts'],
+    // Vitest forks one worker per CPU core by default. This suite is small
+    // enough that the extra workers buy nothing, and Turborepo runs it next to
+    // the backend and admin suites — the cores are already spoken for.
+    maxWorkers: 2,
   },
 });

@@ -11,15 +11,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import {
-  addDaysIso,
   bookingWindowLengthHours,
   calculatePriceBreakdown,
-  generateCareDaySlots,
   isBookingWithinDailyWindow,
   resolveDurationMultiplier,
-  type BookingOptions,
-  type CareDaySlot,
 } from '@nanny-app/shared';
+import {
+  START_STEP_MINUTES,
+  addMinutesToWall,
+  careDaySlots,
+  isDayBookable,
+  isStartBookable,
+  startCandidatesForDay,
+} from '@mobile/lib/bookingStartTimes';
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
 import BookingLocationSection from '@mobile/components/BookingLocationSection';
@@ -45,9 +49,6 @@ const RAIL_DAYS = 30;
  * 13:50.
  */
 const DURATION_STEP_MINUTES = 60;
-
-/** Start times are offered every 5 minutes — the stepper walks one notch at a time. */
-const START_STEP_MINUTES = 5;
 
 type RailDay = {
   dateIso: string;
@@ -75,51 +76,9 @@ function toDateIso(year: number, month: number, day: number): string {
   return `${year}-${pad2(month + 1)}-${pad2(day)}`;
 }
 
-/**
- * Shifts a wall-clock string by whole minutes, rolling the date over midnight.
- *
- * Pure calendar arithmetic on the string — never `new Date`, which would parse
- * it in the DEVICE's timezone and land an hour out on a DST boundary. The
- * server does the timezone conversion; the client only ever moves wall time.
- */
-function addMinutesToWall(wall: string, minutes: number): string {
-  const dateIso = wall.slice(0, 10);
-  const total = Number(wall.slice(11, 13)) * 60 + Number(wall.slice(14, 16)) + minutes;
-  const dayShift = Math.floor(total / 1440);
-  const rem = ((total % 1440) + 1440) % 1440;
-  return `${addDaysIso(dateIso, dayShift)}T${pad2(Math.floor(rem / 60))}:${pad2(rem % 60)}:00`;
-}
-
-/** Replaces the time-of-day on a wall-clock string, keeping its date. */
-function withTimeOfDay(wall: string, hour: number, minute: number): string {
-  return `${wall.slice(0, 10)}T${pad2(hour)}:${pad2(minute)}:00`;
-}
-
 /** "270" → "4h 30m". Thin wrapper so the screen can stay in minutes throughout. */
 function formatMinutes(minutes: number): string {
   return formatDurationHours(minutes / 60);
-}
-
-/**
- * A slot can be offered only once the minimum advance notice has passed. Both
- * sides are fixed-width platform wall-clock, so comparing the strings compares
- * the times — no timezone maths on the device, and no reliance on its clock.
- */
-function isStartBookable(startWall: string, options: BookingOptions): boolean {
-  return startWall >= options.earliestStartWallClock;
-}
-
-function careDaySlots(dateIso: string, options: BookingOptions): CareDaySlot[] {
-  return generateCareDaySlots(
-    dateIso,
-    options.bookingWindowStartHour,
-    options.bookingWindowEndHour,
-    options.minBookingHours,
-  );
-}
-
-function isDayBookable(dateIso: string, options: BookingOptions): boolean {
-  return careDaySlots(dateIso, options).some((slot) => isStartBookable(slot.startWall, options));
 }
 
 export default function BookingDatePickerScreen() {
@@ -211,31 +170,14 @@ export default function BookingDatePickerScreen() {
    * hours and the stepper walks this list one notch at a time, so coarse and
    * fine selection share a single underlying value.
    *
-   * Candidates are filtered with the same function the server validates with,
-   * so the picker can't offer a start the API would reject.
+   * The very same list decides which days the rail and the grid offer at all
+   * (`isDayBookable`), so a day can never be hidden while it still holds a
+   * start the picker would happily take.
    */
   const startCandidates = useMemo(() => {
-    if (!options) return [];
-    const out: string[] = [];
-    for (const slot of hourSlots) {
-      for (let minute = 0; minute < 60; minute += START_STEP_MINUTES) {
-        const candidate = withTimeOfDay(slot.startWall, slot.hour, minute);
-        if (!isStartBookable(candidate, options)) continue;
-        if (
-          !isBookingWithinDailyWindow(
-            candidate,
-            addMinutesToWall(candidate, options.minBookingHours * 60),
-            options.bookingWindowStartHour,
-            options.bookingWindowEndHour,
-          )
-        ) {
-          continue;
-        }
-        out.push(candidate);
-      }
-    }
-    return out;
-  }, [hourSlots, options]);
+    if (!options || !selectedDateIso) return [];
+    return startCandidatesForDay(selectedDateIso, options);
+  }, [options, selectedDateIso]);
 
   const startIndex = useMemo(
     () => (startWall ? startCandidates.indexOf(startWall) : -1),
@@ -362,14 +304,11 @@ export default function BookingDatePickerScreen() {
   const selectDate = (dateIso: string, year: number, month: number) => {
     setSelectedDateIso(dateIso);
     setTimeError(null);
-    // Land on the first bookable start straight away. The wheel always shows
-    // the value under its centre band, so leaving it unselected would display
-    // a time that isn't actually chosen — and would leave the minute column
-    // with no hour to validate against.
-    const firstStart = options
-      ? careDaySlots(dateIso, options).find((slot) => isStartBookable(slot.startWall, options))
-      : undefined;
-    setStartWall(firstStart?.startWall ?? null);
+    // Land on the first start actually on offer — the head of the same list the
+    // stepper walks, not the first whole hour, which late in the day may have
+    // passed while five-minute starts remain. Leaving it unselected would show
+    // a readout that isn't really chosen.
+    setStartWall(options ? (startCandidatesForDay(dateIso, options)[0] ?? null) : null);
     // Keep the grid pointed at whatever the rail just picked, so toggling
     // between the two views never jumps to an unrelated month.
     setCurrentYear(year);

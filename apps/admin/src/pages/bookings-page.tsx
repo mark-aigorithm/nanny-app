@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ADMIN_PAGE_SIZES,
   BookingStatusSchema,
+  canTransitionBookingStatus,
   PLATFORM_TIMEZONE,
   SetBookingStatusSchema,
   type AdminBooking,
@@ -66,6 +67,41 @@ const STATUS_FILTERS: { value: AdminBookingStatusFilter; label: string }[] = [
 // Statuses an admin may override to. Mirrors SetBookingStatusSchema on the
 // server (REFUNDED is owned by payments, never an admin-settable target).
 const OVERRIDE_STATUSES = BookingStatusSchema.options.filter((s) => s !== 'REFUNDED');
+
+/**
+ * Whether this booking can be approved.
+ *
+ * Two rules, both the server's. The transition table only allows PENDING →
+ * APPROVED; on top of that, `approveBooking` refuses a booking with no nanny
+ * assigned ("Assign a nanny to this unclaimed request before approving it"),
+ * which the table cannot express. The only code path that assigns a nanny is
+ * her claiming the request — and that sets APPROVED itself — so this is false
+ * for every request the current app can produce.
+ */
+function canApproveBooking(booking: AdminBooking): boolean {
+  return canTransitionBookingStatus(booking.status, 'APPROVED') && booking.nanny !== null;
+}
+
+/**
+ * The statuses this booking can actually be moved to, in lifecycle order.
+ *
+ * Offering anything else is offering an error toast: `setBookingStatus`
+ * validates against the same table, so a status the server refuses is a
+ * guaranteed failure and never worth putting in front of an operator.
+ */
+function reachableStatuses(booking: AdminBooking): string[] {
+  return OVERRIDE_STATUSES.filter((next) =>
+    next === 'APPROVED'
+      ? canApproveBooking(booking)
+      : canTransitionBookingStatus(booking.status, next),
+  );
+}
+
+/** Why the override is disabled: a terminal status has nowhere left to go. */
+function lockedReason(status: string): string {
+  if (status === 'COMPLETED') return 'Completed bookings are locked';
+  return `A ${statusLabel(status)} booking can’t be changed`;
+}
 
 function statusLabel(status: string): string {
   return status.replaceAll('_', ' ').toLowerCase();
@@ -219,17 +255,20 @@ export function BookingsPage() {
     key: 'override',
     header: 'Override',
     render: (booking) => {
-      const isCompleted = booking.status === 'COMPLETED';
-      const options = OVERRIDE_STATUSES.some((s) => s === booking.status)
-        ? OVERRIDE_STATUSES
-        : [booking.status, ...OVERRIDE_STATUSES];
+      const reachable = reachableStatuses(booking);
+      // Terminal statuses reach nothing, so the control stays rendered — the
+      // operator still needs to read the status — but there is nothing to pick.
+      const locked = reachable.length === 0;
+      // The current status heads the list purely as the selected value; it is
+      // never a legal target for itself.
+      const options = [booking.status, ...reachable];
       return (
         <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
           <Select
             compact
             value={booking.status}
-            disabled={mutating || isCompleted}
-            title={isCompleted ? 'Completed bookings are locked' : 'Override booking status'}
+            disabled={mutating || locked}
+            title={locked ? lockedReason(booking.status) : 'Override booking status'}
             aria-label={`Override status for ${booking.mother.name}'s booking`}
             options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
             onChange={(next) =>
@@ -319,7 +358,7 @@ export function BookingsPage() {
         return (
           <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
           <ActionMenu label={`Actions for ${booking.mother.name}'s booking`} disabled={mutating}>
-            {isPending && (
+            {canApproveBooking(booking) && (
               <MenuItem
                 icon={<Check size={ICON_SIZE.menu} />}
                 onSelect={() => approveMutation.mutate(booking.id)}

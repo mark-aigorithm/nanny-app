@@ -97,31 +97,33 @@ test('locks the override once a booking is completed', async ({ page }) => {
 });
 
 /**
- * KNOWN GAP — pinned, not endorsed.
+ * The dropdown used to offer every status except REFUNDED on every row, so most
+ * of what it offered was refused by `VALID_BOOKING_TRANSITIONS` — "completed" on
+ * a new request was a guaranteed error toast. It now reads the same table the
+ * server validates against, which is what this asserts.
  *
- * The override dropdown offers every status except REFUNDED, on every row,
- * regardless of where that booking actually is. The server enforces
- * `VALID_TRANSITIONS` (booking.service.ts:457), so most of what it offers is
- * refused: a PENDING booking can only reach APPROVED or CANCELLED, and APPROVED
- * additionally needs a nanny assigned. Picking "completed" on a new request is
- * therefore a guaranteed error toast.
- *
- * Same shape as the Approve gap pinned in a01: the console offers an action the
- * API will not perform. Pinned here so narrowing the options to the legal ones
- * shows up as a deliberate change to this spec.
+ * It asserts the *whole* option list rather than the absence of one bad entry:
+ * an assertion on a single status would still pass if the filter were dropped
+ * for every other one.
  */
-test('currently offers transitions the server refuses', async ({ page }) => {
+test('offers only the transitions the server will accept', async ({ page }) => {
   const admin = await superuserToken();
   const booking = await seedPendingBooking();
 
   await gotoConsole(page, '/bookings');
-  await override(page, booking.mother.surname, 'completed');
+  await statusSelectFor(page, booking.mother.surname).click();
 
-  const toast = page.getByRole('status').filter({ hasText: 'Couldn’t update status' });
-  await expect(toast).toBeVisible();
-  await expect(toast).toContainText('Cannot transition booking from PENDING to COMPLETED');
+  // PENDING reaches APPROVED or CANCELLED — but a broadcast request has no
+  // nanny, and approving one without a nanny is refused as well. So all that is
+  // left is its own status, present as the selected value, plus the one thing
+  // an operator can actually do to an unclaimed request.
+  await expect(rowFor(page, booking.mother.surname).getByRole('option')).toHaveText([
+    'pending',
+    'cancelled',
+  ]);
 
-  // The booking is untouched.
+  // Nothing was picked, so nothing changed.
+  await page.keyboard.press('Escape');
   expect((await getBooking(admin, booking.id)).status).toBe('PENDING');
 });
 

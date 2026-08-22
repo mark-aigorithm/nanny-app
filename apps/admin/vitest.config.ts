@@ -26,5 +26,10 @@ export default defineConfig({
     // this, Vitest would try to collect them and fail on the `@playwright/test`
     // imports.
     exclude: ['node_modules', 'dist', 'e2e/**'],
+    // Vitest forks one worker per CPU core by default, and each fork here pays
+    // for a jsdom environment plus the React plugin's transform. Turborepo runs
+    // this suite alongside the backend and mobile suites, so an uncapped fan-out
+    // multiplies across packages and can exhaust system memory.
+    maxWorkers: 4,
   },
 });

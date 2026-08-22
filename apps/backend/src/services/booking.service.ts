@@ -11,6 +11,7 @@ import {
   PaymentStatus,
   bookingLeadTimeMessage,
   bookingWindowMessage,
+  canTransitionBookingStatus,
   extendablePresetHours,
   isBookingWithinDailyWindow,
   PLATFORM_TIMEZONE,
@@ -446,29 +447,12 @@ function toBookingResponse(
 }
 
 /**
- * Valid status transitions — the single source of truth for the booking
- * lifecycle. Pay-after-approval flow (Issues 2 + 5):
- *   PENDING → APPROVED (admin) → CONFIRMED (mother pays) → IN_PROGRESS → COMPLETED
- * Any non-terminal status may be CANCELLED. PENDING_CONFIRMATION is retained
- * only so legacy rows created by the old "pay-then-confirm" flow can still be
- * confirmed or cancelled; the new flow never produces it. REFUNDED is a
- * terminal state owned by the payments domain and is not reachable here.
+ * The transition table itself now lives in `@nanny-app/shared` — the admin
+ * console builds its status-override options from the same rules, and a second
+ * copy on the client is how the two drift apart. Re-exported here because this
+ * module has always been where the lifecycle is looked up from.
  */
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  [BookingStatus.PENDING]:              [BookingStatus.APPROVED, BookingStatus.CANCELLED],
-  [BookingStatus.APPROVED]:             [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
-  [BookingStatus.PENDING_CONFIRMATION]: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
-  [BookingStatus.CONFIRMED]:            [BookingStatus.IN_PROGRESS, BookingStatus.CANCELLED],
-  [BookingStatus.IN_PROGRESS]:          [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
-  [BookingStatus.COMPLETED]:            [],
-  [BookingStatus.CANCELLED]:            [],
-  [BookingStatus.REFUNDED]:             [],
-};
-
-/** Non-throwing transition check — reads the same table as validateStatusTransition. */
-export function canTransitionBookingStatus(current: string, next: string): boolean {
-  return VALID_TRANSITIONS[current]?.includes(next) ?? false;
-}
+export { canTransitionBookingStatus };
 
 export function validateStatusTransition(current: string, next: string): void {
   if (!canTransitionBookingStatus(current, next)) {
