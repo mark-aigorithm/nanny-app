@@ -7,7 +7,7 @@
  *
  * Note what the *real* flow is: a broadcast request becomes payable when a
  * nanny claims it, which moves it straight to APPROVED. The admin's Approve
- * action is not part of that path — see the KNOWN GAP at the bottom.
+ * action is not part of that path — see the last test.
  *
  * Every spec seeds its own mother under a unique surname, because the E2E
  * backend owns one database for the whole run and nothing is truncated in
@@ -86,30 +86,30 @@ test('shows the money and both parties on the detail page', async ({ page }) => 
 });
 
 /**
- * KNOWN GAP — pinned, not endorsed.
+ * The console used to offer "Approve" on every pending row. The endpoint
+ * refuses any booking without a nanny assigned (admin-booking.service.ts:
+ * "Assign a nanny to this unclaimed request before approving it"), and the
+ * *only* code path that assigns one is a nanny claiming the request — which
+ * sets APPROVED itself. So no booking the current app can produce is ever in
+ * the state that action requires, and clicking it always failed.
  *
- * The console offers "Approve" on every pending row, but the endpoint refuses
- * any booking without a nanny assigned (admin-booking.service.ts: "Assign a
- * nanny to this unclaimed request before approving it"), and the *only* code
- * path that assigns one is a nanny claiming the request — which sets APPROVED
- * itself. So no booking created by the current app can ever be in the state
- * this action requires, and clicking it on a broadcast request always fails.
- *
- * Pinned here so the fix — hiding the action, or adding a way to assign a nanny
- * — shows up as a deliberate change to this spec.
+ * The action is now withheld instead. Should a way to assign a nanny from the
+ * console ever be added, this is the spec that has to change with it.
  */
-test('currently fails when approving an unclaimed request', async ({ page }) => {
+test('does not offer Approve on an unclaimed request', async ({ page }) => {
   const admin = await superuserToken();
   const booking = await seedPendingBooking();
 
   await gotoConsole(page, '/bookings');
   await actionsFor(page, booking.mother.surname).click();
-  await page.getByRole('menuitem', { name: 'Approve' }).click();
 
-  const toast = page.getByRole('status');
-  await expect(toast).toContainText('Couldn’t approve booking');
-  await expect(toast).toContainText('Assign a nanny');
+  await expect(page.getByRole('menuitem', { name: 'Approve' })).toHaveCount(0);
 
-  // The booking is untouched.
+  // The rest of the menu is still there — this is one action being withheld,
+  // not the menu failing to open, which is what an absence assertion alone
+  // would also be satisfied by.
+  await expect(page.getByRole('menuitem', { name: 'Edit times' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Reject' })).toBeVisible();
+
   expect((await getBooking(admin, booking.id)).status).toBe('PENDING');
 });

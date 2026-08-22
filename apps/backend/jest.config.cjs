@@ -30,6 +30,18 @@ const moduleNameMapper = {
 
 /** @type {import('jest').Config} */
 module.exports = {
+  // Jest defaults to one worker per CPU core. On a 20-core machine that is 19
+  // ts-jest workers, each carrying its own TypeScript program — around 9 GB,
+  // enough to freeze a 16 GB laptop before the suite finishes. Four is well
+  // under the memory ceiling and still saturates the run.
+  //
+  // This is the run-level default; `test:integration` overrides it to 1 on the
+  // command line (see the note above about parallelising that project).
+  maxWorkers: 4,
+  // ts-jest workers grow across files as the program cache fills. Recycling a
+  // worker that crosses this line costs one cold compile and bounds the run's
+  // total footprint; without it a long suite creeps upward until it OOMs.
+  workerIdleMemoryLimit: '512MB',
   projects: [
     {
       displayName: 'unit',

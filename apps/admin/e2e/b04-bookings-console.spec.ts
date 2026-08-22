@@ -20,7 +20,13 @@ import {
   seedPendingBooking,
   superuserToken,
 } from './helpers/backend';
-import { chooseOption, gotoConsole, rowFor, statusSelectFor } from './helpers/locators';
+import {
+  actionsFor,
+  chooseOption,
+  gotoConsole,
+  rowFor,
+  statusSelectFor,
+} from './helpers/locators';
 import { storageStatePath } from './roles';
 
 test.use({ storageState: storageStatePath('superuser') });
@@ -91,31 +97,33 @@ test('locks the override once a booking is completed', async ({ page }) => {
 });
 
 /**
- * KNOWN GAP — pinned, not endorsed.
+ * The dropdown used to offer every status except REFUNDED on every row, so most
+ * of what it offered was refused by `VALID_BOOKING_TRANSITIONS` — "completed" on
+ * a new request was a guaranteed error toast. It now reads the same table the
+ * server validates against, which is what this asserts.
  *
- * The override dropdown offers every status except REFUNDED, on every row,
- * regardless of where that booking actually is. The server enforces
- * `VALID_TRANSITIONS` (booking.service.ts:457), so most of what it offers is
- * refused: a PENDING booking can only reach APPROVED or CANCELLED, and APPROVED
- * additionally needs a nanny assigned. Picking "completed" on a new request is
- * therefore a guaranteed error toast.
- *
- * Same shape as the Approve gap pinned in a01: the console offers an action the
- * API will not perform. Pinned here so narrowing the options to the legal ones
- * shows up as a deliberate change to this spec.
+ * It asserts the *whole* option list rather than the absence of one bad entry:
+ * an assertion on a single status would still pass if the filter were dropped
+ * for every other one.
  */
-test('currently offers transitions the server refuses', async ({ page }) => {
+test('offers only the transitions the server will accept', async ({ page }) => {
   const admin = await superuserToken();
   const booking = await seedPendingBooking();
 
   await gotoConsole(page, '/bookings');
-  await override(page, booking.mother.surname, 'completed');
+  await statusSelectFor(page, booking.mother.surname).click();
 
-  const toast = page.getByRole('status').filter({ hasText: 'Couldn’t update status' });
-  await expect(toast).toBeVisible();
-  await expect(toast).toContainText('Cannot transition booking from PENDING to COMPLETED');
+  // PENDING reaches APPROVED or CANCELLED — but a broadcast request has no
+  // nanny, and approving one without a nanny is refused as well. So all that is
+  // left is its own status, present as the selected value, plus the one thing
+  // an operator can actually do to an unclaimed request.
+  await expect(rowFor(page, booking.mother.surname).getByRole('option')).toHaveText([
+    'pending',
+    'cancelled',
+  ]);
 
-  // The booking is untouched.
+  // Nothing was picked, so nothing changed.
+  await page.keyboard.press('Escape');
   expect((await getBooking(admin, booking.id)).status).toBe('PENDING');
 });
 
@@ -166,4 +174,38 @@ test('changing the filter returns to the first page', async ({ page }) => {
   // that may only have one page — and the operator would see an empty table.
   await chooseOption(page, 'Status', 'All');
   await expect(page.locator('.pagination-page')).toContainText('Page 1 of');
+});
+
+/**
+ * The override is a write control, so a view-only operator does not get one.
+ *
+ * `PATCH /bookings/:id/status` requires bookings:MANAGE
+ * (`admin-permissions.ts:69`), which makes the dropdown an offer of a
+ * guaranteed 403 for anyone holding VIEW — the same defect as the transitions
+ * pinned above, decided by who is looking rather than by where the booking is.
+ */
+test.describe('view-only operator', () => {
+  test.use({ storageState: storageStatePath('bookingsViewer') });
+
+  test('is not offered the status override it cannot use', async ({ page }) => {
+    // Seeded so the table has a row to render controls *for*: asserting an
+    // absence against an empty table would pass for the wrong reason.
+    const booking = await seedPendingBooking();
+
+    await gotoConsole(page, '/bookings');
+    const row = rowFor(page, booking.mother.surname);
+    await expect(row).toBeVisible();
+
+    // The queue stays legible — the status is still there to read.
+    await expect(page.getByRole('columnheader', { name: 'Status', exact: true })).toBeVisible();
+    await expect(row).toContainText('pending');
+
+    // Neither write control is offered. The Override column goes entirely
+    // rather than standing empty beside the Status badge it would only repeat;
+    // the positive assertion above is what keeps this one from passing because
+    // `columnheader` matched nothing at all.
+    await expect(page.getByRole('columnheader', { name: 'Override', exact: true })).toHaveCount(0);
+    await expect(statusSelectFor(page, booking.mother.surname)).toHaveCount(0);
+    await expect(actionsFor(page, booking.mother.surname)).toHaveCount(0);
+  });
 });

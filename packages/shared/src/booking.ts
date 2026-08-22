@@ -15,6 +15,41 @@ export const BookingStatus = BookingStatusSchema.enum;
 export type BookingStatus = z.infer<typeof BookingStatusSchema>;
 
 /**
+ * Valid status transitions — the single source of truth for the booking
+ * lifecycle. Pay-after-approval flow (Issues 2 + 5):
+ *   PENDING → APPROVED (nanny claim) → CONFIRMED (mother pays) → IN_PROGRESS → COMPLETED
+ * Any non-terminal status may be CANCELLED. PENDING_CONFIRMATION is retained
+ * only so legacy rows created by the old "pay-then-confirm" flow can still be
+ * confirmed or cancelled; the new flow never produces it. REFUNDED is a
+ * terminal state owned by the payments domain and is not reachable here.
+ *
+ * It lives in `shared` rather than in the backend service because the admin
+ * console has to offer exactly the transitions the server will accept — a
+ * second copy of this table on the client is how the two drift apart.
+ */
+const VALID_BOOKING_TRANSITIONS: Record<BookingStatus, readonly BookingStatus[]> = {
+  PENDING:              ['APPROVED', 'CANCELLED'],
+  APPROVED:             ['CONFIRMED', 'CANCELLED'],
+  PENDING_CONFIRMATION: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED:            ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS:          ['COMPLETED', 'CANCELLED'],
+  COMPLETED:            [],
+  CANCELLED:            [],
+  REFUNDED:             [],
+};
+
+/**
+ * Non-throwing transition check. Takes plain strings because most callers hold
+ * a status that came off the wire (`AdminBooking.status`) rather than a parsed
+ * enum; an unknown status is simply not transitionable.
+ */
+export function canTransitionBookingStatus(current: string, next: string): boolean {
+  const allowed: readonly BookingStatus[] | undefined =
+    VALID_BOOKING_TRANSITIONS[current as BookingStatus];
+  return allowed?.includes(next as BookingStatus) ?? false;
+}
+
+/**
  * Nanny's optional, informational response to a booking request. Advisory
  * only — the admin's approval decides the booking's `status`. The nanny UI
  * reads this to show "you accepted / declined"; the admin UI reads it to show
