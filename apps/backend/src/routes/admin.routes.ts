@@ -332,8 +332,8 @@ adminRouter.get(
   validateQuery(AdminNannyListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit } = res.locals['validatedQuery'] as AdminNannyListQuery;
-      const { nannies, meta } = await listAdminNannies(status, { page, limit });
+      const { status, page, limit, sort } = res.locals['validatedQuery'] as AdminNannyListQuery;
+      const { nannies, meta } = await listAdminNannies(status, { page, limit, sort });
       res.json(okPaged(nannies, meta));
     } catch (err) {
       next(err);
@@ -404,8 +404,8 @@ adminRouter.get(
   validateQuery(AdminMotherListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit } = res.locals['validatedQuery'] as AdminMotherListQuery;
-      const { mothers, meta } = await listAdminMothers(status, { page, limit });
+      const { status, page, limit, sort } = res.locals['validatedQuery'] as AdminMotherListQuery;
+      const { mothers, meta } = await listAdminMothers(status, { page, limit, sort });
       res.json(okPaged(mothers, meta));
     } catch (err) {
       next(err);

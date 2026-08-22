@@ -75,7 +75,7 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow()]);
 
-    const { meta } = await listAdminMothers('ALL', { page: 2, limit: 25 });
+    const { meta } = await listAdminMothers('ALL', { page: 2, limit: 25, sort: 'newest' });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -88,11 +88,22 @@ describe('listAdminMothers', () => {
     expect(meta).toEqual({ page: 2, limit: 25, total: 1, totalPages: 1 });
   });
 
+  it('flips to oldest first when the caller asks for it', async () => {
+    mockPrisma.user.count.mockResolvedValue(0);
+    mockPrisma.user.findMany.mockResolvedValue([]);
+
+    await listAdminMothers('ALL', { page: 1, limit: 20, sort: 'oldest' });
+
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
+    );
+  });
+
   it('filters by verification status when not ALL', async () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listAdminMothers('PENDING_REVIEW', { page: 1, limit: 20 });
+    await listAdminMothers('PENDING_REVIEW', { page: 1, limit: 20, sort: 'newest' });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -111,7 +122,7 @@ describe('listAdminMothers', () => {
       }),
     ]);
 
-    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20 });
+    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sort: 'newest' });
 
     expect(mothers[0]).toEqual({
       id: 29,
@@ -138,7 +149,7 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow({ firstName: 'Mona', lastName: '-' })]);
 
-    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20 });
+    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sort: 'newest' });
 
     expect(mothers[0]?.name).toBe('Mona');
   });

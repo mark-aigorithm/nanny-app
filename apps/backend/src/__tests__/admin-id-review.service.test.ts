@@ -44,7 +44,13 @@ describe('listIdReviews', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow()]);
 
-    const { meta } = await listIdReviews({ status: 'ALL', role: 'ALL', page: 2, limit: 25 });
+    const { meta } = await listIdReviews({
+      status: 'ALL',
+      role: 'ALL',
+      sort: 'oldest',
+      page: 2,
+      limit: 25,
+    });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -64,7 +70,13 @@ describe('listIdReviews', () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listIdReviews({ status: 'PENDING_REVIEW', role: 'MOTHER', page: 1, limit: 20 });
+    await listIdReviews({
+      status: 'PENDING_REVIEW',
+      role: 'MOTHER',
+      sort: 'oldest',
+      page: 1,
+      limit: 20,
+    });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -77,7 +89,7 @@ describe('listIdReviews', () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listIdReviews({ status: 'ALL', role: 'NANNY', page: 1, limit: 20 });
+    await listIdReviews({ status: 'ALL', role: 'NANNY', sort: 'oldest', page: 1, limit: 20 });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,11 +98,22 @@ describe('listIdReviews', () => {
     );
   });
 
+  it('flips to newest first when the caller asks for it', async () => {
+    mockPrisma.user.count.mockResolvedValue(0);
+    mockPrisma.user.findMany.mockResolvedValue([]);
+
+    await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'newest', page: 1, limit: 20 });
+
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+    );
+  });
+
   it('maps a mother row: action id is the User id', async () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow({ id: 7, role: 'MOTHER', nannyProfile: null })]);
 
-    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', page: 1, limit: 20 });
+    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'oldest', page: 1, limit: 20 });
 
     expect(reviews[0]).toEqual({
       id: 7,
@@ -115,7 +138,7 @@ describe('listIdReviews', () => {
       makeRow({ id: 7, role: 'NANNY', nannyProfile: { id: 42 } }),
     ]);
 
-    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', page: 1, limit: 20 });
+    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'oldest', page: 1, limit: 20 });
 
     expect(reviews[0]?.id).toBe(42);
     expect(reviews[0]?.userId).toBe(7);
@@ -126,7 +149,7 @@ describe('listIdReviews', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow({ firstName: 'Mona', lastName: '-' })]);
 
-    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', page: 1, limit: 20 });
+    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'oldest', page: 1, limit: 20 });
 
     expect(reviews[0]?.name).toBe('Mona');
   });

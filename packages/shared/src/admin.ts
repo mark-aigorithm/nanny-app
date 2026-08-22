@@ -46,6 +46,36 @@ export const AdminListQuerySchema = z.object({
 });
 export type AdminListQuery = z.infer<typeof AdminListQuerySchema>;
 
+/**
+ * Direction of a paginated admin list, by registration date.
+ *
+ * The Users page shows the same people three ways (Mommies, Nannies, ID Review)
+ * and they do not all want the same default: a directory reads newest-first,
+ * while the KYC gallery is a work queue where the person waiting longest should
+ * be dealt with first. Every list that takes this renders it as a *visible*
+ * control, so the difference is something the operator can read and change
+ * rather than an unexplained reordering when they switch tabs.
+ */
+export const AdminSortOrderSchema = z.enum(['newest', 'oldest']);
+export type AdminSortOrder = z.infer<typeof AdminSortOrderSchema>;
+
+/** Options for the sort control — the same wording on every list that offers it. */
+export const ADMIN_SORT_OPTIONS: { value: AdminSortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+];
+
+/** Translates a sort choice into a `createdAt` order direction. */
+export function sortDirection(sort: AdminSortOrder): 'asc' | 'desc' {
+  return sort === 'oldest' ? 'asc' : 'desc';
+}
+
+/** Page/limit plus an explicit direction, for the lists that expose a sort control. */
+export const AdminSortedListQuerySchema = AdminListQuerySchema.extend({
+  sort: AdminSortOrderSchema.catch('newest').default('newest'),
+});
+export type AdminSortedListQuery = z.infer<typeof AdminSortedListQuerySchema>;
+
 // ──────────────────────────────────────────────────────────────
 // Promo codes
 // ──────────────────────────────────────────────────────────────
@@ -575,8 +605,8 @@ export const AdminNannySchema = z.object({
 });
 export type AdminNanny = z.infer<typeof AdminNannySchema>;
 
-/** Paginated nanny list query (GET /admin/nannies). */
-export const AdminNannyListQuerySchema = AdminListQuerySchema.extend({
+/** Paginated nanny list query (GET /admin/nannies). A directory, so newest first. */
+export const AdminNannyListQuerySchema = AdminSortedListQuerySchema.extend({
   status: AdminNannyStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
 });
 export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
@@ -644,8 +674,8 @@ export const AdminMotherSchema = z.object({
 });
 export type AdminMother = z.infer<typeof AdminMotherSchema>;
 
-/** Paginated mother list query (GET /admin/mothers). */
-export const AdminMotherListQuerySchema = AdminListQuerySchema.extend({
+/** Paginated mother list query (GET /admin/mothers). A directory, so newest first. */
+export const AdminMotherListQuerySchema = AdminSortedListQuerySchema.extend({
   status: AdminMotherStatusFilterSchema.catch('ALL').default('ALL'),
 });
 export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
@@ -741,10 +771,17 @@ export const AdminIdReviewSchema = z.object({
 });
 export type AdminIdReview = z.infer<typeof AdminIdReviewSchema>;
 
-/** Paginated ID-review queue query (GET /admin/id-reviews). Defaults to the pending queue. */
-export const AdminIdReviewListQuerySchema = AdminListQuerySchema.extend({
+/**
+ * Paginated ID-review queue query (GET /admin/id-reviews). Defaults to the
+ * pending queue, oldest first — this list is worked through, so the person who
+ * has been waiting longest is offered first. The console shows that choice as a
+ * sort control, so it reads as a decision rather than as the per-role tabs
+ * mysteriously running the other way.
+ */
+export const AdminIdReviewListQuerySchema = AdminSortedListQuerySchema.extend({
   status: AdminIdReviewStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
   role: AdminIdReviewRoleFilterSchema.catch('ALL').default('ALL'),
+  sort: AdminSortOrderSchema.catch('oldest').default('oldest'),
 });
 export type AdminIdReviewListQuery = z.infer<typeof AdminIdReviewListQuerySchema>;
 

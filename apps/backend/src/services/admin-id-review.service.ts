@@ -1,5 +1,6 @@
 import { IdVerificationStatus, type Prisma } from '@prisma/client';
 
+import { sortDirection } from '@nanny-app/shared';
 import type {
   AdminIdReview,
   AdminIdReviewListQuery,
@@ -70,11 +71,12 @@ function roleClause(role: AdminIdReviewRoleFilter): Prisma.UserWhereInput {
 
 /**
  * Combined KYC review queue for the admin ID-review gallery: parents and nannies
- * in one paginated list, oldest-waiting first (queue order), filterable by role
- * and verification status. Approve/reject stay on the existing per-role endpoints.
+ * in one paginated list, filterable by role and verification status and ordered
+ * by the caller's `sort` (defaulting to oldest-waiting first — queue order).
+ * Approve/reject stay on the existing per-role endpoints.
  */
 export async function listIdReviews(
-  { status, role, page, limit }: AdminIdReviewListQuery,
+  { status, role, page, limit, sort }: AdminIdReviewListQuery,
 ): Promise<{ reviews: AdminIdReview[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     deletedAt: null,
@@ -87,7 +89,7 @@ export async function listIdReviews(
     prisma.user.findMany({
       where,
       select: idReviewSelect,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: sortDirection(sort) },
       skip: (page - 1) * limit,
       take: limit,
     }),

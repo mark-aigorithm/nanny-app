@@ -36,47 +36,18 @@ async function openTab(page: Page, tab: 'Mommies' | 'Nannies' | 'ID Review') {
 }
 
 /**
- * Pages the gallery to where a just-seeded person actually is: the end.
+ * Opens the ID-review gallery showing the newest uploads first.
  *
- * `listIdReviews` orders `createdAt: 'asc'` — right for a work queue, since the
- * person waiting longest should be dealt with first — but it means the newest
- * upload is on the *last* page, and the E2E database is never truncated between
- * specs. Note this is the opposite of the Mommies and Nannies tabs, which order
- * newest-first; the two views of the same people disagree about direction.
- *
- * The page size is raised first so the walk is one or two clicks rather than
- * ten, and the number of pages is read rather than guessed so the loop always
- * terminates.
+ * The gallery opens oldest-first — it is a work queue, so whoever has been
+ * waiting longest is offered first — while a just-seeded person is the newest
+ * row in an E2E database that is never truncated between specs. The Sort
+ * control is the supported way to turn that around, so the spec uses it instead
+ * of walking to the last page; it also survives a filter change, since sort is
+ * separate state from the page number.
  */
-async function showNewest(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Records per page' }).click();
-  await page.getByRole('option', { name: '100', exact: true }).click();
-
-  const indicator = page.locator('.pagination-page');
-  await expect(indicator).toBeVisible();
-
-  const totalPages = Number((await indicator.innerText()).split(' of ').at(-1) ?? '1');
-  for (let i = 1; i < totalPages; i += 1) {
-    await page.getByRole('button', { name: 'Next page' }).click();
-  }
-  await expect(indicator).toContainText(`Page ${totalPages} of ${totalPages}`);
-}
-
-/** Opens the ID-review gallery on the page holding the newest uploads. */
 async function openIdQueue(page: Page): Promise<void> {
   await openTab(page, 'ID Review');
-  await showNewest(page);
-}
-
-/**
- * Changes a gallery filter and returns to the newest page.
- *
- * Every filter change calls `reset()`, which sends the list back to page 1 —
- * so without this the assertion after a filter looks at the oldest records.
- */
-async function filterTo(page: Page, label: string, option: string): Promise<void> {
-  await chooseOption(page, label, option);
-  await showNewest(page);
+  await chooseOption(page, 'Sort', 'Newest first');
 }
 
 test('lists a newly registered parent awaiting review', async ({ page }) => {
@@ -139,7 +110,7 @@ test('a rejected ID is findable again under its own filter', async ({ page }) =>
   await page.getByRole('button', { name: 'Reject ID' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'ID rejected' })).toBeVisible();
 
-  await filterTo(page, 'Status', 'Rejected');
+  await chooseOption(page, 'Status', 'Rejected');
 
   // A decision is not a disappearance: the operator can go back and read why.
   const card = cardFor(page, mother.surname);
@@ -161,11 +132,11 @@ test('the role filter separates parents from nannies in one queue', async ({ pag
   await expect(cardFor(page, mother.surname)).toBeVisible();
   await expect(cardFor(page, nanny.surname)).toBeVisible();
 
-  await filterTo(page, 'Role', 'Nannies');
+  await chooseOption(page, 'Role', 'Nannies');
   await expect(cardFor(page, nanny.surname)).toBeVisible();
   await expect(cardFor(page, mother.surname)).toHaveCount(0);
 
-  await filterTo(page, 'Role', 'Parents');
+  await chooseOption(page, 'Role', 'Parents');
   await expect(cardFor(page, mother.surname)).toBeVisible();
   await expect(cardFor(page, nanny.surname)).toHaveCount(0);
 });

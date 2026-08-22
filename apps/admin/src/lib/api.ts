@@ -24,6 +24,7 @@ import type {
   AdminPackagePurchase,
   AdminPackagePurchaseDetail,
   AdminPackagePurchaseListQuery,
+  AdminSortOrder,
   AdminUser,
   Camera,
   Campaign,
@@ -77,6 +78,13 @@ type PagedEnvelope<T> = { data: T; error: string | null; meta: PaginationMeta };
 
 /** A page of records plus its pagination metadata. */
 export type Paged<T> = { data: T; meta: PaginationMeta };
+
+/**
+ * Page/limit for a list that also offers a sort control. `sort` is optional so
+ * callers that only want a count (the dashboard, the notification bell) keep
+ * the endpoint's own default.
+ */
+type SortableListQuery = AdminListQuery & { sort?: AdminSortOrder };
 
 // ── Care Points (rewards) ──────────────────────────────────────
 
@@ -440,10 +448,10 @@ export async function refundBooking(
 
 export async function fetchNannies(
   status: AdminNannyStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sort }: SortableListQuery,
 ): Promise<Paged<AdminNanny[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminNanny[]>>('/admin/nannies', {
-    params: { status, page, limit },
+    params: { status, page, limit, sort },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -481,10 +489,10 @@ export async function updateNanny(
 
 export async function fetchMothers(
   status: AdminMotherStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sort }: SortableListQuery,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
-    params: { status, page, limit },
+    params: { status, page, limit, sort },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -523,10 +531,10 @@ export async function rejectMother(id: string, reason?: string): Promise<AdminMo
 export async function fetchIdReviews(
   status: AdminIdReviewStatusFilter,
   role: AdminIdReviewRoleFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sort }: SortableListQuery,
 ): Promise<Paged<AdminIdReview[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminIdReview[]>>('/admin/id-reviews', {
-    params: { status, role, page, limit },
+    params: { status, role, page, limit, sort },
   });
   return { data: res.data.data, meta: res.data.meta };
 }

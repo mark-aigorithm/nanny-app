@@ -166,7 +166,11 @@ describe('listAdminNannies', () => {
     mockPrisma.nannyProfile.count.mockResolvedValue(3);
     mockPrisma.nannyProfile.findMany.mockResolvedValue([makeRow()]);
 
-    const { nannies, meta } = await listAdminNannies('PENDING_REVIEW', { page: 2, limit: 10 });
+    const { nannies, meta } = await listAdminNannies('PENDING_REVIEW', {
+      page: 2,
+      limit: 10,
+      sort: 'newest',
+    });
 
     expect(nannies[0]?.idDocumentFrontUrl).toBe('https://storage.example/nanny-ids/front.jpg');
     expect(nannies[0]?.idDocumentBackUrl).toBe('https://storage.example/nanny-ids/back.jpg');
@@ -182,10 +186,25 @@ describe('listAdminNannies', () => {
       makeRow({}, { idDocumentFrontUrl: null, idDocumentBackUrl: null }),
     ]);
 
-    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20 });
+    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20, sort: 'newest' });
 
     expect(nannies[0]?.idDocumentFrontUrl).toBeNull();
     expect(nannies[0]?.idDocumentBackUrl).toBeNull();
+  });
+
+  it('orders by the requested direction — newest first by default, oldest on request', async () => {
+    mockPrisma.nannyProfile.count.mockResolvedValue(0);
+    mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
+
+    await listAdminNannies('ALL', { page: 1, limit: 20, sort: 'newest' });
+    expect(mockPrisma.nannyProfile.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+    );
+
+    await listAdminNannies('ALL', { page: 1, limit: 20, sort: 'oldest' });
+    expect(mockPrisma.nannyProfile.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
+    );
   });
 });
 

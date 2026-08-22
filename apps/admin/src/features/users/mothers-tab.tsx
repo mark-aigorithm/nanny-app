@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   ADMIN_PAGE_SIZES,
+  ADMIN_SORT_OPTIONS,
   type AdminMother,
   type AdminMotherStatusFilter,
+  type AdminSortOrder,
 } from '@nanny-app/shared';
 
 import {
@@ -48,13 +50,19 @@ function statusLabel(status: string): string {
 
 const EMPTY = <span className="table-empty">—</span>;
 
+/**
+ * The parent directory. Newest-first by default — a directory is read from the
+ * most recent signup — with the same Sort control the ID-review gallery carries,
+ * so the two views of the same people never reorder without saying so.
+ */
 export function MothersTab() {
   const [status, setStatus] = useState<AdminMotherStatusFilter>('ALL');
+  const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-mothers', status, page, limit],
-    queryFn: () => fetchMothers(status, { page, limit }),
+    queryKey: ['admin-mothers', status, sort, page, limit],
+    queryFn: () => fetchMothers(status, { page, limit, sort }),
   });
   const mothers = data?.data;
   const meta = data?.meta;
@@ -147,6 +155,15 @@ export function MothersTab() {
           value={status}
           options={STATUS_FILTERS}
           onChange={(value) => changeStatus(value as AdminMotherStatusFilter)}
+        />
+        <FilterSelect
+          label="Sort"
+          value={sort}
+          options={ADMIN_SORT_OPTIONS}
+          onChange={(value) => {
+            setSort(value as AdminSortOrder);
+            reset();
+          }}
         />
       </div>
       {isLoading && <TableSkeleton columns={8} />}

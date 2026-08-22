@@ -2,7 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { ADMIN_PAGE_SIZES, type AdminNanny, type AdminNannyStatusFilter } from '@nanny-app/shared';
+import {
+  ADMIN_PAGE_SIZES,
+  ADMIN_SORT_OPTIONS,
+  type AdminNanny,
+  type AdminNannyStatusFilter,
+  type AdminSortOrder,
+} from '@nanny-app/shared';
 
 import {
   Badge,
@@ -51,14 +57,20 @@ function initials(name: string): string {
 
 const EMPTY = <span className="table-empty">—</span>;
 
+/**
+ * The nanny directory. Newest-first by default — a directory is read from the
+ * most recent registration — with the same Sort control the ID-review gallery
+ * carries, so the two views of the same people never reorder without saying so.
+ */
 export function NannyReviewTab() {
   const [status, setStatus] = useState<AdminNannyStatusFilter>('PENDING_REVIEW');
+  const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const navigate = useNavigate();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-nannies', status, page, limit],
-    queryFn: () => fetchNannies(status, { page, limit }),
+    queryKey: ['admin-nannies', status, sort, page, limit],
+    queryFn: () => fetchNannies(status, { page, limit, sort }),
   });
   const nannies = data?.data;
   const meta = data?.meta;
@@ -149,6 +161,15 @@ export function NannyReviewTab() {
           value={status}
           options={STATUS_FILTERS}
           onChange={(value) => changeStatus(value as AdminNannyStatusFilter)}
+        />
+        <FilterSelect
+          label="Sort"
+          value={sort}
+          options={ADMIN_SORT_OPTIONS}
+          onChange={(value) => {
+            setSort(value as AdminSortOrder);
+            reset();
+          }}
         />
       </div>
       {isLoading && <TableSkeleton columns={6} />}

@@ -3,8 +3,10 @@ import { useState } from 'react';
 
 import {
   ADMIN_PAGE_SIZES,
+  ADMIN_SORT_OPTIONS,
   type AdminIdReviewRoleFilter,
   type AdminIdReviewStatusFilter,
+  type AdminSortOrder,
 } from '@nanny-app/shared';
 
 import {
@@ -38,15 +40,21 @@ const ROLE_FILTERS: { value: AdminIdReviewRoleFilter; label: string }[] = [
  * Combined ID-review gallery: every uploaded ID as a card, filterable by status
  * and role, with Approve/Reject on each pending card so an admin can clear the
  * KYC queue without opening each user's detail page.
+ *
+ * Opens oldest-first because it is a work queue — whoever has been waiting
+ * longest is offered first — which is the opposite of the Mommies and Nannies
+ * tabs beside it. The Sort control is what keeps that from being a surprise:
+ * both directions are on screen and switchable on every tab.
  */
 export function IdReviewTab() {
   const [status, setStatus] = useState<AdminIdReviewStatusFilter>('PENDING_REVIEW');
   const [role, setRole] = useState<AdminIdReviewRoleFilter>('ALL');
+  const [sort, setSort] = useState<AdminSortOrder>('oldest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-id-reviews', status, role, page, limit],
-    queryFn: () => fetchIdReviews(status, role, { page, limit }),
+    queryKey: ['admin-id-reviews', status, role, sort, page, limit],
+    queryFn: () => fetchIdReviews(status, role, { page, limit, sort }),
   });
   const reviews = data?.data;
   const meta = data?.meta;
@@ -73,6 +81,15 @@ export function IdReviewTab() {
           options={ROLE_FILTERS}
           onChange={(value) => {
             setRole(value as AdminIdReviewRoleFilter);
+            reset();
+          }}
+        />
+        <FilterSelect
+          label="Sort"
+          value={sort}
+          options={ADMIN_SORT_OPTIONS}
+          onChange={(value) => {
+            setSort(value as AdminSortOrder);
             reset();
           }}
         />

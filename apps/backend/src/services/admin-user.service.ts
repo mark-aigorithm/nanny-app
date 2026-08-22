@@ -1,13 +1,13 @@
 import { IdVerificationStatus, type Prisma } from '@prisma/client';
 
-import { hasSectionAccess } from '@nanny-app/shared';
+import { hasSectionAccess, sortDirection } from '@nanny-app/shared';
 import type {
-  AdminListQuery,
   AdminMother,
   AdminMotherDetail,
   AdminMotherStatusFilter,
   AdminRole,
   AdminSection,
+  AdminSortedListQuery,
   AdminUser,
   CreateAdminInput,
   PaginationMeta,
@@ -220,10 +220,14 @@ export async function deleteAdminUser(id: number, actingUserId: number): Promise
   await firebaseAuth.updateUser(row.firebaseUid, { disabled: true });
 }
 
-/** Paginated directory of mother (parent) accounts for the admin Users page. */
+/**
+ * Paginated directory of mother (parent) accounts for the admin Users page.
+ * Ordered by the caller's `sort` — the console surfaces it as a control, so this
+ * tab and the ID-review gallery can differ visibly instead of silently.
+ */
 export async function listAdminMothers(
   status: AdminMotherStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sort }: AdminSortedListQuery,
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     role: 'MOTHER',
@@ -236,7 +240,7 @@ export async function listAdminMothers(
     prisma.user.findMany({
       where,
       select: motherSelect,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: sortDirection(sort) },
       skip: (page - 1) * limit,
       take: limit,
     }),

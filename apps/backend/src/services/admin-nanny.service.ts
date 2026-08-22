@@ -1,10 +1,11 @@
 import { BookingStatus, IdVerificationStatus, Prisma } from '@prisma/client';
 
+import { sortDirection } from '@nanny-app/shared';
 import type {
-  AdminListQuery,
   AdminNanny,
   AdminNannyDetail,
   AdminNannyStatusFilter,
+  AdminSortedListQuery,
   PaginationMeta,
   RejectNannyInput,
   SetNannySkillsInput,
@@ -91,9 +92,14 @@ function toDto(row: AdminNannyRow): AdminNanny {
   };
 }
 
+/**
+ * Paginated nanny directory for the admin Users page. Ordered by the caller's
+ * `sort` — the console surfaces it as a control, so this tab and the ID-review
+ * gallery can differ visibly instead of silently.
+ */
 export async function listAdminNannies(
   status: AdminNannyStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sort }: AdminSortedListQuery,
 ): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
   const where: Prisma.NannyProfileWhereInput = {
     deletedAt: null,
@@ -108,7 +114,7 @@ export async function listAdminNannies(
     prisma.nannyProfile.findMany({
       where,
       include: nannyInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: sortDirection(sort) },
       skip: (page - 1) * limit,
       take: limit,
     }),
