@@ -328,7 +328,7 @@ each proves the screen is wired.
 
 | # | Flow | Driver |
 |---|---|---|
-| C1 | Sign in, sign out, forgot password, create password | `UI:mobile` |
+| C1 | Sign in, sign out, forgot password, create password — **covered** by `c01-session-lifecycle.yaml` | `UI:mobile` |
 | C2 | Role selection branching (mother vs nanny paths diverge) | `UI:mobile` |
 | C3 | Notification permission gate → push token registered on login, cleared on logout | `UI:mobile` |
 | C4 | Nanny day: dashboard → requests → booking detail → care log authoring | `UI:mobile` |
@@ -338,6 +338,29 @@ each proves the screen is wired.
 | C8 | Notification centre: list, mark read, mark all read, unread count | `UI:mobile` |
 | C9 | Customer support contact screen | `UI:mobile` |
 | C10 | Failure states: backend unreachable, token expired mid-session, no results | `UI:mobile` |
+
+### C1. Session lifecycle · `UI:mobile` — **covered** by `c01-session-lifecycle.yaml`
+The only flow whose subject is the auth screens themselves; every other one signs in and moves on.
+
+Two assertions here are about things a screen cannot show. **Signing out is checked by reopening the
+app** — navigating back to the welcome screen looks identical whether or not Firebase's persisted
+session was cleared, and Firebase restores a session on launch, so a sign-out that only changed the
+route would put her straight back on Home. And the reset is checked against the **Auth emulator's own
+out-of-band code list**, counted either side of the tap: "Check your inbox" is client state the
+screen sets on any success the SDK reports, nothing clears the emulator's list, and a code left by an
+earlier run would satisfy a bare "does one exist".
+
+A wrong password has to *look* like a password. `validatePassword` runs before any network call and
+rejects anything under eight characters or missing an uppercase letter or a digit, so an obviously
+junk string asserts the client-side rule while appearing to test the server's answer.
+
+**KNOWN GAP pinned here: the reset screen asks for an email address no user of this app has.**
+Sign-up is phone-only — `RegistrationStep3Screen` derives a placeholder from the phone number and
+that synthesized string is both the Firebase credential and the address on the user row. Registration
+never asks for a real one. So `sendPasswordResetEmail` succeeds only for a string the person has
+never been shown, and anything they might actually type comes back "We couldn't find an account with
+those details." The flow asserts **both** halves, so closing the gap turns the first assertion red
+rather than passing quietly.
 
 ---
 
@@ -379,5 +402,19 @@ pattern the P1 and P2 specs should follow, so they are kept rather than deleted.
    `apps/backend/test/e2e/seed-mobile.ts` provision an eligible nanny, undo the previous run, and
    set a full-24h care window with zero lead time so the suite does not pass or fail by time of
    day. Two caveats survive: the seed runs before **every** flow, not once per suite, and a full-day
-   window exposes a picker bug that makes A1 and A7 unrunnable between 22:00 and midnight — see
-   `apps/mobile/e2e/README.md`.
+   window exposes a picker bug that makes A1 and A7 unrunnable in the last hours before midnight —
+   see `apps/mobile/e2e/README.md`.
+
+   **Still open, narrowed 2026-08-23.** `5c43f28 fix(mobile): stop hiding a day the picker can still
+   book` did not close this. Run at ~23:00, A1 and A7 both fail at check-in with *"You can start this
+   booking 15 minutes before the scheduled start time"* — `_book-to-review.yaml` walks the start
+   stepper to its floor and back up two notches, and near midnight that floor is further out than the
+   twelve decrements can reach, so the booking lands beyond the check-in window. The same two flows
+   pass unchanged half an hour later. Until it is fixed, a late-evening red on A1/A7 is the clock,
+   not the app — confirm by re-running after midnight before investigating anything else.
+
+5. **New: the E2E database is shared and never truncated**, so the admin Playwright suite moves the
+   ground under the mobile lab. Two mobile flows broke on it — a queue lookup that only read page one
+   of ~1000 mothers, and a package that had sunk off the first screen. Both are fixed and both
+   patterns are written up in `apps/mobile/e2e/README.md`; the rule for new work is to page or scroll
+   rather than assume position in any list the console can add to.

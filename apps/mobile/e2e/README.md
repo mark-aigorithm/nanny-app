@@ -192,6 +192,25 @@ focus". Reopening the app is what empties that cache, which is what
 delivers the webhook server-side exactly as Paymob does — so a flow can pay by
 tapping **Pay now** on a real page. See `apps/backend/test/fakes/paymob-server.ts`.
 
+**The database is shared with the admin suite, and nothing truncates it.** Two failures traced to
+this, both of which looked like app regressions and were neither:
+
+- `scripts/advance.js` used to read the *first page* of `/admin/mothers` to find the account to
+  approve. The lab's accounts are upserted by email, so they keep their original `createdAt` while
+  the admin Playwright suite mints a fresh mother for most of its specs — there are now ~1000, and
+  the lab's is nowhere near page one. It now pages. Any new queue lookup must do the same.
+- The package catalogue is global, and B3 in the admin suite adds a package every time it runs, so
+  the lab's package steadily sinks down the list until it is off the first screen. Maestro only sees
+  what is rendered, so this failed as "E2E Starter is not visible" on a screen that was fine. A6 now
+  scrolls to it. **Prefer `scrollUntilVisible` over `assertVisible` for anything in a list the
+  console can add to.**
+
+**Android's package verifier has to be off.** Maestro reinstalls its driver APK at the start of every
+flow, and with the verifier on it intermittently dies with
+`INSTALL_FAILED_VERIFICATION_FAILURE: Integrity verification timed out` — the verifier wants to phone
+home about an unknown APK and loses that race on a loaded machine. `run.mjs` turns it off as part of
+device prep, alongside the stylus tutorial.
+
 **The emulator is not reset between flows.** Every flow opens with
 `runFlow: _launch.yaml`, which clears the app's own storage — that is what keeps
 them order-independent.
