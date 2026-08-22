@@ -237,6 +237,14 @@ It also pins a gap, the same shape as A1's: **the override offers every status o
 the server enforces `VALID_TRANSITIONS` — so "completed" on a new request is a guaranteed error
 toast. `PENDING` reaches only `APPROVED` (which needs a nanny) or `CANCELLED`.
 
+One case here is about *who is looking* rather than about a booking: the override is a write control
+(`PATCH /bookings/:id/status` needs bookings:MANAGE), so a **view-only operator does not get the
+column at all** — closed along with the test, which fails against the previous code. It runs as the
+`bookingsViewer` role, the same single section as `bookingsOperator` but held at VIEW, which is what
+makes an absent control attributable to the level rather than to the section never being granted.
+The spec asserts the *Status* column header is present before asserting the *Override* one is not,
+so a `columnheader` query that matched nothing could not pass it silently.
+
 ### B5. Users console and ID review queue · `UI:admin` — **covered** by `b05-users-and-id-review.spec.ts`
 Mother and nanny detail pages, approve/reject, the pending-ID queue draining as items are actioned.
 
