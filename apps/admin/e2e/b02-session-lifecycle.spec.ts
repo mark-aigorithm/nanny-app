@@ -16,7 +16,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { seedPendingBooking } from './helpers/backend';
-import { newSignedOutPage, signInToConsole } from './helpers/session';
+import { expectSignedOut, newSignedOutPage, signInToConsole } from './helpers/session';
 import { gotoConsole } from './helpers/locators';
 import { ROLES, storageStatePath } from './roles';
 
@@ -29,8 +29,7 @@ test.describe('signed out', () => {
     await page.goto('/bookings');
 
     // Bounced, because there is no session yet.
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
-    await expect(page).toHaveURL(/\/login/);
+    await expectSignedOut(page);
 
     await page.getByLabel('Email').fill(ROLES.superuser.email);
     await page.getByLabel('Password').fill(ROLES.superuser.password);
@@ -146,8 +145,7 @@ test.describe('signing out', () => {
 
     await signOut(page);
 
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
-    await expect(page).toHaveURL(/\/login/);
+    await expectSignedOut(page);
 
     // The cached token is cleared too, not merely unused — `onIdTokenChanged`
     // firing with no user is what removes it.
@@ -159,11 +157,11 @@ test.describe('signing out', () => {
     await signInToConsole(page, ROLES.superuser.email, ROLES.superuser.password);
     await gotoConsole(page, '/');
     await signOut(page);
-    await expect(page).toHaveURL(/\/login/);
+    await expectSignedOut(page);
 
     // Typing the URL back in must not get them in on a stale token.
     await page.goto('/bookings');
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await expectSignedOut(page);
     await expect(page.getByRole('heading', { name: 'Bookings' })).toHaveCount(0);
   });
 });

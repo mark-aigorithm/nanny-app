@@ -37,6 +37,20 @@ export async function newSignedOutPage(browser: Browser): Promise<Page> {
 }
 
 /**
+ * Waits until the console has actually settled on the login form.
+ *
+ * The mirror image of `gotoConsole`, and slow for the mirror-image reason:
+ * `RequireAuth` renders nothing at all until Firebase has finished deciding
+ * there is *no* session, so on WebKit the form can be seconds late. Asserting
+ * the URL instead would be worse — it is `/login` long before anything is
+ * usable.
+ */
+export async function expectSignedOut(page: Page): Promise<void> {
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/login/);
+}
+
+/**
  * Signs in through the real form and waits for the redirect away from /login.
  *
  * Waiting on the URL rather than on a dashboard element keeps this usable for

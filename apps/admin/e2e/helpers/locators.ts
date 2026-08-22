@@ -17,10 +17,18 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * answers. Asserting straight after `goto` races both — the sidebar is empty
  * and every section link is legitimately absent. Waiting for the navigation
  * landmark is the deterministic signal that privileges are known.
+ *
+ * Given its own generous timeout rather than the suite's 10s default: this is
+ * the slowest thing any spec waits for, it is two sequential round-trips rather
+ * than a render, and WebKit is materially slower through both. At 10s it failed
+ * on a loaded machine — not as a flaky assertion about the thing under test, but
+ * as "navigation not found", which reads like a broken page rather than a cold
+ * start. Everything else keeps the shorter default, where a long wait would be
+ * hiding a real fault.
  */
 export async function gotoConsole(page: Page, path: string): Promise<void> {
   await page.goto(path);
-  await expect(page.getByRole('navigation')).toBeVisible();
+  await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 }
 
 /**

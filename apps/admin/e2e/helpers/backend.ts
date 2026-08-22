@@ -362,6 +362,63 @@ export async function getBooking(adminToken: string, id: number): Promise<{
   };
 }
 
+// ── Mobile-facing reads (what the app sees after an admin edits a catalogue) ──
+
+type Named = { name: string; isActive?: boolean };
+
+/**
+ * The skill catalogue as the mobile app reads it.
+ *
+ * Deliberately the *public* route rather than the admin one: an admin list
+ * would confirm the row was written and nothing more. What matters is that it
+ * crossed into the surface a nanny actually picks from, which filters to active
+ * rows on the way out.
+ */
+export async function listAppSkills(token: string): Promise<Named[]> {
+  return (await call('GET', '/nanny/skills', token)) as Named[];
+}
+
+/** The certification catalogue as the nanny's self-service picker reads it. */
+export async function listAppCertifications(token: string): Promise<Named[]> {
+  return (await call('GET', '/nanny/certifications', token)) as Named[];
+}
+
+/** The package catalogue a mother is offered. */
+export async function listAppPackages(token: string): Promise<Named[]> {
+  return (await call('GET', '/packages', token)) as Named[];
+}
+
+export type AppBookingOptions = {
+  bookingWindowStartHour: number;
+  bookingWindowEndHour: number;
+  minBookingHours: number;
+  maxBookingHours: number;
+  minAdvanceBookingHours: number;
+};
+
+/** The booking rules the app's date picker is built from. */
+export async function getAppBookingOptions(token: string): Promise<AppBookingOptions> {
+  return (await call('GET', '/bookings/options', token)) as AppBookingOptions;
+}
+
+/**
+ * What the endpoint actually returns — the discount alone. The final figure is
+ * the app's subtraction, not the server's, so there is no `finalAmount` here.
+ */
+export type PromoValidation = { discountAmount: number };
+
+/** Applies a promo code exactly as the checkout screen does. */
+export async function validateAppPromo(
+  motherToken: string,
+  code: string,
+  subtotal: number,
+): Promise<PromoValidation> {
+  return (await call('POST', '/bookings/validate-promo', motherToken, {
+    code,
+    subtotal,
+  })) as PromoValidation;
+}
+
 export type KycSubject = {
   idVerificationStatus: string;
   rejectionReason: string | null;
