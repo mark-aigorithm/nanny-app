@@ -205,6 +205,42 @@ export function BookingsPage() {
     statusMutation.isPending ||
     timesMutation.isPending;
 
+  /**
+   * The status override — a write control, and so built only for an operator
+   * who may actually use it.
+   *
+   * `PATCH /bookings/:id/status` requires bookings:MANAGE
+   * (`admin-permissions.ts`), so offering this to a VIEW operator is offering a
+   * guaranteed 403. The whole column goes rather than a disabled copy of it:
+   * the Status column already shows the same value, so an inert second one
+   * would only repeat it.
+   */
+  const overrideColumn: Column<AdminBooking> = {
+    key: 'override',
+    header: 'Override',
+    render: (booking) => {
+      const isCompleted = booking.status === 'COMPLETED';
+      const options = OVERRIDE_STATUSES.some((s) => s === booking.status)
+        ? OVERRIDE_STATUSES
+        : [booking.status, ...OVERRIDE_STATUSES];
+      return (
+        <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
+          <Select
+            compact
+            value={booking.status}
+            disabled={mutating || isCompleted}
+            title={isCompleted ? 'Completed bookings are locked' : 'Override booking status'}
+            aria-label={`Override status for ${booking.mother.name}'s booking`}
+            options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
+            onChange={(next) =>
+              statusMutation.mutate({ id: booking.id, status: next as AdminBooking['status'] })
+            }
+          />
+        </div>
+      );
+    },
+  };
+
   const columns: Column<AdminBooking>[] = [
     {
       key: 'mother',
@@ -268,31 +304,7 @@ export function BookingsPage() {
           <span className="table-empty">—</span>
         ),
     },
-    {
-      key: 'override',
-      header: 'Override',
-      render: (booking) => {
-        const isCompleted = booking.status === 'COMPLETED';
-        const options = OVERRIDE_STATUSES.some((s) => s === booking.status)
-          ? OVERRIDE_STATUSES
-          : [booking.status, ...OVERRIDE_STATUSES];
-        return (
-          <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
-            <Select
-              compact
-              value={booking.status}
-              disabled={mutating || isCompleted}
-              title={isCompleted ? 'Completed bookings are locked' : 'Override booking status'}
-              aria-label={`Override status for ${booking.mother.name}'s booking`}
-              options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
-              onChange={(next) =>
-                statusMutation.mutate({ id: booking.id, status: next as AdminBooking['status'] })
-              }
-            />
-          </div>
-        );
-      },
-    },
+    ...(canManage ? [overrideColumn] : []),
     {
       key: 'actions',
       header: '',
@@ -362,7 +374,7 @@ export function BookingsPage() {
           onChange={(value) => changeStatus(value as AdminBookingStatusFilter)}
         />
       </div>
-      {isLoading && <TableSkeleton columns={10} />}
+      {isLoading && <TableSkeleton columns={columns.length} />}
       {error != null && !bookings && (
         <ErrorState
           message={apiErrorMessage(error)}

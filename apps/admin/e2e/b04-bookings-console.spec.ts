@@ -20,7 +20,13 @@ import {
   seedPendingBooking,
   superuserToken,
 } from './helpers/backend';
-import { chooseOption, gotoConsole, rowFor, statusSelectFor } from './helpers/locators';
+import {
+  actionsFor,
+  chooseOption,
+  gotoConsole,
+  rowFor,
+  statusSelectFor,
+} from './helpers/locators';
 import { storageStatePath } from './roles';
 
 test.use({ storageState: storageStatePath('superuser') });
@@ -166,4 +172,38 @@ test('changing the filter returns to the first page', async ({ page }) => {
   // that may only have one page — and the operator would see an empty table.
   await chooseOption(page, 'Status', 'All');
   await expect(page.locator('.pagination-page')).toContainText('Page 1 of');
+});
+
+/**
+ * The override is a write control, so a view-only operator does not get one.
+ *
+ * `PATCH /bookings/:id/status` requires bookings:MANAGE
+ * (`admin-permissions.ts:69`), which makes the dropdown an offer of a
+ * guaranteed 403 for anyone holding VIEW — the same defect as the transitions
+ * pinned above, decided by who is looking rather than by where the booking is.
+ */
+test.describe('view-only operator', () => {
+  test.use({ storageState: storageStatePath('bookingsViewer') });
+
+  test('is not offered the status override it cannot use', async ({ page }) => {
+    // Seeded so the table has a row to render controls *for*: asserting an
+    // absence against an empty table would pass for the wrong reason.
+    const booking = await seedPendingBooking();
+
+    await gotoConsole(page, '/bookings');
+    const row = rowFor(page, booking.mother.surname);
+    await expect(row).toBeVisible();
+
+    // The queue stays legible — the status is still there to read.
+    await expect(page.getByRole('columnheader', { name: 'Status', exact: true })).toBeVisible();
+    await expect(row).toContainText('pending');
+
+    // Neither write control is offered. The Override column goes entirely
+    // rather than standing empty beside the Status badge it would only repeat;
+    // the positive assertion above is what keeps this one from passing because
+    // `columnheader` matched nothing at all.
+    await expect(page.getByRole('columnheader', { name: 'Override', exact: true })).toHaveCount(0);
+    await expect(statusSelectFor(page, booking.mother.surname)).toHaveCount(0);
+    await expect(actionsFor(page, booking.mother.surname)).toHaveCount(0);
+  });
 });

@@ -13,7 +13,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  * hard-coding credentials, and so global-setup and the specs cannot disagree
  * about which permissions a given operator actually has.
  */
-export type RoleName = 'superuser' | 'bookingsOperator' | 'mixedOperator';
+export type RoleName =
+  | 'superuser'
+  | 'bookingsOperator'
+  | 'bookingsViewer'
+  | 'mixedOperator';
 
 export type RoleDefinition = {
   email: string;
@@ -40,6 +44,18 @@ export const ROLES: Record<RoleName, RoleDefinition> = {
     password: 'test-password-123',
     role: 'OPERATOR',
     permissions: { bookings: 'MANAGE' },
+  },
+  /**
+   * The same one section as `bookingsOperator`, held at VIEW instead of MANAGE.
+   * The pair is what makes a control's absence attributable to the *level*: with
+   * only a MANAGE operator you cannot tell a control that is correctly hidden
+   * from one that was never rendered at all.
+   */
+  bookingsViewer: {
+    email: 'e2e-bookings-viewer@test.local',
+    password: 'test-password-123',
+    role: 'OPERATOR',
+    permissions: { bookings: 'VIEW' },
   },
   /**
    * Holds both levels at once, which is what makes VIEW distinguishable from
