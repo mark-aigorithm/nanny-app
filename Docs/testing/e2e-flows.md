@@ -26,7 +26,10 @@ CANCELLED ◀── any non-terminal                                     IN_PROG
                                                                          ▼
                                                                     COMPLETED
 ```
-<sub>Source: `VALID_TRANSITIONS` in [booking.service.ts:458](../../apps/backend/src/services/booking.service.ts:458).
+<sub>Source: `VALID_BOOKING_TRANSITIONS` in
+[packages/shared/src/booking.ts:30](../../packages/shared/src/booking.ts:30) — it lives in `shared`
+so the admin console can offer exactly the transitions the server will accept, and reaches the
+backend through the `canTransitionBookingStatus` re-export in `booking.service.ts`.
 `PENDING → APPROVED` is normally the nanny's claim
 ([`applyNannyDecision`](../../apps/backend/src/services/booking.service.ts:1357)), **not** an operator
 action: a booking is created unassigned and broadcast, and the first nanny to accept both claims it
@@ -233,9 +236,12 @@ the status override, paging a queue longer than one screen, and the rule that a 
 locked. The paging tests seed eleven bookings for **one** mother on consecutive days — an account
 per row would cost a Firebase sign-up each, and overlapping times are refused.
 
-It also pins a gap, the same shape as A1's: **the override offers every status on every row**, while
-the server enforces `VALID_TRANSITIONS` — so "completed" on a new request is a guaranteed error
-toast. `PENDING` reaches only `APPROVED` (which needs a nanny) or `CANCELLED`.
+It used to pin a gap, the same shape as A1's: the override offered every status on every row, while
+the server enforced the transition table — so "completed" on a new request was a guaranteed error
+toast. Both are now closed. The dropdown builds its options from `canTransitionBookingStatus`, and
+the Approve action is withheld unless a nanny is already assigned, so an unclaimed request offers
+only `cancelled`. The specs assert the **whole** option list rather than the absence of one bad
+entry, which a filter dropped for every other status would still satisfy.
 
 ### B5. Users console and ID review queue · `UI:admin` — **covered** by `b05-users-and-id-review.spec.ts`
 Mother and nanny detail pages, approve/reject, the pending-ID queue draining as items are actioned.
