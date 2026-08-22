@@ -81,12 +81,14 @@ export async function signIn(email: string, password = PASSWORD): Promise<string
 
 type Json = Record<string, unknown>;
 
-async function call(
-  method: 'GET' | 'POST' | 'PATCH' | 'PUT',
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+
+async function request(
+  method: Method,
   path: string,
   token: string,
   body?: Json,
-): Promise<unknown> {
+): Promise<{ status: number; payload: { data?: unknown; error?: string } | null }> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: {
@@ -100,14 +102,32 @@ async function call(
     | { data?: unknown; error?: string }
     | null;
 
-  if (!response.ok) {
+  return { status: response.status, payload };
+}
+
+async function call(method: Method, path: string, token: string, body?: Json): Promise<unknown> {
+  const { status, payload } = await request(method, path, token, body);
+
+  if (status < 200 || status >= 300) {
     throw new Error(
-      `${method} ${path} failed with ${response.status}: ${payload?.error ?? '(no body)'}. ` +
+      `${method} ${path} failed with ${status}: ${payload?.error ?? '(no body)'}. ` +
         `Is the test backend running on ${API_BASE_URL} (pnpm --filter=@nanny-app/backend start:test)?`,
     );
   }
 
   return payload?.data;
+}
+
+/**
+ * The status of a call that is *expected* to be refused.
+ *
+ * `call` throws on anything outside 2xx, which is what a seeding helper should
+ * do — a broken fixture must fail loudly rather than leave a spec asserting
+ * against nothing. But when the refusal *is* the assertion, the status is the
+ * result, so it is returned instead of thrown.
+ */
+async function statusOf(method: Method, path: string, token: string, body?: Json): Promise<number> {
+  return (await request(method, path, token, body)).status;
 }
 
 /** A superuser token for the console account global-setup provisioned. */
@@ -433,4 +453,172 @@ export type KycSubject = {
  */
 export async function getMotherKyc(adminToken: string, id: number): Promise<KycSubject> {
   return (await call('GET', `/admin/mothers/${id}`, adminToken)) as KycSubject;
+}
+
+// ── Marketplace (B6) ──────────────────────────────────────────────
+//
+// Listings are not their own model: a listing *is* a community post of type
+// `marketplace`, written by a mother through the ordinary community API and
+// moderated through `/admin/marketplace/listings`. Everything a seller or a
+// buyer does lives under `/community`, which is why these helpers call it
+// rather than anything admin-shaped.
+
+const LISTING_PHOTO = 'https://storage.example.test/e2e-listing.jpg';
+
+export type SeededListing = {
+  id: number;
+  /** Unique per call — the console's table row is located by it. */
+  title: string;
+  price: number;
+  seller: SeededMother;
+};
+
+/**
+ * A listing a mother has just posted: `PENDING`, and therefore not yet in
+ * anybody's feed. Marketplace posts require at least one photo, so one is
+ * supplied as a URL — the mobile app uploads first and posts the URL, and the
+ * API only ever sees the second half of that.
+ */
+export async function seedListing(
+  options: { seller?: SeededMother; price?: number } = {},
+): Promise<SeededListing> {
+  const { price = 1500 } = options;
+  const seller = options.seller ?? (await seedMother());
+  const { surname } = unique('listing');
+  const title = `E2E Stroller ${surname}`;
+
+  const post = (await call('POST', '/community/posts', seller.token, {
+    type: 'marketplace',
+    title,
+    body: 'Barely used. Seeded by the admin E2E suite.',
+    price,
+    imageUrls: [LISTING_PHOTO],
+  })) as { id: number };
+
+  return { id: post.id, title, price, seller };
+}
+
+/** Edits a listing as its seller — the "fix and resubmit" half of the flow. */
+export async function editListing(
+  sellerToken: string,
+  id: number,
+  patch: { title?: string; body?: string; price?: number },
+): Promise<void> {
+  await call('PATCH', `/community/posts/${id}`, sellerToken, patch);
+}
+
+export type MyListing = {
+  id: number;
+  title: string | null;
+  moderationStatus: 'pending' | 'approved' | 'rejected';
+  rejectionReason: string | null;
+};
+
+/** The seller's own listings, in every moderation state — the "My listings" screen. */
+export async function listMyListings(sellerToken: string): Promise<MyListing[]> {
+  return (await call(
+    'GET',
+    '/community/my-posts?type=marketplace&limit=50',
+    sellerToken,
+  )) as MyListing[];
+}
+
+/**
+ * Whether a listing is visible to somebody who is not its author.
+ *
+ * Read as a *buyer*, never as the seller: the feed and the detail route both
+ * show an author her own pending and rejected listings, so the same assertion
+ * made with the seller's token passes before the admin has approved anything.
+ * That is the one mistake this flow invites, and the reason this helper takes a
+ * token rather than defaulting to the listing's own.
+ */
+export async function listingVisibleTo(viewerToken: string, id: number): Promise<boolean> {
+  const status = await statusOf('GET', `/community/posts/${id}`, viewerToken);
+  if (status === 200) return true;
+  if (status === 404) return false;
+  throw new Error(`GET /community/posts/${id} answered ${status}, which is neither yes nor no.`);
+}
+
+/**
+ * Finds a listing in the marketplace feed the app actually renders, or returns
+ * null.
+ *
+ * Pages rather than reading the first 50: official listings are pinned above
+ * seller ones and the E2E database is never truncated, so page 1 drifts further
+ * from "what was just posted" with every run.
+ */
+export async function findInMarketplaceFeed(
+  viewerToken: string,
+  id: number,
+): Promise<{ id: number; title: string | null } | null> {
+  for (let page = 1; page <= 20; page += 1) {
+    const posts = (await call(
+      'GET',
+      `/community/posts?type=marketplace&limit=50&page=${page}`,
+      viewerToken,
+    )) as Array<{ id: number; title: string | null }>;
+
+    const match = posts.find((post) => post.id === id);
+    if (match) return match;
+    if (posts.length < 50) return null;
+  }
+  throw new Error('Walked 20 pages of the marketplace feed without reaching the end.');
+}
+
+/**
+ * A buyer tapping "Contact seller", which creates the conversation if the
+ * listing is live and refuses if it is not. Returns the status so a spec can
+ * assert either outcome.
+ */
+export async function contactSeller(
+  buyerToken: string,
+  id: number,
+): Promise<{ status: number; conversationId: number | null }> {
+  const { status, payload } = await request('POST', `/community/posts/${id}/contact`, buyerToken);
+  const data = payload?.data as { conversation?: { id: number } } | undefined;
+  return { status, conversationId: data?.conversation?.id ?? null };
+}
+
+/**
+ * An official ("Sold by NannyNow") listing, created over HTTP rather than
+ * through the console's own form.
+ *
+ * The form is deliberately not driven: it uploads a photo to Firebase Storage,
+ * and the test stack runs an Auth emulator only. Publishing this way exercises
+ * the same route the form posts to, and leaves the console half of the flow —
+ * the moderation menu, and deleting — to be driven through the UI where it is
+ * actually testable.
+ */
+/**
+ * Moderation decisions made over HTTP, for *setting up* a spec whose subject is
+ * some later step — a listing that is already live before the console takes it
+ * down, or already rejected before the seller fixes it. Never used to make the
+ * decision a spec is actually about: that one goes through the console.
+ */
+export async function approveListingAsAdmin(adminToken: string, id: number): Promise<void> {
+  await call('POST', `/admin/marketplace/listings/${id}/approve`, adminToken);
+}
+
+export async function rejectListingAsAdmin(
+  adminToken: string,
+  id: number,
+  reason: string,
+): Promise<void> {
+  await call('POST', `/admin/marketplace/listings/${id}/reject`, adminToken, { reason });
+}
+
+export async function seedOfficialListing(adminToken: string): Promise<{ id: number; title: string }> {
+  const { surname } = unique('official');
+  const title = `NannyNow Cot ${surname}`;
+
+  const listing = (await call('POST', '/admin/marketplace/listings', adminToken, {
+    title,
+    body: 'Sold by NannyNow. Seeded by the admin E2E suite.',
+    price: 2400,
+    imageUrls: [LISTING_PHOTO],
+    contactPhone: uniquePhone(),
+    tags: [],
+  })) as { id: number };
+
+  return { id: listing.id, title };
 }
