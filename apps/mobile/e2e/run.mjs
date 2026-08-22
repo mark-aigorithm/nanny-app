@@ -36,6 +36,15 @@ const BACKEND_URL = 'http://127.0.0.1:3001';
 const AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
 
 /**
+ * The emulator's project, which its admin endpoints put in the path.
+ *
+ * Must match `.firebaserc`, `.env.test` and the `--project` the emulator is
+ * started with — they are one id wearing four hats, and a mismatch shows up as
+ * an empty result rather than an error.
+ */
+const AUTH_PROJECT_ID = 'demo-nannyapp';
+
+/**
  * Locates the Maestro CLI.
  *
  * Not assumed to be on PATH: adding it there means editing the user's global
@@ -169,6 +178,16 @@ function reverseMetroPort(adb, device) {
  */
 function quietDeviceChrome(adb, device) {
   spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'secure', 'stylus_handwriting_enabled', '0']);
+
+  // Android's package verifier has to be off, or Maestro's driver APK — which
+  // it reinstalls at the start of every flow — intermittently fails with
+  // `INSTALL_FAILED_VERIFICATION_FAILURE: Integrity verification timed out`.
+  // The verifier wants to phone home about an unknown APK and gives up after a
+  // timeout; on a loaded machine it loses that race often enough to fail a run
+  // that has nothing to do with the app. Nothing here is an APK from anywhere
+  // but this repo.
+  spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'global', 'verifier_verify_adb_installs', '0']);
+  spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'global', 'package_verifier_enable', '0']);
 }
 
 function flowsToRun(requested) {
@@ -219,6 +238,7 @@ function runFlow(maestro, flow) {
     PASSWORD,
     BACKEND_URL,
     AUTH_EMULATOR_URL,
+    AUTH_PROJECT_ID,
     PROMO_CODE: PROMO_CODES.reusable.code,
     PROMO_CODE_EXHAUSTED: PROMO_CODES.exhausted.code,
     PACKAGE_NAME: PACKAGE.name,

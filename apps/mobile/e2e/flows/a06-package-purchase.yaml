@@ -29,8 +29,24 @@ appId: com.nannyapp.mobile
     visible: 'Choose a package'
     timeout: 30000
 - assertVisible: 'No package yet'
-- assertVisible: ${PACKAGE_NAME}
-- assertVisible: 'Save 25%'
+
+# Scrolled to rather than asserted where it lands. The package catalogue is
+# global and the E2E database is never truncated, so the admin Playwright suite
+# — which creates a package of its own every time B3 runs — steadily pushes the
+# lab's package down the list until it is off the first screen. Maestro only
+# sees what is rendered, so this failed as "E2E Starter is not visible" on a
+# screen that was working perfectly.
+- scrollUntilVisible:
+    element:
+      text: ${PACKAGE_NAME}
+    direction: DOWN
+    timeout: 30000
+
+# Anchored to the card rather than asserted loose: with several packages on
+# screen a bare 'Save 25%' would be satisfied by somebody else's.
+- assertVisible:
+    text: 'Save 25%'
+    below: ${PACKAGE_NAME}
 
 # Anchored below the package's own name so this stays right if the catalogue
 # ever holds more than one — every card carries the same button label.
