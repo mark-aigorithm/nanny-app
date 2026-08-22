@@ -220,11 +220,27 @@ unforced, so retries and double-mounts all resend the stale one, and only the 40
 `getIdToken(true)` produces something new. Nothing else in the app forces a refresh, so a request
 that gets through is proof the handler ran.
 
-### B3. Catalogue CRUD with downstream effect · `UI:admin`
+### B3. Catalogue CRUD with downstream effect · `UI:admin` — **covered** by `b03-catalogue-downstream.spec.ts`
 Skills, certifications, packages, promo codes, campaigns, duration rules, pricing & fees, booking
 options, support contact, cameras. The pattern is the same for each and only worth writing once:
 **create in the console → assert it appears in the mobile-facing API** (`/bookings/options`,
 `/nanny/skills`, `/packages`, …). Half of these are static config with no other consumer.
+
+The spec covers the five with a real downstream reader. The read-back is always the **public**
+route: an admin list would only confirm the row was written, whereas what matters is that it crossed
+into what a nanny picks from or what a mother is charged — and those routes filter on the way out,
+which is why the skill test also creates an inactive row and checks it stays invisible. Promo codes
+are asserted as **money off a subtotal**, not as a row; note `/bookings/validate-promo` returns the
+discount alone, and the app does the subtraction.
+
+The booking-rule test restores what it changed, in a `finally`. That config is global, nothing
+truncates it between specs, and leaving it altered would quietly change every booking made for the
+rest of the run — `maxBookingHours` is chosen because no other fixture depends on it.
+
+Adding another catalogue here means fighting the label lookup: these pages reuse label words, and
+`Field` renders its hint *inside* the `<label>`, so an accessible name is often the label plus a
+sentence — `getByLabel('Hours')` on Packages also matches "Validity (days) How long a…". Fill through
+the spec's `fill` helper, which scopes to the card and anchors at the start of the name.
 
 ### B4. Bookings console · `UI:admin` — **covered** by `b04-bookings-console.spec.ts`
 Filter, paginate, open detail, change status, refund. The list is the operator's primary workspace.
