@@ -90,6 +90,7 @@ export default function ForgotPasswordScreen() {
 
         {/* Email input */}
         <TextInputField
+          testID="forgotPassword.email"
           value={email}
           onChangeText={(val: string) => {
             setEmail(val);
