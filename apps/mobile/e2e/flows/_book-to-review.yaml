@@ -25,10 +25,9 @@ appId: com.nannyapp.mobile
 # Care has to start soon, because check-in opens only fifteen minutes before
 # the start time and a booking further out could never reach IN_PROGRESS.
 #
-# Selecting a day lands on the first whole HOUR still bookable, which can be
-# most of an hour away, so walk the stepper down to its floor — the earliest
-# start on offer, minutes from now. It disables there, so the extra taps are
-# no-ops and the count only has to be generous.
+# Selecting a day already lands on the earliest start on offer, so these taps
+# normally do nothing — they walk the stepper down to its floor whatever it
+# opened on, and it disables there, so the count only has to be generous.
 - repeat:
     times: 12
     commands:
