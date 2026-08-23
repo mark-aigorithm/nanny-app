@@ -1,0 +1,94 @@
+# C8 — the notification centre: what is in it, what the count says, and what
+# happens when you act on one.
+#
+# The notifications are made by moderating two of the mother's marketplace
+# listings, over HTTP. That is deliberate and not just convenient: every
+# *booking* event that notifies a mother — NANNY_CHECKIN, BOOKING_COMPLETED —
+# needs a shift that has actually started, which drags the fifteen-minute
+# check-in window and the time of day into a flow that has nothing to do with
+# either. Moderation notifies the seller directly and answers the same question.
+#
+# The seeding step marks everything already there as read before it makes these
+# two. The notifications table is never truncated, so an unread count is only
+# worth asserting if this run is responsible for every unread row in it — which
+# is what makes "Unread (2)" a real assertion rather than a description of
+# whatever the database happened to be holding.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: seed-listing-notifications
+- assertTrue: ${output.unread == '2'}
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── What is in it ──────────────────────────────────────────────────────────
+- tapOn: 'Open notifications'
+- extendedWaitUntil:
+    visible: 'Notifications'
+    timeout: 30000
+
+- assertVisible: 'Your listing is live'
+- assertVisible: 'Your listing needs changes'
+
+# The count is rendered into the filter pill itself, so this asserts the number
+# and the control in one go.
+- tapOn: 'Unread.*'
+- assertVisible: 'Unread \(2\)'
+- assertVisible: 'Your listing is live'
+
+# ── Acting on one ──────────────────────────────────────────────────────────
+# A rejected listing is the one notification with something to *do* about it,
+# and the app routes it accordingly — not to the post, which is not live, but to
+# the screen where she can fix and resubmit it.
+- tapOn: 'Your listing needs changes'
+- extendedWaitUntil:
+    visible: 'My listings'
+    timeout: 30000
+
+# Back from My listings lands on Home rather than popping to the notification
+# it came from — the handler pushes across to a different section, not deeper
+# into this one. So the way back in is the bell, which is also the honest path:
+# it is what a person taps.
+- back
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+
+- tapOn: 'Open notifications'
+- extendedWaitUntil:
+    visible: 'Notifications'
+    timeout: 30000
+
+# Tapping marked it read on the way out, so one is left.
+- tapOn: 'Unread.*'
+- assertVisible: 'Unread \(1\)'
+- assertVisible: 'Your listing is live'
+- assertNotVisible: 'Your listing needs changes'
+
+# ── Clearing the rest ──────────────────────────────────────────────────────
+- tapOn: 'Mark all read'
+- extendedWaitUntil:
+    visible: 'You have no unread notifications.'
+    timeout: 30000
+
+# The empty state could equally mean the list failed to load, so the count is
+# read back from the API rather than inferred from the screen.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: unread-count
+- assertTrue: ${output.unread == '0'}
+
+# And they are still there under All — marked read, not deleted.
+- tapOn: 'All'
+- assertVisible: 'Your listing is live'

@@ -64,8 +64,22 @@ function call(method, token, path, payload) {
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(payload === undefined ? {} : payload);
   }
-  var res = method === 'GET' ? http.get(BACKEND_URL + path, options)
-                             : http.post(BACKEND_URL + path, options);
+  var res;
+  if (method === 'GET') {
+    res = http.get(BACKEND_URL + path, options);
+  } else if (method === 'POST') {
+    res = http.post(BACKEND_URL + path, options);
+  } else {
+    // Anything else goes through the generic form — Maestro's client only has
+    // named helpers for GET/POST, and sending a PATCH as a POST would quietly
+    // hit a different route (or none) rather than fail.
+    options.method = method;
+    if (options.body === undefined) {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(payload === undefined ? {} : payload);
+    }
+    res = http.request(BACKEND_URL + path, options);
+  }
   if (res.status < 200 || res.status >= 300) {
     throw new Error(method + ' ' + path + ' → ' + res.status + ' ' + res.body);
   }
@@ -258,10 +272,56 @@ function resetCodeIssued() {
   output.resetCodeIssued = String(after > Number(output.resetCodesBefore));
 }
 
+/**
+ * Two notifications for the mother, with nothing left unread behind them.
+ *
+ * Moderating a marketplace listing is the cheapest way to make one: it notifies
+ * the seller directly (admin-marketplace.service) and, unlike every booking
+ * event that notifies a mother, it does not depend on the clock — NANNY_CHECKIN
+ * and BOOKING_COMPLETED both need a shift that has actually started.
+ *
+ * Everything already there is marked read first. The notification table is
+ * never truncated, so an unread count is only worth asserting if this run put
+ * every unread item in it.
+ */
+function seedListingNotifications() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  call('PATCH', motherToken, '/notifications/read-all');
+
+  var approved = createListing(motherToken, 'Cot');
+  var rejected = createListing(motherToken, 'Pram');
+
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  call('POST', adminToken, '/admin/marketplace/listings/' + approved + '/approve');
+  call('POST', adminToken, '/admin/marketplace/listings/' + rejected + '/reject', {
+    reason: 'Photos are too blurry to see the item.',
+  });
+
+  unreadCount();
+}
+
+function createListing(motherToken, label) {
+  var post = call('POST', motherToken, '/community/posts', {
+    type: 'marketplace',
+    title: 'E2E ' + label,
+    price: 400,
+    imageUrls: ['https://storage.example.test/e2e-listing.jpg'],
+  });
+  return post.id;
+}
+
+/** What the badge and the "Unread" pill are counting. */
+function unreadCount() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  output.unread = String(call('GET', motherToken, '/notifications/unread-count').unreadCount);
+}
+
 var STEPS = {
   'nanny-accept': nannyAccept,
   'reset-codes-before': resetCodesBefore,
   'reset-code-issued': resetCodeIssued,
+  'seed-listing-notifications': seedListingNotifications,
+  'unread-count': unreadCount,
   'admin-approve-mother': adminApproveMother,
   'admin-approve-nanny': adminApproveNanny,
   'nanny-check-in': nannyCheckIn,

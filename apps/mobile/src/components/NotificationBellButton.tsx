@@ -32,6 +32,11 @@ export default function NotificationBellButton({
   return (
     <Pressable
       style={[styles.button, style]}
+      // Icon-only, so it has no name for a screen reader — or for Maestro,
+      // which reads Android's content-desc. "Open notifications" rather than
+      // "Notifications" so it cannot be confused with the screen it opens.
+      accessibilityRole="button"
+      accessibilityLabel="Open notifications"
       hitSlop={hitSlop}
       onPress={gate(
         () => router.push(route),
