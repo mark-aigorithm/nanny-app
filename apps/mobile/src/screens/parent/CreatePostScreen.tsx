@@ -211,6 +211,7 @@ export default function CreatePostScreen() {
           {editingId ? (postType === 'Marketplace' ? 'Edit listing' : 'Edit post') : 'Create post'}
         </Text>
         <Pressable
+          testID="createPost.submit"
           style={[styles.postButton, (!canPost || submitting) && styles.postButtonDisabled]}
           disabled={!canPost || submitting}
           onPress={handleSubmit}
@@ -279,6 +280,7 @@ export default function CreatePostScreen() {
               {postType === 'Marketplace' ? 'Product name' : 'Event name'}
             </Text>
             <TextInput
+              testID="createPost.title"
               style={styles.textInput}
               placeholder={postType === 'Marketplace' ? 'e.g. Stroller, clothes bundle…' : 'e.g. Moms coffee morning'}
               placeholderTextColor={colors.textPlaceholder}
@@ -294,6 +296,7 @@ export default function CreatePostScreen() {
             {postType !== 'Q&A' && <Text style={styles.fieldOptional}> (optional)</Text>}
           </Text>
           <TextInput
+            testID="createPost.body"
             style={[styles.textInput, styles.textArea]}
             placeholder={
               postType === 'Q&A'
@@ -350,6 +353,7 @@ export default function CreatePostScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Location</Text>
               <TextInput
+                testID="createPost.location"
                 style={styles.textInput}
                 placeholder="Venue or address"
                 placeholderTextColor={colors.textPlaceholder}
@@ -388,6 +392,7 @@ export default function CreatePostScreen() {
                     style={styles.numberInputIcon}
                   />
                   <TextInput
+                    testID="createPost.capacity"
                     style={styles.priceInput}
                     placeholder="20"
                     placeholderTextColor={colors.textPlaceholder}

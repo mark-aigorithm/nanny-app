@@ -78,6 +78,7 @@ export default function CustomerSupportScreen() {
             style={styles.searchIcon}
           />
           <TextInput
+            testID="customerSupport.search"
             style={styles.searchInput}
             placeholder="Search FAQ..."
             placeholderTextColor={colors.textMuted}

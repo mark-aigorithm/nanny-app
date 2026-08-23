@@ -118,7 +118,13 @@ export default function PostDetailScreen() {
     return (
       <View style={[styles.container, styles.centered]}>
         {!postLoading && (
-          <Pressable onPress={exitPostDetail} style={styles.backButtonAbsolute} hitSlop={8}>
+          <Pressable
+            onPress={exitPostDetail}
+            style={styles.backButtonAbsolute}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Ionicons name="arrow-back" size={22} color={postDetailTheme.iconDark} />
           </Pressable>
         )}
@@ -139,7 +145,15 @@ export default function PostDetailScreen() {
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Pressable onPress={exitPostDetail} hitSlop={8}>
+          {/* Icon-only, and the one way back that returns to the feed this post
+              was opened from — the hardware back button pops the whole
+              community section and lands on Home. */}
+          <Pressable
+            onPress={exitPostDetail}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Ionicons name="arrow-back" size={22} color={postDetailTheme.iconDark} />
           </Pressable>
           <Text style={styles.headerTitle}>Post</Text>
@@ -233,6 +247,7 @@ export default function PostDetailScreen() {
         <View style={styles.replyInputRow}>
           <TextInput
             ref={inputRef}
+            testID="postDetail.comment"
             style={[styles.replyInput, styles.replyInputFlex]}
             placeholder={replyToId ? 'Write a reply...' : 'Write a comment...'}
             placeholderTextColor={postDetailTheme.textPlaceholder}
@@ -240,6 +255,7 @@ export default function PostDetailScreen() {
             onChangeText={setReplyText}
           />
           <Pressable
+            testID="postDetail.commentSend"
             style={[styles.sendButton, !replyText.trim() && styles.sendButtonDisabled]}
             disabled={!replyText.trim() || createComment.isPending}
             onPress={gate(

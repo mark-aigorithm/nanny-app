@@ -23,7 +23,16 @@ export default function PostActionBar({
 }: Props) {
   return (
     <View style={styles.row}>
-      <Pressable style={styles.item} onPress={onLikePress}>
+      {/* A heart next to a bare number says nothing on its own — not to a
+          screen reader, and not to Maestro, which reads Android's content-desc.
+          The label also carries the *state*, which the icon otherwise conveys
+          by colour alone. */}
+      <Pressable
+        style={styles.item}
+        accessibilityRole="button"
+        accessibilityLabel={likedByMe ? 'Unlike post' : 'Like post'}
+        onPress={onLikePress}
+      >
         <Ionicons
           name={likedByMe ? 'heart' : 'heart-outline'}
           size={17}

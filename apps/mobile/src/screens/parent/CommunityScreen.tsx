@@ -179,7 +179,7 @@ export default function CommunityScreen() {
 
       <ParentTabHeader />
 
-      <ParentTabFab onPress={openCreatePost} />
+      <ParentTabFab onPress={openCreatePost} accessibilityLabel="Create post" />
 
       <BottomNav activeTab="services" />
     </View>

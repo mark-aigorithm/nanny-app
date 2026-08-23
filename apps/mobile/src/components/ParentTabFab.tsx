@@ -11,6 +11,12 @@ interface ParentTabFabProps {
   icon?: ComponentProps<typeof Ionicons>['name'];
   iconSize?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * What this particular plus sign creates. The button is icon-only, so
+   * without it a screen reader announces nothing at all — and it is what
+   * Maestro matches on, since Android exposes it as the content-desc.
+   */
+  accessibilityLabel?: string;
 }
 
 export default function ParentTabFab({
@@ -18,12 +24,15 @@ export default function ParentTabFab({
   icon = 'add',
   iconSize = 22,
   style,
+  accessibilityLabel,
 }: ParentTabFabProps) {
   return (
     <TouchableOpacity
       style={[styles.fab, style]}
       activeOpacity={0.85}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
     >
       <Ionicons name={icon} size={iconSize} color={colors.white} />
     </TouchableOpacity>

@@ -222,6 +222,8 @@ export default function CommunityFeedScreen() {
 
       <Pressable
         style={styles.fab}
+        accessibilityRole="button"
+        accessibilityLabel="Create post"
         onPress={gate(
           () =>
             router.push({
