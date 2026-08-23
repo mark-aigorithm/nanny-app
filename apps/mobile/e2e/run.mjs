@@ -35,6 +35,45 @@ const BACKEND_URL = 'http://127.0.0.1:3001';
 /** Where the Firebase Auth emulator listens, for the same reason. */
 const AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
 
+/** The Paymob fake, for the flows whose *other* side has to pay over HTTP. */
+const PAYMOB_FAKE_URL = 'http://127.0.0.1:4010';
+
+/**
+ * The platform's own timezone — the one booking times are expressed in.
+ *
+ * `CreateBookingSchema` takes a wall-clock string with no offset and reads it
+ * in this zone, so a booking seeded from the host has to be written in it too.
+ * Sending the host's local time would be an hour or more out for half the year.
+ */
+const PLATFORM_TIMEZONE = 'Africa/Cairo';
+
+/**
+ * A wall-clock `YYYY-MM-DDTHH:mm:ss` in the platform's timezone, `minutes`
+ * from now.
+ *
+ * Computed here rather than in a flow because Maestro's JS sandbox has no
+ * `Intl` timezone support worth relying on, and because the value has to be the
+ * same for every step of one flow.
+ */
+function wallClockIn(minutes) {
+  const at = new Date(Date.now() + minutes * 60_000);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PLATFORM_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(at);
+
+  const get = (type) => parts.find((part) => part.type === type)?.value ?? '00';
+  // `en-CA` renders midnight as 24 rather than 00 in some ICU builds.
+  const hour = get('hour') === '24' ? '00' : get('hour');
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}`;
+}
+
 /**
  * The emulator's project, which its admin endpoints put in the path.
  *
@@ -289,6 +328,14 @@ function runFlow(maestro, flow) {
     BACKEND_URL,
     AUTH_EMULATOR_URL,
     AUTH_PROJECT_ID,
+    PAYMOB_FAKE_URL,
+    // Ten minutes out, which is inside the fifteen-minute check-in window — so
+    // a flow that seeds a booking over HTTP can start the shift immediately,
+    // without the date picker that A1 and A7 have to walk.
+    BOOKING_START: wallClockIn(10),
+    // Two hours is the platform minimum, so this is the shortest bookable
+    // shift — the flow only needs it to have started, not to run its course.
+    BOOKING_END: wallClockIn(130),
     PROMO_CODE: PROMO_CODES.reusable.code,
     PROMO_CODE_EXHAUSTED: PROMO_CODES.exhausted.code,
     PACKAGE_NAME: PACKAGE.name,

@@ -378,6 +378,97 @@ function eventAtCapacity() {
 }
 
 /**
+ * The mother's side of a nanny's day, up to the point the nanny takes over.
+ *
+ * Books over HTTP rather than through the app because Maestro drives one
+ * surface per flow and in C4 that surface is the nanny's. The coordinates are
+ * the ones the seeder gives the lab nanny, so the request reaches her pool
+ * rather than being broadcast into empty space.
+ *
+ * The times come from run.mjs, in the platform's timezone: ten minutes out,
+ * which is inside the fifteen-minute check-in window. That is what lets the
+ * nanny start the shift straight away — and it sidesteps the date picker whose
+ * behaviour near midnight makes A1 and A7 unrunnable in the late evening.
+ */
+function motherBook() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = call('POST', motherToken, '/bookings', {
+    startTime: BOOKING_START,
+    endTime: BOOKING_END,
+    latitude: 30.0444,
+    longitude: 31.2357,
+    // The allergy line is how the flow finds this card. The open-requests pool
+    // is shared with every other suite that has ever run against this database
+    // — dozens of factory bookings sit in it — and none of the rest of the card
+    // is distinctive: same duration, same price, same "1 child · 3 yrs".
+    children: [{ name: 'Lina', ageYears: 3, allergies: 'Peanuts and lab dust' }],
+    specialInstructions: 'E2E lab booking for the care log flow.',
+  });
+  record(booking);
+}
+
+/**
+ * The mother pays, so the shift can start.
+ *
+ * The whole way round: the backend mints the intention, the fake settles it and
+ * signs a callback, and the callback goes back to the backend's own webhook. A
+ * status written straight into the database would skip the two things that
+ * actually gate a check-in — a Payment row that reached CAPTURED, and a booking
+ * the webhook moved to CONFIRMED.
+ */
+function motherPay() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+
+  var intention = call('POST', motherToken, '/bookings/' + booking.id + '/pay/paymob', {
+    method: 'CARD',
+  });
+
+  var settled = http.post(PAYMOB_FAKE_URL + '/__test__/pay', {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientSecret: intention.clientSecret, success: true }),
+  });
+  if (settled.status !== 200) {
+    throw new Error('The Paymob fake refused to settle: ' + settled.status + ' ' + settled.body);
+  }
+  var callback = json(settled.body);
+
+  var delivered = http.post(BACKEND_URL + '/webhooks/paymob?hmac=' + callback.hmac, {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(callback.body),
+  });
+  if (delivered.status < 200 || delivered.status >= 300) {
+    throw new Error('The webhook was refused: ' + delivered.status + ' ' + delivered.body);
+  }
+
+  record(call('GET', motherToken, '/bookings/' + booking.id));
+}
+
+/**
+ * The four digits on the mother's phone.
+ *
+ * Minted through the route her own tap calls, so the flow types a code the
+ * product really issued rather than one the test invented.
+ */
+function motherStartPin() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+  output.bookingId = String(booking.id);
+  output.pin = call('POST', motherToken, '/bookings/' + booking.id + '/start-pin').pin;
+}
+
+/** The care logs the nanny wrote, read back as the mother — who is who they are for. */
+function motherCareLogs() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+  var logs = call('GET', motherToken, '/bookings/' + booking.id + '/care-logs');
+
+  output.status = booking.status;
+  output.careLogCount = String(logs ? logs.length : 0);
+  output.careLogNotes = logs && logs.length > 0 ? String(logs[0].notes) : '';
+}
+
+/**
  * Puts one accepted invitation on the mother's referral screen, and asks the
  * validate endpoint the two questions the signup field asks it.
  *
@@ -510,6 +601,10 @@ var STEPS = {
   'community-reset': communityReset,
   'event-at-capacity': eventAtCapacity,
   'configure-support': configureSupport,
+  'mother-book': motherBook,
+  'mother-pay': motherPay,
+  'mother-start-pin': motherStartPin,
+  'mother-care-logs': motherCareLogs,
   'seed-referral': seedReferral,
   'seed-conversation': seedConversation,
   'message-unread-counts': messageUnreadCounts,

@@ -1,0 +1,161 @@
+# C4 — a nanny's day: dashboard → requests → claim → start → care log.
+#
+# The nanny is the driver here, which is what makes this flow worth having:
+# every other flow in the suite sees her side only through what the mother's
+# screen says about it, or through HTTP. This is the one that opens her app.
+#
+# The mother is advanced over HTTP for the three things only she can do — book,
+# pay, and read out the start PIN — and each goes through the route her own tap
+# would call. The payment is the whole round trip: the backend mints the
+# intention, the fake settles it and signs a callback, and the callback comes
+# back to the backend's webhook. Writing CONFIRMED into the database directly
+# would skip the two things that actually gate a check-in.
+#
+# ── Why this one is not at the mercy of the clock ──────────────────────────
+# A1 and A7 are unrunnable in the last hours before midnight, because
+# `_book-to-review.yaml` walks the date picker's start stepper and near
+# midnight its floor is further out than twelve decrements can reach. This
+# flow never opens that picker: run.mjs computes a wall-clock start ten minutes
+# out in the platform's own timezone and the booking is created over HTTP, so
+# the check-in window is open by construction.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- assertTrue: ${output.status == 'PENDING'}
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${NANNY_PHONE}
+
+# ── Her dashboard ──────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Your earnings'
+    timeout: 60000
+- assertVisible: 'Upcoming bookings'
+
+# Nothing claimed yet, so the request is not hers and not on this list.
+- assertVisible: 'No upcoming bookings'
+
+# ── The open request ───────────────────────────────────────────────────────
+- tapOn: 'Requests'
+- extendedWaitUntil:
+    visible: 'Accept request'
+    timeout: 30000
+
+# Everything is anchored to the allergy line, and it has to be. The open pool
+# is shared with every suite that has ever run against this database, so there
+# are dozens of cards on this screen and every one of them says "Accept
+# request", "1 child · 3 yrs" and the same price. A bare tap accepts a stranger's
+# booking and the flow then waits forever for a shift that is not hers.
+#
+# The allergy is also the one thing on the card she must not get wrong, and it
+# travels with the *request* rather than waiting for the booking to be hers —
+# so she can pass on a child she cannot safely take.
+- scrollUntilVisible:
+    element:
+      text: 'Lina: Peanuts and lab dust'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    text: 'ALLERGY'
+    above: 'Lina: Peanuts and lab dust'
+
+- tapOn:
+    text: 'Accept request'
+    below: 'Lina: Peanuts and lab dust'
+
+# Claiming takes it out of the open pool — first to accept wins, so a card still
+# offering it would mean two nannies could take the same shift.
+- extendedWaitUntil:
+    notVisible: 'Lina: Peanuts and lab dust'
+    timeout: 30000
+
+# ── The mother pays ────────────────────────────────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-pay
+- assertTrue: ${output.status == 'CONFIRMED'}
+
+# The app does not notice work done behind its back — React Query holds its
+# cache for a minute and nothing here refocuses it — so the shift is picked up
+# from a fresh launch.
+#
+# What that lands on is not the dashboard but a prompt over it: the shift is
+# inside its window, so the app opens by asking. Waiting for the prompt rather
+# than for the dashboard behind it is also what keeps the next step honest —
+# it is modal, and a tap aimed at the tab bar underneath silently does nothing.
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'Shift starting soon'
+
+# Named, because a nanny with two bookings today needs to know which one this
+# is before she says yes.
+- assertVisible: '.*Mona Mother.*'
+
+# ── Starting it ────────────────────────────────────────────────────────────
+# Check-in is PIN-gated: the mother reveals four digits on her phone and reads
+# them out. This is the only flow that types them — A1 mints the PIN and checks
+# in over HTTP, which never touches this modal.
+- tapOn: 'Start shift'
+- extendedWaitUntil:
+    visible: 'Enter start PIN'
+    timeout: 30000
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-start-pin
+
+# The PIN field autofocuses and submits itself on the fourth digit, so there is
+# nothing to tap and no confirm button to press.
+- inputText: ${output.pin}
+
+- extendedWaitUntil:
+    visible: 'Tap to open care log'
+    timeout: 60000
+
+# ── The care log ───────────────────────────────────────────────────────────
+- tapOn: 'Tap to open care log'
+- extendedWaitUntil:
+    visible: 'Care log'
+    timeout: 30000
+
+# The quick entries are the point of this screen: a nanny with a child in one
+# arm taps a category, not a form. Picking one opens a sheet that has already
+# decided what happened and when — only the notes are hers to write. (The
+# free-text "WHAT HAPPENED?" field belongs to the custom entry behind the +,
+# and is not on this sheet.)
+- tapOn: 'Meal'
+- extendedWaitUntil:
+    visible: 'Log meal'
+    timeout: 30000
+
+- tapOn: 'Add notes\.\.\.'
+- inputText: 'Rice and vegetables, ate most of it'
+- hideKeyboard
+- tapOn: 'Save entry'
+
+- extendedWaitUntil:
+    visible: 'Rice and vegetables, ate most of it'
+    timeout: 30000
+
+# ── And the mother can read it ─────────────────────────────────────────────
+# The assertion that matters is on the other side of the API: a log that only
+# renders in the nanny's own list is a log the parent never sees, which is the
+# entire reason the feature exists.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-care-logs
+- assertTrue: ${output.status == 'IN_PROGRESS'}
+- assertTrue: ${output.careLogCount == '1'}
+- assertTrue: ${output.careLogNotes == 'Rice and vegetables, ate most of it'}

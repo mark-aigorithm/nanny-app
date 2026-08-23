@@ -1,0 +1,72 @@
+# C2 — role selection, and the two paths that leave it.
+#
+# The screen's whole job is a fork: which of two registrations a person is
+# about to start. That fork is visible on the very next screen — a mother
+# signs up in four steps and a nanny in five, because a nanny has details, a
+# working area and an ID to hand over that a mother does not.
+#
+# ── Scope note ─────────────────────────────────────────────────────────────
+# The flow stops at step 1 of each path, and the reason is the same one C7
+# carries: `Continue` on step 1 is disabled until `draft.photoUri` is set, so
+# going any further means driving the Android photo picker and its crop screen.
+# What is asserted here is everything the *selection* decides — the label on
+# the button, the length of the path, and the draft being thrown away when the
+# choice changes. What the later steps ask for is each screen's own business.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+
+# ── Nothing chosen ─────────────────────────────────────────────────────────
+# The button is disabled and says nothing about a role, and the screen says why.
+- assertVisible: 'Select an option above to sign up'
+- assertVisible: 'Continue'
+
+# ── The mother's path ──────────────────────────────────────────────────────
+- tapOn: "I'm a mother"
+
+# The button takes the name of the choice — the confirmation that the tap
+# registered, since a radio dot is not something Maestro can read.
+- assertVisible: 'Sign up as a mother'
+- assertNotVisible: 'Select an option above to sign up'
+
+- tapOn: 'Sign up as a mother'
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 4.*'
+    timeout: 30000
+- assertVisible: 'A profile photo is required'
+
+# Something typed on this path, to prove it does not survive the fork.
+- tapOn: 'Enter your first name'
+- inputText: 'Mother Path'
+- hideKeyboard
+- assertVisible: 'Mother Path'
+
+# ── The nanny's path ───────────────────────────────────────────────────────
+- back
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+
+- tapOn: "I'm a nanny"
+- assertVisible: 'Sign up as a nanny'
+- assertNotVisible: 'Sign up as a mother'
+
+- tapOn: 'Sign up as a nanny'
+
+# Five steps, not four: the fork made visible. The extra ones are the nanny's
+# details, her working area and her ID.
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 5.*'
+    timeout: 30000
+- assertNotVisible: 'STEP 1 OF 4.*'
+
+# `handleContinue` resets the draft before seeding the new role, so nothing
+# typed on the other path is carried across. Worth asserting rather than
+# assuming: the draft is a persisted store, and half-filled registrations from
+# a previous choice are how the wrong role's answers reach the backend.
+- assertNotVisible: 'Mother Path'
