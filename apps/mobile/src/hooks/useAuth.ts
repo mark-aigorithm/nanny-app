@@ -5,6 +5,7 @@ import { auth } from '@mobile/lib/firebase';
 import type { UserCredential } from '@mobile/lib/firebase';
 import { api, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
+import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 export function useSignIn() {
@@ -40,6 +41,10 @@ export function useSignOut() {
   const clearProfile = useUserProfileStore((s) => s.clear);
   return useMutation<void, MappedAuthError, void>({
     mutationFn: async () => {
+      // Release this device's push token first — the axios interceptor signs
+      // the DELETE with the current user's JWT, which is gone after signOut().
+      // It never throws, so it cannot block or fail the sign-out itself.
+      await unregisterPushToken();
       try {
         await auth().signOut();
       } catch (error) {
