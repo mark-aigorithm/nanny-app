@@ -85,7 +85,6 @@ export function getApiErrorMessage(
     }
 
     if (!err.response) {
-      console.log(API_BASE_URL)
       return 'Could not reach the server. Please check your connection and try again.';
     }
 
