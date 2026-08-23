@@ -335,7 +335,7 @@ each proves the screen is wired.
 | C5 | Community: create post, like, comment, create event, RSVP, capacity limit | `UI:mobile` |
 | C6 | Messaging: conversation list, thread, send, unread badge, read receipts | `UI:mobile` |
 | C7 | Referral: generate code → new user applies it at registration → `/referral/validate` | `UI:mobile` |
-| C8 | Notification centre: list, mark read, mark all read, unread count | `UI:mobile` |
+| C8 | Notification centre: list, mark read, mark all read, unread count — **covered** by `c08-notification-centre.yaml` | `UI:mobile` |
 | C9 | Customer support contact screen | `UI:mobile` |
 | C10 | Failure states: backend unreachable, token expired mid-session, no results | `UI:mobile` |
 
@@ -361,6 +361,27 @@ never asks for a real one. So `sendPasswordResetEmail` succeeds only for a strin
 never been shown, and anything they might actually type comes back "We couldn't find an account with
 those details." The flow asserts **both** halves, so closing the gap turns the first assertion red
 rather than passing quietly.
+
+### C8. Notification centre · `UI:mobile` — **covered** by `c08-notification-centre.yaml`
+List, unread count, tapping one, mark-all-read.
+
+The notifications are made by **moderating two of the mother's marketplace listings** over HTTP,
+which is a deliberate choice rather than a convenient one: every *booking* event that notifies a
+mother — `NANNY_CHECKIN`, `BOOKING_COMPLETED` — needs a shift that has actually started, which drags
+the fifteen-minute check-in window and the time of day into a flow about neither. Moderation notifies
+the seller directly and has no clock in it.
+
+The seeding step marks everything already there as read before creating its two. The notifications
+table is never truncated, so an unread count is only worth asserting if the run is responsible for
+every unread row — that is what makes `Unread (2)` an assertion rather than a description of whatever
+the database was holding. Mark-all-read is confirmed against the API too: an empty list looks the
+same whether it was cleared or failed to load.
+
+Two Maestro traps are on display here. Selectors are **full-match regexes**, so `Unread` does not
+match the pill, which renders `Unread (2)` in a single node — and those parentheses are a capture
+group, so the assertion has to escape them. And `back` from the screen a notification routes *across*
+to lands on Home rather than popping to the notification; the flow reopens through the bell, which is
+what a person does anyway.
 
 ---
 

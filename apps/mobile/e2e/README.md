@@ -205,6 +205,18 @@ this, both of which looked like app regressions and were neither:
   scrolls to it. **Prefer `scrollUntilVisible` over `assertVisible` for anything in a list the
   console can add to.**
 
+**A cold bundler fails as a broken selector.** `e2e:metro` starts with `--clear`, so the first
+request pays for the whole build — over a minute. The dev client's fetch times out first and the app
+shows "There was a problem loading the project", which reaches the flow as `_launch.yaml` not finding
+the developer menu. `run.mjs` now builds the bundle once before any flow runs and prints how long it
+took; if you see that step take a minute, that is the cost being paid in the right place.
+
+**The emulator's `system_server` can die mid-run.** Symptoms are `cmd: Can't find service: package`
+and, from Maestro's driver install, `NullPointerException … PackageManagerInternal.freeStorage on a
+null object reference`. Every flow after it fails at launch. The device usually recovers on its own —
+check `adb shell pm list packages` answers before believing a batch of failures is real, and re-run.
+This is the `-gpu host` instability noted above wearing a different hat.
+
 **Android's package verifier has to be off.** Maestro reinstalls its driver APK at the start of every
 flow, and with the verifier on it intermittently dies with
 `INSTALL_FAILED_VERIFICATION_FAILURE: Integrity verification timed out` — the verifier wants to phone
