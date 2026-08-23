@@ -79,6 +79,39 @@ async function registerTokenWithBackend(token: string) {
   );
 }
 
+async function unregisterTokenWithBackend(token: string) {
+  await unwrap(api.delete('/devices/push-token', { data: { token } }));
+}
+
+/**
+ * Releases this device's FCM token from the signed-in user's account.
+ *
+ * Must run *before* `auth().signOut()`: the axios interceptor signs the request
+ * with `auth().currentUser`'s JWT, which is gone the moment sign-out completes.
+ * Without it the token stays live against the previous account, so on a shared
+ * or resold device the next person keeps receiving their pushes.
+ *
+ * Mirrors `requestPushPermissionAndRegister` — same native-push guard, and it
+ * swallows every failure so a dead network can never trap a user in a
+ * signed-in session.
+ */
+export async function unregisterPushToken(): Promise<boolean> {
+  if (!isNativePushAvailable()) return false;
+
+  const messagingFactory = getMessagingModule();
+  if (!messagingFactory) return false;
+
+  try {
+    const token = await messagingFactory().getToken();
+    if (!token) return false;
+
+    await unregisterTokenWithBackend(token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function isBookingCompletedPush(data?: Record<string, string>): boolean {
   const type = data?.['type']?.toLowerCase();
   return type === 'booking_completed';
