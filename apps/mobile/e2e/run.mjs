@@ -105,30 +105,51 @@ async function requireMetro() {
 }
 
 /**
- * Builds the bundle once, before any flow asks the device for it.
+ * Builds the bundle once, before any flow asks the device for it — and refuses
+ * to run if it cannot be built.
  *
- * `e2e:metro` starts with `--clear`, so the first request after it starts pays
- * for the whole build — well over a minute. The dev client's own fetch times
- * out first and the app lands on "There was a problem loading the project",
- * which reaches the flow as `_launch.yaml` failing to find the developer menu:
- * a selector error for something that is genuinely not on screen, pointing at
- * the wrong thing entirely.
+ * Two separate problems, both of which reach a flow as `_launch.yaml` failing
+ * to find the developer menu, which reads like a broken selector for something
+ * that is genuinely not on screen:
  *
- * This is the URL expo-dev-client asks for. If it ever changes, the worst case
- * is that the warm-up misses and the first flow is slow again — so a failure
- * here is reported and shrugged off rather than fatal.
+ *   1. `e2e:metro` starts with `--clear`, so the first request pays for the
+ *      whole build — over a minute. The dev client's own fetch times out first
+ *      and the app shows "There was a problem loading the project".
+ *   2. `metro-file-map`'s watcher gives up after four minutes of crawling this
+ *      monorepo when the machine is busy ("Failed to start watch mode"). Metro
+ *      then still answers `/status` with 200 while every bundle request returns
+ *      a 500 from DependencyGraph. A liveness ping cannot tell the two apart —
+ *      only asking for the bundle can.
+ *
+ * So this is fatal rather than advisory: a Metro that cannot build is not a
+ * slow prerequisite, it is a missing one.
  */
 async function warmMetro() {
   const url =
     'http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle' +
     '?platform=android&dev=true&hot=false&transform.engine=hermes';
 
-  process.stdout.write('[e2e] warming the bundler… ');
+  process.stdout.write('[e2e] building the bundle… ');
   const started = Date.now();
   const response = await fetch(url).catch(() => null);
   const seconds = Math.round((Date.now() - started) / 1000);
 
-  console.log(response?.ok ? `ready in ${seconds}s` : `skipped (Metro answered ${response?.status ?? 'nothing'})`);
+  if (response?.ok) {
+    console.log(`ready in ${seconds}s`);
+    return;
+  }
+
+  const detail = response
+    ? `${response.status}: ${(await response.text().catch(() => '')).slice(0, 300)}`
+    : 'no response at all';
+
+  console.log('failed');
+  fail(
+    `Metro is listening but cannot build a bundle (${detail}).\n\n` +
+      'Most often its file watcher timed out while crawling the monorepo, which leaves\n' +
+      '/status answering 200 on a bundler that can no longer serve anything. Restart it:\n' +
+      '  pnpm --filter @nanny-app/mobile e2e:metro',
+  );
 }
 
 /** The flows sign in against real accounts, so the backend has to be up. */

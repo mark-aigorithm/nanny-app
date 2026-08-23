@@ -205,11 +205,21 @@ this, both of which looked like app regressions and were neither:
   scrolls to it. **Prefer `scrollUntilVisible` over `assertVisible` for anything in a list the
   console can add to.**
 
-**A cold bundler fails as a broken selector.** `e2e:metro` starts with `--clear`, so the first
-request pays for the whole build — over a minute. The dev client's fetch times out first and the app
-shows "There was a problem loading the project", which reaches the flow as `_launch.yaml` not finding
-the developer menu. `run.mjs` now builds the bundle once before any flow runs and prints how long it
-took; if you see that step take a minute, that is the cost being paid in the right place.
+**A cold — or dead — bundler fails as a broken selector.** Two different problems both reach a flow
+as `_launch.yaml` not finding the developer menu, which reads like a bad selector for something that
+is genuinely not on screen:
+
+- `e2e:metro` starts with `--clear`, so the first request pays for the whole build — one to two
+  minutes. The dev client's own fetch times out first and the app shows "There was a problem loading
+  the project".
+- `metro-file-map`'s watcher gives up after four minutes of crawling this monorepo when the machine
+  is busy — `Failed to start watch mode` in Metro's output. Metro then **still answers `/status` with
+  200** while every bundle request returns a 500 from `DependencyGraph`. Seen repeatedly when Metro
+  is started at the same moment as the emulator or Docker; starting it last, on its own, is reliable.
+
+`run.mjs` now asks for the bundle itself before any flow runs, and **fails the run** if it cannot be
+built — a liveness ping cannot tell a warm bundler from a dead one. If that step reports a minute or
+two, the cold-start cost is being paid in the right place; if it fails, restart Metro.
 
 **The emulator's `system_server` can die mid-run.** Symptoms are `cmd: Can't find service: package`
 and, from Maestro's driver install, `NullPointerException … PackageManagerInternal.freeStorage on a
