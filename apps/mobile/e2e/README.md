@@ -205,6 +205,17 @@ this, both of which looked like app regressions and were neither:
   scrolls to it. **Prefer `scrollUntilVisible` over `assertVisible` for anything in a list the
   console can add to.**
 
+It is not only the admin suite. The **backend integration suite** leaves its factory bookings
+`PENDING`, so the nanny's open-requests pool holds dozens of cards wearing the same duration, price
+and "1 child · 3 yrs" as the one a flow just created. C4 seeds a distinctive **allergy line** and
+anchors every step to it (`below:` / `above:`); a bare `tapOn: 'Accept request'` claims a stranger's
+booking and the flow then waits forever for a shift that is not hers.
+
+Where a route allows it, **empty your own corner first** instead — it is the stronger move, because
+it lets a flow assert an exact number rather than "one more than before". C5 deletes the mother's
+posts, C6 marks her conversations read, C8 marks her notifications read. That is what makes
+`Unread (2)`, `Comments (1)` and a like count of one assertions rather than descriptions.
+
 **A cold — or dead — bundler fails as a broken selector.** Two different problems both reach a flow
 as `_launch.yaml` not finding the developer menu, which reads like a bad selector for something that
 is genuinely not on screen:
@@ -232,6 +243,31 @@ flow, and with the verifier on it intermittently dies with
 `INSTALL_FAILED_VERIFICATION_FAILURE: Integrity verification timed out` — the verifier wants to phone
 home about an unknown APK and loses that race on a loaded machine. `run.mjs` turns it off as part of
 device prep, alongside the stylus tutorial.
+
+**Android's own dialogs are modals, and a modal hides everything behind it.** On a freshly booted
+emulator the system throws up **"System UI isn't responding"** while it settles, which covered the
+developer menu and failed `_launch.yaml` on a screenshot that plainly showed the menu underneath.
+Give a cold emulator a minute before the first run. The app has modals of its own with the same
+effect: after checking a shift is due, the nanny's app opens onto a **"Shift starting soon"** prompt,
+and a tap aimed at the tab bar behind it silently does nothing — C4 waits for the prompt and uses it,
+which is what a nanny does anyway.
+
+**`back` pops further than you expect.** Screens that navigate with `router.replace` leave nothing
+underneath, so the hardware back button skips the screen a flow came from and lands on Home. Seen in
+C8 (a notification routing *across* sections), C5 (post detail, after the create screen replaced the
+feed) and C10 (Refer a friend). Use the screen's own back arrow — which is why `PostDetailScreen`
+and `ChatThreadScreen` now carry `accessibilityLabel="Back"`.
+
+**A text selector must match the whole node.** It bites hardest on a sentence with a value in the
+middle: the referral hero renders as *one* node, so `'They start with 100 Care Points'` matches
+nothing and `'.*They start with 100 Care Points.*'` matches. `?` is the other regular offender —
+`'How are nannies vetted?'` is a regex whose `?` makes the `d` optional and then insists the string
+ends, so it never matches a question that really ends in one. Escape it: `'…vetted\?'`.
+
+**Airplane mode is how a flow goes offline.** `- setAirplaneMode: enabled` / `disabled` works on this
+emulator and is what C10 uses; the JS bundle is already loaded, so only API calls fail. Coming back
+is not instant — the radio takes a few seconds to reassociate, and a refetch that lands in that gap
+fails again with nothing left to trigger another. Wrap the recovery in `- retry:`.
 
 **The emulator is not reset between flows.** Every flow opens with
 `runFlow: _launch.yaml`, which clears the app's own storage — that is what keeps
@@ -287,7 +323,7 @@ intent from a slow launch.
 
 ## What the flows deliberately do not cover
 
-**Registration, and the ID upload at the end of it.** A10 and A11 are described
+**Registration — on either path, not just the nanny's.** A10 and A11 are described
 in the catalogue as starting from role selection and walking the forms through
 to an ID upload. That upload opens the Android photo picker and its crop
 screen — system UI that changes between OS versions and would be the most
@@ -296,6 +332,30 @@ from a seeded account in exactly the state registration leaves it, and assert
 the part that only the app can show: the gate, and it lifting. What
 registration itself decides is covered over HTTP in
 `a10-nanny-onboarding.test.ts` and `a11-mother-id-gate.test.ts`.
+
+It is not only the ID upload. **Step 1 disables `Continue` until `draft.photoUri`
+is set**, for a mother as well as a nanny, so *every* signup opens the picker on
+the very first screen — and a completed registration would mint an account per
+run in a database nothing truncates. C2 therefore stops at step 1 of each path
+(which is where the fork is anyway: four steps versus five), and C7 asserts
+`/referrals/validate` directly rather than through the field on step 3 that
+calls it. A debug-build affordance that pre-filled the draft photo would unblock
+all of this at once, if it ever becomes worth it.
+
+**Anything about push tokens (C3).** Two separate walls. No route exposes a
+user's device tokens, so a flow cannot see whether registration happened — the
+app posts to `/devices/push-token` and shows nothing for it. And removal is not
+implemented at all: `DELETE /devices/push-token` exists on the backend and
+nothing in the app calls it, so signing out leaves the token registered against
+the previous user. Confirmed against the test database — the lab mother has 56
+live `device_tokens` rows and zero removed, despite C1 signing her out every
+run. Push itself *does* work here: the emulator registers real FCM tokens, which
+is how that was measured.
+
+**Marketplace listings, from the app.** Creating one requires a photo, and a
+photo requires Firebase Storage, which the test stack does not run — so C5 drives
+Q&A and events only. The listing lifecycle is B6's subject and is driven from the
+console, with the app's side advanced over HTTP.
 
 **Anything an API journey already proves.** A4 does not re-derive when a promo
 code's counter moves; A5 does not re-derive the ledger; A6 does not re-derive

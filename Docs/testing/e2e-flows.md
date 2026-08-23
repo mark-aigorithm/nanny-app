@@ -329,15 +329,22 @@ each proves the screen is wired.
 | # | Flow | Driver |
 |---|---|---|
 | C1 | Sign in, sign out, forgot password, create password — **covered** by `c01-session-lifecycle.yaml` | `UI:mobile` |
-| C2 | Role selection branching (mother vs nanny paths diverge) | `UI:mobile` |
-| C3 | Notification permission gate → push token registered on login, cleared on logout | `UI:mobile` |
-| C4 | Nanny day: dashboard → requests → booking detail → care log authoring | `UI:mobile` |
-| C5 | Community: create post, like, comment, create event, RSVP, capacity limit | `UI:mobile` |
-| C6 | Messaging: conversation list, thread, send, unread badge, read receipts | `UI:mobile` |
-| C7 | Referral: generate code → new user applies it at registration → `/referral/validate` | `UI:mobile` |
+| C2 | Role selection branching (mother vs nanny paths diverge) — **covered** by `c02-role-selection.yaml` | `UI:mobile` |
+| C3 | Notification permission gate → push token registered on login, cleared on logout — **not covered**, see below | `UI:mobile` |
+| C4 | Nanny day: dashboard → requests → booking detail → care log authoring — **covered** by `c04-nanny-day.yaml` | `UI:mobile` |
+| C5 | Community: create post, like, comment, create event, RSVP, capacity limit — **covered** by `c05-community.yaml` | `UI:mobile` |
+| C6 | Messaging: conversation list, thread, send, unread badge, read receipts — **covered** by `c06-messaging.yaml` | `UI:mobile` |
+| C7 | Referral: generate code → new user applies it at registration → `/referrals/validate` — **covered** by `c07-referral.yaml` | `UI:mobile` |
 | C8 | Notification centre: list, mark read, mark all read, unread count — **covered** by `c08-notification-centre.yaml` | `UI:mobile` |
-| C9 | Customer support contact screen | `UI:mobile` |
-| C10 | Failure states: backend unreachable, token expired mid-session, no results | `UI:mobile` |
+| C9 | Customer support contact screen — **covered** by `c09-customer-support.yaml` | `UI:mobile` |
+| C10 | Failure states: backend unreachable, token expired mid-session, no results — **covered** by `c10-failure-states.yaml` | `UI:mobile` |
+
+**The photo picker is what bounds C2 and C7.** Step 1 of registration disables `Continue` until
+`draft.photoUri` is set — for a mother as well as a nanny — so *every* path through the signup
+forms opens the Android photo picker and its crop screen. That is the system UI A10 already
+refused to drive, and it would also mint a new account on every run against a database that is
+never truncated. Both flows therefore stop at step 1 and say so; what each one loses is named in
+its own section below.
 
 ### C1. Session lifecycle · `UI:mobile` — **covered** by `c01-session-lifecycle.yaml`
 The only flow whose subject is the auth screens themselves; every other one signs in and moves on.
@@ -362,6 +369,102 @@ never been shown, and anything they might actually type comes back "We couldn't 
 those details." The flow asserts **both** halves, so closing the gap turns the first assertion red
 rather than passing quietly.
 
+### C2. Role selection branching · `UI:mobile` — **covered** by `c02-role-selection.yaml`
+The screen's whole job is a fork, and the fork is visible on the very next screen: a mother signs
+up in four steps and a nanny in five, because a nanny has details, a working area and an ID to hand
+over. The flow asserts the button taking the name of the choice, the step count on each path, and —
+the one that is easy to leave untested — that switching choices **throws the half-typed draft
+away**. The draft is a persisted store, so a stale one is exactly how the wrong role's answers
+reach the backend.
+
+Stops at step 1 of each path, for the photo-picker reason above. What that leaves uncovered is what
+the later screens *ask for*, which is each screen's own business rather than the selection's.
+
+### C3. Push token on login and logout · `UI:mobile` — **not covered**
+Both halves are blocked, for different reasons, and the second one is a finding rather than a
+limitation.
+
+**Registration is not observable.** No route exposes a user's device tokens. The app posts to
+`/devices/push-token` and shows nothing for it, so a flow has no way to tell a registration that
+happened from one that silently failed. Push itself *does* work in the lab — the emulator registers
+real FCM tokens, which is how the second half below was confirmed — so this becomes drivable the day
+a read route exists for the console.
+
+**Removal is not implemented.** `DELETE /devices/push-token` exists on the backend
+(`device.routes.ts`) and **nothing in the mobile app ever calls it**. `useSignOut` clears the
+profile store and the React Query cache and signs out of Firebase; the token stays. Confirmed
+against the test database: the lab mother has 56 live `device_tokens` rows and zero removed,
+despite C1 signing her out on every run. On a shared device the next person keeps receiving the
+previous user's booking and message pushes. Spun off as its own task; the flow is worth writing
+once it is fixed, because the fix is what there would be to assert.
+
+The permission gate is a third casualty of the photo picker: `NotificationPermissionScreen` is
+pushed from the end of registration and has no other entrance.
+
+### C4. Nanny day · `UI:mobile` — **covered** by `c04-nanny-day.yaml`
+The first flow to open the nanny's app. Every other one sees her side only through what the
+mother's screen says about it, or over HTTP — so this is the only place her dashboard, the open
+request pool, the **start-PIN modal** and the care log are exercised at all. A1 mints the PIN and
+checks in over HTTP, and never touches that modal.
+
+Two things it deliberately does not depend on:
+
+- **The clock.** It never opens the date picker, so it is not one of the flows that goes red in the
+  hours before midnight. `run.mjs` computes a wall-clock start ten minutes out in
+  `PLATFORM_TIMEZONE` and the booking is created over HTTP, which puts the check-in window open by
+  construction. Two hours is the platform minimum duration, so that is the shift length.
+- **Being alone in the queue.** It is not, by a long way. The open-requests pool is shared with
+  every suite that has ever run against this database and holds dozens of factory bookings wearing
+  the same duration, price and "1 child · 3 yrs". Every step anchors to the **allergy line**, which
+  is the only distinctive thing on the card — and, not coincidentally, the one thing on it a nanny
+  must not get wrong. A bare `tapOn: 'Accept request'` claims a stranger's booking and then waits
+  forever for a shift that is not hers.
+
+The care log is asserted on both sides. A log that only renders in the nanny's own list is a log
+the parent never sees, which is the entire reason the feature exists.
+
+### C5. Community · `UI:mobile` — **covered** by `c05-community.yaml`
+A Q&A question carries the loop every post type shares — create, appear, like, comment — and an
+event adds the two things only events have: RSVP and a capacity that can run out. **Marketplace is
+deliberately absent**: it needs a photo, and a photo needs Firebase Storage, which the local stack
+does not run. Its lifecycle is B6's subject and is driven from the console there.
+
+The flow opens by deleting every post the mother owns. Posts have no natural key and the database is
+never truncated, so without that reset "the post is in the feed" is satisfied by last night's copy —
+and a like count of exactly one could not be asserted at all.
+
+**KNOWN GAP pinned here: a full event refuses the next RSVP and the app says nothing.**
+`useToggleEventRsvp` has no `onError`, so the 409 is swallowed and the button simply does not
+change. The last two assertions are made over HTTP for that reason, and are written so that
+teaching the screen to report it leaves them true.
+
+### C6. Messaging · `UI:mobile` — **covered** by `c06-messaging.yaml`
+The mother is the *seller* here, which is the only side that exercises receiving. A conversation
+cannot be conjured — the one thing that creates one is a buyer pressing "Message seller" on an
+approved marketplace listing — so the seed walks that whole path over HTTP before the app opens.
+Seeding a conversation row directly would prove the inbox renders without proving a row can come
+into existence.
+
+Unread is asserted in two currencies: the dot on the Account tab, whose only handle is its testID,
+and the number for both people. Hers alone reaching zero could be a mark-read that fired without a
+reply; his alone reaching one could be a reply that marked nothing read. Everything already in her
+inbox is marked read first — conversations are never deleted, so a badge means something only if
+this run put it there.
+
+### C7. Referral · `UI:mobile` — **covered** by `c07-referral.yaml`
+The referrer's side in full: her code as the API issued it, the invite that redeeming earned, and
+the point values in the copy — which come from the reward config, so the assertions fail if a
+console change stops reaching the screen.
+
+The invitee's side stops at the endpoint. `/referrals/validate` is optional-auth precisely because
+it runs mid-signup before a Firebase account exists, so the flow calls it **with no token at all**
+— the state the field is genuinely in — and asks it both questions, a real code and a junk one. What
+is left uncovered is `ReferralCodeField`'s own rendering, which is a component test.
+
+Redeeming is once per account and permanent (a unique index on `referee_id`), so a second run is
+answered 409. That is the same end state, not a failure: the referral row is there either way, which
+is all the screen reads.
+
 ### C8. Notification centre · `UI:mobile` — **covered** by `c08-notification-centre.yaml`
 List, unread count, tapping one, mark-all-read.
 
@@ -382,6 +485,35 @@ match the pill, which renders `Unread (2)` in a single node — and those parent
 group, so the assertion has to escape them. And `back` from the screen a notification routes *across*
 to lands on Home rather than popping to the notification; the flow reopens through the bell, which is
 what a person does anyway.
+
+### C9. Help and support · `UI:mobile` — **covered** by `c09-customer-support.yaml`
+The subject is the seam between the console and the app. Support channels are `app_settings` rows an
+operator edits, and the app renders **a card per configured channel and hides the rest** — an empty
+string is how one is switched off. So the flow configures WhatsApp and email, deliberately blanks
+the phone number, and asserts all three outcomes. Seeding all three would never catch a regression
+that renders a card for a line nobody answers.
+
+The deep links stop at the tap: `Linking.openURL('tel:…')` hands off to an app the emulator does not
+have, and following it would leave the flow outside the app under test.
+
+**Worth knowing: the FAQ is not real.** `MOCK_FAQS` is a hardcoded array in `src/mocks/support.ts`.
+Nothing an operator can do changes it and no API serves it. The search and the accordion are genuine
+screen behaviour; the content is not, so those assertions will need updating on the day the FAQ gets
+a backend — which is the day somebody should look at it anyway.
+
+### C10. Failure states · `UI:mobile` — **covered** by `c10-failure-states.yaml`
+The offline half is real: the device goes into airplane mode, so the request leaves and finds
+nothing. Stubbing the client would have tested the stub. Both halves are asserted, because a
+failure state that never recovers is the more common of the two bugs — and the recovery driven here
+is the one the error message itself asks for, a pull to refresh.
+
+The empty-list half is asserted on the mother's own bookings rather than any other list, because the
+seeder soft-deletes what previous runs left behind — so "nothing here" is a fact about this run.
+
+**A token expiring mid-session is not covered.** An ID token is good for an hour and `getIdToken()`
+refreshes it transparently, so nothing inside a flow's lifetime can expire one; forcing it means
+disabling the account every other flow signs in as. The 401 path is asserted where it can be, in the
+backend's own integration tests.
 
 ---
 
@@ -439,3 +571,21 @@ pattern the P1 and P2 specs should follow, so they are kept rather than deleted.
    of ~1000 mothers, and a package that had sunk off the first screen. Both are fixed and both
    patterns are written up in `apps/mobile/e2e/README.md`; the rule for new work is to page or scroll
    rather than assume position in any list the console can add to.
+
+   **Widened by the P2 work.** It is not only the admin suite: the *backend integration* suite
+   leaves its factory bookings in the open-requests pool, so a nanny opening the app sees dozens of
+   them wearing the same duration, price and children summary as the one the flow just made. C4
+   answers this by seeding a distinctive allergy line and anchoring every step to it. C5, C6, C7 and
+   C8 answer it a different way — each **empties its own corner first** (posts deleted,
+   conversations marked read, notifications marked read), which is what lets them assert an exact
+   count rather than "one more than before". Prefer emptying where a route allows it; anchor where
+   it does not.
+
+6. **New: registration cannot be driven at all**, on either path. Step 1 disables `Continue` until
+   `draft.photoUri` is set, so a mother's signup opens the Android photo picker just as a nanny's
+   does — and a completed registration would mint an account per run in a database nothing
+   truncates. This bounds three flows: A10 and A11 start from seeded accounts, C2 stops at step 1,
+   C7 asserts `/referrals/validate` directly instead of through the field that calls it, and C3's
+   permission gate has no other entrance. Nothing here is worth a photo-picker driver; if it ever
+   becomes worth it, a debug-build affordance that pre-fills the draft photo would unblock all four
+   at once.
