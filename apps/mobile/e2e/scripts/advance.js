@@ -316,12 +316,101 @@ function unreadCount() {
   output.unread = String(call('GET', motherToken, '/notifications/unread-count').unreadCount);
 }
 
+/**
+ * Empties the mother's community shelf.
+ *
+ * The database is never truncated and a post has no natural key, so every
+ * previous run's question and event is still in the feed under exactly the
+ * title this run is about to use. Deleting hers first is what makes "the post
+ * is in the feed" an assertion about this run rather than about the seventh
+ * copy of it — and it is why the flow can then assert a like count of 1 and a
+ * comment count of 1 rather than "one more than before".
+ *
+ * Only her own: the delete route refuses anybody else's, which is the point.
+ */
+function communityReset() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var removed = 0;
+
+  // Paged rather than looped over one response: the route caps `limit` at 50,
+  // and a lab that has been running for a while has more than that.
+  for (var guard = 0; guard < 40; guard++) {
+    var posts = call('GET', motherToken, '/community/my-posts?limit=50');
+    if (!posts || posts.length === 0) break;
+    for (var i = 0; i < posts.length; i++) {
+      call('DELETE', motherToken, '/community/posts/' + posts[i].id);
+      removed++;
+    }
+  }
+
+  output.removed = String(removed);
+}
+
+/**
+ * A second mother tries to RSVP to an event the first one has already filled.
+ *
+ * Asserted here rather than on screen because the app has nowhere to show it:
+ * `useToggleEventRsvp` has no `onError`, so the 409 is swallowed and the button
+ * simply does nothing. The flow pins the server's answer and the doc records
+ * the gap; if the screen ever learns to report it, this stays true.
+ *
+ * The gated mother is the second account because the community is mothers-only
+ * — `getFeedReader` refuses the nanny outright, which would answer 403 and
+ * prove nothing about capacity.
+ */
+function eventAtCapacity() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var events = call('GET', motherToken, '/community/my-posts?type=event&limit=50');
+  if (!events || events.length === 0) throw new Error('The mother has no event posts.');
+
+  // Newest first, and communityReset ran at the top of the flow, so this is the
+  // event the flow just created on screen.
+  var event = events[0];
+
+  var otherToken = signIn(GATED_MOTHER_EMAIL);
+  var res = http.post(BACKEND_URL + '/community/posts/' + event.id + '/rsvp', {
+    headers: { Authorization: 'Bearer ' + otherToken, 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+
+  output.rsvpStatus = String(res.status);
+  output.rsvpCount = String(call('GET', motherToken, '/community/posts/' + event.id).rsvpCount);
+}
+
+/**
+ * Switches two support channels on and the third off, from the console.
+ *
+ * The screen renders a card per configured channel and hides the rest, and an
+ * empty string is how the admin turns one off — so setting the phone number to
+ * '' is the assertion that "not configured" and "configured blank" are the
+ * same thing, not a shortcut around seeding one.
+ *
+ * Whatever was there before is overwritten rather than added to: the settings
+ * are global and a previous run (or the admin suite) may have left any of the
+ * three set to anything.
+ */
+function configureSupport() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var contact = call('PUT', adminToken, '/admin/support-contact', {
+    whatsappNumber: '+201000000111',
+    phoneNumber: '',
+    email: 'lab-support@nannyapp.test',
+  });
+
+  output.whatsapp = contact.whatsappNumber;
+  output.phone = contact.phoneNumber;
+  output.email = contact.email;
+}
+
 var STEPS = {
   'nanny-accept': nannyAccept,
   'reset-codes-before': resetCodesBefore,
   'reset-code-issued': resetCodeIssued,
   'seed-listing-notifications': seedListingNotifications,
   'unread-count': unreadCount,
+  'community-reset': communityReset,
+  'event-at-capacity': eventAtCapacity,
+  'configure-support': configureSupport,
   'admin-approve-mother': adminApproveMother,
   'admin-approve-nanny': adminApproveNanny,
   'nanny-check-in': nannyCheckIn,

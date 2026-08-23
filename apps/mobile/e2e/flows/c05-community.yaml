@@ -1,0 +1,185 @@
+# C5 — the community: ask, like, comment, host, RSVP, and hit the ceiling.
+#
+# Two posts carry the whole flow. A Q&A question exercises the read-write loop
+# every post type shares — create, appear in the feed, like, comment — and an
+# event adds the two things only events have: RSVP, and a capacity that can run
+# out. Marketplace is deliberately absent: it needs a photo, and a photo needs
+# Firebase Storage, which the local stack does not run. Its lifecycle is B6's
+# subject and is driven from the console there.
+#
+# The flow opens by deleting every post the mother owns. The database is never
+# truncated and a post has no natural key, so last night's run left a question
+# with exactly this title in the feed — without the reset, "the post is there"
+# is satisfied by a copy this run had nothing to do with, and a like count of
+# one could never be asserted at all.
+#
+# ── KNOWN GAP, pinned at the end ───────────────────────────────────────────
+# A full event refuses the next RSVP with a 409, and the app says nothing.
+# `useToggleEventRsvp` has no `onError`, so the mutation fails silently and the
+# button simply does not change. The last two assertions are made over HTTP for
+# that reason, and they are written so that teaching the screen to report it
+# leaves them true.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: community-reset
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Community'
+    timeout: 30000
+- tapOn: 'Community'
+
+# Q&A is the default pill, so this is also the assertion that the feed loaded.
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+
+# ── Ask ────────────────────────────────────────────────────────────────────
+# The plus button is icon-only; it now carries an accessibilityLabel, which
+# Maestro matches as Android's content-desc. The create screen's header reads
+# the same words, so the step after this asserts on 'Post type' instead — the
+# one piece of copy that belongs to the create screen alone.
+- tapOn: 'Create post'
+- extendedWaitUntil:
+    visible: 'Post type'
+    timeout: 30000
+
+- tapOn:
+    id: 'createPost.body'
+- inputText: 'E2E lab question about pram storage'
+- hideKeyboard
+- tapOn:
+    id: 'createPost.submit'
+
+# Posting returns to the feed on the filter it was opened from, and a Q&A post
+# is not moderated — so it is live the moment it is written.
+- extendedWaitUntil:
+    visible: 'E2E lab question about pram storage'
+    timeout: 30000
+
+# ── Like and comment ───────────────────────────────────────────────────────
+# Done on the detail screen rather than the feed card: the feed renders one
+# action bar per post, so 'Like post' there would be ambiguous the moment
+# anybody else's question is on screen. The detail screen has exactly one.
+- tapOn: 'E2E lab question about pram storage'
+- extendedWaitUntil:
+    visible: 'Comments \(0\)'
+    timeout: 30000
+
+# The label carries the state, which the icon otherwise conveys by colour
+# alone — so the flip is the assertion, and it does not depend on reading a
+# bare number that the comment counter also renders.
+- tapOn: 'Like post'
+- extendedWaitUntil:
+    visible: 'Unlike post'
+    timeout: 30000
+
+- tapOn:
+    id: 'postDetail.comment'
+- inputText: 'Fits behind the back seat'
+- hideKeyboard
+- tapOn:
+    id: 'postDetail.commentSend'
+
+# Both halves: the counter on the post and the comment itself. The counter
+# alone would pass on an optimistic update that never reached the server.
+- extendedWaitUntil:
+    visible: 'Comments \(1\)'
+    timeout: 30000
+- assertVisible: 'Fits behind the back seat'
+
+# The arrow, not the hardware back button: `back` pops the whole community
+# section and lands on Home, because the create screen replaced the feed in the
+# stack on its way out. The arrow calls `exitPostDetail`, which navigates to the
+# feed the post was opened from — which is also what a person gets.
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+
+# ── Host ───────────────────────────────────────────────────────────────────
+- tapOn: 'Create post'
+- extendedWaitUntil:
+    visible: 'Post type'
+    timeout: 30000
+- tapOn: 'Event'
+
+- tapOn:
+    id: 'createPost.title'
+- inputText: 'E2E lab coffee morning'
+- tapOn:
+    id: 'createPost.location'
+- inputText: 'Maadi Community Hall'
+
+# Capacity sits below the fold once the event fields are on screen, and the
+# keyboard takes half of what is left. One seat is what makes the ceiling
+# reachable with the two accounts the lab has.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'createPost.capacity'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: 'createPost.capacity'
+- inputText: '1'
+- hideKeyboard
+
+- tapOn:
+    id: 'createPost.submit'
+
+# Back on the feed under the filter the create screen was opened from — Q&A —
+# so the event is a pill away rather than in front of us.
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+- tapOn: 'Events'
+- extendedWaitUntil:
+    visible: 'E2E lab coffee morning'
+    timeout: 30000
+
+# Anchored to the card: every event renders the same "N going" caption, and the
+# lab shares its database with the admin suite.
+- assertVisible:
+    text: '0 going'
+    below: 'E2E lab coffee morning'
+
+# ── RSVP ───────────────────────────────────────────────────────────────────
+# The button only renders on the detail screen; the feed card is compact and
+# leaves it out.
+- tapOn: 'E2E lab coffee morning'
+- extendedWaitUntil:
+    visible: 'RSVP'
+    timeout: 30000
+- tapOn: 'RSVP'
+
+- extendedWaitUntil:
+    visible: 'Going'
+    timeout: 30000
+- assertVisible: '1 going'
+
+# ── The ceiling ────────────────────────────────────────────────────────────
+# A second mother tries the seat that is no longer there. Asserted over HTTP
+# because the app has nowhere to show the refusal — see the note at the top.
+# The count is read back too: a 409 that also decremented somebody's RSVP would
+# satisfy the status assertion on its own.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: event-at-capacity
+- assertTrue: ${output.rsvpStatus == '409'}
+- assertTrue: ${output.rsvpCount == '1'}

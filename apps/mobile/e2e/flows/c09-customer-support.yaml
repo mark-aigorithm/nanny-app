@@ -1,0 +1,97 @@
+# C9 — help and support: the channels the admin configured, and the FAQ.
+#
+# The subject is the seam between the console and the app. Support channels are
+# `app_settings` rows an operator edits, the app reads them through
+# `/support/contact`, and it renders **a card per configured channel and hides
+# the rest** — an empty string is how a channel is switched off. So the flow
+# configures WhatsApp and email, deliberately blanks the phone number, and
+# asserts all three outcomes on screen. Seeding all three would never catch a
+# regression that renders a card for a line nobody answers.
+#
+# The deep links themselves stop at the tap. `Linking.openURL('tel:…')` hands
+# off to an app the emulator does not have, and following it would leave the
+# flow outside the app under test with nothing to assert.
+#
+# ── Worth knowing: the FAQ is not real ─────────────────────────────────────
+# `MOCK_FAQS` is a hardcoded array in `src/mocks/support.ts`. Nothing an
+# operator can do changes it and no API serves it. The flow still drives the
+# search and the accordion — that is genuine screen behaviour — but it asserts
+# on strings from the mock, so it will need updating on the day the FAQ gets a
+# backend, which is the point at which somebody should look at it anyway.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: configure-support
+- assertTrue: ${output.phone == ''}
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Help'
+    timeout: 30000
+- tapOn: 'Help'
+
+- extendedWaitUntil:
+    visible: 'Help & support'
+    timeout: 30000
+
+# ── The channels ───────────────────────────────────────────────────────────
+- assertVisible: 'WhatsApp'
+- assertVisible: 'Email support'
+
+# The one that was configured blank. This is the assertion the flow exists for:
+# an operator who clears a number expects the card to go, not to dial nothing.
+- assertNotVisible: 'Call support'
+
+# Not configurable — it is always offered, because it costs the platform
+# nothing to answer.
+- assertVisible: 'Ask the community'
+
+# ── The FAQ ────────────────────────────────────────────────────────────────
+# The first question is expanded on arrival, so its answer is the assertion
+# that the accordion rendered rather than that it opened.
+#
+# Every question mark is escaped: a Maestro text selector is a full-match
+# regex, so a bare `?` makes the preceding letter optional and then fails
+# against a node whose text really does end in one.
+- assertVisible: 'How are nannies vetted\?'
+- assertVisible: 'All nannies complete a comprehensive background check.*'
+
+- tapOn: 'What is the cancellation policy\?'
+- extendedWaitUntil:
+    visible: 'You can cancel a booking up to 24 hours.*'
+    timeout: 30000
+# Only one panel is open at a time — the accordion closes the last one rather
+# than stacking.
+- assertNotVisible: 'All nannies complete a comprehensive background check.*'
+
+# ── Search ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: 'customerSupport.search'
+- inputText: 'refund'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: 'How do refunds work\?'
+    timeout: 30000
+- assertNotVisible: 'How are nannies vetted\?'
+
+# The search reads the answers as well as the questions, which is why the
+# cancellation entry survives a query that its question does not contain.
+- assertVisible: 'What is the cancellation policy\?'
+
+# ── Out through the community door ─────────────────────────────────────────
+- tapOn: 'Ask the community'
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
