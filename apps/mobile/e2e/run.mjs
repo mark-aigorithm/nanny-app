@@ -100,6 +100,35 @@ async function requireMetro() {
         '  pnpm --filter @nanny-app/mobile e2e:metro',
     );
   }
+
+  await warmMetro();
+}
+
+/**
+ * Builds the bundle once, before any flow asks the device for it.
+ *
+ * `e2e:metro` starts with `--clear`, so the first request after it starts pays
+ * for the whole build — well over a minute. The dev client's own fetch times
+ * out first and the app lands on "There was a problem loading the project",
+ * which reaches the flow as `_launch.yaml` failing to find the developer menu:
+ * a selector error for something that is genuinely not on screen, pointing at
+ * the wrong thing entirely.
+ *
+ * This is the URL expo-dev-client asks for. If it ever changes, the worst case
+ * is that the warm-up misses and the first flow is slow again — so a failure
+ * here is reported and shrugged off rather than fatal.
+ */
+async function warmMetro() {
+  const url =
+    'http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle' +
+    '?platform=android&dev=true&hot=false&transform.engine=hermes';
+
+  process.stdout.write('[e2e] warming the bundler… ');
+  const started = Date.now();
+  const response = await fetch(url).catch(() => null);
+  const seconds = Math.round((Date.now() - started) / 1000);
+
+  console.log(response?.ok ? `ready in ${seconds}s` : `skipped (Metro answered ${response?.status ?? 'nothing'})`);
 }
 
 /** The flows sign in against real accounts, so the backend has to be up. */

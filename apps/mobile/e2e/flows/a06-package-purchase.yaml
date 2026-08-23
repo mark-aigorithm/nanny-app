@@ -36,10 +36,16 @@ appId: com.nannyapp.mobile
 # lab's package down the list until it is off the first screen. Maestro only
 # sees what is rendered, so this failed as "E2E Starter is not visible" on a
 # screen that was working perfectly.
+#
+# `centerElement` matters: the scroll stops the moment the name is on screen,
+# which routinely leaves the card flush with the bottom edge and its "Buy
+# package" button still below the fold — so the next step fails on a card the
+# flow has just proved it can see.
 - scrollUntilVisible:
     element:
       text: ${PACKAGE_NAME}
     direction: DOWN
+    centerElement: true
     timeout: 30000
 
 # Anchored to the card rather than asserted loose: with several packages on
