@@ -1,0 +1,80 @@
+# C10 — what the app says when there is nothing to show, and when it cannot ask.
+#
+# Two of the three states in the catalogue are driven here.
+#
+# **Nothing to show** is asserted on the mother's own bookings, because the
+# seeder soft-deletes every booking a previous run left behind — so an empty
+# list is a fact about this run rather than a coincidence, which is not true of
+# any other list in this database.
+#
+# **Cannot ask** is real: the device goes into airplane mode, so the request
+# leaves and finds nothing. Stubbing the client would test the stub. What
+# matters is both halves — that the screen says so in words a person can act on,
+# and that it comes back when the network does. A failure state that never
+# recovers is the more common bug of the two.
+#
+# ── Not covered here: a token expiring mid-session ─────────────────────────
+# A Firebase ID token is good for an hour and `getIdToken()` refreshes it
+# transparently, so nothing inside a flow's lifetime can expire one. Forcing it
+# means disabling the lab account in the Auth emulator, which every other flow
+# then signs in as. The 401 path is asserted where it can be: the backend's own
+# integration tests reject tampered and stale tokens directly.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── Nothing to show ────────────────────────────────────────────────────────
+# An empty state rather than a spinner that never resolves, and one that names
+# the tab it is empty for.
+- tapOn: 'Activity'
+- extendedWaitUntil:
+    visible: 'No upcoming bookings'
+    timeout: 30000
+
+# ── Cannot ask ─────────────────────────────────────────────────────────────
+- setAirplaneMode: enabled
+
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Refer a friend'
+    timeout: 30000
+- tapOn: 'Refer a friend'
+
+# Three attempts and no network, so this takes a moment. The assertion is that
+# it *ends* — a screen still spinning after the last retry is the failure this
+# step exists to catch.
+- extendedWaitUntil:
+    visible: 'Couldn’t load your invites. Pull to refresh.'
+    timeout: 90000
+
+# And it does not pretend: no code, no invite list, nothing that would read as
+# real data cached from somewhere.
+- assertNotVisible: 'Your code'
+
+# ── And back again ─────────────────────────────────────────────────────────
+- setAirplaneMode: disabled
+
+# The recovery the message itself asks for: it says "Pull to refresh", so the
+# flow pulls to refresh. Wrapped in a retry because the radio takes a few
+# seconds to reassociate after airplane mode ends, and a refetch that lands in
+# that gap fails again with nothing left to trigger another.
+- retry:
+    maxRetries: 4
+    commands:
+      - swipe:
+          start: '50%, 35%'
+          end: '50%, 85%'
+      - extendedWaitUntil:
+          visible: 'Your code'
+          timeout: 45000
+
+- assertVisible: 'Give an hour, get two'
+- assertNotVisible: 'Couldn’t load your invites. Pull to refresh.'
