@@ -378,6 +378,105 @@ function eventAtCapacity() {
 }
 
 /**
+ * Puts one accepted invitation on the mother's referral screen, and asks the
+ * validate endpoint the two questions the signup field asks it.
+ *
+ * Redeeming is once per account and permanent — the unique index on
+ * `referee_id` is the real guard — so the second run of this flow is answered
+ * 409. That is the same end state as the first run, not a failure: the
+ * referral row is there either way, which is all the screen reads. Anything
+ * else is a genuine problem and still throws.
+ *
+ * The second mother is the invitee because only a MOTHER may redeem, and
+ * because a self-referral is refused — the nanny would fail for the wrong
+ * reason and prove nothing.
+ */
+function seedReferral() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var summary = call('GET', motherToken, '/referrals/me');
+
+  output.code = summary.code;
+  output.refereePoints = String(summary.refereePoints);
+  output.referrerPoints = String(summary.referrerPoints);
+
+  var inviteeToken = signIn(GATED_MOTHER_EMAIL);
+  var redeem = http.post(BACKEND_URL + '/referrals/redeem', {
+    headers: { Authorization: 'Bearer ' + inviteeToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: summary.code }),
+  });
+  if (redeem.status !== 200 && redeem.status !== 201 && redeem.status !== 409) {
+    throw new Error('POST /referrals/redeem → ' + redeem.status + ' ' + redeem.body);
+  }
+  output.redeemStatus = String(redeem.status);
+
+  // `/referrals/validate` is optional-auth precisely so the signup field can
+  // call it before an account exists — so these go out with no token at all,
+  // which is the state the field is really in.
+  var good = http.get(BACKEND_URL + '/referrals/validate?code=' + summary.code);
+  var junk = http.get(BACKEND_URL + '/referrals/validate?code=NOPE-0000');
+  output.validReferrer = String(json(good.body).data.referrerFirstName);
+  output.junkValid = String(json(junk.body).data.valid);
+}
+
+/**
+ * Puts one unread message in the mother's inbox, from a real buyer.
+ *
+ * A conversation cannot be conjured: the only thing that creates one is a buyer
+ * pressing "Message seller" on an *approved* marketplace listing, so the seed
+ * walks that whole path — listing, admin approval, contact, message. Anything
+ * shorter would prove the inbox renders rows without proving a row can exist.
+ *
+ * Everything already in her inbox is marked read first, for the same reason C8
+ * empties the notification list: conversations are never deleted, so a badge or
+ * an unread count is only an assertion about this run if this run put every
+ * unread message there.
+ *
+ * The gated mother is the buyer because the marketplace is mothers-only, and
+ * because a seller cannot contact herself — the button is not rendered for the
+ * author of the listing.
+ */
+function seedConversation() {
+  var motherToken = signIn(MOTHER_EMAIL);
+
+  var existing = call('GET', motherToken, '/conversations?limit=50');
+  for (var i = 0; i < (existing ? existing.length : 0); i++) {
+    call('POST', motherToken, '/conversations/' + existing[i].id + '/read');
+  }
+
+  var listingId = createListing(motherToken, 'Highchair');
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  call('POST', adminToken, '/admin/marketplace/listings/' + listingId + '/approve');
+
+  var buyerToken = signIn(GATED_MOTHER_EMAIL);
+  var contact = call('POST', buyerToken, '/community/posts/' + listingId + '/contact');
+  var conversationId = contact.conversation.id;
+  call('POST', buyerToken, '/conversations/' + conversationId + '/messages', {
+    content: 'Is the highchair still available',
+  });
+
+  output.conversationId = String(conversationId);
+  output.sellerUnread = String(
+    call('GET', motherToken, '/conversations/unread-count').unreadCount,
+  );
+}
+
+/**
+ * Both sides of the ledger after the seller has read and replied.
+ *
+ * Two numbers rather than one: hers going to zero could be a mark-read that
+ * fired without a message being sent, and his going to one could be a reply
+ * that never marked anything read.
+ */
+function messageUnreadCounts() {
+  output.sellerUnread = String(
+    call('GET', signIn(MOTHER_EMAIL), '/conversations/unread-count').unreadCount,
+  );
+  output.buyerUnread = String(
+    call('GET', signIn(GATED_MOTHER_EMAIL), '/conversations/unread-count').unreadCount,
+  );
+}
+
+/**
  * Switches two support channels on and the third off, from the console.
  *
  * The screen renders a card per configured channel and hides the rest, and an
@@ -411,6 +510,9 @@ var STEPS = {
   'community-reset': communityReset,
   'event-at-capacity': eventAtCapacity,
   'configure-support': configureSupport,
+  'seed-referral': seedReferral,
+  'seed-conversation': seedConversation,
+  'message-unread-counts': messageUnreadCounts,
   'admin-approve-mother': adminApproveMother,
   'admin-approve-nanny': adminApproveNanny,
   'nanny-check-in': nannyCheckIn,

@@ -1,0 +1,96 @@
+# C7 — referral: the code, the invite it earned, and the check a new signup runs.
+#
+# ── Scope note, the same one A10 carries ───────────────────────────────────
+# The catalogue describes this as "generate code → new user applies it at
+# registration → /referral/validate". The middle step is not drivable here, and
+# not for a reason worth working around: **step 1 of registration requires a
+# profile photo** for everyone — `Continue` is disabled until `draft.photoUri`
+# is set — so reaching the referral field on step 3 means driving the Android
+# photo picker and its crop screen, which is the system UI A10 refused for the
+# same reason. It would also mint a new account on every run against a database
+# that is never truncated.
+#
+# So the invitee's side is asserted at the endpoint the field actually calls.
+# `/referral/validate` is optional-auth for exactly this case — it runs before a
+# Firebase account exists — so the flow calls it with no token at all, which is
+# the state the field is genuinely in, and asks it both questions: a real code
+# and a junk one. What is left uncovered is the field's own rendering, and that
+# is a component test, not an E2E one.
+#
+# The referrer's side is driven in full, and it is the half with the interesting
+# content: the point values in the copy come from the reward config, so an admin
+# changing them changes this screen.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: seed-referral
+
+# The invitee's half, at the endpoint the signup field calls. Anonymous, as it
+# would be mid-signup.
+- assertTrue: ${output.validReferrer == 'Mona'}
+- assertTrue: ${output.junkValid == 'false'}
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Refer a friend'
+    timeout: 30000
+- tapOn: 'Refer a friend'
+
+- extendedWaitUntil:
+    visible: 'Your code'
+    timeout: 30000
+
+# ── The code ───────────────────────────────────────────────────────────────
+# The code the screen shows is the one the API issued, not merely a plausible
+# string — which is the only thing that makes it worth sharing.
+- assertVisible: ${output.code}
+
+# ── The copy the admin controls ────────────────────────────────────────────
+# Point values are read from the reward config and interpolated into the hero
+# and the steps, so this is the assertion that a console change reaches the
+# screen rather than a hardcoded promise.
+#
+# Wrapped in `.*` at both ends because the whole paragraph is one node and a
+# Maestro text selector matches a node's entire text, not a substring of it.
+- assertVisible: '.*They start with ${output.refereePoints} Care Points.*'
+- assertVisible: '.*you earn ${output.referrerPoints} when they finish.*'
+- assertVisible: 'Give an hour, get two'
+
+# ── The invite it earned ───────────────────────────────────────────────────
+# Gada redeemed the code over HTTP. She has not completed a booking, so she is
+# an invite that has not paid out yet — which is what "Pending" means here, and
+# why the row shows it rather than a point total.
+- scrollUntilVisible:
+    element:
+      text: 'Your invites'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible: 'Gada'
+- assertVisible:
+    text: 'Pending'
+    below: 'Your invites'
+
+# ── Copying it ─────────────────────────────────────────────────────────────
+# The confirmation is the assertion; the clipboard itself is Android's and not
+# ours to check. It clears itself after two seconds, so this must not wait.
+- scrollUntilVisible:
+    element:
+      text: 'Your code'
+    direction: UP
+    centerElement: true
+    timeout: 30000
+- tapOn: ${output.code}
+- assertVisible: 'Copied to clipboard'

@@ -204,7 +204,13 @@ export default function ChatThreadScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+            <Pressable
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
               <Ionicons name="arrow-back" size={24} color={colors.textDark} />
             </Pressable>
             {participantAvatar ? (
@@ -225,6 +231,7 @@ export default function ChatThreadScreen() {
 
       <View style={styles.footer}>
         <TextInput
+          testID="chatThread.message"
           style={styles.input}
           placeholder="Write a message..."
           placeholderTextColor={colors.textPlaceholder}
@@ -234,6 +241,7 @@ export default function ChatThreadScreen() {
           editable={!sendMessage.isPending}
         />
         <Pressable
+          testID="chatThread.send"
           style={[styles.sendBtn, !messageText.trim() && styles.sendBtnDisabled]}
           onPress={handleSend}
           disabled={!messageText.trim() || sendMessage.isPending}

@@ -1,0 +1,94 @@
+# C6 — messaging: the inbox, the badge, the thread, and the reply.
+#
+# The mother is the *seller* here, which is the only way round that exercises
+# receiving. A conversation cannot be conjured — the one thing that creates one
+# is a buyer pressing "Message seller" on an approved marketplace listing — so
+# the seeding step walks that whole path over HTTP: listing, admin approval,
+# contact, message. Seeding a conversation row directly would prove the inbox
+# renders without proving a row can come into existence.
+#
+# The unread assertions are made twice over, in two different currencies. On
+# screen it is the dot on the Account tab, which is driven by
+# `/conversations/unread-count` and nothing else; over HTTP it is that number
+# for both people. Hers alone could go to zero from a mark-read that fired
+# without a reply being sent, and his alone could go to one from a reply that
+# never marked anything read.
+#
+# Everything already in her inbox is marked read before the seed, for the same
+# reason C8 empties the notification list first: conversations are never
+# deleted, so a badge only means something if this run is responsible for it.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: seed-conversation
+- assertTrue: ${output.sellerUnread == '1'}
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── The badge ──────────────────────────────────────────────────────────────
+# A bare dot with no text; the testID is the only handle it has, and it is on
+# the tab bar of every screen, so this is asserted from Home.
+- extendedWaitUntil:
+    visible:
+      id: 'account-unread-badge'
+    timeout: 30000
+
+# ── The inbox ──────────────────────────────────────────────────────────────
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Inbox'
+    timeout: 30000
+- tapOn: 'Inbox'
+
+# The row is found by what the buyer said rather than by who she is: the
+# participant's name is rendered through `formatAuthorName`, and the lab has
+# more than one conversation with the same person from earlier runs.
+- extendedWaitUntil:
+    visible: 'Is the highchair still available'
+    timeout: 30000
+
+# ── The thread ─────────────────────────────────────────────────────────────
+- tapOn: 'Is the highchair still available'
+
+# The listing card at the top of the thread — the context that makes a chat
+# with a stranger make sense, and the assertion that this is the right thread.
+- extendedWaitUntil:
+    visible: 'E2E Highchair'
+    timeout: 30000
+- assertVisible: 'Is the highchair still available'
+
+- tapOn:
+    id: 'chatThread.message'
+- inputText: 'Yes it is, collection from Maadi'
+- hideKeyboard
+- tapOn:
+    id: 'chatThread.send'
+- extendedWaitUntil:
+    visible: 'Yes it is, collection from Maadi'
+    timeout: 30000
+
+# ── And the badge is gone ──────────────────────────────────────────────────
+# Opening the thread marks it read; the count is invalidated on the way out and
+# polled every ten seconds besides, so this is a wait rather than a bare check.
+- tapOn: 'Back'
+- extendedWaitUntil:
+    notVisible:
+      id: 'account-unread-badge'
+    timeout: 30000
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: message-unread-counts
+- assertTrue: ${output.sellerUnread == '0'}
+- assertTrue: ${output.buyerUnread == '1'}
