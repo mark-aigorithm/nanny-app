@@ -14,9 +14,11 @@
 # without a reply being sent, and his alone could go to one from a reply that
 # never marked anything read.
 #
-# Everything already in her inbox is marked read before the seed, for the same
-# reason C8 empties the notification list first: conversations are never
-# deleted, so a badge only means something if this run is responsible for it.
+# **Both** inboxes are emptied before the seed, for the same reason C8 empties
+# the notification list first: conversations are never deleted, so a count only
+# means something if this run is responsible for it. Emptying just the seller's
+# — the side the app is signed in as — passes on the first run and then quietly
+# counts the runs, because every earlier one left the buyer an unread reply.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml

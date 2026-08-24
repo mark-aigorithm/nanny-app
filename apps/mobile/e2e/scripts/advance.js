@@ -528,17 +528,19 @@ function seedReferral() {
  */
 function seedConversation() {
   var motherToken = signIn(MOTHER_EMAIL);
+  var buyerToken = signIn(GATED_MOTHER_EMAIL);
 
-  var existing = call('GET', motherToken, '/conversations?limit=50');
-  for (var i = 0; i < (existing ? existing.length : 0); i++) {
-    call('POST', motherToken, '/conversations/' + existing[i].id + '/read');
-  }
+  // Both inboxes, not just the seller's. The flow ends by asserting that the
+  // *buyer* has exactly one unread — the reply the seller just sent — and every
+  // previous run left her one as well. Emptying only the side the app is
+  // signed in as passes on the first run and then counts the runs.
+  emptyInbox(motherToken);
+  emptyInbox(buyerToken);
 
   var listingId = createListing(motherToken, 'Highchair');
   var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
   call('POST', adminToken, '/admin/marketplace/listings/' + listingId + '/approve');
 
-  var buyerToken = signIn(GATED_MOTHER_EMAIL);
   var contact = call('POST', buyerToken, '/community/posts/' + listingId + '/contact');
   var conversationId = contact.conversation.id;
   call('POST', buyerToken, '/conversations/' + conversationId + '/messages', {
@@ -549,6 +551,14 @@ function seedConversation() {
   output.sellerUnread = String(
     call('GET', motherToken, '/conversations/unread-count').unreadCount,
   );
+}
+
+/** Marks everything already in one person's inbox read. Conversations are never deleted. */
+function emptyInbox(token) {
+  var existing = call('GET', token, '/conversations?limit=50');
+  for (var i = 0; i < (existing ? existing.length : 0); i++) {
+    call('POST', token, '/conversations/' + existing[i].id + '/read');
+  }
 }
 
 /**

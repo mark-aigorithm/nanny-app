@@ -213,8 +213,15 @@ booking and the flow then waits forever for a shift that is not hers.
 
 Where a route allows it, **empty your own corner first** instead — it is the stronger move, because
 it lets a flow assert an exact number rather than "one more than before". C5 deletes the mother's
-posts, C6 marks her conversations read, C8 marks her notifications read. That is what makes
-`Unread (2)`, `Comments (1)` and a like count of one assertions rather than descriptions.
+posts, C6 marks both participants' conversations read, C8 marks her notifications read. That is what
+makes `Unread (2)`, `Comments (1)` and a like count of one assertions rather than descriptions.
+
+**Empty every account the flow counts, not just the one the app is signed in as.** C6 shipped
+emptying only the seller's inbox and passed; the run after it failed on the *buyer's* unread count,
+which had grown to two — each previous run had left her one unread reply. A flow that asserts a
+number for somebody it never signs in as still has to reset that person. It passes the first time
+either way, which is what makes this worth checking by **running a new flow twice in a row** before
+believing it.
 
 **A cold — or dead — bundler fails as a broken selector.** Two different problems both reach a flow
 as `_launch.yaml` not finding the developer menu, which reads like a bad selector for something that
@@ -227,6 +234,11 @@ is genuinely not on screen:
   is busy — `Failed to start watch mode` in Metro's output. Metro then **still answers `/status` with
   200** while every bundle request returns a 500 from `DependencyGraph`. Seen repeatedly when Metro
   is started at the same moment as the emulator or Docker; starting it last, on its own, is reliable.
+
+  **"On its own" has to be taken literally.** A *booting* emulator alone is enough to starve the
+  watcher: two Metro restarts in a row failed while the emulator was coming up, and the same restart
+  succeeded first time once the emulator was killed, Metro had served a 200 bundle, and the emulator
+  was booted afterwards. A booted, idle emulator is fine — it is the boot that competes.
 
 `run.mjs` now asks for the bundle itself before any flow runs, and **fails the run** if it cannot be
 built — a liveness ping cannot tell a warm bundler from a dead one. If that step reports a minute or
