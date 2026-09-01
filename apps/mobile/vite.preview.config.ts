@@ -25,6 +25,18 @@ export default defineConfig({
       // Stub the Firebase wrapper — it initialises at import time and throws
       // without real credentials, which prevents the preview from mounting
       '@mobile/lib/firebase': path.resolve(__dirname, 'src/mocks/firebase-web.tsx'),
+      // Stub the native messaging SDK — usePushNotifications requires it
+      // lazily, but the bundler still resolves it, and it imports
+      // `react-native/Libraries/...` paths that do not exist on web. Anything
+      // importing `useAuth` (every auth screen) pulls it in transitively.
+      '@react-native-firebase/messaging': path.resolve(
+        __dirname,
+        'src/mocks/firebase-messaging-web.tsx',
+      ),
+      // Same story: lazily required by usePushNotifications, but resolved by
+      // the bundler, and it drags in expo-modules-core's unbundlable .ts
+      // declaration files.
+      'expo-notifications': path.resolve(__dirname, 'src/mocks/expo-notifications-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],

@@ -2,8 +2,10 @@
 #
 # The screen's whole job is a fork: which of two registrations a person is
 # about to start. That fork is visible on the very next screen — a mother
-# signs up in four steps and a nanny in five, because a nanny has details, a
-# working area and an ID to hand over that a mother does not.
+# signs up in four steps and a nanny in six, because a nanny has an email to
+# verify, details, a working area and an ID to hand over that a mother does
+# not. (A mother gives an address later, at the booking gate, where it first
+# matters.)
 #
 # ── Scope note ─────────────────────────────────────────────────────────────
 # The flow stops at step 1 of each path, and the reason is the same one C7
@@ -58,10 +60,10 @@ appId: com.nannyapp.mobile
 
 - tapOn: 'Sign up as a nanny'
 
-# Five steps, not four: the fork made visible. The extra ones are the nanny's
-# details, her working area and her ID.
+# Six steps, not four: the fork made visible. The extra ones are her email
+# verification, her details, her working area and her ID.
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 5.*'
+    visible: 'STEP 1 OF 6.*'
     timeout: 30000
 - assertNotVisible: 'STEP 1 OF 4.*'
 
