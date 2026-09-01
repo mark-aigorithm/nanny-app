@@ -9,6 +9,7 @@ import {
   type RegisterRequest,
   type Role as ApiRole,
   type SaveChildrenRequest,
+  type SetVerifiedEmailRequest,
   type SubmitIdRequest,
   type UpdateProfileRequest,
   type UserResponse,
@@ -19,6 +20,7 @@ import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
+import { consumeVerificationToken } from '@backend/services/email-verification.service';
 import { listChildren, saveChildren } from './child.service';
 
 /**
@@ -95,7 +97,18 @@ export async function registerUser(
     throw errors.conflict('An account with this phone number already exists.');
   }
   const isNanny = body.role === Role.NANNY;
+  // Nannies prove their address mid-wizard and arrive holding the token for it
+  // (the shared schema makes it mandatory for them). Mothers register with a
+  // phone-derived placeholder and verify later, at the pre-booking gate.
+  const emailVerificationToken = body.emailVerificationToken;
   const created = await prisma.$transaction(async (tx) => {
+    if (emailVerificationToken) {
+      // Inside the transaction so the token isn't burned by a registration
+      // that then fails — either the user exists with a verified address, or
+      // the token is still spendable on a retry.
+      await consumeVerificationToken(body.email, emailVerificationToken, tx);
+    }
+
     const user = await tx.user.create({
       data: {
         firebaseUid: decoded.uid,
@@ -105,12 +118,12 @@ export async function registerUser(
         lastName: body.lastName,
         dateOfBirth: new Date(body.dateOfBirth),
         role: body.role,
-        isEmailVerified: decoded.email_verified ?? false,
+        isEmailVerified: !!emailVerificationToken || (decoded.email_verified ?? false),
         // Phone is verified server-side via the Firebase token's phone_number
         // claim. If the mobile client linked the phone before calling /register,
         // the token contains it.
         isPhoneVerified: !!decoded.phone_number,
-        emailVerifiedAt: decoded.email_verified ? new Date() : null,
+        emailVerifiedAt: emailVerificationToken || decoded.email_verified ? new Date() : null,
         phoneVerifiedAt: decoded.phone_number ? new Date() : null,
         termsAcceptedAt: new Date(),
         termsAcceptedVersion: body.termsAcceptedVersion,
@@ -261,6 +274,49 @@ export async function updateProfile(
       ...(body.address !== undefined && { address: body.address }),
       ...(body.latitude !== undefined && { latitude: body.latitude }),
       ...(body.longitude !== undefined && { longitude: body.longitude }),
+    },
+  });
+
+  return toUserResponse(updated);
+}
+
+/**
+ * Attaches a proven email address to the signed-in user, spending the token
+ * issued by `POST /auth/email/verify`. This is the mother's path: she
+ * registered with a phone-derived placeholder and only supplies a real address
+ * when she first tries to book.
+ *
+ * Idempotent on the address: if she already holds it and it is already
+ * verified, the row is returned unchanged rather than failing on a token that
+ * a retried request already consumed. That matters because the client updates
+ * Firebase before calling this, so a network blip here is retried.
+ */
+export async function setVerifiedEmail(
+  decoded: DecodedIdToken,
+  body: SetVerifiedEmailRequest,
+): Promise<UserResponse> {
+  const user = await requireUser(decoded);
+
+  if (user.email === body.email && user.isEmailVerified) {
+    return toUserResponse(user);
+  }
+
+  const emailOwner = await prisma.user.findFirst({
+    where: { email: body.email, id: { not: user.id }, deletedAt: null },
+    select: { id: true },
+  });
+  if (emailOwner) {
+    throw errors.conflict('An account with this email already exists.');
+  }
+
+  await consumeVerificationToken(body.email, body.verificationToken);
+
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      email: body.email,
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 

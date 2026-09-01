@@ -1433,6 +1433,9 @@ model DeviceToken {
 enum EmailTemplate {
   /// Payment receipt sent to the paying parent once a booking payment captures.
   RECEIPT
+  /// One-time code proving the recipient owns the address they typed. Sent
+  /// during nanny registration and from the mother's pre-booking email gate.
+  EMAIL_VERIFICATION
 
   @@map("email_template")
 }
@@ -1474,6 +1477,47 @@ model EmailLog {
   @@index([userId])
   @@index([template, status])
   @@map("email_logs")
+}
+
+/// One attempt at proving someone owns an email address, by sending a 6-digit
+/// code to it. One row per send; a resend creates a new row rather than
+/// mutating the old one, so the rate-limit windows below can simply count rows.
+///
+/// Neither the code nor the token is stored in the clear — only their sha-256
+/// hashes, the same treatment `Booking.startPinHash` gives the start PIN.
+///
+/// The flow is two-phase because the nanny has no account yet when she
+/// verifies: `POST /auth/email/verify` swaps a correct code for a short-lived
+/// one-time token, which is then spent either by `POST /auth/register`
+/// (nanny) or `POST /auth/email` (mother). That is what binds "this address
+/// was proven" to "this user row" across an unauthenticated boundary.
+model EmailVerification {
+  id         Int       @id @default(autoincrement())
+  /// Always lowercased — the address is the rate-limit key and the match key.
+  email      String
+  /// sha-256 of the 6-digit code.
+  codeHash   String    @map("code_hash")
+  /// sha-256 of the one-time token. Null until the code is verified.
+  tokenHash  String?   @map("token_hash")
+  /// Wrong-code guesses so far; the row dies once it passes the cap.
+  attempts   Int       @default(0)
+  /// When the code stops being accepted.
+  expiresAt  DateTime  @map("expires_at")
+  /// When the correct code was entered (and `tokenHash` was issued).
+  verifiedAt DateTime? @map("verified_at")
+  /// When the token was spent. Single-use: a second attempt is refused.
+  consumedAt DateTime? @map("consumed_at")
+  /// The user this was sent for, when known (the mother gate). Null during
+  /// nanny registration, where no user row exists yet. No FK — the row is an
+  /// audit trail and must outlive the user.
+  userId     Int?      @map("user_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@index([email, createdAt])
+  @@index([tokenHash])
+  @@map("email_verifications")
 }
 
 // ──────────────────────────────────────────────────────────────

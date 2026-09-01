@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import Handlebars from 'handlebars';
-import type { EmailTemplate, ReceiptEmailVars } from '@nanny-app/shared';
+import type {
+  EmailTemplate,
+  EmailVerificationEmailVars,
+  ReceiptEmailVars,
+} from '@nanny-app/shared';
 
 /**
  * Renders named email templates to `{ subject, html }`. Templates are in-repo
@@ -46,15 +50,34 @@ function loadTemplate(fileName: string): Handlebars.TemplateDelegate {
   return compiled;
 }
 
-interface TemplateDef {
-  subject: (vars: ReceiptEmailVars) => string;
-  bodyFile: string;
+/**
+ * The variables each template substitutes. Adding a template means adding a
+ * line here plus an entry in `TEMPLATES` — the two are keyed by the same enum,
+ * so a template with no vars type (or vice versa) fails to compile.
+ */
+interface TemplateVars {
+  RECEIPT: ReceiptEmailVars;
+  EMAIL_VERIFICATION: EmailVerificationEmailVars;
 }
 
-const TEMPLATES: Record<EmailTemplate, TemplateDef> = {
+type TemplateDefs = {
+  [K in EmailTemplate]: {
+    subject: (vars: TemplateVars[K]) => string;
+    bodyFile: string;
+  };
+};
+
+const TEMPLATES: TemplateDefs = {
   RECEIPT: {
     subject: (v) => `Your NannyApp receipt — booking #${v.bookingId}`,
     bodyFile: 'receipt.html',
+  },
+  EMAIL_VERIFICATION: {
+    // The code is deliberately not in the subject: subject lines show up in
+    // notification previews on a locked screen, which is not where a
+    // one-time code belongs.
+    subject: () => 'Confirm your email for NannyApp',
+    bodyFile: 'email-verification.html',
   },
 };
 
@@ -64,11 +87,14 @@ export interface RenderedEmail {
 }
 
 /**
- * Render a template with its variables. Today only `RECEIPT` exists, so `vars`
- * is `ReceiptEmailVars`; adding a template means adding an entry to `TEMPLATES`
- * and widening this signature.
+ * Render a template with its variables. Generic over the template so the
+ * `vars` argument is checked against that specific template's shape —
+ * passing receipt variables to the verification template will not compile.
  */
-export function renderEmail(template: EmailTemplate, vars: ReceiptEmailVars): RenderedEmail {
+export function renderEmail<T extends EmailTemplate>(
+  template: T,
+  vars: TemplateVars[T],
+): RenderedEmail {
   registerHelpers();
   const def = TEMPLATES[template];
   const body = loadTemplate(def.bodyFile)(vars);

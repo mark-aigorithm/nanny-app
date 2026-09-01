@@ -3,11 +3,14 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import {
   RegisterRequestSchema,
   SaveChildrenSchema,
+  SendEmailOtpSchema,
+  SetVerifiedEmailSchema,
   SubmitIdRequestSchema,
   UpdateProfileRequestSchema,
+  VerifyEmailOtpSchema,
 } from '@nanny-app/shared';
 
-import { requireAuth } from '@backend/middleware/auth.middleware';
+import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
@@ -16,9 +19,14 @@ import {
   getMe,
   getMyChildren,
   saveMyChildren,
+  setVerifiedEmail,
   submitId,
   updateProfile,
 } from '@backend/services/auth.service';
+import {
+  sendEmailOtp,
+  verifyEmailOtp,
+} from '@backend/services/email-verification.service';
 
 export const authRouter = Router();
 
@@ -37,6 +45,67 @@ authRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const user = await registerUser(req.firebaseUser, req.body);
       res.status(201).json(ok(user));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * POST /auth/email/otp
+ * Mails a one-time code to the address given. Auth is optional because a nanny
+ * verifies her address mid-registration, before the Firebase account she will
+ * sign in with exists. When a token *is* present the caller is identified, so
+ * "this address is already taken" can correctly ignore their own row — which
+ * is what lets someone re-verify an address they already hold. Abuse control
+ * is per-address, inside the service.
+ */
+authRouter.post(
+  '/email/otp',
+  optionalAuth,
+  validateBody(SendEmailOtpSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await sendEmailOtp({ email: req.body.email, decoded: req.firebaseUser ?? null });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * POST /auth/email/verify
+ * Swaps a correct code for a short-lived, single-use token. Public for the
+ * same reason as the send above. The token is then spent by POST /auth/register
+ * (nanny) or POST /auth/email (mother) — nothing is marked verified here.
+ */
+authRouter.post(
+  '/email/verify',
+  validateBody(VerifyEmailOtpSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await verifyEmailOtp(req.body.email, req.body.code)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * POST /auth/email
+ * Attaches a proven address to the signed-in user, spending the token from
+ * /auth/email/verify. This is how a mother — who registered with a
+ * phone-derived placeholder — gets a real, verified email before booking.
+ */
+authRouter.post(
+  '/email',
+  requireAuth,
+  validateBody(SetVerifiedEmailSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await setVerifiedEmail(req.firebaseUser, req.body)));
     } catch (err) {
       next(err);
     }

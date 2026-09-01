@@ -871,6 +871,15 @@ export async function createBooking(
   const user = await getUserByUid(decoded.uid);
   if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can create bookings.');
 
+  // Email gate: a mother registers with a phone-derived placeholder address, so
+  // this is the first point where a real one is needed — the receipt and the
+  // Paymob billing record both read `users.email`, and both are useless if it
+  // was never proven. Checked before the ID gate so the order matches the two
+  // prompts the client shows.
+  if (!user.isEmailVerified) {
+    throw errors.forbidden('Please verify your email before booking.');
+  }
+
   // Identity gate: a mother must have an ID on file before booking. She may book
   // while it is still PENDING_REVIEW (upload-then-book), but not when she has
   // never uploaded (PENDING_ID) or was rejected (REJECTED) and must re-upload.
