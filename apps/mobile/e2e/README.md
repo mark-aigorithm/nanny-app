@@ -230,15 +230,23 @@ is genuinely not on screen:
 - `e2e:metro` starts with `--clear`, so the first request pays for the whole build — one to two
   minutes. The dev client's own fetch times out first and the app shows "There was a problem loading
   the project".
-- `metro-file-map`'s watcher gives up after four minutes of crawling this monorepo when the machine
-  is busy — `Failed to start watch mode` in Metro's output. Metro then **still answers `/status` with
-  200** while every bundle request returns a 500 from `DependencyGraph`. Seen repeatedly when Metro
-  is started at the same moment as the emulator or Docker; starting it last, on its own, is reliable.
+- `metro-file-map`'s watcher gives up after four minutes — `Failed to start watch mode` in Metro's
+  output. Metro then **still answers `/status` with 200** while every bundle request returns a 500
+  from `DependencyGraph`.
 
-  **"On its own" has to be taken literally.** A *booting* emulator alone is enough to starve the
-  watcher: two Metro restarts in a row failed while the emulator was coming up, and the same restart
-  succeeded first time once the emulator was killed, Metro had served a 200 bundle, and the emulator
-  was booted afterwards. A booted, idle emulator is fine — it is the boot that competes.
+  **This is a function of how many directories are watched, not of machine load.** `metro-file-map`
+  uses watchman if it is installed, else a native watcher — and the native one is
+  `platform() === "darwin"` only. On Windows it therefore always lands on `FallbackWatcher`, which
+  registers a watch per directory and so scales with the size of the tree, against a hard-coded
+  240s budget it cannot be configured out of.
+
+  `metro.config.js` used to set `watchFolders = [workspaceRoot]`. Claude Code keeps its git
+  worktrees in `.claude/worktrees/`, which is *inside* that root, and two of them carried complete
+  installs — 95,876 of the 129,630 directories under the root, crawling 428,291 files. The watcher
+  timed out every time, on an idle machine. Expo's `getDefaultConfig` already watches each
+  workspace package plus the root pnpm store, so the override is now gone and the crawl is 100,764
+  files. **If this returns, count directories before blaming load** — anything that puts another
+  checkout under the repo root will reproduce it.
 
 `run.mjs` now asks for the bundle itself before any flow runs, and **fails the run** if it cannot be
 built — a liveness ping cannot tell a warm bundler from a dead one. If that step reports a minute or
@@ -256,10 +264,20 @@ flow, and with the verifier on it intermittently dies with
 home about an unknown APK and loses that race on a loaded machine. `run.mjs` turns it off as part of
 device prep, alongside the stylus tutorial.
 
+**The driver can also need longer to start than Maestro waits.** `Maestro Android driver did not
+start up in time` is not necessarily a broken driver: the reinstalled APK is JIT-only, and logcat
+showed it reaching `Started listening to accessibility events` some 23s after launch — past the
+default budget on a busy or memory-tight emulator. `MAESTRO_DRIVER_STARTUP_TIMEOUT` (milliseconds)
+raises it, and `run.mjs` passes the environment through, so
+`MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 pnpm test:e2e:mobile` is enough. Check logcat for that line
+before concluding the driver is broken.
+
 **Android's own dialogs are modals, and a modal hides everything behind it.** On a freshly booted
 emulator the system throws up **"System UI isn't responding"** while it settles, which covered the
 developer menu and failed `_launch.yaml` on a screenshot that plainly showed the menu underneath.
-Give a cold emulator a minute before the first run. The app has modals of its own with the same
+Give a cold emulator a minute before the first run — and do not assume it clears itself. It has been
+seen still holding focus between runs, failing every flow until dismissed:
+`adb shell dumpsys window | grep mCurrentFocus` names it, and tapping **Wait** clears it. The app has modals of its own with the same
 effect: after checking a shift is due, the nanny's app opens onto a **"Shift starting soon"** prompt,
 and a tap aimed at the tab bar behind it silently does nothing — C4 waits for the prompt and uses it,
 which is what a nanny does anyway.
