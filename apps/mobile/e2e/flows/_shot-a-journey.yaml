@@ -1,0 +1,67 @@
+# Branding capture, part A — the parent's core journey.
+#
+# Not a test: the leading underscore keeps run.mjs from running it, and it
+# asserts nothing beyond "the screen arrived", because its output is PNGs
+# rather than a pass or a fail. Driven the same way the real flows are so the
+# screenshots are of the real app against the real stack, not a mockup.
+#
+# Run it through scripts/capture-branding.sh, which passes ${OUT}.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+- takeScreenshot: ${OUT}/01-welcome
+
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+- takeScreenshot: ${OUT}/02-role-selection
+
+- tapOn: 'Sign in'
+- extendedWaitUntil:
+    visible: 'Welcome back'
+    timeout: 30000
+- takeScreenshot: ${OUT}/03-sign-in
+
+- tapOn:
+    id: 'signIn.phone'
+- inputText: ${MOTHER_PHONE}
+- tapOn:
+    id: 'signIn.password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Sign in'
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- takeScreenshot: ${OUT}/04-home
+
+# ── Booking ────────────────────────────────────────────────────────────────
+- tapOn: 'Book care'
+- extendedWaitUntil:
+    visible: 'Pick a day'
+    timeout: 30000
+- takeScreenshot: ${OUT}/05-pick-a-day
+
+- tapOn:
+    id: 'booking.day'
+    index: 0
+- takeScreenshot: ${OUT}/06-pick-a-time
+
+- tapOn:
+    id: 'booking.cta'
+- extendedWaitUntil:
+    visible: 'Who needs care?'
+    timeout: 30000
+- takeScreenshot: ${OUT}/07-care-details
+
+- tapOn:
+    id: 'booking.cta'
+- extendedWaitUntil:
+    visible: 'Review your request'
+    timeout: 30000
+- takeScreenshot: ${OUT}/08-review
+
+# Deliberately stops here — submitting would leave a second live booking behind
+# and change every later screenshot.

@@ -1,0 +1,78 @@
+# Branding capture, part B — the services and account surfaces.
+#
+# Every detail screen is left by `back` followed by tapping the tab again.
+# Some of these screens exit with `router.replace`, so `back` lands on Home
+# rather than where it came from; tapping the tab afterwards is correct from
+# either, and keeps the flow from having to know which.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── Services ───────────────────────────────────────────────────────────────
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Community'
+    timeout: 30000
+- takeScreenshot: ${OUT}/09-services
+
+- tapOn: 'Packages'
+- extendedWaitUntil:
+    visible: 'Choose a package'
+    timeout: 30000
+- takeScreenshot: ${OUT}/10-packages
+
+- back
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Community'
+    timeout: 30000
+
+- tapOn: 'Marketplace'
+- extendedWaitUntil:
+    visible: 'All items'
+    timeout: 30000
+- takeScreenshot: ${OUT}/11-marketplace
+
+# ── Account ────────────────────────────────────────────────────────────────
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Refer a friend'
+    timeout: 30000
+- takeScreenshot: ${OUT}/12-account
+
+- tapOn: 'Care Points'
+- extendedWaitUntil:
+    visible: 'Care Points'
+    timeout: 30000
+- takeScreenshot: ${OUT}/13-care-points
+
+- back
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Refer a friend'
+    timeout: 30000
+
+- tapOn: 'Refer a friend'
+- extendedWaitUntil:
+    visible: 'Your code'
+    timeout: 30000
+- takeScreenshot: ${OUT}/14-refer-a-friend
+
+- back
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Help'
+    timeout: 30000
+
+- tapOn: 'Help'
+- extendedWaitUntil:
+    visible: 'Help & support'
+    timeout: 30000
+- takeScreenshot: ${OUT}/15-help-and-support

@@ -1,0 +1,79 @@
+# Branding capture, part C — community, messages, notifications, and the shift
+# that is under way.
+#
+# The care-log shot is the one that needs the seed: `seed-branding.mjs` leaves a
+# booking IN_PROGRESS with three entries on it, so the parent's booking detail
+# has something real to show.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── The shift under way ────────────────────────────────────────────────────
+- tapOn: 'Tap to view details'
+- extendedWaitUntil:
+    visible: 'Care log'
+    timeout: 30000
+- takeScreenshot: ${OUT}/16-booking-detail
+
+- scrollUntilVisible:
+    element:
+      text: 'Care log'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- takeScreenshot: ${OUT}/17-care-log
+
+# ── Community ──────────────────────────────────────────────────────────────
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Community'
+    timeout: 30000
+- tapOn: 'Community'
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+- takeScreenshot: ${OUT}/18-community-questions
+
+- tapOn: 'Events'
+- extendedWaitUntil:
+    visible: 'Mums & littles coffee morning'
+    timeout: 30000
+- takeScreenshot: ${OUT}/19-community-events
+
+- tapOn: 'Marketplace'
+- extendedWaitUntil:
+    visible: 'My listings'
+    timeout: 30000
+- takeScreenshot: ${OUT}/20-community-marketplace
+
+# ── Notifications ──────────────────────────────────────────────────────────
+- tapOn: 'Open notifications'
+- extendedWaitUntil:
+    visible: 'Notifications'
+    timeout: 30000
+- takeScreenshot: ${OUT}/21-notifications
+
+# ── Messages ───────────────────────────────────────────────────────────────
+- back
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Inbox'
+    timeout: 30000
+- tapOn: 'Inbox'
+- extendedWaitUntil:
+    visible: 'Stokke Tripp Trapp high chair'
+    timeout: 30000
+- takeScreenshot: ${OUT}/22-messages
+
+- tapOn: 'Stokke Tripp Trapp high chair'
+- extendedWaitUntil:
+    visible: 'Write a message...'
+    timeout: 30000
+- takeScreenshot: ${OUT}/23-chat
