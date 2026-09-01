@@ -22,7 +22,7 @@ import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { validatePhone } from '@mobile/lib/validation';
+import { validateEmail, validatePhone } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
@@ -47,8 +47,9 @@ const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 export default function RegistrationStep1Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
-  // Nannies get one extra step (register-nanny-details) inserted before the
-  // final step, so their progress indicator counts "OF 5" instead of "OF 4".
+  // Nannies get two extra steps — email verification right after this one, and
+  // register-nanny-details before the final step — so their progress indicator
+  // counts "OF 6" instead of "OF 4".
   const isNanny = role === 'nanny';
 
   const draft = useRegistrationDraftStore();
@@ -123,11 +124,24 @@ export default function RegistrationStep1Screen() {
       setFormError(phoneErr);
       return;
     }
+    // Nannies verify their address on the very next screen, so a typo has to
+    // be caught here — the code would otherwise be sent somewhere they can't
+    // read, with no way back but the back button.
+    if (isNanny) {
+      const emailErr = validateEmail(draft.email);
+      if (emailErr) {
+        setFormError(emailErr);
+        return;
+      }
+    }
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(draft.dob)) {
       setFormError('Please select your date of birth.');
       return;
     }
-    router.push({ pathname: '/(auth)/register-create-password', params: { role } });
+    router.push({
+      pathname: isNanny ? '/(auth)/register-nanny-email' : '/(auth)/register-create-password',
+      params: { role },
+    });
   }
 
   return (
@@ -162,7 +176,7 @@ export default function RegistrationStep1Screen() {
         >
           {/* Step label */}
           <Text style={styles.stepLabel}>
-            {isNanny ? 'STEP 1 OF 5' : 'STEP 1 OF 4'} — PERSONAL INFO
+            {isNanny ? 'STEP 1 OF 6' : 'STEP 1 OF 4'} — PERSONAL INFO
           </Text>
 
           {/* Photo picker */}
@@ -208,6 +222,22 @@ export default function RegistrationStep1Screen() {
               autoCorrect={false}
             />
 
+            {/* Email — nannies only. Mothers supply one at the booking gate,
+                where it first matters (receipt + payment billing). */}
+            {isNanny && (
+              <TextInputField
+                label="Email"
+                value={draft.email}
+                onChangeText={(val) => patch({ email: val })}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textPlaceholder}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+              />
+            )}
+
             {/* Phone */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Phone</Text>
@@ -216,11 +246,13 @@ export default function RegistrationStep1Screen() {
                   <Text style={styles.countryCodeText}>{draft.countryCode}</Text>
                   <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
                 </View>
+                {/* Placeholder is an Egyptian mobile with the leading 0
+                    dropped — the country-code box already carries the +20. */}
                 <TextInput
                   style={styles.phoneInput}
                   value={draft.phone}
                   onChangeText={(val) => patch({ phone: val })}
-                  placeholder="(555) 000-0000"
+                  placeholder="100 000 0000"
                   placeholderTextColor={colors.textPlaceholder}
                   keyboardType="phone-pad"
                   autoCorrect={false}

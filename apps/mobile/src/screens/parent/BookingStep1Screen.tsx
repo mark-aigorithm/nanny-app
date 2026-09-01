@@ -38,6 +38,7 @@ import {
 } from '@mobile/lib/bookingDraft';
 
 import { useIdGateStore } from '@mobile/store/idGateStore';
+import { useEmailGateStore } from '@mobile/store/emailGateStore';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
@@ -258,11 +259,14 @@ export default function BookingStep1Screen() {
       } as never);
     } catch (err) {
       const message = getApiErrorMessage(err, 'Could not submit your request. Please try again.');
-      // Backstop: if the server gated the booking on a missing ID (a mother who
-      // slipped past the home-screen gate, e.g. stale profile), prompt her to
-      // upload rather than showing a dead-end error.
-      if (message.toLowerCase().includes('upload your id')) {
+      // Backstop: if the server gated the booking on something missing (a
+      // mother who slipped past the home-screen gates, e.g. stale profile),
+      // prompt her for it rather than showing a dead-end error.
+      const lower = message.toLowerCase();
+      if (lower.includes('upload your id')) {
         useIdGateStore.getState().openIdGate();
+      } else if (lower.includes('verify your email')) {
+        useEmailGateStore.getState().openEmailGate();
       }
       setSubmitError(message);
     }

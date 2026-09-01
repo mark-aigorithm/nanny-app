@@ -68,10 +68,11 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 3,
   },
-  // Nannies get an extra step (register-nanny-details) inserted before the
-  // final step, so their progress fraction is out of 5 instead of 4.
+  // Nannies get two extra steps (email verification right after this one, and
+  // register-nanny-details before the final step), so their progress fraction
+  // is out of 6 instead of 4.
   progressBarFillNanny: {
-    width: '20%',
+    width: '16.6%',
   },
 
   // Scroll

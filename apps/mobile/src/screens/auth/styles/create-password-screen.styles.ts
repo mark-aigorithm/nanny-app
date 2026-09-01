@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
   // Nannies get an extra step (register-nanny-details) inserted before the
   // final step, so their progress fraction is out of 5 instead of 4.
   progressBarFillNanny: {
-    width: '40%',
+    width: '50%',
   },
 
   // Scroll

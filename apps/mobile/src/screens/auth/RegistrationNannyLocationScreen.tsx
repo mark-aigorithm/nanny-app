@@ -97,7 +97,7 @@ export default function RegistrationNannyLocationScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 3 OF 5 — HOME LOCATION</Text>
+          <Text style={styles.stepLabel}>STEP 4 OF 6 — HOME LOCATION</Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Where are you based?</Text>

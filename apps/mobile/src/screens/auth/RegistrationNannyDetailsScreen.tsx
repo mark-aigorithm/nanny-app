@@ -227,7 +227,7 @@ export default function RegistrationNannyDetailsScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 5 OF 5 — PROFESSIONAL DETAILS</Text>
+          <Text style={styles.stepLabel}>STEP 6 OF 6 — PROFESSIONAL DETAILS</Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Tell families about yourself</Text>

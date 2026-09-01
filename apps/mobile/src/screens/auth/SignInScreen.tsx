@@ -130,7 +130,7 @@ export default function SignInScreen() {
                     if (phoneError) setPhoneError(null);
                     if (formError) setFormError(null);
                   }}
-                  placeholder="(555) 000-0000"
+                  placeholder="100 000 0000"
                   placeholderTextColor={colors.textPlaceholder}
                   keyboardType="phone-pad"
                   autoCorrect={false}

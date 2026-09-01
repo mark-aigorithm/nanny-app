@@ -10,6 +10,7 @@ import { Button, ScreenContainer } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
+import { useEmailGate } from '@mobile/hooks/useEmailGate';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { isGuest, gate } = useGuestGate();
   const { gate: idGate } = useIdGate();
+  const { gate: emailGate } = useEmailGate();
   const clearPendingPromo = usePendingPromoStore((s) => s.clear);
 
   // A promo code from an abandoned campaign tap must never leak into a later,
@@ -84,12 +86,14 @@ export default function HomeScreen() {
         )}
 
         {/* Primary action: request care (broadcast to all available nannies).
-            Guests are prompted to register; signed-in mothers without a verified
-            ID are prompted to upload one (upload-then-book) before proceeding. */}
+            Guests are prompted to register; signed-in mothers are then asked
+            for anything still missing before they can book — a verified email
+            (receipts and payment billing read it), then an ID
+            (upload-then-book). Outermost gate runs first. */}
         <Pressable
           style={styles.bookCareCard}
           onPress={gate(
-            idGate(() => router.push('/(parent)/book/booking-date-picker')),
+            emailGate(idGate(() => router.push('/(parent)/book/booking-date-picker'))),
             'Create your free account to book trusted, vetted nannies.',
           )}
         >

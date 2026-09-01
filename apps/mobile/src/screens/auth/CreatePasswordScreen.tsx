@@ -31,8 +31,8 @@ type Requirement = {
 export default function CreatePasswordScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
-  // Nannies get one extra step (register-nanny-details) inserted before the
-  // final step, so their progress indicator counts "OF 5" instead of "OF 4".
+  // Nannies get two extra steps (email verification, and register-nanny-details
+  // before the final step), so their progress indicator counts "OF 6".
   const isNanny = role === 'nanny';
 
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -115,7 +115,7 @@ export default function CreatePasswordScreen() {
         >
           {/* Step label */}
           <Text style={styles.stepLabel}>
-            {isNanny ? 'STEP 2 OF 5' : 'STEP 2 OF 4'} — SET PASSWORD
+            {isNanny ? 'STEP 3 OF 6' : 'STEP 2 OF 4'} — SET PASSWORD
           </Text>
 
           {/* Intro */}

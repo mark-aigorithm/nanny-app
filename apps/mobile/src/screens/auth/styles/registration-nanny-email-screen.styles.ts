@@ -7,10 +7,9 @@ import {
   spacing,
   screenPadding,
   STATUS_BAR_HEIGHT,
-  borderRadius,
 } from '@mobile/theme';
 
-const HEADER_CONTENT_HEIGHT = 56;
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 44 : 56;
 
 export const styles = StyleSheet.create({
   keyboardAvoid: {
@@ -21,7 +20,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // Header bar
+  // Header bar — matches step 1, which this screen follows.
   headerBar: {
     position: 'absolute',
     top: 0,
@@ -33,13 +32,8 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: STATUS_BAR_HEIGHT,
     paddingHorizontal: spacing.lg,
-    height: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT,
+    paddingBottom: spacing.md,
     backgroundColor: colors.background,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   backButton: {
     width: 36,
@@ -47,30 +41,20 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandText: {
-    ...typeScale.headingMd,
-    color: colors.primary,
-    letterSpacing: -0.5,
+  headerTitle: {
+    ...typeScale.headingLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    flex: 1,
+  },
+  headerSpacer: {
+    width: 36,
   },
 
-  // Mini progress (right side of header)
-  miniProgressTrack: {
-    width: 96,
-    height: 6,
-    backgroundColor: colors.taupe,
-    borderRadius: 3,
-  },
-  miniProgressFill: {
-    width: '60%',
-    height: 6,
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-
-  // Full-width progress bar below header
+  // Progress bar — step 2 of the nanny's 6.
   progressBarTrack: {
     position: 'absolute',
-    top: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT,
+    top: STATUS_BAR_HEIGHT + HEADER_HEIGHT,
     left: 0,
     right: 0,
     zIndex: 100,
@@ -78,7 +62,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   progressBarFill: {
-    width: '66.6%',
+    width: '33.3%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
@@ -89,33 +73,64 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT + 6 + screenPadding,
+    paddingTop: STATUS_BAR_HEIGHT + HEADER_HEIGHT + 6 + screenPadding,
     paddingHorizontal: screenPadding,
     paddingBottom: 120,
-    gap: screenPadding,
+    gap: spacing['2xl'],
   },
 
-  // Step label
   stepLabel: {
-    ...typeScale.labelMd,
-    color: colors.textTertiary,
+    ...typeScale.overline,
+    letterSpacing: 0.65,
+    color: colors.textMuted,
   },
 
-  // Section title (big headline)
-  sectionTitle: {
-    fontFamily: fontFamily.extraBold,
-    fontSize: 24,
-    color: colors.textPrimary,
-    letterSpacing: -0.3,
+  // Headline
+  headlineGroup: {
+    gap: spacing.sm,
   },
-  sectionSubtitle: {
+  headline: {
+    ...typeScale.displayMd,
+    color: colors.textPrimary,
+  },
+  subtitle: {
+    ...typeScale.bodyLg,
+    color: colors.textSecondary,
+  },
+  emailHighlight: {
+    fontFamily: fontFamily.bold,
+    color: colors.textPrimary,
+  },
+
+  // Resend row
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  resendLabel: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
   },
+  resendLink: {
+    ...typeScale.labelMd,
+    color: colors.primary,
+  },
+  resendLinkDisabled: {
+    color: colors.textPlaceholder,
+  },
 
-  // Location group
-  locationGroup: {
-    gap: spacing.md,
+  // Form-level error banner
+  formErrorBanner: {
+    backgroundColor: colors.errorLight,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  formErrorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
   },
 
   // Footer

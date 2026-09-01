@@ -7,6 +7,7 @@ import BottomNav from '@mobile/components/BottomNav';
 import { IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
+import { useEmailGate } from '@mobile/hooks/useEmailGate';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/services-hub-screen.styles';
 
@@ -28,9 +29,12 @@ export default function ServicesHubScreen() {
   const router = useRouter();
   const { gate } = useGuestGate();
   const { gate: idGate } = useIdGate();
+  const { gate: emailGate } = useEmailGate();
 
+  // Guest → email → ID, outermost first: register before anything, then the
+  // quick ask (an address), then the heavier one (a government ID).
   const openBooking = gate(
-    idGate(() => router.push('/(parent)/book/booking-date-picker')),
+    emailGate(idGate(() => router.push('/(parent)/book/booking-date-picker'))),
     'Create your free account to book trusted, vetted nannies.',
   );
 
