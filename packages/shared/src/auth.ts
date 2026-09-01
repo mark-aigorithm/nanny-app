@@ -21,6 +21,43 @@ export const RoleSchema = z.enum(['MOTHER', 'NANNY']);
 export const Role = RoleSchema.enum;
 export type Role = z.infer<typeof RoleSchema>;
 
+/**
+ * An email address as it is accepted anywhere in the auth surface. Trimmed and
+ * lowercased so the same address always hashes, matches and rate-limits the
+ * same way regardless of how the user capitalised it.
+ */
+const EmailSchema = z.string().trim().toLowerCase().email();
+
+/** A 6-digit one-time code, as a string so leading zeros survive. */
+const OtpCodeSchema = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code.');
+
+/** Body for POST /auth/email/otp — sends a one-time code to the address. */
+export const SendEmailOtpSchema = z.object({ email: EmailSchema });
+export type SendEmailOtpRequest = z.infer<typeof SendEmailOtpSchema>;
+
+/** Body for POST /auth/email/verify — swaps a correct code for a one-time token. */
+export const VerifyEmailOtpSchema = z.object({ email: EmailSchema, code: OtpCodeSchema });
+export type VerifyEmailOtpRequest = z.infer<typeof VerifyEmailOtpSchema>;
+
+/**
+ * Result of a successful code check. The token is the proof carried across the
+ * unauthenticated boundary: a nanny spends it on POST /auth/register, a mother
+ * on POST /auth/email. Single-use and short-lived.
+ */
+export const VerifyEmailOtpResponseSchema = z.object({
+  verificationToken: z.string(),
+  /** ISO datetime after which the token can no longer be spent. */
+  expiresAt: z.string(),
+});
+export type VerifyEmailOtpResponse = z.infer<typeof VerifyEmailOtpResponseSchema>;
+
+/** Body for POST /auth/email — an existing user attaches a proven address. */
+export const SetVerifiedEmailSchema = z.object({
+  email: EmailSchema,
+  verificationToken: z.string().min(1),
+});
+export type SetVerifiedEmailRequest = z.infer<typeof SetVerifiedEmailSchema>;
+
 /** Body for POST /auth/register — fields not in Firebase. */
 export const RegisterRequestSchema = z
   .object({
@@ -28,7 +65,12 @@ export const RegisterRequestSchema = z
     lastName: z.string().trim().min(1).max(80),
     // Email is also on the Firebase token, but we accept and validate it here
     // so the backend doesn't have to derive it from the JWT for the insert.
-    email: z.string().trim().toLowerCase().email(),
+    email: EmailSchema,
+    // Proof from POST /auth/email/verify that this address belongs to whoever
+    // is registering. Nannies collect and verify their address mid-wizard, so
+    // the refine below makes it mandatory for them; mothers register with a
+    // phone-derived placeholder and verify later, at the booking gate.
+    emailVerificationToken: z.string().optional(),
     phone: z
       .string()
       .trim()
@@ -78,7 +120,11 @@ export const RegisterRequestSchema = z
       message: 'Nannies must provide a photo, bio, years of experience, and availability.',
       path: ['bio'],
     },
-  );
+  )
+  .refine((v) => v.role !== 'NANNY' || !!v.emailVerificationToken, {
+    message: 'Please verify your email address before finishing sign-up.',
+    path: ['emailVerificationToken'],
+  });
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
 /**

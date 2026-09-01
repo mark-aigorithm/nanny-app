@@ -13,8 +13,10 @@ import { z } from 'zod';
  * Mirrors the DB `email_template` enum (see the EmailLog Prisma model).
  * `RECEIPT` — the payment receipt sent to the paying parent after a booking
  * payment is captured.
+ * `EMAIL_VERIFICATION` — the one-time code proving the recipient owns the
+ * address they typed (nanny registration, and the mother's pre-booking gate).
  */
-export const EmailTemplateSchema = z.enum(['RECEIPT']);
+export const EmailTemplateSchema = z.enum(['RECEIPT', 'EMAIL_VERIFICATION']);
 export type EmailTemplate = z.infer<typeof EmailTemplateSchema>;
 
 /** Delivery outcome recorded for every attempted send. Mirrors `email_status`. */
@@ -61,3 +63,18 @@ export const ReceiptEmailVarsSchema = z.object({
   paymentDate: z.string(),
 });
 export type ReceiptEmailVars = z.infer<typeof ReceiptEmailVarsSchema>;
+
+/**
+ * Variables substituted into the `EMAIL_VERIFICATION` template. The code is a
+ * string rather than a number so its leading zeros survive — "004821" is a
+ * valid code and must render as six digits.
+ */
+export const EmailVerificationEmailVarsSchema = z.object({
+  /** The 6-digit one-time code, zero-padded. */
+  code: z.string(),
+  /** Recipient's first name for the greeting; absent during nanny sign-up, where no user row exists yet. */
+  firstName: z.string().optional(),
+  /** How long the code stays valid, in whole minutes, for the "expires in …" line. */
+  expiryMinutes: z.number().int().positive(),
+});
+export type EmailVerificationEmailVars = z.infer<typeof EmailVerificationEmailVarsSchema>;
