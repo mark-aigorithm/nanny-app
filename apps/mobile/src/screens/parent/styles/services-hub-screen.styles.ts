@@ -26,7 +26,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.lg,
-    backgroundColor: colors.primaryMuted,
+    // Opaque, NOT colors.primaryMuted — a translucent background under an
+    // elevation shadow renders as a grey slab on Android (see bookCareCard).
+    backgroundColor: colors.surfaceMuted,
     borderRadius: borderRadius['2xl'],
     padding: spacing.xl,
     ...shadows.sm,

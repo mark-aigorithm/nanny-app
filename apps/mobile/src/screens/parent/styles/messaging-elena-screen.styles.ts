@@ -35,13 +35,13 @@ export const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(227,213,202,0.8)',
+    // Opaque, NOT a translucent taupe. An elevated view with a translucent
+    // background paints its elevation shadow as a solid slab behind the tint on
+    // Android; taupeHeader is the same colour without the alpha. Messages
+    // scrolling under an absolute header should be hidden by it anyway.
+    backgroundColor: colors.taupeHeader,
     zIndex: 100,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.md,
   },
   headerRow: {
     flexDirection: 'row',

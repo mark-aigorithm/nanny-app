@@ -45,7 +45,12 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.primaryMuted,
+    // Opaque, NOT colors.primaryMuted. On Android an elevated view with a
+    // translucent background paints its elevation shadow as a solid slab behind
+    // the tint, so the card reads as a hard grey frame around a lighter inner
+    // box. surfaceMuted is the flat equivalent of primaryMuted composited over
+    // colors.background. Same reason as UpcomingShiftBanner's containerSoon.
+    backgroundColor: colors.surfaceMuted,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     ...shadows.sm,
