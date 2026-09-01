@@ -602,7 +602,43 @@ function configureSupport() {
   output.email = contact.email;
 }
 
+/**
+ * The code the Auth emulator "sent" to a number.
+ *
+ * Phone verification is a real Firebase call in every build — there is no
+ * bypass — so a registration flow has to read the code from somewhere. The
+ * emulator sends no SMS and instead keeps every code it has issued on an admin
+ * endpoint, which is exactly the seam a device cannot reach on its own.
+ *
+ *   - runScript:
+ *       file: ../scripts/advance.js
+ *       env:
+ *         ADVANCE: phone-otp
+ *         OTP_PHONE: '+201100000009'
+ *
+ * leaves `output.otp` for the flow to type.
+ */
+function phoneOtp() {
+  var url = AUTH_EMULATOR_URL + '/emulator/v1/projects/' + AUTH_PROJECT_ID + '/verificationCodes';
+  var res = http.get(url);
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error('GET verificationCodes → ' + res.status + ' ' + res.body);
+  }
+  var codes = json(res.body).verificationCodes || [];
+  // Last match wins: the emulator appends, and a resend leaves the earlier
+  // code listed even though only the newest one still verifies.
+  var found = null;
+  for (var i = 0; i < codes.length; i++) {
+    if (codes[i].phoneNumber === OTP_PHONE) found = codes[i];
+  }
+  if (!found) {
+    throw new Error('No code issued for ' + OTP_PHONE + '. Emulator holds: ' + res.body);
+  }
+  output.otp = found.code;
+}
+
 var STEPS = {
+  'phone-otp': phoneOtp,
   'nanny-accept': nannyAccept,
   'reset-codes-before': resetCodesBefore,
   'reset-code-issued': resetCodeIssued,
