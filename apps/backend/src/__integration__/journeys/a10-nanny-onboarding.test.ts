@@ -15,13 +15,20 @@ import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
 import { makeMother, makeSuperuser } from '../../../test/factories';
 import { approveNannyProfile } from '../../../test/journeys/admin';
 import { createBookingViaApi } from '../../../test/journeys/booking';
+import { proveEmail } from '../../../test/journeys/email-verification';
 
 const ID_FRONT = 'https://storage.example.test/nanny-id-front.jpg';
 const AVATAR = 'https://storage.example.test/nanny-avatar.jpg';
 
-/** Registers a nanny through the real route, ID and profile included. */
+/**
+ * Registers a nanny through the real route, ID and profile included. A nanny
+ * proves her address mid-wizard, before her Firebase account exists, and
+ * arrives at /auth/register holding the token for it — so the code really is
+ * mailed and read back here too.
+ */
 async function registerNanny(lastName = 'Candidate') {
   const email = `nanny-reg-${process.pid}-${Date.now()}@test.local`;
+  const emailVerificationToken = await proveEmail(email);
   await createEmulatorUser(email);
   const token = await signInAs(email);
 
@@ -29,6 +36,7 @@ async function registerNanny(lastName = 'Candidate') {
     .post('/auth/register')
     .set(...authHeader(token))
     .send({
+      emailVerificationToken,
       firstName: 'Newly',
       lastName,
       email,
@@ -50,6 +58,8 @@ async function registerNanny(lastName = 'Candidate') {
     });
 
   expect(response.status).toBe(201);
+  // The token she carried in is what makes her account start out verified.
+  expect(response.body.data.isEmailVerified).toBe(true);
 
   const userId = response.body.data.id as number;
   const profile = await prisma.nannyProfile.findFirstOrThrow({ where: { userId } });

@@ -1,4 +1,4 @@
-import type { ReceiptEmailVars } from '@nanny-app/shared';
+import type { EmailVerificationEmailVars, ReceiptEmailVars } from '@nanny-app/shared';
 
 import { renderEmail } from '@backend/lib/email/render';
 
@@ -53,5 +53,48 @@ describe('renderEmail RECEIPT', () => {
   it('shows the discount line only when a discount was applied', () => {
     expect(renderEmail('RECEIPT', baseVars).html).toContain('Discount');
     expect(renderEmail('RECEIPT', { ...baseVars, discountAmount: 0 }).html).not.toContain('Discount');
+  });
+});
+
+const verificationVars: EmailVerificationEmailVars = {
+  code: '004821',
+  firstName: 'Sarah',
+  expiryMinutes: 10,
+};
+
+describe('renderEmail EMAIL_VERIFICATION', () => {
+  it('renders the code, the expiry and the greeting inside the shared layout', () => {
+    const { subject, html } = renderEmail('EMAIL_VERIFICATION', verificationVars);
+
+    expect(subject).toBe('Confirm your email for NannyApp');
+    expect(html).toContain('004821');
+    expect(html).toContain('10 minutes');
+    expect(html).toContain('Hi Sarah');
+    expect(html).toContain('NannyApp');
+    expect(html).toContain('<!DOCTYPE html>');
+  });
+
+  it('keeps a leading zero — "004821" is a valid code, "4821" is not', () => {
+    const { html } = renderEmail('EMAIL_VERIFICATION', verificationVars);
+
+    expect(html).toMatch(/>004821</);
+  });
+
+  it('keeps the code out of the subject, where a lock screen would show it', () => {
+    const { subject } = renderEmail('EMAIL_VERIFICATION', verificationVars);
+
+    expect(subject).not.toContain('004821');
+  });
+
+  it('drops the greeting when there is no name yet (nanny sign-up)', () => {
+    const { firstName: _firstName, ...withoutName } = verificationVars;
+    const { html } = renderEmail('EMAIL_VERIFICATION', withoutName);
+
+    expect(html).not.toContain('Hi ');
+    expect(html).toContain('004821');
+  });
+
+  it('leaves no unreplaced handlebars tokens', () => {
+    expect(renderEmail('EMAIL_VERIFICATION', verificationVars).html).not.toMatch(/\{\{/);
   });
 });

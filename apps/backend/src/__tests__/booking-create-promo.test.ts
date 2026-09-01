@@ -127,7 +127,13 @@ function makeBookingRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockPrisma.user.findUnique.mockResolvedValue({ id: 10, role: Role.MOTHER, deletedAt: null });
+  mockPrisma.user.findUnique.mockResolvedValue({
+    id: 10,
+    role: Role.MOTHER,
+    deletedAt: null,
+    // Bookings are gated on a verified address; these tests are about promos.
+    isEmailVerified: true,
+  });
   mockPrisma.user.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
   mockPrisma.booking.findFirst.mockResolvedValue(null);

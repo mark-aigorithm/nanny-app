@@ -234,7 +234,13 @@ function pointsUpdate() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  m.user.findUnique.mockResolvedValue({ id: 10, role: Role.MOTHER, deletedAt: null });
+  m.user.findUnique.mockResolvedValue({
+    id: 10,
+    role: Role.MOTHER,
+    deletedAt: null,
+    // Bookings are gated on a verified address; these tests are about hours.
+    isEmailVerified: true,
+  });
   m.user.findMany.mockResolvedValue([]);
   m.nannyProfile.findMany.mockResolvedValue([]);
   m.booking.findFirst.mockResolvedValue(null);

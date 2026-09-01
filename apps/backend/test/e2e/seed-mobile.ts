@@ -110,6 +110,11 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       lastName: spec.lastName ?? (spec.role === Role.NANNY ? 'Nanny' : 'Mother'),
       role: spec.role,
       idVerificationStatus,
+      // Booking is gated on a proven address. These accounts stand in for
+      // users who finished that step long ago, so the flows exercise booking
+      // rather than the gate — a14-mother-email-gate.test.ts covers the gate.
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
       ...LOCATION,
       address: '1 Test Street, Cairo',
     },
@@ -120,6 +125,8 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       phone: spec.phone,
       role: spec.role,
       idVerificationStatus,
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
       // Cleared so a flow that rejected this account last run does not leave a
       // stale reason on the gate's copy.
       idRejectionReason: null,

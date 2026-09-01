@@ -104,6 +104,8 @@ const motherUser = {
   latitude: 30.0444,
   longitude: 31.2357,
   deletedAt: null,
+  // Bookings are gated on a verified address; these tests are about approval.
+  isEmailVerified: true,
 };
 
 const nannyUser = {

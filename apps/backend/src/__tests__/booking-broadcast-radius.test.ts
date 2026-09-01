@@ -96,6 +96,8 @@ const motherUser = {
   role: Role.MOTHER,
   ...BOOKING_COORDS,
   deletedAt: null,
+  // Bookings are gated on a verified address; these tests are about radius.
+  isEmailVerified: true,
 };
 
 const mother = { id: 10, firstName: 'Jane', lastName: 'Mom', avatarUrl: null };

@@ -68,6 +68,13 @@ async function createUser(
       firstName: 'Test',
       lastName: prefix,
       role,
+      // Verified by default: every real account reaches a usable state with a
+      // proven address (nannies at sign-up, mothers at the booking gate), and
+      // bookings are gated on it — so an unverified factory user would be a
+      // surprising default that broke every booking journey. Pass
+      // `isEmailVerified: false` to test the gate itself.
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
       ...overrides,
     },
   });

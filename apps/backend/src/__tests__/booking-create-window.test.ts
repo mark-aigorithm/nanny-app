@@ -150,6 +150,8 @@ beforeEach(() => {
     id: 10,
     role: Role.MOTHER,
     deletedAt: null,
+    // Bookings are gated on a verified address; these tests are about the window.
+    isEmailVerified: true,
   });
   mockPrisma.user.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([]);

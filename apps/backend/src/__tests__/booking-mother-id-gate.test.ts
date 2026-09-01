@@ -65,8 +65,19 @@ const BASE_CONFIG = {
   bookingWindowEndHour: 22,
 };
 
-function motherWith(status: string | null) {
-  return { id: 'mother-1', role: Role.MOTHER, deletedAt: null, idVerificationStatus: status };
+/**
+ * A mother row with the given ID state. `isEmailVerified` defaults to true
+ * because createBooking checks the email gate first — the ID-gate cases below
+ * have to get past it before the thing they are testing runs at all.
+ */
+function motherWith(status: string | null, isEmailVerified = true) {
+  return {
+    id: 'mother-1',
+    role: Role.MOTHER,
+    deletedAt: null,
+    idVerificationStatus: status,
+    isEmailVerified,
+  };
 }
 
 beforeAll(() => {
@@ -162,6 +173,32 @@ describe('createBooking — mother ID gate', () => {
 
   it('allows an APPROVED mother', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(motherWith('APPROVED'));
+    const res = await createBooking(DECODED, VALID_BODY);
+    expect(res.status).toBe('PENDING');
+  });
+});
+
+describe('createBooking — mother email gate', () => {
+  it('blocks a mother who has not verified an email address', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(motherWith('APPROVED', false));
+    await expect(createBooking(DECODED, VALID_BODY)).rejects.toThrow(
+      'Please verify your email before booking.',
+    );
+    expect(mockPrisma.booking.create).not.toHaveBeenCalled();
+  });
+
+  it('reports the email first when both gates are unsatisfied', async () => {
+    // The client prompts for the address before the ID, and matches the
+    // server's message to decide which modal to open — so the order the
+    // server checks in is part of the contract, not an implementation detail.
+    mockPrisma.user.findUnique.mockResolvedValue(motherWith('PENDING_ID', false));
+    await expect(createBooking(DECODED, VALID_BODY)).rejects.toThrow(
+      'Please verify your email before booking.',
+    );
+  });
+
+  it('allows a mother with a verified email', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(motherWith('APPROVED', true));
     const res = await createBooking(DECODED, VALID_BODY);
     expect(res.status).toBe('PENDING');
   });

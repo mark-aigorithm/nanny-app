@@ -22,11 +22,16 @@ jest.mock('@backend/services/admin-nanny.service', () => ({
   reconcileNannySkills: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { Role, type RegisterRequest } from '@nanny-app/shared';
+jest.mock('@backend/services/email-verification.service', () => ({
+  consumeVerificationToken: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { Role, RegisterRequestSchema, type RegisterRequest } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
+import { consumeVerificationToken } from '@backend/services/email-verification.service';
 import { registerUser } from '@backend/services/auth.service';
 
 const mockPrisma = prisma as unknown as {
@@ -35,8 +40,11 @@ const mockPrisma = prisma as unknown as {
 };
 const mockReconcileCertifications = reconcileNannyCertifications as jest.Mock;
 const mockReconcileSkills = reconcileNannySkills as jest.Mock;
+const mockConsumeToken = consumeVerificationToken as jest.Mock;
 
 const DECODED = { uid: 'fb-1', email_verified: true, phone_number: '+201000000000' } as never;
+/** A Firebase token for an address Firebase itself has not verified — the normal case. */
+const DECODED_UNVERIFIED = { uid: 'fb-1', phone_number: '+201000000000' } as never;
 
 /** Echo the created user row back so toUserResponse can serialise it. */
 function userRowFromData(data: Record<string, unknown>) {
@@ -84,6 +92,8 @@ const NANNY_BODY: RegisterRequest = {
   schedule: { '1': { available: true, startTime: '09:00', endTime: '17:00' } },
   certificationIds: [1],
   skillIds: [2],
+  // A nanny verifies her address mid-wizard and arrives holding the proof.
+  emailVerificationToken: 'a'.repeat(64),
 };
 
 const MOTHER_BODY: RegisterRequest = {
@@ -178,5 +188,60 @@ describe('registerUser — nanny profile population', () => {
     expect(mockReconcileCertifications).not.toHaveBeenCalled();
     expect(mockReconcileSkills).not.toHaveBeenCalled();
     expect(res.avatarUrl).toBeNull();
+  });
+});
+
+describe('registerUser — email verification token', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+  });
+
+  it('spends the token inside the same transaction and marks the address verified', async () => {
+    const tx = makeTx();
+    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
+
+    // Firebase has not verified this address — our own OTP is the only proof.
+    const res = await registerUser(DECODED_UNVERIFIED, NANNY_BODY);
+
+    // Same tx object the user is created on, so a failed registration leaves
+    // the token spendable on a retry.
+    expect(mockConsumeToken).toHaveBeenCalledWith(NANNY_BODY.email, 'a'.repeat(64), tx);
+
+    const userData = tx.user.create.mock.calls[0][0].data;
+    expect(userData.isEmailVerified).toBe(true);
+    expect(userData.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(res.isEmailVerified).toBe(true);
+  });
+
+  it('leaves a mother unverified — she proves an address later, at the booking gate', async () => {
+    const tx = makeTx();
+    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
+
+    await registerUser(DECODED_UNVERIFIED, MOTHER_BODY);
+
+    expect(mockConsumeToken).not.toHaveBeenCalled();
+    const userData = tx.user.create.mock.calls[0][0].data;
+    expect(userData.isEmailVerified).toBe(false);
+    expect(userData.emailVerifiedAt).toBeNull();
+  });
+
+  it('does not create the user when the token is rejected', async () => {
+    const tx = makeTx();
+    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
+    mockConsumeToken.mockRejectedValueOnce(new Error('Your email verification has expired.'));
+
+    await expect(registerUser(DECODED_UNVERIFIED, NANNY_BODY)).rejects.toThrow('expired');
+    expect(tx.user.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a nanny payload with no token at the schema, before any service runs', () => {
+    const { emailVerificationToken: _token, ...withoutToken } = NANNY_BODY;
+    const parsed = RegisterRequestSchema.safeParse(withoutToken);
+
+    expect(parsed.success).toBe(false);
+    expect(RegisterRequestSchema.safeParse(NANNY_BODY).success).toBe(true);
+    // A mother needs none.
+    expect(RegisterRequestSchema.safeParse(MOTHER_BODY).success).toBe(true);
   });
 });

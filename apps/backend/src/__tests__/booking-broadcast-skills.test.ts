@@ -96,7 +96,14 @@ const FRENCH = { id: 1, name: 'French speaker', feeType: 'FLAT', feeValue: 20 };
 const SWIMMING = { id: 2, name: 'Swimming', feeType: null, feeValue: 0 };
 
 const mother = { id: 10, firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
-const motherUser = { id: 10, firebaseUid: 'fb-mother', role: Role.MOTHER, deletedAt: null };
+// isEmailVerified: bookings are gated on it; these tests are about skills.
+const motherUser = {
+  id: 10,
+  firebaseUid: 'fb-mother',
+  role: Role.MOTHER,
+  deletedAt: null,
+  isEmailVerified: true,
+};
 
 /** The skill-fee snapshot a booking stores for the given catalog entries. */
 function snapshot(skills: { id: number; name: string }[]) {
