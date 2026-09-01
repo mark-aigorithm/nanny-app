@@ -1,8 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { RegisterRequest, UserResponse } from '@nanny-app/shared';
+import type {
+  RegisterRequest,
+  SetVerifiedEmailRequest,
+  UserResponse,
+  VerifyEmailOtpRequest,
+  VerifyEmailOtpResponse,
+} from '@nanny-app/shared';
 
 import { auth } from '@mobile/lib/firebase';
-import type { UserCredential } from '@mobile/lib/firebase';
+import type { PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
 import { api, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
@@ -62,31 +68,76 @@ export function useSignOut() {
 }
 
 /**
- * Creates the Firebase account for a phone-number-only sign-up.
- *
- * Phone verification is bypassed for now (no SMS provider), so instead of
- * the real phone-OTP flow we back the account with Firebase email/password
- * using a placeholder email derived from the phone number (see
- * `phoneToPlaceholderEmail`) plus the password collected in step 2. This
- * yields a real Firebase user + JWT that the backend accepts unchanged.
- *
- * Idempotent: if the account already exists (e.g. the user retried after a
- * partial run), sign in to it instead of failing.
+ * Sends the registration SMS and hands back the handle the code is checked
+ * against. `forceResend` marks a user-tapped resend rather than the first send.
  */
-export function useCreatePhoneAccount() {
-  return useMutation<void, MappedAuthError, { email: string; password: string }>({
-    mutationFn: async ({ email, password }) => {
-      const trimmed = email.trim();
+export function useSendPhoneOtp() {
+  return useMutation<
+    PhoneConfirmation,
+    MappedAuthError,
+    { phone: string; forceResend?: boolean }
+  >({
+    mutationFn: async ({ phone, forceResend }) => {
       try {
-        await auth().createUserWithEmailAndPassword(trimmed, password);
+        return await auth().signInWithPhoneNumber(phone, forceResend);
       } catch (error) {
-        if ((error as { code?: string })?.code === 'auth/email-already-in-use') {
-          try {
-            await auth().signInWithEmailAndPassword(trimmed, password);
-            return;
-          } catch (signInError) {
-            throw mapFirebaseAuthError(signInError);
-          }
+        throw mapFirebaseAuthError(error);
+      }
+    },
+  });
+}
+
+/**
+ * Finishes the auth half of registration: checks the SMS code, then attaches
+ * the email/password credential to the user Firebase just signed in.
+ *
+ * Confirming the code *is* a sign-in — it leaves the app authenticated as a
+ * phone-only user with no password. Linking gives that same uid the
+ * email/password credential every other surface expects (`SignInScreen`, the
+ * mother's email gate), so the verified phone becomes an additional factor on
+ * one account rather than a second account.
+ *
+ * The address depends on the role. A nanny passes the real one she verified
+ * mid-wizard against our own email OTP. A mother has not given one yet, so she
+ * passes the placeholder derived from her phone number (see
+ * `phoneToPlaceholderEmail`); it is swapped for her real address once she
+ * verifies one at the pre-booking email gate.
+ *
+ * Idempotent: a retry after a failure further down the wizard re-confirms into
+ * the same uid, where the password provider is already attached.
+ */
+export function useConfirmPhoneAndLink() {
+  return useMutation<
+    void,
+    MappedAuthError,
+    { confirmation: PhoneConfirmation; code: string; email: string; password: string }
+  >({
+    mutationFn: async ({ confirmation, code, email, password }) => {
+      try {
+        await confirmation.confirm(code);
+      } catch (error) {
+        throw mapFirebaseAuthError(error);
+      }
+
+      const user = auth().currentUser;
+      if (!user) {
+        // confirm() resolved without leaving a session — nothing to link onto.
+        throw {
+          field: 'form',
+          message: 'Your phone was verified but the session was lost. Please try again.',
+        } satisfies MappedAuthError;
+      }
+
+      try {
+        await user.linkWithCredential(
+          auth.EmailAuthProvider.credential(email.trim().toLowerCase(), password),
+        );
+      } catch (error) {
+        // Only a password provider already on *this* uid is a no-op. The
+        // "already in use" codes mean a different account owns that address,
+        // which the user has to resolve — let those surface.
+        if ((error as { code?: string })?.code === 'auth/provider-already-linked') {
+          return;
         }
         throw mapFirebaseAuthError(error);
       }
@@ -104,6 +155,43 @@ export function useRegisterProfile() {
   const setProfile = useUserProfileStore((s) => s.setProfile);
   return useMutation<UserResponse, Error, RegisterRequest>({
     mutationFn: async (body) => unwrap(api.post('/auth/register', body)),
+    onSuccess: (profile) => setProfile(profile),
+  });
+}
+
+/**
+ * Mails a one-time code to an address. Used by both entry points — the nanny
+ * registration step and the mother's pre-booking gate — and works signed-out,
+ * because a nanny verifies before her Firebase account exists.
+ */
+export function useSendEmailOtp() {
+  return useMutation<void, Error, string>({
+    mutationFn: async (email) => {
+      await api.post('/auth/email/otp', { email });
+    },
+  });
+}
+
+/**
+ * Checks a code and returns the single-use token proving the address. Nothing
+ * is marked verified by this call — the token still has to be spent, on
+ * `/auth/register` (nanny) or `/auth/email` (mother).
+ */
+export function useVerifyEmailOtp() {
+  return useMutation<VerifyEmailOtpResponse, Error, VerifyEmailOtpRequest>({
+    mutationFn: async (body) => unwrap(api.post('/auth/email/verify', body)),
+  });
+}
+
+/**
+ * Spends a verification token to attach the address to the signed-in user.
+ * The mother's half of the gate; see `useVerifiedEmailSubmit`, which owns the
+ * ordering against the matching Firebase credential update.
+ */
+export function useSetVerifiedEmail() {
+  const setProfile = useUserProfileStore((s) => s.setProfile);
+  return useMutation<UserResponse, Error, SetVerifiedEmailRequest>({
+    mutationFn: async (body) => unwrap(api.post('/auth/email', body)),
     onSuccess: (profile) => setProfile(profile),
   });
 }

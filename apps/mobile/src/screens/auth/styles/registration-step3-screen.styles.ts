@@ -108,44 +108,9 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
-  // OTP section
+  // OTP section — the boxes themselves live in the shared OtpCodeInput.
   otpSection: {
     gap: spacing.lg,
-  },
-  hiddenInput: {
-    position: 'absolute',
-    opacity: 0,
-    width: 1,
-    height: 1,
-  },
-  otpBoxRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    justifyContent: 'center',
-  },
-  otpBox: {
-    width: 48,
-    height: 56,
-    backgroundColor: colors.warmBorder,
-    borderRadius: borderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.transparent,
-  },
-  otpBoxActive: {
-    borderColor: colors.primary,
-  },
-  otpDigit: {
-    fontFamily: fontFamily.bold,
-    fontSize: 22,
-    color: colors.textPrimary,
-  },
-  cursor: {
-    width: 2,
-    height: 22,
-    backgroundColor: colors.primary,
-    borderRadius: 1,
   },
 
   // Resend row

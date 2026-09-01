@@ -80,27 +80,32 @@ if (authEmulatorHost) {
 // Email/password, sign-out, state observation, AND phone OTP all use the
 // real Firebase JS SDK — nothing is stubbed or faked.
 //
-// REGISTRATION FLOW (phone-only sign-up, OTP bypassed):
-// Sign-up collects a phone number + password only. Because no SMS
-// provider is wired up yet, phone verification is bypassed for
-// end-to-end testing (see `useCreatePhoneAccount` and `BYPASS_OTP`).
-// Under the hood the account is created with the real Firebase JS SDK
-// `createUserWithEmailAndPassword`, using a placeholder email derived
-// from the phone number (`phoneToPlaceholderEmail`) plus the chosen
-// password. This yields a real Firebase user + JWT that the backend
-// accepts unchanged.
+// REGISTRATION FLOW:
+// Every account starts as a real Firebase phone credential —
+// `signInWithPhoneNumber` sends the code and `confirm()` signs the user in —
+// after which the email/password credential is linked onto that same uid (see
+// `useConfirmPhoneAndLink`). That linked address is always the placeholder
+// derived from the phone number (`phoneToPlaceholderEmail`) — sign-in is by
+// phone, for everyone, always.
 //
-// The `signInWithPhoneNumber` shim below is retained for when a real
-// OTP provider / native build replaces this bypass. It passes a minimal
-// fake `ApplicationVerifier`; Firebase only accepts it for numbers under
-// "Phone numbers for testing" in the Firebase Console.
+// A user's real email is a separate thing entirely: proven by our own OTP,
+// stored in `users.email`, and used only to reach them (booking receipts, the
+// Paymob billing record). It is never a Firebase credential, so nothing here
+// changes when someone verifies one.
+//
+// The `signInWithPhoneNumber` shim below passes a minimal fake
+// `ApplicationVerifier`; Firebase only accepts it for numbers listed under
+// "Phone numbers for testing" in the Firebase Console. Real numbers need a
+// native build, where @react-native-firebase/auth replaces this shim and does
+// real device attestation.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
  * Wrap the JS SDK User in a Proxy that (a) preserves every real method
- * (getIdToken, etc.) with correct `this` binding, and (b) intercepts
- * `linkWithCredential` so calls targeting the React Native Firebase API
- * get forwarded to the modular JS SDK function with the right `this`.
+ * (getIdToken, etc.) with correct `this` binding, and (b) intercepts the
+ * methods the React Native Firebase API exposes on the user object but the
+ * modular JS SDK exposes as free functions, forwarding each to its modular
+ * counterpart with the right `this`.
  */
 function wrapCurrentUser(user: JsUser): FirebaseAuthTypes.User {
   return new Proxy(user as object, {

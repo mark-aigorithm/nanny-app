@@ -119,11 +119,6 @@ const config: ExpoConfig = {
     // set it to the local Paymob fake — from an Android emulator the host
     // machine is 10.0.2.2, so typically PAYMOB_CHECKOUT_ORIGIN=http://10.0.2.2:4010.
     paymobCheckoutOrigin: process.env['PAYMOB_CHECKOUT_ORIGIN'] ?? '',
-    // Set OTP_BYPASS_ENABLED=true in your shell to skip phone OTP during local dev.
-    // Uses email/password Firebase auth instead — still creates a real Firebase user
-    // and a real JWT, so the backend registration path works end-to-end.
-    // Never enable in production (env var is not set there).
-    otpBypassEnabled: process.env['OTP_BYPASS_ENABLED'] ?? 'false',
     eas: {
       projectId: 'cd5987c1-9302-4742-b278-97926265980c',
     },

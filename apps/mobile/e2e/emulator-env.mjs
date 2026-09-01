@@ -16,8 +16,4 @@ export const EMULATOR_ENV = {
   // Points the checkout WebView at the Paymob fake instead of Paymob. Empty in
   // every real build — see apps/mobile/src/lib/paymobCheckout.ts.
   PAYMOB_CHECKOUT_ORIGIN: 'http://10.0.2.2:4010',
-  // Registration is phone-OTP in production, which no local emulator can
-  // deliver. The bypass keeps the same Firebase account and the same backend
-  // registration path, minus the SMS.
-  OTP_BYPASS_ENABLED: 'true',
 };

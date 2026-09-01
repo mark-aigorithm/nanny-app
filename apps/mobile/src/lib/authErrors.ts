@@ -48,6 +48,8 @@ export function mapFirebaseAuthError(error: unknown): MappedAuthError {
       return { field: 'phone', message: 'SMS quota exceeded. Try again later.' };
     case 'auth/invalid-verification-code':
       return { field: 'form', message: "That code isn't right. Check and try again." };
+    case 'auth/code-expired':
+      return { field: 'form', message: 'That code has expired. Tap resend to get a new one.' };
     case 'auth/credential-already-in-use':
       return {
         field: 'phone',
