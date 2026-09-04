@@ -46,6 +46,21 @@ export const ACCOUNTS = {
 };
 
 /**
+ * The account a full-registration flow (Phase 3 of the coverage-expansion spec)
+ * creates from scratch. Deliberately NOT in ACCOUNTS — the flow registers it, so
+ * the seeder must **wipe** it (delete the Firebase user and free the unique
+ * phone) before each run rather than upsert it, or the second run collides on
+ * `users.phone`. Wiring the runner passthrough + the seeder wipe is Phase 2c.
+ * See Docs/testing/2026-09-04-e2e-coverage-expansion-design.md.
+ */
+export const REGISTRATION = {
+  phone: '+201100000005',
+  password: PASSWORD,
+  role: 'MOTHER',
+  firstName: 'Rana',
+};
+
+/**
  * The console account the lab approves with.
  *
  * A superuser rather than a scoped operator: what these flows care about is the
