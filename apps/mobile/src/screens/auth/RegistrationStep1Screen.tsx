@@ -15,6 +15,7 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -93,6 +94,13 @@ export default function RegistrationStep1Screen() {
 
   async function handlePickPhoto() {
     try {
+      // E2E: skip the system picker + crop and use a bundled placeholder.
+      const e2eUri = await e2ePlaceholderImageUri();
+      if (e2eUri) {
+        patch({ photoUri: e2eUri });
+        setShowPhotoError(false);
+        return;
+      }
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to pick a profile picture.' });

@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
+import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
 
 /**
  * Prompt the user to pick a single image from their photo library and return
@@ -9,6 +10,10 @@ import { noticeDialog } from '@mobile/store/confirmDialogStore';
  */
 export async function pickImageFromLibrary(): Promise<string | null> {
   try {
+    // E2E: skip the system picker and hand back a bundled placeholder.
+    const e2eUri = await e2ePlaceholderImageUri();
+    if (e2eUri) return e2eUri;
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to upload your ID.' });

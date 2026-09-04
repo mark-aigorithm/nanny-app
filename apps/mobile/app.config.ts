@@ -128,6 +128,13 @@ const config: ExpoConfig = {
     // auth alone. From an Android emulator the host machine is 10.0.2.2, so
     // this is typically FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099.
     firebaseAuthEmulatorHost: process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '',
+    // Points the Firebase JS SDK's Storage at the local Storage emulator for
+    // end-to-end tests (nanny ID/avatar uploads, marketplace listing photos).
+    // Empty in every real build, in which case lib/storage.ts leaves Storage
+    // alone. From an Android emulator the host is 10.0.2.2, so this is typically
+    // FIREBASE_STORAGE_EMULATOR_HOST=10.0.2.2:9199. Doubles as the E2E flag the
+    // photo-picker affordance keys off (lib/e2eImage.ts).
+    firebaseStorageEmulatorHost: process.env['FIREBASE_STORAGE_EMULATOR_HOST'] ?? '',
     // Where the Paymob checkout WebView loads from. Empty in every real build,
     // in which case paymobCheckout.ts uses Paymob's own host. End-to-end runs
     // set it to the local Paymob fake — from an Android emulator the host

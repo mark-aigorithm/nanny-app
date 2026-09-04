@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// EMULATOR-ONLY rules for the E2E test stack. Uploads (nanny ID, avatar,
+// marketplace listing photos) run against the local Storage emulator without a
+// signed-in-user check, so a Maestro flow can exercise the real upload path.
+// These are NEVER deployed — the live bucket's rules live in the Firebase
+// console. Referenced by firebase.json's `storage.rules`.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

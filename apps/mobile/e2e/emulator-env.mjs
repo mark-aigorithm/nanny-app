@@ -13,6 +13,10 @@
 export const EMULATOR_ENV = {
   API_BASE_URL: 'http://10.0.2.2:3001',
   FIREBASE_AUTH_EMULATOR_HOST: '10.0.2.2:9099',
+  // Points the Firebase JS SDK's Storage at the local Storage emulator so
+  // registration (nanny ID/avatar) and marketplace listing uploads work in E2E.
+  // Also the flag the photo-picker affordance keys off (lib/e2eImage.ts).
+  FIREBASE_STORAGE_EMULATOR_HOST: '10.0.2.2:9199',
   // Points the checkout WebView at the Paymob fake instead of Paymob. Empty in
   // every real build — see apps/mobile/src/lib/paymobCheckout.ts.
   PAYMOB_CHECKOUT_ORIGIN: 'http://10.0.2.2:4010',

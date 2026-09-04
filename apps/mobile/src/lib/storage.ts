@@ -1,8 +1,32 @@
-import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
+import Constants from 'expo-constants';
+import {
+  connectStorageEmulator,
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadBytes,
+} from 'firebase/storage';
 
 import { auth, firebaseApp } from '@mobile/lib/firebase';
 
 const storage = getStorage(firebaseApp);
+
+// End-to-end tests point Storage at the local emulator so uploads (nanny ID,
+// avatar, marketplace photos) don't need a live bucket. Populated from
+// FIREBASE_STORAGE_EMULATOR_HOST by app.config.ts (10.0.2.2:9199 from an Android
+// emulator); empty in every real build, where this is a no-op. Wrapped because
+// Fast Refresh re-running this module would otherwise re-connect and throw.
+const storageEmulatorHost = Constants.expoConfig?.extra?.['firebaseStorageEmulatorHost'] as
+  | string
+  | undefined;
+if (storageEmulatorHost) {
+  const [host, port] = storageEmulatorHost.split(':');
+  try {
+    connectStorageEmulator(storage, host ?? '127.0.0.1', Number(port ?? 9199));
+  } catch {
+    // Already connected on a previous run (Fast Refresh) — safe to ignore.
+  }
+}
 
 /**
  * Upload a local file URI (e.g. one returned by expo-image-picker) to
