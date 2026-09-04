@@ -34,6 +34,20 @@ const config: ExpoConfig = {
     // every build.
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // Firebase phone auth verifies the app on iOS with a SILENT background
+      // push (not the reCAPTCHA web flow). That silent push only arrives if the
+      // app declares the remote-notification background mode AND carries the
+      // aps-environment entitlement (below). Without these, iOS can't deliver
+      // the verification push and Firebase falls back to reCAPTCHA — which then
+      // can't complete because the redirect scheme isn't wired for it.
+      UIBackgroundModes: ['remote-notification'],
+    },
+    // Push Notifications capability. Required for the FCM token AND for Firebase
+    // phone auth's silent app-verification push. 'production' is the APNs
+    // environment TestFlight / App Store builds use; EAS enables the matching
+    // capability on the App ID and regenerates the provisioning profile.
+    entitlements: {
+      'aps-environment': 'production',
     },
     // Deliberately no `config.googleMapsApiKey` here. Setting it pulls in the
     // react-native-google-maps pod, which cannot build under the framework
