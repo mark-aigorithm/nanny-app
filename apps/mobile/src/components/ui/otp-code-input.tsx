@@ -53,6 +53,12 @@ export default function OtpCodeInput({
       />
 
       <Pressable
+        // The real input is offscreen and 1×1, so Android prunes it from the
+        // accessibility tree and a device driver (Maestro) cannot find it by
+        // `testID` to focus it. The visible boxes are what a person taps, so
+        // they carry a findable id too — tapping them focuses the input, and
+        // typed text lands in the hidden field the same way.
+        testID={testID ? `${testID}.boxes` : undefined}
         style={styles.boxRow}
         onPress={() => inputRef.current?.focus()}
         disabled={disabled}

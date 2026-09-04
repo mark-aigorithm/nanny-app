@@ -2,25 +2,23 @@
 #
 # The other flows all begin by signing in and never look at it again, so this is
 # the only place the auth screens themselves are the subject: a refused
-# password, a session that really ends, and the reset screen.
+# password, a session that really ends, and the phone-based reset.
 #
 # Two assertions here are deliberately about things a screen cannot show you.
 # Signing out is checked by **reopening the app**, because navigating back to
 # the welcome screen would look identical whether or not Firebase's persisted
-# session was actually cleared. And the reset is checked against the Auth
-# emulator's own out-of-band code list, because "Check your inbox" is client
-# state the screen sets on any success the SDK reports.
+# session was actually cleared. And the reset is proven by *signing in with the
+# new password afterwards* — "landing back in the app" is client state the SDK
+# reports on any success, so only the next sign-in shows that the credential the
+# app actually checks was changed.
 #
-# ── KNOWN GAP, pinned below ────────────────────────────────────────────────
-# The reset screen asks for an email address that no user of this app has.
-# Sign-up is phone-only: RegistrationStep3Screen derives a placeholder email
-# from the phone number (`phoneToPlaceholderEmail`) and that synthesized string
-# is the Firebase credential *and* the address stored on the user row. A real
-# person is never shown it and has no reason to guess it, so whatever they type
-# is refused. This flow asserts both halves — the refusal a real user gets, and
-# the success that is only reachable with the placeholder — so that closing the
-# gap (collecting a real email, or making this screen take a phone number) turns
-# the first assertion red rather than passing silently.
+# Recovery is by phone because sign-in is: the screen texts a code to the
+# number, confirming it signs her in as her phone uid, and updatePassword writes
+# the new password onto the email/password credential SignInScreen checks. Those
+# are one Firebase account — the seeder links the phone number onto the mother's
+# uid exactly as real registration does (useConfirmPhoneAndLink), so the
+# emulator's phone sign-in resolves to her, not a second user. The code never
+# arrives as SMS; the emulator parks it on an admin endpoint advance.js reads.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -82,7 +80,7 @@ appId: com.nannyapp.mobile
       EXPECT: 'Care you can trust'
 - assertNotVisible: 'Book care'
 
-# ── Forgot password ────────────────────────────────────────────────────────
+# ── Forgot password — the phone-based reset ────────────────────────────────
 - tapOn: 'Get Started'
 - assertVisible: 'Create your account'
 - tapOn: 'Sign in'
@@ -92,41 +90,73 @@ appId: com.nannyapp.mobile
     visible: 'Reset your password'
     timeout: 30000
 
-# KNOWN GAP: what a real person would type. Registration never asked for this
-# address, so Firebase has never heard of it and the screen says so. Asserted
-# rather than skipped, so the gap is visible in a run instead of only in a doc.
+# ── Phase 1: her number ────────────────────────────────────────────────────
 - tapOn:
-    id: 'forgotPassword.email'
-- inputText: 'mona@example.com'
+    id: 'forgotPassword.phone'
+- inputText: ${MOTHER_PHONE}
 - hideKeyboard
-- tapOn: 'Send reset link'
-- extendedWaitUntil:
-    visible: "We couldn't find an account with those details."
-    timeout: 30000
-- assertNotVisible: 'Check your inbox'
+- tapOn: 'Send code'
 
-# The address that does work — the one the app synthesized for her and never
-# showed her. Counted before the tap because the emulator's code list is never
-# cleared: a run an hour ago left one behind for this same account, so "a code
-# exists" would pass without the app doing anything at all.
+# The verify phase reuses the 'Reset your password' headline, so wait for
+# something only it renders — the new-password field.
+- extendedWaitUntil:
+    visible: 'New password'
+    timeout: 30000
+
+# ── The code, read straight off the emulator (no SMS is ever sent) ─────────
+# Keyed by the E.164 the app dialled — the country code plus her digits, not
+# the digits she typed. phoneOtp throws if none was issued, so reaching the
+# next step is itself proof the send worked.
 - runScript:
     file: ../scripts/advance.js
     env:
-      ADVANCE: reset-codes-before
+      ADVANCE: phone-otp
+      OTP_PHONE: ${MOTHER_PHONE_E164}
+- assertTrue: ${output.otp != null}
 
+# ── Phase 2: type the code and choose a new password ───────────────────────
+# The boxes are a drawing of one offscreen 1×1 input Android prunes from the
+# tree — so tap the visible boxes (`.boxes`) to focus it, then type the code.
 - tapOn:
-    id: 'forgotPassword.email'
-- eraseText
-- inputText: ${MOTHER_EMAIL}
+    id: 'forgotPassword.code.boxes'
+- inputText: ${output.otp}
 - hideKeyboard
-- tapOn: 'Send reset link'
+# The password fields have no testID — selected by their placeholder copy,
+# which is unique here (unlike the bullet-run on the sign-in screen) and never
+# matches the reveal-password toggle.
+- tapOn: 'Enter a new password'
+- inputText: 'NewPassw0rd!'
+- hideKeyboard
+- tapOn: 'Re-enter your password'
+- inputText: 'NewPassw0rd!'
+- hideKeyboard
+- tapOn: 'Reset password'
 
+# The reset signs her in and drops her on Home — but that is the weak half of
+# the proof (the SDK reports success either way). The strong half is below.
 - extendedWaitUntil:
-    visible: 'Check your inbox'
+    visible: 'Book care'
+    timeout: 60000
+
+# ── The new password is the real one now ───────────────────────────────────
+# Sign out and back in with it. This is the assertion that matters: it fails if
+# updatePassword touched some other account (a phone-only user the emulator
+# minted because the number was not linked to hers) rather than the credential
+# SignInScreen checks.
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Sign out'
+    timeout: 30000
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Care you can trust'
     timeout: 30000
 
-- runScript:
-    file: ../scripts/advance.js
+- runFlow:
+    file: _sign-in.yaml
     env:
-      ADVANCE: reset-code-issued
-- assertTrue: ${output.resetCodeIssued == 'true'}
+      PHONE: ${MOTHER_PHONE}
+      PASSWORD: 'NewPassw0rd!'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

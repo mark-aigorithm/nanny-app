@@ -236,43 +236,6 @@ function adminApproveNanny() {
 }
 
 /**
- * How many password-reset links the Auth emulator is holding for one address.
- *
- * The emulator never delivers mail — it parks the out-of-band code on this
- * endpoint instead, which is the only place a reset is observable from outside
- * the app. Nothing clears the list, not even the seeder, so a bare "is there a
- * code for her?" would pass on a code minted by a run an hour ago. C1 therefore
- * counts either side of the tap and asserts the number went up.
- */
-function resetCodeCount(email) {
-  var res = http.get(AUTH_EMULATOR_URL + '/emulator/v1/projects/' + AUTH_PROJECT_ID + '/oobCodes');
-  if (res.status !== 200) {
-    throw new Error('Auth emulator oobCodes → ' + res.status + ' ' + res.body);
-  }
-  var codes = json(res.body).oobCodes || [];
-  var count = 0;
-  for (var i = 0; i < codes.length; i++) {
-    if (codes[i].email === email && codes[i].requestType === 'PASSWORD_RESET') count++;
-  }
-  return count;
-}
-
-/** Recorded before the flow taps "Send reset link". */
-function resetCodesBefore() {
-  output.resetCodesBefore = String(resetCodeCount(MOTHER_EMAIL));
-}
-
-/** Asserted after it: a link the app claims to have sent must actually exist. */
-function resetCodeIssued() {
-  if (output.resetCodesBefore === undefined) {
-    throw new Error('reset-codes-before did not run — there is nothing to compare against.');
-  }
-  var after = resetCodeCount(MOTHER_EMAIL);
-  output.resetCodesAfter = String(after);
-  output.resetCodeIssued = String(after > Number(output.resetCodesBefore));
-}
-
-/**
  * Two notifications for the mother, with nothing left unread behind them.
  *
  * Moderating a marketplace listing is the cheapest way to make one: it notifies
@@ -695,8 +658,6 @@ var STEPS = {
   'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
   'nanny-accept': nannyAccept,
-  'reset-codes-before': resetCodesBefore,
-  'reset-code-issued': resetCodeIssued,
   'seed-listing-notifications': seedListingNotifications,
   'unread-count': unreadCount,
   'community-reset': communityReset,

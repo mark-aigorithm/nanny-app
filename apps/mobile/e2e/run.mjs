@@ -277,6 +277,16 @@ function quietDeviceChrome(adb, device) {
   // but this repo.
   spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'global', 'verifier_verify_adb_installs', '0']);
   spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'global', 'package_verifier_enable', '0']);
+
+  // Turn the emulated Wi-Fi off, or the app cannot reach the host at all. The
+  // API 35 google_apis image brings up a mac80211_hwsim `wlan0` on the *same*
+  // 10.0.2.0/24 subnet as the SLIRP NAT `eth0`, with no default route — so
+  // packets to the host alias `10.0.2.2` (where the backend, the Auth emulator
+  // and Paymob all listen) can leave via wlan0, which has no path to the host,
+  // and every request dies as "Network is unreachable" / `auth/unknown`. eth0
+  // is the only interface that reaches 10.0.2.2, so wlan0 has to be out of the
+  // way. A cold boot re-enables it, which is why this runs before every suite.
+  spawnSync(adb, ['-s', device, 'shell', 'svc', 'wifi', 'disable']);
 }
 
 function flowsToRun(requested) {
@@ -318,6 +328,10 @@ function runFlow(maestro, flow) {
     NANNY_PHONE: localDigits(ACCOUNTS.nanny.phone),
     GATED_MOTHER_PHONE: localDigits(ACCOUNTS.gatedMother.phone),
     PENDING_NANNY_PHONE: localDigits(ACCOUNTS.pendingNanny.phone),
+    // The full E.164, for the phone-otp advance step: the emulator keys every
+    // verification code it issues by the number the app dialled, and that is
+    // the country code plus the digits, not the digits a person types.
+    MOTHER_PHONE_E164: ACCOUNTS.mother.phone,
     MOTHER_EMAIL: placeholderEmail(ACCOUNTS.mother.phone),
     NANNY_EMAIL: placeholderEmail(ACCOUNTS.nanny.phone),
     GATED_MOTHER_EMAIL: placeholderEmail(ACCOUNTS.gatedMother.phone),

@@ -77,22 +77,39 @@ function placeholderEmail(phoneE164: string): string {
   return `${phoneE164.replace(/\D/g, '')}@phone.nannyapp.local`;
 }
 
-async function ensureFirebaseUser(email: string, password: string): Promise<string> {
+/**
+ * Provisions the Firebase account behind one row.
+ *
+ * `phoneNumber` matters for more than realism: recovery is phone-based
+ * (ForgotPasswordScreen texts a code, confirming it signs in as the phone uid,
+ * then updatePassword rewrites the credential SignInScreen checks). For that to
+ * reset the *same* account she signs in with, the phone number has to hang off
+ * her email/password uid — which is exactly what real registration does
+ * (`useConfirmPhoneAndLink` links the password onto the phone-verified uid).
+ * Without it the emulator's phone sign-in would mint a second user and the
+ * reset would land on nobody. The admin has no phone and passes none.
+ */
+async function ensureFirebaseUser(
+  email: string,
+  password: string,
+  phoneNumber?: string,
+): Promise<string> {
+  const fields = phoneNumber ? { password, phoneNumber } : { password };
   try {
     const existing = await firebaseAuth.getUserByEmail(email);
-    // Reset the password: a half-provisioned account from an earlier run would
-    // otherwise fail sign-in with a stale credential.
-    await firebaseAuth.updateUser(existing.uid, { password });
+    // Reset the password (and re-link the phone): a half-provisioned account
+    // from an earlier run would otherwise fail sign-in with a stale credential.
+    await firebaseAuth.updateUser(existing.uid, fields);
     return existing.uid;
   } catch {
-    const created = await firebaseAuth.createUser({ email, password });
+    const created = await firebaseAuth.createUser({ email, ...fields });
     return created.uid;
   }
 }
 
 async function seedAccount(spec: AccountSpec): Promise<number> {
   const email = placeholderEmail(spec.phone);
-  const firebaseUid = await ensureFirebaseUser(email, spec.password);
+  const firebaseUid = await ensureFirebaseUser(email, spec.password, spec.phone);
 
   // Both roles are gated on an approved ID — a mother cannot book without one
   // and a nanny cannot reach her dashboard. The lab's baseline is "past the
