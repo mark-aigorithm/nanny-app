@@ -4,8 +4,8 @@
 # The catalogue describes this as "generate code → new user applies it at
 # registration → /referral/validate". The middle step is not drivable here, and
 # not for a reason worth working around: **step 1 of registration requires a
-# profile photo** for everyone — `Continue` is disabled until `draft.photoUri`
-# is set — so reaching the referral field on step 3 means driving the Android
+# profile photo** for everyone — `Continue` refuses to advance until
+# `draft.photoUri` is set — so reaching the referral field on step 3 means driving the Android
 # photo picker and its crop screen, which is the system UI A10 refused for the
 # same reason. It would also mint a new account on every run against a database
 # that is never truncated.

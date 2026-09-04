@@ -56,6 +56,9 @@ export default function RegistrationStep1Screen() {
   const patch = useRegistrationDraftStore((s) => s.patch);
 
   const [formError, setFormError] = useState<string | null>(null);
+  // The "photo required" hint stays hidden until the first Continue attempt —
+  // showing it on arrival, before the user has done anything, reads as an error.
+  const [showPhotoError, setShowPhotoError] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(() => parseDob(draft.dob));
 
@@ -103,6 +106,7 @@ export default function RegistrationStep1Screen() {
       });
       if (!result.canceled && result.assets[0]) {
         patch({ photoUri: result.assets[0].uri });
+        setShowPhotoError(false);
       }
     } catch (err) {
       noticeDialog({ title: 'Could not open photos', message: err instanceof Error ? err.message : 'Something went wrong.' });
@@ -112,7 +116,7 @@ export default function RegistrationStep1Screen() {
   function handleContinue() {
     setFormError(null);
     if (!draft.photoUri) {
-      setFormError('Please add a profile photo.');
+      setShowPhotoError(true);
       return;
     }
     if (!draft.firstName.trim() || !draft.lastName.trim()) {
@@ -193,7 +197,7 @@ export default function RegistrationStep1Screen() {
                 {draft.photoUri ? 'Change photo' : 'Add photo'}
               </Text>
             </Pressable>
-            {!draft.photoUri && (
+            {showPhotoError && !draft.photoUri && (
               <Text style={styles.photoRequiredHint}>A profile photo is required</Text>
             )}
           </View>
@@ -282,7 +286,7 @@ export default function RegistrationStep1Screen() {
 
         {/* Fixed footer */}
         <View style={styles.footer}>
-          <Button title="Continue" onPress={handleContinue} disabled={!draft.photoUri} />
+          <Button title="Continue" onPress={handleContinue} />
         </View>
 
         {/* Android: native modal dialog, no custom wrapper needed. */}

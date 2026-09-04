@@ -9,8 +9,9 @@
 #
 # ── Scope note ─────────────────────────────────────────────────────────────
 # The flow stops at step 1 of each path, and the reason is the same one C7
-# carries: `Continue` on step 1 is disabled until `draft.photoUri` is set, so
-# going any further means driving the Android photo picker and its crop screen.
+# carries: `Continue` on step 1 refuses to advance until `draft.photoUri` is set
+# (it surfaces the "photo required" hint instead), so going any further means
+# driving the Android photo picker and its crop screen.
 # What is asserted here is everything the *selection* decides — the label on
 # the button, the length of the path, and the draft being thrown away when the
 # choice changes. What the later steps ask for is each screen's own business.
@@ -40,6 +41,11 @@ appId: com.nannyapp.mobile
 - extendedWaitUntil:
     visible: 'STEP 1 OF 4.*'
     timeout: 30000
+
+# The "photo required" hint is deferred to the first Continue attempt — it is
+# not shown on arrival, and appears once Continue is tapped with no photo set.
+- assertNotVisible: 'A profile photo is required'
+- tapOn: 'Continue'
 - assertVisible: 'A profile photo is required'
 
 # Something typed on this path, to prove it does not survive the fork.
