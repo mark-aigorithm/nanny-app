@@ -81,6 +81,11 @@ h3 {
   max-width: 100%;
 }
 
+/* Exactly one viewport tall and self-contained: `overflow: hidden` keeps a long
+   nav list from spilling into the document's scroll area (which made every page
+   scroll vertically, however short its content). The nav scrolls inside instead
+   — see `.admin-sidebar nav` below. The account menu is portaled to <body>, so
+   clipping here can't hide it. */
 .admin-sidebar {
   position: sticky;
   top: 0;
@@ -93,7 +98,8 @@ h3 {
   border-right: 1px solid var(--color-warm-border);
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
+  overflow: hidden;
   transition: width 160ms ease;
 }
 
@@ -152,7 +158,15 @@ h3 {
   justify-content: center;
 }
 
+/* The only scrolling part of the sidebar — `min-height: 0` is what lets a flex
+   child shrink below its content and actually scroll. Growing to fill also
+   keeps the account block pinned to the bottom on short nav lists. */
 .admin-sidebar nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
