@@ -1,28 +1,45 @@
 import auth from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import Constants from 'expo-constants';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 
-// ── Native Firebase auth (@react-native-firebase/auth) ──────────────────────
+// ── Auth: native (@react-native-firebase/auth) ──────────────────────────────
 // The production auth path. The native module auto-initializes from
 // google-services.json (Android) / GoogleService-Info.plist (iOS), persists the
-// session natively (Keychain / Keystore), and — crucially — performs real
-// device attestation for phone verification (Play Integrity on Android, an APNs
-// silent push on iOS). Real phone numbers therefore receive a real SMS, with no
-// reCAPTCHA WebView and none of the "test numbers only" limitation of the old
-// Firebase JS SDK shim.
+// session natively, and performs real device attestation for phone verification
+// (Play Integrity on Android, an APNs silent push on iOS) — so real phone
+// numbers receive a real SMS, unlike the old Firebase JS SDK shim.
 //
 // This module exposes exactly the `auth()` surface the rest of the app already
-// consumes — `currentUser`, `signInWithEmailAndPassword`, `signInWithPhoneNumber`,
-// `onAuthStateChanged`, `linkWithCredential`, `confirm`, and
-// `auth.EmailAuthProvider.credential`. Those are the native module's own
-// methods, so useAuth, api.ts and authStore need no changes.
+// consumes (currentUser, signInWithEmailAndPassword, signInWithPhoneNumber,
+// onAuthStateChanged, linkWithCredential, confirm, EmailAuthProvider.credential),
+// so useAuth, api.ts and authStore need no changes. Requires a native build —
+// not available in Expo Go, which the app already needs a dev-client for.
 //
-// Requires a native build — a dev-client, an EAS build, TestFlight, or the E2E
-// debug APK. It is NOT available in Expo Go, but the app already needs a
-// dev-client for the VLC live camera monitor and native FCM, so nothing is
-// lost. Unit tests mock this module (jest.setup.js) and the web preview stubs
-// it (vite.preview.config.ts), so neither exercises the native module.
+// ── Storage: Firebase JS SDK ────────────────────────────────────────────────
+// Firebase Storage is still consumed through the Firebase JS SDK
+// (@react-native-firebase/storage is not installed), and the JS SDK needs its
+// default app initialized before use. We initialize it here from the client
+// config in app.config.ts's `extra` block and export the app as `firebaseApp`
+// for lib/storage.ts. Auth (native) and Storage (JS SDK) are independent
+// Firebase surfaces — initializing the JS app does not touch the native auth
+// module. This init is REQUIRED: without it, storage.ts's top-level
+// `getStorage(getApp())` throws `app/no-app` at startup, which on iOS 26 the
+// New-Architecture TurboModule exception path turns into a fatal launch crash.
 // ────────────────────────────────────────────────────────────────────────────
+
+const firebaseConfig = {
+  apiKey: Constants.expoConfig?.extra?.['firebaseApiKey'] as string,
+  authDomain: Constants.expoConfig?.extra?.['firebaseAuthDomain'] as string,
+  projectId: Constants.expoConfig?.extra?.['firebaseProjectId'] as string,
+  appId: Constants.expoConfig?.extra?.['firebaseAppId'] as string,
+  storageBucket: Constants.expoConfig?.extra?.['firebaseStorageBucket'] as string,
+  messagingSenderId: Constants.expoConfig?.extra?.['firebaseMessagingSenderId'] as string,
+};
+
+// The JS-SDK app, consumed only by lib/storage.ts. Guarded so Fast Refresh
+// re-running this module reuses the existing app instead of throwing.
+export const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // End-to-end tests run against the local Firebase Auth emulator, so accounts
 // can be created and phone-verified freely with no live project and no real

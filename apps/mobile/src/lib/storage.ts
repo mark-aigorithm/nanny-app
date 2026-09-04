@@ -1,9 +1,8 @@
-import { getApp } from 'firebase/app';
 import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 
-import { auth } from '@mobile/lib/firebase';
+import { auth, firebaseApp } from '@mobile/lib/firebase';
 
-const storage = getStorage(getApp());
+const storage = getStorage(firebaseApp);
 
 /**
  * Upload a local file URI (e.g. one returned by expo-image-picker) to
