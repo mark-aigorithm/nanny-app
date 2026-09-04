@@ -11,12 +11,9 @@
 # for sixty seconds. `_relaunch` empties that cache, the way a parent reopening
 # the app does.
 #
-# LAB-TUNE (author against a running lab):
-#   - How the mother opens the confirmed-but-unpaid booking's detail. It is NOT
-#     "IN PROGRESS" (the balance blocks the start), so `_open-running-booking`
-#     does not apply. Confirm the Bookings-tab card selector below.
-#   - That advance.js `admin-time-edit` sends valid wall-clock times (see the
-#     note there) — a 400 there surfaces as this flow never seeing "Balance due".
+# The balance-due `AmountDueCard` renders on Home itself (no booking-detail
+# navigation), so a relaunch surfaces it. advance.js `admin-time-edit` converts
+# the booking's platform-ISO times to bare wall-clock for the edit endpoint.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -35,25 +32,16 @@ appId: com.nannyapp.mobile
       ADVANCE: admin-time-edit
 - assertTrue: ${output.balanceDue != '0'}
 
-# ── Reopen (bust the 60s cache) and open the booking ───────────────────────
+# ── Reopen to bust the 60s cache; the balance-due card is on Home itself ───
+# `AmountDueCard` renders straight on the home screen — no navigation to a
+# booking detail, so a relaunch is all it takes to surface it.
 - runFlow:
     file: _relaunch.yaml
     env:
       EXPECT: 'Book care'
-
-# LAB-TUNE: open the upcoming booking's detail. Confirm this selector on device —
-# the card likely carries the nanny's name or a "Balance due" pill.
-- tapOn: 'Bookings'
 - extendedWaitUntil:
     visible: 'Balance due'
     timeout: 30000
-- tapOn: 'Balance due'
-- extendedWaitUntil:
-    visible: 'Booking details'
-    timeout: 30000
-
-# ── The balance-due card is there, and it names the amount ─────────────────
-- assertVisible: 'Balance due'
 - assertVisible: 'Complete payment'
 
 # ── Settle it on the adjustment checkout ───────────────────────────────────
@@ -66,10 +54,9 @@ appId: com.nannyapp.mobile
     timeout: 60000
 - tapOn: 'Pay now'
 
-# ── Paid: reopen and the card is gone ──────────────────────────────────────
+# ── Paid: reopen and the card is gone from Home ────────────────────────────
 - runFlow:
     file: _relaunch.yaml
     env:
       EXPECT: 'Book care'
-- tapOn: 'Bookings'
 - assertNotVisible: 'Balance due'

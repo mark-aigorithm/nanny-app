@@ -643,14 +643,21 @@ function phoneOtp() {
  * can start. Mirrors the admin console: preview first (for the optimistic
  * revision token the commit echoes back), then commit.
  *
- * LAB-TUNE: assumes BookingResponse.startTime/endTime are wall-clock
- * (YYYY-MM-DDTHH:mm:ss, no offset) matching the edit schema, and that +2h on the
- * end stays within the same day. Confirm both against a real run.
+ * BookingResponse.startTime/endTime come back as platform-timezone ISO
+ * (toPlatformIso, e.g. "…T14:00:00+03:00"), but the edit endpoint wants bare
+ * wall-clock "YYYY-MM-DDTHH:mm:ss". The date+time portion IS the platform local
+ * time, so the first 19 chars are the correct wall-clock — no timezone shift.
  */
-function bumpWallClockHours(wc, hours) {
-  var h = parseInt(wc.substring(11, 13), 10) + hours;
-  var hh = (h < 10 ? '0' : '') + h;
-  return wc.substring(0, 11) + hh + wc.substring(13);
+function toWallClock(iso) {
+  return iso.substring(0, 19);
+}
+
+// Add hours in wall-clock space (handles hour/day/month rollover) by treating
+// the wall-clock as UTC purely for the arithmetic, then stripping back.
+function addWallClockHours(wall, hours) {
+  var d = new Date(toWallClock(wall) + 'Z');
+  d.setUTCHours(d.getUTCHours() + hours);
+  return d.toISOString().substring(0, 19);
 }
 
 function adminTimeEdit() {
@@ -658,8 +665,8 @@ function adminTimeEdit() {
   var booking = currentBooking(motherToken);
 
   var editInput = {
-    startTime: booking.startTime,
-    endTime: bumpWallClockHours(booking.endTime, 2),
+    startTime: toWallClock(booking.startTime),
+    endTime: addWallClockHours(booking.endTime, 2),
     children: booking.children,
     skillIds: [],
   };
