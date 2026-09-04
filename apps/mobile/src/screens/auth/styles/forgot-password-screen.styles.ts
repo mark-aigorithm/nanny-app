@@ -1,114 +1,172 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
-import { colors, fontFamily, typeScale, spacing, borderRadius, shadows } from '@mobile/theme';
+import {
+  colors,
+  fontFamily,
+  typeScale,
+  spacing,
+  screenPadding,
+  borderRadius,
+  STATUS_BAR_HEIGHT,
+} from '@mobile/theme';
+
+const HEADER_CONTENT_HEIGHT = 56;
 
 export const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing['2xl'],
-    justifyContent: 'space-between',
-    paddingBottom: spacing['4xl'],
   },
 
-  statusBarSpacer: {
-    height: 44,
-  },
-
-  // ── Center content ────────────────────────────────────────────────────────────
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
+  // Header
+  headerBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xl,
+    paddingTop: STATUS_BAR_HEIGHT,
+    paddingHorizontal: spacing.lg,
+    height: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT,
+    backgroundColor: colors.background,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  iconCircle: {
-    width: 64,
-    height: 64,
-    marginBottom: spacing.xs,
+  // Scroll
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: screenPadding,
+    paddingBottom: Platform.OS === 'ios' ? 56 : 40,
+    gap: spacing['3xl'],
   },
 
+  // Headline
+  headlineGroup: {
+    gap: spacing.sm,
+  },
   headline: {
-    fontFamily: fontFamily.bold,
-    fontSize: 24,
-    letterSpacing: -0.6,
+    ...typeScale.displaySm,
     color: colors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 32,
+  },
+  subtitle: {
+    ...typeScale.bodyLg,
+    color: colors.textSecondary,
+  },
+  phoneHighlight: {
+    fontFamily: fontFamily.bold,
+    color: colors.textPrimary,
   },
 
-  body: {
+  // Phase 1 — phone field
+  fieldGroup: {
+    gap: spacing.sm,
+  },
+  fieldLabel: {
+    ...typeScale.labelMd,
+    color: colors.textSecondary,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    height: 56,
+  },
+  countryCodeBox: {
+    width: 64,
+    height: 56,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  countryCodeText: {
+    ...typeScale.labelLg,
+    color: colors.textPrimary,
+  },
+  phoneInput: {
+    flex: 1,
+    height: 56,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.regular,
     fontSize: 16,
-    lineHeight: 26,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.sm,
+    color: colors.textPrimary,
   },
-
-  // Success banner
-  successBanner: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    backgroundColor: colors.successLight,
-    borderWidth: 1,
-    borderColor: 'rgba(106,155,106,0.1)', // one-off success border — could be added to theme
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-  },
-  successIconWrap: {
-    marginTop: 1,
-  },
-  successTextWrap: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  successTitle: {
-    ...typeScale.labelMd,
-    color: colors.successText,
-    lineHeight: 20,
-  },
-  successBody: {
+  fieldError: {
     ...typeScale.bodySm,
-    color: colors.successDark,
-    lineHeight: 18,
-  },
-
-  // Email input
-  inputContainer: {
-    width: '100%',
-  },
-
-  // CTA button
-  ctaButton: {
-    borderRadius: borderRadius.full,
-    ...shadows.md,
-  },
-
-  // Error
-  errorText: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
     color: colors.error,
-    textAlign: 'center',
-    lineHeight: 20,
   },
 
-  // ── Footer ────────────────────────────────────────────────────────────────────
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingTop: spacing.lg,
+  // Phase 2 — verify + new password
+  form: {
+    gap: spacing.xl,
   },
-  footerText: {
+  otpSection: {
+    gap: spacing.lg,
+  },
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  resendLink: {
     ...typeScale.labelMd,
     color: colors.primary,
-    lineHeight: 20,
+  },
+  resendLinkDisabled: {
+    color: colors.textPlaceholder,
+  },
+  timerText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+
+  // Password requirements checklist
+  requirementsCard: {
+    backgroundColor: colors.taupeLight,
+    borderRadius: 16,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  requirementsTitle: {
+    ...typeScale.labelMd,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  requirementText: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    flex: 1,
+  },
+  requirementTextMet: {
+    fontFamily: fontFamily.medium,
+    color: colors.successDark,
+  },
+
+  // Form-level error banner
+  formErrorBanner: {
+    backgroundColor: colors.errorLight,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  formErrorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
   },
 });

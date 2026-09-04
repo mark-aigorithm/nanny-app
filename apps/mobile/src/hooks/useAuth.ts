@@ -30,11 +30,38 @@ export function useSignIn() {
   });
 }
 
-export function useForgotPassword() {
-  return useMutation<void, MappedAuthError, string>({
-    mutationFn: async (email) => {
+/**
+ * Resets the password for a phone-only account. Phone is the sign-in identity,
+ * so recovery is by SMS rather than email: confirming the code signs the user
+ * in as the phone uid, then `updatePassword` sets a new password on the linked
+ * email/password credential that `SignInScreen` checks. Because confirming the
+ * code is itself a fresh sign-in, `updatePassword` never trips
+ * `auth/requires-recent-login`.
+ */
+export function useConfirmPhoneAndResetPassword() {
+  return useMutation<
+    void,
+    MappedAuthError,
+    { confirmation: PhoneConfirmation; code: string; newPassword: string }
+  >({
+    mutationFn: async ({ confirmation, code, newPassword }) => {
       try {
-        await auth().sendPasswordResetEmail(email.trim());
+        await confirmation.confirm(code);
+      } catch (error) {
+        throw mapFirebaseAuthError(error);
+      }
+
+      const user = auth().currentUser;
+      if (!user) {
+        // confirm() resolved without leaving a session — nothing to update.
+        throw {
+          field: 'form',
+          message: 'Your code was verified but the session was lost. Please try again.',
+        } satisfies MappedAuthError;
+      }
+
+      try {
+        await user.updatePassword(newPassword);
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }
