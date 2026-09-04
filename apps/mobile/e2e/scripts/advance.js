@@ -637,7 +637,55 @@ function phoneOtp() {
   output.otp = found.code;
 }
 
+/**
+ * A8: our team edits the mother's paid booking — pushing the end time out two
+ * hours — which re-prices it and leaves a balance due she must settle before it
+ * can start. Mirrors the admin console: preview first (for the optimistic
+ * revision token the commit echoes back), then commit.
+ *
+ * LAB-TUNE: assumes BookingResponse.startTime/endTime are wall-clock
+ * (YYYY-MM-DDTHH:mm:ss, no offset) matching the edit schema, and that +2h on the
+ * end stays within the same day. Confirm both against a real run.
+ */
+function bumpWallClockHours(wc, hours) {
+  var h = parseInt(wc.substring(11, 13), 10) + hours;
+  var hh = (h < 10 ? '0' : '') + h;
+  return wc.substring(0, 11) + hh + wc.substring(13);
+}
+
+function adminTimeEdit() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+
+  var editInput = {
+    startTime: booking.startTime,
+    endTime: bumpWallClockHours(booking.endTime, 2),
+    children: booking.children,
+    skillIds: [],
+  };
+
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var preview = call(
+    'POST',
+    adminToken,
+    '/admin/bookings/' + booking.id + '/edit/preview',
+    editInput,
+  );
+  var commit = {
+    startTime: editInput.startTime,
+    endTime: editInput.endTime,
+    children: editInput.children,
+    skillIds: editInput.skillIds,
+    revision: preview.revision,
+    acknowledgeSoftWarnings: true,
+  };
+  var result = call('POST', adminToken, '/admin/bookings/' + booking.id + '/edit', commit);
+  record(result.booking);
+  output.balanceDue = String(preview.balanceDueAmount);
+}
+
 var STEPS = {
+  'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
   'nanny-accept': nannyAccept,
   'reset-codes-before': resetCodesBefore,

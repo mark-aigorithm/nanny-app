@@ -1,0 +1,75 @@
+# A8 — the mother settles the balance our team's edit created.
+#
+# The admin half (the edit preview and the delta it applies) is the admin
+# suite's `a03-refund.spec.ts`; what the app owns is the other side of that
+# edit: a paid booking that suddenly owes more, an `AmountDueCard` that blocks
+# the start until it's paid, and a second checkout — `AdjustmentCheckoutScreen`
+# — for the difference. Structurally A7 with a different checkout screen.
+#
+# The edit happens off the device (over HTTP, in advance.js), so the app does
+# not notice it while a booking screen is open — React Query holds the booking
+# for sixty seconds. `_relaunch` empties that cache, the way a parent reopening
+# the app does.
+#
+# LAB-TUNE (author against a running lab):
+#   - How the mother opens the confirmed-but-unpaid booking's detail. It is NOT
+#     "IN PROGRESS" (the balance blocks the start), so `_open-running-booking`
+#     does not apply. Confirm the Bookings-tab card selector below.
+#   - That advance.js `admin-time-edit` sends valid wall-clock times (see the
+#     note there) — a 400 there surfaces as this flow never seeing "Balance due".
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      PHONE: ${MOTHER_PHONE}
+
+- runFlow: _book-and-pay.yaml
+
+# ── Our team edits the booking; the total goes up ──────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: admin-time-edit
+- assertTrue: ${output.balanceDue != '0'}
+
+# ── Reopen (bust the 60s cache) and open the booking ───────────────────────
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'Book care'
+
+# LAB-TUNE: open the upcoming booking's detail. Confirm this selector on device —
+# the card likely carries the nanny's name or a "Balance due" pill.
+- tapOn: 'Bookings'
+- extendedWaitUntil:
+    visible: 'Balance due'
+    timeout: 30000
+- tapOn: 'Balance due'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+
+# ── The balance-due card is there, and it names the amount ─────────────────
+- assertVisible: 'Balance due'
+- assertVisible: 'Complete payment'
+
+# ── Settle it on the adjustment checkout ───────────────────────────────────
+- tapOn: 'Complete payment'
+- extendedWaitUntil:
+    visible: 'Amount due'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Pay now'
+    timeout: 60000
+- tapOn: 'Pay now'
+
+# ── Paid: reopen and the card is gone ──────────────────────────────────────
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'Book care'
+- tapOn: 'Bookings'
+- assertNotVisible: 'Balance due'
