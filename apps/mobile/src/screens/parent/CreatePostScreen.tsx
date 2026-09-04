@@ -23,6 +23,7 @@ import {
 } from '@mobile/lib/communityUtils';
 import type { CreatePostUiType } from '@mobile/types';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
+import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/create-post-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
@@ -111,6 +112,13 @@ export default function CreatePostScreen() {
   };
 
   const handlePickImage = async () => {
+    // Under E2E the picker is a bundled placeholder — the Android photo picker
+    // is system UI a device flow cannot drive; the real upload still runs.
+    const e2eUri = await e2ePlaceholderImageUri();
+    if (e2eUri) {
+      setImageUri(e2eUri);
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
@@ -317,6 +325,7 @@ export default function CreatePostScreen() {
             <View style={styles.priceInputContainer}>
               <Text style={styles.pricePrefix}>EGP</Text>
               <TextInput
+                testID="createPost.price"
                 style={styles.priceInput}
                 placeholder="0"
                 placeholderTextColor={colors.textPlaceholder}
@@ -420,7 +429,11 @@ export default function CreatePostScreen() {
             {imageUri && (
               <View style={styles.imagePreviewWrap}>
                 <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-                <Pressable style={styles.imagePreviewRemove} onPress={() => setImageUri(null)}>
+                <Pressable
+                  accessibilityLabel="Remove photo"
+                  style={styles.imagePreviewRemove}
+                  onPress={() => setImageUri(null)}
+                >
                   <Ionicons name="close" size={12} color={colors.white} />
                 </Pressable>
               </View>

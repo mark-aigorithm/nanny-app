@@ -1,11 +1,14 @@
-# C5 — the community: ask, like, comment, host, RSVP, and hit the ceiling.
+# C5 — the community: ask, like, comment, host, RSVP, hit the ceiling, and list.
 #
-# Two posts carry the whole flow. A Q&A question exercises the read-write loop
-# every post type shares — create, appear in the feed, like, comment — and an
-# event adds the two things only events have: RSVP, and a capacity that can run
-# out. Marketplace is deliberately absent: it needs a photo, and a photo needs
-# Firebase Storage, which the local stack does not run. Its lifecycle is B6's
-# subject and is driven from the console there.
+# Three posts carry the whole flow. A Q&A question exercises the read-write loop
+# every post type shares — create, appear in the feed, like, comment — an event
+# adds the two things only events have (RSVP, and a capacity that can run out),
+# and a marketplace listing adds the photo. The listing needs Firebase Storage,
+# which the test stack now runs as an emulator; the photo picker is system UI a
+# device flow cannot drive, so under E2E CreatePostScreen short-circuits it to a
+# bundled placeholder (lib/e2eImage) that still uploads for real. A listing is
+# moderated, so it is not public on submit — it shows on the seller's own "My
+# listings" as "Under review", which is where the assertion lands.
 #
 # The flow opens by deleting every post the mother owns. The database is never
 # truncated and a post has no natural key, so last night's run left a question
@@ -183,3 +186,61 @@ appId: com.nannyapp.mobile
       ADVANCE: event-at-capacity
 - assertTrue: ${output.rsvpStatus == '409'}
 - assertTrue: ${output.rsvpCount == '1'}
+
+# ── List (marketplace) ──────────────────────────────────────────────────────
+# The arrow returns to the feed the detail was opened from — the Events filter.
+# The Marketplace pill is where a listing is created and where "My listings"
+# lives, so switch to it first; exitCreatePost then returns here too.
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible: 'Events'
+    timeout: 30000
+- tapOn: 'Marketplace'
+- extendedWaitUntil:
+    visible: 'My listings'
+    timeout: 30000
+
+- tapOn: 'Create post'
+- extendedWaitUntil:
+    visible: 'Post type'
+    timeout: 30000
+- tapOn: 'Marketplace'
+# Marketplace-only copy — confirms the type switched before its fields are filled.
+- extendedWaitUntil:
+    visible: 'Listings are reviewed by our team before they appear in the marketplace.'
+    timeout: 30000
+
+# The create screen keeps its field state between opens, so the event's name is
+# still in the title box — erase before typing, or inputText appends to it.
+- tapOn:
+    id: 'createPost.title'
+- eraseText
+- inputText: 'E2E lab stroller'
+- tapOn:
+    id: 'createPost.price'
+- eraseText
+- inputText: '750'
+- hideKeyboard
+
+# The picker is short-circuited to a bundled placeholder under E2E; Submit is
+# gated on a photo, so reaching a created listing at all is the proof it
+# uploaded to the Storage emulator. The preview's remove button ('Remove photo')
+# only renders once the image is set, so wait for it before submitting.
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Remove photo'
+    timeout: 30000
+- tapOn:
+    id: 'createPost.submit'
+
+# Back on the Marketplace feed; the listing is pending, so it is on My listings
+# rather than the public feed. community-reset (top of flow) cleared a prior
+# run's copy, so the title is this run's.
+- extendedWaitUntil:
+    visible: 'My listings'
+    timeout: 30000
+- tapOn: 'My listings'
+- extendedWaitUntil:
+    visible: 'E2E lab stroller'
+    timeout: 30000
+- assertVisible: 'Under review'
