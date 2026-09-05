@@ -294,7 +294,10 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
 async function wipeAccount(spec: { phone: string; role?: string }): Promise<void> {
   const email = placeholderEmail(spec.phone);
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  // Look the DB row up by phone, not email: a mother's row carries the
+  // placeholder email, but a nanny's carries the real address she verified
+  // mid-wizard — the phone is the one identifier both share.
+  const user = await prisma.user.findUnique({ where: { phone: spec.phone } });
   if (user) {
     const tag = `wiped-${user.id}-`;
     await prisma.user.update({

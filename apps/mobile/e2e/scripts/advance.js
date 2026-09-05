@@ -236,6 +236,15 @@ function adminApproveNanny() {
 }
 
 /**
+ * A10 (full path): vet the nanny the flow just registered. She is found by the
+ * real address she verified mid-wizard, not a placeholder — that is the email
+ * on her row.
+ */
+function adminApproveNannyRegistration() {
+  approveFromQueue('nannies', REGISTRATION_NANNY_EMAIL);
+}
+
+/**
  * Two notifications for the mother, with nothing left unread behind them.
  *
  * Moderating a marketplace listing is the cheapest way to make one: it notifies
@@ -601,6 +610,54 @@ function phoneOtp() {
 }
 
 /**
+ * The six-digit code the nanny-registration email step "sent".
+ *
+ * A nanny proves a real address mid-wizard against our own email OTP (not
+ * Firebase) — the backend mails it through nodemailer, which the test stack
+ * points at Mailpit. Mailpit keeps every message on an HTTP API, so the code
+ * is readable from here the same way the phone code is read off the Auth
+ * emulator.
+ *
+ *   - runScript:
+ *       file: ../scripts/advance.js
+ *       env:
+ *         ADVANCE: email-otp
+ *         EMAIL_OTP_ADDRESS: 'e2e-nanny-reg@nannyapp.test'
+ *
+ * leaves `output.emailOtp` for the flow to type.
+ */
+function emailOtp() {
+  var res = http.get(MAILPIT_URL + '/api/v1/messages?limit=50');
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error('Mailpit messages → ' + res.status + ' ' + res.body);
+  }
+  var list = json(res.body).messages || [];
+  // Newest first (Mailpit's default order), so the first message to the address
+  // is this run's — earlier runs left their own to the same address behind.
+  var match = null;
+  for (var i = 0; i < list.length && !match; i++) {
+    var to = list[i].To || [];
+    for (var j = 0; j < to.length; j++) {
+      if (to[j].Address === EMAIL_OTP_ADDRESS) {
+        match = list[i];
+        break;
+      }
+    }
+  }
+  if (!match) {
+    throw new Error('No email to ' + EMAIL_OTP_ADDRESS + '. Mailpit holds: ' + res.body);
+  }
+  var full = http.get(MAILPIT_URL + '/api/v1/message/' + match.ID);
+  var body = json(full.body);
+  var text = String(body.Text || '') + ' ' + String(body.HTML || '') + ' ' + String(body.Snippet || '');
+  var m = text.match(/\b(\d{6})\b/);
+  if (!m) {
+    throw new Error('No 6-digit code in the email to ' + EMAIL_OTP_ADDRESS + ': ' + text.slice(0, 200));
+  }
+  output.emailOtp = m[1];
+}
+
+/**
  * The existing mother's referral code, for a registration flow to type into the
  * C7 referral field. Read from her own /referrals/me (generated lazily there if
  * she has none yet); no redemption happens here — the app redeems it as the new
@@ -669,6 +726,7 @@ function adminTimeEdit() {
 var STEPS = {
   'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
+  'email-otp': emailOtp,
   'referrer-code': referrerCode,
   'nanny-accept': nannyAccept,
   'seed-listing-notifications': seedListingNotifications,
@@ -685,6 +743,7 @@ var STEPS = {
   'message-unread-counts': messageUnreadCounts,
   'admin-approve-mother': adminApproveMother,
   'admin-approve-nanny': adminApproveNanny,
+  'admin-approve-nanny-registration': adminApproveNannyRegistration,
   'nanny-check-in': nannyCheckIn,
   'nanny-care-log': nannyCareLog,
   'nanny-accept-extension': nannyAcceptExtension,

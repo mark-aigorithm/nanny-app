@@ -20,7 +20,15 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ACCOUNTS, ADMIN, PASSWORD, REGISTRATION, localDigits, placeholderEmail } from './accounts.mjs';
+import {
+  ACCOUNTS,
+  ADMIN,
+  PASSWORD,
+  REGISTRATION,
+  REGISTRATION_NANNY,
+  localDigits,
+  placeholderEmail,
+} from './accounts.mjs';
 import { APP_ID, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
 import { CARE_POINTS, PACKAGE, PLATFORM_SETTINGS, PROMO_CODES } from './fixtures.mjs';
 
@@ -37,6 +45,9 @@ const AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
 
 /** The Paymob fake, for the flows whose *other* side has to pay over HTTP. */
 const PAYMOB_FAKE_URL = 'http://127.0.0.1:4010';
+
+/** Mailpit's HTTP API, where the backend's email OTPs land for the email-otp step. */
+const MAILPIT_URL = 'http://127.0.0.1:8025';
 
 /**
  * The platform's own timezone — the one booking times are expressed in.
@@ -225,10 +236,14 @@ function seedLab() {
       env: {
         ...process.env,
         E2E_MOBILE_ACCOUNTS: JSON.stringify(Object.values(ACCOUNTS)),
-        // The registration flows sign this account up from scratch, so the
-        // seeder wipes it (Firebase user + DB row + dependents) rather than
-        // upserting it — otherwise the second run collides on its unique phone.
-        E2E_MOBILE_WIPE: JSON.stringify([{ phone: REGISTRATION.phone, role: REGISTRATION.role }]),
+        // The registration flows sign these accounts up from scratch, so the
+        // seeder wipes them (Firebase user + DB row) rather than upserting them
+        // — otherwise the second run collides on the unique phone. One mother
+        // (C2/C7), one nanny (A10).
+        E2E_MOBILE_WIPE: JSON.stringify([
+          { phone: REGISTRATION.phone, role: REGISTRATION.role },
+          { phone: REGISTRATION_NANNY.phone, role: REGISTRATION_NANNY.role },
+        ]),
         E2E_LAB_FIXTURES: JSON.stringify({
           platformSettings: PLATFORM_SETTINGS,
           promoCodes: Object.values(PROMO_CODES),
@@ -350,6 +365,13 @@ function runFlow(maestro, flow) {
     REGISTRATION_PHONE_E164: REGISTRATION.phone,
     REGISTRATION_EMAIL: placeholderEmail(REGISTRATION.phone),
     REGISTRATION_FIRST_NAME: REGISTRATION.firstName,
+    // The nanny sign-up (A10): her digits + E.164 for the phone step, and the
+    // real address she verifies against the email OTP read from Mailpit.
+    REGISTRATION_NANNY_PHONE: localDigits(REGISTRATION_NANNY.phone),
+    REGISTRATION_NANNY_PHONE_E164: REGISTRATION_NANNY.phone,
+    REGISTRATION_NANNY_EMAIL: REGISTRATION_NANNY.email,
+    REGISTRATION_NANNY_FIRST_NAME: REGISTRATION_NANNY.firstName,
+    MAILPIT_URL,
     MOTHER_EMAIL: placeholderEmail(ACCOUNTS.mother.phone),
     NANNY_EMAIL: placeholderEmail(ACCOUNTS.nanny.phone),
     GATED_MOTHER_EMAIL: placeholderEmail(ACCOUNTS.gatedMother.phone),

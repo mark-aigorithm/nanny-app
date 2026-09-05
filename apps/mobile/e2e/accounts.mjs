@@ -61,6 +61,22 @@ export const REGISTRATION = {
 };
 
 /**
+ * The account the full **nanny** registration flow (A10) creates from scratch.
+ * Same throwaway contract as REGISTRATION — wiped, not upserted — but a nanny
+ * also verifies a **real** email mid-wizard (against our own email OTP, read
+ * from Mailpit), so unlike a mother she carries a real address rather than the
+ * phone-derived placeholder. The email is fixed here so the flow can type it
+ * and the email-otp advance step can find its message.
+ */
+export const REGISTRATION_NANNY = {
+  phone: '+201100000006',
+  email: 'e2e-nanny-reg@nannyapp.test',
+  password: PASSWORD,
+  role: 'NANNY',
+  firstName: 'Rasha',
+};
+
+/**
  * The console account the lab approves with.
  *
  * A superuser rather than a scoped operator: what these flows care about is the

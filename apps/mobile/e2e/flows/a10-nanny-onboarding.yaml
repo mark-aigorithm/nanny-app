@@ -1,49 +1,169 @@
-# A10 — nanny vetting gate.
+# A10 — a nanny signs up through the forms, waits for vetting, then is approved.
 #
-# A nanny who has submitted her ID waits; an approved one works. That gate is
-# the whole point of the vetting queue, and the app is the only place it is
-# visible — the root router reads `idVerificationStatus` and sends her to a
-# waiting screen instead of her dashboard.
+# The old A10 started from a seeded nanny because the registration path ends at
+# an ID upload that opened the Android photo picker — system UI a device flow
+# could not drive. The E2E photo affordance (lib/pickImage → lib/e2eImage)
+# removes that wall, so this now drives her whole six-step wizard:
 #
-# Scope note: the catalogue describes this flow as starting from role selection
-# and walking the registration forms to the waiting screen. The registration
-# path ends at an ID upload, which opens the Android photo picker and its crop
-# screen — system UI that varies by OS version and would make this the most
-# fragile flow in the suite for the least return. Everything registration
-# actually decides is asserted over HTTP in a10-nanny-onboarding.test.ts, which
-# also covers the part with no UI at all: whether an unvetted nanny is offered
-# work. This flow starts from a seeded nanny in exactly the state registration
-# leaves her in.
+#   role → step 1 (placeholder photo, real email, name, phone, DOB) → email
+#   verification (our own OTP, read from Mailpit) → password → location (the
+#   map, on the device geo fix) → ID upload (a passport, front only, the
+#   placeholder) → professional details → phone OTP + terms → Complete.
+#
+# Unlike a mother she starts PENDING_REVIEW, so Complete lands her on the vetting
+# gate rather than a dashboard — which is the whole point of A10, and what the
+# admin approve at the end then clears. The account is created from scratch, so
+# the seeder wipes it before every run (Phase 2c); her row carries the real
+# address she verified, which is why the wipe looks her up by phone and the
+# approve finds her by that email.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
 
-- runFlow:
-    file: _sign-in.yaml
-    env:
-      PHONE: ${PENDING_NANNY_PHONE}
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+- tapOn: "I'm a nanny"
+- assertVisible: 'Sign up as a nanny'
+- tapOn: 'Sign up as a nanny'
 
-# ── Waiting ────────────────────────────────────────────────────────────────
+# ── Step 1 of 6 — personal info ────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 6.*'
+    timeout: 30000
+- assertNotVisible: 'A profile photo is required'
+- tapOn: 'Continue'
+- assertVisible: 'A profile photo is required'
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+
+# hideKeyboard between stacked fields, or the keyboard covers the one below and
+# the tap lands on a key instead.
+- tapOn: 'Enter your first name'
+- inputText: ${REGISTRATION_NANNY_FIRST_NAME}
+- hideKeyboard
+- tapOn: 'Enter your last name'
+- inputText: 'Lab'
+- hideKeyboard
+# A nanny gives a real address here — she verifies it on the very next screen.
+- tapOn: 'you@example.com'
+- inputText: ${REGISTRATION_NANNY_EMAIL}
+- hideKeyboard
+- tapOn: '100 000 0000'
+- inputText: ${REGISTRATION_NANNY_PHONE}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+# ── Step 2 of 6 — verify her email (our OTP, read from Mailpit) ─────────────
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: email-otp
+      EMAIL_OTP_ADDRESS: ${REGISTRATION_NANNY_EMAIL}
+- assertTrue: ${output.emailOtp != null}
+- tapOn:
+    id: 'nannyEmail.code.boxes'
+- inputText: ${output.emailOtp}
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── Step 3 of 6 — password ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Create a secure password'
+    timeout: 30000
+- tapOn: 'Enter a password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Re-enter your password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── Step 4 of 6 — location ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 4 OF 6.*'
+    timeout: 30000
+# The map is centred on the device's Cairo geo fix; tapping it sets the pin.
+- tapOn:
+    point: '50%,44%'
+- tapOn: 'Continue'
+
+# ── Step 5 of 6 — ID upload (a passport: front only) ───────────────────────
+- extendedWaitUntil:
+    visible: 'Upload your ID'
+    timeout: 30000
+- tapOn: 'Passport'
+# The picker is short-circuited to a bundled placeholder; the card flips to its
+# filled state ("Change") once the image is set.
+- tapOn: 'Passport photo page'
+- extendedWaitUntil:
+    visible: 'Change'
+    timeout: 30000
+- tapOn: 'Continue'
+
+# ── Step 6 of 6 — professional details ─────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Tell families about yourself'
+    timeout: 30000
+- tapOn: 'Share your experience, approach to childcare, and what makes you a great nanny…'
+- inputText: 'E2E lab nanny — five years with toddlers and school-age children.'
+- hideKeyboard
+- tapOn: 'e.g. 5'
+- inputText: '5'
+- hideKeyboard
+- tapOn: 'Full-time'
+- tapOn: 'Continue'
+
+# ── Final step — verify phone, terms (no referral for a nanny) ─────────────
+- extendedWaitUntil:
+    visible: 'Verify your phone number'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${REGISTRATION_NANNY_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'registerStep3.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'I agree to.*'
+# Complete uploads the placeholder ID + avatar to the Storage emulator, then
+# registers her — so reaching the next screen proves those uploads landed.
+- tapOn: 'Complete setup'
+
+# ── Waiting for vetting ────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Stay in the loop'
+    timeout: 90000
+- tapOn: 'Not now'
+# She registered PENDING_REVIEW, so the root router holds her on the gate rather
+# than a dashboard — signed in, but her earnings genuinely out of reach.
 - extendedWaitUntil:
     visible: 'Your profile is under review'
     timeout: 60000
-
-# She is signed in, so this is a gate rather than a failed login — and her
-# dashboard is genuinely out of reach, not merely not-yet-rendered.
 - assertNotVisible: 'Your earnings'
 
 # ── Vetted ─────────────────────────────────────────────────────────────────
 - runScript:
     file: ../scripts/advance.js
     env:
-      ADVANCE: admin-approve-nanny
+      ADVANCE: admin-approve-nanny-registration
 - assertTrue: ${output.status == 'APPROVED'}
-
-# No relaunch here: this screen has its own way to re-read the decision, which
-# is what a nanny told to wait would actually press.
-- tapOn: 'Check status'
-
-- extendedWaitUntil:
-    visible: 'Your earnings'
-    timeout: 60000
-- assertNotVisible: 'Your profile is under review'
