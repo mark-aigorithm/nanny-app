@@ -20,3 +20,4 @@ export * from './email';
 export * from './rewards';
 export * from './referrals';
 export * from './support';
+export * from './qa-scenarios';
