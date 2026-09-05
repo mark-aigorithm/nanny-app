@@ -5,12 +5,11 @@
 # the rule exists on screen. Both halves are asserted here — the modal that
 # stops her, and the request that goes through once an operator has verified her.
 #
-# Scope note: the catalogue starts this flow at registration and walks to the ID
-# upload. That upload opens the Android photo picker and its crop screen, which
-# is system UI and the most fragile thing this suite could depend on; what the
-# gate does with each status is settled over HTTP in a11-mother-id-gate.test.ts.
-# This flow starts from a seeded mother who has never uploaded one — exactly
-# where registration leaves her.
+# This starts from a seeded mother who has never uploaded an ID — exactly where
+# registration leaves her — and drives the real upload: the gate modal captures
+# the ID inline (IdUploadModal → IdCaptureFields), and the picker is
+# short-circuited to a bundled placeholder under E2E, so "Submit for review"
+# sends a real document to the review queue that the operator then approves.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -33,9 +32,24 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - assertNotVisible: 'Pick a day'
 
-- tapOn: 'Maybe later'
+# ── Uploads her ID ─────────────────────────────────────────────────────────
+# A passport (front only); the placeholder stands in for the photo, and the
+# card flips to "Change" once it is set. Submit sends it to the review queue.
+- tapOn: 'Passport'
+- tapOn: 'Passport photo page'
+- extendedWaitUntil:
+    visible: 'Change'
+    timeout: 30000
+- tapOn: 'Submit for review'
+# Submit closes the gate, so this is also the proof the upload was accepted.
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+- assertNotVisible: 'Verify your identity'
 
 # ── Verified ───────────────────────────────────────────────────────────────
+# She is now PENDING_REVIEW, in the operator's queue; approving moves her to
+# APPROVED, which is what the next open lets her book on.
 - runScript:
     file: ../scripts/advance.js
     env:
