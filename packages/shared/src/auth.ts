@@ -67,10 +67,10 @@ export const RegisterRequestSchema = z
     // so the backend doesn't have to derive it from the JWT for the insert.
     email: EmailSchema,
     // Proof from POST /auth/email/verify that this address belongs to whoever
-    // is registering. Nannies collect and verify their address mid-wizard, so
-    // the refine below makes it mandatory for them; mothers register with a
-    // phone-derived placeholder and verify later, at the booking gate.
-    emailVerificationToken: z.string().optional(),
+    // is registering. Both roles prove their address mid-wizard, so no account
+    // is ever created with an unproven one — which is what lets receipts,
+    // payment records and account recovery rely on `users.email`.
+    emailVerificationToken: z.string().min(1, 'Please verify your email address before finishing sign-up.'),
     phone: z
       .string()
       .trim()
@@ -120,11 +120,7 @@ export const RegisterRequestSchema = z
       message: 'Nannies must provide a photo, bio, years of experience, and availability.',
       path: ['bio'],
     },
-  )
-  .refine((v) => v.role !== 'NANNY' || !!v.emailVerificationToken, {
-    message: 'Please verify your email address before finishing sign-up.',
-    path: ['emailVerificationToken'],
-  });
+  );
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
 /**

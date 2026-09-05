@@ -48,9 +48,8 @@ const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 export default function RegistrationStep1Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
-  // Nannies get two extra steps — email verification right after this one, and
-  // register-nanny-details before the final step — so their progress indicator
-  // counts "OF 6" instead of "OF 4".
+  // Nannies get one extra step — register-nanny-details before the final one —
+  // so their progress indicator counts "OF 6" instead of "OF 5".
   const isNanny = role === 'nanny';
 
   const draft = useRegistrationDraftStore();
@@ -136,24 +135,19 @@ export default function RegistrationStep1Screen() {
       setFormError(phoneErr);
       return;
     }
-    // Nannies verify their address on the very next screen, so a typo has to
-    // be caught here — the code would otherwise be sent somewhere they can't
+    // The address is verified on the very next screen, so a typo has to be
+    // caught here — the code would otherwise be sent somewhere they can't
     // read, with no way back but the back button.
-    if (isNanny) {
-      const emailErr = validateEmail(draft.email);
-      if (emailErr) {
-        setFormError(emailErr);
-        return;
-      }
+    const emailErr = validateEmail(draft.email);
+    if (emailErr) {
+      setFormError(emailErr);
+      return;
     }
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(draft.dob)) {
       setFormError('Please select your date of birth.');
       return;
     }
-    router.push({
-      pathname: isNanny ? '/(auth)/register-nanny-email' : '/(auth)/register-create-password',
-      params: { role },
-    });
+    router.push({ pathname: '/(auth)/register-email', params: { role } });
   }
 
   return (
@@ -188,7 +182,7 @@ export default function RegistrationStep1Screen() {
         >
           {/* Step label */}
           <Text style={styles.stepLabel}>
-            {isNanny ? 'STEP 1 OF 6' : 'STEP 1 OF 4'} — PERSONAL INFO
+            {isNanny ? 'STEP 1 OF 6' : 'STEP 1 OF 5'} — PERSONAL INFO
           </Text>
 
           {/* Photo picker */}
@@ -234,21 +228,20 @@ export default function RegistrationStep1Screen() {
               autoCorrect={false}
             />
 
-            {/* Email — nannies only. Mothers supply one at the booking gate,
-                where it first matters (receipt + payment billing). */}
-            {isNanny && (
-              <TextInputField
-                label="Email"
-                value={draft.email}
-                onChangeText={(val) => patch({ email: val })}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.textPlaceholder}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="emailAddress"
-              />
-            )}
+            {/* Email — both roles. Verified on the next step, and it is where
+                receipts and account recovery reach them; sign-in stays the
+                phone number. */}
+            <TextInputField
+              label="Email"
+              value={draft.email}
+              onChangeText={(val) => patch({ email: val })}
+              placeholder="you@example.com"
+              placeholderTextColor={colors.textPlaceholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="emailAddress"
+            />
 
             {/* Phone */}
             <View style={styles.fieldGroup}>

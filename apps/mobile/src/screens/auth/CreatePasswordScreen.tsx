@@ -115,7 +115,7 @@ export default function CreatePasswordScreen() {
         >
           {/* Step label */}
           <Text style={styles.stepLabel}>
-            {isNanny ? 'STEP 3 OF 6' : 'STEP 2 OF 4'} — SET PASSWORD
+            {isNanny ? 'STEP 3 OF 6' : 'STEP 3 OF 5'} — SET PASSWORD
           </Text>
 
           {/* Intro */}

@@ -136,21 +136,22 @@ export default function RegistrationStep3Screen() {
     // Mobile uses 'parent' / 'nanny'; backend enum is 'MOTHER' / 'NANNY'.
     const apiRole = localRole === 'parent' ? 'MOTHER' : 'NANNY';
 
-    const isNannyRole = apiRole === 'NANNY';
-
     // Two different addresses, deliberately.
     //
     // `credentialEmail` is the placeholder linked onto the phone-verified
     // Firebase account so SignInScreen has something to check — sign-in is by
     // phone for everyone, so it is the placeholder for everyone.
     //
-    // `profileEmail` is what lands in `users.email`: for a nanny the real
-    // address she proved two steps in, which is how receipts reach her. A
-    // mother has not given one yet; she does at the pre-booking email gate.
+    // `profileEmail` is what lands in `users.email`: the real address proved on
+    // step 2, for both roles. It is how receipts, payment records and account
+    // recovery reach them, and it is never a placeholder.
     const credentialEmail = phoneToPlaceholderEmail(phoneE164);
-    const profileEmail = isNannyRole ? draft.email.trim().toLowerCase() : credentialEmail;
+    const profileEmail = draft.email.trim().toLowerCase();
 
-    if (isNannyRole && !draft.emailVerificationToken) {
+    // Read out of the draft here so the null check narrows for the register
+    // call below, which runs inside a callback.
+    const emailVerificationToken = draft.emailVerificationToken;
+    if (!emailVerificationToken) {
       setFormError('Your email is not verified. Please go back and confirm the code.');
       return;
     }
@@ -205,6 +206,9 @@ export default function RegistrationStep3Screen() {
               firstName: draft.firstName,
               lastName: draft.lastName,
               email: profileEmail,
+              // Spent server-side inside the register transaction — this is
+              // what makes the account start out with a verified address.
+              emailVerificationToken,
               phone: phoneE164,
               dateOfBirth: dobIso,
               role: apiRole,
@@ -216,9 +220,6 @@ export default function RegistrationStep3Screen() {
               idDocumentFrontUrl,
               idDocumentBackUrl,
               ...(apiRole === 'NANNY' && {
-                // Spent server-side inside the register transaction — this is
-                // what makes her account start out with a verified address.
-                emailVerificationToken: draft.emailVerificationToken ?? undefined,
                 avatarUrl,
                 bio: draft.bio,
                 yearsOfExperience: draft.yearsOfExperience

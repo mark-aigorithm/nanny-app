@@ -75,7 +75,7 @@ appId: com.nannyapp.mobile
       EMAIL_OTP_ADDRESS: ${REGISTRATION_NANNY_EMAIL}
 - assertTrue: ${output.emailOtp != null}
 - tapOn:
-    id: 'nannyEmail.code.boxes'
+    id: 'registerEmail.code.boxes'
 - inputText: ${output.emailOtp}
 - hideKeyboard
 - tapOn: 'Continue'

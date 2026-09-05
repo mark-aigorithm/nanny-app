@@ -38,7 +38,6 @@ import {
 } from '@mobile/lib/bookingDraft';
 
 import { useIdGateStore } from '@mobile/store/idGateStore';
-import { useEmailGateStore } from '@mobile/store/emailGateStore';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
@@ -265,8 +264,6 @@ export default function BookingStep1Screen() {
       const lower = message.toLowerCase();
       if (lower.includes('upload your id')) {
         useIdGateStore.getState().openIdGate();
-      } else if (lower.includes('verify your email')) {
-        useEmailGateStore.getState().openEmailGate();
       }
       setSubmitError(message);
     }

@@ -120,15 +120,13 @@ export function useSendPhoneOtp() {
  *
  * Confirming the code *is* a sign-in — it leaves the app authenticated as a
  * phone-only user with no password. Linking gives that same uid the
- * email/password credential every other surface expects (`SignInScreen`, the
- * mother's email gate), so the verified phone becomes an additional factor on
- * one account rather than a second account.
+ * email/password credential `SignInScreen` expects, so the verified phone
+ * becomes an additional factor on one account rather than a second account.
  *
- * The address depends on the role. A nanny passes the real one she verified
- * mid-wizard against our own email OTP. A mother has not given one yet, so she
- * passes the placeholder derived from her phone number (see
- * `phoneToPlaceholderEmail`); it is swapped for her real address once she
- * verifies one at the pre-booking email gate.
+ * The address passed here is always the placeholder derived from the phone
+ * number (see `phoneToPlaceholderEmail`) — for both roles, because sign-in is
+ * by phone for both. It is only a credential; the real address, proved on step
+ * 2 of the wizard, goes to `POST /auth/register` and lands in `users.email`.
  *
  * Idempotent: a retry after a failure further down the wizard re-confirms into
  * the same uid, where the password provider is already attached.

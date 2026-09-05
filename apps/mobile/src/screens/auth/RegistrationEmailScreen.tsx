@@ -17,22 +17,25 @@ import { Button, OtpCodeInput } from '@mobile/components/ui';
 import { useSendEmailOtp, useVerifyEmailOtp } from '@mobile/hooks/useAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { getApiErrorMessage } from '@mobile/lib/api';
-import { styles } from './styles/registration-nanny-email-screen.styles';
+import { styles } from './styles/registration-email-screen.styles';
 
 /**
- * Step 2 of the nanny wizard: prove the address entered on step 1 is hers.
+ * Step 2 of both wizards: prove the address entered on step 1 belongs to
+ * whoever is signing up.
  *
  * The code is sent as soon as the screen opens, so the common path is "read
  * the email, type six digits, continue". A correct code buys a short-lived
  * token, which is parked in the draft and spent by POST /auth/register at the
- * end of the wizard — that is what makes her account start out verified.
+ * end of the wizard — that is what makes the account start out verified.
  *
  * Verifying here rather than at the end is deliberate: a typo'd address is
- * caught before she uploads an ID and fills in her professional details.
+ * caught before the rest of the wizard is filled in, and no account can be
+ * created carrying an address nobody can read.
  */
-export default function RegistrationNannyEmailScreen() {
+export default function RegistrationEmailScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
+  const isNanny = role === 'nanny';
 
   const email = useRegistrationDraftStore((s) => s.email);
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -115,7 +118,7 @@ export default function RegistrationNannyEmailScreen() {
 
         {/* Progress bar */}
         <View style={styles.progressBarTrack}>
-          <View style={styles.progressBarFill} />
+          <View style={[styles.progressBarFill, !isNanny && styles.progressBarFillMother]} />
         </View>
 
         <ScrollView
@@ -124,7 +127,9 @@ export default function RegistrationNannyEmailScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.stepLabel}>STEP 2 OF 6 — VERIFY EMAIL</Text>
+          <Text style={styles.stepLabel}>
+            {isNanny ? 'STEP 2 OF 6' : 'STEP 2 OF 5'} — VERIFY EMAIL
+          </Text>
 
           <View style={styles.headlineGroup}>
             <Text style={styles.headline}>Check your email</Text>
@@ -135,7 +140,7 @@ export default function RegistrationNannyEmailScreen() {
           </View>
 
           <OtpCodeInput
-            testID="nannyEmail.code"
+            testID="registerEmail.code"
             value={code}
             onChange={(next) => {
               setCode(next);

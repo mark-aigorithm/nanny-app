@@ -46,6 +46,15 @@ export default function Index() {
 
   // Firebase user + backend profile — route by role.
   if (profile) {
+    // Registration proves the address for both roles, so an unverified one
+    // means an account created before that rule: it still carries the
+    // phone-derived placeholder in users.email. Bookings are gated on a proven
+    // address, and receipts have nowhere to go without one, so collect it here
+    // rather than letting them wander into the app.
+    if (!profile.isEmailVerified) {
+      return <Redirect href="/(auth)/verify-email" />;
+    }
+
     if (profile.role === Role.NANNY) {
       // Nannies are vetted by an admin before they can use the app. If their ID
       // is missing (PENDING_ID) or was rejected (REJECTED), force a re-upload;

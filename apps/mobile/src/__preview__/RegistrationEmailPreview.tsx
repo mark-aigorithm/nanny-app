@@ -2,7 +2,7 @@
 import React from 'react';
 
 import { api } from '@mobile/lib/api';
-import RegistrationNannyEmailScreen from '@mobile/screens/auth/RegistrationNannyEmailScreen';
+import RegistrationEmailScreen from '@mobile/screens/auth/RegistrationEmailScreen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { PreviewProviders, setPreviewParams } from './harness';
 
@@ -15,10 +15,10 @@ setPreviewParams({ role: 'nanny' });
 
 useRegistrationDraftStore.setState({ email: 'amira.hassan@example.com' });
 
-export default function NannyEmailPreview() {
+export default function RegistrationEmailPreview() {
   return (
     <PreviewProviders>
-      <RegistrationNannyEmailScreen />
+      <RegistrationEmailScreen />
     </PreviewProviders>
   );
 }

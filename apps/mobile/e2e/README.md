@@ -353,24 +353,23 @@ intent from a slow launch.
 
 ## What the flows deliberately do not cover
 
-**Registration — on either path, not just the nanny's.** A10 and A11 are described
-in the catalogue as starting from role selection and walking the forms through
-to an ID upload. That upload opens the Android photo picker and its crop
-screen — system UI that changes between OS versions and would be the most
-fragile thing in this suite, for the least return. Both flows instead start
-from a seeded account in exactly the state registration leaves it, and assert
-the part that only the app can show: the gate, and it lifting. What
+**A mother's ID upload (A11).** A10 and A11 were both described in the catalogue
+as starting from role selection and walking the forms through to an ID upload.
+A10 now does exactly that — the picker is short-circuited under E2E, see below.
+A11 still starts from a seeded account in the state registration leaves it,
+because its subject is the gate lifting *after* sign-up, not the wizard; what
 registration itself decides is covered over HTTP in
-`a10-nanny-onboarding.test.ts` and `a11-mother-id-gate.test.ts`.
+`a11-mother-id-gate.test.ts`.
 
 It is not only the ID upload. **Step 1 disables `Continue` until `draft.photoUri`
 is set**, for a mother as well as a nanny, so *every* signup opens the picker on
-the very first screen — and a completed registration would mint an account per
-run in a database nothing truncates. C2 therefore stops at step 1 of each path
-(which is where the fork is anyway: four steps versus five), and C7 asserts
-`/referrals/validate` directly rather than through the field on step 3 that
-calls it. A debug-build affordance that pre-filled the draft photo would unblock
-all of this at once, if it ever becomes worth it.
+the very first screen. That wall is gone: under E2E the picker is
+short-circuited to a bundled placeholder (`lib/e2eImage`), and the accounts both
+registration flows create are wiped by the seeder rather than upserted, so a run
+does not mint an account per run. C2 and A10 now drive their whole wizards —
+five steps for a mother, six for a nanny, including the email OTP each proves
+mid-wizard against a code read out of Mailpit — and C7 rides on C2's step 5
+rather than asserting `/referrals/validate` on its own.
 
 **Anything about push tokens (C3).** Two separate walls. No route exposes a
 user's device tokens, so a flow cannot see whether registration happened — the

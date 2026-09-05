@@ -16,20 +16,22 @@ import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
 import { makeSuperuser } from '../../../test/factories';
 import { approveMotherId } from '../../../test/journeys/admin';
 import { wallClockTomorrow } from '../../../test/journeys/booking';
-import { verifyMyEmail } from '../../../test/journeys/email-verification';
+import { proveEmail } from '../../../test/journeys/email-verification';
 
 const ID_FRONT = 'https://storage.example.test/id-front.jpg';
 const ID_BACK = 'https://storage.example.test/id-back.jpg';
 
 /**
- * Registers a brand-new mother through the real route, as the app does, and
- * gets her past the email gate — which `createBooking` checks before the ID
- * gate this suite is about.
+ * Registers a brand-new mother through the real route, as the app does —
+ * proving her address mid-wizard and handing `/auth/register` the token for it,
+ * so she arrives already past the email gate `createBooking` checks before the
+ * ID gate this suite is about. A14 covers that gate on its own terms.
  */
 async function registerMother() {
   const email = `gate-${process.pid}-${Date.now()}@test.local`;
   await createEmulatorUser(email);
   const token = await signInAs(email);
+  const emailVerificationToken = await proveEmail(email);
 
   const response = await request(app)
     .post('/auth/register')
@@ -38,6 +40,7 @@ async function registerMother() {
       firstName: 'Gate',
       lastName: 'Tester',
       email,
+      emailVerificationToken,
       phone: `+2011${String(Date.now()).slice(-8)}`,
       dateOfBirth: '1992-04-01',
       role: 'MOTHER',
@@ -48,10 +51,6 @@ async function registerMother() {
     });
 
   expect(response.status).toBe(201);
-
-  // Past the email gate, which createBooking checks first. A14 covers that
-  // gate on its own terms; here it just has to be out of the way.
-  await verifyMyEmail(token, email);
 
   return { token, id: response.body.data.id as number, email };
 }

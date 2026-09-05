@@ -1,6 +1,6 @@
 # C2 — a mother signs up from scratch, all the way to her home screen.
 #
-# The old C2 could only prove the fork (a mother's four steps vs a nanny's six)
+# The old C2 could only prove the fork (a mother's five steps vs a nanny's six)
 # because step 1's Continue refuses to advance without a profile photo, and the
 # photo meant driving the Android picker. Two bits of Phase-2/2c infra remove
 # that wall, so this now drives the whole wizard:
@@ -15,8 +15,13 @@
 #
 # The referral field on the final step is C7 through the UI: the existing
 # mother's code is typed in and validated live. Reaching the home screen at the
-# end is the proof the whole chain landed — phone verify, email/password link,
-# POST /auth/register, and the referral redeem.
+# end is the proof the whole chain landed — email verify, phone verify,
+# email/password link, POST /auth/register, and the referral redeem.
+#
+# Step 2 proves her address against our own email OTP, read out of Mailpit —
+# the same mid-wizard step A10 drives for a nanny. It is what puts a real
+# address on `users.email`; the phone-derived placeholder stays behind as the
+# Firebase sign-in credential only.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -34,9 +39,9 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Sign up as a mother'
 - tapOn: 'Sign up as a mother'
 
-# ── Step 1 of 4 — personal info ────────────────────────────────────────────
+# ── Step 1 of 5 — personal info ────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 4.*'
+    visible: 'STEP 1 OF 5.*'
     timeout: 30000
 
 # The photo gate, asserted both ways: the hint is deferred to the first Continue
@@ -59,17 +64,47 @@ appId: com.nannyapp.mobile
 - tapOn: 'Enter your last name'
 - inputText: 'Lab'
 - hideKeyboard
+# A real address, verified on the very next screen — this is what lands in
+# `users.email`, not the placeholder her sign-in credential keeps.
+- tapOn: 'you@example.com'
+- inputText: ${REGISTRATION_REAL_EMAIL}
+- hideKeyboard
 - tapOn: '100 000 0000'
 - inputText: ${REGISTRATION_PHONE}
 - hideKeyboard
 
 # Date of birth opens the native Android date dialog. Its default is 25 years
-# ago — a valid adult DOB — so accepting it with OK is all this needs.
+# ago — a valid adult DOB — so accepting it with OK is all this needs. The
+# email field pushed the picker below the fold, so scroll to it first (A10 has
+# always needed this; a mother's step 1 now carries the same field).
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
 - tapOn: 'Select your date of birth'
 - tapOn: 'OK'
 - tapOn: 'Continue'
 
-# ── Step 2 of 4 — set password ─────────────────────────────────────────────
+# ── Step 2 of 5 — verify her email (our OTP, read from Mailpit) ────────────
+# The code is sent as the screen opens; the resend timer appearing is the signal
+# it went, so there is a message in the inbox before the advance step reads it.
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: email-otp
+      EMAIL_OTP_ADDRESS: ${REGISTRATION_REAL_EMAIL}
+- assertTrue: ${output.emailOtp != null}
+- tapOn:
+    id: 'registerEmail.code.boxes'
+- inputText: ${output.emailOtp}
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── Step 3 of 5 — set password ─────────────────────────────────────────────
 - extendedWaitUntil:
     visible: 'Create a secure password'
     timeout: 30000
@@ -81,7 +116,7 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Continue'
 
-# ── Step 3 of 4 — location & preferences ───────────────────────────────────
+# ── Step 4 of 5 — location & preferences ───────────────────────────────────
 - extendedWaitUntil:
     visible: 'Where are you based?'
     timeout: 30000

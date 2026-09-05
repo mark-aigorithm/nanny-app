@@ -627,25 +627,45 @@ function phoneOtp() {
  * leaves `output.emailOtp` for the flow to type.
  */
 function emailOtp() {
-  var res = http.get(MAILPIT_URL + '/api/v1/messages?limit=50');
-  if (res.status < 200 || res.status >= 300) {
-    throw new Error('Mailpit messages → ' + res.status + ' ' + res.body);
-  }
-  var list = json(res.body).messages || [];
-  // Newest first (Mailpit's default order), so the first message to the address
-  // is this run's — earlier runs left their own to the same address behind.
+  // Polled, not read once. The screen the flow is waiting on shows its resend
+  // countdown from the moment it mounts — not when the send resolves — so
+  // reaching this step says nothing about the mail having landed. The first
+  // send after a cold backend is the slow one (nodemailer opens its SMTP
+  // connection to Mailpit then), and reading a single time loses that race:
+  // seen as an empty inbox on run 1 and a pass on run 2.
+  var deadline = Date.now() + 30000;
   var match = null;
-  for (var i = 0; i < list.length && !match; i++) {
-    var to = list[i].To || [];
-    for (var j = 0; j < to.length; j++) {
-      if (to[j].Address === EMAIL_OTP_ADDRESS) {
-        match = list[i];
-        break;
+  var lastBody = '';
+  for (;;) {
+    var res = http.get(MAILPIT_URL + '/api/v1/messages?limit=50');
+    if (res.status < 200 || res.status >= 300) {
+      throw new Error('Mailpit messages → ' + res.status + ' ' + res.body);
+    }
+    lastBody = res.body;
+    var list = json(res.body).messages || [];
+    // Newest first (Mailpit's default order), so the first message to the
+    // address is this run's — earlier runs left their own to the same address
+    // behind.
+    for (var i = 0; i < list.length && !match; i++) {
+      var to = list[i].To || [];
+      for (var j = 0; j < to.length; j++) {
+        if (to[j].Address === EMAIL_OTP_ADDRESS) {
+          match = list[i];
+          break;
+        }
       }
     }
-  }
-  if (!match) {
-    throw new Error('No email to ' + EMAIL_OTP_ADDRESS + '. Mailpit holds: ' + res.body);
+    if (match) break;
+    if (Date.now() > deadline) {
+      throw new Error(
+        'No email to ' + EMAIL_OTP_ADDRESS + ' within 30s. Mailpit holds: ' + lastBody,
+      );
+    }
+    // Maestro's JS sandbox has no timers, so pacing the poll means spinning.
+    var until = Date.now() + 500;
+    while (Date.now() < until) {
+      /* wait */
+    }
   }
   var full = http.get(MAILPIT_URL + '/api/v1/message/' + match.ID);
   var body = json(full.body);

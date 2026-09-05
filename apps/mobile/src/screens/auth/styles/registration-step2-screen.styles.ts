@@ -79,7 +79,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   progressBarFill: {
-    width: '75%',
+    width: '80%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,

@@ -11,10 +11,10 @@ export type RegistrationDraft = {
   countryCode: string; // e.g. '+1'
   dob: string;
   photoUri: string | null;
-  // Nanny-only — her real email address, verified on the step right after this
-  // one. `emailVerificationToken` is the proof from POST /auth/email/verify,
-  // spent by POST /auth/register at the end of the wizard. Mothers leave both
-  // empty and register with a phone-derived placeholder instead.
+  // The real email address, collected on step 1 and verified on the step right
+  // after it — both roles. `emailVerificationToken` is the proof from
+  // POST /auth/email/verify, spent by POST /auth/register at the end of the
+  // wizard. Sign-in stays the phone number for everyone.
   email: string;
   emailVerificationToken: string | null;
   // Nanny-only — the ID document type + front/back images (local URIs until

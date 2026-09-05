@@ -55,6 +55,11 @@ export const ACCOUNTS = {
  */
 export const REGISTRATION = {
   phone: '+201100000005',
+  // Registration proves a real address for both roles, so a mother types this
+  // one on step 1 and confirms the code mailed to it on step 2 — same as the
+  // nanny below. It is fixed here so the email-otp advance step can find the
+  // message; `users.email` ends up holding it, not the phone placeholder.
+  email: 'e2e-mother-reg@nannyapp.test',
   password: PASSWORD,
   role: 'MOTHER',
   firstName: 'Rana',
@@ -62,11 +67,8 @@ export const REGISTRATION = {
 
 /**
  * The account the full **nanny** registration flow (A10) creates from scratch.
- * Same throwaway contract as REGISTRATION — wiped, not upserted — but a nanny
- * also verifies a **real** email mid-wizard (against our own email OTP, read
- * from Mailpit), so unlike a mother she carries a real address rather than the
- * phone-derived placeholder. The email is fixed here so the flow can type it
- * and the email-otp advance step can find its message.
+ * Same throwaway contract as REGISTRATION, and the same mid-wizard email proof;
+ * she differs only in the extra steps (ID, professional details) after it.
  */
 export const REGISTRATION_NANNY = {
   phone: '+201100000006',

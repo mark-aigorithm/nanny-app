@@ -7,6 +7,12 @@ jest.mock('@backend/db/prisma', () => ({
   },
 }));
 
+// Registration spends an email verification token for both roles; the token
+// path itself is covered by auth-register-nanny-profile.test.ts.
+jest.mock('@backend/services/email-verification.service', () => ({
+  consumeVerificationToken: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from '@backend/db/prisma';
 import { registerUser, submitId } from '@backend/services/auth.service';
 
@@ -54,6 +60,7 @@ const NANNY_BODY = {
   idDocumentType: 'NATIONAL_ID' as const,
   idDocumentFrontUrl: 'https://s/o/nanny-ids%2Ffb-1%2Ffront.jpg',
   idDocumentBackUrl: 'https://s/o/nanny-ids%2Ffb-1%2Fback.jpg',
+  emailVerificationToken: 'a'.repeat(64),
 };
 
 const MOTHER_BODY = {
@@ -66,6 +73,7 @@ const MOTHER_BODY = {
   termsAcceptedVersion: '1.0',
   latitude: 30.05,
   longitude: 31.23,
+  emailVerificationToken: 'b'.repeat(64),
 };
 
 describe('registerUser — ID verification defaults', () => {

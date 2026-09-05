@@ -16,7 +16,8 @@ interface OtpCodeInputProps {
 
 /**
  * The row of single-digit boxes used wherever a one-time code is entered —
- * the nanny's email verification step and the mother's pre-booking email gate.
+ * the wizard's email verification step and the forced verify screen an older
+ * account lands on.
  *
  * There is one real `TextInput`, hidden offscreen and holding the whole code;
  * the boxes are just a drawing of its value. That is what lets the caret,

@@ -4,14 +4,14 @@ import { getApiErrorMessage } from '@mobile/lib/api';
 import { useSendEmailOtp, useSetVerifiedEmail, useVerifyEmailOtp } from '@mobile/hooks/useAuth';
 
 /**
- * The mother's side of the email gate: turn a code she just received into a
- * verified address on her user row. Mirrors `useIdSubmit`, the other
- * pre-booking gate's submit hook.
+ * Turns a code the user just received into a verified address on their user
+ * row. Used by `VerifyEmailScreen`, the blocking screen an account created
+ * before registration proved an address lands on. Mirrors `useIdSubmit`.
  *
- * The address is for reaching her — booking receipts, and the billing record
- * sent to Paymob — not for signing in. Authentication is her phone number and
+ * The address is for reaching them — booking receipts, and the billing record
+ * sent to Paymob — not for signing in. Authentication is the phone number and
  * the Firebase credential behind it is left untouched, so nothing here needs
- * her password or a re-authentication.
+ * a password or a re-authentication.
  */
 export function useVerifiedEmailSubmit() {
   const sendOtp = useSendEmailOtp();

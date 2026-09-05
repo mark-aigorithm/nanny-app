@@ -63,14 +63,13 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   progressBarFill: {
-    width: '25%',
+    width: '20%',
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
   },
-  // Nannies get two extra steps (email verification right after this one, and
-  // register-nanny-details before the final step), so their progress fraction
-  // is out of 6 instead of 4.
+  // Nannies get one extra step (register-nanny-details, before the final one),
+  // so their progress fraction is out of 6 instead of 5.
   progressBarFillNanny: {
     width: '16.6%',
   },

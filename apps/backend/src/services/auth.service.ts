@@ -97,17 +97,15 @@ export async function registerUser(
     throw errors.conflict('An account with this phone number already exists.');
   }
   const isNanny = body.role === Role.NANNY;
-  // Nannies prove their address mid-wizard and arrive holding the token for it
-  // (the shared schema makes it mandatory for them). Mothers register with a
-  // phone-derived placeholder and verify later, at the pre-booking gate.
+  // Both roles prove their address mid-wizard and arrive holding the token for
+  // it (the shared schema makes it mandatory), so no account is created with an
+  // unproven address.
   const emailVerificationToken = body.emailVerificationToken;
   const created = await prisma.$transaction(async (tx) => {
-    if (emailVerificationToken) {
-      // Inside the transaction so the token isn't burned by a registration
-      // that then fails — either the user exists with a verified address, or
-      // the token is still spendable on a retry.
-      await consumeVerificationToken(body.email, emailVerificationToken, tx);
-    }
+    // Inside the transaction so the token isn't burned by a registration that
+    // then fails — either the user exists with a verified address, or the token
+    // is still spendable on a retry.
+    await consumeVerificationToken(body.email, emailVerificationToken, tx);
 
     const user = await tx.user.create({
       data: {
@@ -118,12 +116,13 @@ export async function registerUser(
         lastName: body.lastName,
         dateOfBirth: new Date(body.dateOfBirth),
         role: body.role,
-        isEmailVerified: !!emailVerificationToken || (decoded.email_verified ?? false),
+        // The token above was just spent for this address, so it is proven.
+        isEmailVerified: true,
         // Phone is verified server-side via the Firebase token's phone_number
         // claim. If the mobile client linked the phone before calling /register,
         // the token contains it.
         isPhoneVerified: !!decoded.phone_number,
-        emailVerifiedAt: emailVerificationToken || decoded.email_verified ? new Date() : null,
+        emailVerifiedAt: new Date(),
         phoneVerifiedAt: decoded.phone_number ? new Date() : null,
         termsAcceptedAt: new Date(),
         termsAcceptedVersion: body.termsAcceptedVersion,
@@ -282,9 +281,10 @@ export async function updateProfile(
 
 /**
  * Attaches a proven email address to the signed-in user, spending the token
- * issued by `POST /auth/email/verify`. This is the mother's path: she
- * registered with a phone-derived placeholder and only supplies a real address
- * when she first tries to book.
+ * issued by `POST /auth/email/verify`. Registration now proves the address for
+ * both roles, so this serves accounts created before that: they carry a
+ * phone-derived placeholder, and the app blocks them on a verify screen at
+ * launch until they call this.
  *
  * Idempotent on the address: if she already holds it and it is already
  * verified, the row is returned unchanged rather than failing on a token that

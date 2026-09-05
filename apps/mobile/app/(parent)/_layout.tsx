@@ -3,14 +3,12 @@ import { Tabs } from 'expo-router';
 import RatingPromptHost from '@mobile/components/RatingPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
 import IdUploadModal from '@mobile/components/IdUploadModal';
-import EmailVerifyModal from '@mobile/components/EmailVerifyModal';
 
 export default function ParentLayout() {
   return (
     <>
       <RegisterPromptModal />
       <IdUploadModal />
-      <EmailVerifyModal />
       <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
         <Tabs.Screen name="home" options={{ title: 'Home' }} />
         <Tabs.Screen name="services" options={{ title: 'Services' }} />

@@ -102,7 +102,7 @@ export default function RegistrationStep2Screen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 3 OF 4 — LOCATION & PREFERENCES</Text>
+          <Text style={styles.stepLabel}>STEP 4 OF 5 — LOCATION & PREFERENCES</Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Where are you based?</Text>

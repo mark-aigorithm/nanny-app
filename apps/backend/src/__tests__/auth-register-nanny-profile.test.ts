@@ -106,6 +106,8 @@ const MOTHER_BODY: RegisterRequest = {
   termsAcceptedVersion: '1.0',
   latitude: 30.05,
   longitude: 31.23,
+  // A mother proves her address mid-wizard too, on the step after her details.
+  emailVerificationToken: 'b'.repeat(64),
 };
 
 function makeTx() {
@@ -214,16 +216,16 @@ describe('registerUser — email verification token', () => {
     expect(res.isEmailVerified).toBe(true);
   });
 
-  it('leaves a mother unverified — she proves an address later, at the booking gate', async () => {
+  it('spends a mother’s token on the same terms — no account starts out unverified', async () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
     await registerUser(DECODED_UNVERIFIED, MOTHER_BODY);
 
-    expect(mockConsumeToken).not.toHaveBeenCalled();
+    expect(mockConsumeToken).toHaveBeenCalledWith(MOTHER_BODY.email, 'b'.repeat(64), tx);
     const userData = tx.user.create.mock.calls[0][0].data;
-    expect(userData.isEmailVerified).toBe(false);
-    expect(userData.emailVerifiedAt).toBeNull();
+    expect(userData.isEmailVerified).toBe(true);
+    expect(userData.emailVerifiedAt).toBeInstanceOf(Date);
   });
 
   it('does not create the user when the token is rejected', async () => {
@@ -235,13 +237,13 @@ describe('registerUser — email verification token', () => {
     expect(tx.user.create).not.toHaveBeenCalled();
   });
 
-  it('rejects a nanny payload with no token at the schema, before any service runs', () => {
-    const { emailVerificationToken: _token, ...withoutToken } = NANNY_BODY;
-    const parsed = RegisterRequestSchema.safeParse(withoutToken);
+  it('rejects either role’s payload with no token at the schema, before any service runs', () => {
+    const { emailVerificationToken: _nannyToken, ...nannyWithoutToken } = NANNY_BODY;
+    const { emailVerificationToken: _motherToken, ...motherWithoutToken } = MOTHER_BODY;
 
-    expect(parsed.success).toBe(false);
+    expect(RegisterRequestSchema.safeParse(nannyWithoutToken).success).toBe(false);
+    expect(RegisterRequestSchema.safeParse(motherWithoutToken).success).toBe(false);
     expect(RegisterRequestSchema.safeParse(NANNY_BODY).success).toBe(true);
-    // A mother needs none.
     expect(RegisterRequestSchema.safeParse(MOTHER_BODY).success).toBe(true);
   });
 });

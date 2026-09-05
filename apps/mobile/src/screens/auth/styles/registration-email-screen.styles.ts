@@ -51,7 +51,7 @@ export const styles = StyleSheet.create({
     width: 36,
   },
 
-  // Progress bar — step 2 of the nanny's 6.
+  // Progress bar — step 2 of the nanny's 6, or of the mother's 5.
   progressBarTrack: {
     position: 'absolute',
     top: STATUS_BAR_HEIGHT + HEADER_HEIGHT,
@@ -66,6 +66,11 @@ export const styles = StyleSheet.create({
     height: 6,
     backgroundColor: colors.primary,
     borderRadius: 3,
+  },
+  // A mother's wizard is one step shorter than a nanny's, so the same step is
+  // further along her bar.
+  progressBarFillMother: {
+    width: '40%',
   },
 
   // Scroll

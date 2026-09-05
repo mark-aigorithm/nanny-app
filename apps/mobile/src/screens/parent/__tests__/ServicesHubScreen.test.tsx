@@ -14,13 +14,9 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
 }));
 
-// Both booking gates pass through by default (a mother with a proven address
-// and an approved ID). Their own behaviour is covered by useEmailGate.test.
+// The booking gate passes through by default (a mother with an approved ID).
 jest.mock('@mobile/hooks/useIdGate', () => ({
   useIdGate: () => ({ needsId: false, gate: (fn: () => void) => fn }),
-}));
-jest.mock('@mobile/hooks/useEmailGate', () => ({
-  useEmailGate: () => ({ needsEmail: false, gate: (fn: () => void) => fn }),
 }));
 
 // No SafeAreaProvider in jest — stub the insets hook the floating bar uses.

@@ -241,8 +241,12 @@ function seedLab() {
         // — otherwise the second run collides on the unique phone. One mother
         // (C2/C7), one nanny (A10).
         E2E_MOBILE_WIPE: JSON.stringify([
-          { phone: REGISTRATION.phone, role: REGISTRATION.role },
-          { phone: REGISTRATION_NANNY.phone, role: REGISTRATION_NANNY.role },
+          { phone: REGISTRATION.phone, role: REGISTRATION.role, email: REGISTRATION.email },
+          {
+            phone: REGISTRATION_NANNY.phone,
+            role: REGISTRATION_NANNY.role,
+            email: REGISTRATION_NANNY.email,
+          },
         ]),
         E2E_LAB_FIXTURES: JSON.stringify({
           platformSettings: PLATFORM_SETTINGS,
@@ -359,11 +363,13 @@ function runFlow(maestro, flow) {
     // the country code plus the digits, not the digits a person types.
     MOTHER_PHONE_E164: ACCOUNTS.mother.phone,
     // The throwaway account a registration flow signs up as — the digits it
-    // types, the E.164 the phone-otp step reads, and the placeholder email the
-    // account ends up with.
+    // types, the E.164 the phone-otp step reads, the placeholder email that
+    // stays her Firebase sign-in credential, and the real address she types on
+    // step 1 and proves on step 2.
     REGISTRATION_PHONE: localDigits(REGISTRATION.phone),
     REGISTRATION_PHONE_E164: REGISTRATION.phone,
     REGISTRATION_EMAIL: placeholderEmail(REGISTRATION.phone),
+    REGISTRATION_REAL_EMAIL: REGISTRATION.email,
     REGISTRATION_FIRST_NAME: REGISTRATION.firstName,
     // The nanny sign-up (A10): her digits + E.164 for the phone step, and the
     // real address she verifies against the email OTP read from Mailpit.

@@ -127,9 +127,10 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       lastName: spec.lastName ?? (spec.role === Role.NANNY ? 'Nanny' : 'Mother'),
       role: spec.role,
       idVerificationStatus,
-      // Booking is gated on a proven address. These accounts stand in for
-      // users who finished that step long ago, so the flows exercise booking
-      // rather than the gate — a14-mother-email-gate.test.ts covers the gate.
+      // Booking is gated on a proven address, and the root router blocks an
+      // account without one at launch. These stand in for accounts registered
+      // the normal way, which prove an address mid-wizard — C2 and A10 drive
+      // that step, and a14-mother-email-gate.test.ts covers the endpoints.
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
       ...LOCATION,
@@ -291,12 +292,12 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
  * `deleted_at`). The Firebase user is removed so phone sign-in mints a fresh
  * uid and the number/email are free there too.
  */
-async function wipeAccount(spec: { phone: string; role?: string }): Promise<void> {
+async function wipeAccount(spec: { phone: string; role?: string; email?: string }): Promise<void> {
   const email = placeholderEmail(spec.phone);
 
-  // Look the DB row up by phone, not email: a mother's row carries the
-  // placeholder email, but a nanny's carries the real address she verified
-  // mid-wizard — the phone is the one identifier both share.
+  // Look the DB row up by phone, not email: the row carries the real address
+  // proved mid-wizard, while the Firebase credential keeps the phone-derived
+  // placeholder — the phone is the one identifier both sides share.
   const user = await prisma.user.findUnique({ where: { phone: spec.phone } });
   if (user) {
     const tag = `wiped-${user.id}-`;
@@ -327,6 +328,14 @@ async function wipeAccount(spec: { phone: string; role?: string }): Promise<void
     } catch {
       // Not present under this lookup — nothing to remove.
     }
+  }
+
+  // The wizard mails a code to a fixed address, and abuse control on that
+  // address is per-row (a 60s resend cooldown, 5 sends an hour). Left behind,
+  // those rows make the second run of the day fail on a 429 rather than on
+  // anything the flow is testing.
+  if (spec.email) {
+    await prisma.emailVerification.deleteMany({ where: { email: spec.email } });
   }
 
   // eslint-disable-next-line no-console
@@ -420,7 +429,7 @@ async function main(): Promise<void> {
   // run cannot trip the seeding that follows.
   const rawWipe = process.env['E2E_MOBILE_WIPE'];
   if (rawWipe) {
-    const toWipe = JSON.parse(rawWipe) as { phone: string; role?: string }[];
+    const toWipe = JSON.parse(rawWipe) as { phone: string; role?: string; email?: string }[];
     for (const spec of toWipe) await wipeAccount(spec);
   }
 
