@@ -21,16 +21,46 @@ boot needs it. **Diagnostic tell:** the app reaches the welcome screen (Firebase
 `onAuthStateChanged(null)` is local) but the first real network call fails — so it looks like a
 mid-startup app bug, not connectivity.
 
+## The device has no network at all (a different failure from the Wi-Fi trap)
+
+**Symptom.** `adb shell ip -o addr show` lists only `lo` and `dummy0` — **no `eth0`** — and
+`adb shell dumpsys connectivity | grep "Active default network"` says `none`. Every host address is
+`Network is unreachable`, and `svc wifi disable` / `svc data enable` change nothing.
+
+**Cause.** The AVD came up without its SLIRP NAT interface. Seen after resuming a snapshot and then
+force-killing qemu; the routing tables are left with only Android's `dummy0` fallback, which returns
+ENETUNREACH for everything.
+
+**Fix.** `adb reboot`, wait for `sys.boot_completed=1`, then `svc wifi disable` again. That restores
+`eth0` with `10.0.2.15/24`. A cold boot (`-no-snapshot-load`) alone did **not** fix it — the reboot
+of the running device did.
+
+**The `nc` result tells you which failure you have:**
+
+| `toybox nc 10.0.2.2 <port>` says | Means |
+|---|---|
+| `Network is unreachable` | No route or no interface — Wi-Fi trap above, or this one |
+| `Timeout` / `Connection refused` | Routing is **fine**; that service is dead — check `netstat` |
+| `HTTP/1.1 200 OK` | Device→host is healthy |
+
+Cross-check against a service you know binds `0.0.0.0` (Mailpit on 8025, docker): if 8025 answers and
+9099 times out, the route is fine and the Firebase emulator is simply down.
+
 ## The app "hangs on the splash"
 
 **Symptom.** After `openLink`, `_launch` fails asserting the welcome copy; a screenshot shows the bare
 splash logo and `uiautomator dump` finds no text.
 
-**Two causes, check both.**
+**Three causes, check all.**
 1. The dev-client **developer-menu modal** is covering the welcome screen. Android drops content
    behind a modal out of the a11y tree, so it's genuinely invisible to Maestro however plainly it
    shows in a screenshot. `_launch` dismisses it (Continue → back).
 2. **No host route** (the Wi-Fi trap above) — the root gate is stuck fetching `/auth/me`.
+3. **Metro died.** `RootLayout` holds the native splash until `useFonts` resolves, and the fonts are
+   Metro-served assets in a debug build — so a dead bundler is a permanent splash with **no red box
+   and no logcat error**. The JS already running keeps printing (the RNFirebase deprecation warnings
+   still appear), which makes it look alive. `curl 127.0.0.1:8081/status` before anything else; its
+   log ends in a bare `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL … Exit status 1`.
 
 **Distinguish.** `adb shell dumpsys window | grep mCurrentFocus`. A real app ANR reads
 `mCurrentFocus=…Application Not Responding: com.nannyapp.mobile`. If it's the launcher, the deep-link
@@ -126,3 +156,19 @@ rather than asserting an absolute. Always verify a flow **twice in a row** befor
   grep the file.
 - **A stale log shows a port "listening" for a dead process** → confirm with `netstat -ano | grep
   ':<port> '`, not the log.
+- **`adb` device paths get mangled** by Git Bash: `adb shell screencap -p /sdcard/x.png` rewrites
+  `/sdcard/…` to a Windows path and prints screencap's usage banner. Prefix `MSYS_NO_PATHCONV=1`.
+  And `adb pull` needs a **`C:\…`** destination — a `/c/Users/…` one fails with "cannot create
+  file/directory".
+
+## Seeing the live screen (not Maestro's debug shot)
+
+When you need the device's state *now* — mid-run, or after a failure to check whether it recovered:
+
+```bash
+MSYS_NO_PATHCONV=1 adb shell screencap -p /sdcard/shot.png
+MSYS_NO_PATHCONV=1 adb pull /sdcard/shot.png 'C:\Users\markb\AppData\Local\Temp\claude\shot.png'
+```
+
+Then `Read` the PNG. Pair it with `adb shell dumpsys window | grep mCurrentFocus` — the screenshot
+says what is drawn, the focus says what owns input (a modal or ANR the screenshot can't distinguish).

@@ -115,21 +115,50 @@ curl -s -m 200 -o /dev/null -w "bundle -> %{http_code} in %{time_total}s\n" \
 # want a 200; a second fetch should return 200 in <1s (cached)
 ```
 
-## Why WMI, and how services die
+## Keeping the services alive — prefer one shell
 
 Long-running services started from the Bash tool (`nohup … &`, `run_in_background`, `cmd /c start`)
-are **reaped at turn/session boundaries** because they stay in the shell's Windows job object. Two
-escapes:
+are **reaped at turn/session boundaries** because they stay in the shell's Windows job object.
 
-- **WMI** (above): `Win32_Process.Create` makes the parent `WmiPrvSE`, so they survive turns. Use
-  this for the services. **But Maestro itself is invisible to WMI-spawned processes** — the flow
-  runner (`run.mjs`, which invokes Maestro) must run **from the Bash tool**.
-- **One Bash call**: start the services with `&` and run the flow all inside a single
-  `run_in_background: true` Bash invocation — they stay children of that shell for its whole
-  duration. Good when you want services + run to live and die together.
+**The recipe that holds: one background Bash call owns the whole lab.** Services stay children of
+that shell for its entire life, and the flow runs inside the same call. Write it to a file and run it
+with `run_in_background: true`:
 
-Services still die under memory pressure. If a run reports "No backend answering" or the flow can't
-reach 9099, **check the ports before touching the flow** — the usual state is "only PostGIS survived".
+```bash
+#!/usr/bin/env bash
+S=/c/Users/markb/AppData/Local/Temp/claude   # somewhere to keep the logs
+export PATH="/c/Users/markb/AppData/Local/Android/Sdk/platform-tools:$PATH"
+export MAESTRO_DRIVER_STARTUP_TIMEOUT=180000
+export MAESTRO_BIN='C:\Users\markb\AppData\Local\maestro\bin\maestro.bat'
+cd /d/Projects/nanny-app || exit 1
+
+pnpm test:env                                  > "$S/testenv.log" 2>&1 &   ; sleep 55
+pnpm --filter @nanny-app/backend start:test    > "$S/backend.log" 2>&1 &   ; sleep 30
+pnpm --filter @nanny-app/mobile e2e:metro      > "$S/metro.log"   2>&1 &   ; sleep 40
+
+# Metro's --clear crawl, paid for up front (see trap #4)
+curl -s -m 300 -o /dev/null -w "bundle %{http_code} in %{time_total}s\n" \
+  "http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle?platform=android&dev=true&hot=false&transform.engine=hermes"
+adb shell svc wifi disable
+adb shell 'echo -e "GET / HTTP/1.0\r\n\r\n" | toybox nc -w 4 10.0.2.2 9099 2>&1 | head -1'  # want 200
+
+node apps/mobile/e2e/run.mjs c02 > "$S/c02-run1.log" 2>&1; echo "RUN1=$?"
+node apps/mobile/e2e/run.mjs c02 > "$S/c02-run2.log" 2>&1; echo "RUN2=$?"
+sleep 900   # keeps the services up for follow-up runs from other Bash calls
+```
+
+While that keeper shell is alive you can fire further `run.mjs` calls from separate Bash
+invocations — Maestro must run from the Bash tool either way.
+
+**WMI is the fallback, and it is not reliable here.** `Win32_Process.Create` makes the parent
+`WmiPrvSE`, which *should* outlive a turn, and sometimes does. Observed 2026-09-05: `test:env`, the
+backend and Metro were each started this way, served real traffic for 2–8 minutes, then all exited
+`1` with no error in their logs — repeatedly, across three attempts. Don't spend the session
+re-diagnosing it; use the one-shell recipe. (Metro under WMI can also exit within seconds of
+"Logs for your project will appear below" — the same silent `Exit status 1`.)
+
+If a run reports "No backend answering" or the flow can't reach 9099, **check the ports before
+touching the flow** — the usual state is "only PostGIS and Mailpit (detached docker) survived".
 Recovery: re-run `pnpm test:env` (idempotent; `test:env:free` reaps first), then backend, then Metro,
 then re-warm the bundle.
 

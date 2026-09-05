@@ -48,6 +48,13 @@ Steps that already exist (dispatch keys in the `STEPS` map):
 | `mother-book` / `mother-pay` / `mother-start-pin` / `mother-care-logs` | the mother's side over HTTP | various |
 | `community-reset` / `seed-listing-notifications` / `seed-conversation` / `event-at-capacity` | community/marketplace setup + capacity | various |
 
+**A visible resend countdown is not proof the code was sent.** Both OTP screens start their
+"Resend in Ns" timer when the screen *mounts*, not when the send resolves — so waiting on it and then
+reading the inbox once loses the race, and the first send after a cold backend is the slow one
+(nodemailer opens its SMTP connection to Mailpit then). `email-otp` polls for up to 30s for exactly
+this reason; keep any new code-reading step polling rather than reading once. The tell is a failure
+that says the inbox is *empty* (`"total":0`) on run 1 and passes on run 2.
+
 **Add a step**, don't add a bypass in the app. A new step is a function + one line in `STEPS`. Read
 a code from wherever the product parks it (Auth emulator `verificationCodes`, Mailpit
 `/api/v1/messages`) rather than short-circuiting verification — the point is that the real path ran.

@@ -24,7 +24,8 @@ a booted emulator. They die between sessions. The order that works, every time:
 1. **Check what survived** — ports and the emulator. If it's all up and healthy, skip to step 6.
 2. **Repair the lab** if anything is down → `references/environment.md` has the exact commands.
 3. **Cold-boot the emulator**, then **disable its Wi-Fi** (the single most important step — see below).
-4. **Bring up the services** (test:env → backend → Metro), and let **Metro fully build the bundle**
+4. **Bring up the services** (test:env → backend → Metro) — ideally in the same background shell that
+   will run the flows, so nothing gets reaped between turns — and let **Metro fully build the bundle**
    before running, or the run races Metro's `--clear` crawl and dies.
 5. **Verify reachability**: `curl` the backend (200) and, from the device, `nc 10.0.2.2 9099` (200).
 6. **Run the flow** and watch the log. Then run it **a second time** — the README's rule; state that
@@ -46,16 +47,21 @@ them by their disguise.
    disable` (now baked into `run.mjs`'s `quietDeviceChrome`, but a manual cold boot needs it too).
    The tell that it's *this* and not an app bug: the app reaches the welcome screen fine (Firebase's
    first `onAuthStateChanged(null)` is local, no network) but the first real network call fails.
+   **Worse variant:** no `eth0` at all and `Active default network: none` — then `svc wifi disable`
+   does nothing and only `adb reboot` brings the interface back. `nc` tells them apart: `Network is
+   unreachable` = route/interface, `Timeout` = route fine and the *service* is dead.
 
-2. **A "hang on the splash" is almost never a hang.** Either the developer-menu modal is covering the
-   welcome screen (Android drops content behind a modal out of the a11y tree, so `uiautomator dump`
-   shows *zero text* and a screenshot looks like a bare splash), or it's trap #1 (no host route).
-   Screenshot and check `adb shell dumpsys window | grep mCurrentFocus` before believing the app is
-   stuck. An **actual** app ANR shows `mCurrentFocus=…Application Not Responding`.
+2. **A "hang on the splash" is almost never a hang.** Three causes: the developer-menu modal covering
+   the welcome screen (Android drops content behind a modal out of the a11y tree, so `uiautomator
+   dump` shows *zero text*); trap #1 (no host route); or **Metro died** — fonts are Metro-served
+   assets, so a dead bundler holds the native splash forever with no red box and no logcat error.
+   Screenshot, `curl :8081/status`, and check `adb shell dumpsys window | grep mCurrentFocus` before
+   believing the app is stuck. An **actual** app ANR shows `mCurrentFocus=…Application Not Responding`.
 
-3. **Lab services die on their own** (memory pressure, turn boundaries). A repair often leaves only
-   PostGIS (detached Docker) up. Don't debug the flow — check the ports first. Recovery recipe in
-   `references/environment.md`.
+3. **Lab services die on their own** (memory pressure, turn boundaries) — including ones started via
+   WMI, which is *supposed* to outlive a turn and often doesn't. A repair often leaves only PostGIS
+   and Mailpit (detached Docker) up. Don't debug the flow — check the ports first, and prefer the
+   one-shell recipe in `references/environment.md` that owns the services and the runs together.
 
 4. **Metro's first bundle is a landmine.** `e2e:metro` starts with `--clear`, so the first request
    pays for the whole ~50s build, and `run.mjs`'s `warmMetro` can time out or crash Metro mid-crawl
