@@ -20,7 +20,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ACCOUNTS, ADMIN, PASSWORD, localDigits, placeholderEmail } from './accounts.mjs';
+import { ACCOUNTS, ADMIN, PASSWORD, REGISTRATION, localDigits, placeholderEmail } from './accounts.mjs';
 import { APP_ID, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
 import { CARE_POINTS, PACKAGE, PLATFORM_SETTINGS, PROMO_CODES } from './fixtures.mjs';
 
@@ -225,6 +225,10 @@ function seedLab() {
       env: {
         ...process.env,
         E2E_MOBILE_ACCOUNTS: JSON.stringify(Object.values(ACCOUNTS)),
+        // The registration flows sign this account up from scratch, so the
+        // seeder wipes it (Firebase user + DB row + dependents) rather than
+        // upserting it — otherwise the second run collides on its unique phone.
+        E2E_MOBILE_WIPE: JSON.stringify([{ phone: REGISTRATION.phone, role: REGISTRATION.role }]),
         E2E_LAB_FIXTURES: JSON.stringify({
           platformSettings: PLATFORM_SETTINGS,
           promoCodes: Object.values(PROMO_CODES),
@@ -277,6 +281,13 @@ function quietDeviceChrome(adb, device) {
   // but this repo.
   spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'global', 'verifier_verify_adb_installs', '0']);
   spawnSync(adb, ['-s', device, 'shell', 'settings', 'put', 'global', 'package_verifier_enable', '0']);
+
+  // Give the device a GPS fix, so registration's "Use my current location"
+  // (and the auto-seed on step 2's mount) has coordinates to read — Cairo, the
+  // region the seed data sits in. `geo fix` takes longitude first, then
+  // latitude. Without this, getCurrentPositionAsync returns nothing on a fresh
+  // AVD and the location step can never be completed.
+  spawnSync(adb, ['-s', device, 'emu', 'geo', 'fix', '31.2357', '30.0444']);
 
   // Turn the emulated Wi-Fi off, or the app cannot reach the host at all. The
   // API 35 google_apis image brings up a mac80211_hwsim `wlan0` on the *same*
@@ -332,6 +343,13 @@ function runFlow(maestro, flow) {
     // verification code it issues by the number the app dialled, and that is
     // the country code plus the digits, not the digits a person types.
     MOTHER_PHONE_E164: ACCOUNTS.mother.phone,
+    // The throwaway account a registration flow signs up as — the digits it
+    // types, the E.164 the phone-otp step reads, and the placeholder email the
+    // account ends up with.
+    REGISTRATION_PHONE: localDigits(REGISTRATION.phone),
+    REGISTRATION_PHONE_E164: REGISTRATION.phone,
+    REGISTRATION_EMAIL: placeholderEmail(REGISTRATION.phone),
+    REGISTRATION_FIRST_NAME: REGISTRATION.firstName,
     MOTHER_EMAIL: placeholderEmail(ACCOUNTS.mother.phone),
     NANNY_EMAIL: placeholderEmail(ACCOUNTS.nanny.phone),
     GATED_MOTHER_EMAIL: placeholderEmail(ACCOUNTS.gatedMother.phone),

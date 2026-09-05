@@ -601,6 +601,18 @@ function phoneOtp() {
 }
 
 /**
+ * The existing mother's referral code, for a registration flow to type into the
+ * C7 referral field. Read from her own /referrals/me (generated lazily there if
+ * she has none yet); no redemption happens here — the app redeems it as the new
+ * account once sign-up completes.
+ */
+function referrerCode() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var summary = call('GET', motherToken, '/referrals/me');
+  output.referrerCode = summary.code;
+}
+
+/**
  * A8: our team edits the mother's paid booking — pushing the end time out two
  * hours — which re-prices it and leaves a balance due she must settle before it
  * can start. Mirrors the admin console: preview first (for the optimistic
@@ -657,6 +669,7 @@ function adminTimeEdit() {
 var STEPS = {
   'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
+  'referrer-code': referrerCode,
   'nanny-accept': nannyAccept,
   'seed-listing-notifications': seedListingNotifications,
   'unread-count': unreadCount,

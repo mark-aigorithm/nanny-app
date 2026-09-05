@@ -275,6 +275,61 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
   console.log(`[seed-mobile] reset     ${bookingIds.length} bookings`);
 }
 
+/**
+ * Frees a throwaway registration account, so a flow that signs up from scratch
+ * can run again.
+ *
+ * The account every other flow uses is upserted and kept; this one is *created*
+ * by the flow itself, so a completed run leaves a User row whose unique phone /
+ * email / firebaseUid would collide on the next run's `/auth/register`. A hard
+ * delete is fragile — by the time the flow reaches home the account has grown a
+ * push-token, a referral row, reward ledger entries and notifications, and any
+ * FK missed here fails the delete. So instead of chasing dependents this frees
+ * only what actually collides: it mangles the four unique columns and
+ * soft-deletes the row. `/auth/register`'s "phone already exists" check then
+ * finds nothing, and the leftover row is inert (every read filters
+ * `deleted_at`). The Firebase user is removed so phone sign-in mints a fresh
+ * uid and the number/email are free there too.
+ */
+async function wipeAccount(spec: { phone: string; role?: string }): Promise<void> {
+  const email = placeholderEmail(spec.phone);
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user) {
+    const tag = `wiped-${user.id}-`;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        deletedAt: new Date(),
+        phone: `${tag}${user.phone}`,
+        email: `${tag}${user.email}`,
+        firebaseUid: `${tag}${user.firebaseUid}`,
+        // The referral code is unique too, and is generated lazily the first
+        // time she opens her own referral screen — null it so it cannot clash.
+        referralCode: null,
+      },
+    });
+  }
+
+  // Remove the Firebase account under either handle — a fully-linked user is
+  // found by email; a run that died between phone-verify and link leaves a
+  // phone-only user found only by number.
+  for (const lookup of [
+    () => firebaseAuth.getUserByEmail(email),
+    () => firebaseAuth.getUserByPhoneNumber(spec.phone),
+  ]) {
+    try {
+      const fb = await lookup();
+      await firebaseAuth.deleteUser(fb.uid);
+    } catch {
+      // Not present under this lookup — nothing to remove.
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] wipe      ${spec.phone}  (${email})`);
+}
+
 /** Upserts the codes A4 spends, resetting the counters a previous run moved. */
 async function seedPromoCodes(specs: PromoSpec[]): Promise<void> {
   for (const spec of specs) {
@@ -356,6 +411,15 @@ async function main(): Promise<void> {
     throw new Error('E2E_LAB_FIXTURES is required (see apps/mobile/e2e/fixtures.mjs).');
   }
   const fixtures = JSON.parse(rawFixtures) as LabFixtures;
+
+  // Registration flows create their account from scratch, so it is wiped rather
+  // than upserted — before anything else, so a half-written row from a crashed
+  // run cannot trip the seeding that follows.
+  const rawWipe = process.env['E2E_MOBILE_WIPE'];
+  if (rawWipe) {
+    const toWipe = JSON.parse(rawWipe) as { phone: string; role?: string }[];
+    for (const spec of toWipe) await wipeAccount(spec);
+  }
 
   await configurePlatform(fixtures.platformSettings);
 

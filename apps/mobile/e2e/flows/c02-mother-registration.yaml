@@ -1,0 +1,147 @@
+# C2 — a mother signs up from scratch, all the way to her home screen.
+#
+# The old C2 could only prove the fork (a mother's four steps vs a nanny's six)
+# because step 1's Continue refuses to advance without a profile photo, and the
+# photo meant driving the Android picker. Two bits of Phase-2/2c infra remove
+# that wall, so this now drives the whole wizard:
+#
+#   - the photo picker is short-circuited to a bundled placeholder under E2E
+#     (lib/e2eImage), so step 1's gate opens without touching system UI;
+#   - the location step needs coordinates: run.mjs gives the device a Cairo geo
+#     fix, the map card centres on it, and tapping the map sets the pin;
+#   - the account is created from scratch, so the seeder WIPES it (Firebase user
+#     + DB row + dependents) before every run rather than upserting it, or the
+#     second run collides on its unique phone (Phase 2c).
+#
+# The referral field on the final step is C7 through the UI: the existing
+# mother's code is typed in and validated live. Reaching the home screen at the
+# end is the proof the whole chain landed — phone verify, email/password link,
+# POST /auth/register, and the referral redeem.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+
+# Nothing chosen yet: the button is disabled and the screen says why.
+- assertVisible: 'Select an option above to sign up'
+- tapOn: "I'm a mother"
+# The button takes the name of the choice — the only readable confirmation the
+# radio registered.
+- assertVisible: 'Sign up as a mother'
+- tapOn: 'Sign up as a mother'
+
+# ── Step 1 of 4 — personal info ────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 4.*'
+    timeout: 30000
+
+# The photo gate, asserted both ways: the hint is deferred to the first Continue
+# attempt, then a photo clears it. Under E2E the picker returns a bundled
+# placeholder, so "Add photo" becomes "Change photo" without any system UI.
+- assertNotVisible: 'A profile photo is required'
+- tapOn: 'Continue'
+- assertVisible: 'A profile photo is required'
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+
+# hideKeyboard between each field: the keyboard covers the lower half, and a
+# tap on a field behind it lands on a key instead — the phone digits end up
+# appended to the last name and the phone stays empty.
+- tapOn: 'Enter your first name'
+- inputText: ${REGISTRATION_FIRST_NAME}
+- hideKeyboard
+- tapOn: 'Enter your last name'
+- inputText: 'Lab'
+- hideKeyboard
+- tapOn: '100 000 0000'
+- inputText: ${REGISTRATION_PHONE}
+- hideKeyboard
+
+# Date of birth opens the native Android date dialog. Its default is 25 years
+# ago — a valid adult DOB — so accepting it with OK is all this needs.
+- tapOn: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+# ── Step 2 of 4 — set password ─────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Create a secure password'
+    timeout: 30000
+- tapOn: 'Enter a password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Re-enter your password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── Step 3 of 4 — location & preferences ───────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Where are you based?'
+    timeout: 30000
+# This lab's build has a Maps key, so the map renders (centred on the device's
+# Cairo geo fix). Tapping the map fires its onPress with that point's
+# coordinate and sets the pin synchronously, which is the lat/long Continue
+# requires — no reliance on the async GPS read landing in time.
+- tapOn:
+    point: '50%,44%'
+# A preference, for coverage — optional, so it does not gate Continue.
+- tapOn: 'Background checked'
+- tapOn: 'Continue'
+
+# ── Final step — verify phone, referral (C7), terms ────────────────────────
+- extendedWaitUntil:
+    visible: 'Verify your phone number'
+    timeout: 30000
+# The code is sent automatically on arrival; the resend timer appearing is the
+# signal it went, so the emulator has a code to hand back before we read it.
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${REGISTRATION_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'registerStep3.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+
+# ── C7: the referral field, validated live ─────────────────────────────────
+# The existing mother's own code (read over HTTP); the field calls the
+# optional-auth validate endpoint and confirms it before the account exists.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: referrer-code
+- tapOn: 'SARAH-4K2P'
+- inputText: ${output.referrerCode}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: 'Invited by.*'
+    timeout: 30000
+
+# Accept the terms and finish. The label is one text node — "Terms of Service"
+# is a nested <Text> Android flattens into it — so match the whole line; the tap
+# toggles the card either way.
+- tapOn: 'I agree to.*'
+- tapOn: 'Complete setup'
+
+# The notification-permission screen stands between the last step and home.
+- extendedWaitUntil:
+    visible: 'Stay in the loop'
+    timeout: 60000
+- tapOn: 'Not now'
+
+# Registered and signed in — the mother's home.
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
