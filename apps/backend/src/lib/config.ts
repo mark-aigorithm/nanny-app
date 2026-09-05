@@ -48,6 +48,15 @@ const ConfigSchema = z.object({
   GMAIL_APP_PASSWORD: z.string().optional(),
   /** Envelope From, e.g. "NannyApp <no-reply@nannyapp.com>". Defaults to GMAIL_USER when using the Gmail shortcut. */
   EMAIL_FROM: z.string().optional(),
+
+  // The manual release-test checklist behind the console's public /qa page.
+  // Off unless explicitly turned on: its endpoints are unauthenticated by
+  // design, so an environment that is not running a release test should not
+  // expose them at all. Set to "true" for the duration of the test round.
+  QA_CHECKLIST_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim().toLowerCase() === 'true'),
 });
 
 const parsed = ConfigSchema.safeParse(process.env);
@@ -166,6 +175,7 @@ export const config = {
   },
   paymob: buildPaymobConfig(),
   email: buildEmailConfig(),
+  qaChecklistEnabled: raw.QA_CHECKLIST_ENABLED,
 } as const;
 
 export type Config = typeof config;
