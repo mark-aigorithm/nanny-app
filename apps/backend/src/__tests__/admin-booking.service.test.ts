@@ -80,6 +80,10 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     nannyAmount: dec(254),
     platformAmount: dec(64),
     discountAmount: dec(0),
+    // Non-nullable Decimals with a DB default, so a real row always carries
+    // them — and the detail DTO calls .toNumber() on both.
+    rewardCreditHoursApplied: dec(0),
+    packageHoursApplied: dec(0),
     selectedSkillFees: [],
     specialInstructions: null,
     cancellationReason: null,

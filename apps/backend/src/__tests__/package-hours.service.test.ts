@@ -38,6 +38,16 @@ const m = prisma as unknown as {
   user: { findUnique: jest.Mock };
 };
 
+/**
+ * A date `days` from now. `activeBuckets` filters expiry against the wall
+ * clock, so a bucket meant to be live has to be dated relative to the run —
+ * a fixed date silently turns the bucket expired once it passes, and the test
+ * then fails for a reason that has nothing to do with the code under test.
+ */
+function daysFromNow(days: number): Date {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
 function bucket(over: Record<string, unknown> = {}) {
   return {
     id: 1,
@@ -47,7 +57,7 @@ function bucket(over: Record<string, unknown> = {}) {
     maxSkillsSnapshot: 2,
     status: 'ACTIVE',
     purchasedAt: new Date('2026-01-01T00:00:00.000Z'),
-    expiresAt: new Date('2026-12-01T00:00:00.000Z'),
+    expiresAt: daysFromNow(90),
     packageId: 3,
     nameSnapshot: 'Starter',
     deletedAt: null,
@@ -264,8 +274,8 @@ describe('creditPurchaseHours', () => {
 describe('redeemPackageHours (FIFO)', () => {
   it('drains soonest-expiring bucket first and writes REDEMPTION rows', async () => {
     m.packagePurchase.findMany.mockResolvedValue([
-      bucket({ id: 1, hoursRemaining: '4.00', expiresAt: new Date('2026-08-01'), maxSkillsSnapshot: 1 }),
-      bucket({ id: 2, hoursRemaining: '10.00', expiresAt: new Date('2026-10-01'), maxSkillsSnapshot: 3 }),
+      bucket({ id: 1, hoursRemaining: '4.00', expiresAt: daysFromNow(30), maxSkillsSnapshot: 1 }),
+      bucket({ id: 2, hoursRemaining: '10.00', expiresAt: daysFromNow(120), maxSkillsSnapshot: 3 }),
     ]);
     mockPurchaseLookups({}, { 1: '0.00', 2: '8.00' });
     m.packageHoursLedger.create.mockResolvedValue({});
