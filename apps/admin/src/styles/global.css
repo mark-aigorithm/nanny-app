@@ -3655,3 +3655,310 @@ input[type='number'] {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* ── Release-test checklist (public /qa page) ────────────── */
+
+/* Renders outside AdminLayout, so it carries its own page frame rather than
+   inheriting the sidebar shell's. */
+.qa-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 2rem 1.5rem 4rem;
+}
+
+.qa-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.qa-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.qa-subtitle {
+  margin: 0.5rem 0 0;
+  max-width: 62ch;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.qa-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Progress: one bar, three segments, left to right in the order a reader
+   cares about — passed, then failed, then blocked. The remainder is the
+   track showing through. */
+.qa-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.qa-progress-bar {
+  display: flex;
+  height: 10px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--color-warm-subtle);
+}
+
+.qa-progress-fill {
+  height: 100%;
+  transition: width 200ms ease;
+}
+
+.qa-progress-fill--pass {
+  background: var(--color-primary);
+}
+
+.qa-progress-fill--fail {
+  background: var(--color-error);
+}
+
+.qa-progress-fill--blocked {
+  background: var(--color-gold-warm);
+}
+
+.qa-stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+}
+
+.qa-filter-bar {
+  flex-wrap: wrap;
+}
+
+.qa-search {
+  flex: 1 1 220px;
+  min-width: 200px;
+  align-self: flex-end;
+}
+
+.qa-search .input {
+  width: 100%;
+}
+
+.qa-filter-summary {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.qa-number {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* The whole title cell is the expand target — a separate chevron button would
+   be a small tap area on the one control every row needs. */
+.qa-title-button {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qa-title-chevron {
+  display: inline-flex;
+  padding-top: 0.15rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.qa-title-button:hover .qa-title {
+  color: var(--color-primary-dark);
+}
+
+.qa-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.qa-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.qa-gap-flag {
+  display: inline-flex;
+  color: var(--color-warning);
+}
+
+.qa-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* Narrower than the 180px a dropdown gets in a filter bar — four short words
+   is all it ever has to show, and the scenario column wants the room. */
+.qa-result-control .dropdown-trigger {
+  min-width: 128px;
+}
+
+.qa-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.qa-by-name {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.qa-muted {
+  color: var(--color-text-placeholder);
+}
+
+/* Expanded detail */
+.qa-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0 0.75rem 1.75rem;
+}
+
+.qa-known-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.qa-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.qa-detail-heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.qa-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.qa-list--ordered {
+  padding-left: 1.25rem;
+}
+
+/* Expectations read as things to confirm, so they get ticks rather than
+   bullets — the same list, but as a checklist. */
+.qa-list--check {
+  list-style: none;
+  padding-left: 0;
+}
+
+.qa-list--check li {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.qa-list--check li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.qa-detail-record {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-warm-border);
+}
+
+.qa-note {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.qa-detail-save {
+  grid-column: 1 / -1;
+}
+
+.qa-footer-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .qa-page {
+    padding: 1.25rem 0.75rem 3rem;
+  }
+
+  .qa-detail {
+    padding-left: 0;
+  }
+
+  .qa-detail-record {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Printing the board is how it gets walked away from a screen, so the
+   controls come off and every expanded row keeps its detail. */
+@media print {
+  .qa-header-actions,
+  .qa-filter-bar,
+  .qa-footer,
+  .qa-detail-save {
+    display: none;
+  }
+
+  .qa-page {
+    padding: 0;
+    background: none;
+  }
+}

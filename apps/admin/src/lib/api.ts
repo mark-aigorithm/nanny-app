@@ -48,11 +48,14 @@ import type {
   PriceBreakdown,
   PricePreviewInput,
   PromoCode,
+  QaChecklistEntry,
+  QaChecklistState,
   RewardConfig,
   RewardLedgerEntry,
   RewardWalletSummary,
   SetBookingStatusInput,
   SetNannySkillsInput,
+  SetQaScenarioStatusInput,
   Skill,
   SupportContact,
   UpdateAdminMotherInput,
@@ -636,4 +639,34 @@ export async function updateOfficialListing(
 
 export async function deleteOfficialListing(id: number): Promise<void> {
   await apiClient.delete(`/admin/marketplace/listings/${id}`);
+}
+
+// ── Manual release-test checklist (public /qa page) ────────────
+
+/**
+ * These three are the only endpoints in this file that are reached without an
+ * admin account — the release-test checklist is walked by the business team,
+ * who have no console login. `apiClient` sends no Authorization header when
+ * nobody is signed in, which is exactly what they want. The backend mounts
+ * them only when QA_CHECKLIST_ENABLED is set.
+ */
+export async function fetchQaChecklist(): Promise<QaChecklistState> {
+  const res = await apiClient.get<ApiEnvelope<QaChecklistState>>('/qa-checklist');
+  return res.data.data;
+}
+
+export async function setQaScenarioStatus(
+  scenarioId: string,
+  input: SetQaScenarioStatusInput,
+): Promise<QaChecklistEntry> {
+  const res = await apiClient.put<ApiEnvelope<QaChecklistEntry>>(
+    `/qa-checklist/${scenarioId}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function resetQaChecklist(): Promise<number> {
+  const res = await apiClient.post<ApiEnvelope<{ cleared: number }>>('/qa-checklist/reset');
+  return res.data.data.cleared;
 }

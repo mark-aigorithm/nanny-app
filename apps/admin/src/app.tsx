@@ -30,6 +30,7 @@ import { SettingsPage } from './pages/settings-page';
 import { SkillsPage } from './pages/skills-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
+import { QaChecklistPage } from './pages/qa-checklist-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,10 @@ export function App() {
           <AuthProvider>
             <Routes>
             <Route path="login" element={<LoginPage />} />
+            {/* Public by design: the release-test checklist is walked by the
+                business team, who have no console account. Outside RequireAuth
+                and AdminLayout, so it renders with no sign-in and no sidebar. */}
+            <Route path="qa" element={<QaChecklistPage />} />
             <Route
               element={
                 <RequireAuth>
