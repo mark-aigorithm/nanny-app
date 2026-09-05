@@ -29,7 +29,8 @@ export default function IdUploadModal() {
   const reason = useIdGateStore((s) => s.reason);
   const closeIdGate = useIdGateStore((s) => s.closeIdGate);
 
-  const [idType, setIdType] = useState<IdDocumentType | null>(null);
+  // National ID is the common case here, so it starts selected.
+  const [idType, setIdType] = useState<IdDocumentType>(IdDocumentType.NATIONAL_ID);
   const [frontUri, setFrontUri] = useState<string | null>(null);
   const [backUri, setBackUri] = useState<string | null>(null);
   const { submit, isSubmitting, error, setError } = useIdSubmit();
@@ -37,7 +38,7 @@ export default function IdUploadModal() {
   // Reset the capture state each time the modal opens.
   useEffect(() => {
     if (visible) {
-      setIdType(null);
+      setIdType(IdDocumentType.NATIONAL_ID);
       setFrontUri(null);
       setBackUri(null);
       setError(null);
@@ -101,7 +102,6 @@ export default function IdUploadModal() {
               variant="primary"
               disabled={isSubmitting}
             />
-            <Button title="Maybe later" onPress={closeIdGate} variant="text" disabled={isSubmitting} />
           </View>
         </View>
       </View>
