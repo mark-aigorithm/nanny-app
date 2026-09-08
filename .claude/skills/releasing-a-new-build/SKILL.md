@@ -46,11 +46,22 @@ artifact link at the end.
   environment; a key registered only as Development leaves Firebase with nothing to send the silent
   verification push. The fallback is a dead end here — the scheme is `nanny-app` and the plist has
   no `REVERSED_CLIENT_ID`. Console-only fix, no rebuild.
-- **`src/lib/firebase.ts` must keep the JS-SDK `initializeApp`.** This app is a Firebase *hybrid*:
-  native `@react-native-firebase` for auth + messaging, JS SDK for Storage. Dropping the JS init
-  makes `getStorage(getApp())` throw `app/no-app` during module eval, which on iOS 26 becomes a
-  **fatal launch crash** whose `.ips` masks the cause. Reproduce iOS-only crashes on the Android
+- **Firebase is all-native now — the JS SDK is not a mobile dependency.** This used to be a
+  *hybrid* (native `@react-native-firebase` for auth + messaging, JS SDK for Storage), and the rule
+  here used to be "never drop the JS-SDK `initializeApp`", because `getStorage(getApp())` would then
+  throw `app/no-app` during module eval and become a **fatal iOS launch crash** whose `.ips` masks
+  the cause. That hybrid was itself the bug: the two SDKs hold separate sessions, so every upload
+  went out unauthenticated and the bucket returned `storage/unauthorized`. Storage moved to
+  `@react-native-firebase/storage` (2026-09-09) and the JS SDK was removed from `apps/mobile`
+  entirely. Nothing should call `initializeApp` or import `firebase/*` in the mobile app again.
+  The module-eval hazard still applies in general: reproduce iOS-only launch crashes on the Android
   dev-client, where the same throw prints plainly.
+- **Adding a `@react-native-firebase/*` package means editing `plugins/withIosFirebasePods.js`.**
+  Its `rnfb_targets` array is hardcoded, and each listed pod gets `DEFINES_MODULE = 'NO'` — which is
+  what makes RNFB's direct `<React/...>` imports legal under framework linkage. A pod missing from
+  that array fails the **iOS build** (`'RCTPromiseRejectBlock' must be imported from module
+  'RNFBApp.RNFBAppModule'`), ~20 minutes in, with nothing wrong in the JS. Android autolinks and
+  needs no equivalent.
 - **Push entitlements come from `app.config.ts`**, not the messaging plugin —
   `ios.entitlements['aps-environment']` and `ios.infoPlist.UIBackgroundModes`. Without them the
   verification push can't arrive.

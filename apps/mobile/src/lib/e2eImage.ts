@@ -17,8 +17,10 @@ import Constants from 'expo-constants';
 export async function e2ePlaceholderImageUri(): Promise<string | null> {
   const isE2E = Constants.expoConfig?.extra?.['firebaseStorageEmulatorHost'];
   if (!isE2E) return null;
-  // Reuse the app icon as a stand-in — any bundled image `fetch()` can read
-  // works, and uploadImageToFirebase fetches the URI into a blob.
+  // Reuse the app icon as a stand-in. `downloadAsync` puts the bundled asset on
+  // the filesystem and fills in `localUri`, which matters: uploadImageToFirebase
+  // hands the URI straight to the native putFile, and that reads a local path
+  // (file:// / content://) — not the http:// URL Metro serves assets from.
   const asset = Asset.fromModule(require('../../assets/icon.png'));
   await asset.downloadAsync();
   return asset.localUri ?? asset.uri;

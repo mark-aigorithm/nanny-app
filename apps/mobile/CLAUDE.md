@@ -213,9 +213,17 @@ All placeholder/mock data lives in `src/mocks/`, organized by domain:
 | Variable | Description |
 |---|---|
 | `API_BASE_URL` | Backend API base URL |
-| `FIREBASE_PROJECT_ID` | Firebase project |
-| `FIREBASE_API_KEY` | Firebase web API key |
-| `FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
+| `GOOGLE_MAPS_API_KEY` | Android Google Maps key — baked in at prebuild (see Known Gotchas) |
+| `GOOGLE_PLACES_API_KEY` | Places / Geocoding key; falls back to the Maps key |
+| `FIREBASE_AUTH_EMULATOR_HOST` | E2E only — points native Auth at the local emulator |
+| `FIREBASE_STORAGE_EMULATOR_HOST` | E2E only — points native Storage at the local emulator |
+| `PAYMOB_CHECKOUT_ORIGIN` | E2E only — points the checkout WebView at the Paymob fake |
+
+**No Firebase client credentials are configured here.** Auth, Storage and
+Messaging are all `@react-native-firebase` modules and auto-initialize from
+`google-services.json` / `GoogleService-Info.plist`. The Firebase JS SDK is not
+a dependency of this app — see the note in `src/lib/storage.ts` for why mixing
+the two SDKs broke every image upload.
 
 ---
 

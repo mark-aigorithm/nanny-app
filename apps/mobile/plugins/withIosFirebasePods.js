@@ -46,7 +46,9 @@ const withIosFirebasePods = (config) =>
         tag: 'withIosFirebasePods',
         src: contents,
         newSrc: [
-          "    rnfb_targets = ['RNFBApp', 'RNFBAuth', 'RNFBMessaging']",
+          // Every @react-native-firebase pod in package.json must be listed
+          // here — a missing one fails the build, not the runtime.
+          "    rnfb_targets = ['RNFBApp', 'RNFBAuth', 'RNFBMessaging', 'RNFBStorage']",
           '    installer.pods_project.targets.each do |target|',
           '      target.build_configurations.each do |bc|',
           "        bc.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'",

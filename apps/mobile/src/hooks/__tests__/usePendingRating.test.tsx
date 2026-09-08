@@ -4,8 +4,8 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // `usePendingRating.ts` imports `api` from `@mobile/lib/api`, which in turn
-// imports `@mobile/lib/firebase` — a module that eagerly initializes the real
-// Firebase JS SDK at import time. Stub the API layer so these tests stay
+// imports `@mobile/lib/firebase` — a module that loads the native
+// `@react-native-firebase/auth` module at import time. Stub the API layer so these tests stay
 // fast and side-effect-free; `unwrap` keeps its real "unwrap the envelope"
 // shape so hook-level tests exercise realistic success responses.
 jest.mock('@mobile/lib/api', () => ({

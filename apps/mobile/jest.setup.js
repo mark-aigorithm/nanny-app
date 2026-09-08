@@ -3,11 +3,11 @@
  * jest.config.js. It declares the three mocks nearly every screen/hook test
  * needs, so individual test files no longer have to re-declare them.
  *
- *   1. `@mobile/lib/firebase` initializes the Firebase JS SDK at IMPORT time
- *      (getApps/initializeApp run at the top level). Any module that reaches it
- *      transitively — most do, through `@mobile/lib/api` — throws in jest,
- *      which has no Firebase credentials. Stubbing it makes importing the API
- *      layer (and therefore almost any screen or hook) safe.
+ *   1. `@mobile/lib/firebase` loads the native `@react-native-firebase/auth`
+ *      module at IMPORT time, and native modules have no JS implementation
+ *      under jest. Any module that reaches it transitively — most do, through
+ *      `@mobile/lib/api` — throws. Stubbing it makes importing the API layer
+ *      (and therefore almost any screen or hook) safe.
  *   2. `@mobile/lib/api` gets a no-network default so a rendered screen can't
  *      fire a real request at the backend. The REAL `unwrap`/error helpers are
  *      kept (they are pure), so hooks that unwrap an envelope still behave.
@@ -55,7 +55,7 @@ jest.mock('@mobile/lib/api', () => {
 });
 
 // 3. Safe-area insets — no SafeAreaProvider is mounted in jest.
-// (mocks 4–7 follow the safe-area block below)
+// (mocks 4–8 follow the safe-area block below)
 jest.mock('react-native-safe-area-context', () => {
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 390, height: 844 };
@@ -138,4 +138,18 @@ jest.mock('react-native-maps', () => {
     Polyline: passthrough('Polyline'),
     PROVIDER_GOOGLE: 'google',
   };
+});
+
+// 8. Firebase Storage — the native module has no JS implementation under jest,
+//    and lib/storage.ts touches `storage()` at import time to wire the E2E
+//    emulator, so any screen with an upload path fails to import without this.
+//    Resolves to a stable download URL; a test that cares about the upload
+//    itself declares its own `jest.mock(...)` (see src/lib/__tests__/storage.test.ts).
+jest.mock('@react-native-firebase/storage', () => {
+  const reference = {
+    putFile: jest.fn().mockResolvedValue(undefined),
+    getDownloadURL: jest.fn().mockResolvedValue('https://storage.test/object.jpg'),
+  };
+  const instance = { ref: jest.fn(() => reference), useEmulator: jest.fn() };
+  return { __esModule: true, default: () => instance };
 });

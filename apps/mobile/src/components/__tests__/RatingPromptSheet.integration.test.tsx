@@ -5,9 +5,10 @@ import { AxiosError } from 'axios';
 import type { AxiosResponse } from 'axios';
 import type { BookingResponse } from '@nanny-app/shared';
 
-// `@mobile/lib/api` imports `auth` from `@mobile/lib/firebase`, which eagerly
-// initializes the real Firebase JS SDK at module-load time and crashes
-// jest-expo's transform. Stub exactly the surface `api.ts` uses — `auth()`
+// `@mobile/lib/api` imports `auth` from `@mobile/lib/firebase`, which loads the
+// native `@react-native-firebase/auth` module at import time — and native
+// modules have no JS implementation under jest. Stub exactly the surface
+// `api.ts` uses — `auth()`
 // is only ever called as `auth().currentUser` in the request interceptor —
 // so the REAL `api`, `unwrap`, and `getApiErrorMessage` all load and run
 // unmocked. This is what makes this file an integration test: unlike

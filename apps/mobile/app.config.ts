@@ -112,26 +112,22 @@ const config: ExpoConfig = {
     currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
     // Google Places / Geocoding key — read by src/lib/googlePlaces.ts.
     googlePlacesApiKey: GOOGLE_PLACES_API_KEY,
-    // Firebase JS SDK config (client credentials — safe to ship in the app).
-    // These are only used when running under Expo Go, which can't load the
-    // native @react-native-firebase modules. In a native/dev-client build,
-    // @react-native-firebase auto-initializes from google-services.json /
-    // GoogleService-Info.plist and this extra block is ignored.
-    firebaseApiKey: process.env['FIREBASE_API_KEY'] ?? 'AIzaSyC3eB2qrs8KVEPu5ny8J9sBAPcLbvWnuL8',
-    firebaseAuthDomain: process.env['FIREBASE_AUTH_DOMAIN'] ?? 'nanny-now-d8518.firebaseapp.com',
-    firebaseProjectId: process.env['FIREBASE_PROJECT_ID'] ?? 'nanny-now-d8518',
-    firebaseAppId: process.env['FIREBASE_APP_ID'] ?? '1:936472549582:android:eef4d3c4ad112865eb589f',
-    firebaseStorageBucket: process.env['FIREBASE_STORAGE_BUCKET'] ?? 'nanny-now-d8518.firebasestorage.app',
-    firebaseMessagingSenderId: process.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '936472549582',
-    // Points the Firebase JS SDK at the local Auth emulator for end-to-end
-    // tests. Unset in every real build, in which case lib/firebase.ts leaves
-    // auth alone. From an Android emulator the host machine is 10.0.2.2, so
-    // this is typically FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099.
+    // No Firebase client credentials here. Auth, Storage and Messaging are all
+    // @react-native-firebase modules, which auto-initialize from
+    // google-services.json (Android) / GoogleService-Info.plist (iOS) — the
+    // project, app id and storage bucket come from those files. The JS SDK's
+    // config block that used to live here fed a second Firebase app that had no
+    // signed-in user, which is what broke every upload; see src/lib/storage.ts.
+    //
+    // Points native Auth at the local Auth emulator for end-to-end tests. Unset
+    // in every real build, in which case lib/firebase.ts leaves auth alone. From
+    // an Android emulator the host machine is 10.0.2.2, so this is typically
+    // FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099.
     firebaseAuthEmulatorHost: process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '',
-    // Points the Firebase JS SDK's Storage at the local Storage emulator for
-    // end-to-end tests (nanny ID/avatar uploads, marketplace listing photos).
-    // Empty in every real build, in which case lib/storage.ts leaves Storage
-    // alone. From an Android emulator the host is 10.0.2.2, so this is typically
+    // Points native Storage at the local Storage emulator for end-to-end tests
+    // (nanny ID/avatar uploads, marketplace listing photos). Empty in every real
+    // build, in which case lib/storage.ts leaves Storage alone. From an Android
+    // emulator the host is 10.0.2.2, so this is typically
     // FIREBASE_STORAGE_EMULATOR_HOST=10.0.2.2:9199. Doubles as the E2E flag the
     // photo-picker affordance keys off (lib/e2eImage.ts).
     firebaseStorageEmulatorHost: process.env['FIREBASE_STORAGE_EMULATOR_HOST'] ?? '',

@@ -12,7 +12,7 @@ import {
 
 // This file declares NO mocks of its own. Importing `bookingDraft` transitively
 // pulls `@mobile/hooks/useBookings` → `@mobile/lib/api` → `@mobile/lib/firebase`,
-// which initializes the Firebase JS SDK at import time. It loads here only
+// which loads the native @react-native-firebase/auth module at import time. It loads here only
 // because `jest.setup.js` stubs firebase globally — that is exactly the
 // boilerplate the shared setup removes.
 
