@@ -24,18 +24,19 @@ export const EmailStatusSchema = z.enum(['SENT', 'FAILED']);
 export type EmailStatus = z.infer<typeof EmailStatusSchema>;
 
 /**
- * Minimum gap between two verification codes sent to one address.
+ * How long the app makes a user wait before offering "Send a new code" again.
  *
- * Both sides must use this number. The backend refuses an earlier resend with
- * 429; the mobile screen counts its "Resend in Ns" timer down from the same
- * value, so the button cannot re-enable while the API would still reject it.
- * They were 42 (mobile) against 60 (backend) once, which read to the user as
- * "I waited for the timer and it still told me to wait" — the client re-enabled
- * 18 seconds early, every time.
+ * Client-side only, and the whole of the resend gap: the API deliberately no
+ * longer enforces a per-send cooldown, so this timer is a courtesy to the user
+ * and to the mail account, not a limit anyone is held to. Only the per-address
+ * hourly cap in email-verification.service.ts actually restrains a caller that
+ * isn't the app.
  *
- * Safe against the clocks being different machines': the server's window opens
- * when it writes the verification row, which happens strictly *before* the
- * response the client starts counting from.
+ * It lives in shared rather than in mobile's constants because the server used
+ * to hold the matching number and the two drifted — 42 on the client against 60
+ * on the server, so the button went live 18 seconds before the API would accept
+ * it and every tap in that gap came back 429. If a server-side cooldown is ever
+ * restored, it must read this constant rather than declare its own.
  */
 export const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
 

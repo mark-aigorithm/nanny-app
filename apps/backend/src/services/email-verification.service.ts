@@ -1,5 +1,5 @@
 import { EmailStatus, EmailTemplate, type Prisma } from '@prisma/client';
-import { EMAIL_OTP_RESEND_COOLDOWN_SECONDS, type VerifyEmailOtpResponse } from '@nanny-app/shared';
+import type { VerifyEmailOtpResponse } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { config } from '@backend/lib/config';
@@ -24,21 +24,18 @@ import { hashOtp, randomOtpCode, randomVerificationToken } from '@backend/lib/ot
  * be swallowed into a log line.
  *
  * Abuse control is per-address and lives in the `email_verifications` rows
- * themselves (one row per send, so the windows are just counts). There is no
- * per-IP limit — that belongs to the Redis-backed rate-limit middleware
- * (FOUND-05), which does not exist yet. Until it does, a determined caller can
- * still spread sends across many addresses.
+ * themselves (one row per send, so the windows are just counts) — and is now
+ * down to a single hourly cap, the per-send cooldown having moved to the client.
+ * There is no per-IP limit either: that belongs to the Redis-backed rate-limit
+ * middleware (FOUND-05), which does not exist yet. Until it does, a caller that
+ * isn't the app can send up to MAX_SENDS_PER_HOUR mails to any address it names,
+ * as fast as it likes, and spread further sends across many addresses.
  */
 
 /** How long a code stays enterable. */
 const CODE_TTL_MINUTES = 10;
 /** How long the token issued on success stays spendable. Longer than the code: the nanny still has several wizard steps to finish. */
 const TOKEN_TTL_MINUTES = 15;
-/**
- * Minimum gap between two sends to the same address. Shared with the mobile
- * resend timer — see the constant's note for why it must not be redeclared here.
- */
-const RESEND_COOLDOWN_SECONDS = EMAIL_OTP_RESEND_COOLDOWN_SECONDS;
 /** Maximum sends to one address per hour. */
 const MAX_SENDS_PER_HOUR = 5;
 /** Wrong guesses allowed against a single code before it is burned. */
@@ -67,28 +64,22 @@ async function assertEmailAvailable(email: string, excludeUserId?: number): Prom
   }
 }
 
-/** Reject a burst of sends to one address before any mail is generated. */
+/**
+ * Reject a burst of sends to one address before any mail is generated.
+ *
+ * There is deliberately NO per-send cooldown here any more: the gap between two
+ * resends is enforced only by the mobile screen's countdown
+ * (EMAIL_OTP_RESEND_COOLDOWN_SECONDS). That is a UX timer, not a control — this
+ * route is unauthenticated by design, so anything that isn't the app can resend
+ * as fast as it likes and the hourly cap below is the only thing in its way.
+ * Restoring the cooldown means reading the newest row's `createdAt` and
+ * comparing it against that same shared constant, so the client's timer and the
+ * server's window cannot drift apart the way they did before.
+ */
 async function assertWithinSendLimits(email: string): Promise<void> {
-  const now = Date.now();
-
-  const [recent, lastHourCount] = await Promise.all([
-    prisma.emailVerification.findFirst({
-      where: { email, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true },
-    }),
-    prisma.emailVerification.count({
-      where: { email, deletedAt: null, createdAt: { gte: new Date(now - 60 * MINUTE_MS) } },
-    }),
-  ]);
-
-  if (recent) {
-    const elapsedSeconds = (now - recent.createdAt.getTime()) / 1000;
-    if (elapsedSeconds < RESEND_COOLDOWN_SECONDS) {
-      const wait = Math.ceil(RESEND_COOLDOWN_SECONDS - elapsedSeconds);
-      throw errors.tooManyRequests(`Please wait ${wait} seconds before requesting another code.`);
-    }
-  }
+  const lastHourCount = await prisma.emailVerification.count({
+    where: { email, deletedAt: null, createdAt: { gte: new Date(Date.now() - 60 * MINUTE_MS) } },
+  });
 
   if (lastHourCount >= MAX_SENDS_PER_HOUR) {
     throw errors.tooManyRequests('Too many codes requested. Please try again in an hour.');
