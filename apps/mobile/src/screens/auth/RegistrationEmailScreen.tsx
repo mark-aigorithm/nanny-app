@@ -12,7 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
+import { EMAIL_OTP_RESEND_COOLDOWN_SECONDS } from '@shared/email';
+import { OTP_LENGTH } from '@mobile/constants';
 import { Button, OtpCodeInput } from '@mobile/components/ui';
 import { useSendEmailOtp, useVerifyEmailOtp } from '@mobile/hooks/useAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -45,7 +46,9 @@ export default function RegistrationEmailScreen() {
 
   const [code, setCode] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  // Counts down from the server's own cooldown, not the phone-OTP one: this
+  // screen's resend is gated by the API, which returns 429 until it elapses.
+  const [secondsLeft, setSecondsLeft] = useState(EMAIL_OTP_RESEND_COOLDOWN_SECONDS);
 
   // Strict Mode and Fast Refresh both re-run effects; without this the user
   // gets two codes and the second invalidates the first they already typed.
@@ -55,7 +58,7 @@ export default function RegistrationEmailScreen() {
     setFormError(null);
     try {
       await sendOtp.mutateAsync(email);
-      setSecondsLeft(RESEND_SECONDS);
+      setSecondsLeft(EMAIL_OTP_RESEND_COOLDOWN_SECONDS);
     } catch (err) {
       setFormError(getApiErrorMessage(err, 'Could not send the code. Please try again.'));
     }

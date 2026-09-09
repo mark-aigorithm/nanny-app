@@ -18,6 +18,8 @@ jest.mock('@backend/db/prisma', () => ({
 }));
 jest.mock('@backend/lib/email/transport', () => ({ sendEmail: jest.fn() }));
 
+import { EMAIL_OTP_RESEND_COOLDOWN_SECONDS } from '@nanny-app/shared';
+
 import { config } from '@backend/lib/config';
 import { prisma } from '@backend/db/prisma';
 import { sendEmail } from '@backend/lib/email/transport';
@@ -154,6 +156,25 @@ describe('sendEmailOtp', () => {
   it('allows a resend once the cooldown has passed', async () => {
     m.emailVerification.findFirst.mockResolvedValue({ createdAt: new Date(Date.now() - 5 * MINUTE) });
     await expect(sendEmailOtp({ email: EMAIL })).resolves.toBeUndefined();
+  });
+
+  // The mobile screen re-enables "Send a new code" after exactly
+  // EMAIL_OTP_RESEND_COOLDOWN_SECONDS. If this window were any longer, the
+  // button would go live while the API still answered 429 — which is what users
+  // hit as "I waited for the timer and it told me to wait 6 more seconds".
+  it('opens the window at exactly the cooldown the mobile timer counts down from', async () => {
+    m.emailVerification.findFirst.mockResolvedValue({
+      createdAt: new Date(Date.now() - EMAIL_OTP_RESEND_COOLDOWN_SECONDS * 1000),
+    });
+    await expect(sendEmailOtp({ email: EMAIL })).resolves.toBeUndefined();
+  });
+
+  it('still refuses a resend just inside the window', async () => {
+    m.emailVerification.findFirst.mockResolvedValue({
+      createdAt: new Date(Date.now() - (EMAIL_OTP_RESEND_COOLDOWN_SECONDS - 2) * 1000),
+    });
+    await expect(sendEmailOtp({ email: EMAIL })).rejects.toThrow(/Please wait \d+ seconds/);
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('caps sends per address per hour', async () => {

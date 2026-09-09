@@ -24,6 +24,22 @@ export const EmailStatusSchema = z.enum(['SENT', 'FAILED']);
 export type EmailStatus = z.infer<typeof EmailStatusSchema>;
 
 /**
+ * Minimum gap between two verification codes sent to one address.
+ *
+ * Both sides must use this number. The backend refuses an earlier resend with
+ * 429; the mobile screen counts its "Resend in Ns" timer down from the same
+ * value, so the button cannot re-enable while the API would still reject it.
+ * They were 42 (mobile) against 60 (backend) once, which read to the user as
+ * "I waited for the timer and it still told me to wait" — the client re-enabled
+ * 18 seconds early, every time.
+ *
+ * Safe against the clocks being different machines': the server's window opens
+ * when it writes the verification row, which happens strictly *before* the
+ * response the client starts counting from.
+ */
+export const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+/**
  * Variables substituted into the `RECEIPT` template. Money fields are plain
  * numbers in major currency units (EGP pounds, matching the DB Decimals) and
  * are formatted for display by the template's `formatMoney` helper. Dates and

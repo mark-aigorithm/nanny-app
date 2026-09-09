@@ -1,5 +1,5 @@
 import { EmailStatus, EmailTemplate, type Prisma } from '@prisma/client';
-import type { VerifyEmailOtpResponse } from '@nanny-app/shared';
+import { EMAIL_OTP_RESEND_COOLDOWN_SECONDS, type VerifyEmailOtpResponse } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { config } from '@backend/lib/config';
@@ -34,8 +34,11 @@ import { hashOtp, randomOtpCode, randomVerificationToken } from '@backend/lib/ot
 const CODE_TTL_MINUTES = 10;
 /** How long the token issued on success stays spendable. Longer than the code: the nanny still has several wizard steps to finish. */
 const TOKEN_TTL_MINUTES = 15;
-/** Minimum gap between two sends to the same address. */
-const RESEND_COOLDOWN_SECONDS = 60;
+/**
+ * Minimum gap between two sends to the same address. Shared with the mobile
+ * resend timer — see the constant's note for why it must not be redeclared here.
+ */
+const RESEND_COOLDOWN_SECONDS = EMAIL_OTP_RESEND_COOLDOWN_SECONDS;
 /** Maximum sends to one address per hour. */
 const MAX_SENDS_PER_HOUR = 5;
 /** Wrong guesses allowed against a single code before it is burned. */
