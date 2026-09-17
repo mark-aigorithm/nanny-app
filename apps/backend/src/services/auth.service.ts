@@ -5,6 +5,8 @@ import type {
 import {
   getMissingNannyProfileFields,
   Role,
+  type AvailabilityResponse,
+  type CheckAvailabilityRequest,
   type Child as ChildDto,
   type RegisterRequest,
   type Role as ApiRole,
@@ -65,6 +67,36 @@ function toUserResponse(user: User): UserResponse {
 }
 
 /**
+ * Whether an email or phone already belongs to a user row. This is the one
+ * rule for "taken", asked twice: from step 1 of the wizard via
+ * `checkAvailability`, and again by `registerUser` before the insert — so the
+ * early answer and the final one cannot drift apart.
+ *
+ * Deliberately no `deletedAt` filter: `users.email` and `users.phone` are
+ * unique columns, so a soft-deleted row still holding the value would make the
+ * insert fail, and this must report what the insert will do. (Rows freed for
+ * re-registration have those columns mangled — see test/e2e/seed-mobile.ts.)
+ */
+async function findIdentityOwners(email: string, phone: string): Promise<AvailabilityResponse> {
+  const [emailOwner, phoneOwner] = await Promise.all([
+    prisma.user.findUnique({ where: { email } }),
+    prisma.user.findUnique({ where: { phone } }),
+  ]);
+  return { emailTaken: emailOwner !== null, phoneTaken: phoneOwner !== null };
+}
+
+/**
+ * Step 1 of the wizard asks this before moving on, so a taken email or phone
+ * is refused while the fields are still on screen. Public and side-effect
+ * free; the body has already been normalised by CheckAvailabilitySchema.
+ */
+export async function checkAvailability(
+  body: CheckAvailabilityRequest,
+): Promise<AvailabilityResponse> {
+  return findIdentityOwners(body.email, body.phone);
+}
+
+/**
  * Creates the application User row for a freshly-created Firebase account.
  * The mobile client calls this immediately after `createUserWithEmailAndPassword`
  * + phone verification, passing the profile data collected by the registration
@@ -85,15 +117,15 @@ export async function registerUser(
     return toUserResponse(existing);
   }
 
-  // Email collision check (different Firebase UID, same email) — surfaces a
-  // friendlier error than letting the unique constraint blow up.
-  const emailOwner = await prisma.user.findUnique({ where: { email: body.email } });
-  if (emailOwner) {
+  // Collision check (different Firebase UID, same email or phone) — the same
+  // lookup step 1 of the wizard ran, so this only fires if the value was taken
+  // in between. Surfaces a friendlier error than letting the unique constraint
+  // blow up.
+  const { emailTaken, phoneTaken } = await findIdentityOwners(body.email, body.phone);
+  if (emailTaken) {
     throw errors.conflict('An account with this email already exists.');
   }
-
-  const phoneOwner = await prisma.user.findUnique({ where: { phone: body.phone } });
-  if (phoneOwner) {
+  if (phoneTaken) {
     throw errors.conflict('An account with this phone number already exists.');
   }
   const isNanny = body.role === Role.NANNY;
