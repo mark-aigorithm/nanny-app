@@ -46,9 +46,9 @@ const MINUTE_MS = 60_000;
 /**
  * Refuse an address that already belongs to somebody else. `excludeUserId` is
  * the caller's own row (the mother re-verifying), so re-entering the address
- * she already holds isn't reported as a collision. Mirrors the collision check
- * in auth.service.ts's registerUser, which surfaces a friendlier error than
- * letting the unique constraint blow up later.
+ * she already holds isn't reported as a collision. Backstop for the check
+ * step 1 of the wizard already ran via /auth/availability (registerUser's
+ * `findIdentityOwners`); it fires only if the address was taken in between.
  */
 async function assertEmailAvailable(email: string, excludeUserId?: number): Promise<void> {
   const owner = await prisma.user.findFirst({

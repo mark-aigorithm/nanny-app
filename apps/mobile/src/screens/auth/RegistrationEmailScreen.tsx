@@ -31,7 +31,9 @@ import { styles } from './styles/registration-email-screen.styles';
  *
  * Verifying here rather than at the end is deliberate: a typo'd address is
  * caught before the rest of the wizard is filled in, and no account can be
- * created carrying an address nobody can read.
+ * created carrying an address nobody can read. "Already taken" is not this
+ * screen's job any more — step 1 asks /auth/availability before pushing here,
+ * so the 409 the send can still return only fires on a race.
  */
 export default function RegistrationEmailScreen() {
   const router = useRouter();
