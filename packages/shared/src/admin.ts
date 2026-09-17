@@ -182,6 +182,12 @@ export const PlatformConfigSchema = z.object({
    */
   broadcastRadiusKm: z.number().min(0).max(500),
   /**
+   * Whether a request priced with skill add-ons is only offered to nannies who
+   * hold every one of them. Off means any nanny is notified, sees the request
+   * and can claim it — the parent is still charged the add-on fees.
+   */
+  skillMatchingEnabled: z.boolean(),
+  /**
    * Minutes a booking may sit PENDING (no nanny accepted) before the admin
    * bookings list flags it as a warning (yellow).
    */

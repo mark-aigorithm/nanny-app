@@ -55,6 +55,7 @@ import {
 } from '@backend/lib/platform-time';
 import {
   getBroadcastRadiusKm,
+  getSkillMatchingEnabled,
   getPlatformConfig,
   getRevealPhoneMinutes,
 } from './app-settings.service';
@@ -256,8 +257,13 @@ function heldSkillIds(nannySkills: { skillId: number }[] | undefined): Set<numbe
  * Strict match: the nanny must hold EVERY skill the booking asks for. A partial
  * match is not a match — the mother paid per skill. An empty requirement list
  * matches everyone, which is what keeps plain bookings broadcasting as before.
+ *
+ * Callers pass the admin's skill-matching toggle as `enabled`; off means every
+ * nanny matches, so the three enforcement points (broadcast, pool, claim) can't
+ * drift apart on what "off" means.
  */
-function matchesSkills(required: number[], held: Set<number>): boolean {
+function matchesSkills(required: number[], held: Set<number>, enabled: boolean): boolean {
+  if (!enabled) return true;
   return required.every((id) => held.has(id));
 }
 
@@ -533,14 +539,16 @@ async function notifyUserBookingEvent(
  * approved nanny with a complete profile who is free for the requested window
  * and within the configured broadcast radius of the booking's location (nannies
  * or bookings without coordinates always match, and radius 0 disables the
- * distance filter — see AppSettings broadcast_radius_km).
+ * distance filter — see AppSettings broadcast_radius_km), and — while skill
+ * matching is on — holding every skill add-on the request was priced for.
  * No payment has been taken; the mother pays once a nanny claims the request.
  */
 async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<void> {
   const dateLabel = booking.date.toISOString().slice(0, 10);
 
-  const [radiusKm, candidates] = await Promise.all([
+  const [radiusKm, skillMatching, candidates] = await Promise.all([
     getBroadcastRadiusKm(),
+    getSkillMatchingEnabled(),
     prisma.nannyProfile.findMany({
       where: {
         deletedAt: null,
@@ -573,7 +581,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
   const nannies = candidates.filter(
     (n) =>
       isWithinRadius(bookingPoint, toLatLng(n.user.latitude, n.user.longitude), radiusKm) &&
-      matchesSkills(required, heldSkillIds(n.nannySkills)),
+      matchesSkills(required, heldSkillIds(n.nannySkills), skillMatching),
   );
 
   // Only console accounts that can actually open the Bookings queue — an
@@ -1186,7 +1194,8 @@ export async function listBookings(
  *  - the configured broadcast radius around each request's location. Requests
  *    or nannies without coordinates, or radius 0, bypass the distance filter
  *    (never hide work because a profile is incomplete);
- *  - the skill add-ons the request was priced for — she must hold all of them.
+ *  - the skill add-ons the request was priced for — she must hold all of them,
+ *    unless the admin has switched skill matching off.
  */
 export async function listAvailableBookings(
   decoded: DecodedIdToken,
@@ -1206,8 +1215,9 @@ export async function listAvailableBookings(
   });
   if (!nannyProfile) throw errors.notFound('Nanny profile not found.');
 
-  const [radiusKm, busy, open, ctx] = await Promise.all([
+  const [radiusKm, skillMatching, busy, open, ctx] = await Promise.all([
     getBroadcastRadiusKm(),
+    getSkillMatchingEnabled(),
     prisma.booking.findMany({
       where: {
         nannyProfileId: nannyProfile.id,
@@ -1241,7 +1251,7 @@ export async function listAvailableBookings(
       (b) =>
         !busy.some((slot) => slot.startTime < b.endTime && slot.endTime > b.startTime) &&
         isWithinRadius(nannyPoint, toLatLng(b.latitude, b.longitude), radiusKm) &&
-        matchesSkills(requiredSkillIds(b), held),
+        matchesSkills(requiredSkillIds(b), held, skillMatching),
     )
     .slice(0, OPEN_POOL_PAGE_SIZE);
 
@@ -1385,11 +1395,11 @@ async function applyNannyDecision(
 
       // The pool she saw is filtered on skills, but a stale list or a direct
       // API call must not let her claim work she can't deliver — the mother was
-      // priced for these add-ons.
-      const missing = requiredSkillIds(booking).filter(
-        (id) => !heldSkillIds(nannyProfile.nannySkills).has(id),
-      );
-      if (missing.length > 0) {
+      // priced for these add-ons. Unless the admin has switched matching off.
+      const skillMatching = await getSkillMatchingEnabled();
+      if (
+        !matchesSkills(requiredSkillIds(booking), heldSkillIds(nannyProfile.nannySkills), skillMatching)
+      ) {
         throw errors.badRequest(
           'This request needs skills that are not on your profile, so you cannot accept it.',
         );

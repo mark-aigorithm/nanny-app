@@ -23,6 +23,8 @@ import {
   PageHeader,
   Phone,
   Skeleton,
+  Sparkles,
+  Switch,
   TriangleAlert,
   useToast,
   Users,
@@ -39,10 +41,11 @@ import { useCanManage } from '@admin/lib/permissions';
 
 /**
  * Booking-window limits + matching/SLA settings — pricing lives on Pricing & Fees.
- * One list drives the form state, the dirty check and the save payload so the
- * three can't drift apart.
+ * These two lists drive the form state, the dirty check and the save payload so
+ * the three can't drift apart. Numbers are held as strings while being typed;
+ * toggles are booleans throughout.
  */
-const SETTINGS_KEYS = [
+const NUMBER_KEYS = [
   'bookingWindowStartHour',
   'bookingWindowEndHour',
   'minBookingHours',
@@ -57,12 +60,15 @@ const SETTINGS_KEYS = [
   'revealPhoneMinutes',
 ] as const;
 
-type SettingsKey = (typeof SETTINGS_KEYS)[number];
-type SettingsForm = Record<SettingsKey, string>;
-type SettingsValues = Record<SettingsKey, number>;
+const TOGGLE_KEYS = ['skillMatchingEnabled'] as const;
+
+type NumberKey = (typeof NUMBER_KEYS)[number];
+type ToggleKey = (typeof TOGGLE_KEYS)[number];
+type SettingsForm = Record<NumberKey, string> & Record<ToggleKey, boolean>;
+type SettingsValues = Record<NumberKey, number> & Record<ToggleKey, boolean>;
 
 type ConfigField = {
-  key: SettingsKey;
+  key: NumberKey;
   label: string;
   /** Unit rendered inside the input's box, so labels stay free of parentheses. */
   unit: string;
@@ -72,11 +78,19 @@ type ConfigField = {
   step?: string;
 };
 
+type ToggleField = {
+  key: ToggleKey;
+  label: string;
+  hint?: string;
+};
+
 /** A set of related settings introduced by one shared explanation. */
 type ConfigGroup = {
   eyebrow: string;
   lead: string;
   fields: ConfigField[];
+  /** On/off settings, rendered on their own row after the number fields. */
+  toggles?: ToggleField[];
 };
 
 const BOOKING_GROUPS: ConfigGroup[] = [
@@ -148,8 +162,9 @@ const MATCHING_GROUPS: ConfigGroup[] = [
   {
     eyebrow: 'Nanny matching',
     lead:
-      'Only nannies within this distance of the family are notified of a new request and see it ' +
-      'in their requests pool.',
+      'Which nannies are notified of a new request and see it in their requests pool: those ' +
+      'within this distance of the family, and — when skill matching is on — only those holding ' +
+      'every skill add-on the request was priced for.',
     fields: [
       {
         key: 'broadcastRadiusKm',
@@ -158,6 +173,15 @@ const MATCHING_GROUPS: ConfigGroup[] = [
         hint: '0 notifies every eligible nanny.',
         step: '0.5',
         max: '500',
+      },
+    ],
+    toggles: [
+      {
+        key: 'skillMatchingEnabled',
+        label: 'Match on skills',
+        hint:
+          'Off: nannies without a requested skill are notified and can accept — the parent is ' +
+          'still charged the add-on.',
       },
     ],
   },
@@ -295,6 +319,12 @@ function buildSummary(v: SettingsValues): SummaryLine[] {
           : `Requests go to nannies within ${v.broadcastRadiusKm} km`,
     },
     {
+      icon: Sparkles,
+      title: v.skillMatchingEnabled
+        ? 'Only nannies with the requested skills are matched'
+        : 'Skills are not checked — any nanny can claim a request',
+    },
+    {
       icon: BellRing,
       title: `Pending bookings flag at ${formatMinutes(v.pendingWarningMinutes)}`,
       detail: `Critical at ${formatMinutes(v.pendingCriticalMinutes)}.`,
@@ -430,7 +460,11 @@ export function SettingsPage() {
 
   const values = form ? toValues(form) : null;
   const issues = values ? findIssues(values) : [];
-  const dirty = form != null && config != null && SETTINGS_KEYS.some((k) => form[k] !== String(config[k]));
+  const dirty =
+    form != null &&
+    config != null &&
+    (NUMBER_KEYS.some((k) => form[k] !== String(config[k])) ||
+      TOGGLE_KEYS.some((k) => form[k] !== config[k]));
 
   /**
    * Both sections hit the same backend, so a server outage fails them together.
@@ -467,6 +501,16 @@ export function SettingsPage() {
                 <span className="unit-input-suffix">{field.unit}</span>
               </span>
             </Field>
+          ))}
+          {group.toggles?.map((toggle) => (
+            <div className="config-toggle" key={toggle.key}>
+              <Switch
+                checked={form[toggle.key]}
+                onChange={(v) => setForm({ ...form, [toggle.key]: v })}
+                label={toggle.label}
+              />
+              {toggle.hint && <span className="field-hint">{toggle.hint}</span>}
+            </div>
           ))}
         </div>
       </div>
@@ -625,15 +669,19 @@ export function SettingsPage() {
   );
 }
 
-function toForm(config: Record<SettingsKey, number>): SettingsForm {
-  return Object.fromEntries(SETTINGS_KEYS.map((k) => [k, String(config[k])])) as SettingsForm;
+function toForm(config: SettingsValues): SettingsForm {
+  return Object.fromEntries([
+    ...NUMBER_KEYS.map((k) => [k, String(config[k])]),
+    ...TOGGLE_KEYS.map((k) => [k, config[k]]),
+  ]) as SettingsForm;
 }
 
 /** Empty and half-typed inputs read as 0 so the preview never shows NaN. */
 function toValues(form: SettingsForm): SettingsValues {
-  return Object.fromEntries(
-    SETTINGS_KEYS.map((k) => [k, Number(form[k]) || 0]),
-  ) as SettingsValues;
+  return Object.fromEntries([
+    ...NUMBER_KEYS.map((k) => [k, Number(form[k]) || 0]),
+    ...TOGGLE_KEYS.map((k) => [k, form[k]]),
+  ]) as SettingsValues;
 }
 
 /** Placeholder shaped like a settings card while the config loads. */

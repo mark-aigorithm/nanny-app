@@ -14,6 +14,7 @@ const KEYS = {
   MIN_ADVANCE_BOOKING_HOURS: 'min_advance_booking_hours',
   CANCELLATION_WINDOW_HOURS: 'cancellation_window_hours',
   BROADCAST_RADIUS_KM: 'broadcast_radius_km',
+  SKILL_MATCHING_ENABLED: 'skill_matching_enabled',
   PENDING_WARNING_MINUTES: 'pending_warning_minutes',
   PENDING_CRITICAL_MINUTES: 'pending_critical_minutes',
   BOOKING_WINDOW_START_HOUR: 'booking_window_start_hour',
@@ -35,6 +36,7 @@ const DEFAULTS: PlatformConfig = {
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
   broadcastRadiusKm: 10,
+  skillMatchingEnabled: true,
   pendingWarningMinutes: 15,
   pendingCriticalMinutes: 30,
   // Mirrors the hours the booking picker offered when they were hardcoded, so
@@ -60,7 +62,8 @@ const DEFAULTS: PlatformConfig = {
  */
 type FieldSpec =
   | { key: string; parse: 'number' }
-  | { key: string; parse: 'feeType' };
+  | { key: string; parse: 'feeType' }
+  | { key: string; parse: 'boolean' };
 
 const FIELD_SPECS: Record<keyof PlatformConfig, FieldSpec> = {
   serviceFeePercent: { key: KEYS.SERVICE_FEE_PERCENT, parse: 'number' },
@@ -72,6 +75,7 @@ const FIELD_SPECS: Record<keyof PlatformConfig, FieldSpec> = {
   minAdvanceBookingHours: { key: KEYS.MIN_ADVANCE_BOOKING_HOURS, parse: 'number' },
   cancellationWindowHours: { key: KEYS.CANCELLATION_WINDOW_HOURS, parse: 'number' },
   broadcastRadiusKm: { key: KEYS.BROADCAST_RADIUS_KM, parse: 'number' },
+  skillMatchingEnabled: { key: KEYS.SKILL_MATCHING_ENABLED, parse: 'boolean' },
   pendingWarningMinutes: { key: KEYS.PENDING_WARNING_MINUTES, parse: 'number' },
   pendingCriticalMinutes: { key: KEYS.PENDING_CRITICAL_MINUTES, parse: 'number' },
   bookingWindowStartHour: { key: KEYS.BOOKING_WINDOW_START_HOUR, parse: 'number' },
@@ -86,12 +90,21 @@ const FIELD_SPECS: Record<keyof PlatformConfig, FieldSpec> = {
 /** All PlatformConfig fields, typed so the loops below stay exhaustive. */
 const CONFIG_FIELDS = Object.keys(FIELD_SPECS) as (keyof PlatformConfig)[];
 
-/** Every config field except the one enum — i.e. those `parseFloat` can own. */
-type NumericConfigField = Exclude<keyof PlatformConfig, 'extraChildFeeType'>;
+/** Every config field except the enum and the boolean — i.e. those `parseFloat` can own. */
+type NumericConfigField = Exclude<keyof PlatformConfig, 'extraChildFeeType' | 'skillMatchingEnabled'>;
 
 /** Empty string is how a cleared fee type is stored — it reads back as null. */
 function parseFeeType(raw: string): SkillFeeType | null {
   return raw === 'FLAT' || raw === 'PERCENTAGE' ? raw : null;
+}
+
+/**
+ * Only the literal "false" (what `String(false)` writes) switches a toggle off.
+ * Anything else — including a corrupt row — reads as on, so a bad value can
+ * never quietly relax a gate.
+ */
+function parseBoolean(raw: string): boolean {
+  return raw !== 'false';
 }
 
 /** Returns the platform service fee % from app_settings (default 6 if not seeded). */
@@ -149,6 +162,18 @@ export async function getBroadcastRadiusKm(): Promise<number> {
 }
 
 /**
+ * Whether booking requests priced with skill add-ons are only offered to
+ * nannies holding every one of them. Off lifts the skill filter from the
+ * broadcast, the open pool and the accept gate alike.
+ */
+export async function getSkillMatchingEnabled(): Promise<boolean> {
+  const row = await prisma.appSettings.findFirst({
+    where: { key: KEYS.SKILL_MATCHING_ENABLED, deletedAt: null },
+  });
+  return row ? parseBoolean(row.value) : DEFAULTS.skillMatchingEnabled;
+}
+
+/**
  * Minutes before a confirmed booking's start time when the assigned nanny's
  * phone number is revealed to the parent (through the end of the shift).
  */
@@ -183,10 +208,14 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       config.extraChildFeeType = parseFeeType(raw);
       continue;
     }
+    if (spec.parse === 'boolean') {
+      config.skillMatchingEnabled = parseBoolean(raw);
+      continue;
+    }
     const parsed = parseFloat(raw);
     if (Number.isNaN(parsed)) continue;
     // `parse: 'number'` is declared only for the numeric fields, so reaching
-    // here rules out extraChildFeeType — the one field that isn't a number.
+    // here rules out the fee type and the toggle — the fields that aren't numbers.
     config[field as NumericConfigField] = parsed;
   }
   return config;

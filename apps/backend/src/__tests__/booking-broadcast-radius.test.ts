@@ -44,6 +44,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
   getBroadcastRadiusKm: jest.fn().mockResolvedValue(10),
+  getSkillMatchingEnabled: jest.fn().mockResolvedValue(true),
   getRevealPhoneMinutes: jest.fn().mockResolvedValue(45),
   // Wide-open window: this suite is about the broadcast radius, not scheduling rules.
   getPlatformConfig: jest.fn().mockResolvedValue({

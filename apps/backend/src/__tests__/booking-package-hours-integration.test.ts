@@ -51,6 +51,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getStandardHourlyRate: jest.fn(),
   getRevenueSplit: jest.fn(),
   getBroadcastRadiusKm: jest.fn(),
+  getSkillMatchingEnabled: jest.fn().mockResolvedValue(true),
   getPlatformConfig: jest.fn(),
   getRevealPhoneMinutes: jest.fn(),
 }));

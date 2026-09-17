@@ -977,6 +977,14 @@ input[type='number'] {
   width: 200px;
 }
 
+/* An on/off setting in a config group: the switch on its own row, hint beneath. */
+.config-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-basis: 100%;
+}
+
 /* Number input with its unit inside the box, so labels stay parenthesis-free. */
 .unit-input {
   display: flex;

@@ -21,6 +21,7 @@ import {
   getBroadcastRadiusKm,
   getPlatformConfig,
   getRevealPhoneMinutes,
+  getSkillMatchingEnabled,
   updatePlatformConfig,
 } from '@backend/services/app-settings.service';
 
@@ -92,6 +93,33 @@ describe('getRevealPhoneMinutes', () => {
       value: 'not-a-number',
     });
     await expect(getRevealPhoneMinutes()).resolves.toBe(45);
+  });
+});
+
+describe('getSkillMatchingEnabled', () => {
+  it('defaults to on when the key is not seeded', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue(null);
+    await expect(getSkillMatchingEnabled()).resolves.toBe(true);
+    expect(mockPrisma.appSettings.findFirst).toHaveBeenCalledWith({
+      where: { key: 'skill_matching_enabled', deletedAt: null },
+    });
+  });
+
+  it('reads a stored "false" as off', async () => {
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
+      key: 'skill_matching_enabled',
+      value: 'false',
+    });
+    await expect(getSkillMatchingEnabled()).resolves.toBe(false);
+  });
+
+  it('fails safe: anything other than "false" keeps matching on', async () => {
+    // A corrupt row must not silently let unskilled nannies claim paid add-ons.
+    mockPrisma.appSettings.findFirst.mockResolvedValue({
+      key: 'skill_matching_enabled',
+      value: 'garbage',
+    });
+    await expect(getSkillMatchingEnabled()).resolves.toBe(true);
   });
 });
 
@@ -176,6 +204,15 @@ describe('getPlatformConfig', () => {
     expect(config.pendingWarningMinutes).toBe(20);
     expect(config.pendingCriticalMinutes).toBe(45);
   });
+
+  it('defaults skill matching to on', async () => {
+    expect((await getPlatformConfig()).skillMatchingEnabled).toBe(true);
+  });
+
+  it('reads a stored "false" for skill matching as a boolean, not a string', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(rows({ skill_matching_enabled: 'false' }));
+    expect((await getPlatformConfig()).skillMatchingEnabled).toBe(false);
+  });
 });
 
 describe('updatePlatformConfig — coherence guard', () => {
@@ -228,6 +265,14 @@ describe('updatePlatformConfig — coherence guard', () => {
       /cannot exceed the maximum children per booking/i,
     );
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('stores the skill-matching toggle as the text "false"', async () => {
+    await updatePlatformConfig({ skillMatchingEnabled: false });
+    const upsert = mockPrisma.appSettings.upsert.mock.calls.find(
+      (c) => c[0].where.key === 'skill_matching_enabled',
+    );
+    expect(upsert?.[0].create.value).toBe('false');
   });
 
   it('stores a cleared fee type as an empty string, not the text "null"', async () => {

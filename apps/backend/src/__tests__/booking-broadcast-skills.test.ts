@@ -47,6 +47,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
   // Radius 0 disables the distance filter — this suite is purely about skills.
   getBroadcastRadiusKm: jest.fn().mockResolvedValue(0),
+  getSkillMatchingEnabled: jest.fn().mockResolvedValue(true),
   getRevealPhoneMinutes: jest.fn().mockResolvedValue(45),
   getPlatformConfig: jest.fn().mockResolvedValue({
     serviceFeePercent: 6,
@@ -66,6 +67,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
 }));
 
 import { prisma } from '@backend/db/prisma';
+import { getSkillMatchingEnabled } from '@backend/services/app-settings.service';
 import { createInAppNotification } from '@backend/services/notification.service';
 import {
   acceptBooking,
@@ -89,6 +91,7 @@ const mockPrisma = prisma as unknown as {
 };
 
 const mockNotify = createInAppNotification as jest.Mock;
+const mockSkillMatching = getSkillMatchingEnabled as jest.Mock;
 
 // The add-on catalog. FRENCH carries a fee; SWIMMING is free but still a
 // requirement — the mother asked for it either way.
@@ -194,15 +197,18 @@ async function broadcastTo(
     .sort((a, b) => a - b);
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockSkillMatching.mockResolvedValue(true);
+});
+
+const POOL = [
+  { userId: 11, skillIds: [] },
+  { userId: 12, skillIds: [FRENCH.id] },
+  { userId: 13, skillIds: [FRENCH.id, SWIMMING.id] },
+];
 
 describe('notifyBookingBroadcast — skill filter', () => {
-  const POOL = [
-    { userId: 11, skillIds: [] },
-    { userId: 12, skillIds: [FRENCH.id] },
-    { userId: 13, skillIds: [FRENCH.id, SWIMMING.id] },
-  ];
-
   it('notifies every nanny when the booking asks for no skills', async () => {
     expect(await broadcastTo([], POOL)).toEqual([11, 12, 13]);
   });
@@ -224,24 +230,42 @@ describe('notifyBookingBroadcast — skill filter', () => {
   });
 });
 
+const nannyUser = { id: 16, firebaseUid: 'fb-nanny', role: Role.NANNY, deletedAt: null };
+
+function mockPool(nannySkillIds: number[]) {
+  mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
+  mockPrisma.nannyProfile.findUnique.mockResolvedValue({
+    id: 19,
+    user: { latitude: null, longitude: null },
+    nannySkills: nannySkillIds.map((id) => ({ skillId: id })),
+  });
+  // First findMany = the nanny's busy slots; second = the open pool.
+  mockPrisma.booking.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+    makeBooking({ id: 17, selectedSkillFees: null }),
+    makeBooking({ id: 18, selectedSkillFees: snapshot([FRENCH]) }),
+    makeBooking({ id: 19, selectedSkillFees: snapshot([FRENCH, SWIMMING]) }),
+  ]);
+}
+
+function mockClaim(nannySkillIds: number[], bookingSkills: { id: number; name: string }[]) {
+  mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
+  mockPrisma.nannyProfile.findUnique.mockResolvedValue({
+    id: 19,
+    userId: nannyUser.id,
+    nannySkills: nannySkillIds.map((id) => ({ skillId: id })),
+  });
+  const booking = makeBooking({ selectedSkillFees: snapshot(bookingSkills) });
+  mockPrisma.booking.findUnique.mockResolvedValue(booking);
+  mockPrisma.booking.findMany.mockResolvedValue([]); // no conflicting slots
+  mockPrisma.booking.updateMany.mockResolvedValue({ count: 1 });
+  mockPrisma.booking.findUniqueOrThrow.mockResolvedValue({
+    ...booking,
+    nannyProfileId: 19,
+    status: PrismaBookingStatus.APPROVED,
+  });
+}
+
 describe('listAvailableBookings — skill filter', () => {
-  const nannyUser = { id: 16, firebaseUid: 'fb-nanny', role: Role.NANNY, deletedAt: null };
-
-  function mockPool(nannySkillIds: number[]) {
-    mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
-    mockPrisma.nannyProfile.findUnique.mockResolvedValue({
-      id: 19,
-      user: { latitude: null, longitude: null },
-      nannySkills: nannySkillIds.map((id) => ({ skillId: id })),
-    });
-    // First findMany = the nanny's busy slots; second = the open pool.
-    mockPrisma.booking.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
-      makeBooking({ id: 17, selectedSkillFees: null }),
-      makeBooking({ id: 18, selectedSkillFees: snapshot([FRENCH]) }),
-      makeBooking({ id: 19, selectedSkillFees: snapshot([FRENCH, SWIMMING]) }),
-    ]);
-  }
-
   it('hides requests demanding a skill the nanny does not have', async () => {
     mockPool([]);
     const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
@@ -262,26 +286,6 @@ describe('listAvailableBookings — skill filter', () => {
 });
 
 describe('acceptBooking — skill gate', () => {
-  const nannyUser = { id: 16, firebaseUid: 'fb-nanny', role: Role.NANNY, deletedAt: null };
-
-  function mockClaim(nannySkillIds: number[], bookingSkills: { id: number; name: string }[]) {
-    mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
-    mockPrisma.nannyProfile.findUnique.mockResolvedValue({
-      id: 19,
-      userId: nannyUser.id,
-      nannySkills: nannySkillIds.map((id) => ({ skillId: id })),
-    });
-    const booking = makeBooking({ selectedSkillFees: snapshot(bookingSkills) });
-    mockPrisma.booking.findUnique.mockResolvedValue(booking);
-    mockPrisma.booking.findMany.mockResolvedValue([]); // no conflicting slots
-    mockPrisma.booking.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.booking.findUniqueOrThrow.mockResolvedValue({
-      ...booking,
-      nannyProfileId: 19,
-      status: PrismaBookingStatus.APPROVED,
-    });
-  }
-
   // A stale requests list, or a direct API call, must not let an unqualified
   // nanny claim work the mother paid a skill surcharge for.
   it('refuses a claim from a nanny missing a required skill', async () => {
@@ -293,6 +297,29 @@ describe('acceptBooking — skill gate', () => {
 
   it('allows a claim from a nanny holding every required skill', async () => {
     mockClaim([FRENCH.id, SWIMMING.id], [FRENCH, SWIMMING]);
+
+    await expect(acceptBooking({ uid: 'fb-nanny' } as never, 4)).resolves.toBeDefined();
+    expect(mockPrisma.booking.updateMany).toHaveBeenCalled();
+  });
+});
+
+// The admin toggle lifts the skill requirement everywhere at once — a nanny
+// who is offered the request must also be able to see and claim it.
+describe('skill matching switched off', () => {
+  beforeEach(() => mockSkillMatching.mockResolvedValue(false));
+
+  it('broadcasts a skilled request to every nanny, skilled or not', async () => {
+    expect(await broadcastTo([FRENCH.id, SWIMMING.id], POOL)).toEqual([11, 12, 13]);
+  });
+
+  it('shows the whole pool to a nanny with no skills', async () => {
+    mockPool([]);
+    const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
+    expect(result.map((b) => b.id).sort((a, b) => a - b)).toEqual([17, 18, 19]);
+  });
+
+  it('lets a nanny missing the skill claim the request', async () => {
+    mockClaim([], [FRENCH]);
 
     await expect(acceptBooking({ uid: 'fb-nanny' } as never, 4)).resolves.toBeDefined();
     expect(mockPrisma.booking.updateMany).toHaveBeenCalled();
