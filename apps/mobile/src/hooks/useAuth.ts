@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
+  AvailabilityResponse,
+  CheckAvailabilityRequest,
   RegisterRequest,
   SetVerifiedEmailRequest,
   UserResponse,
@@ -181,6 +183,18 @@ export function useRegisterProfile() {
   return useMutation<UserResponse, Error, RegisterRequest>({
     mutationFn: async (body) => unwrap(api.post('/auth/register', body)),
     onSuccess: (profile) => setProfile(profile),
+  });
+}
+
+/**
+ * Asks whether an email and phone already belong to an account. Step 1 of the
+ * wizard calls this on Continue so a collision is shown under the field, not
+ * on the code screen after it or at the very end of the wizard. Signed-out,
+ * like the OTP send: the caller has no account yet.
+ */
+export function useCheckAvailability() {
+  return useMutation<AvailabilityResponse, Error, CheckAvailabilityRequest>({
+    mutationFn: async (body) => unwrap(api.post('/auth/availability', body)),
   });
 }
 

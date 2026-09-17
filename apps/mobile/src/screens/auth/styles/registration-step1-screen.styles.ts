@@ -161,6 +161,17 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
   },
+  // Mirrors TextInputField's error treatment, which the raw phone input
+  // cannot use: red border on the box, red line of copy beneath the row.
+  phoneInputError: {
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  fieldErrorText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+    color: colors.error,
+  },
 
   // Date of birth — tappable field that mirrors TextInputField visually
   dateField: {

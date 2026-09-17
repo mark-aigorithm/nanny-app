@@ -18,12 +18,15 @@ import * as ImagePicker from 'expo-image-picker';
 import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import type { AvailabilityResponse } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { validateEmail, validatePhone } from '@mobile/lib/validation';
+import { useCheckAvailability } from '@mobile/hooks/useAuth';
+import { getApiErrorMessage } from '@mobile/lib/api';
+import { validateEmail, validatePhone, toE164 } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
@@ -45,6 +48,10 @@ function parseDob(str: string): Date {
 const MAX_DOB = new Date();
 const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 
+// The backend's own wording, so the two surfaces read the same.
+const EMAIL_TAKEN_MESSAGE = 'An account with this email already exists.';
+const PHONE_TAKEN_MESSAGE = 'An account with this phone number already exists.';
+
 export default function RegistrationStep1Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
@@ -56,6 +63,12 @@ export default function RegistrationStep1Screen() {
   const patch = useRegistrationDraftStore((s) => s.patch);
 
   const [formError, setFormError] = useState<string | null>(null);
+  // Per-field "already taken" errors from the availability check. Kept apart
+  // from formError so each sits under the field it is about, and so editing
+  // that field — and only that field — clears it.
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const checkAvailability = useCheckAvailability();
   // The "photo required" hint stays hidden until the first Continue attempt —
   // showing it on arrival, before the user has done anything, reads as an error.
   const [showPhotoError, setShowPhotoError] = useState(false);
@@ -120,7 +133,7 @@ export default function RegistrationStep1Screen() {
     }
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     setFormError(null);
     if (!draft.photoUri) {
       setShowPhotoError(true);
@@ -147,6 +160,27 @@ export default function RegistrationStep1Screen() {
       setFormError('Please select your date of birth.');
       return;
     }
+
+    // Refuse an email or phone that already belongs to an account here, while
+    // the fields are still on screen — not on the code screen after it (where
+    // the OTP send used to be the first to notice the email) and not at the
+    // very end of the wizard (where /auth/register was the first to notice the
+    // phone). Fail closed on a network error: the next screen's OTP send needs
+    // the same connectivity, so letting them through only moves the failure.
+    let availability: AvailabilityResponse;
+    try {
+      availability = await checkAvailability.mutateAsync({
+        email: draft.email.trim().toLowerCase(),
+        phone: toE164(draft.countryCode, draft.phone),
+      });
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not check your details. Please try again.'));
+      return;
+    }
+    setEmailError(availability.emailTaken ? EMAIL_TAKEN_MESSAGE : null);
+    setPhoneError(availability.phoneTaken ? PHONE_TAKEN_MESSAGE : null);
+    if (availability.emailTaken || availability.phoneTaken) return;
+
     router.push({ pathname: '/(auth)/register-email', params: { role } });
   }
 
@@ -234,7 +268,11 @@ export default function RegistrationStep1Screen() {
             <TextInputField
               label="Email"
               value={draft.email}
-              onChangeText={(val) => patch({ email: val })}
+              onChangeText={(val) => {
+                patch({ email: val });
+                if (emailError) setEmailError(null);
+              }}
+              error={emailError}
               placeholder="you@example.com"
               placeholderTextColor={colors.textPlaceholder}
               keyboardType="email-address"
@@ -254,15 +292,19 @@ export default function RegistrationStep1Screen() {
                 {/* Placeholder is an Egyptian mobile with the leading 0
                     dropped — the country-code box already carries the +20. */}
                 <TextInput
-                  style={styles.phoneInput}
+                  style={[styles.phoneInput, phoneError ? styles.phoneInputError : undefined]}
                   value={draft.phone}
-                  onChangeText={(val) => patch({ phone: val })}
+                  onChangeText={(val) => {
+                    patch({ phone: val });
+                    if (phoneError) setPhoneError(null);
+                  }}
                   placeholder="100 000 0000"
                   placeholderTextColor={colors.textPlaceholder}
                   keyboardType="phone-pad"
                   autoCorrect={false}
                 />
               </View>
+              {phoneError && <Text style={styles.fieldErrorText}>{phoneError}</Text>}
             </View>
 
             {/* Date of birth */}
@@ -287,7 +329,11 @@ export default function RegistrationStep1Screen() {
 
         {/* Fixed footer */}
         <View style={styles.footer}>
-          <Button title="Continue" onPress={handleContinue} />
+          <Button
+            title={checkAvailability.isPending ? 'Checking…' : 'Continue'}
+            onPress={() => void handleContinue()}
+            disabled={checkAvailability.isPending}
+          />
         </View>
 
         {/* Android: native modal dialog, no custom wrapper needed. */}
