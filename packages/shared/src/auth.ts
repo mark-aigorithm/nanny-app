@@ -58,6 +58,34 @@ export const SetVerifiedEmailSchema = z.object({
 });
 export type SetVerifiedEmailRequest = z.infer<typeof SetVerifiedEmailSchema>;
 
+/**
+ * A phone number as the auth surface stores and compares it: E.164, nothing
+ * else. `users.phone` is unique on exactly this string, so every body that
+ * carries a phone must normalise to it or a lookup will miss.
+ */
+export const PhoneE164Schema = z
+  .string()
+  .trim()
+  .regex(/^\+\d{7,15}$/, 'phone must be E.164, e.g. +15551234567');
+
+/**
+ * Body for POST /auth/availability — asked from step 1 of the wizard, before
+ * anything is sent or created, so a taken email or phone is refused while the
+ * fields are still on screen rather than at the end of the wizard.
+ */
+export const CheckAvailabilitySchema = z.object({ email: EmailSchema, phone: PhoneE164Schema });
+export type CheckAvailabilityRequest = z.infer<typeof CheckAvailabilitySchema>;
+
+/**
+ * A true flag means POST /auth/register would refuse that value with a 409.
+ * Both can be true at once; the client reports each under its own field.
+ */
+export const AvailabilityResponseSchema = z.object({
+  emailTaken: z.boolean(),
+  phoneTaken: z.boolean(),
+});
+export type AvailabilityResponse = z.infer<typeof AvailabilityResponseSchema>;
+
 /** Body for POST /auth/register — fields not in Firebase. */
 export const RegisterRequestSchema = z
   .object({
@@ -71,10 +99,7 @@ export const RegisterRequestSchema = z
     // is ever created with an unproven one — which is what lets receipts,
     // payment records and account recovery rely on `users.email`.
     emailVerificationToken: z.string().min(1, 'Please verify your email address before finishing sign-up.'),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^\+\d{7,15}$/, 'phone must be E.164, e.g. +15551234567'),
+    phone: PhoneE164Schema,
     dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD'),
     role: RoleSchema,
     termsAcceptedVersion: z.string().min(1),
