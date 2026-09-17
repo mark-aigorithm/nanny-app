@@ -16,6 +16,7 @@ import {
   Feedback,
   Field,
   Select,
+  Switch,
   useToast,
   type SelectOption,
 } from '@admin/components/ui';
@@ -82,27 +83,6 @@ export function formatWorkingHours(schedule: WeeklySchedule | null): string | nu
     .filter((d): d is { day: string; slot: DaySchedule } => Boolean(d.slot?.available))
     .map(({ day, slot }) => `${DAY_NAMES[day] ?? day} ${slot.startTime}–${slot.endTime}`);
   return active.length > 0 ? active.join(', ') : null;
-}
-
-/** A modern on/off pill toggle, styled from theme tokens (mirrors rewards-config-panel's Switch). */
-function Switch({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="switch">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span className="switch-track">
-        <span className="switch-thumb" />
-      </span>
-      <span className="switch-label">{label}</span>
-    </label>
-  );
 }
 
 export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfileEditorProps) {

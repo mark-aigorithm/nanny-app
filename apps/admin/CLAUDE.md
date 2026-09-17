@@ -27,7 +27,7 @@ auth, Zod. Shared types come from `@nanny-app/shared`. Icons: `lucide-react`. Ch
 ## Component rules
 
 - **Reuse `src/components/ui` first.** It exports `Table`, `FilterSelect`, `Select`, `Input`,
-  `Menu`/`MenuItem`, `ActionMenu`, `Modal`, `ConfirmDialog`, `PromptDialog`, `Spinner`, `Skeleton`,
+  `Switch`, `Menu`/`MenuItem`, `ActionMenu`, `Modal`, `ConfirmDialog`, `PromptDialog`, `Spinner`, `Skeleton`,
   `LoadingState`, `TableSkeleton`, `ErrorState`, `ToastProvider`/`useToast`, `StatCard`, plus
   `Badge`/`Button`/`Card`/`Field`/`PageHeader` and the lucide `icon` re-exports. Import from the
   barrel `@admin/components/ui`.

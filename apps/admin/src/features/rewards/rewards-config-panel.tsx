@@ -15,6 +15,7 @@ import {
   LoadingState,
   Sparkles,
   StaleRefreshBanner,
+  Switch,
   useToast,
 } from '@admin/components/ui';
 import { fetchRewardConfig, updateRewardConfig } from '@admin/lib/api';
@@ -62,27 +63,6 @@ const REFERRAL_FIELDS: NumericField[] = [
     hint: 'Credited immediately when a new parent signs up with a referral code.',
   },
 ];
-
-/** A modern on/off pill toggle, styled from theme tokens. */
-function Switch({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="switch">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span className="switch-track">
-        <span className="switch-thumb" />
-      </span>
-      <span className="switch-label">{label}</span>
-    </label>
-  );
-}
 
 type FormState = {
   enabled: boolean;

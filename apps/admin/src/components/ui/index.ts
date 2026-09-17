@@ -18,6 +18,7 @@ export { ActionMenu } from './action-menu';
 export { Select, type SelectOption } from './select';
 export { FilterSelect } from './filter-select';
 export { Input } from './input';
+export { Switch } from './switch';
 
 // Data display
 export { Table, type Column } from './table';
