@@ -92,6 +92,38 @@ describe('A10 — nanny onboarding and approval', () => {
     expect(names.join(' ')).not.toContain(nanny.lastName);
   });
 
+  it('tells step 1 of the wizard when a phone or email is already taken', async () => {
+    const takenPhone = '+201099990001';
+    const mother = await makeMother({ phone: takenPhone });
+
+    // Her phone, a fresh email: only the phone is reported.
+    const partial = await request(app)
+      .post('/auth/availability')
+      .send({ email: `fresh-${process.pid}-${Date.now()}@test.local`, phone: takenPhone });
+    expect(partial.status).toBe(200);
+    expect(partial.body.data).toEqual({ emailTaken: false, phoneTaken: true });
+
+    // Her email, capitalised the way a phone keyboard might, and a fresh phone.
+    const emailOnly = await request(app)
+      .post('/auth/availability')
+      .send({ email: mother.email.toUpperCase(), phone: '+201099990002' });
+    expect(emailOnly.status).toBe(200);
+    expect(emailOnly.body.data).toEqual({ emailTaken: true, phoneTaken: false });
+
+    // Both fresh: nothing to report, and no auth was needed to ask.
+    const free = await request(app)
+      .post('/auth/availability')
+      .send({ email: `free-${process.pid}-${Date.now()}@test.local`, phone: '+201099990003' });
+    expect(free.status).toBe(200);
+    expect(free.body.data).toEqual({ emailTaken: false, phoneTaken: false });
+
+    // A local-format phone is a 400, not a silent "free".
+    const malformed = await request(app)
+      .post('/auth/availability')
+      .send({ email: mother.email, phone: '01099990001' });
+    expect(malformed.status).toBe(400);
+  });
+
   it('is not broadcast a booking request while unapproved', async () => {
     const nanny = await registerNanny();
     const mother = await makeMother();

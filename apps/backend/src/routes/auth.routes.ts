@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 
 import {
+  CheckAvailabilitySchema,
   RegisterRequestSchema,
   SaveChildrenSchema,
   SendEmailOtpSchema,
@@ -15,6 +16,7 @@ import { validateBody } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
 import {
+  checkAvailability,
   registerUser,
   getMe,
   getMyChildren,
@@ -45,6 +47,29 @@ authRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const user = await registerUser(req.firebaseUser, req.body);
       res.status(201).json(ok(user));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * POST /auth/availability
+ * Step 1 of the registration wizard asks whether the email and phone just
+ * typed already belong to an account, so a collision is shown under the field
+ * instead of on the code screen (email) or at the very end (phone). Public,
+ * like the OTP send below, because the caller has no account yet. Reports the
+ * same answer /auth/register will give — both call one service lookup.
+ *
+ * This is an enumeration oracle for phone numbers, as /auth/email/otp already
+ * is for addresses; both wait on the per-IP limiter (FOUND-05).
+ */
+authRouter.post(
+  '/availability',
+  validateBody(CheckAvailabilitySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await checkAvailability(req.body)));
     } catch (err) {
       next(err);
     }
