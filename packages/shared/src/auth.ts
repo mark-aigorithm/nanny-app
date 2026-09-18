@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   AvailabilityTypeSchema,
   IdDocumentTypeSchema,
-  IdVerificationStatusSchema,
   WeeklyScheduleSchema,
   idTypeRequiresBack,
 } from './nanny';
@@ -165,6 +164,26 @@ export const SubmitIdRequestSchema = z
   });
 export type SubmitIdRequest = z.infer<typeof SubmitIdRequestSchema>;
 
+/**
+ * Admin approval state of an account, for BOTH roles (lives on `users`).
+ * - PENDING_ID: no usable ID on file — the user must (re)upload one.
+ * - PENDING_REVIEW: waiting for an admin decision.
+ * - APPROVED: a parent's ID checked out; a nanny's whole application
+ *   (profile + ID) was reviewed and accepted — she is visible to parents.
+ * - REJECTED: an admin refused it; the ID images were deleted and a reason
+ *   stored, so the user must upload a new ID to be reviewed again.
+ * Gate predicate (both roles): needs an upload when PENDING_ID or REJECTED.
+ */
+export const ApprovalStatusSchema = z.enum([
+  'PENDING_ID',
+  'PENDING_REVIEW',
+  'APPROVED',
+  'REJECTED',
+]);
+/** Enum-like const for value comparisons: `ApprovalStatus.APPROVED`, … */
+export const ApprovalStatus = ApprovalStatusSchema.enum;
+export type ApprovalStatus = z.infer<typeof ApprovalStatusSchema>;
+
 /** Shape returned by /auth/me and /auth/register. Mirrors Prisma `User` minus internal fields. */
 export const UserResponseSchema = z.object({
   id: z.number().int(),
@@ -178,12 +197,12 @@ export const UserResponseSchema = z.object({
   role: RoleSchema.nullable(),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
-  /** Identity-verification state (nannies and mothers). Null for admins/role-less. */
-  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  /** Admin approval state (nannies and mothers). Null for admins/role-less. */
+  approvalStatus: ApprovalStatusSchema.nullable(),
   /** Kind of ID on file, if any. Null until the user uploads one. */
   idDocumentType: IdDocumentTypeSchema.nullable(),
-  /** Reason an admin rejected the last ID, surfaced in the forced re-upload prompt. */
-  idRejectionReason: z.string().nullable(),
+  /** Reason an admin gave when rejecting, surfaced in the forced re-upload prompt. */
+  rejectionReason: z.string().nullable(),
   address: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
