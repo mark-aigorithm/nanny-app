@@ -119,23 +119,17 @@ enum BookingExtensionStatus {
   @@map("booking_extension_status")
 }
 
-enum NannyApprovalStatus {
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
-
-  @@map("nanny_approval_status")
-}
-
-/// Identity-verification state shared by nannies AND mothers (lives on `users`).
+/// Admin approval state, shared by nannies AND mothers (lives on `users`).
 /// PENDING_ID = must (re)upload; PENDING_REVIEW = awaiting admin; APPROVED / REJECTED.
-enum IdVerificationStatus {
+/// A parent is approved once her ID checks out; a nanny once an admin has
+/// reviewed her whole application (profile + ID).
+enum ApprovalStatus {
   PENDING_ID
   PENDING_REVIEW
   APPROVED
   REJECTED
 
-  @@map("id_verification_status")
+  @@map("approval_status")
 }
 
 /// Government ID kind. PASSPORT needs only the front image; NATIONAL_ID needs both.
@@ -200,15 +194,16 @@ model User {
   address              String?
   latitude             Decimal?              @db.Decimal(10, 7)
   longitude            Decimal?              @db.Decimal(10, 7)
-  /// Identity documents + KYC state, for BOTH nannies and mothers. Nannies must
-  /// be APPROVED to appear in search / use the app; mothers must have uploaded
-  /// an ID (not PENDING_ID/REJECTED) before booking. Null for admins/role-less.
-  idVerificationStatus IdVerificationStatus? @map("id_verification_status")
+  /// Identity documents + the admin's decision, for BOTH nannies and mothers.
+  /// Nannies must be APPROVED to appear in search / use the app; mothers must
+  /// have uploaded an ID (not PENDING_ID/REJECTED) before booking. Null for
+  /// admins/role-less.
+  approvalStatus       ApprovalStatus?       @map("approval_status")
   idDocumentType       IdDocumentType?       @map("id_document_type")
   idDocumentFrontUrl   String?               @map("id_document_front_url")
   idDocumentBackUrl    String?               @map("id_document_back_url")
-  idReviewedAt         DateTime?             @map("id_reviewed_at")
-  idRejectionReason    String?               @map("id_rejection_reason")
+  reviewedAt           DateTime?             @map("reviewed_at")
+  rejectionReason      String?               @map("rejection_reason")
   /// This user's personal referral code (e.g. SARAH-4K2P). Generated lazily on
   /// first request rather than at signup, so existing users need no backfill.
   referralCode         String?               @unique @map("referral_code")
@@ -254,7 +249,7 @@ model User {
 
   @@index([role])
   @@index([deletedAt])
-  @@index([idVerificationStatus])
+  @@index([approvalStatus])
   @@map("users")
 }
 
@@ -270,15 +265,6 @@ model NannyProfile {
   specialties         String[]             @default([])
   /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
   schedule            Json?
-  isProfileComplete   Boolean              @default(false) @map("is_profile_complete")
-  /// Admin vetting gate: new nannies start PENDING_REVIEW and cannot appear
-  /// in search or use the app until an admin approves them (KYC).
-  approvalStatus      NannyApprovalStatus  @default(PENDING_REVIEW) @map("approval_status")
-  reviewedAt          DateTime?            @map("reviewed_at")
-  rejectionReason     String?              @map("rejection_reason")
-  /// Identity documents captured at registration for admin KYC review.
-  idDocumentFrontUrl  String?              @map("id_document_front_url")
-  idDocumentBackUrl   String?              @map("id_document_back_url")
   /// Availability type for filtering: FULL_TIME, PART_TIME, OCCASIONAL
   availabilityType    AvailabilityType     @default(OCCASIONAL) @map("availability_type")
   /// Denormalised rating cache — recomputed on every new review.
@@ -295,7 +281,6 @@ model NannyProfile {
 
   @@index([availabilityType])
   @@index([rating])
-  @@index([approvalStatus])
   @@map("nanny_profiles")
 }
 
