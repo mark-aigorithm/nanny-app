@@ -215,18 +215,6 @@ export function useAcceptBooking() {
 }
 
 /**
- * Nanny's optional decline of a PENDING request. Advisory only — does not
- * change the booking status, just records `nannyDecision = DECLINED`.
- */
-export function useDeclineBooking() {
-  const qc = useQueryClient();
-  return useMutation<BookingResponse, Error, number>({
-    mutationFn: (id) => unwrap(api.post(`/bookings/${id}/decline`)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
-  });
-}
-
-/**
  * Parent reveals the 4-digit start PIN for a booking within the check-in window.
  * The plaintext PIN is only ever returned here — never on the booking itself.
  */

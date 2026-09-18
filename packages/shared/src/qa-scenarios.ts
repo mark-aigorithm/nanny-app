@@ -931,13 +931,16 @@ const TIER_B: QaScenario[] = [
     area: 'Booking',
     surface: 'Parent app',
     priority: 'P0',
-    title: 'The mother cancels a booking inside the cancellation window',
-    preconditions: ['A confirmed booking whose start is beyond the cancellation window'],
+    title: 'The mother cancels a booking outside the cancellation window, for a full refund',
+    preconditions: [
+      'A confirmed booking whose start is further away than the cancellation window (Settings → Cancellation window, 24 h by default)',
+    ],
     steps: ['Open the booking and cancel it, confirming the prompt'],
     expected: [
+      'The prompt names the configured window and the 50% fee that applies inside it',
       'The booking becomes cancelled on her screen and on the nanny\'s',
       'The nanny is notified',
-      'Any refund due is stated on screen and reaches the card',
+      'The full amount is quoted as owed back; an operator refunds it to the card from the console',
     ],
   },
   {
@@ -946,13 +949,19 @@ const TIER_B: QaScenario[] = [
     surface: 'Parent app',
     priority: 'P0',
     negative: true,
-    title: 'Cancelling too close to the start, or after it, is refused',
-    preconditions: ['A confirmed booking starting sooner than the cancellation window allows'],
-    steps: ['Try to cancel it', 'Try again on a booking that is already in progress'],
+    title: 'Cancelling inside the window forfeits half; a shift under way cannot be cancelled',
+    preconditions: [
+      'A confirmed booking starting sooner than the cancellation window',
+      'A second booking the nanny has already checked in to',
+    ],
+    steps: [
+      'Cancel the first, confirming the prompt',
+      'Open the second and look for a cancel action; try the request directly if you can',
+    ],
     expected: [
-      'The cancellation is refused with a message that says why',
-      'The booking status is unchanged',
-      'No money moves',
+      'The first is cancelled and half the amount is quoted as owed back; the nanny is notified',
+      'The second offers no cancel action, and a direct request is refused with a message pointing to "End shift"',
+      'The second\'s status is unchanged and no money moves',
     ],
   },
   {
@@ -960,13 +969,17 @@ const TIER_B: QaScenario[] = [
     area: 'Booking',
     surface: 'Nanny app',
     priority: 'P1',
-    title: 'A nanny declines a request and it stays open to the others',
+    title: 'A nanny who leaves a request alone does not block the others',
     preconditions: ['An open broadcast request visible to two nannies'],
-    steps: ['Decline it on the first nanny\'s device', 'Check the second nanny\'s Requests tab'],
+    steps: [
+      'On the first nanny\'s device, open the request and go back without accepting',
+      'Accept it on the second nanny\'s device',
+      'Refresh the first nanny\'s Requests tab',
+    ],
     expected: [
-      'It leaves the first nanny\'s list',
-      'It is still available to the second nanny, who can accept it',
-      'The mother\'s screen is still searching — a decline is not a rejection of the booking',
+      'A broadcast request offers Accept only — there is nothing to decline; a nanny simply does not claim it',
+      'The mother\'s screen stays on "searching" until somebody accepts',
+      'Once the second nanny accepts, it leaves the first nanny\'s list',
     ],
   },
   {
