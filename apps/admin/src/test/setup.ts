@@ -12,6 +12,17 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import { server } from './server';
 
+// jsdom has no ResizeObserver, and recharts' ResponsiveContainer constructs one
+// on mount — without this stub any page with a chart throws before it renders.
+// Charts are never measured in these tests, so an observer that does nothing
+// is the right stand-in.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+
 beforeAll(() => {
   // `error`, not `warn`: an unhandled request means the test is exercising a
   // code path nobody described, and the result would be meaningless.
