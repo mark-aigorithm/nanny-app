@@ -29,9 +29,8 @@ export type TestUser = {
  * so is the emulator's account index.
  */
 let sequence = 0;
-function uniqueEmail(prefix: string): string {
-  sequence += 1;
-  return `${prefix}-${process.pid}-${sequence}@test.local`;
+function uniqueEmail(prefix: string, seq: number): string {
+  return `${prefix}-${process.pid}-${seq}@test.local`;
 }
 
 /**
@@ -39,8 +38,8 @@ function uniqueEmail(prefix: string): string {
  * Egyptian number, but paying via Paymob requires the column to be set, so
  * mothers and nannies get one by default.
  */
-function uniquePhone(): string {
-  return `+2010${String(process.pid % 10_000).padStart(4, '0')}${String(sequence).padStart(4, '0')}`;
+function uniquePhone(seq: number): string {
+  return `+2010${String(process.pid % 10_000).padStart(4, '0')}${String(seq).padStart(4, '0')}`;
 }
 
 /**
@@ -57,14 +56,19 @@ async function createUser(
   role: Role,
   overrides: UserOverrides = {},
 ): Promise<TestUser> {
-  const email = uniqueEmail(prefix);
+  // Taken once, before the first await: two factories running concurrently
+  // (`Promise.all([makeNanny(), makeNanny()])`) must not read the counter
+  // after the other has moved it, or they collide on the unique phone column.
+  sequence += 1;
+  const seq = sequence;
+  const email = uniqueEmail(prefix, seq);
   const firebaseUid = await createEmulatorUser(email);
 
   const user = await prisma.user.create({
     data: {
       firebaseUid,
       email,
-      phone: uniquePhone(),
+      phone: uniquePhone(seq),
       firstName: 'Test',
       lastName: prefix,
       role,
@@ -100,6 +104,8 @@ export function makeMother(overrides: UserOverrides = {}): Promise<TestUser> {
 export type NannyOverrides = {
   user?: UserOverrides;
   profile?: Omit<Prisma.NannyProfileCreateInput, 'user'>;
+  /** Skills she holds (`nanny_skills` rows). Broadcast matching filters on these. */
+  skillIds?: number[];
 };
 
 /** A nanny plus her profile. Returns the profile id too — most queries key off it, not the user id. */
@@ -130,6 +136,12 @@ export async function makeNanny(
       ...overrides.profile,
     },
   });
+
+  if (overrides.skillIds?.length) {
+    await prisma.nannySkill.createMany({
+      data: overrides.skillIds.map((skillId) => ({ nannyProfileId: profile.id, skillId })),
+    });
+  }
 
   return { ...user, nannyProfileId: profile.id };
 }

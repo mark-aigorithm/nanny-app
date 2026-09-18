@@ -15,3 +15,4 @@ export {
 export { makeBooking, type BookingOverrides } from './booking';
 export { makePackage, type PackageOverrides } from './package';
 export { makePromoCode, type PromoCodeOverrides } from './promo-code';
+export { makeSkill, type SkillOverrides } from './skill';
