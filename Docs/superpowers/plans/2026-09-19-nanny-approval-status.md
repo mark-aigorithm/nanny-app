@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A nanny is visible to parents when — and only when — an admin has approved her; the status that records that decision is named `approvalStatus` everywhere; the profile-completeness gate, the dead `nanny_profiles` KYC columns and the "nanny in the ID gallery" path are gone; and an admin can edit every field of her profile.
+**Goal:** A nanny is visible to parents when — and only when — an admin has approved her; the status that records that decision is named `approvalStatus` everywhere; the profile-completeness gate, the dead `nanny_profiles` KYC columns and the "nanny in the ID gallery" path are gone; an admin can edit every field of her profile; and registration refuses a nanny who leaves her address, age ranges or working days empty.
 
 **Architecture:** One rename (`idVerificationStatus` → `approvalStatus`, `idReviewedAt` → `reviewedAt`, `idRejectionReason` → `rejectionReason`, enum `IdVerificationStatus` → `ApprovalStatus`) flows from the Prisma schema through `@nanny-app/shared` into the backend, admin console and mobile app. The nanny gate collapses to `user.approvalStatus = APPROVED`. The admin ID-review queue is narrowed to parents; the nanny decision stays on her detail page. `writeNannyProfileFields` grows three user-level fields so the admin editor can set photo, date of birth and home pin.
 
@@ -17,7 +17,7 @@ Spec: `Docs/superpowers/specs/2026-09-19-nanny-approval-status-design.md`.
 - **Comments say what is true now**, not what changed ("approved by an admin", never "KYC gate now lives on the user row").
 - **Nanny copy:** "Approve nanny" / "Reject application" / "Nanny approved" / "Application rejected". **Mother copy keeps "ID"** ("Approve ID", "ID approved").
 - **Admin editable set for a nanny:** everything except email, phone and the ID images.
-- **Verification:** ESLint is broken repo-wide — verify with `pnpm typecheck` and the package's test runner. Unit tests never need the test stack; integration/E2E tiers need `pnpm test:env` (+ `pnpm --filter=@nanny-app/backend start:test` for E2E) and are run once at the end (Task 13).
+- **Verification:** ESLint is broken repo-wide — verify with `pnpm typecheck` and the package's test runner. Unit tests never need the test stack; integration/E2E tiers need `pnpm test:env` (+ `pnpm --filter=@nanny-app/backend start:test` for E2E) and are run once at the end (Task 14).
 - **Commits:** end every commit message with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 - **Windows file casing:** edit files by their exact on-disk path (see memory `admin-entry-file-lowercase`).
 
@@ -33,6 +33,7 @@ Spec: `Docs/superpowers/specs/2026-09-19-nanny-approval-status-design.md`.
 | Backend tests | `__tests__/nanny-profile-completeness.test.ts` (deleted), `nanny-profile-update.test.ts`, `auth-register-nanny-profile.test.ts`, `admin-id-review.service.test.ts`, `admin-nanny.service.test.ts`, `admin-nanny-update.test.ts`, `admin-mother.service.test.ts`, `auth-service-id.test.ts`, `booking-mother-id-gate.test.ts`, `booking-create-children.test.ts`, `booking-broadcast-radius.test.ts`, `nanny-approval-gate.test.ts` (new), journeys `a10/a11/a14/a21`, `test/factories/user.ts`, `test/e2e/seed-mobile.ts`, `prisma/seed-demo.ts` |
 | Admin | `lib/approval-status.ts` (renamed from `id-status.ts`), `lib/api.ts`, `features/nannies/nanny-review-tab.tsx`, `nanny-profile-editor.tsx`, `pages/nanny-detail-page.tsx`, `features/users/mothers-tab.tsx`, `pages/mother-detail-page.tsx`, `features/id-reviews/id-review-tab.tsx`, `id-review-card.tsx`, `pages/users-page.tsx`, `features/dashboard/use-dashboard-stats.ts`, tests `pages/__tests__/dashboard-page.test.tsx`, `features/id-reviews/__tests__/id-review-card.test.tsx` (new), `features/nannies/__tests__/nanny-profile-editor.test.tsx` (new), `e2e/b05-users-and-id-review.spec.ts`, `e2e/helpers/backend.ts` |
 | Mobile | `src/components/ProfileVisibilityBanner.tsx` (deleted), `screens/nanny/NannyDashboardScreen.tsx`, `NannyProfileEditScreen.tsx`, `app/index.tsx`, `hooks/useIdGate.ts`, `screens/auth/PendingReviewScreen.tsx`, `UploadIdScreen.tsx`, `screens/parent/MotherProfileWalletScreen.tsx`, `__tests__/AccountScreen.test.tsx`, `e2e/accounts.mjs`, `e2e/scripts/advance.js` |
+| Registration | `packages/shared/src/auth.ts` (`RegisterRequestSchema` refines) + `__tests__/register-nanny-required.test.ts` (new), `apps/mobile/src/screens/auth/RegistrationNannyLocationScreen.tsx`, `RegistrationNannyDetailsScreen.tsx`, `apps/mobile/e2e/flows/a10-nanny-onboarding.yaml`, `apps/backend/src/__integration__/journeys/a10-nanny-onboarding.test.ts`, `apps/admin/e2e/helpers/backend.ts` |
 | Docs | `Docs/testing/e2e-flows.md`, `.claude/skills/mobile-e2e-lab/references/authoring-flows.md` |
 
 ---
@@ -369,7 +370,7 @@ Expected: "Generated Prisma Client".
 
 If the test stack is up (`pnpm test:env`), also run from `apps/backend`:
 `DATABASE_URL=postgresql://postgres:postgres@localhost:55432/nannyapp_test npx prisma migrate deploy && DATABASE_URL=postgresql://postgres:postgres@localhost:55432/nannyapp_test npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url postgresql://postgres:postgres@localhost:55432/nannyapp_test`
-Expected: "No difference detected." (If the stack is not up, Task 13 runs this.)
+Expected: "No difference detected." (If the stack is not up, Task 14 runs this.)
 
 - [ ] **Step 4: Commit**
 
@@ -2012,7 +2013,238 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 12: Docs — the two living documents that name the field
+### Task 12: Registration — a nanny must give every profile field
+
+**Files:**
+- Modify: `packages/shared/src/auth.ts:140-148` (`RegisterRequestSchema` refines)
+- Test: `packages/shared/src/__tests__/register-nanny-required.test.ts` (new)
+- Modify: `apps/mobile/src/screens/auth/RegistrationNannyLocationScreen.tsx:46-54`
+- Modify: `apps/mobile/src/screens/auth/RegistrationNannyDetailsScreen.tsx:171-193, 293-295`
+- Modify: `apps/mobile/e2e/flows/a10-nanny-onboarding.yaml:94-128`
+- Modify: `apps/backend/src/__integration__/journeys/a10-nanny-onboarding.test.ts:49-57`
+- Modify: `apps/admin/e2e/helpers/backend.ts:264-273, 294-303`
+
+**Interfaces:**
+- Produces: `RegisterRequestSchema` refuses a nanny body whose `address` is empty, whose `ageRanges` is empty, or whose `schedule` has no `available: true` day — with the messages in the test below.
+
+- [ ] **Step 1: Write the failing schema test**
+
+Create `packages/shared/src/__tests__/register-nanny-required.test.ts`:
+
+```ts
+/**
+ * Registration is the only time a nanny enters her profile, so the wizard
+ * must not let her finish with a hole an admin would have to fill. These pin
+ * the server-side half of that rule; the app enforces the same three on its
+ * own screens.
+ */
+import { describe, expect, it } from 'vitest';
+
+import { RegisterRequestSchema } from '../auth';
+
+const NANNY = {
+  firstName: 'Amira',
+  lastName: 'Hassan',
+  email: 'amira@example.com',
+  emailVerificationToken: 'tok',
+  phone: '+201000000000',
+  dateOfBirth: '1995-06-15',
+  role: 'NANNY',
+  termsAcceptedVersion: '1.0',
+  address: '2 Test Street, Cairo',
+  latitude: 30.0444,
+  longitude: 31.2357,
+  idDocumentType: 'PASSPORT',
+  idDocumentFrontUrl: 'https://s/o/front.jpg',
+  avatarUrl: 'https://s/o/avatar.jpg',
+  bio: 'Loves kids',
+  yearsOfExperience: 5,
+  ageRanges: ['0-1'],
+  availabilityType: 'FULL_TIME',
+  schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
+};
+
+function firstMessage(body: Record<string, unknown>): string | null {
+  const parsed = RegisterRequestSchema.safeParse(body);
+  return parsed.success ? null : parsed.error.issues[0]?.message ?? 'unknown';
+}
+
+describe('RegisterRequestSchema — what a nanny must provide', () => {
+  it('accepts a complete nanny', () => {
+    expect(firstMessage(NANNY)).toBeNull();
+  });
+
+  it('needs a street address', () => {
+    expect(firstMessage({ ...NANNY, address: '' })).toBe('Please enter your street address.');
+    expect(firstMessage({ ...NANNY, address: undefined })).toBe('Please enter your street address.');
+  });
+
+  it('needs at least one age range', () => {
+    expect(firstMessage({ ...NANNY, ageRanges: [] })).toBe(
+      'Please pick at least one age range you care for.',
+    );
+  });
+
+  it('needs at least one working day', () => {
+    expect(firstMessage({ ...NANNY, schedule: undefined })).toBe(
+      'Please mark at least one day you can work.',
+    );
+    expect(
+      firstMessage({
+        ...NANNY,
+        schedule: { '1': { available: false, startTime: '08:00', endTime: '18:00' } },
+      }),
+    ).toBe('Please mark at least one day you can work.');
+  });
+
+  it('asks none of this of a mother', () => {
+    const { idDocumentType, idDocumentFrontUrl, avatarUrl, bio, yearsOfExperience, ageRanges, availabilityType, schedule, address, ...mother } = NANNY;
+    expect(firstMessage({ ...mother, role: 'MOTHER' })).toBeNull();
+  });
+});
+```
+
+- [ ] **Step 2: Run it to see it fail**
+
+Run: `pnpm --filter=@nanny-app/shared test -- register-nanny-required`
+Expected: FAIL — the three "needs …" tests get `null` (the body is accepted).
+
+- [ ] **Step 3: Add the refines**
+
+In `packages/shared/src/auth.ts`, directly after the existing second `.refine(` (the one whose message is `'Nannies must provide a photo, bio, years of experience, and availability.'`) and before `;`, add:
+
+```ts
+  .refine((v) => v.role !== 'NANNY' || !!v.address, {
+    message: 'Please enter your street address.',
+    path: ['address'],
+  })
+  .refine((v) => v.role !== 'NANNY' || (v.ageRanges?.length ?? 0) > 0, {
+    message: 'Please pick at least one age range you care for.',
+    path: ['ageRanges'],
+  })
+  .refine(
+    (v) =>
+      v.role !== 'NANNY' ||
+      Object.values(v.schedule ?? {}).some((day) => day.available),
+    {
+      message: 'Please mark at least one day you can work.',
+      path: ['schedule'],
+    },
+  )
+```
+
+Update the comment above the nanny profile fields (line ~118) to: `// Nanny profile fields captured at registration. Mothers omit these; the refines below make everything but certifications and skills mandatory for nannies — registration is the only time she enters her profile.`
+
+- [ ] **Step 4: Run the shared tests**
+
+Run: `pnpm --filter=@nanny-app/shared test`
+Expected: PASS.
+
+- [ ] **Step 5: Enforce the same three on the wizard screens**
+
+`RegistrationNannyLocationScreen.tsx` — replace `handleContinue` with:
+
+```ts
+  function handleContinue() {
+    if (draft.latitude === null || draft.longitude === null) {
+      setLocationError('Please set your home location on the map.');
+      return;
+    }
+    if (!draft.address.trim()) {
+      setLocationError('Please enter your street address.');
+      return;
+    }
+    setLocationError(null);
+    // Nannies upload their ID next; that screen continues to the final step.
+    router.push({ pathname: '/(auth)/register-nanny-id', params: { role } });
+  }
+```
+
+`RegistrationNannyDetailsScreen.tsx` — replace the validation block (from `const yearsTrimmed` through the end of `handleContinue`) with:
+
+```ts
+  const yearsTrimmed = draft.yearsOfExperience.trim();
+  const yearsNum = Number(yearsTrimmed);
+  const isYearsValid = yearsTrimmed !== '' && Number.isFinite(yearsNum) && yearsNum >= 0;
+  const hasWorkingDay = DAY_ORDER.some((d) => schedule[d]?.available);
+  const canContinue =
+    draft.bio.trim().length > 0 &&
+    isYearsValid &&
+    draft.availabilityType !== null &&
+    draft.ageRanges.length > 0 &&
+    hasWorkingDay;
+
+  function handleContinue() {
+    if (!draft.bio.trim()) {
+      setFormError('Please tell parents a bit about yourself.');
+      return;
+    }
+    if (!isYearsValid) {
+      setFormError('Please enter a valid number of years of experience.');
+      return;
+    }
+    if (!draft.availabilityType) {
+      setFormError('Please select your availability.');
+      return;
+    }
+    if (draft.ageRanges.length === 0) {
+      setFormError('Please pick at least one age range you care for.');
+      return;
+    }
+    if (!hasWorkingDay) {
+      setFormError('Please mark at least one day you can work.');
+      return;
+    }
+    setFormError(null);
+    router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+  }
+```
+
+Change the JSX comment `{/* Age ranges (optional) */}` to `{/* Age ranges */}` and the label text `Age ranges you care for (optional)` to `Age ranges you care for`.
+
+- [ ] **Step 6: Bring the three registration drivers along**
+
+`apps/mobile/e2e/flows/a10-nanny-onboarding.yaml` — in Step 4 replace the two lines after the map comment with:
+
+```yaml
+# The lab has no Maps key, so the pin's reverse-geocode never fills the
+# address — she types it, as the wizard now requires.
+- tapOn: 'Street address'
+- inputText: '2 Test Street, Cairo'
+- hideKeyboard
+# The map is centred on the device's Cairo geo fix; tapping it sets the pin.
+- tapOn:
+    point: '50%,44%'
+- tapOn: 'Continue'
+```
+
+and in Step 6, after `- tapOn: 'Full-time'`, add `- tapOn: '1-3'` (an age range is now required; the working hours default to Mon–Fri).
+
+`apps/backend/src/__integration__/journeys/a10-nanny-onboarding.test.ts` — in the register body after `ageRanges: ['0-1', '2-5'],` add:
+
+```ts
+      schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
+```
+
+`apps/admin/e2e/helpers/backend.ts` — in both `seedPendingNanny` and `seedApprovedNanny`, after `ageRanges: ['0-1', '2-5'],` add the same `schedule:` line.
+
+- [ ] **Step 7: Typecheck the mobile app and run the mobile unit tests**
+
+Run: `pnpm --filter=@nanny-app/mobile typecheck && pnpm --filter=@nanny-app/mobile test`
+Expected: exit 0; PASS.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add packages/shared apps/mobile apps/backend/src/__integration__/journeys/a10-nanny-onboarding.test.ts apps/admin/e2e/helpers/backend.ts
+git commit -m "feat(registration): a nanny must give her address, an age range and a working day
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 13: Docs — the two living documents that name the field
 
 **Files:**
 - Modify: `Docs/testing/e2e-flows.md:181, 270-271`
@@ -2052,7 +2284,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 13: Verify against the real stack
+### Task 14: Verify against the real stack
 
 **Files:** none (verification only).
 
@@ -2076,6 +2308,10 @@ Expected: `No difference detected.`
 With the stack up: `pnpm --filter=@nanny-app/backend start:test` in one terminal, then `pnpm --filter=@nanny-app/admin test:e2e -- b05`.
 Expected: all B5 specs PASS on Chromium and WebKit. Note memory `shared-test-stack-collisions` — make sure no other session's backend is on :3001.
 
-- [ ] **Step 4: Report**
+- [ ] **Step 4: Mobile A10 (only if the device lab is already up)**
 
-State exactly which tiers ran and their results. If the stack could not be started, say so and list Steps 2–3 as not run — do not report them as passing.
+Use the `mobile-e2e-lab` skill; run the A10 flow alone. Expected: PASS — she types an address, picks an age range, registers and lands on the pending-review gate. If the lab is not up, list this as not run.
+
+- [ ] **Step 5: Report**
+
+State exactly which tiers ran and their results. If the stack could not be started, say so and list Steps 2–4 as not run — do not report them as passing.

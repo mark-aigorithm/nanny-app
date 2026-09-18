@@ -273,7 +273,34 @@ initials) and the pin.
   its `approvalStatus`-on-profile and `isProfileComplete` spec keys and takes
   the user-level `approvalStatus` instead).
 
-## 6. Docs
+## 6. Registration — a nanny must give every profile field
+
+Since registration is the only time she enters her profile, the wizard must
+not let her finish with a hole an admin would have to fill. Required for a
+nanny, in addition to today's photo, ID, home pin, bio, years and
+availability:
+
+| Field | Rule | Message |
+|---|---|---|
+| `address` | non-empty after trim | "Please enter your street address." |
+| `ageRanges` | at least one | "Please pick at least one age range you care for." |
+| `schedule` | at least one day with `available: true` | "Please mark at least one day you can work." |
+
+- **Shared** `RegisterRequestSchema`: three nanny-only `.refine`s (`role !== 'NANNY' || …`),
+  each with the message above and `path` on its field, so the same rule that
+  the app enforces refuses a body that skips the app.
+- **Mobile** `RegistrationNannyLocationScreen`: Continue also requires a
+  non-empty address (error shown under the map card, same place as the pin
+  error). `RegistrationNannyDetailsScreen`: `canContinue` also requires ≥1 age
+  range and ≥1 available day; the age-range label loses "(optional)".
+- Certifications and skills stay optional — "none" is a true answer, and the
+  admin can add them later.
+- Mothers are unchanged.
+- **Tests:** shared Vitest for the three refines; the A10 Maestro flow types a
+  street address and picks an age range; the a10 integration journey and the
+  admin E2E nanny seeds send a `schedule`.
+
+## 7. Docs
 
 - `Docs/testing/e2e-flows.md` B5 and
   `.claude/skills/mobile-e2e-lab/references/authoring-flows.md`: new field name;
