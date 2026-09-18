@@ -30,6 +30,7 @@ export const BOOKING_OPTIONS: BookingOptions = {
   minBookingHours: 2,
   maxBookingHours: 12,
   minAdvanceBookingHours: 2,
+  cancellationWindowHours: 24,
   timezone: 'Africa/Cairo',
   nowWallClock: wall(now),
   earliestStartWallClock: wall(soon),

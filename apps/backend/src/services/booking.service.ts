@@ -1120,6 +1120,7 @@ export async function getBookingOptions(): Promise<BookingOptions> {
     minBookingHours: config.minBookingHours,
     maxBookingHours: config.maxBookingHours,
     minAdvanceBookingHours: config.minAdvanceBookingHours,
+    cancellationWindowHours: config.cancellationWindowHours,
     timezone: PLATFORM_TIMEZONE,
     nowWallClock: toPlatformWallClock(now),
     earliestStartWallClock: toPlatformWallClock(
@@ -1295,6 +1296,15 @@ export async function cancelBooking(
   const isNanny = booking.nannyProfile?.userId === user.id;
   if (!isMother && !isNanny) throw errors.forbidden('Access denied.');
 
+  // The transition table allows IN_PROGRESS → CANCELLED for the console, where
+  // an operator may need to void a running shift. Neither party may do it from
+  // the app: the nanny is already there, so the parent ends the shift instead
+  // (endBookingByMother) and keeps paying for the slot she booked.
+  if (booking.status === BookingStatus.IN_PROGRESS) {
+    throw errors.badRequest(
+      'A booking that is under way cannot be cancelled. The parent can end the shift instead.',
+    );
+  }
   validateStatusTransition(booking.status, BookingStatus.CANCELLED);
 
   // Return any Care Points the parent applied to this (still unpaid) booking.
@@ -1320,10 +1330,15 @@ export async function cancelBooking(
     console.error('[packages] failed to refund package hours on cancel', { bookingId, err });
   }
 
+  // Full refund when the nanny cancels, or when the parent cancels outside
+  // the console's cancellation window (0 = always free); half inside it. The
+  // same number is published on /bookings/options so the app's warning and
+  // this charge cannot disagree.
+  const { cancellationWindowHours } = await getPlatformConfig();
   const hoursUntilStart = (booking.startTime.getTime() - Date.now()) / 3_600_000;
-  // Full refund if > 24 hrs out or nanny cancels; 50 % otherwise.
+  const outsideWindow = cancellationWindowHours <= 0 || hoursUntilStart > cancellationWindowHours;
   const refundAmount =
-    isNanny || hoursUntilStart > 24
+    isNanny || outsideWindow
       ? Number(booking.totalAmount)
       : Math.round(Number(booking.totalAmount) * 0.5 * 100) / 100;
 
@@ -1338,7 +1353,42 @@ export async function cancelBooking(
     include: bookingInclude,
   });
 
+  await notifyOtherPartyOfCancellation(updated, isNanny ? 'NANNY' : 'MOTHER');
+
   return { booking: toBookingResponse(updated, await getBookingResponseContext()), refundAmount };
+}
+
+/**
+ * Tell whoever did not cancel. An unclaimed request has no nanny to tell, and
+ * the party who cancelled already knows.
+ */
+async function notifyOtherPartyOfCancellation(
+  booking: BookingWithRelations,
+  cancelledBy: 'MOTHER' | 'NANNY',
+): Promise<void> {
+  const dateLabel = booking.date.toISOString().slice(0, 10);
+
+  if (cancelledBy === 'MOTHER') {
+    if (!booking.nannyProfile) return;
+    await notifyUserBookingEvent(
+      booking.nannyProfile.userId,
+      NotificationType.BOOKING_CANCELLED,
+      'booking_cancelled',
+      'Booking cancelled',
+      `The parent cancelled your ${dateLabel} booking.`,
+      booking.id,
+    );
+    return;
+  }
+
+  await notifyUserBookingEvent(
+    booking.motherId,
+    NotificationType.BOOKING_CANCELLED,
+    'booking_cancelled',
+    'Booking cancelled',
+    `Your nanny had to cancel the ${dateLabel} booking. You will be refunded in full.`,
+    booking.id,
+  );
 }
 
 /**

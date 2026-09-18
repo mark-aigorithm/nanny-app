@@ -1,16 +1,22 @@
 /**
  * A17 — cancelling a booking, and what the platform says is owed back.
  *
- * Either party may cancel anything short of COMPLETED. The refund the service
- * quotes follows one rule: a parent cancelling with more than 24 hours to go,
- * or a nanny cancelling at any point, is owed the full amount; a parent
- * cancelling inside 24 hours is owed half. The quote is advisory — nothing is
- * paid back here. Money moves only through the admin refund flow (A3), so a
- * paid booking's payment row must be untouched by the cancellation itself.
+ * Either party may cancel a booking that has not started. The refund the
+ * service quotes follows one rule: a parent cancelling outside the platform's
+ * cancellation window, or a nanny cancelling at any point, is owed the full
+ * amount; a parent cancelling inside the window is owed half. The window is
+ * the console's `cancellation_window_hours` (24 by default; 0 makes cancelling
+ * always free), and the app reads it off `/bookings/options` so the fee it
+ * warns about is the fee the server charges. The quote is advisory — nothing
+ * is paid back here. Money moves only through the admin refund flow (A3), so
+ * a paid booking's payment row must be untouched by the cancellation itself.
+ *
+ * Whoever cancels, the other party is told. A shift that is under way cannot
+ * be cancelled at all — the parent ends it (A18) instead.
  *
  * Journeys A5 and A6 already prove that Care Points and package hours return
- * to the wallet on cancel; this one is about the status, the audit columns
- * and the quote.
+ * to the wallet on cancel; this one is about the status, the audit columns,
+ * the quote and the notification.
  */
 import request from 'supertest';
 
@@ -52,6 +58,26 @@ async function startIn(bookingId: number, hoursAhead: number): Promise<void> {
     where: { id: bookingId },
     data: { startTime: new Date(start), endTime: new Date(start + 4 * 3_600_000) },
   });
+}
+
+/**
+ * The window is not in the baseline snapshot the reset restores, so the
+ * reader falls back to its 24 h default until a row exists — and the reset's
+ * truncate removes the row again after each test.
+ */
+async function setCancellationWindowHours(hours: number): Promise<void> {
+  await prisma.appSettings.upsert({
+    where: { key: 'cancellation_window_hours' },
+    create: { key: 'cancellation_window_hours', value: String(hours) },
+    update: { value: String(hours) },
+  });
+}
+
+async function wasToldOfCancellation(userId: number, bookingId: number): Promise<boolean> {
+  const count = await prisma.notification.count({
+    where: { userId, type: 'BOOKING_CANCELLED', referenceId: bookingId },
+  });
+  return count > 0;
 }
 
 /** A claimed, card-paid booking — the state most cancellations happen from. */
@@ -110,10 +136,52 @@ describe('A17 — who may cancel', () => {
     expect(row.cancelledAt).toBeNull();
   });
 
+  it('refuses to cancel a shift that is under way — the parent ends it instead', async () => {
+    const { mother, nanny, booking } = await paidBooking();
+    await shiftWindowToNow(booking.id);
+    await checkIn(mother.token, nanny.token, booking.id);
+
+    for (const token of [mother.token, nanny.token]) {
+      const response = await cancel(token, booking.id);
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatch(/under way/i);
+    }
+
+    const row = await reload(booking.id);
+    expect(row.status).toBe('IN_PROGRESS');
+    expect(row.cancelledAt).toBeNull();
+  });
+
   it('requires a reason', async () => {
     const { mother, booking } = await paidBooking();
     expect((await cancel(mother.token, booking.id, '')).status).toBe(400);
     expect((await reload(booking.id)).status).toBe('CONFIRMED');
+  });
+});
+
+describe('A17 — the other party is told', () => {
+  it('tells the nanny when the mother cancels', async () => {
+    const { mother, nanny, booking } = await paidBooking();
+    await cancel(mother.token, booking.id).expect(200);
+
+    expect(await wasToldOfCancellation(nanny.id, booking.id)).toBe(true);
+    expect(await wasToldOfCancellation(mother.id, booking.id)).toBe(false);
+  });
+
+  it('tells the mother when the nanny cancels', async () => {
+    const { mother, nanny, booking } = await paidBooking();
+    await cancel(nanny.token, booking.id).expect(200);
+
+    expect(await wasToldOfCancellation(mother.id, booking.id)).toBe(true);
+    expect(await wasToldOfCancellation(nanny.id, booking.id)).toBe(false);
+  });
+
+  it('tells nobody when an unclaimed request is withdrawn', async () => {
+    const mother = await makeMother();
+    const booking = await createBookingViaApi(mother.token);
+    await cancel(mother.token, booking.id).expect(200);
+
+    expect(await prisma.notification.count({ where: { type: 'BOOKING_CANCELLED' } })).toBe(0);
   });
 });
 
@@ -153,5 +221,37 @@ describe('A17 — the refund quote', () => {
     const row = await reload(booking.id);
     expect(row.status).toBe('CANCELLED');
     expect(row.cancelledById).toBe(nanny.id);
+  });
+
+  it('uses the window the console configures, not a constant', async () => {
+    await setCancellationWindowHours(12);
+
+    const outside = await paidBooking();
+    await startIn(outside.booking.id, 18);
+    const full = await cancel(outside.mother.token, outside.booking.id);
+    expect(full.body.data.refundAmount).toBe(Number(outside.booking.totalAmount));
+
+    const inside = await paidBooking();
+    await startIn(inside.booking.id, 6);
+    const half = await cancel(inside.mother.token, inside.booking.id);
+    expect(half.body.data.refundAmount).toBe(Number(inside.booking.totalAmount) / 2);
+  });
+
+  it('is always the full amount when the window is zero', async () => {
+    await setCancellationWindowHours(0);
+
+    const { mother, booking } = await paidBooking();
+    await startIn(booking.id, 1);
+    const response = await cancel(mother.token, booking.id);
+    expect(response.body.data.refundAmount).toBe(Number(booking.totalAmount));
+  });
+
+  it('is published to the app on /bookings/options so the warning matches the charge', async () => {
+    await setCancellationWindowHours(12);
+    const mother = await makeMother();
+
+    const response = await request(app).get('/bookings/options').set(...authHeader(mother.token));
+    expect(response.status).toBe(200);
+    expect(response.body.data.cancellationWindowHours).toBe(12);
   });
 });

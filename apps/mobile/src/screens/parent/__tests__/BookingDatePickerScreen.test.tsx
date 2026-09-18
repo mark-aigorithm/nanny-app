@@ -27,6 +27,7 @@ const OPTIONS = {
   minBookingHours: 2,
   maxBookingHours: 12,
   minAdvanceBookingHours: 0,
+  cancellationWindowHours: 24,
   timezone: 'Africa/Cairo',
   nowWallClock: '2026-08-21T22:45:00',
   earliestStartWallClock: '2026-08-21T22:45:00',

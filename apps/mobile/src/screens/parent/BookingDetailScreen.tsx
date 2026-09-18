@@ -17,7 +17,14 @@ import ParentShiftControlsCard from '@mobile/components/ParentShiftControlsCard'
 import ParentNannyContactCard from '@mobile/components/ParentNannyContactCard';
 import { AmountDueCard } from '@mobile/components/booking/AmountDueCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
-import { useBooking, useCancelBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import {
+  useBooking,
+  useBookingOptions,
+  useCancelBooking,
+  fmtBookingDate,
+  fmtBookingTime,
+} from '@mobile/hooks/useBookings';
+import { cancellationWarning } from '@mobile/lib/cancellationWarning';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney, formatHourlyRate } from '@mobile/lib/formatMoney';
 import { confirmDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
@@ -57,6 +64,8 @@ export default function BookingDetailScreen() {
   // The feed only exists mid-shift, and only if the nanny has a camera set up.
   const canWatchLive = booking?.status === 'IN_PROGRESS' && booking.hasCamera;
   const cancelBooking = useCancelBooking();
+  // The fee window is a console setting; read it so the warning matches the charge.
+  const { data: bookingOptions } = useBookingOptions();
 
   useEffect(() => {
     if (focusCareLog !== '1' || isLoading || !booking || !canViewCareLog) return;
@@ -95,8 +104,7 @@ export default function BookingDetailScreen() {
     if (!bookingId) return;
     confirmDialog({
       title: 'Cancel this booking?',
-      message:
-        'Cancellations within 24 hours of the booking are subject to a 50% fee.',
+      message: cancellationWarning(bookingOptions?.cancellationWindowHours),
       confirmLabel: 'Cancel booking',
       cancelLabel: 'Keep booking',
       destructive: true,
