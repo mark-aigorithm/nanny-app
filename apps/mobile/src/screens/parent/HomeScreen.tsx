@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
@@ -10,6 +11,7 @@ import { Button, ScreenContainer } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
+import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
@@ -45,6 +47,17 @@ export default function HomeScreen() {
   const { gate: idGate } = useIdGate();
   const clearPendingPromo = usePendingPromoStore((s) => s.clear);
 
+  // Home's data lives in its cards (the live order, the campaigns, the
+  // header's unread count), each with its own query. A pull refetches every
+  // query mounted on this screen rather than naming them here, so a card
+  // added later is covered without touching Home.
+  const queryClient = useQueryClient();
+  const refreshEverything = useCallback(
+    () => queryClient.refetchQueries({ type: 'active' }),
+    [queryClient],
+  );
+  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refreshEverything);
+
   // A promo code from an abandoned campaign tap must never leak into a later,
   // unrelated booking. Home is where every new booking starts, so clear any
   // stale pending code whenever Home regains focus (a return from an
@@ -62,6 +75,13 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshingByUser}
+            onRefresh={refreshByUser}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Live order: finding a nanny / pay now / upcoming / in progress.
             Guests have no bookings — they get the welcome card instead. */}
