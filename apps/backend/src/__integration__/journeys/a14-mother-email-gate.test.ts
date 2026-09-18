@@ -237,20 +237,22 @@ describe('A14 — accounts created before the rule', () => {
     expect(response.body.error).toMatch(/already exists/i);
   });
 
-  it('enforces a resend cooldown on the same address', async () => {
+  it('caps sends to one address at five an hour, with no cooldown between them', async () => {
     const mother = await makeLegacyMother();
+    const sendCode = () =>
+      request(app)
+        .post('/auth/email/otp')
+        .set(...authHeader(mother.token))
+        .send({ email: mother.realEmail });
 
-    await request(app)
-      .post('/auth/email/otp')
-      .set(...authHeader(mother.token))
-      .send({ email: mother.realEmail })
-      .expect(204);
+    // The resend gap is the app's countdown, not a server rule (see
+    // assertWithinSendLimits): back-to-back sends are accepted up to the cap.
+    for (let sent = 0; sent < 5; sent += 1) {
+      expect((await sendCode()).status).toBe(204);
+    }
 
-    const again = await request(app)
-      .post('/auth/email/otp')
-      .set(...authHeader(mother.token))
-      .send({ email: mother.realEmail });
-
-    expect(again.status).toBe(429);
+    const sixth = await sendCode();
+    expect(sixth.status).toBe(429);
+    expect(sixth.body.error).toMatch(/too many codes/i);
   });
 });
