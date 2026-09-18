@@ -10,6 +10,8 @@
  * for the whole run), so every fixture creates its own accounts under unique
  * emails and a unique surname. A spec finds its own row by that surname.
  */
+import { waitForOtp } from './mailpit';
+
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:3001';
 const EMULATOR_HOST = process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '127.0.0.1:9099';
 const PAYMOB_FAKE_URL = process.env['E2E_PAYMOB_FAKE_URL'] ?? 'http://127.0.0.1:4010';
@@ -130,6 +132,45 @@ async function statusOf(method: Method, path: string, token: string, body?: Json
   return (await request(method, path, token, body)).status;
 }
 
+/**
+ * Prove an address the way the registration wizard does: ask for a code, read
+ * it out of Mailpit, exchange it for the one-time token `/auth/register` now
+ * requires for both roles. Nothing is bypassed — the mail really is sent and
+ * really is read back. Both routes are public, so no token is attached.
+ */
+async function proveEmail(email: string): Promise<string> {
+  const sent = await fetch(`${API_BASE_URL}/auth/email/otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (sent.status !== 204) {
+    const payload = (await sent.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(
+      `Sending a code to ${email} failed with ${sent.status}: ${payload?.error ?? '(no body)'}. ` +
+        `Is the test backend running on ${API_BASE_URL} with SMTP pointed at Mailpit?`,
+    );
+  }
+
+  const code = await waitForOtp(email);
+
+  const verified = await fetch(`${API_BASE_URL}/auth/email/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  const payload = (await verified.json().catch(() => null)) as {
+    data?: { verificationToken?: string };
+    error?: string;
+  } | null;
+  if (verified.status !== 200 || !payload?.data?.verificationToken) {
+    throw new Error(
+      `Verifying the code for ${email} failed with ${verified.status}: ${payload?.error ?? '(no body)'}.`,
+    );
+  }
+  return payload.data.verificationToken;
+}
+
 /** A superuser token for the console account global-setup provisioned. */
 export async function superuserToken(): Promise<string> {
   return signIn('e2e-superuser@test.local');
@@ -174,11 +215,13 @@ export type SeededMother = {
 export async function seedMother(): Promise<SeededMother> {
   const { email, surname } = unique('mother');
   const token = await signUp(email);
+  const emailVerificationToken = await proveEmail(email);
 
   const user = (await call('POST', '/auth/register', token, {
     firstName: 'E2E',
     lastName: surname,
     email,
+    emailVerificationToken,
     phone: uniquePhone(),
     dateOfBirth: '1992-04-01',
     role: 'MOTHER',
@@ -206,11 +249,13 @@ export type SeededNanny = SeededMother & { nannyProfileId: number };
 export async function seedPendingNanny(): Promise<SeededMother> {
   const { email, surname } = unique('nanny');
   const token = await signUp(email);
+  const emailVerificationToken = await proveEmail(email);
 
   const user = (await call('POST', '/auth/register', token, {
     firstName: 'E2E',
     lastName: surname,
     email,
+    emailVerificationToken,
     phone: uniquePhone(),
     dateOfBirth: '1995-06-15',
     role: 'NANNY',
@@ -234,11 +279,13 @@ export async function seedPendingNanny(): Promise<SeededMother> {
 export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny> {
   const { email, surname } = unique('nanny');
   const token = await signUp(email);
+  const emailVerificationToken = await proveEmail(email);
 
   const user = (await call('POST', '/auth/register', token, {
     firstName: 'E2E',
     lastName: surname,
     email,
+    emailVerificationToken,
     phone: uniquePhone(),
     dateOfBirth: '1995-06-15',
     role: 'NANNY',
