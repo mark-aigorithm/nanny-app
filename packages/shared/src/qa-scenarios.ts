@@ -1283,15 +1283,17 @@ const TIER_C: QaScenario[] = [
     area: 'Support',
     surface: 'Parent app',
     priority: 'P1',
-    knownGap:
-      'Known gap: the FAQ list is hardcoded in the app. Nothing an operator changes in the console affects it, and no API serves it.',
-    title: 'Help & support shows only the configured channels',
-    preconditions: ['In the console, set a WhatsApp number and an email, and clear the phone number'],
-    steps: ['Open Account → Help on the app', 'Tap each channel shown'],
+    title: 'Help & support shows the configured channels and the operators\' FAQ',
+    preconditions: [
+      'In the console, set a WhatsApp number and an email, and clear the phone number',
+      'In Settings → FAQ, change one answer and add a new question',
+    ],
+    steps: ['Open Account → Help on the app', 'Tap each channel shown', 'Read the FAQ and search it'],
     expected: [
       'WhatsApp and email cards are shown; there is no call card at all',
       'Each card opens the right external app with the configured value',
       'Setting the phone number in the console makes the call card appear after a refresh',
+      'The FAQ shows the edited answer and the new question, in the console\'s order; the search narrows it',
     ],
   },
   {

@@ -4,7 +4,7 @@
  * toggle reads back from the config, flips the live preview, and saves as a
  * real boolean — not as "false" the string, and not silently dropped.
  */
-import type { AdminUser, PlatformConfig, SupportContact } from '@nanny-app/shared';
+import type { AdminUser, PlatformConfig, SupportContact, SupportFaq } from '@nanny-app/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -54,10 +54,27 @@ const CONFIG: PlatformConfig = {
   revealPhoneMinutes: 45,
 };
 
-function backend(config: PlatformConfig, onSave: (body: unknown) => void = () => {}) {
+const FAQ: SupportFaq = {
+  items: [
+    { question: 'How are nannies vetted?', answer: 'Identity, references and CPR.' },
+    { question: 'How do refunds work?', answer: 'Within 5–7 business days.' },
+  ],
+};
+
+function backend(
+  config: PlatformConfig,
+  onSave: (body: unknown) => void = () => {},
+  onSaveFaq: (body: SupportFaq) => void = () => {},
+) {
   server.use(
     http.get('/api/admin/me', () => ok(ADMIN)),
     http.get('/api/admin/support-contact', () => ok(SUPPORT)),
+    http.get('/api/admin/support-faq', () => ok(FAQ)),
+    http.put('/api/admin/support-faq', async ({ request }) => {
+      const body = (await request.json()) as SupportFaq;
+      onSaveFaq(body);
+      return ok(body);
+    }),
     http.get('/api/admin/config', () => ok(config)),
     http.put('/api/admin/config', async ({ request }) => {
       const body = (await request.json()) as Partial<PlatformConfig>;
@@ -110,5 +127,66 @@ describe('SettingsPage — skill matching toggle', () => {
     await waitFor(() => expect(saved).toBeDefined());
     expect(saved).toMatchObject({ skillMatchingEnabled: false, broadcastRadiusKm: 10 });
     expect(await screen.findByText(/settings saved/i)).toBeInTheDocument();
+  });
+});
+
+describe('SettingsPage — FAQ editor', () => {
+  it('reads the saved questions back, in order', async () => {
+    backend(CONFIG);
+    renderPage();
+
+    expect(await screen.findByDisplayValue('How are nannies vetted?')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('How do refunds work?')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Within 5–7 business days.')).toBeInTheDocument();
+  });
+
+  it('saves the whole list after a question is added', async () => {
+    let saved: SupportFaq | undefined;
+    backend(CONFIG, () => {}, (body) => (saved = body));
+    renderPage();
+    await screen.findByDisplayValue('How are nannies vetted?');
+
+    await userEvent.click(screen.getByRole('button', { name: /add question/i }));
+    await userEvent.type(screen.getByLabelText('Question 3'), 'Do you cover Alexandria?');
+    await userEvent.type(
+      screen.getAllByLabelText('Answer')[2] as HTMLElement,
+      'Not yet — Cairo only for now.',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /save faq/i }));
+
+    await waitFor(() => expect(saved).toBeDefined());
+    expect(saved?.items).toHaveLength(3);
+    expect(saved?.items[2]).toEqual({
+      question: 'Do you cover Alexandria?',
+      answer: 'Not yet — Cairo only for now.',
+    });
+    expect(await screen.findByText(/faq saved/i)).toBeInTheDocument();
+  });
+
+  it('saves the list without a removed question', async () => {
+    let saved: SupportFaq | undefined;
+    backend(CONFIG, () => {}, (body) => (saved = body));
+    renderPage();
+    await screen.findByDisplayValue('How are nannies vetted?');
+
+    await userEvent.click(screen.getByRole('button', { name: /remove question 1/i }));
+    await userEvent.click(screen.getByRole('button', { name: /save faq/i }));
+
+    await waitFor(() => expect(saved).toBeDefined());
+    expect(saved?.items.map((i) => i.question)).toEqual(['How do refunds work?']);
+  });
+
+  it('refuses to save an entry with no answer, and says which one', async () => {
+    let saved: SupportFaq | undefined;
+    backend(CONFIG, () => {}, (body) => (saved = body));
+    renderPage();
+    await screen.findByDisplayValue('How are nannies vetted?');
+
+    await userEvent.click(screen.getByRole('button', { name: /add question/i }));
+    await userEvent.type(screen.getByLabelText('Question 3'), 'Half written');
+    await userEvent.click(screen.getByRole('button', { name: /save faq/i }));
+
+    expect(await screen.findByText(/entry 3: every entry needs an answer/i)).toBeInTheDocument();
+    expect(saved).toBeUndefined();
   });
 });

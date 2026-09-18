@@ -50,6 +50,7 @@ import {
   UpdateRewardConfigSchema,
   UpdateSkillSchema,
   UpdateSupportContactSchema,
+  SupportFaqSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -169,6 +170,7 @@ import {
   getSupportContact,
   updateSupportContact,
 } from '@backend/services/support-contact.service';
+import { getSupportFaq, updateSupportFaq } from '@backend/services/support-faq.service';
 
 export const adminRouter = Router();
 
@@ -929,6 +931,22 @@ adminRouter.put(
     }
   },
 );
+
+adminRouter.get('/support-faq', async (_req, res, next) => {
+  try {
+    res.json(ok(await getSupportFaq()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.put('/support-faq', validateBody(SupportFaqSchema), async (req, res, next) => {
+  try {
+    res.json(ok(await updateSupportFaq(req.body)));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Duration multiplier rules ──────────────────────────────────
 

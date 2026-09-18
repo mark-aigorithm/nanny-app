@@ -58,6 +58,7 @@ import type {
   SetQaScenarioStatusInput,
   Skill,
   SupportContact,
+  SupportFaq,
   UpdateAdminMotherInput,
   UpdateAdminNanny,
   UpdateAdminUserInput,
@@ -308,6 +309,17 @@ export async function updateSupportContact(
   input: UpdateSupportContactInput,
 ): Promise<SupportContact> {
   const res = await apiClient.put<ApiEnvelope<SupportContact>>('/admin/support-contact', input);
+  return res.data.data;
+}
+
+export async function fetchSupportFaq(): Promise<SupportFaq> {
+  const res = await apiClient.get<ApiEnvelope<SupportFaq>>('/admin/support-faq');
+  return res.data.data;
+}
+
+/** Replaces the whole list — the editor always saves everything it shows. */
+export async function updateSupportFaq(input: SupportFaq): Promise<SupportFaq> {
+  const res = await apiClient.put<ApiEnvelope<SupportFaq>>('/admin/support-faq', input);
   return res.data.data;
 }
 

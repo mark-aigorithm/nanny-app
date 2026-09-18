@@ -569,6 +569,27 @@ function configureSupport() {
     email: 'lab-support@nannyapp.test',
   });
 
+  // The FAQ is the operators' too. These strings are deliberately not the
+  // backend's built-in defaults, so the screen showing them proves the console
+  // write reached the app and not that a fallback rendered. The flow's search
+  // step types "refund" and expects exactly one of the three to survive.
+  call('PUT', adminToken, '/admin/support-faq', {
+    items: [
+      {
+        question: 'Is this FAQ written from the console?',
+        answer: 'Yes. An operator wrote this answer in Settings, and the app read it back.',
+      },
+      {
+        question: 'What is the cancellation policy?',
+        answer: 'Cancel up to 24 hours ahead for a full refund; inside that, half is kept.',
+      },
+      {
+        question: 'How long does a refund take?',
+        answer: 'Money reaches your card within five working days.',
+      },
+    ],
+  });
+
   output.whatsapp = contact.whatsappNumber;
   output.phone = contact.phoneNumber;
   output.email = contact.email;

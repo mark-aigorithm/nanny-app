@@ -3,6 +3,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { ok } from '@backend/lib/api-response';
 import { requireAuth } from '@backend/middleware/auth.middleware';
 import { getSupportContact } from '@backend/services/support-contact.service';
+import { getSupportFaq } from '@backend/services/support-faq.service';
 
 export const supportRouter = Router();
 
@@ -13,6 +14,14 @@ supportRouter.use(requireAuth);
 supportRouter.get('/contact', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(ok(await getSupportContact()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+supportRouter.get('/faq', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getSupportFaq()));
   } catch (err) {
     next(err);
   }

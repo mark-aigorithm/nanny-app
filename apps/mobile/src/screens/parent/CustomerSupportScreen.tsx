@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { whatsappLink } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';
-import { MOCK_FAQS } from '@mobile/mocks';
+import type { FaqItem } from '@mobile/types';
 import { getProfileReturnHref } from '@mobile/lib/profileUtils';
-import { useSupportContact } from '@mobile/hooks/useSupport';
+import { useSupportContact, useSupportFaq } from '@mobile/hooks/useSupport';
 import { styles } from './styles/customer-support-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
@@ -26,14 +26,23 @@ export default function CustomerSupportScreen() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(1);
   const [searchQuery, setSearchQuery] = useState('');
   const { data: support } = useSupportContact();
+  const { data: faqData } = useSupportFaq();
+
+  // The operators' list, in their order. The position doubles as the accordion
+  // key — the entries carry no ids of their own, and the first one opens on
+  // arrival, which is what the initial `expandedFaq` of 1 means.
+  const faqs: FaqItem[] = useMemo(
+    () => (faqData?.items ?? []).map((item, index) => ({ id: index + 1, ...item })),
+    [faqData],
+  );
 
   const filteredFaqs = searchQuery
-    ? MOCK_FAQS.filter(
+    ? faqs.filter(
         (faq) =>
           faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
           faq.answer.toLowerCase().includes(searchQuery.toLowerCase()),
       )
-    : MOCK_FAQS;
+    : faqs;
 
   const handleBack = () => {
     if (returnTo === 'mother-profile') {

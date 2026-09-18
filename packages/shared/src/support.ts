@@ -71,3 +71,21 @@ export type SupportContact = z.infer<typeof SupportContactSchema>;
 /** Partial update payload — an admin may edit one channel at a time. */
 export const UpdateSupportContactSchema = SupportContactSchema.partial();
 export type UpdateSupportContactInput = z.infer<typeof UpdateSupportContactSchema>;
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+//
+// The questions the app's Help & Support screen answers. Operators edit the
+// list in the console; the app reads it as-is, in this order. Stored as one
+// JSON app_settings row rather than a table, like the contact channels: it is
+// a handful of entries that change together, not rows anybody queries.
+
+export const SupportFaqItemSchema = z.object({
+  question: z.string().trim().min(1, 'Every entry needs a question.').max(200),
+  answer: z.string().trim().min(1, 'Every entry needs an answer.').max(1000),
+});
+export type SupportFaqItem = z.infer<typeof SupportFaqItemSchema>;
+
+export const SupportFaqSchema = z.object({
+  items: z.array(SupportFaqItemSchema).max(50),
+});
+export type SupportFaq = z.infer<typeof SupportFaqSchema>;

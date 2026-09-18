@@ -2,7 +2,7 @@ import React from 'react';
 import { Linking } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { SupportContact } from '@nanny-app/shared';
+import type { SupportContact, SupportFaq } from '@nanny-app/shared';
 
 // `@mobile/lib/api` imports firebase, which eagerly initializes the real SDK
 // at module-load time and crashes jest-expo's transform. Stub the API layer;
@@ -24,8 +24,21 @@ import CustomerSupportScreen from '@mobile/screens/parent/CustomerSupportScreen'
 
 const mockGet = api.get as jest.Mock;
 
+const DEFAULT_FAQ: SupportFaq = {
+  items: [{ question: 'How are nannies vetted?', answer: 'Identity, references and CPR.' }],
+};
+
+/** Route each GET by path: the screen reads the channels and the FAQ separately. */
+function mockBackend(contact: SupportContact, faq: SupportFaq = DEFAULT_FAQ) {
+  mockGet.mockImplementation((url: string) =>
+    Promise.resolve({
+      data: { data: url === '/support/faq' ? faq : contact, error: null },
+    }),
+  );
+}
+
 function mockContact(contact: SupportContact) {
-  mockGet.mockResolvedValue({ data: { data: contact, error: null } });
+  mockBackend(contact);
 }
 
 function renderScreen() {
@@ -100,5 +113,47 @@ describe('CustomerSupportScreen contact channels', () => {
 
     await waitFor(() => expect(getByText('Ask the community')).toBeTruthy());
     expect(queryByText('WhatsApp')).toBeNull();
+  });
+});
+
+describe('CustomerSupportScreen FAQ', () => {
+  const CONTACT: SupportContact = { whatsappNumber: '', phoneNumber: '', email: '' };
+
+  it('shows the questions the operator wrote, first one open', async () => {
+    mockBackend(CONTACT, {
+      items: [
+        { question: 'Do you cover Alexandria?', answer: 'Not yet — Cairo only for now.' },
+        { question: 'Can I pay cash?', answer: 'No. Card only, through the app.' },
+      ],
+    });
+    const { findByText, getByText, queryByText } = renderScreen();
+
+    expect(await findByText('Do you cover Alexandria?')).toBeTruthy();
+    expect(getByText('Not yet — Cairo only for now.')).toBeTruthy();
+    expect(getByText('Can I pay cash?')).toBeTruthy();
+    // Only one panel is open at a time.
+    expect(queryByText('No. Card only, through the app.')).toBeNull();
+    // Nothing from the old bundled list leaks through.
+    expect(queryByText('How are nannies vetted?')).toBeNull();
+
+    fireEvent.press(getByText('Can I pay cash?'));
+    expect(getByText('No. Card only, through the app.')).toBeTruthy();
+    expect(queryByText('Not yet — Cairo only for now.')).toBeNull();
+  });
+
+  it('filters the questions by the search box', async () => {
+    mockBackend(CONTACT, {
+      items: [
+        { question: 'Do you cover Alexandria?', answer: 'Not yet.' },
+        { question: 'Can I pay cash?', answer: 'No.' },
+      ],
+    });
+    const { findByText, getByPlaceholderText, queryByText } = renderScreen();
+    await findByText('Do you cover Alexandria?');
+
+    fireEvent.changeText(getByPlaceholderText(/search/i), 'cash');
+
+    expect(queryByText('Do you cover Alexandria?')).toBeNull();
+    expect(queryByText('Can I pay cash?')).toBeTruthy();
   });
 });

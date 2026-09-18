@@ -195,7 +195,6 @@ All placeholder/mock data lives in `src/mocks/`, organized by domain:
 | `notifications.ts` | `MOCK_NOTIFICATIONS` |
 | `care.ts` | `MOCK_CHILD`, `QUICK_ENTRIES`, `MOCK_LOG_ENTRIES`, `TODAY_ACTIVITIES`, `YESTERDAY_ACTIVITIES`, `MOCK_ACTIVITIES_LIVE` |
 | `profile.ts` | `MOCK_PROFILE` |
-| `support.ts` | `MOCK_FAQS` |
 | `reviews.ts` | `MOCK_REVIEWS` |
 | `index.ts` | Barrel re-export of all above |
 

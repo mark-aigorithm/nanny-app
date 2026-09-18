@@ -36,6 +36,7 @@ import {
   updatePlatformConfig,
   updateSupportContact,
 } from '@admin/lib/api';
+import { SupportFaqCard } from '@admin/features/support/support-faq-card';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
@@ -593,6 +594,8 @@ export function SettingsPage() {
               </Card>
             </form>
           )}
+
+          <SupportFaqCard canManage={canManage} />
         </div>
 
         <aside className="settings-rail">

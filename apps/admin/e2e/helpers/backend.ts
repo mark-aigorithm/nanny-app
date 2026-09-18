@@ -463,6 +463,18 @@ export type AppBookingOptions = {
   minAdvanceBookingHours: number;
 };
 
+export type AppFaq = { items: Array<{ question: string; answer: string }> };
+
+/** The FAQ as the app's Help & Support screen reads it. */
+export async function getAppSupportFaq(token: string): Promise<AppFaq> {
+  return (await call('GET', '/support/faq', token)) as AppFaq;
+}
+
+/** Restores the FAQ over HTTP — for a spec's cleanup, never its assertion. */
+export async function setSupportFaqAsAdmin(adminToken: string, faq: AppFaq): Promise<void> {
+  await call('PUT', '/admin/support-faq', adminToken, faq);
+}
+
 /** The booking rules the app's date picker is built from. */
 export async function getAppBookingOptions(token: string): Promise<AppBookingOptions> {
   return (await call('GET', '/bookings/options', token)) as AppBookingOptions;

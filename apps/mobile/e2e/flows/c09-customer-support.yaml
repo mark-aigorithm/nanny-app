@@ -12,12 +12,11 @@
 # off to an app the emulator does not have, and following it would leave the
 # flow outside the app under test with nothing to assert.
 #
-# ── Worth knowing: the FAQ is not real ─────────────────────────────────────
-# `MOCK_FAQS` is a hardcoded array in `src/mocks/support.ts`. Nothing an
-# operator can do changes it and no API serves it. The flow still drives the
-# search and the accordion — that is genuine screen behaviour — but it asserts
-# on strings from the mock, so it will need updating on the day the FAQ gets a
-# backend, which is the point at which somebody should look at it anyway.
+# ── The FAQ is the operators' too ──────────────────────────────────────────
+# `configure-support` also writes the FAQ through `PUT /admin/support-faq`,
+# with strings that are deliberately not the backend's built-in defaults. So
+# the questions asserted below prove the console write reached the screen —
+# a default rendering would fail the flow, which is the point.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -65,16 +64,18 @@ appId: com.nannyapp.mobile
 # Every question mark is escaped: a Maestro text selector is a full-match
 # regex, so a bare `?` makes the preceding letter optional and then fails
 # against a node whose text really does end in one.
-- assertVisible: 'How are nannies vetted\?'
-- assertVisible: 'All nannies complete a comprehensive background check.*'
+- extendedWaitUntil:
+    visible: 'Is this FAQ written from the console\?'
+    timeout: 30000
+- assertVisible: 'Yes\. An operator wrote this answer in Settings.*'
 
 - tapOn: 'What is the cancellation policy\?'
 - extendedWaitUntil:
-    visible: 'You can cancel a booking up to 24 hours.*'
+    visible: 'Cancel up to 24 hours ahead for a full refund.*'
     timeout: 30000
 # Only one panel is open at a time — the accordion closes the last one rather
 # than stacking.
-- assertNotVisible: 'All nannies complete a comprehensive background check.*'
+- assertNotVisible: 'Yes\. An operator wrote this answer in Settings.*'
 
 # ── Search ─────────────────────────────────────────────────────────────────
 - tapOn:
@@ -82,9 +83,9 @@ appId: com.nannyapp.mobile
 - inputText: 'refund'
 - hideKeyboard
 - extendedWaitUntil:
-    visible: 'How do refunds work\?'
+    visible: 'How long does a refund take\?'
     timeout: 30000
-- assertNotVisible: 'How are nannies vetted\?'
+- assertNotVisible: 'Is this FAQ written from the console\?'
 
 # The search reads the answers as well as the questions, which is why the
 # cancellation entry survives a query that its question does not contain.
