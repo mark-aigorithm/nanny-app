@@ -371,19 +371,19 @@ five steps for a mother, six for a nanny, including the email OTP each proves
 mid-wizard against a code read out of Mailpit — and C7 rides on C2's step 5
 rather than asserting `/referrals/validate` on its own.
 
-**Anything about push tokens (C3).** Two separate walls. No route exposes a
-user's device tokens, so a flow cannot see whether registration happened — the
-app posts to `/devices/push-token` and shows nothing for it. And removal is not
-implemented at all: `DELETE /devices/push-token` exists on the backend and
-nothing in the app calls it, so signing out leaves the token registered against
-the previous user. Confirmed against the test database — the lab mother has 56
-live `device_tokens` rows and zero removed, despite C1 signing her out every
-run. Push itself *does* work here: the emulator registers real FCM tokens, which
-is how that was measured.
+**Anything about push tokens (C3).** No route exposes a user's device tokens,
+so a flow cannot see whether registration happened — the app posts to
+`/devices/push-token` and shows nothing for it, and releases it on sign-out
+(`unregisterPushToken`, before `auth().signOut()`) equally silently. Both halves
+are covered where they can be seen: `usePushNotifications.permission.test.ts`
+(allow → registered, deny → nothing) and `useAuth.signOut.test.tsx` (the DELETE
+goes out with the old user's JWT). Push itself *does* work on the lab: the
+emulator registers real FCM tokens.
 
-**Marketplace listings, from the app.** Creating one requires a photo, and a
-photo requires Firebase Storage, which the test stack does not run — so C5 drives
-Q&A and events only. The listing lifecycle is B6's subject and is driven from the
+**The marketplace listing's moderation, from the app.** C5 does post a listing —
+the photo is the bundled E2E placeholder (`lib/e2eImage`) and the upload goes to
+the Storage emulator for real — but what happens to it afterwards (approval,
+rejection, take-down, resubmission) is B6's subject and is driven from the
 console, with the app's side advanced over HTTP.
 
 **Anything an API journey already proves.** A4 does not re-derive when a promo

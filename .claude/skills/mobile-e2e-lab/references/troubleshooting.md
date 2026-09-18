@@ -31,9 +31,27 @@ mid-startup app bug, not connectivity.
 force-killing qemu; the routing tables are left with only Android's `dummy0` fallback, which returns
 ENETUNREACH for everything.
 
-**Fix.** `adb reboot`, wait for `sys.boot_completed=1`, then `svc wifi disable` again. That restores
-`eth0` with `10.0.2.15/24`. A cold boot (`-no-snapshot-load`) alone did **not** fix it — the reboot
-of the running device did.
+**Fix, first try.** `adb reboot`, wait for `sys.boot_completed=1`, then `svc wifi disable` again.
+That restored `eth0` with `10.0.2.15/24` on 2026-09-05. A cold boot (`-no-snapshot-load`) alone did
+**not** fix it — the reboot of the running device did.
+
+**Fix, when the reboot changes nothing (2026-09-18).** `eth0` and `wlan0` both stayed `DOWN` after a
+cold boot, a Wi-Fi toggle and a full `adb reboot`. Raise the link by hand and let the framework
+notice it:
+
+```bash
+adb root
+adb shell ip link set eth0 up
+adb shell ip addr add 10.0.2.15/24 dev eth0
+sleep 5
+adb shell 'dumpsys connectivity | grep "Active default"'   # want: 100 (not none)
+adb shell 'echo -e "GET / HTTP/1.0\r\n\r\n" | toybox nc -w 3 10.0.2.2 9099 | head -1'   # want: 200
+```
+
+ConnectivityService picks the interface up within seconds, provisions it as network 100
+(`MOBILE[HSPA]`, routes in `table eth0`) and the host is reachable. Don't bother adding a default
+route to the main table yourself — Android's policy routing never consults it (`from all unreachable`
+at priority 32000); only the framework's per-network table counts.
 
 **The `nc` result tells you which failure you have:**
 
