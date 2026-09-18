@@ -20,6 +20,7 @@ import type {
 
 import { api, unwrap, unwrapPaginated } from '@mobile/lib/api';
 import type { CommentsPage, CommunityFeedFilter, PostsPage } from '@mobile/lib/communityUtils';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 const COMMUNITY_KEY = 'community';
 
@@ -188,6 +189,12 @@ export function useToggleEventRsvp() {
     onSuccess: (_data, postId) => {
       qc.invalidateQueries({ queryKey: [COMMUNITY_KEY, 'post', postId] });
       qc.invalidateQueries({ queryKey: [COMMUNITY_KEY, 'posts'] });
+    },
+    // Every caller fires this with `mutate` from a card's RSVP button, so the
+    // refusal has to be reported here or nowhere: a full event ("This event is
+    // at capacity.") otherwise looks like a button that does nothing.
+    onError: (error) => {
+      noticeDialog({ title: "Couldn't RSVP", message: error.message });
     },
   });
 }

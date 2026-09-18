@@ -1155,8 +1155,6 @@ const TIER_C: QaScenario[] = [
     surface: 'Parent app',
     priority: 'P1',
     negative: true,
-    knownGap:
-      'Known gap: the RSVP hook has no error handler, so the refusal is swallowed and the button simply does not change. Report this as a fail until it is fixed.',
     title: 'A full event refuses the next RSVP',
     preconditions: ['An event whose capacity is already filled'],
     steps: ['From another account, try to RSVP to the full event'],
