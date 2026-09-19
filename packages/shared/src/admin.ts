@@ -8,6 +8,7 @@ import {
   PaginationMetaSchema,
   wallClockField,
 } from './booking';
+import { AddressInputSchema, AddressSchema } from './address';
 import { PublicCertificationSchema } from './certification';
 import { BookingChildSchema } from './child';
 import { CommunityTagSchema, PostModerationStatusSchema } from './community';
@@ -438,8 +439,11 @@ export const AdminEditBookingSchema = z.object({
   usePackageHours: z.boolean().optional(),
   /** Care Points hours to redeem. 0/undefined = none. Bounded by the wallet server-side. */
   carePointsHours: z.number().int().min(0).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  /**
+   * Move the booking to another of the mother's saved addresses (re-snapshots
+   * it and the broadcast coordinates). `undefined` leaves it where it is.
+   */
+  addressId: z.number().int().positive().optional(),
 });
 export type AdminEditBookingInput = z.infer<typeof AdminEditBookingSchema>;
 
@@ -644,8 +648,22 @@ export const AdminNannyDetailSchema = AdminNannySchema.extend({
   amountGained: z.number(),
   /** Number of COMPLETED bookings contributing to `amountGained`. */
   completedBookings: z.number().int(),
+  /**
+   * Her single home base — what `location` is derived from. Null only for an
+   * account that registered without coordinates; PUT /nannies/:id/address
+   * creates it.
+   */
+  address: AddressSchema.nullable(),
 });
 export type AdminNannyDetail = z.infer<typeof AdminNannyDetailSchema>;
+
+/**
+ * Body for PUT /admin/nannies/:id/address — the one place a nanny's address
+ * changes after registration. No label or default flag: she has exactly one,
+ * and it is always "Home".
+ */
+export const AdminUpsertNannyAddressSchema = AddressInputSchema.omit({ label: true, isDefault: true });
+export type AdminUpsertNannyAddressInput = z.infer<typeof AdminUpsertNannyAddressSchema>;
 
 export const RejectNannySchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
@@ -697,6 +715,8 @@ export const AdminMotherDetailSchema = AdminMotherSchema.extend({
   firstName: z.string(),
   /** May be the '-' placeholder when the account has no last name. */
   lastName: z.string(),
+  /** Her address book, default first. Read-only in the console. */
+  addresses: z.array(AddressSchema),
 });
 export type AdminMotherDetail = z.infer<typeof AdminMotherDetailSchema>;
 
@@ -721,10 +741,11 @@ export type UpdateAdminMotherInput = z.infer<typeof UpdateAdminMotherSchema>;
 /**
  * Partial update for a nanny account (PATCH /admin/nannies/:id). A nanny
  * cannot edit her own profile, so the console can correct every field she
- * entered at registration — name, photo, date of birth, home address and
- * pin, bio, experience, age ranges, availability, schedule, certifications.
- * Email and phone (Firebase Auth identity) and the ID images (she re-uploads
- * after a reject) are intentionally not here.
+ * entered at registration — name, photo, date of birth, bio, experience, age
+ * ranges, availability, schedule, certifications. Her address (line + pin) is
+ * PUT /admin/nannies/:id/address instead. Email and phone (Firebase Auth
+ * identity) and the ID images (she re-uploads after a reject) are
+ * intentionally not here.
  */
 export const UpdateAdminNannySchema = z
   .object({
@@ -732,11 +753,9 @@ export const UpdateAdminNannySchema = z
     lastName: z.string().trim().min(1).max(80).optional(),
     avatarUrl: z.string().url().nullable().optional(),
     dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD').optional(),
-    location: z.string().trim().max(200).optional(),
-    // The home pin proximity search reads. Sent as a pair so the pin can never
-    // half-move; the address text is independent (it is what parents read).
-    latitude: z.number().min(-90).max(90).optional(),
-    longitude: z.number().min(-180).max(180).optional(),
+    // No location or pin here: her address is edited through
+    // PUT /admin/nannies/:id/address so the line parents read and the pin
+    // proximity matching uses can never drift apart.
     bio: z.string().trim().max(600).optional(),
     yearsOfExperience: z.number().int().min(0).max(60).optional(),
     ageRanges: z.array(z.string()).optional(),
@@ -744,11 +763,7 @@ export const UpdateAdminNannySchema = z
     schedule: WeeklyScheduleSchema.optional(),
     certificationIds: z.array(z.number().int().positive()).optional(),
   })
-  .refine((v) => Object.keys(v).length > 0, { message: 'Provide at least one field to update.' })
-  .refine((v) => (v.latitude === undefined) === (v.longitude === undefined), {
-    message: 'Latitude and longitude must be updated together.',
-    path: ['latitude'],
-  });
+  .refine((v) => Object.keys(v).length > 0, { message: 'Provide at least one field to update.' });
 export type UpdateAdminNanny = z.infer<typeof UpdateAdminNannySchema>;
 
 // ──────────────────────────────────────────────────────────────

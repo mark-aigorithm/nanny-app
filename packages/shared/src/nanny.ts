@@ -214,9 +214,9 @@ export const UpdateNannyProfileRequestSchema = z.object({
   lastName: z.string().trim().min(1).max(80).optional(),
   avatarUrl: z.string().url().nullable().optional(),
   bio: z.string().max(1000).optional(),
-  // Free-text home label. Persisted to `users.address` (the single source of
-  // truth); coordinates are edited via PATCH /auth/me, not here.
-  location: z.string().trim().max(200).optional(),
+  // No location here: a nanny's address is captured once at registration and
+  // thereafter edited only by an admin (PUT /admin/nannies/:id/address), so
+  // the line parents see and the pin matching uses can never disagree.
   yearsOfExperience: z.number().int().min(0).max(60).optional(),
   // Ids of admin-configured certifications the nanny selects for her profile.
   // Replaces the former free-text certifications array.

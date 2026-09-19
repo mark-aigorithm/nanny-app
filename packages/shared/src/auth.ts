@@ -221,6 +221,11 @@ export const UserResponseSchema = z.object({
   idDocumentType: IdDocumentTypeSchema.nullable(),
   /** Reason an admin gave when rejecting, surfaced in the forced re-upload prompt. */
   rejectionReason: z.string().nullable(),
+  /**
+   * The user's default address, flattened. Derived from the addresses table
+   * (the source of truth) and kept on this response so screens that only show
+   * "where you are" keep working; edit through /addresses, not PATCH /auth/me.
+   */
   address: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
@@ -239,12 +244,9 @@ export const UpdateProfileRequestSchema = z.object({
     .nullable()
     .optional(),
   avatarUrl: z.string().url().nullable().optional(),
-  // Home location lives on the user row (single source of truth for proximity
-  // search). Updating address + coordinates together here is what keeps the
-  // saved home in sync with the map pin and prevents distance-sort drift.
-  address: z.string().trim().max(200).nullable().optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  // No address or coordinates here: location is an address-book entry now
+  // (see address.ts) and is edited through /addresses, so the display line
+  // and the pin proximity search uses can never drift apart.
 });
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 

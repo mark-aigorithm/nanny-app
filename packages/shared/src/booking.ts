@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { BookingLocationSchema } from './address';
 import { BookingChildSchema } from './child';
 import { PublicDurationRuleSchema } from './duration-rule';
 import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
@@ -345,6 +346,13 @@ export const BookingResponseSchema = z.object({
    */
   children: z.array(BookingChildSchema),
   childrenCount: z.number(),
+  /**
+   * Where the booking happens, snapshotted at creation. `area` is always
+   * carried; `details` is null for a nanny until the booking is CONFIRMED (the
+   * mother and admins always get it). Null on bookings made before addresses
+   * were modelled by a mother who had no coordinates.
+   */
+  address: BookingLocationSchema.nullable(),
   /** Children charged above the included allowance (0 on most bookings). */
   extraChildren: z.number(),
   /** EGP those extra children added to the hourly rate. */
@@ -444,8 +452,7 @@ export function wallClockField(name: string): z.ZodString {
 /**
  * Create a booking request. The mother no longer picks a nanny — the request is
  * broadcast to every eligible nanny and the first to accept claims it. Price is
- * known up front from the fixed platform rate, not a per-nanny rate. Optional
- * coordinates let the server order the broadcast pool by proximity.
+ * known up front from the fixed platform rate, not a per-nanny rate.
  *
  * Times are wall-clock in `PLATFORM_TIMEZONE` — the literal time the parent
  * picked. The server converts to UTC and derives the booking's `date` from the
@@ -454,8 +461,13 @@ export function wallClockField(name: string): z.ZodString {
 export const CreateBookingSchema = z.object({
   startTime: wallClockField('startTime'),
   endTime: wallClockField('endTime'),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  /**
+   * Which of the mother's saved addresses the nanny is sent to. Required — it
+   * is where the booking happens and what the broadcast radius is measured
+   * from. The server snapshots the row (see BookingAddressSchema), so a later
+   * edit to the address never moves a booking already made.
+   */
+  addressId: z.number().int().positive(),
   specialInstructions: z.string().trim().max(1000).optional(),
   promoCode: z.string().trim().min(1).optional(),
   /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */
