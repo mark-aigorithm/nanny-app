@@ -93,7 +93,7 @@ async function createUser(
  */
 export function makeMother(overrides: UserOverrides = {}): Promise<TestUser> {
   return createUser('mother', Role.MOTHER, {
-    idVerificationStatus: 'APPROVED',
+    approvalStatus: 'APPROVED',
     latitude: 30.0444,
     longitude: 31.2357,
     address: '1 Test Street, Cairo',
@@ -113,7 +113,10 @@ export async function makeNanny(
   overrides: NannyOverrides = {},
 ): Promise<TestUser & { nannyProfileId: number }> {
   const user = await createUser('nanny', Role.NANNY, {
-    idVerificationStatus: 'APPROVED',
+    // APPROVED by default: a PENDING_REVIEW nanny is invisible to search and
+    // cannot be booked, so it would be a surprising default for a factory.
+    // Pass `user: { approvalStatus: 'PENDING_REVIEW' }` to test the gate.
+    approvalStatus: 'APPROVED',
     latitude: 30.0444,
     longitude: 31.2357,
     address: '2 Test Street, Cairo',
@@ -127,11 +130,6 @@ export async function makeNanny(
       yearsOfExperience: 3,
       // Required, and has no schema default — omitting it fails at the DB.
       ageRanges: ['0-1', '2-5'],
-      isProfileComplete: true,
-      // APPROVED by default: a PENDING_REVIEW nanny is invisible to search and
-      // cannot be booked, so it would be a surprising default for a factory.
-      // Pass `profile: { approvalStatus: 'PENDING_REVIEW' }` to test the gate.
-      approvalStatus: 'APPROVED',
       availabilityType: 'FULL_TIME',
       ...overrides.profile,
     },

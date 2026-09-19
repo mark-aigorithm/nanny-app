@@ -6,7 +6,7 @@ import {
   ADMIN_PAGE_SIZES,
   ADMIN_SORT_OPTIONS,
   type AdminMother,
-  type AdminMotherStatusFilter,
+  type AdminApprovalStatusFilter,
   type AdminSortOrder,
 } from '@nanny-app/shared';
 
@@ -22,9 +22,10 @@ import {
 } from '@admin/components/ui';
 import { fetchMothers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { usePagination } from '@admin/lib/use-pagination';
 
-const STATUS_FILTERS: { value: AdminMotherStatusFilter; label: string }[] = [
+const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'ALL', label: 'All' },
   { value: 'PENDING_ID', label: 'Awaiting ID' },
   { value: 'PENDING_REVIEW', label: 'Pending review' },
@@ -36,18 +37,6 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-function statusTone(
-  status: AdminMother['idVerificationStatus'],
-): 'success' | 'danger' | 'neutral' {
-  if (status === 'APPROVED') return 'success';
-  if (status === 'REJECTED') return 'danger';
-  return 'neutral';
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
-}
-
 const EMPTY = <span className="table-empty">—</span>;
 
 /**
@@ -56,7 +45,7 @@ const EMPTY = <span className="table-empty">—</span>;
  * so the two views of the same people never reorder without saying so.
  */
 export function MothersTab() {
-  const [status, setStatus] = useState<AdminMotherStatusFilter>('ALL');
+  const [status, setStatus] = useState<AdminApprovalStatusFilter>('ALL');
   const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const navigate = useNavigate();
@@ -67,7 +56,7 @@ export function MothersTab() {
   const mothers = data?.data;
   const meta = data?.meta;
 
-  function changeStatus(next: AdminMotherStatusFilter) {
+  function changeStatus(next: AdminApprovalStatusFilter) {
     setStatus(next);
     reset();
   }
@@ -111,10 +100,10 @@ export function MothersTab() {
       key: 'status',
       header: 'ID status',
       render: (mother) =>
-        mother.idVerificationStatus ? (
+        mother.approvalStatus ? (
           <>
-            <Badge tone={statusTone(mother.idVerificationStatus)}>
-              {statusLabel(mother.idVerificationStatus)}
+            <Badge tone={approvalStatusTone(mother.approvalStatus)}>
+              {approvalStatusLabel(mother.approvalStatus)}
             </Badge>
             {mother.rejectionReason && (
               <div className="table-subtext">{mother.rejectionReason}</div>
@@ -154,7 +143,7 @@ export function MothersTab() {
           label="ID status"
           value={status}
           options={STATUS_FILTERS}
-          onChange={(value) => changeStatus(value as AdminMotherStatusFilter)}
+          onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
         <FilterSelect
           label="Sort"

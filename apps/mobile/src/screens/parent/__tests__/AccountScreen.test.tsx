@@ -42,9 +42,9 @@ const PROFILE = {
   role: 'MOTHER',
   isEmailVerified: true,
   isPhoneVerified: false,
-  idVerificationStatus: 'APPROVED',
+  approvalStatus: 'APPROVED',
   idDocumentType: null,
-  idRejectionReason: null,
+  rejectionReason: null,
   address: null,
   latitude: null,
   longitude: null,
@@ -76,7 +76,7 @@ describe('Account screen', () => {
 
   it('shows Member since year when not verified', () => {
     useUserProfileStore.setState({
-      profile: { ...PROFILE, idVerificationStatus: 'PENDING_ID' },
+      profile: { ...PROFILE, approvalStatus: 'PENDING_ID' },
     });
     const { getByText } = renderScreen();
     getByText('Member since 2026');

@@ -3,7 +3,6 @@ import type {
   Role as PrismaRole,
 } from '@prisma/client';
 import {
-  getMissingNannyProfileFields,
   Role,
   type AvailabilityResponse,
   type CheckAvailabilityRequest,
@@ -38,10 +37,9 @@ function toApiRole(role: PrismaRole | null): ApiRole | null {
 /**
  * Convert a Prisma `User` row into the wire format defined by
  * `UserResponseSchema`. Strips internal columns (timestamps, soft-delete
- * markers) and serializes Date fields to ISO strings. Identity-verification
- * state now lives directly on the user row, so no relation include is needed.
- * The ID image URLs are intentionally NOT exposed here — they are KYC-sensitive
- * and only returned by admin endpoints.
+ * markers) and serializes Date fields to ISO strings. The ID image URLs are
+ * intentionally NOT exposed here — they are KYC-sensitive and only returned
+ * by admin endpoints.
  */
 function toUserResponse(user: User): UserResponse {
   return {
@@ -56,9 +54,9 @@ function toUserResponse(user: User): UserResponse {
     role: toApiRole(user.role),
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
-    idVerificationStatus: user.idVerificationStatus,
+    approvalStatus: user.approvalStatus,
     idDocumentType: user.idDocumentType,
-    idRejectionReason: user.idRejectionReason,
+    rejectionReason: user.rejectionReason,
     address: user.address,
     latitude: user.latitude !== null ? Number(user.latitude) : null,
     longitude: user.longitude !== null ? Number(user.longitude) : null,
@@ -162,11 +160,12 @@ export async function registerUser(
         address: body.address ?? null,
         latitude: body.latitude,
         longitude: body.longitude,
-        // Identity verification lives on the user row for both roles. Nannies
-        // upload their ID at registration, so they start PENDING_REVIEW (awaiting
-        // admin KYC); mothers upload later (before booking), so they start
-        // PENDING_ID and are prompted when they try to book.
-        idVerificationStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
+        // Approval state lives on the user row for both roles. A nanny uploads
+        // her ID at registration and starts PENDING_REVIEW, awaiting an admin's
+        // decision on her whole application; a mother uploads later, before
+        // booking, so she starts PENDING_ID and is prompted when she tries to
+        // book.
+        approvalStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
         idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
         idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
         idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
@@ -175,18 +174,6 @@ export async function registerUser(
     });
 
     if (isNanny) {
-      // Home location (address + coordinates) lives solely on the user row;
-      // proximity search and the booking broadcast read it from there, so it
-      // is not mirrored onto the profile — but completeness still needs it,
-      // so it feeds the same getMissingNannyProfileFields check every other
-      // profile writer uses.
-      const isProfileComplete =
-        getMissingNannyProfileFields({
-          bio: body.bio ?? null,
-          location: body.address ?? null,
-          yearsOfExperience: body.yearsOfExperience ?? null,
-        }).length === 0;
-
       const profile = await tx.nannyProfile.create({
         data: {
           userId: user.id,
@@ -195,7 +182,6 @@ export async function registerUser(
           ageRanges: body.ageRanges ?? [],
           schedule: body.schedule,
           availabilityType: body.availabilityType,
-          isProfileComplete,
         },
       });
 
@@ -379,9 +365,9 @@ export async function submitId(
       idDocumentFrontUrl: body.idDocumentFrontUrl,
       // A passport has no back image — clear any stale value from a prior upload.
       idDocumentBackUrl: body.idDocumentBackUrl ?? null,
-      idVerificationStatus: 'PENDING_REVIEW',
-      idRejectionReason: null,
-      idReviewedAt: null,
+      approvalStatus: 'PENDING_REVIEW',
+      rejectionReason: null,
+      reviewedAt: null,
     },
   });
 

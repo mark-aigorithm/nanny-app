@@ -35,7 +35,7 @@ import { Role } from '@nanny-app/shared';
 import {
   BookingAdjustmentStatus,
   BookingExtensionStatus,
-  IdVerificationStatus,
+  ApprovalStatus,
   NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
@@ -536,8 +536,8 @@ async function notifyUserBookingEvent(
  * Broadcast a new, unclaimed booking request to every eligible nanny and to
  * every admin at once. No nanny is assigned yet — the request is offered to the
  * whole pool and the first nanny to accept claims it. "Eligible" means an
- * approved nanny with a complete profile who is free for the requested window
- * and within the configured broadcast radius of the booking's location (nannies
+ * admin-approved nanny who is free for the requested window and within the
+ * configured broadcast radius of the booking's location (nannies
  * or bookings without coordinates always match, and radius 0 disables the
  * distance filter — see AppSettings broadcast_radius_km), and — while skill
  * matching is on — holding every skill add-on the request was priced for.
@@ -552,9 +552,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
     prisma.nannyProfile.findMany({
       where: {
         deletedAt: null,
-        isProfileComplete: true,
-        // KYC gate now lives on the user row.
-        user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
+        user: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED },
         // Exclude nannies already booked for an overlapping window — they can't
         // take this one anyway.
         bookings: {
@@ -892,8 +890,8 @@ export async function createBooking(
   // while it is still PENDING_REVIEW (upload-then-book), but not when she has
   // never uploaded (PENDING_ID) or was rejected (REJECTED) and must re-upload.
   if (
-    user.idVerificationStatus === IdVerificationStatus.PENDING_ID ||
-    user.idVerificationStatus === IdVerificationStatus.REJECTED
+    user.approvalStatus === ApprovalStatus.PENDING_ID ||
+    user.approvalStatus === ApprovalStatus.REJECTED
   ) {
     throw errors.forbidden('Please upload your ID before booking.');
   }

@@ -21,8 +21,6 @@ jest.mock('@backend/lib/storage', () => ({
   deleteStorageObjectByUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { NannyApprovalStatus } from '@nanny-app/shared';
-
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
@@ -49,8 +47,8 @@ const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
 
 const dec = (n: number) => ({ toNumber: () => n });
 
-// Identity verification now lives on the user row, so status/ID fields are
-// nested under `user`. `userOverrides` merges into that nested object.
+// Status and ID fields live on the user row, so they're nested under `user`.
+// `userOverrides` merges into that nested object.
 function makeRow(
   overrides: Record<string, unknown> = {},
   userOverrides: Record<string, unknown> = {},
@@ -60,11 +58,6 @@ function makeRow(
     bio: 'Loves kids',
     yearsOfExperience: 4,
     nannyCertifications: [{ certification: { id: 1, name: 'CPR' } }],
-    approvalStatus: NannyApprovalStatus.PENDING_REVIEW,
-    rejectionReason: null,
-    reviewedAt: null,
-    idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
-    idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
     user: {
       id: 10,
@@ -77,10 +70,10 @@ function makeRow(
       address: 'Cairo',
       isEmailVerified: true,
       isPhoneVerified: false,
-      idVerificationStatus: 'PENDING_REVIEW',
+      approvalStatus: 'PENDING_REVIEW',
       idDocumentType: 'NATIONAL_ID',
-      idRejectionReason: null,
-      idReviewedAt: null,
+      rejectionReason: null,
+      reviewedAt: null,
       idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
       idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
       ...userOverrides,
@@ -124,11 +117,6 @@ function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
     bio: null,
     yearsOfExperience: null,
     nannyCertifications: [],
-    approvalStatus: 'APPROVED',
-    rejectionReason: null,
-    reviewedAt: null,
-    idDocumentFrontUrl: null,
-    idDocumentBackUrl: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     user: {
       id: 10,
@@ -141,10 +129,10 @@ function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
       address: null,
       isEmailVerified: true,
       isPhoneVerified: false,
-      idVerificationStatus: 'APPROVED',
+      approvalStatus: 'APPROVED',
       idDocumentType: null,
-      idRejectionReason: null,
-      idReviewedAt: null,
+      rejectionReason: null,
+      reviewedAt: null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
     },
@@ -247,8 +235,8 @@ describe('getAdminNanny (detail)', () => {
 describe('approveNanny', () => {
   it('flips the user status to APPROVED and clears the rejection reason', async () => {
     mockPrisma.nannyProfile.findFirst
-      .mockResolvedValueOnce(makeRow({}, { idVerificationStatus: 'PENDING_REVIEW' }))
-      .mockResolvedValueOnce(makeRow({}, { idVerificationStatus: 'APPROVED' }));
+      .mockResolvedValueOnce(makeRow({}, { approvalStatus: 'PENDING_REVIEW' }))
+      .mockResolvedValueOnce(makeRow({}, { approvalStatus: 'APPROVED' }));
     mockPrisma.user.update.mockResolvedValue({});
 
     const dto = await approveNanny(1);
@@ -257,17 +245,17 @@ describe('approveNanny', () => {
       expect.objectContaining({
         where: { id: 10 },
         data: expect.objectContaining({
-          idVerificationStatus: 'APPROVED',
-          idRejectionReason: null,
+          approvalStatus: 'APPROVED',
+          rejectionReason: null,
         }),
       }),
     );
-    expect(dto.idVerificationStatus).toBe('APPROVED');
+    expect(dto.approvalStatus).toBe('APPROVED');
   });
 
   it('rejects approving an already approved nanny', async () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(
-      makeRow({}, { idVerificationStatus: 'APPROVED' }),
+      makeRow({}, { approvalStatus: 'APPROVED' }),
     );
     await expect(approveNanny(1)).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
@@ -283,13 +271,13 @@ describe('rejectNanny', () => {
         makeRow(
           {},
           {
-            idVerificationStatus: 'PENDING_REVIEW',
+            approvalStatus: 'PENDING_REVIEW',
             idDocumentFrontUrl: front,
             idDocumentBackUrl: back,
           },
         ),
       )
-      .mockResolvedValueOnce(makeRow({}, { idVerificationStatus: 'REJECTED' }));
+      .mockResolvedValueOnce(makeRow({}, { approvalStatus: 'REJECTED' }));
     mockPrisma.user.update.mockResolvedValue({});
 
     await rejectNanny(1, { reason: 'ID does not match name' });
@@ -298,8 +286,8 @@ describe('rejectNanny', () => {
       expect.objectContaining({
         where: { id: 10 },
         data: expect.objectContaining({
-          idVerificationStatus: 'REJECTED',
-          idRejectionReason: 'ID does not match name',
+          approvalStatus: 'REJECTED',
+          rejectionReason: 'ID does not match name',
           idDocumentFrontUrl: null,
           idDocumentBackUrl: null,
         }),
@@ -311,7 +299,7 @@ describe('rejectNanny', () => {
 
   it('rejects re-rejecting an already rejected nanny', async () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(
-      makeRow({}, { idVerificationStatus: 'REJECTED' }),
+      makeRow({}, { approvalStatus: 'REJECTED' }),
     );
     await expect(rejectNanny(1, {})).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();

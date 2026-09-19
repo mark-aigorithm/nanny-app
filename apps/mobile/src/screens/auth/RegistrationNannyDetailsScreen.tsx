@@ -96,8 +96,10 @@ export default function RegistrationNannyDetailsScreen() {
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
-  // Keep the draft's schedule in sync so it's always ready to send, even
-  // though working hours are optional and seeded from DEFAULT_SCHEDULE.
+  // Keep the draft's schedule in sync so it's always ready to send. It is
+  // seeded from DEFAULT_SCHEDULE (Mon–Fri available), so the draft carries at
+  // least one working day unless she switches them all off — and then the
+  // Continue check refuses.
   useEffect(() => {
     patch({ schedule: uiScheduleToApi(schedule) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,7 +173,13 @@ export default function RegistrationNannyDetailsScreen() {
   const yearsTrimmed = draft.yearsOfExperience.trim();
   const yearsNum = Number(yearsTrimmed);
   const isYearsValid = yearsTrimmed !== '' && Number.isFinite(yearsNum) && yearsNum >= 0;
-  const canContinue = draft.bio.trim().length > 0 && isYearsValid && draft.availabilityType !== null;
+  const hasWorkingDay = DAY_ORDER.some((d) => schedule[d]?.available);
+  const canContinue =
+    draft.bio.trim().length > 0 &&
+    isYearsValid &&
+    draft.availabilityType !== null &&
+    draft.ageRanges.length > 0 &&
+    hasWorkingDay;
 
   function handleContinue() {
     if (!draft.bio.trim()) {
@@ -184,6 +192,14 @@ export default function RegistrationNannyDetailsScreen() {
     }
     if (!draft.availabilityType) {
       setFormError('Please select your availability.');
+      return;
+    }
+    if (draft.ageRanges.length === 0) {
+      setFormError('Please pick at least one age range you care for.');
+      return;
+    }
+    if (!hasWorkingDay) {
+      setFormError('Please mark at least one day you can work.');
       return;
     }
     setFormError(null);
@@ -290,9 +306,9 @@ export default function RegistrationNannyDetailsScreen() {
             </View>
           </View>
 
-          {/* Age ranges (optional) */}
+          {/* Age ranges */}
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionLabel}>Age ranges you care for (optional)</Text>
+            <Text style={styles.sectionLabel}>Age ranges you care for</Text>
             <View style={styles.chipsRow}>
               {AGE_RANGE_OPTIONS.map((range) => {
                 const isSelected = draft.ageRanges.includes(range);
@@ -361,9 +377,9 @@ export default function RegistrationNannyDetailsScreen() {
             )}
           </View>
 
-          {/* Working hours (optional) */}
+          {/* Working hours */}
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionLabel}>Working hours (optional)</Text>
+            <Text style={styles.sectionLabel}>Working hours</Text>
             <View style={styles.scheduleCard}>
               {DAY_ORDER.map((day, index) => {
                 const slot = schedule[day]!;

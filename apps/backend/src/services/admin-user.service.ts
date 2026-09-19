@@ -1,10 +1,10 @@
-import { IdVerificationStatus, type Prisma } from '@prisma/client';
+import { ApprovalStatus, type Prisma } from '@prisma/client';
 
 import { hasSectionAccess, sortDirection } from '@nanny-app/shared';
 import type {
+  AdminApprovalStatusFilter,
   AdminMother,
   AdminMotherDetail,
-  AdminMotherStatusFilter,
   AdminRole,
   AdminSection,
   AdminSortedListQuery,
@@ -37,11 +37,11 @@ const motherSelect = {
   isEmailVerified: true,
   isPhoneVerified: true,
   isActive: true,
-  // Identity verification (mothers are reviewed the same way as nannies).
-  idVerificationStatus: true,
+  // The admin's decision on her ID, plus the document itself.
+  approvalStatus: true,
   idDocumentType: true,
-  idRejectionReason: true,
-  idReviewedAt: true,
+  rejectionReason: true,
+  reviewedAt: true,
   idDocumentFrontUrl: true,
   idDocumentBackUrl: true,
   createdAt: true,
@@ -62,10 +62,10 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
     isEmailVerified: row.isEmailVerified,
     isPhoneVerified: row.isPhoneVerified,
     isActive: row.isActive,
-    idVerificationStatus: row.idVerificationStatus,
+    approvalStatus: row.approvalStatus,
     idDocumentType: row.idDocumentType,
-    rejectionReason: row.idRejectionReason,
-    reviewedAt: row.idReviewedAt?.toISOString() ?? null,
+    rejectionReason: row.rejectionReason,
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
     idDocumentFrontUrl: row.idDocumentFrontUrl,
     idDocumentBackUrl: row.idDocumentBackUrl,
     bookingCount: row._count.bookingsAsMother,
@@ -226,13 +226,13 @@ export async function deleteAdminUser(id: number, actingUserId: number): Promise
  * tab and the ID-review gallery can differ visibly instead of silently.
  */
 export async function listAdminMothers(
-  status: AdminMotherStatusFilter,
+  status: AdminApprovalStatusFilter,
   { page, limit, sort }: AdminSortedListQuery,
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     role: 'MOTHER',
     deletedAt: null,
-    ...(status !== 'ALL' ? { idVerificationStatus: status as IdVerificationStatus } : {}),
+    ...(status !== 'ALL' ? { approvalStatus: status as ApprovalStatus } : {}),
   };
 
   const [total, rows] = await prisma.$transaction([
@@ -263,16 +263,16 @@ export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
  */
 export async function approveMother(id: number): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
-  if (mother.idVerificationStatus === IdVerificationStatus.APPROVED) {
+  if (mother.approvalStatus === ApprovalStatus.APPROVED) {
     throw errors.badRequest('This mother is already approved.');
   }
 
   await prisma.user.update({
     where: { id },
     data: {
-      idVerificationStatus: IdVerificationStatus.APPROVED,
-      idReviewedAt: new Date(),
-      idRejectionReason: null,
+      approvalStatus: ApprovalStatus.APPROVED,
+      reviewedAt: new Date(),
+      rejectionReason: null,
     },
   });
 
@@ -290,7 +290,7 @@ export async function approveMother(id: number): Promise<AdminMother> {
  */
 export async function rejectMother(id: number, input: RejectNannyInput): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
-  if (mother.idVerificationStatus === IdVerificationStatus.REJECTED) {
+  if (mother.approvalStatus === ApprovalStatus.REJECTED) {
     throw errors.badRequest('This mother is already rejected.');
   }
 
@@ -298,9 +298,9 @@ export async function rejectMother(id: number, input: RejectNannyInput): Promise
   await prisma.user.update({
     where: { id },
     data: {
-      idVerificationStatus: IdVerificationStatus.REJECTED,
-      idReviewedAt: new Date(),
-      idRejectionReason: input.reason ?? null,
+      approvalStatus: ApprovalStatus.REJECTED,
+      reviewedAt: new Date(),
+      rejectionReason: input.reason ?? null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
     },

@@ -64,12 +64,14 @@ function makeRow(overrides: Record<string, unknown> = {}) {
       dateOfBirth: null,
       avatarUrl: null,
       address: 'Cairo',
+      latitude: null,
+      longitude: null,
       isEmailVerified: true,
       isPhoneVerified: false,
-      idVerificationStatus: 'APPROVED',
+      approvalStatus: 'APPROVED',
       idDocumentType: null,
-      idRejectionReason: null,
-      idReviewedAt: null,
+      rejectionReason: null,
+      reviewedAt: null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
     },
@@ -125,5 +127,38 @@ describe('updateAdminNanny', () => {
 
     expect(mockWrite).not.toHaveBeenCalled();
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('passes photo, date of birth and home pin straight through to the writer', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+
+    await updateAdminNanny(NANNY_PROFILE_ID, {
+      avatarUrl: 'https://cdn.example/nanny.jpg',
+      dateOfBirth: '1995-06-15',
+      latitude: 30.0444,
+      longitude: 31.2357,
+    });
+
+    expect(mockWrite).toHaveBeenCalledWith(expect.anything(), {
+      userId: USER_ID,
+      nannyProfileId: NANNY_PROFILE_ID,
+      fields: {
+        avatarUrl: 'https://cdn.example/nanny.jpg',
+        dateOfBirth: '1995-06-15',
+        latitude: 30.0444,
+        longitude: 31.2357,
+      },
+    });
+  });
+
+  it('exposes the home pin on the detail DTO as numbers', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(
+      makeRow({ user: { ...makeRow().user, latitude: '30.0444000', longitude: '31.2357000' } }),
+    );
+
+    const result = await updateAdminNanny(NANNY_PROFILE_ID, { bio: 'x' });
+
+    expect(result.latitude).toBe(30.0444);
+    expect(result.longitude).toBe(31.2357);
   });
 });

@@ -243,8 +243,8 @@ export type SeededNanny = SeededMother & { nannyProfileId: number };
 
 /**
  * A nanny who has registered and submitted an ID, and is waiting to be vetted —
- * what the ID-review queue and the Nannies tab exist to act on. Needs no admin
- * token, because registration alone is what puts her in `PENDING_REVIEW`.
+ * what the Nannies tab, filtered to PENDING_REVIEW, exists to act on. Needs no
+ * admin token, because registration alone is what puts her in `PENDING_REVIEW`.
  */
 export async function seedPendingNanny(): Promise<SeededMother> {
   const { email, surname } = unique('nanny');
@@ -270,6 +270,7 @@ export async function seedPendingNanny(): Promise<SeededMother> {
     yearsOfExperience: 5,
     availabilityType: 'FULL_TIME',
     ageRanges: ['0-1', '2-5'],
+    schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
   })) as { id: number };
 
   return { token, id: user.id, email, surname, displayName: `E2E ${surname}` };
@@ -300,6 +301,7 @@ export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny
     yearsOfExperience: 5,
     availabilityType: 'FULL_TIME',
     ageRanges: ['0-1', '2-5'],
+    schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
   })) as { id: number };
 
   // The approve route takes the *profile* id, which registration does not
@@ -498,8 +500,8 @@ export async function validateAppPromo(
   })) as PromoValidation;
 }
 
-export type KycSubject = {
-  idVerificationStatus: string;
+export type ApprovalSubject = {
+  approvalStatus: string;
   rejectionReason: string | null;
 };
 
@@ -510,8 +512,16 @@ export type KycSubject = {
  * queue is "cleared" by re-fetching a filtered list, which would look identical
  * if the row had merely stopped matching the filter for some other reason.
  */
-export async function getMotherKyc(adminToken: string, id: number): Promise<KycSubject> {
-  return (await call('GET', `/admin/mothers/${id}`, adminToken)) as KycSubject;
+export async function getMotherKyc(adminToken: string, id: number): Promise<ApprovalSubject> {
+  return (await call('GET', `/admin/mothers/${id}`, adminToken)) as ApprovalSubject;
+}
+
+/** A nanny's approval state, straight from the API — keyed by NannyProfile id. */
+export async function getNannyApproval(
+  adminToken: string,
+  nannyProfileId: number,
+): Promise<ApprovalSubject> {
+  return (await call('GET', `/admin/nannies/${nannyProfileId}`, adminToken)) as ApprovalSubject;
 }
 
 // ── Marketplace (B6) ──────────────────────────────────────────────

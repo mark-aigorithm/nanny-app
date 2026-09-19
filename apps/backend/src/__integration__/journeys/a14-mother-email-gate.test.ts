@@ -125,7 +125,7 @@ describe('A14 — the address is proven at registration', () => {
     // A11 covers the ID gate; take it out of the picture here.
     await prisma.user.update({
       where: { id: response.body.data.id },
-      data: { idVerificationStatus: 'APPROVED' },
+      data: { approvalStatus: 'APPROVED' },
     });
 
     expect((await attemptBooking(token)).status).toBe(201);

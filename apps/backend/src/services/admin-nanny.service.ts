@@ -1,10 +1,10 @@
-import { BookingStatus, IdVerificationStatus, Prisma } from '@prisma/client';
+import { BookingStatus, ApprovalStatus, Prisma } from '@prisma/client';
 
 import { sortDirection } from '@nanny-app/shared';
 import type {
+  AdminApprovalStatusFilter,
   AdminNanny,
   AdminNannyDetail,
-  AdminNannyStatusFilter,
   AdminSortedListQuery,
   PaginationMeta,
   RejectNannyInput,
@@ -33,13 +33,15 @@ const nannyInclude = {
       dateOfBirth: true,
       avatarUrl: true,
       address: true,
+      latitude: true,
+      longitude: true,
       isEmailVerified: true,
       isPhoneVerified: true,
-      // Identity verification now lives on the user row.
-      idVerificationStatus: true,
+      // The admin's decision on her application, plus her ID document.
+      approvalStatus: true,
       idDocumentType: true,
-      idRejectionReason: true,
-      idReviewedAt: true,
+      rejectionReason: true,
+      reviewedAt: true,
       idDocumentFrontUrl: true,
       idDocumentBackUrl: true,
     },
@@ -82,10 +84,10 @@ function toDto(row: AdminNannyRow): AdminNanny {
     })),
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
-    idVerificationStatus: row.user.idVerificationStatus ?? IdVerificationStatus.PENDING_REVIEW,
+    approvalStatus: row.user.approvalStatus ?? ApprovalStatus.PENDING_REVIEW,
     idDocumentType: row.user.idDocumentType,
-    rejectionReason: row.user.idRejectionReason,
-    reviewedAt: row.user.idReviewedAt?.toISOString() ?? null,
+    rejectionReason: row.user.rejectionReason,
+    reviewedAt: row.user.reviewedAt?.toISOString() ?? null,
     idDocumentFrontUrl: row.user.idDocumentFrontUrl,
     idDocumentBackUrl: row.user.idDocumentBackUrl,
     createdAt: row.createdAt.toISOString(),
@@ -98,14 +100,14 @@ function toDto(row: AdminNannyRow): AdminNanny {
  * gallery can differ visibly instead of silently.
  */
 export async function listAdminNannies(
-  status: AdminNannyStatusFilter,
+  status: AdminApprovalStatusFilter,
   { page, limit, sort }: AdminSortedListQuery,
 ): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
   const where: Prisma.NannyProfileWhereInput = {
     deletedAt: null,
     user: {
       deletedAt: null,
-      ...(status !== 'ALL' ? { idVerificationStatus: status as IdVerificationStatus } : {}),
+      ...(status !== 'ALL' ? { approvalStatus: status as ApprovalStatus } : {}),
     },
   };
 
@@ -141,6 +143,8 @@ function toDetailDto(
     ageRanges: row.ageRanges,
     availabilityType: row.availabilityType,
     schedule: (row.schedule as WeeklySchedule) ?? null,
+    latitude: row.user.latitude !== null ? Number(row.user.latitude) : null,
+    longitude: row.user.longitude !== null ? Number(row.user.longitude) : null,
   };
 }
 
@@ -180,22 +184,22 @@ async function findReviewableNanny(id: number): Promise<AdminNannyRow> {
 }
 
 /**
- * Admin approves a nanny after reviewing her data (KYC): PENDING_REVIEW /
- * REJECTED → APPROVED, then notifies her (in-app + push) that she can start
- * using the app.
+ * Admin approves a nanny's application after reviewing her profile and ID:
+ * PENDING_REVIEW / REJECTED → APPROVED, then notifies her (in-app + push)
+ * that she can start using the app.
  */
 export async function approveNanny(id: number): Promise<AdminNanny> {
   const profile = await findReviewableNanny(id);
-  if (profile.user.idVerificationStatus === IdVerificationStatus.APPROVED) {
+  if (profile.user.approvalStatus === ApprovalStatus.APPROVED) {
     throw errors.badRequest('This nanny is already approved.');
   }
 
   await prisma.user.update({
     where: { id: profile.user.id },
     data: {
-      idVerificationStatus: IdVerificationStatus.APPROVED,
-      idReviewedAt: new Date(),
-      idRejectionReason: null,
+      approvalStatus: ApprovalStatus.APPROVED,
+      reviewedAt: new Date(),
+      rejectionReason: null,
     },
   });
 
@@ -222,7 +226,7 @@ export async function approveNanny(id: number): Promise<AdminNanny> {
  */
 export async function rejectNanny(id: number, input: RejectNannyInput): Promise<AdminNanny> {
   const profile = await findReviewableNanny(id);
-  if (profile.user.idVerificationStatus === IdVerificationStatus.REJECTED) {
+  if (profile.user.approvalStatus === ApprovalStatus.REJECTED) {
     throw errors.badRequest('This nanny is already rejected.');
   }
 
@@ -232,9 +236,9 @@ export async function rejectNanny(id: number, input: RejectNannyInput): Promise<
   await prisma.user.update({
     where: { id: profile.user.id },
     data: {
-      idVerificationStatus: IdVerificationStatus.REJECTED,
-      idReviewedAt: new Date(),
-      idRejectionReason: input.reason ?? null,
+      approvalStatus: ApprovalStatus.REJECTED,
+      reviewedAt: new Date(),
+      rejectionReason: input.reason ?? null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
     },
@@ -341,12 +345,11 @@ export async function setNannySkills(
 }
 
 /**
- * Admin edits a nanny's profile fields (PATCH /admin/nannies/:id) — the
- * registration-captured fields (name, location, bio, experience, age ranges,
- * availability, schedule, certifications). Reuses `writeNannyProfileFields`,
- * the same core writer registration and the (now-removed) nanny self-service
- * path used, so the completeness recompute and certification reconcile stay
- * identical across every writer of a nanny profile.
+ * Admin edits a nanny's profile (PATCH /admin/nannies/:id) — every field she
+ * entered at registration: name, photo, date of birth, home address and pin,
+ * bio, experience, age ranges, availability, schedule, certifications. Reuses
+ * `writeNannyProfileFields`, the same core writer registration uses, so the
+ * two writers of a nanny profile cannot drift.
  */
 export async function updateAdminNanny(
   nannyProfileId: number,

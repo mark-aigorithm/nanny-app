@@ -54,10 +54,10 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     isEmailVerified: true,
     isPhoneVerified: false,
     isActive: true,
-    idVerificationStatus: 'PENDING_ID',
+    approvalStatus: 'PENDING_ID',
     idDocumentType: null,
-    idRejectionReason: null,
-    idReviewedAt: null,
+    rejectionReason: null,
+    reviewedAt: null,
     idDocumentFrontUrl: null,
     idDocumentBackUrl: null,
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
@@ -107,7 +107,7 @@ describe('listAdminMothers', () => {
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { role: 'MOTHER', deletedAt: null, idVerificationStatus: 'PENDING_REVIEW' },
+        where: { role: 'MOTHER', deletedAt: null, approvalStatus: 'PENDING_REVIEW' },
       }),
     );
   });
@@ -116,7 +116,7 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([
       makeRow({
-        idVerificationStatus: 'PENDING_REVIEW',
+        approvalStatus: 'PENDING_REVIEW',
         idDocumentType: 'PASSPORT',
         idDocumentFrontUrl: 'https://example.com/front.jpg',
       }),
@@ -134,7 +134,7 @@ describe('listAdminMothers', () => {
       isEmailVerified: true,
       isPhoneVerified: false,
       isActive: true,
-      idVerificationStatus: 'PENDING_REVIEW',
+      approvalStatus: 'PENDING_REVIEW',
       idDocumentType: 'PASSPORT',
       rejectionReason: null,
       reviewedAt: null,
@@ -196,9 +196,9 @@ describe('approveMother', () => {
 
   it('marks the ID APPROVED and clears any rejection reason', async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce(makeRow({ idVerificationStatus: 'PENDING_REVIEW' }))
-      .mockResolvedValueOnce(makeRow({ idVerificationStatus: 'APPROVED' }));
-    mockPrisma.user.update.mockResolvedValue(makeRow({ idVerificationStatus: 'APPROVED' }));
+      .mockResolvedValueOnce(makeRow({ approvalStatus: 'PENDING_REVIEW' }))
+      .mockResolvedValueOnce(makeRow({ approvalStatus: 'APPROVED' }));
+    mockPrisma.user.update.mockResolvedValue(makeRow({ approvalStatus: 'APPROVED' }));
 
     const mother = await approveMother(29);
 
@@ -206,16 +206,16 @@ describe('approveMother', () => {
       expect.objectContaining({
         where: { id: 29 },
         data: expect.objectContaining({
-          idVerificationStatus: 'APPROVED',
-          idRejectionReason: null,
+          approvalStatus: 'APPROVED',
+          rejectionReason: null,
         }),
       }),
     );
-    expect(mother.idVerificationStatus).toBe('APPROVED');
+    expect(mother.approvalStatus).toBe('APPROVED');
   });
 
   it('rejects re-approving an already approved mother', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue(makeRow({ idVerificationStatus: 'APPROVED' }));
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow({ approvalStatus: 'APPROVED' }));
     await expect(approveMother(29)).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
@@ -232,13 +232,13 @@ describe('rejectMother', () => {
     mockPrisma.user.findFirst
       .mockResolvedValueOnce(
         makeRow({
-          idVerificationStatus: 'PENDING_REVIEW',
+          approvalStatus: 'PENDING_REVIEW',
           idDocumentFrontUrl: front,
           idDocumentBackUrl: back,
         }),
       )
-      .mockResolvedValueOnce(makeRow({ idVerificationStatus: 'REJECTED' }));
-    mockPrisma.user.update.mockResolvedValue(makeRow({ idVerificationStatus: 'REJECTED' }));
+      .mockResolvedValueOnce(makeRow({ approvalStatus: 'REJECTED' }));
+    mockPrisma.user.update.mockResolvedValue(makeRow({ approvalStatus: 'REJECTED' }));
 
     await rejectMother(29, { reason: 'Blurry photo' });
 
@@ -246,8 +246,8 @@ describe('rejectMother', () => {
       expect.objectContaining({
         where: { id: 29 },
         data: expect.objectContaining({
-          idVerificationStatus: 'REJECTED',
-          idRejectionReason: 'Blurry photo',
+          approvalStatus: 'REJECTED',
+          rejectionReason: 'Blurry photo',
           idDocumentFrontUrl: null,
           idDocumentBackUrl: null,
         }),
@@ -258,7 +258,7 @@ describe('rejectMother', () => {
   });
 
   it('rejects re-rejecting an already rejected mother', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue(makeRow({ idVerificationStatus: 'REJECTED' }));
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow({ approvalStatus: 'REJECTED' }));
     await expect(rejectMother(29, {})).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });

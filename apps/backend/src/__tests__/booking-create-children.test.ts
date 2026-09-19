@@ -161,7 +161,7 @@ beforeEach(() => {
     id: 10,
     role: Role.MOTHER,
     deletedAt: null,
-    idVerificationStatus: 'APPROVED',
+    approvalStatus: 'APPROVED',
     isEmailVerified: true,
   });
   mockPrisma.user.findMany.mockResolvedValue([]);

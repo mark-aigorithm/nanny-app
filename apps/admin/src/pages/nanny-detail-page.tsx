@@ -32,6 +32,7 @@ import {
   rejectNanny,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
@@ -40,18 +41,6 @@ function formatDate(iso: string): string {
 
 function money(n: number): string {
   return `EGP ${n.toFixed(2)}`;
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
-}
-
-function statusTone(
-  status: AdminNannyDetail['idVerificationStatus'],
-): 'success' | 'danger' | 'neutral' {
-  if (status === 'APPROVED') return 'success';
-  if (status === 'REJECTED') return 'danger';
-  return 'neutral';
 }
 
 const DASH = <span className="table-empty">—</span>;
@@ -100,9 +89,9 @@ export function NannyDetailPage() {
     onSuccess: () => {
       invalidate();
       setRejecting(false);
-      toast.success('Nanny rejected');
+      toast.success('Application rejected', nanny?.name);
     },
-    onError: (err) => toast.error('Couldn’t reject nanny', apiErrorMessage(err)),
+    onError: (err) => toast.error('Couldn’t reject application', apiErrorMessage(err)),
   });
 
   const mutating = approveMutation.isPending || rejectMutation.isPending;
@@ -115,18 +104,18 @@ export function NannyDetailPage() {
           View ID
         </Button>
       )}
-      {canManage && nanny.idVerificationStatus !== 'APPROVED' && (
+      {canManage && nanny.approvalStatus !== 'APPROVED' && (
         <Button
           size="sm"
           disabled={mutating}
           onClick={() => approveMutation.mutate()}
         >
-          Approve
+          Approve nanny
         </Button>
       )}
-      {canManage && nanny.idVerificationStatus === 'PENDING_REVIEW' && (
+      {canManage && nanny.approvalStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
-          Reject
+          Reject application
         </Button>
       )}
     </>
@@ -138,7 +127,7 @@ export function NannyDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={nanny ? nanny.name : 'Nanny details'}
-        subtitle={nanny ? statusLabel(nanny.idVerificationStatus) : undefined}
+        subtitle={nanny ? approvalStatusLabel(nanny.approvalStatus) : undefined}
         actions={actions}
       />
 
@@ -234,7 +223,7 @@ export function NannyDetailPage() {
           message={`Reject ${nanny.name}'s application?`}
           label="Reason (optional — shown to the nanny)"
           placeholder="e.g. Couldn’t verify ID documents"
-          confirmLabel="Reject nanny"
+          confirmLabel="Reject application"
           danger
           multiline
           busy={rejectMutation.isPending}
@@ -251,11 +240,19 @@ export function NannyDetailPage() {
 function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
   return [
     {
+      label: 'Photo',
+      value: nanny.avatarUrl ? (
+        <img className="id-review-avatar" src={nanny.avatarUrl} alt="" />
+      ) : (
+        DASH
+      ),
+    },
+    {
       label: 'Status',
       value: (
         <>
-          <Badge tone={statusTone(nanny.idVerificationStatus)}>
-            {statusLabel(nanny.idVerificationStatus)}
+          <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
+            {approvalStatusLabel(nanny.approvalStatus)}
           </Badge>
           {nanny.rejectionReason && <div className="table-subtext">{nanny.rejectionReason}</div>}
         </>
@@ -264,6 +261,13 @@ function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
     { label: 'Email', value: nanny.email },
     { label: 'Phone', value: nanny.phone ?? DASH },
     { label: 'Location', value: nanny.location ?? DASH },
+    {
+      label: 'Home pin',
+      value:
+        nanny.latitude !== null && nanny.longitude !== null
+          ? `${nanny.latitude}, ${nanny.longitude}`
+          : DASH,
+    },
     { label: 'Date of birth', value: nanny.dateOfBirth ? formatDate(nanny.dateOfBirth) : DASH },
     {
       label: 'Experience',

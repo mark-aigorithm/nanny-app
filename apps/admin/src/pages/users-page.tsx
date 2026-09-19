@@ -20,7 +20,7 @@ export function UsersPage() {
     <section>
       <PageHeader
         title="Users"
-        subtitle="Everyone on the platform — browse the parents who’ve signed up and review new nanny registrations."
+        subtitle="Everyone on the platform — browse parents, verify their IDs, and review new nanny applications."
       />
 
       <div className="subtabs" role="tablist" aria-label="User types">

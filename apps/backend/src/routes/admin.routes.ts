@@ -458,7 +458,7 @@ adminRouter.post(
   },
 );
 
-// ── Combined ID review queue (parents + nannies, one KYC gallery) ──
+// ── Parent ID review queue ─────────────────────────────────────
 
 adminRouter.get(
   '/id-reviews',
