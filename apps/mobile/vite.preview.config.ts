@@ -19,6 +19,10 @@ export default defineConfig({
       'expo-router': path.resolve(__dirname, 'src/mocks/expo-router-web.tsx'),
       // Stub expo-clipboard (ClipboardPasteButton ships JSX in .js files)
       'expo-clipboard': path.resolve(__dirname, 'src/mocks/expo-clipboard-web.tsx'),
+      // Stub react-native-maps (ships JSX in .js files; no web map anyway)
+      'react-native-maps': path.resolve(__dirname, 'src/mocks/react-native-maps-web.tsx'),
+      // Stub expo-location (pulls in expo-modules-core; no GPS in a preview)
+      'expo-location': path.resolve(__dirname, 'src/mocks/expo-location-web.tsx'),
       // Stub expo-constants (pulls in expo-modules-core, whose .ts declaration
       // files fail to bundle) — screens only read expoConfig.extra
       'expo-constants': path.resolve(__dirname, 'src/mocks/expo-constants-web.tsx'),
