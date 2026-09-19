@@ -36,7 +36,7 @@ export default function MotherProfileWalletScreen() {
   const displayName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : '';
-  const isVerified = profile?.idVerificationStatus === 'APPROVED';
+  const isVerified = profile?.approvalStatus === 'APPROVED';
   const memberYear = profile ? new Date(profile.createdAt).getFullYear() : null;
 
   const handleTilePress = (key: (typeof QUICK_TILES)[number]['key']) => {

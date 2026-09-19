@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { IdDocumentType, IdVerificationStatus } from '@shared/nanny';
+import { ApprovalStatus } from '@shared/auth';
+import { IdDocumentType } from '@shared/nanny';
 import { APP_NAME } from '@mobile/constants';
 import { Button } from '@mobile/components/ui';
 import IdCaptureFields from '@mobile/components/IdCaptureFields';
@@ -28,13 +29,13 @@ export default function UploadIdScreen() {
   const [backUri, setBackUri] = useState<string | null>(null);
   const { submit, isSubmitting, error } = useIdSubmit();
 
-  const status = profile?.idVerificationStatus ?? null;
+  const status = profile?.approvalStatus ?? null;
 
   // Once the ID is submitted (or approved in the background), leave this screen.
   useEffect(() => {
-    if (status === IdVerificationStatus.APPROVED) {
+    if (status === ApprovalStatus.APPROVED) {
       router.replace('/(nanny)/dashboard');
-    } else if (status === IdVerificationStatus.PENDING_REVIEW) {
+    } else if (status === ApprovalStatus.PENDING_REVIEW) {
       router.replace('/(auth)/pending-review');
     }
   }, [status, router]);
@@ -65,8 +66,8 @@ export default function UploadIdScreen() {
         <Text style={styles.stepLabel}>VERIFY YOUR IDENTITY</Text>
         <Text style={styles.title}>Upload your ID</Text>
         <Text style={styles.subtitle}>
-          {profile?.idRejectionReason
-            ? `Your previous ID wasn't approved: ${profile.idRejectionReason}. Please upload a new one so our team can verify you.`
+          {profile?.rejectionReason
+            ? `Your previous ID wasn't approved: ${profile.rejectionReason}. Please upload a new one so our team can verify you.`
             : 'Families trust verified nannies. Upload a clear photo of your government ID so our review team can verify your identity.'}
         </Text>
 
