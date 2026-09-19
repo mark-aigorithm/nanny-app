@@ -178,7 +178,7 @@ shows the reason in-app.
 
 ### A11. Mother ID verification gates booking · `UI:mobile`
 Registration steps 1–3 → `UploadIdScreen` → `PENDING_REVIEW`. **Assert:** booking is refused while
-`idVerificationStatus` is `PENDING_ID` or `REJECTED`
+`approvalStatus` is `PENDING_ID` or `REJECTED`
 ([booking.service.ts:894](../../apps/backend/src/services/booking.service.ts:894)), and permitted
 the moment an admin approves.
 
@@ -267,8 +267,10 @@ makes an absent control attributable to the level rather than to the section nev
 The spec asserts the *Status* column header is present before asserting the *Override* one is not,
 so a `columnheader` query that matched nothing could not pass it silently.
 
-### B5. Users console and ID review queue · `UI:admin` — **covered** by `b05-users-and-id-review.spec.ts`
-Mother and nanny detail pages, approve/reject, the pending-ID queue draining as items are actioned.
+### B5. Users console, parent ID review and the nanny decision · `UI:admin` — **covered** by `b05-users-and-id-review.spec.ts`
+The parent ID-review gallery (parents only), approve/reject there, the pending queue draining as
+items are actioned; a nanny approved and rejected from her own detail page, where her profile and
+ID are decided together, and the Nannies queue following her status.
 
 Each decision is read back over HTTP, not just off the badge: a filtered list would look identical
 if a row had stopped matching for some other reason. Rejection asserts the *reason* survives, since
