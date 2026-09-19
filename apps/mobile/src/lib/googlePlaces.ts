@@ -1,4 +1,9 @@
 import Constants from 'expo-constants';
+import {
+  parseAddressComponents,
+  type GoogleAddressComponent,
+  type ParsedAddressParts,
+} from '@nanny-app/shared';
 
 // Raw Google Places / Geocoding web-service layer. Pure async functions over
 // `fetch` — no React. Every function is defensive: a missing key, a network
@@ -16,6 +21,14 @@ export type PlaceDetails = {
   latitude: number;
   longitude: number;
   formattedAddress: string;
+  /** Governorate / area / street as Google knows them — see parseAddressComponents. */
+  parts: ParsedAddressParts;
+};
+
+/** A reverse-geocoded pin: the display line plus the structured parts. */
+export type GeocodedAddress = {
+  formattedAddress: string;
+  parts: ParsedAddressParts;
 };
 
 type LatLng = {
@@ -95,7 +108,7 @@ export async function placeDetails(
   const url =
     `${PLACES_BASE}/place/details/json` +
     `?place_id=${encodeURIComponent(placeId)}` +
-    `&fields=geometry,formatted_address` +
+    `&fields=geometry,formatted_address,address_components` +
     `&key=${key}` +
     `&sessiontoken=${sessionToken}`;
 
@@ -107,6 +120,7 @@ export async function placeDetails(
       result?: {
         formatted_address?: string;
         geometry?: { location?: { lat?: number; lng?: number } };
+        address_components?: GoogleAddressComponent[];
       };
     };
     const location = data.result?.geometry?.location;
@@ -121,6 +135,7 @@ export async function placeDetails(
       latitude: location.lat,
       longitude: location.lng,
       formattedAddress: data.result?.formatted_address ?? '',
+      parts: parseAddressComponents(data.result?.address_components),
     };
   } catch (error) {
     logDev('placeDetails failed', error);
@@ -128,11 +143,20 @@ export async function placeDetails(
   }
 }
 
+type GeocodeResult = {
+  formatted_address?: string;
+  types?: string[];
+  address_components?: GoogleAddressComponent[];
+};
+
 /**
- * Reverse-geocode coordinates to a human-readable address. Returns the first
- * formatted address, or null if none / on failure.
+ * Reverse-geocode coordinates to an address with its structured parts. Google
+ * lists a plus code or the nearest POI first for a dropped pin, so the first
+ * result that is an actual street address (`street_address` / `premise`) is
+ * preferred — without that the street would be missing on most saved
+ * addresses. Falls back to the first result; null if none / on failure.
  */
-export async function reverseGeocode(coords: LatLng): Promise<string | null> {
+export async function reverseGeocodeDetailed(coords: LatLng): Promise<GeocodedAddress | null> {
   const key = getApiKey();
   if (!key) return null;
 
@@ -145,15 +169,28 @@ export async function reverseGeocode(coords: LatLng): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
-    const data = (await res.json()) as {
-      status?: string;
-      results?: { formatted_address?: string }[];
-    };
+    const data = (await res.json()) as { status?: string; results?: GeocodeResult[] };
     if (data.status !== 'OK') return null;
-    const first = data.results?.[0]?.formatted_address;
-    return typeof first === 'string' ? first : null;
+    const results = data.results ?? [];
+    const isStreet = (r: GeocodeResult) =>
+      (r.types ?? []).some((t) => t === 'street_address' || t === 'premise');
+    const best = results.find(isStreet) ?? results[0];
+    if (typeof best?.formatted_address !== 'string') return null;
+    return {
+      formattedAddress: best.formatted_address,
+      parts: parseAddressComponents(best.address_components),
+    };
   } catch (error) {
     logDev('reverseGeocode failed', error);
     return null;
   }
+}
+
+/**
+ * Reverse-geocode coordinates to a human-readable address line. The string
+ * form the registration screens use; see reverseGeocodeDetailed for the parts.
+ */
+export async function reverseGeocode(coords: LatLng): Promise<string | null> {
+  const result = await reverseGeocodeDetailed(coords);
+  return result?.formattedAddress ?? null;
 }

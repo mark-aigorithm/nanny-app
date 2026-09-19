@@ -16,6 +16,7 @@ import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
 import ParentShiftControlsCard from '@mobile/components/ParentShiftControlsCard';
 import ParentNannyContactCard from '@mobile/components/ParentNannyContactCard';
 import { AmountDueCard } from '@mobile/components/booking/AmountDueCard';
+import { BookingAddressCard } from '@mobile/components/booking/BookingAddressCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
 import {
   useBooking,
@@ -162,6 +163,10 @@ export default function BookingDetailScreen() {
 
         {/* Balance due after an admin edit raised the total — prompt to pay the difference. */}
         <AmountDueCard booking={booking} />
+
+        {/* The address she chose, read back so she can confirm where the nanny
+            is being sent. */}
+        <BookingAddressCard address={booking.address} />
 
         {/* Allergies + her own notes, read back so she can confirm what the
             nanny will be shown. */}

@@ -11,6 +11,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
+import { BookingAddressCard } from '@mobile/components/booking/BookingAddressCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
@@ -124,6 +125,11 @@ export default function NannyBookingDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Where she is going. The area only until the booking is confirmed —
+            the server withholds the rest — then the whole address and a way
+            to open it in Maps. */}
+        <BookingAddressCard address={booking.address} />
 
         {/* Allergies and the parent's notes. Above earnings on purpose: this
             is the part of the booking she has to act on. */}

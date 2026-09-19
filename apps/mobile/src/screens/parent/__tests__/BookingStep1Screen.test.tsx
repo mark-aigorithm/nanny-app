@@ -49,6 +49,8 @@ const BASE_PARAMS = {
   durationHours: '2', // 2h × EGP 100 = EGP 200.00
   children: JSON.stringify([{ ageYears: 3 }]), // 1 child, within the 2 included
   skillIds: '',
+  // Chosen on the Where step; the draft is incomplete without it.
+  addressId: '7',
 };
 
 function renderScreen({ pointsBalance = 200 } = {}) {

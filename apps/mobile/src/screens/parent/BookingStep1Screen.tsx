@@ -236,13 +236,15 @@ export default function BookingStep1Screen() {
    */
   const handleProceed = async () => {
     if (!canProceed || createBooking.isPending) return;
-    if (!params.startTimeWall || !params.endTimeWall) return;
+    if (!params.startTimeWall || !params.endTimeWall || !params.addressId) return;
 
     setSubmitError(null);
     try {
       const created = await createBooking.mutateAsync({
         startTime: params.startTimeWall,
         endTime: params.endTimeWall,
+        // Chosen on the Where step; the server snapshots it onto the booking.
+        addressId: Number(params.addressId),
         ...(instructions.trim() ? { specialInstructions: instructions.trim() } : {}),
         ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
         skillIds: selectedSkillIds,

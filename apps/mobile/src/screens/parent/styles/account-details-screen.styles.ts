@@ -127,6 +127,27 @@ export const styles = StyleSheet.create({
   inputDisabled: {
     color: colors.textTertiary,
   },
+  // Addresses live in their own screen; this row reads the default and links there.
+  linkRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.taupeLight,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  linkRowText: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  linkRowHint: {
+    ...typeScale.caption,
+    color: colors.textTertiary,
+  },
 
   // Save button
   saveButton: {
