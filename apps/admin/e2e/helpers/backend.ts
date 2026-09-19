@@ -499,7 +499,7 @@ export async function validateAppPromo(
 }
 
 export type KycSubject = {
-  idVerificationStatus: string;
+  approvalStatus: string;
   rejectionReason: string | null;
 };
 

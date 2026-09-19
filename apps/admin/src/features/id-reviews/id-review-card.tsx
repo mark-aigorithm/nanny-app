@@ -21,7 +21,7 @@ import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { approveMother, approveNanny, rejectMother, rejectNanny } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
-import { idStatusLabel, idStatusTone } from '@admin/lib/id-status';
+import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
@@ -98,7 +98,7 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
   const mutating = approveMutation.isPending || rejectMutation.isPending;
   // A view-only operator still sees the document and its state, but the
   // approve/reject pair is what actually changes an account — so it's gated.
-  const canReview = canManage && review.idVerificationStatus === 'PENDING_REVIEW';
+  const canReview = canManage && review.approvalStatus === 'PENDING_REVIEW';
   const hasImages = Boolean(review.idDocumentFrontUrl || review.idDocumentBackUrl);
   const showBack = review.idDocumentType != null && idTypeRequiresBack(review.idDocumentType);
   const idTypeLabel = review.idDocumentType ? ID_TYPE_LABEL[review.idDocumentType] : 'No ID on file';
@@ -119,9 +119,9 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
             {ROLE_LABEL[review.role]} · {idTypeLabel}
           </span>
         </div>
-        {review.idVerificationStatus && (
-          <Badge tone={idStatusTone(review.idVerificationStatus)}>
-            {idStatusLabel(review.idVerificationStatus)}
+        {review.approvalStatus && (
+          <Badge tone={approvalStatusTone(review.approvalStatus)}>
+            {approvalStatusLabel(review.approvalStatus)}
           </Badge>
         )}
       </div>

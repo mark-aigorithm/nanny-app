@@ -5,7 +5,7 @@ import {
   ADMIN_PAGE_SIZES,
   ADMIN_SORT_OPTIONS,
   type AdminIdReviewRoleFilter,
-  type AdminIdReviewStatusFilter,
+  type AdminApprovalStatusFilter,
   type AdminSortOrder,
 } from '@nanny-app/shared';
 
@@ -22,7 +22,7 @@ import { usePagination } from '@admin/lib/use-pagination';
 
 import { IdReviewCard } from './id-review-card';
 
-const STATUS_FILTERS: { value: AdminIdReviewStatusFilter; label: string }[] = [
+const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'PENDING_REVIEW', label: 'Pending review' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
@@ -47,7 +47,7 @@ const ROLE_FILTERS: { value: AdminIdReviewRoleFilter; label: string }[] = [
  * both directions are on screen and switchable on every tab.
  */
 export function IdReviewTab() {
-  const [status, setStatus] = useState<AdminIdReviewStatusFilter>('PENDING_REVIEW');
+  const [status, setStatus] = useState<AdminApprovalStatusFilter>('PENDING_REVIEW');
   const [role, setRole] = useState<AdminIdReviewRoleFilter>('ALL');
   const [sort, setSort] = useState<AdminSortOrder>('oldest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
@@ -71,7 +71,7 @@ export function IdReviewTab() {
           value={status}
           options={STATUS_FILTERS}
           onChange={(value) => {
-            setStatus(value as AdminIdReviewStatusFilter);
+            setStatus(value as AdminApprovalStatusFilter);
             reset();
           }}
         />

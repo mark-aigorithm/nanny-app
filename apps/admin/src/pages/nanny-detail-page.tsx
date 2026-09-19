@@ -32,6 +32,7 @@ import {
   rejectNanny,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
@@ -40,18 +41,6 @@ function formatDate(iso: string): string {
 
 function money(n: number): string {
   return `EGP ${n.toFixed(2)}`;
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
-}
-
-function statusTone(
-  status: AdminNannyDetail['idVerificationStatus'],
-): 'success' | 'danger' | 'neutral' {
-  if (status === 'APPROVED') return 'success';
-  if (status === 'REJECTED') return 'danger';
-  return 'neutral';
 }
 
 const DASH = <span className="table-empty">—</span>;
@@ -115,7 +104,7 @@ export function NannyDetailPage() {
           View ID
         </Button>
       )}
-      {canManage && nanny.idVerificationStatus !== 'APPROVED' && (
+      {canManage && nanny.approvalStatus !== 'APPROVED' && (
         <Button
           size="sm"
           disabled={mutating}
@@ -124,7 +113,7 @@ export function NannyDetailPage() {
           Approve
         </Button>
       )}
-      {canManage && nanny.idVerificationStatus === 'PENDING_REVIEW' && (
+      {canManage && nanny.approvalStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
           Reject
         </Button>
@@ -138,7 +127,7 @@ export function NannyDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={nanny ? nanny.name : 'Nanny details'}
-        subtitle={nanny ? statusLabel(nanny.idVerificationStatus) : undefined}
+        subtitle={nanny ? approvalStatusLabel(nanny.approvalStatus) : undefined}
         actions={actions}
       />
 
@@ -254,8 +243,8 @@ function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
       label: 'Status',
       value: (
         <>
-          <Badge tone={statusTone(nanny.idVerificationStatus)}>
-            {statusLabel(nanny.idVerificationStatus)}
+          <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
+            {approvalStatusLabel(nanny.approvalStatus)}
           </Badge>
           {nanny.rejectionReason && <div className="table-subtext">{nanny.rejectionReason}</div>}
         </>

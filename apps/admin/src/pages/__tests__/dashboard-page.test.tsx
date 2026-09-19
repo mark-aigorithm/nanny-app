@@ -47,8 +47,8 @@ function booking(status: AdminBooking['status'], totalAmount: number): AdminBook
   } as AdminBooking;
 }
 
-function nanny(idVerificationStatus: AdminNanny['idVerificationStatus']): AdminNanny {
-  return { id: Math.floor(Math.random() * 1e6), idVerificationStatus } as AdminNanny;
+function nanny(approvalStatus: AdminNanny['approvalStatus']): AdminNanny {
+  return { id: Math.floor(Math.random() * 1e6), approvalStatus } as AdminNanny;
 }
 
 function promo(isActive: boolean): PromoCode {

@@ -80,7 +80,7 @@ test('approving an ID clears it from the queue and lands on the account', async 
   // Gone from the pending queue, and actually approved on the record — the
   // second half is what separates a real decision from a list that re-filtered.
   await expect(cardFor(page, mother.surname)).toHaveCount(0);
-  expect((await getMotherKyc(admin, mother.id)).idVerificationStatus).toBe('APPROVED');
+  expect((await getMotherKyc(admin, mother.id)).approvalStatus).toBe('APPROVED');
 });
 
 test('rejecting an ID records the reason the user will be shown', async ({ page }) => {
@@ -96,7 +96,7 @@ test('rejecting an ID records the reason the user will be shown', async ({ page 
   await expect(page.getByRole('status').filter({ hasText: 'ID rejected' })).toBeVisible();
 
   const kyc = await getMotherKyc(admin, mother.id);
-  expect(kyc.idVerificationStatus).toBe('REJECTED');
+  expect(kyc.approvalStatus).toBe('REJECTED');
   expect(kyc.rejectionReason).toBe('The photo was too blurry to read.');
 });
 
@@ -119,7 +119,7 @@ test('a rejected ID is findable again under its own filter', async ({ page }) =>
   // Already decided, so it is not offered for decision a second time.
   await expect(card.getByRole('button', { name: 'Approve' })).toHaveCount(0);
 
-  expect((await getMotherKyc(admin, mother.id)).idVerificationStatus).toBe('REJECTED');
+  expect((await getMotherKyc(admin, mother.id)).approvalStatus).toBe('REJECTED');
 });
 
 test('the role filter separates parents from nannies in one queue', async ({ page }) => {
