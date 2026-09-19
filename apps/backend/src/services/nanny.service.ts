@@ -1,8 +1,7 @@
 import type { DiscountType, NannyProfile, Prisma as PrismaTypes, User } from '@prisma/client';
-import { IdVerificationStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import {
   BookingStatus,
-  getMissingNannyProfileFields,
   Role,
   type CreateReviewRequest,
   type NannyBookedSlotsQuery,
@@ -57,6 +56,42 @@ const nannyTagsInclude = {
   ...nannyCertificationsInclude,
 } as const;
 
+/**
+ * Prisma `include` for a nanny's home base — her single (default) address,
+ * which is where `location` and the coordinates on every nanny response come
+ * from. Spread into the `user` include of each read path.
+ */
+const nannyHomeInclude = {
+  addresses: {
+    where: { isDefault: true, deletedAt: null },
+    take: 1,
+    select: { formattedAddress: true, latitude: true, longitude: true },
+  },
+} as const;
+
+type HomeAddress = {
+  formattedAddress: string;
+  latitude: PrismaTypes.Decimal;
+  longitude: PrismaTypes.Decimal;
+};
+type UserWithHome = User & { addresses: HomeAddress[] };
+
+/** The nanny's home as the flat fields the responses carry; nulls when unset. */
+function homeOf(user: UserWithHome): {
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+} {
+  const home = user.addresses[0];
+  return home
+    ? {
+        location: home.formattedAddress,
+        latitude: Number(home.latitude),
+        longitude: Number(home.longitude),
+      }
+    : { location: null, latitude: null, longitude: null };
+}
+
 type NannySkillWithSkill = {
   skill: { id: number; name: string; feeType: DiscountType | null; feeValue: PrismaTypes.Decimal };
 };
@@ -67,7 +102,7 @@ type ProfileWithTags = NannyProfile & {
   nannySkills: NannySkillWithSkill[];
   nannyCertifications: NannyCertificationWithCert[];
 };
-type ProfileWithUserAndTags = ProfileWithTags & { user: User };
+type ProfileWithUserAndTags = ProfileWithTags & { user: UserWithHome };
 
 /** Flatten the join rows into the lightweight PublicSkill shape clients use. */
 function toPublicSkills(nannySkills: NannySkillWithSkill[]): PublicSkill[] {
@@ -90,7 +125,7 @@ function toPublicCertifications(
 }
 
 function toNannyProfileResponse(
-  user: User,
+  user: UserWithHome,
   profile: ProfileWithTags,
 ): NannyProfileResponse {
   return {
@@ -98,16 +133,13 @@ function toNannyProfileResponse(
     lastName: user.lastName,
     avatarUrl: user.avatarUrl,
     bio: profile.bio,
-    // Home location lives on the user row (single source of truth).
-    location: user.address,
-    latitude: user.latitude !== null ? Number(user.latitude) : null,
-    longitude: user.longitude !== null ? Number(user.longitude) : null,
+    // Home location is her single address row (single source of truth).
+    ...homeOf(user),
     yearsOfExperience: profile.yearsOfExperience,
     certifications: toPublicCertifications(profile.nannyCertifications),
     ageRanges: profile.ageRanges,
     skills: toPublicSkills(profile.nannySkills),
     schedule: (profile.schedule as WeeklySchedule) ?? null,
-    isProfileComplete: profile.isProfileComplete,
     availabilityType: profile.availabilityType,
     rating: Number(profile.rating),
     reviewCount: profile.reviewCount,
@@ -121,8 +153,8 @@ function toNannyListItem(profile: ProfileWithUserAndTags): NannyListItem {
     lastName: profile.user.lastName,
     avatarUrl: profile.user.avatarUrl,
     bio: profile.bio,
-    // Home location lives on the user row (single source of truth).
-    location: profile.user.address,
+    // Home location is her single address row (single source of truth).
+    location: homeOf(profile.user).location,
     yearsOfExperience: profile.yearsOfExperience,
     certifications: toPublicCertifications(profile.nannyCertifications),
     ageRanges: profile.ageRanges,
@@ -156,19 +188,26 @@ function toReviewSummary(r: ReviewWithMother): ReviewSummary {
 async function requireNannyUser(uid: string) {
   const user = await prisma.user.findUnique({
     where: { firebaseUid: uid },
-    include: { nannyProfile: { include: nannyTagsInclude } },
+    include: { nannyProfile: { include: nannyTagsInclude }, ...nannyHomeInclude },
   });
   if (!user || user.deletedAt) throw errors.notFound('User not found.');
   if (user.role !== Role.NANNY) throw errors.forbidden('Only nannies have a nanny profile.');
   return user;
 }
 
-/** The writable subset of a nanny profile — shared by self-service, registration, and admin-edit writers. */
+/**
+ * The writable subset of a nanny profile — shared by registration and the
+ * admin-edit writer, the two writers of a nanny profile. Location is
+ * deliberately absent: it is her address row, written once at registration
+ * and thereafter through PUT /admin/nannies/:id/address, so the line and the
+ * pin never drift apart.
+ */
 export type NannyProfileWritable = {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string | null;
-  location?: string;
+  /** YYYY-MM-DD. */
+  dateOfBirth?: string;
   bio?: string;
   yearsOfExperience?: number;
   ageRanges?: string[];
@@ -178,67 +217,37 @@ export type NannyProfileWritable = {
 };
 
 /**
- * Core nanny-profile writer, extracted so registration (Task 3) and the admin
- * edit path (Task 5) can share it with the nanny self-service path here. This
- * is the single interface all three callers use — signature stays exactly
- * `(tx, { userId, nannyProfileId, fields })`.
- *
- * Must run inside a caller-provided transaction, with the `NannyProfile` row
- * already existing (callers upsert/find it first so `nannyProfileId` is
- * always concrete). Writes `User` (firstName/lastName/avatarUrl/address),
- * upserts `NannyProfile` (bio/yearsOfExperience/ageRanges/schedule/
- * availabilityType, recomputing `isProfileComplete`), and reconciles
- * certification links. Since callers only pass the fields they're writing,
- * fields omitted from this call are re-read from the DB (inside the same
- * tx) so the `isProfileComplete` recompute still sees the nanny's current
- * bio/location/yearsOfExperience rather than treating them as missing.
+ * Core nanny-profile writer shared by registration and the admin edit path —
+ * the two writers of a nanny profile (a nanny cannot edit her own). Must run
+ * inside a caller-provided transaction, with the `NannyProfile` row already
+ * existing (callers upsert/find it first so `nannyProfileId` is always
+ * concrete). Writes `User` (name / avatar / date of birth), upserts
+ * `NannyProfile` (bio / yearsOfExperience / ageRanges / schedule /
+ * availabilityType), and reconciles certification links. Fields the caller
+ * omits are left untouched. Her address is not this writer's — see
+ * address.service.
  */
 export async function writeNannyProfileFields(
   tx: PrismaTypes.TransactionClient,
   params: { userId: number; nannyProfileId: number; fields: NannyProfileWritable },
 ): Promise<void> {
   const { userId, nannyProfileId, fields } = params;
-  const { firstName, lastName, avatarUrl, location, certificationIds, ...profileFields } = fields;
+  const { firstName, lastName, avatarUrl, dateOfBirth, certificationIds, ...profileFields } = fields;
 
-  const userNeedsUpdate =
-    firstName !== undefined ||
-    lastName !== undefined ||
-    avatarUrl !== undefined ||
-    location !== undefined;
-
-  const currentUser = userNeedsUpdate
-    ? await tx.user.update({
-        where: { id: userId },
-        data: {
-          ...(firstName !== undefined && { firstName }),
-          ...(lastName !== undefined && { lastName }),
-          ...(avatarUrl !== undefined && { avatarUrl }),
-          ...(location !== undefined && { address: location }),
-        },
-      })
-    : await tx.user.findUniqueOrThrow({ where: { id: userId } });
-
-  const currentProfile = await tx.nannyProfile.findUnique({ where: { id: nannyProfileId } });
-
-  const mergedBio = profileFields.bio ?? currentProfile?.bio;
-  // Completeness reads location from the user row now.
-  const mergedLocation = location ?? currentUser.address;
-  const mergedYears =
-    profileFields.yearsOfExperience !== undefined
-      ? profileFields.yearsOfExperience
-      : currentProfile?.yearsOfExperience;
-
-  const isProfileComplete =
-    getMissingNannyProfileFields({
-      bio: mergedBio ?? null,
-      location: mergedLocation ?? null,
-      yearsOfExperience: mergedYears ?? null,
-    }).length === 0;
+  const userData = {
+    ...(firstName !== undefined && { firstName }),
+    ...(lastName !== undefined && { lastName }),
+    ...(avatarUrl !== undefined && { avatarUrl }),
+    ...(dateOfBirth !== undefined && { dateOfBirth: new Date(dateOfBirth) }),
+  };
+  if (Object.keys(userData).length > 0) {
+    await tx.user.update({ where: { id: userId }, data: userData });
+  }
 
   await tx.nannyProfile.upsert({
     where: { userId },
-    create: { userId, ...profileFields, isProfileComplete },
-    update: { ...profileFields, isProfileComplete },
+    create: { userId, ...profileFields },
+    update: { ...profileFields },
     select: { id: true },
   });
 
@@ -249,8 +258,7 @@ export async function writeNannyProfileFields(
   }
 }
 
-// ── Self profile (nanny reading her own profile; set at registration, edited
-// only by admins — see writeNannyProfileFields above) ─────────────────────────
+// ── Self profile (nanny reading her own profile — set at registration, edited only by admins) ──
 
 export async function getNannyProfile(decoded: DecodedIdToken): Promise<NannyProfileResponse> {
   const user = await requireNannyUser(decoded.uid);
@@ -266,20 +274,19 @@ export async function getNannyProfile(decoded: DecodedIdToken): Promise<NannyPro
  */
 function buildListWhere(query: NannyListQuery) {
   return {
-    isProfileComplete: true,
     deletedAt: null as null,
     ...(query.availabilityType ? { availabilityType: query.availabilityType } : {}),
     ...(query.skillId
       ? { nannySkills: { some: { skillId: query.skillId, deletedAt: null } } }
       : {}),
-    // Single `user` condition: exclude soft-deleted users, require an APPROVED
-    // identity verification (the KYC gate now lives on the user row), and add
-    // the name search when present. Kept as one object so the name filter does
-    // not clobber the guards (which would leak soft-deleted / unvetted nannies
-    // into the count and desync it from the raw-SQL rows).
+    // Single `user` condition: exclude soft-deleted users, require an admin
+    // APPROVED account, and add the name search when present. Kept as one
+    // object so the name filter does not clobber the guards (which would leak
+    // soft-deleted / unapproved nannies into the count and desync it from the
+    // raw-SQL rows).
     user: {
       deletedAt: null as null,
-      idVerificationStatus: IdVerificationStatus.APPROVED,
+      approvalStatus: ApprovalStatus.APPROVED,
       ...(query.name
         ? {
             OR: [
@@ -299,8 +306,7 @@ function buildListWhere(query: NannyListQuery) {
  */
 function buildListFilterSql(query: NannyListQuery): Prisma.Sql {
   const filters: Prisma.Sql[] = [
-    Prisma.sql`np.is_profile_complete = true`,
-    Prisma.sql`u.id_verification_status::text = 'APPROVED'`,
+    Prisma.sql`u.approval_status::text = 'APPROVED'`,
     Prisma.sql`np.deleted_at IS NULL`,
     Prisma.sql`u.deleted_at IS NULL`,
   ];
@@ -330,7 +336,7 @@ export async function listNannies(
       prisma.nannyProfile.count({ where }),
       prisma.nannyProfile.findMany({
         where,
-        include: { user: true, ...nannyTagsInclude },
+        include: { user: { include: nannyHomeInclude }, ...nannyTagsInclude },
         orderBy: { rating: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -342,17 +348,18 @@ export async function listNannies(
 
   // Location-aware "recommended" ranking: closest first, then highest-rated.
   // Distance is computed in PostGIS (ST_DistanceSphere → metres) so ordering
-  // and pagination happen in the database. Coordinates live on the user row
-  // (single source of truth). Nannies without coordinates sort last
-  // (NULLS LAST), ranked among themselves by rating.
+  // and pagination happen in the database. Coordinates are the nanny's default
+  // address row (single source of truth), LEFT JOINed so a nanny without one
+  // still lists — she sorts last (NULLS LAST), ranked among the unplaced by
+  // rating.
   const { latitude, longitude } = query;
   const offset = (query.page - 1) * query.limit;
   const filterSql = buildListFilterSql(query);
 
   const distanceSql = Prisma.sql`
     CASE
-      WHEN u.latitude IS NOT NULL AND u.longitude IS NOT NULL THEN ST_DistanceSphere(
-        ST_MakePoint(u.longitude::float8, u.latitude::float8),
+      WHEN a.latitude IS NOT NULL AND a.longitude IS NOT NULL THEN ST_DistanceSphere(
+        ST_MakePoint(a.longitude::float8, a.latitude::float8),
         ST_MakePoint(${longitude}::float8, ${latitude}::float8)
       )
     END`;
@@ -363,6 +370,7 @@ export async function listNannies(
       SELECT np.id AS id, ${distanceSql} AS distance_m
       FROM nanny_profiles np
       JOIN users u ON u.id = np.user_id
+      LEFT JOIN addresses a ON a.user_id = u.id AND a.is_default AND a.deleted_at IS NULL
       WHERE ${filterSql}
       ORDER BY distance_m ASC NULLS LAST, np.rating DESC, np.id ASC
       LIMIT ${query.limit} OFFSET ${offset}
@@ -372,7 +380,7 @@ export async function listNannies(
   const distanceById = new Map(rows.map((r) => [r.id, r.distance_m]));
   const profiles = await prisma.nannyProfile.findMany({
     where: { id: { in: rows.map((r) => r.id) } },
-    include: { user: true, ...nannyTagsInclude },
+    include: { user: { include: nannyHomeInclude }, ...nannyTagsInclude },
   });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
 
@@ -388,16 +396,16 @@ export async function listNannies(
 }
 
 export async function getNannyPublicProfile(nannyProfileId: number): Promise<NannyPublicProfile> {
-  // findFirst (not findUnique) so we can filter on the related user's KYC state,
-  // which is where identity verification now lives.
+  // findFirst (not findUnique) so we can filter on the related user's
+  // approval status.
   const profile = await prisma.nannyProfile.findFirst({
     where: {
       id: nannyProfileId,
       deletedAt: null,
-      user: { idVerificationStatus: IdVerificationStatus.APPROVED, deletedAt: null },
+      user: { approvalStatus: ApprovalStatus.APPROVED, deletedAt: null },
     },
     include: {
-      user: true,
+      user: { include: nannyHomeInclude },
       ...nannyTagsInclude,
       reviews: {
         where: { deletedAt: null },
@@ -409,11 +417,12 @@ export async function getNannyPublicProfile(nannyProfileId: number): Promise<Nan
   });
   if (!profile) throw errors.notFound('Nanny not found.');
 
+  const home = homeOf(profile.user);
   return {
     ...toNannyListItem(profile),
     schedule: (profile.schedule as WeeklySchedule) ?? null,
-    latitude: profile.user.latitude !== null ? Number(profile.user.latitude) : null,
-    longitude: profile.user.longitude !== null ? Number(profile.user.longitude) : null,
+    latitude: home.latitude,
+    longitude: home.longitude,
     recentReviews: profile.reviews.map(toReviewSummary),
   };
 }

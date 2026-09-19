@@ -20,17 +20,16 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     id: 7,
     firstName: 'Nour',
     lastName: 'Ibrahim',
-    role: 'MOTHER',
     avatarUrl: null,
-    address: 'Cairo',
-    idVerificationStatus: 'PENDING_REVIEW',
+    // Her default address row — where `location` now comes from.
+    addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
+    approvalStatus: 'PENDING_REVIEW',
     idDocumentType: 'PASSPORT',
-    idRejectionReason: null,
-    idReviewedAt: null,
+    rejectionReason: null,
+    reviewedAt: null,
     idDocumentFrontUrl: 'https://example.com/front.jpg',
     idDocumentBackUrl: null,
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
-    nannyProfile: null,
     ...overrides,
   };
 }
@@ -40,24 +39,15 @@ describe('listIdReviews', () => {
     jest.clearAllMocks();
   });
 
-  it('pools both roles (nannies must have a live profile), oldest first, with skip/take', async () => {
+  it('lists parents only — a nanny is reviewed on her detail page, never here', async () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow()]);
 
-    const { meta } = await listIdReviews({
-      status: 'ALL',
-      role: 'ALL',
-      sort: 'oldest',
-      page: 2,
-      limit: 25,
-    });
+    const { meta } = await listIdReviews({ status: 'ALL', sort: 'oldest', page: 2, limit: 25 });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          deletedAt: null,
-          OR: [{ role: 'MOTHER' }, { role: 'NANNY', nannyProfile: { is: { deletedAt: null } } }],
-        },
+        where: { deletedAt: null, role: 'MOTHER' },
         orderBy: { createdAt: 'asc' },
         skip: 25,
         take: 25,
@@ -66,34 +56,15 @@ describe('listIdReviews', () => {
     expect(meta).toEqual({ page: 2, limit: 25, total: 1, totalPages: 1 });
   });
 
-  it('applies the verification-status filter when not ALL', async () => {
+  it('applies the approval-status filter when not ALL', async () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listIdReviews({
-      status: 'PENDING_REVIEW',
-      role: 'MOTHER',
-      sort: 'oldest',
-      page: 1,
-      limit: 20,
-    });
+    await listIdReviews({ status: 'PENDING_REVIEW', sort: 'oldest', page: 1, limit: 20 });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { deletedAt: null, role: 'MOTHER', idVerificationStatus: 'PENDING_REVIEW' },
-      }),
-    );
-  });
-
-  it('narrows to nannies with a live profile when role is NANNY', async () => {
-    mockPrisma.user.count.mockResolvedValue(0);
-    mockPrisma.user.findMany.mockResolvedValue([]);
-
-    await listIdReviews({ status: 'ALL', role: 'NANNY', sort: 'oldest', page: 1, limit: 20 });
-
-    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { deletedAt: null, role: 'NANNY', nannyProfile: { is: { deletedAt: null } } },
+        where: { deletedAt: null, role: 'MOTHER', approvalStatus: 'PENDING_REVIEW' },
       }),
     );
   });
@@ -102,54 +73,39 @@ describe('listIdReviews', () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'newest', page: 1, limit: 20 });
+    await listIdReviews({ status: 'ALL', sort: 'newest', page: 1, limit: 20 });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
     );
   });
 
-  it('maps a mother row: action id is the User id', async () => {
+  it('maps a row: id is the User id the mother endpoints are keyed by', async () => {
     mockPrisma.user.count.mockResolvedValue(1);
-    mockPrisma.user.findMany.mockResolvedValue([makeRow({ id: 7, role: 'MOTHER', nannyProfile: null })]);
+    mockPrisma.user.findMany.mockResolvedValue([makeRow()]);
 
-    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'oldest', page: 1, limit: 20 });
+    const { reviews } = await listIdReviews({ status: 'ALL', sort: 'oldest', page: 1, limit: 20 });
 
     expect(reviews[0]).toEqual({
       id: 7,
-      userId: 7,
-      role: 'MOTHER',
       name: 'Nour Ibrahim',
       avatarUrl: null,
       location: 'Cairo',
       idDocumentType: 'PASSPORT',
       idDocumentFrontUrl: 'https://example.com/front.jpg',
       idDocumentBackUrl: null,
-      idVerificationStatus: 'PENDING_REVIEW',
+      approvalStatus: 'PENDING_REVIEW',
       rejectionReason: null,
       reviewedAt: null,
       createdAt: '2026-07-01T00:00:00.000Z',
     });
   });
 
-  it('maps a nanny row: action id is the NannyProfile id, not the User id', async () => {
-    mockPrisma.user.count.mockResolvedValue(1);
-    mockPrisma.user.findMany.mockResolvedValue([
-      makeRow({ id: 7, role: 'NANNY', nannyProfile: { id: 42 } }),
-    ]);
-
-    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'oldest', page: 1, limit: 20 });
-
-    expect(reviews[0]?.id).toBe(42);
-    expect(reviews[0]?.userId).toBe(7);
-    expect(reviews[0]?.role).toBe('NANNY');
-  });
-
   it('drops the "-" placeholder last name from the display name', async () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow({ firstName: 'Mona', lastName: '-' })]);
 
-    const { reviews } = await listIdReviews({ status: 'ALL', role: 'ALL', sort: 'oldest', page: 1, limit: 20 });
+    const { reviews } = await listIdReviews({ status: 'ALL', sort: 'oldest', page: 1, limit: 20 });
 
     expect(reviews[0]?.name).toBe('Mona');
   });

@@ -34,6 +34,7 @@ import {
   RejectListingSchema,
   RejectNannySchema,
   SetBookingStatusSchema,
+  AdminUpsertNannyAddressSchema,
   SetNannySkillsSchema,
   UpdateAdminMotherSchema,
   UpdateAdminNannySchema,
@@ -84,6 +85,7 @@ import {
   rejectNanny,
   setNannySkills,
   updateAdminNanny,
+  updateAdminNannyAddress,
 } from '@backend/services/admin-nanny.service';
 import { listIdReviews } from '@backend/services/admin-id-review.service';
 import {
@@ -104,6 +106,7 @@ import {
   deleteAdminUser,
   getAdminMother,
   getAdminProfile,
+  listAdminMotherAddresses,
   listAdminMothers,
   listAdminUsers,
   rejectMother,
@@ -399,6 +402,23 @@ adminRouter.put(
   },
 );
 
+/**
+ * PUT /admin/nannies/:id/address — rewrites her single address (or creates it
+ * for an account that registered without coordinates). The only writer of a
+ * nanny's location after registration; the app shows it read-only.
+ */
+adminRouter.put(
+  '/nannies/:id/address',
+  validateBody(AdminUpsertNannyAddressSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateAdminNannyAddress(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ── Mothers directory (parent accounts: list, detail, edit + ID review) ────
 
 adminRouter.get(
@@ -422,6 +442,18 @@ adminRouter.get('/mothers/:id', async (req: Request, res: Response, next: NextFu
     next(err);
   }
 });
+
+/** GET /admin/mothers/:id/addresses — her address book, default first. Read-only. */
+adminRouter.get(
+  '/mothers/:id/addresses',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listAdminMotherAddresses(routeIdParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 adminRouter.patch(
   '/mothers/:id',
@@ -458,7 +490,7 @@ adminRouter.post(
   },
 );
 
-// ── Combined ID review queue (parents + nannies, one KYC gallery) ──
+// ── Parent ID review queue ─────────────────────────────────────
 
 adminRouter.get(
   '/id-reviews',

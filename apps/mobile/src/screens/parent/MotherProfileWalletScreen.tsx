@@ -36,7 +36,7 @@ export default function MotherProfileWalletScreen() {
   const displayName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : '';
-  const isVerified = profile?.idVerificationStatus === 'APPROVED';
+  const isVerified = profile?.approvalStatus === 'APPROVED';
   const memberYear = profile ? new Date(profile.createdAt).getFullYear() : null;
 
   const handleTilePress = (key: (typeof QUICK_TILES)[number]['key']) => {
@@ -142,6 +142,22 @@ export default function MotherProfileWalletScreen() {
             <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
           </View>
           <IconCircle icon="time-outline" size="lg" />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
+          onPress={() =>
+            router.push({
+              pathname: '/(parent)/addresses',
+              params: { returnTo: 'mother-profile' },
+            } as never)
+          }
+        >
+          <View style={styles.promoTextWrap}>
+            <Text style={styles.promoTitle}>Addresses</Text>
+            <Text style={styles.promoSubtitle}>Where your nanny comes to</Text>
+          </View>
+          <IconCircle icon="location-outline" size="lg" />
         </Pressable>
 
         <Pressable

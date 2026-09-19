@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { IdVerificationStatus } from '@shared/nanny';
+import { ApprovalStatus } from '@shared/auth';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -12,7 +12,7 @@ import { styles } from './styles/pending-review-screen.styles';
 
 /**
  * Shown to nannies whose ID is PENDING_REVIEW. The root router redirects here
- * until an admin approves them — approval flips /auth/me's idVerificationStatus
+ * until an admin approves them — approval flips /auth/me's approvalStatus
  * and "Check status" lets them through. A rejection instead routes to the
  * forced re-upload screen (the images were cleared), so it isn't handled here.
  */
@@ -26,15 +26,15 @@ export default function PendingReviewScreen() {
   // Status changed (via "Check status" refetch or a background /me refresh):
   // approval lets the nanny in; a rejection sends her to re-upload her ID.
   useEffect(() => {
-    if (profile?.idVerificationStatus === IdVerificationStatus.APPROVED) {
+    if (profile?.approvalStatus === ApprovalStatus.APPROVED) {
       router.replace('/(nanny)/dashboard');
     } else if (
-      profile?.idVerificationStatus === IdVerificationStatus.REJECTED ||
-      profile?.idVerificationStatus === IdVerificationStatus.PENDING_ID
+      profile?.approvalStatus === ApprovalStatus.REJECTED ||
+      profile?.approvalStatus === ApprovalStatus.PENDING_ID
     ) {
       router.replace('/(auth)/upload-id');
     }
-  }, [profile?.idVerificationStatus, router]);
+  }, [profile?.approvalStatus, router]);
 
   return (
     <View style={styles.container}>

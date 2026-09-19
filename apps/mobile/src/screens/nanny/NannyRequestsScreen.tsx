@@ -144,6 +144,14 @@ export default function NannyRequestsScreen() {
               <Text style={styles.detailText}>{formatChildrenSummary(booking.children)}</Text>
             </View>
           )}
+          {/* Where, coarsely: the area is enough to judge the trip, and it is
+              all the server sends before the booking is hers and paid for. */}
+          {booking.address && (
+            <View style={styles.detailRow}>
+              <Ionicons name="location-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.detailText}>{booking.address.area}</Text>
+            </View>
+          )}
         </View>
 
         {/* Allergies before she claims, so she can pass on a child she can't

@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
-import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
@@ -148,8 +147,6 @@ export default function NannyProfileEditScreen() {
             </View>
           ) : null}
         </View>
-
-        <ProfileVisibilityBanner note="Your profile is managed by NannyNow. Contact support to update it." />
 
         {/* Stats */}
         {stats.length > 0 ? (

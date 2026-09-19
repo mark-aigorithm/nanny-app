@@ -109,29 +109,6 @@ export const BOOKING_DAY_TOO_SHORT_MESSAGE =
 export const BOOKING_START_TOO_LATE_MESSAGE =
   'No booking length fits from this start time. Try an earlier slot.';
 
-export const NannyApprovalStatusSchema = z.enum(['PENDING_REVIEW', 'APPROVED', 'REJECTED']);
-/** Enum-like const for value comparisons: `NannyApprovalStatus.APPROVED`, … */
-export const NannyApprovalStatus = NannyApprovalStatusSchema.enum;
-export type NannyApprovalStatus = z.infer<typeof NannyApprovalStatusSchema>;
-
-/**
- * Identity-verification state, shared by nannies AND mothers (lives on `users`).
- * - PENDING_ID: no usable ID on file — the user must (re)upload one.
- * - PENDING_REVIEW: ID uploaded, awaiting admin KYC review.
- * - APPROVED: admin verified the ID.
- * - REJECTED: admin rejected it; images were deleted and a reason stored.
- * Gate predicate (both roles): needs (re)upload when status is PENDING_ID or REJECTED.
- */
-export const IdVerificationStatusSchema = z.enum([
-  'PENDING_ID',
-  'PENDING_REVIEW',
-  'APPROVED',
-  'REJECTED',
-]);
-/** Enum-like const for value comparisons: `IdVerificationStatus.APPROVED`, … */
-export const IdVerificationStatus = IdVerificationStatusSchema.enum;
-export type IdVerificationStatus = z.infer<typeof IdVerificationStatusSchema>;
-
 /**
  * Kind of government ID a user uploaded. A PASSPORT needs only the front image;
  * a NATIONAL_ID needs both front and back.
@@ -164,64 +141,11 @@ export const NannyProfileResponseSchema = z.object({
   ageRanges: z.array(z.string()),
   skills: z.array(PublicSkillSchema),
   schedule: WeeklyScheduleSchema.nullable(),
-  isProfileComplete: z.boolean(),
   availabilityType: AvailabilityTypeSchema,
   rating: z.number(),
   reviewCount: z.number().int(),
 });
 export type NannyProfileResponse = z.infer<typeof NannyProfileResponseSchema>;
-
-// ── Profile visibility / completeness ────────────────────────────────────────
-
-/**
- * The fields a nanny must fill in before her profile is visible to parents in
- * search, in the order they should be surfaced to her. Single source of truth
- * for the completeness rule — consumed by the backend (to set
- * `isProfileComplete`) and the mobile app (to explain what's missing).
- */
-export const NANNY_VISIBILITY_REQUIRED_FIELDS = [
-  { key: 'bio', label: 'Bio' },
-  { key: 'location', label: 'Location' },
-  { key: 'yearsOfExperience', label: 'Years of experience' },
-] as const;
-
-/** Union of the field keys that gate profile visibility. */
-export type NannyVisibilityFieldKey = (typeof NANNY_VISIBILITY_REQUIRED_FIELDS)[number]['key'];
-
-/** A required field paired with its human-readable label. */
-export type NannyVisibilityField = (typeof NANNY_VISIBILITY_REQUIRED_FIELDS)[number];
-
-/** Just the visibility-gating fields, all nullable — the input to the rule. */
-export type NannyProfileCompletenessInput = Pick<
-  NannyProfileResponse,
-  NannyVisibilityFieldKey
->;
-
-/**
- * Returns the visibility-gating fields that are still missing, in the order of
- * `NANNY_VISIBILITY_REQUIRED_FIELDS`. An empty array means the profile is
- * complete (and therefore shown to parents).
- *
- * Truthiness rules (must match the backend's historical behaviour exactly):
- * - `bio` / `location`: missing when falsy (null, undefined or empty string).
- * - `yearsOfExperience`: missing only when null/undefined — a value of `0`
- *   counts as present.
- */
-export function getMissingNannyProfileFields(
-  profile: NannyProfileCompletenessInput,
-): NannyVisibilityField[] {
-  return NANNY_VISIBILITY_REQUIRED_FIELDS.filter((field) => {
-    const value = profile[field.key];
-    if (field.key === 'bio' || field.key === 'location') {
-      return !value; // falsy → missing (covers null, undefined, '')
-    }
-    return value == null; // numbers: only null/undefined is missing (0 is present)
-  });
-}
-
-/** True when none of the visibility-gating fields are missing. */
-export const isNannyProfileComplete = (profile: NannyProfileCompletenessInput): boolean =>
-  getMissingNannyProfileFields(profile).length === 0;
 
 // ── Public nanny listing (used by GET /nannies) ──────────────────────────────
 
@@ -290,9 +214,9 @@ export const UpdateNannyProfileRequestSchema = z.object({
   lastName: z.string().trim().min(1).max(80).optional(),
   avatarUrl: z.string().url().nullable().optional(),
   bio: z.string().max(1000).optional(),
-  // Free-text home label. Persisted to `users.address` (the single source of
-  // truth); coordinates are edited via PATCH /auth/me, not here.
-  location: z.string().trim().max(200).optional(),
+  // No location here: a nanny's address is captured once at registration and
+  // thereafter edited only by an admin (PUT /admin/nannies/:id/address), so
+  // the line parents see and the pin matching uses can never disagree.
   yearsOfExperience: z.number().int().min(0).max(60).optional(),
   // Ids of admin-configured certifications the nanny selects for her profile.
   // Replaces the former free-text certifications array.

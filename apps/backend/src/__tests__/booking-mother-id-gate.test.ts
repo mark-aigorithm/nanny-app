@@ -3,6 +3,7 @@ import { Role } from '@nanny-app/shared';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), findMany: jest.fn() },
+    address: { findFirst: jest.fn() },
     nannyProfile: { findMany: jest.fn() },
     booking: { findFirst: jest.fn(), create: jest.fn() },
     // createBooking checks the mother's prepaid package-hours balance; no packages here.
@@ -32,6 +33,7 @@ import { createBooking } from '@backend/services/booking.service';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findMany: jest.Mock };
   booking: { findFirst: jest.Mock; create: jest.Mock };
   packagePurchase: { findMany: jest.Mock };
@@ -41,12 +43,32 @@ const mockPrisma = prisma as unknown as {
 const mockConfig = getPlatformConfig as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
 const NOW_UTC = new Date('2026-07-20T07:00:00.000Z'); // 10:00 Cairo
 const VALID_BODY = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
   skillIds: [] as number[],
   children: [{ name: null, ageYears: 4, allergies: null }],
+  addressId: HOME_ADDRESS.id,
 };
 
 const BASE_CONFIG = {
@@ -76,7 +98,7 @@ function motherWith(status: string | null, isEmailVerified = true) {
     id: 'mother-1',
     role: Role.MOTHER,
     deletedAt: null,
-    idVerificationStatus: status,
+    approvalStatus: status,
     isEmailVerified,
   };
 }
@@ -90,6 +112,7 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   mockPrisma.user.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
   mockPrisma.booking.findFirst.mockResolvedValue(null);

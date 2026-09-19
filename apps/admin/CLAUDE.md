@@ -97,6 +97,14 @@ An `OPERATOR` only reaches the sections the superuser granted. `lib/permissions.
 - E2E needs the full stack: `pnpm test:env` and `pnpm --filter=@nanny-app/backend start:test` from
   the repo root. See the root CLAUDE.md.
 
+## Environment
+
+| Variable | Purpose |
+|---|---|
+| `VITE_API_BASE_URL` | Backend origin (prod / E2E); dev falls back to the Vite `/api` proxy |
+| `VITE_FIREBASE_*` | Firebase web config; `VITE_FIREBASE_AUTH_EMULATOR_HOST` for the E2E stack |
+| `VITE_GOOGLE_MAPS_API_KEY` | Browser key (HTTP-referrer restricted) for the nanny address editor's map + Places search. Optional: without it the editor degrades to typed coordinates (`lib/maps.ts`), which is what the E2E suite exercises. |
+
 ## Commands (from `apps/admin`)
 
 ```bash

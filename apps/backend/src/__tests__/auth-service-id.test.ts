@@ -3,6 +3,7 @@ import { Role } from '@nanny-app/shared';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), update: jest.fn() },
+    address: { findFirst: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(),
   },
 }));
@@ -37,9 +38,9 @@ function userRowFromData(data: Record<string, unknown>) {
     role: data['role'] ?? null,
     isEmailVerified: !!data['isEmailVerified'],
     isPhoneVerified: !!data['isPhoneVerified'],
-    idVerificationStatus: (data['idVerificationStatus'] as string | undefined) ?? null,
+    approvalStatus: (data['approvalStatus'] as string | undefined) ?? null,
     idDocumentType: (data['idDocumentType'] as string | undefined) ?? null,
-    idRejectionReason: (data['idRejectionReason'] as string | undefined) ?? null,
+    rejectionReason: (data['rejectionReason'] as string | undefined) ?? null,
     address: data['address'] ?? null,
     latitude: (data['latitude'] as number | undefined) ?? null,
     longitude: (data['longitude'] as number | undefined) ?? null,
@@ -92,13 +93,21 @@ describe('registerUser — ID verification defaults', () => {
       // for the dedicated coverage of that behavior.
       nannyCertification: { findMany: jest.fn().mockResolvedValue([]) },
       nannySkill: { findMany: jest.fn().mockResolvedValue([]) },
+      // The wizard's location becomes the user's first (default) address row.
+      address: {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn(),
+        create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 9, createdAt: new Date(), ...data }),
+        ),
+      },
     };
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
     const res = await registerUser(DECODED, NANNY_BODY);
 
     const created = tx.user.create.mock.calls[0][0].data;
-    expect(created.idVerificationStatus).toBe('PENDING_REVIEW');
+    expect(created.approvalStatus).toBe('PENDING_REVIEW');
     expect(created.idDocumentType).toBe('NATIONAL_ID');
     expect(created.idDocumentFrontUrl).toBe(NANNY_BODY.idDocumentFrontUrl);
     expect(created.idDocumentBackUrl).toBe(NANNY_BODY.idDocumentBackUrl);
@@ -106,23 +115,31 @@ describe('registerUser — ID verification defaults', () => {
     expect(tx.nannyProfile.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ userId: 'user-1' }) }),
     );
-    expect(res.idVerificationStatus).toBe('PENDING_REVIEW');
+    expect(res.approvalStatus).toBe('PENDING_REVIEW');
   });
 
   it('starts a mother at PENDING_ID with no ID and no nanny profile', async () => {
     const tx = {
       user: { create: jest.fn(({ data }) => Promise.resolve(userRowFromData(data))) },
       nannyProfile: { create: jest.fn().mockResolvedValue({}) },
+      // The wizard's location becomes the user's first (default) address row.
+      address: {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn(),
+        create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 9, createdAt: new Date(), ...data }),
+        ),
+      },
     };
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
     const res = await registerUser(DECODED, MOTHER_BODY);
 
     const created = tx.user.create.mock.calls[0][0].data;
-    expect(created.idVerificationStatus).toBe('PENDING_ID');
+    expect(created.approvalStatus).toBe('PENDING_ID');
     expect(created.idDocumentFrontUrl).toBeNull();
     expect(tx.nannyProfile.create).not.toHaveBeenCalled();
-    expect(res.idVerificationStatus).toBe('PENDING_ID');
+    expect(res.approvalStatus).toBe('PENDING_ID');
   });
 });
 
@@ -154,12 +171,12 @@ describe('submitId', () => {
       expect.objectContaining({
         where: { id: 'user-1' },
         data: expect.objectContaining({
-          idVerificationStatus: 'PENDING_REVIEW',
-          idRejectionReason: null,
+          approvalStatus: 'PENDING_REVIEW',
+          rejectionReason: null,
           idDocumentBackUrl: null,
         }),
       }),
     );
-    expect(res.idVerificationStatus).toBe('PENDING_REVIEW');
+    expect(res.approvalStatus).toBe('PENDING_REVIEW');
   });
 });

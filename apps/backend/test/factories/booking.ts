@@ -11,6 +11,7 @@ import { calculatePriceBreakdown } from '@nanny-app/shared';
 import { type BookingStatus, type Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
+import { getDefaultAddress, toBookingAddressSnapshot } from '@backend/services/address.service';
 
 /** Platform defaults, matching DEFAULTS in app-settings.service.ts. */
 const BASE_RATE = 120;
@@ -57,6 +58,19 @@ export async function makeBooking(overrides: BookingOverrides) {
     platformPercent: PLATFORM_PERCENT,
   });
 
+  // Where the booking happens: the mother's default address, snapshotted the
+  // way createBooking does it, so a factory booking reads like a real one.
+  // A mother the test placed nowhere gets a booking with no address.
+  const home = await getDefaultAddress(motherId);
+  const location = home
+    ? {
+        addressId: home.id,
+        bookedAddress: toBookingAddressSnapshot(home) as unknown as Prisma.InputJsonValue,
+        latitude: home.latitude,
+        longitude: home.longitude,
+      }
+    : {};
+
   return prisma.booking.create({
     data: {
       motherId,
@@ -65,6 +79,7 @@ export async function makeBooking(overrides: BookingOverrides) {
       date,
       startTime,
       endTime,
+      ...location,
       durationHours,
       baseRate: breakdown.baseRate,
       effectiveHourlyRate: breakdown.effectiveHourlyRate,

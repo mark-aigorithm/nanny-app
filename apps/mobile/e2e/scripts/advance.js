@@ -222,7 +222,7 @@ function approveFromQueue(queue, email) {
 
   var approved = call('POST', adminToken, '/admin/' + queue + '/' + match.id + '/approve');
   output.userId = String(match.id);
-  output.status = approved.idVerificationStatus;
+  output.status = approved.approvalStatus;
 }
 
 /** A11: the mother's ID is verified, which is what opens booking to her. */

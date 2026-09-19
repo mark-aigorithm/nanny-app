@@ -72,7 +72,8 @@ const nannyProfileUser = {
   firstName: 'Elena',
   lastName: 'Nanny',
   avatarUrl: null,
-  address: null,
+  // Her home base, as bookingInclude selects it. None on file here.
+  addresses: [],
 };
 
 /** A PENDING_PAYMENT balance-due row, shaped like `bookingInclude.adjustments`. */

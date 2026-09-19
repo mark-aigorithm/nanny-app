@@ -1,9 +1,13 @@
 import { Prisma, type BookingExtension } from '@prisma/client';
 import {
   type AppliedSkillFee,
+  type BookingAddress,
+  BookingAddressSchema,
   type BookingChild,
   BookingChildSchema,
+  type BookingLocation,
   BookingStatus,
+  formatAddressArea,
   BookingType,
   packageHoursCreditFor,
   planPackageHoursRedemption,
@@ -35,7 +39,7 @@ import { Role } from '@nanny-app/shared';
 import {
   BookingAdjustmentStatus,
   BookingExtensionStatus,
-  IdVerificationStatus,
+  ApprovalStatus,
   NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
@@ -44,8 +48,9 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
-import { isWithinRadius, toLatLng } from '@backend/lib/geo';
+import { isWithinRadius, toLatLng, type LatLng } from '@backend/lib/geo';
 import { hashPin, randomStartPin } from '@backend/lib/pin';
+import { toBookingAddressSnapshot } from '@backend/services/address.service';
 import {
   assertWallClock,
   toPlatformDateColumn,
@@ -112,6 +117,19 @@ const OPEN_EXTENSION_STATUSES: BookingExtensionStatus[] = [
 
 // ── Prisma include shape ──────────────────────────────────────────────────────
 
+/**
+ * A nanny's home base — her single default address. Selected on every booking
+ * read for the `location` line of the nanny summary, and by the two radius
+ * checks (broadcast, open pool) for her coordinates.
+ */
+export const nannyHomeInclude = {
+  addresses: {
+    where: { isDefault: true, deletedAt: null },
+    take: 1,
+    select: { formattedAddress: true, latitude: true, longitude: true },
+  },
+} as const;
+
 export const bookingInclude = {
   mother: true,
   // `cameras` is pulled only to derive the `hasCamera` boolean — id-only and
@@ -122,6 +140,7 @@ export const bookingInclude = {
       user: {
         include: {
           cameras: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+          ...nannyHomeInclude,
         },
       },
     },
@@ -179,12 +198,72 @@ export async function getBookingResponseContext(): Promise<BookingResponseContex
   return toResponseContext(await getPlatformConfig());
 }
 
+/**
+ * Who a booking is being serialised for. The one thing that differs by viewer
+ * is the address: the mother and the console always get it whole, a nanny
+ * gets the area only until the booking is hers and paid for.
+ */
+export type BookingViewer = 'MOTHER' | 'NANNY' | 'ADMIN';
+
+/** The viewer a user row maps to — every console role reads as ADMIN. */
+export function viewerFor(user: { role: Role | string | null }): BookingViewer {
+  if (user.role === Role.NANNY) return 'NANNY';
+  if (user.role === Role.MOTHER) return 'MOTHER';
+  return 'ADMIN';
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function getUserByUid(uid: string) {
   const user = await prisma.user.findUnique({ where: { firebaseUid: uid } });
   if (!user || user.deletedAt) throw errors.unauthorized();
   return user;
+}
+
+/**
+ * The address snapshot off a booking row. Validated rather than cast, like the
+ * children: the column is null on bookings older than addresses, and a
+ * malformed row must read as "no address" rather than 500 a bookings list.
+ */
+function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAddress | null {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const parsed = BookingAddressSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * A nanny's coordinates for the radius checks, off her default address. Null
+ * when she has none — which, like a request with no coordinates, bypasses the
+ * distance filter rather than hiding work from her (see isWithinRadius).
+ */
+function nannyHomePoint(user: {
+  addresses: { latitude: Prisma.Decimal; longitude: Prisma.Decimal }[];
+}): LatLng | null {
+  const home = user.addresses[0];
+  return home ? toLatLng(home.latitude, home.longitude) : null;
+}
+
+/** Statuses at which the nanny holding the booking may see the full address. */
+const ADDRESS_REVEAL_STATUSES: ReadonlySet<string> = new Set([
+  BookingStatus.CONFIRMED,
+  BookingStatus.IN_PROGRESS,
+  BookingStatus.COMPLETED,
+]);
+
+/**
+ * What this viewer may know about where the booking is. The area line always
+ * travels — a nanny needs it to judge distance from the open pool — but the
+ * street, building and landmark are the mother's home, and a nanny who never
+ * takes the job never sees them.
+ */
+function bookingLocationFor(
+  b: { status: string; bookedAddress: Prisma.JsonValue | null },
+  viewer: BookingViewer,
+): BookingLocation | null {
+  const snapshot = parseBookedAddress(b.bookedAddress);
+  if (!snapshot) return null;
+  const revealed = viewer !== 'NANNY' || ADDRESS_REVEAL_STATUSES.has(b.status);
+  return { area: formatAddressArea(snapshot), details: revealed ? snapshot : null };
 }
 
 /** Reads the persisted skill add-on snapshot back into typed form. */
@@ -361,6 +440,7 @@ function extendableHoursFor(
 function toBookingResponse(
   b: BookingWithRelations,
   ctx: BookingResponseContext,
+  viewer: BookingViewer,
 ): BookingResponse {
   const revealPhoneMinutes = ctx.revealPhoneMinutes;
   const extendableHours = extendableHoursFor(b, ctx);
@@ -377,10 +457,11 @@ function toBookingResponse(
           firstName: b.nannyProfile.user.firstName,
           lastName: b.nannyProfile.user.lastName,
           avatarUrl: b.nannyProfile.user.avatarUrl,
-          location: b.nannyProfile.user.address,
+          location: b.nannyProfile.user.addresses[0]?.formattedAddress ?? null,
           phone: nannyPhoneIfRevealable(b, revealPhoneMinutes),
         }
       : null,
+    address: bookingLocationFor(b, viewer),
     nannyPhoneRevealMinutes: revealPhoneMinutes,
     status: b.status,
     nannyDecision: b.nannyDecision,
@@ -536,8 +617,8 @@ async function notifyUserBookingEvent(
  * Broadcast a new, unclaimed booking request to every eligible nanny and to
  * every admin at once. No nanny is assigned yet — the request is offered to the
  * whole pool and the first nanny to accept claims it. "Eligible" means an
- * approved nanny with a complete profile who is free for the requested window
- * and within the configured broadcast radius of the booking's location (nannies
+ * admin-approved nanny who is free for the requested window and within the
+ * configured broadcast radius of the booking's location (nannies
  * or bookings without coordinates always match, and radius 0 disables the
  * distance filter — see AppSettings broadcast_radius_km), and — while skill
  * matching is on — holding every skill add-on the request was priced for.
@@ -552,9 +633,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
     prisma.nannyProfile.findMany({
       where: {
         deletedAt: null,
-        isProfileComplete: true,
-        // KYC gate now lives on the user row.
-        user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
+        user: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED },
         // Exclude nannies already booked for an overlapping window — they can't
         // take this one anyway.
         bookings: {
@@ -568,7 +647,8 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       },
       select: {
         userId: true,
-        user: { select: { latitude: true, longitude: true } },
+        // Her home base for the radius check — the default address row.
+        user: { select: nannyHomeInclude },
         // The requested add-ons live in a JSON column, so the skill match can't
         // be pushed into the WHERE clause — it happens in JS alongside radius.
         nannySkills: { where: { deletedAt: null }, select: { skillId: true } },
@@ -580,7 +660,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
   const required = requiredSkillIds(booking);
   const nannies = candidates.filter(
     (n) =>
-      isWithinRadius(bookingPoint, toLatLng(n.user.latitude, n.user.longitude), radiusKm) &&
+      isWithinRadius(bookingPoint, nannyHomePoint(n.user), radiusKm) &&
       matchesSkills(required, heldSkillIds(n.nannySkills), skillMatching),
   );
 
@@ -892,8 +972,8 @@ export async function createBooking(
   // while it is still PENDING_REVIEW (upload-then-book), but not when she has
   // never uploaded (PENDING_ID) or was rejected (REJECTED) and must re-upload.
   if (
-    user.idVerificationStatus === IdVerificationStatus.PENDING_ID ||
-    user.idVerificationStatus === IdVerificationStatus.REJECTED
+    user.approvalStatus === ApprovalStatus.PENDING_ID ||
+    user.approvalStatus === ApprovalStatus.REJECTED
   ) {
     throw errors.forbidden('Please upload your ID before booking.');
   }
@@ -962,6 +1042,15 @@ export async function createBooking(
     throw errors.badRequest(bookingLeadTimeMessage(config.minAdvanceBookingHours));
   }
 
+  // Where the nanny is sent. Must be one of the mother's own live addresses —
+  // looked up by owner, so another mother's id reads as "not found" rather
+  // than "not yours". Snapshotted below so a later edit never moves this
+  // booking.
+  const home = await prisma.address.findFirst({
+    where: { id: body.addressId, userId: user.id, deletedAt: null },
+  });
+  if (!home) throw errors.notFound('Address not found.');
+
   // Idempotency: a double-tapped "Request care" must not create two broadcasts.
   // Reuse an existing unclaimed request for the same mother and time window.
   const existingPending = await prisma.booking.findFirst({
@@ -975,8 +1064,11 @@ export async function createBooking(
       endTime,
       // Part of the identity of the request, not incidental detail: the child
       // count changes the price, so a resubmission with different children must
-      // create a re-priced booking rather than hand back the old one.
+      // create a re-priced booking rather than hand back the old one. Likewise
+      // the address — a request at grandma's is not the same request as one
+      // at home, and it broadcasts to a different set of nannies.
       childrenCount: children.length,
+      addressId: home.id,
     },
     include: bookingInclude,
   });
@@ -986,7 +1078,7 @@ export async function createBooking(
       bookingId: existingPending.id,
       motherId: user.id,
     });
-    return toBookingResponse(existingPending, toResponseContext(config));
+    return toBookingResponse(existingPending, toResponseContext(config), viewerFor(user));
   }
 
   // Load base rate, revenue split, add-on skills and duration tiers once, then
@@ -1027,10 +1119,13 @@ export async function createBooking(
     date: toPlatformDateColumn(startTime),
     startTime,
     endTime,
-    // Snapshot the mother's location so the broadcast radius is computed
-    // against where the booking was requested, even if she later moves.
-    latitude: user.latitude,
-    longitude: user.longitude,
+    // The chosen address, snapshotted: the nanny is sent where the booking
+    // was made even if the entry is edited or deleted later, and the broadcast
+    // radius is measured from the same coordinates.
+    addressId: home.id,
+    bookedAddress: toBookingAddressSnapshot(home) as unknown as Prisma.InputJsonValue,
+    latitude: home.latitude,
+    longitude: home.longitude,
     durationHours: breakdown.durationHours,
     baseRate: breakdown.baseRate,
     effectiveHourlyRate: breakdown.effectiveHourlyRate,
@@ -1086,7 +1181,7 @@ export async function createBooking(
 
   await notifyBookingBroadcast(booking);
 
-  return toBookingResponse(booking, toResponseContext(config));
+  return toBookingResponse(booking, toResponseContext(config), viewerFor(user));
 }
 
 /**
@@ -1175,7 +1270,7 @@ export async function listBookings(
   ]);
 
   return {
-    bookings: bookings.map((b) => toBookingResponse(b, ctx)),
+    bookings: bookings.map((b) => toBookingResponse(b, ctx, viewerFor(user))),
     meta: {
       page: query.page,
       limit: query.limit,
@@ -1210,7 +1305,7 @@ export async function listAvailableBookings(
     where: { userId: user.id, deletedAt: null },
     select: {
       id: true,
-      user: { select: { latitude: true, longitude: true } },
+      user: { select: nannyHomeInclude },
       nannySkills: { where: { deletedAt: null }, select: { skillId: true } },
     },
   });
@@ -1245,7 +1340,7 @@ export async function listAvailableBookings(
     getBookingResponseContext(),
   ]);
 
-  const nannyPoint = toLatLng(nannyProfile.user.latitude, nannyProfile.user.longitude);
+  const nannyPoint = nannyHomePoint(nannyProfile.user);
   const held = heldSkillIds(nannyProfile.nannySkills);
   const available = open
     .filter(
@@ -1256,7 +1351,7 @@ export async function listAvailableBookings(
     )
     .slice(0, OPEN_POOL_PAGE_SIZE);
 
-  return available.map((b) => toBookingResponse(b, ctx));
+  return available.map((b) => toBookingResponse(b, ctx, viewerFor(user)));
 }
 
 export async function getBooking(
@@ -1276,7 +1371,7 @@ export async function getBooking(
     (booking.nannyProfile?.userId === user.id);
   if (!isOwner) throw errors.forbidden('Access denied.');
 
-  return toBookingResponse(booking, await getBookingResponseContext());
+  return toBookingResponse(booking, await getBookingResponseContext(), viewerFor(user));
 }
 
 export async function cancelBooking(
@@ -1355,7 +1450,7 @@ export async function cancelBooking(
 
   await notifyOtherPartyOfCancellation(updated, isNanny ? 'NANNY' : 'MOTHER');
 
-  return { booking: toBookingResponse(updated, await getBookingResponseContext()), refundAmount };
+  return { booking: toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user)), refundAmount };
 }
 
 /**
@@ -1508,7 +1603,7 @@ async function applyNannyDecision(
     await notifyMotherNannyClaimed(updated);
   }
 
-  return toBookingResponse(updated, await getBookingResponseContext());
+  return toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user));
 }
 
 /** Nanny accepts a booking request (informational; does not confirm). */
@@ -1598,7 +1693,7 @@ export async function mockPayBooking(
     await notifyNannyBookingConfirmed(updatedBooking);
   }
 
-  return { booking: toBookingResponse(updatedBooking, await getBookingResponseContext()), payment };
+  return { booking: toBookingResponse(updatedBooking, await getBookingResponseContext(), viewerFor(user)), payment };
 }
 
 /**
@@ -1660,7 +1755,7 @@ export async function redeemBookingPoints(
     updated.rewardCreditPoints,
     Number(updated.rewardCreditHoursApplied),
   );
-  return toBookingResponse(updated, await getBookingResponseContext());
+  return toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user));
 }
 
 /**
@@ -1754,7 +1849,7 @@ export async function refundBookingPoints(
   if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
 
   const updated = await refundBookingIfApplied(booking);
-  return toBookingResponse(updated ?? booking, await getBookingResponseContext());
+  return toBookingResponse(updated ?? booking, await getBookingResponseContext(), viewerFor(user));
 }
 
 /**
@@ -1900,7 +1995,7 @@ export async function checkInBooking(
     `${nannyName} has started your booking.`,
   );
 
-  return toBookingResponse(updated, await getBookingResponseContext());
+  return toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user));
 }
 
 /**
@@ -2006,7 +2101,7 @@ export async function endBookingByMother(
   }
 
   const updated = await completeBooking(booking, 'MOTHER');
-  return toBookingResponse(updated, await getBookingResponseContext());
+  return toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user));
 }
 
 /** Nanny checks out — marks booking COMPLETED. Requires IN_PROGRESS. */
@@ -2029,5 +2124,5 @@ export async function checkOutBooking(
   }
 
   const updated = await completeBooking(booking, 'NANNY');
-  return toBookingResponse(updated, await getBookingResponseContext());
+  return toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user));
 }

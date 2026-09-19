@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { ParsedAddressParts } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
 import { usePlacesAutocomplete } from '@mobile/hooks/usePlacesAutocomplete';
@@ -15,8 +16,12 @@ type LocationSearchInputProps = {
   /** Current text value (mirrors the registration draft address). */
   value: string;
   onChangeText: (text: string) => void;
-  /** Fired when the user picks a suggestion; supplies resolved coords + address. */
-  onSelectPlace: (coords: LocationSearchCoords, address: string) => void;
+  /**
+   * Fired when the user picks a suggestion; supplies resolved coords + address,
+   * plus the structured parts Google knows (governorate / area / street) for
+   * forms that keep them. Older callers ignore the third argument.
+   */
+  onSelectPlace: (coords: LocationSearchCoords, address: string, parts: ParsedAddressParts) => void;
   placeholder?: string;
 };
 
@@ -44,6 +49,7 @@ export default function LocationSearchInput({
       onSelectPlace(
         { latitude: details.latitude, longitude: details.longitude },
         details.formattedAddress,
+        details.parts,
       );
     }
   }

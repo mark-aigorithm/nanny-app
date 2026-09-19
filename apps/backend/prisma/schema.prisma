@@ -119,23 +119,17 @@ enum BookingExtensionStatus {
   @@map("booking_extension_status")
 }
 
-enum NannyApprovalStatus {
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
-
-  @@map("nanny_approval_status")
-}
-
-/// Identity-verification state shared by nannies AND mothers (lives on `users`).
+/// Admin approval state, shared by nannies AND mothers (lives on `users`).
 /// PENDING_ID = must (re)upload; PENDING_REVIEW = awaiting admin; APPROVED / REJECTED.
-enum IdVerificationStatus {
+/// A parent is approved once her ID checks out; a nanny once an admin has
+/// reviewed her whole application (profile + ID).
+enum ApprovalStatus {
   PENDING_ID
   PENDING_REVIEW
   APPROVED
   REJECTED
 
-  @@map("id_verification_status")
+  @@map("approval_status")
 }
 
 /// Government ID kind. PASSPORT needs only the front image; NATIONAL_ID needs both.
@@ -194,21 +188,22 @@ model User {
   phoneVerifiedAt      DateTime?             @map("phone_verified_at")
   termsAcceptedAt      DateTime?             @map("terms_accepted_at")
   termsAcceptedVersion String?               @map("terms_accepted_version")
-  /// Street address + home coordinates captured by the registration map
-  /// picker. Single source of truth for location — proximity search and
-  /// distance sorting (nanny listing + booking broadcast) read lat/lng here.
+  /// DEPRECATED — unread and unwritten since add_addresses_table. Location
+  /// lives on the Address model now (mothers have many, nannies one); these
+  /// columns were backfilled into it and are dropped in a follow-up release.
   address              String?
   latitude             Decimal?              @db.Decimal(10, 7)
   longitude            Decimal?              @db.Decimal(10, 7)
-  /// Identity documents + KYC state, for BOTH nannies and mothers. Nannies must
-  /// be APPROVED to appear in search / use the app; mothers must have uploaded
-  /// an ID (not PENDING_ID/REJECTED) before booking. Null for admins/role-less.
-  idVerificationStatus IdVerificationStatus? @map("id_verification_status")
+  /// Identity documents + the admin's decision, for BOTH nannies and mothers.
+  /// Nannies must be APPROVED to appear in search / use the app; mothers must
+  /// have uploaded an ID (not PENDING_ID/REJECTED) before booking. Null for
+  /// admins/role-less.
+  approvalStatus       ApprovalStatus?       @map("approval_status")
   idDocumentType       IdDocumentType?       @map("id_document_type")
   idDocumentFrontUrl   String?               @map("id_document_front_url")
   idDocumentBackUrl    String?               @map("id_document_back_url")
-  idReviewedAt         DateTime?             @map("id_reviewed_at")
-  idRejectionReason    String?               @map("id_rejection_reason")
+  reviewedAt           DateTime?             @map("reviewed_at")
+  rejectionReason      String?               @map("rejection_reason")
   /// This user's personal referral code (e.g. SARAH-4K2P). Generated lazily on
   /// first request rather than at signup, so existing users need no backfill.
   referralCode         String?               @unique @map("referral_code")
@@ -220,6 +215,7 @@ model User {
 
   nannyProfile             NannyProfile?
   children                 Child[]                   @relation("UserChildren")
+  addresses                Address[]
   bookingsAsMother         Booking[]                 @relation("BookingMother")
   cancelledBookings        Booking[]                 @relation("BookingCancelledBy")
   approvedBookings         Booking[]                 @relation("BookingAdminApprover")
@@ -254,7 +250,7 @@ model User {
 
   @@index([role])
   @@index([deletedAt])
-  @@index([idVerificationStatus])
+  @@index([approvalStatus])
   @@map("users")
 }
 
@@ -270,15 +266,6 @@ model NannyProfile {
   specialties         String[]             @default([])
   /// Weekly schedule JSON: { "0": { available, startTime, endTime }, … "6": … }
   schedule            Json?
-  isProfileComplete   Boolean              @default(false) @map("is_profile_complete")
-  /// Admin vetting gate: new nannies start PENDING_REVIEW and cannot appear
-  /// in search or use the app until an admin approves them (KYC).
-  approvalStatus      NannyApprovalStatus  @default(PENDING_REVIEW) @map("approval_status")
-  reviewedAt          DateTime?            @map("reviewed_at")
-  rejectionReason     String?              @map("rejection_reason")
-  /// Identity documents captured at registration for admin KYC review.
-  idDocumentFrontUrl  String?              @map("id_document_front_url")
-  idDocumentBackUrl   String?              @map("id_document_back_url")
   /// Availability type for filtering: FULL_TIME, PART_TIME, OCCASIONAL
   availabilityType    AvailabilityType     @default(OCCASIONAL) @map("availability_type")
   /// Denormalised rating cache — recomputed on every new review.
@@ -295,7 +282,6 @@ model NannyProfile {
 
   @@index([availabilityType])
   @@index([rating])
-  @@index([approvalStatus])
   @@map("nanny_profiles")
 }
 
@@ -325,6 +311,51 @@ model Child {
 
   @@index([userId, deletedAt])
   @@map("children")
+}
+
+/// One place a user can be: a mother's home / work / grandma's, or a nanny's
+/// single home base. The ONLY source of location — proximity search, the
+/// booking broadcast radius and the address a nanny is sent to all read it.
+///
+/// A mother may hold many; exactly one live row per user is the default.
+/// That invariant is kept by address.service (every default change clears
+/// the others in the same transaction) rather than a partial unique index,
+/// which Prisma cannot declare and would show as permanent drift. A nanny
+/// holds one, written once at registration and thereafter edited only by an
+/// admin. Structured parts come from Google's
+/// address_components when the row was made in-app and are null on rows
+/// backfilled from the old users.address column.
+model Address {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  user             User      @relation(fields: [userId], references: [id])
+  /// Short name the picker shows: "Home", "Work", "Grandma's".
+  label            String
+  /// Google's one-line formatted address — the display line everywhere.
+  formattedAddress String    @map("formatted_address")
+  /// From Google: administrative_area_level_1 minus " Governorate" ("Cairo").
+  governorate      String?
+  /// From Google: administrative_area_level_2 ("Maadi", "New Cairo 1").
+  area             String?
+  /// From Google when the pin hit a street: "12 Road 9". Editable.
+  street           String?
+  building         String?
+  floor            String?
+  apartment        String?
+  /// Free text for the nanny — the Egyptian way of finding a door:
+  /// "behind Seoudi Market, gate 2, ring bell 3".
+  landmark         String?   @db.Text
+  latitude         Decimal   @db.Decimal(10, 7)
+  longitude        Decimal   @db.Decimal(10, 7)
+  isDefault        Boolean   @default(false) @map("is_default")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  bookings Booking[]
+
+  @@index([userId, deletedAt])
+  @@map("addresses")
 }
 
 model Skill {
@@ -859,9 +890,17 @@ model Booking {
   /// Snapshot of who the booking was for (name + age), like selectedSkillFees.
   bookedChildren           Json?                @map("booked_children")
   specialInstructions      String?              @map("special_instructions") @db.Text
-  /// Location snapshot copied from the mother's profile at creation time —
-  /// used to radius-filter the nanny broadcast (see notifyBookingBroadcast).
-  /// Null (mother has no saved location) → the request broadcasts to everyone.
+  /// The address the mother chose for this booking, and a snapshot of it as it
+  /// was when she chose it (BookingAddressSchema in @nanny-app/shared) — like
+  /// bookedChildren, so the nanny is sent where the booking was made even if
+  /// the row is later edited or deleted. Null only on bookings made before
+  /// addresses were modelled by a mother who never had coordinates.
+  addressId                Int?                 @map("address_id")
+  address                  Address?             @relation(fields: [addressId], references: [id])
+  bookedAddress            Json?                @map("booked_address")
+  /// Coordinates copied from the chosen address at creation time — used to
+  /// radius-filter the nanny broadcast (see notifyBookingBroadcast). Null
+  /// (no address) → the request broadcasts to everyone.
   latitude                 Decimal?             @db.Decimal(10, 7)
   longitude                Decimal?             @db.Decimal(10, 7)
   cancellationReason       String?              @map("cancellation_reason")
@@ -906,6 +945,7 @@ model Booking {
   @@index([nannyDecision])
   @@index([date])
   @@index([promoCodeId])
+  @@index([addressId])
   @@map("bookings")
 }
 

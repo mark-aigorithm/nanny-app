@@ -6,7 +6,7 @@ import {
   ADMIN_PAGE_SIZES,
   ADMIN_SORT_OPTIONS,
   type AdminNanny,
-  type AdminNannyStatusFilter,
+  type AdminApprovalStatusFilter,
   type AdminSortOrder,
 } from '@nanny-app/shared';
 
@@ -22,9 +22,10 @@ import {
 } from '@admin/components/ui';
 import { fetchNannies } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { usePagination } from '@admin/lib/use-pagination';
 
-const STATUS_FILTERS: { value: AdminNannyStatusFilter; label: string }[] = [
+const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'PENDING_REVIEW', label: 'Pending review' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
@@ -34,16 +35,6 @@ const STATUS_FILTERS: { value: AdminNannyStatusFilter; label: string }[] = [
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
-
-function statusTone(status: AdminNanny['idVerificationStatus']): 'success' | 'danger' | 'neutral' {
-  if (status === 'APPROVED') return 'success';
-  if (status === 'REJECTED') return 'danger';
-  return 'neutral';
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
 }
 
 function initials(name: string): string {
@@ -63,7 +54,7 @@ const EMPTY = <span className="table-empty">—</span>;
  * carries, so the two views of the same people never reorder without saying so.
  */
 export function NannyReviewTab() {
-  const [status, setStatus] = useState<AdminNannyStatusFilter>('PENDING_REVIEW');
+  const [status, setStatus] = useState<AdminApprovalStatusFilter>('PENDING_REVIEW');
   const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const navigate = useNavigate();
@@ -75,7 +66,7 @@ export function NannyReviewTab() {
   const nannies = data?.data;
   const meta = data?.meta;
 
-  function changeStatus(next: AdminNannyStatusFilter) {
+  function changeStatus(next: AdminApprovalStatusFilter) {
     setStatus(next);
     reset();
   }
@@ -140,8 +131,8 @@ export function NannyReviewTab() {
       header: 'Status',
       render: (nanny) => (
         <>
-          <Badge tone={statusTone(nanny.idVerificationStatus)}>
-            {statusLabel(nanny.idVerificationStatus)}
+          <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
+            {approvalStatusLabel(nanny.approvalStatus)}
           </Badge>
           {nanny.rejectionReason && <div className="table-subtext">{nanny.rejectionReason}</div>}
         </>
@@ -152,15 +143,15 @@ export function NannyReviewTab() {
   return (
     <>
       <p className="panel-lead">
-        New nanny registrations wait here until reviewed. Open a nanny to review her details, edit
-        skills, view her ID, and approve or reject the application.
+        New nanny registrations wait here until reviewed. Open a nanny to check her profile and ID
+        together, edit anything that needs correcting, then approve or reject the application.
       </p>
       <div className="filter-bar">
         <FilterSelect
           label="Status"
           value={status}
           options={STATUS_FILTERS}
-          onChange={(value) => changeStatus(value as AdminNannyStatusFilter)}
+          onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
         <FilterSelect
           label="Sort"

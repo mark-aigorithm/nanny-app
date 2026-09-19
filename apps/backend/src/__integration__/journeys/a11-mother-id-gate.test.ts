@@ -15,7 +15,7 @@ import { prisma } from '@backend/db/prisma';
 import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
 import { makeSuperuser } from '../../../test/factories';
 import { approveMotherId } from '../../../test/journeys/admin';
-import { wallClockTomorrow } from '../../../test/journeys/booking';
+import { defaultAddressId, wallClockTomorrow } from '../../../test/journeys/booking';
 import { proveEmail } from '../../../test/journeys/email-verification';
 
 const ID_FRONT = 'https://storage.example.test/id-front.jpg';
@@ -55,7 +55,7 @@ async function registerMother() {
   return { token, id: response.body.data.id as number, email };
 }
 
-function attemptBooking(token: string) {
+async function attemptBooking(token: string) {
   return request(app)
     .post('/bookings')
     .set(...authHeader(token))
@@ -63,6 +63,8 @@ function attemptBooking(token: string) {
       startTime: wallClockTomorrow(10),
       endTime: wallClockTomorrow(14),
       children: [{ name: 'Test Child', ageYears: 3, allergies: null }],
+      // The address she registered with — what the picker preselects.
+      addressId: await defaultAddressId(token),
     });
 }
 
@@ -72,7 +74,7 @@ describe('A11 — mother ID verification gates booking', () => {
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
     expect(row.role).toBe('MOTHER');
-    expect(row.idVerificationStatus).toBe('PENDING_ID');
+    expect(row.approvalStatus).toBe('PENDING_ID');
   });
 
   it('refuses a booking from a mother who has never uploaded an ID', async () => {
@@ -99,7 +101,7 @@ describe('A11 — mother ID verification gates booking', () => {
     expect(submitted.status).toBe(200);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
-    expect(row.idVerificationStatus).toBe('PENDING_REVIEW');
+    expect(row.approvalStatus).toBe('PENDING_REVIEW');
 
     // Upload-then-book: having a document in the queue is enough.
     expect((await attemptBooking(mother.token)).status).toBe(201);
@@ -131,7 +133,7 @@ describe('A11 — mother ID verification gates booking', () => {
     await approveMotherId(admin.token, mother.id);
 
     expect(
-      (await prisma.user.findUniqueOrThrow({ where: { id: mother.id } })).idVerificationStatus,
+      (await prisma.user.findUniqueOrThrow({ where: { id: mother.id } })).approvalStatus,
     ).toBe('APPROVED');
 
     const booked = await attemptBooking(mother.token);
@@ -155,8 +157,8 @@ describe('A11 — mother ID verification gates booking', () => {
     expect(rejected.status).toBe(200);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
-    expect(row.idVerificationStatus).toBe('REJECTED');
-    expect(row.idRejectionReason).toBe('The document was unreadable.');
+    expect(row.approvalStatus).toBe('REJECTED');
+    expect(row.rejectionReason).toBe('The document was unreadable.');
 
     // A rejection revokes the permission a submission had granted.
     expect((await attemptBooking(mother.token)).status).toBe(403);
@@ -188,8 +190,8 @@ describe('A11 — mother ID verification gates booking', () => {
     await approveMotherId(admin.token, mother.id);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
-    expect(row.idVerificationStatus).toBe('APPROVED');
-    expect(row.idRejectionReason).toBeNull();
+    expect(row.approvalStatus).toBe('APPROVED');
+    expect(row.rejectionReason).toBeNull();
 
     expect((await attemptBooking(mother.token)).status).toBe(201);
   });

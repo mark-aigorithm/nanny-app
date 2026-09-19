@@ -61,21 +61,23 @@ describe('parseSkillIdsParam — tolerant of a mangled add-ons param', () => {
   });
 });
 
-describe('hasRequiredBookingDraft — the broadcast flow needs date + window only', () => {
+describe('hasRequiredBookingDraft — the broadcast flow needs date, window and address', () => {
   const full: BookingFlowParams = {
     dateIso: '2026-08-02',
     startTimeWall: '2026-08-02T09:00:00',
     endTimeWall: '2026-08-02T13:00:00',
+    addressId: '7',
   };
 
-  it('is satisfied by a date and a start/end window, with no nanny chosen', () => {
+  it('is satisfied by a date, a start/end window and an address, with no nanny chosen', () => {
     expect(hasRequiredBookingDraft(full)).toBe(true);
   });
 
-  it('is not satisfied when any of the three is missing', () => {
+  it('is not satisfied when any of the four is missing', () => {
     expect(hasRequiredBookingDraft({ ...full, dateIso: undefined })).toBe(false);
     expect(hasRequiredBookingDraft({ ...full, startTimeWall: undefined })).toBe(false);
     expect(hasRequiredBookingDraft({ ...full, endTimeWall: undefined })).toBe(false);
+    expect(hasRequiredBookingDraft({ ...full, addressId: undefined })).toBe(false);
   });
 });
 
@@ -96,6 +98,7 @@ describe('payBookingParams — reopen checkout on an already-created booking', (
     durationHours: 4,
     specialInstructions: 'Ring the top bell',
     nanny: { firstName: 'Amira', lastName: 'Hassan', avatarUrl: 'https://cdn/x.jpg' },
+    address: { area: 'Maadi, Cairo', details: { addressId: 7 } },
   } as unknown as BookingResponse;
 
   it('drops the timezone offset so the wall-clock fields stay offset-free', () => {
@@ -112,6 +115,12 @@ describe('payBookingParams — reopen checkout on an already-created booking', (
     expect(params.nannyName).toBe('Amira Hassan');
     expect(params.nannyPhoto).toBe('https://cdn/x.jpg');
     expect(params.instructions).toBe('Ring the top bell');
+    expect(params.addressId).toBe('7');
+  });
+
+  it('omits the address for a booking that has none', () => {
+    const noAddress = { ...booking, address: null } as unknown as BookingResponse;
+    expect(payBookingParams(noAddress).addressId).toBeUndefined();
   });
 
   it('omits nanny fields for an unclaimed (broadcast) booking', () => {
@@ -133,9 +142,11 @@ describe('bookingFlowRetryParams — carry the draft back into checkout', () => 
       durationHours: '4',
       promoCode: 'WELCOME10',
       pointsHours: '2',
+      addressId: '7',
     };
     const retry = bookingFlowRetryParams(params, 42);
     expect(retry.bookingId).toBe('42');
+    expect(retry.addressId).toBe('7');
     expect(retry.retry).toBe('1');
     expect(retry.promoCode).toBe('WELCOME10');
     expect(retry.pointsHours).toBe('2');

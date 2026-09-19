@@ -6,8 +6,7 @@ import { useGuestStore } from '@mobile/store/guestStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
-import { Role } from '@shared/auth';
-import { IdVerificationStatus } from '@shared/nanny';
+import { ApprovalStatus, Role } from '@shared/auth';
 
 export default function Index() {
   const user = useAuthStore((s) => s.user);
@@ -56,14 +55,15 @@ export default function Index() {
     }
 
     if (profile.role === Role.NANNY) {
-      // Nannies are vetted by an admin before they can use the app. If their ID
-      // is missing (PENDING_ID) or was rejected (REJECTED), force a re-upload;
-      // once uploaded (PENDING_REVIEW) they wait; APPROVED lets them in.
-      switch (profile.idVerificationStatus) {
-        case IdVerificationStatus.APPROVED:
+      // Nannies are approved by an admin before they can use the app. If their
+      // ID is missing (PENDING_ID) or the application was rejected (REJECTED),
+      // force a re-upload; once uploaded (PENDING_REVIEW) they wait; APPROVED
+      // lets them in.
+      switch (profile.approvalStatus) {
+        case ApprovalStatus.APPROVED:
           return <Redirect href="/(nanny)/dashboard" />;
-        case IdVerificationStatus.PENDING_ID:
-        case IdVerificationStatus.REJECTED:
+        case ApprovalStatus.PENDING_ID:
+        case ApprovalStatus.REJECTED:
           return <Redirect href="/(auth)/upload-id" />;
         default:
           return <Redirect href="/(auth)/pending-review" />;

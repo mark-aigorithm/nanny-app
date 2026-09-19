@@ -12,6 +12,7 @@ jest.mock('@backend/db/prisma', () => {
     count: jest.fn(),
   };
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
+  const address = { findFirst: jest.fn() };
   const nannyProfile = { findUnique: jest.fn(), findMany: jest.fn() };
   const skill = { findMany: jest.fn() };
   // createBooking checks the mother's prepaid package-hours balance; no packages here.
@@ -21,6 +22,7 @@ jest.mock('@backend/db/prisma', () => {
     prisma: {
       booking,
       user,
+      address,
       nannyProfile,
       skill,
       durationMultiplierRule,
@@ -78,6 +80,7 @@ const mockPrisma = prisma as unknown as {
     updateMany: jest.Mock;
   };
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   skill: { findMany: jest.Mock };
   durationMultiplierRule: { findMany: jest.Mock };
@@ -102,6 +105,29 @@ const motherUser = {
 };
 
 const mother = { id: 10, firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
+
+/** The address the mother books at — where the broadcast radius is measured from. */
+const homeAddress = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  ...BOOKING_COORDS,
+  isDefault: true,
+  createdAt: new Date(),
+};
+
+/** A nanny candidate's user, as the broadcast selects it: her default address row. */
+const placedAt = (coords: { latitude: number; longitude: number } | null) => ({
+  addresses: coords ? [coords] : [],
+});
 
 function makeBooking(overrides: Record<string, unknown> = {}) {
   const startTime = new Date(Date.now() + 20 * 24 * 3_600_000);
@@ -151,13 +177,14 @@ async function runBroadcast(options: {
 }): Promise<string[]> {
   mockPrisma.user.findUnique.mockResolvedValue({ ...motherUser, ...options.motherOverrides });
   mockPrisma.booking.findFirst.mockResolvedValue(null); // no idempotent reuse
+  mockPrisma.address.findFirst.mockResolvedValue(homeAddress);
   mockPrisma.booking.create.mockResolvedValue(makeBooking(options.bookingOverrides));
   mockPrisma.skill.findMany.mockResolvedValue([]);
   mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([
-    { userId: 14, user: { ...NEAR } },
-    { userId: 13, user: { ...FAR } },
-    { userId: 15, user: { latitude: null, longitude: null } },
+    { userId: 14, user: placedAt(NEAR) },
+    { userId: 13, user: placedAt(FAR) },
+    { userId: 15, user: placedAt(null) },
   ]);
   mockPrisma.user.findMany.mockResolvedValue([{ id: 1 }]);
 
@@ -167,6 +194,7 @@ async function runBroadcast(options: {
     endTime: '2099-01-01T13:00:00',
     skillIds: [],
     children: [{ name: null, ageYears: 4, allergies: null }],
+    addressId: homeAddress.id,
   });
 
   return mockNotify.mock.calls
@@ -198,6 +226,14 @@ describe('notifyBookingBroadcast — radius filter', () => {
     const notified = await runBroadcast({});
     expect(notified).toEqual([1, 13, 14, 15]);
   });
+
+  it('offers the request to every approved, free nanny — approval is the only account gate', async () => {
+    await runBroadcast({});
+
+    const where = mockPrisma.nannyProfile.findMany.mock.calls[0][0].where;
+    expect(where.user).toEqual({ deletedAt: null, approvalStatus: 'APPROVED' });
+    expect(where).not.toHaveProperty('isProfileComplete');
+  });
 });
 
 describe('listAvailableBookings — radius filter', () => {
@@ -208,11 +244,11 @@ describe('listAvailableBookings — radius filter', () => {
     deletedAt: null,
   };
 
-  function mockPool(nannyCoords: { latitude: number | null; longitude: number | null }) {
+  function mockPool(nannyCoords: { latitude: number; longitude: number } | null) {
     mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
     mockPrisma.nannyProfile.findUnique.mockResolvedValue({
       id: 19,
-      user: nannyCoords,
+      user: placedAt(nannyCoords),
     });
     // First findMany call = the nanny's busy slots; second = the open pool.
     mockPrisma.booking.findMany
@@ -231,7 +267,7 @@ describe('listAvailableBookings — radius filter', () => {
   });
 
   it('shows the full pool to a nanny without coordinates', async () => {
-    mockPool({ latitude: null, longitude: null });
+    mockPool(null);
     const result = await listAvailableBookings({ uid: 'fb-nanny' } as never);
     expect(result).toHaveLength(3);
   });

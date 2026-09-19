@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   AvailabilityTypeSchema,
   IdDocumentTypeSchema,
-  IdVerificationStatusSchema,
   WeeklyScheduleSchema,
   idTypeRequiresBack,
 } from './nanny';
@@ -116,7 +115,8 @@ export const RegisterRequestSchema = z
     idDocumentFrontUrl: z.string().url().optional(),
     idDocumentBackUrl: z.string().url().optional(),
     // Nanny profile fields captured at registration. Mothers omit these; the
-    // second refine below makes the essentials mandatory for nannies.
+    // refines below make everything but certifications and skills mandatory
+    // for nannies — registration is the only time she enters her profile.
     avatarUrl: z.string().url().optional(),
     bio: z.string().trim().max(600).optional(),
     yearsOfExperience: z.number().int().min(0).max(60).optional(),
@@ -145,6 +145,23 @@ export const RegisterRequestSchema = z
       message: 'Nannies must provide a photo, bio, years of experience, and availability.',
       path: ['bio'],
     },
+  )
+  .refine((v) => v.role !== 'NANNY' || !!v.address, {
+    message: 'Please enter your street address.',
+    path: ['address'],
+  })
+  .refine((v) => v.role !== 'NANNY' || (v.ageRanges?.length ?? 0) > 0, {
+    message: 'Please pick at least one age range you care for.',
+    path: ['ageRanges'],
+  })
+  .refine(
+    (v) =>
+      v.role !== 'NANNY' ||
+      Object.values(v.schedule ?? {}).some((day) => day.available),
+    {
+      message: 'Please mark at least one day you can work.',
+      path: ['schedule'],
+    },
   );
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
@@ -165,6 +182,26 @@ export const SubmitIdRequestSchema = z
   });
 export type SubmitIdRequest = z.infer<typeof SubmitIdRequestSchema>;
 
+/**
+ * Admin approval state of an account, for BOTH roles (lives on `users`).
+ * - PENDING_ID: no usable ID on file — the user must (re)upload one.
+ * - PENDING_REVIEW: waiting for an admin decision.
+ * - APPROVED: a parent's ID checked out; a nanny's whole application
+ *   (profile + ID) was reviewed and accepted — she is visible to parents.
+ * - REJECTED: an admin refused it; the ID images were deleted and a reason
+ *   stored, so the user must upload a new ID to be reviewed again.
+ * Gate predicate (both roles): needs an upload when PENDING_ID or REJECTED.
+ */
+export const ApprovalStatusSchema = z.enum([
+  'PENDING_ID',
+  'PENDING_REVIEW',
+  'APPROVED',
+  'REJECTED',
+]);
+/** Enum-like const for value comparisons: `ApprovalStatus.APPROVED`, … */
+export const ApprovalStatus = ApprovalStatusSchema.enum;
+export type ApprovalStatus = z.infer<typeof ApprovalStatusSchema>;
+
 /** Shape returned by /auth/me and /auth/register. Mirrors Prisma `User` minus internal fields. */
 export const UserResponseSchema = z.object({
   id: z.number().int(),
@@ -178,12 +215,17 @@ export const UserResponseSchema = z.object({
   role: RoleSchema.nullable(),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
-  /** Identity-verification state (nannies and mothers). Null for admins/role-less. */
-  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  /** Admin approval state (nannies and mothers). Null for admins/role-less. */
+  approvalStatus: ApprovalStatusSchema.nullable(),
   /** Kind of ID on file, if any. Null until the user uploads one. */
   idDocumentType: IdDocumentTypeSchema.nullable(),
-  /** Reason an admin rejected the last ID, surfaced in the forced re-upload prompt. */
-  idRejectionReason: z.string().nullable(),
+  /** Reason an admin gave when rejecting, surfaced in the forced re-upload prompt. */
+  rejectionReason: z.string().nullable(),
+  /**
+   * The user's default address, flattened. Derived from the addresses table
+   * (the source of truth) and kept on this response so screens that only show
+   * "where you are" keep working; edit through /addresses, not PATCH /auth/me.
+   */
   address: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
@@ -202,12 +244,9 @@ export const UpdateProfileRequestSchema = z.object({
     .nullable()
     .optional(),
   avatarUrl: z.string().url().nullable().optional(),
-  // Home location lives on the user row (single source of truth for proximity
-  // search). Updating address + coordinates together here is what keeps the
-  // saved home in sync with the map pin and prevents distance-sort drift.
-  address: z.string().trim().max(200).nullable().optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  // No address or coordinates here: location is an address-book entry now
+  // (see address.ts) and is edited through /addresses, so the display line
+  // and the pin proximity search uses can never drift apart.
 });
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 

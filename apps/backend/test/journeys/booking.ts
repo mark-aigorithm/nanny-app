@@ -35,7 +35,21 @@ export type CreateBookingOptions = {
   usePackageHours?: boolean;
   skillIds?: number[];
   children?: Array<{ name: string | null; ageYears: number; allergies: string | null }>;
+  /** Which saved address to book at. Omitted → her default, as the picker preselects it. */
+  addressId?: number;
 };
+
+/** The id the booking picker preselects: the mother's default address. */
+export async function defaultAddressId(motherToken: string): Promise<number> {
+  const response = await request(app).get('/addresses').set(...authHeader(motherToken));
+  if (response.status !== 200) {
+    throw new Error(`GET /addresses failed with ${response.status}: ${JSON.stringify(response.body)}`);
+  }
+  const addresses = response.body.data as Array<{ id: number; isDefault: boolean }>;
+  const home = addresses.find((a) => a.isDefault) ?? addresses[0];
+  if (!home) throw new Error('This mother has no saved address — give makeMother coordinates.');
+  return home.id;
+}
 
 /** One three-year-old with no allergies — the smallest valid `children` array. */
 const DEFAULT_CHILDREN = [{ name: 'Test Child', ageYears: 3, allergies: null }];
@@ -53,6 +67,7 @@ export async function createBookingViaApi(
   options: CreateBookingOptions = {},
 ): Promise<CreatedBooking> {
   const { startHour = 10, durationHours = 4, children = DEFAULT_CHILDREN, ...rest } = options;
+  const addressId = rest.addressId ?? (await defaultAddressId(motherToken));
 
   const response = await request(app)
     .post('/bookings')
@@ -62,6 +77,7 @@ export async function createBookingViaApi(
       endTime: wallClockTomorrow(startHour + durationHours),
       children,
       ...rest,
+      addressId,
     });
 
   if (response.status !== 201) {

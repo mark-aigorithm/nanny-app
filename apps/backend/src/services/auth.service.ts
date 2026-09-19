@@ -3,7 +3,6 @@ import type {
   Role as PrismaRole,
 } from '@prisma/client';
 import {
-  getMissingNannyProfileFields,
   Role,
   type AvailabilityResponse,
   type CheckAvailabilityRequest,
@@ -23,6 +22,7 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
 import { consumeVerificationToken } from '@backend/services/email-verification.service';
+import { createAddress, getDefaultAddress } from './address.service';
 import { listChildren, saveChildren } from './child.service';
 
 /**
@@ -35,15 +35,34 @@ function toApiRole(role: PrismaRole | null): ApiRole | null {
   return null;
 }
 
+/** The location fields of UserResponse, flattened off the default address. */
+type FlatLocation = Pick<UserResponse, 'address' | 'latitude' | 'longitude'>;
+
+/**
+ * The user's default address as the three flat fields the profile response
+ * has always carried, so screens that only show "where you are" keep working
+ * while the address book is the source of truth. Null when there is none.
+ */
+async function flatLocationOf(userId: number): Promise<FlatLocation> {
+  const home = await getDefaultAddress(userId);
+  return home
+    ? {
+        address: home.formattedAddress,
+        latitude: Number(home.latitude),
+        longitude: Number(home.longitude),
+      }
+    : { address: null, latitude: null, longitude: null };
+}
+
 /**
  * Convert a Prisma `User` row into the wire format defined by
  * `UserResponseSchema`. Strips internal columns (timestamps, soft-delete
- * markers) and serializes Date fields to ISO strings. Identity-verification
- * state now lives directly on the user row, so no relation include is needed.
- * The ID image URLs are intentionally NOT exposed here — they are KYC-sensitive
- * and only returned by admin endpoints.
+ * markers) and serializes Date fields to ISO strings. The ID image URLs are
+ * intentionally NOT exposed here — they are KYC-sensitive and only returned
+ * by admin endpoints. Location comes from the address book (see
+ * flatLocationOf), never from the deprecated user columns.
  */
-function toUserResponse(user: User): UserResponse {
+function toUserResponse(user: User, location: FlatLocation): UserResponse {
   return {
     id: user.id,
     firebaseUid: user.firebaseUid,
@@ -56,12 +75,10 @@ function toUserResponse(user: User): UserResponse {
     role: toApiRole(user.role),
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
-    idVerificationStatus: user.idVerificationStatus,
+    approvalStatus: user.approvalStatus,
     idDocumentType: user.idDocumentType,
-    idRejectionReason: user.idRejectionReason,
-    address: user.address,
-    latitude: user.latitude !== null ? Number(user.latitude) : null,
-    longitude: user.longitude !== null ? Number(user.longitude) : null,
+    rejectionReason: user.rejectionReason,
+    ...location,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -114,7 +131,7 @@ export async function registerUser(
     if (existing.deletedAt) {
       throw errors.conflict('This account has been deleted.');
     }
-    return toUserResponse(existing);
+    return toUserResponse(existing, await flatLocationOf(existing.id));
   }
 
   // Collision check (different Firebase UID, same email or phone) — the same
@@ -159,14 +176,12 @@ export async function registerUser(
         termsAcceptedAt: new Date(),
         termsAcceptedVersion: body.termsAcceptedVersion,
         lastLoginAt: new Date(),
-        address: body.address ?? null,
-        latitude: body.latitude,
-        longitude: body.longitude,
-        // Identity verification lives on the user row for both roles. Nannies
-        // upload their ID at registration, so they start PENDING_REVIEW (awaiting
-        // admin KYC); mothers upload later (before booking), so they start
-        // PENDING_ID and are prompted when they try to book.
-        idVerificationStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
+        // Approval state lives on the user row for both roles. A nanny uploads
+        // her ID at registration and starts PENDING_REVIEW, awaiting an admin's
+        // decision on her whole application; a mother uploads later, before
+        // booking, so she starts PENDING_ID and is prompted when she tries to
+        // book.
+        approvalStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
         idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
         idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
         idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
@@ -174,19 +189,24 @@ export async function registerUser(
       },
     });
 
-    if (isNanny) {
-      // Home location (address + coordinates) lives solely on the user row;
-      // proximity search and the booking broadcast read it from there, so it
-      // is not mirrored onto the profile — but completeness still needs it,
-      // so it feeds the same getMissingNannyProfileFields check every other
-      // profile writer uses.
-      const isProfileComplete =
-        getMissingNannyProfileFields({
-          bio: body.bio ?? null,
-          location: body.address ?? null,
-          yearsOfExperience: body.yearsOfExperience ?? null,
-        }).length === 0;
+    // The wizard's location becomes the user's first address — her default,
+    // and for a nanny the only one she will ever have (support edits it from
+    // here on). Same transaction as the user row, so neither exists alone.
+    // The wizard captures one line and a pin; the structured parts stay null
+    // until the address is edited in-app.
+    const home = await createAddress(
+      user.id,
+      {
+        label: 'Home',
+        formattedAddress: body.address ?? '',
+        latitude: body.latitude,
+        longitude: body.longitude,
+        isDefault: true,
+      },
+      tx,
+    );
 
+    if (isNanny) {
       const profile = await tx.nannyProfile.create({
         data: {
           userId: user.id,
@@ -195,7 +215,6 @@ export async function registerUser(
           ageRanges: body.ageRanges ?? [],
           schedule: body.schedule,
           availabilityType: body.availabilityType,
-          isProfileComplete,
         },
       });
 
@@ -206,10 +225,14 @@ export async function registerUser(
       await reconcileNannySkills(tx, profile.id, body.skillIds ?? []);
     }
 
-    return user;
+    return { user, home };
   });
 
-  return toUserResponse(created);
+  return toUserResponse(created.user, {
+    address: created.home.formattedAddress,
+    latitude: created.home.latitude,
+    longitude: created.home.longitude,
+  });
 }
 
 /**
@@ -233,7 +256,7 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
     data: { lastLoginAt: new Date() },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /** The current user's row, or a 404 telling the client to finish registration. */
@@ -301,14 +324,12 @@ export async function updateProfile(
       ...(body.lastName !== undefined && { lastName: body.lastName }),
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
-      // Home location — the single source of truth for proximity search.
-      ...(body.address !== undefined && { address: body.address }),
-      ...(body.latitude !== undefined && { latitude: body.latitude }),
-      ...(body.longitude !== undefined && { longitude: body.longitude }),
+      // No location here — it is an address-book entry now, edited through
+      // /addresses so the display line and the pin can never drift apart.
     },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /**
@@ -330,7 +351,7 @@ export async function setVerifiedEmail(
   const user = await requireUser(decoded);
 
   if (user.email === body.email && user.isEmailVerified) {
-    return toUserResponse(user);
+    return toUserResponse(user, await flatLocationOf(user.id));
   }
 
   const emailOwner = await prisma.user.findFirst({
@@ -352,7 +373,7 @@ export async function setVerifiedEmail(
     },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /**
@@ -379,11 +400,11 @@ export async function submitId(
       idDocumentFrontUrl: body.idDocumentFrontUrl,
       // A passport has no back image — clear any stale value from a prior upload.
       idDocumentBackUrl: body.idDocumentBackUrl ?? null,
-      idVerificationStatus: 'PENDING_REVIEW',
-      idRejectionReason: null,
-      idReviewedAt: null,
+      approvalStatus: 'PENDING_REVIEW',
+      rejectionReason: null,
+      reviewedAt: null,
     },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }

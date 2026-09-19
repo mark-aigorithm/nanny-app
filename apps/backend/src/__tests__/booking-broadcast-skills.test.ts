@@ -15,6 +15,7 @@ jest.mock('@backend/db/prisma', () => {
     count: jest.fn(),
   };
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
+  const address = { findFirst: jest.fn() };
   const nannyProfile = { findUnique: jest.fn(), findMany: jest.fn() };
   const skill = { findMany: jest.fn() };
   const packagePurchase = { findMany: jest.fn().mockResolvedValue([]) };
@@ -23,6 +24,7 @@ jest.mock('@backend/db/prisma', () => {
     prisma: {
       booking,
       user,
+      address,
       nannyProfile,
       skill,
       durationMultiplierRule,
@@ -75,6 +77,26 @@ import {
   listAvailableBookings,
 } from '@backend/services/booking.service';
 
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
+
 const mockPrisma = prisma as unknown as {
   booking: {
     findUnique: jest.Mock;
@@ -85,6 +107,7 @@ const mockPrisma = prisma as unknown as {
     updateMany: jest.Mock;
   };
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   skill: { findMany: jest.Mock };
   durationMultiplierRule: { findMany: jest.Mock };
@@ -178,7 +201,7 @@ async function broadcastTo(
   mockPrisma.nannyProfile.findMany.mockResolvedValue(
     pool.map((n) => ({
       userId: n.userId,
-      user: { latitude: null, longitude: null },
+      user: { addresses: [] },
       nannySkills: n.skillIds.map((id) => ({ skillId: id })),
     })),
   );
@@ -189,6 +212,7 @@ async function broadcastTo(
     endTime: '2099-01-01T13:00:00',
     skillIds,
     children: [{ name: null, ageYears: 4, allergies: null }],
+    addressId: HOME_ADDRESS.id,
   });
 
   return mockNotify.mock.calls
@@ -199,6 +223,7 @@ async function broadcastTo(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   mockSkillMatching.mockResolvedValue(true);
 });
 
@@ -236,7 +261,7 @@ function mockPool(nannySkillIds: number[]) {
   mockPrisma.user.findUnique.mockResolvedValue(nannyUser);
   mockPrisma.nannyProfile.findUnique.mockResolvedValue({
     id: 19,
-    user: { latitude: null, longitude: null },
+    user: { addresses: [] },
     nannySkills: nannySkillIds.map((id) => ({ skillId: id })),
   });
   // First findMany = the nanny's busy slots; second = the open pool.

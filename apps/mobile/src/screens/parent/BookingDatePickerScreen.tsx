@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,6 @@ import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
 import BookingLocationSection from '@mobile/components/BookingLocationSection';
 import { Stepper } from '@mobile/components/ui';
-import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { fmtBookingDate, useBookingOptions, usePricingConfig } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingTime, formatDurationHours, formatHour24 } from '@mobile/lib/formatTime';
@@ -355,12 +354,12 @@ export default function BookingDatePickerScreen() {
     setStartWall(nextStart);
   };
 
-  // Every mother sets a home pin at registration, so this only trips for legacy
-  // accounts missing one. Gate only when we KNOW it's absent — never while the
-  // profile is still loading (null), which would wrongly block the flow.
-  const profile = useUserProfileStore((s) => s.profile);
-  const missingLocation =
-    profile != null && (profile.latitude == null || profile.longitude == null);
+  // Which saved address the nanny is sent to. The Where step preselects her
+  // default the moment the list loads, so this is only null while it loads or
+  // for an account with no address at all — and either way Continue waits.
+  const [addressId, setAddressId] = useState<number | null>(null);
+  const handleSelectAddress = useCallback((id: number | null) => setAddressId(id), []);
+  const missingLocation = addressId === null;
 
   const canContinue =
     !!options &&
@@ -371,11 +370,14 @@ export default function BookingDatePickerScreen() {
     !missingLocation;
 
   const handleContinue = () => {
-    if (!canContinue || !startWall || !endWall || durationMinutes === null) return;
+    if (!canContinue || !startWall || !endWall || durationMinutes === null || addressId === null) {
+      return;
+    }
 
     router.push({
       pathname: '/(parent)/book/booking-care-details',
       params: {
+        addressId: String(addressId),
         // The date the booking actually STARTS — which for a late-night slot is
         // the day after the one tapped. The server derives its own from the
         // start time; this is only for display.
@@ -604,7 +606,7 @@ export default function BookingDatePickerScreen() {
           <>
             {/* Where first — the mother confirms the address the nanny will be
                 sent to before choosing when. */}
-            <BookingLocationSection />
+            <BookingLocationSection selectedId={addressId} onSelect={handleSelectAddress} />
 
             <View style={styles.noticePill}>
               <Ionicons name="information-circle-outline" size={15} color={colors.textTertiary} />

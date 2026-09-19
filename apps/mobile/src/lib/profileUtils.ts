@@ -11,7 +11,8 @@ export type ProfileReturnTo =
   | 'messages'
   | 'customer-support'
   | 'events-meetups'
-  | 'mother-profile';
+  | 'mother-profile'
+  | 'account-details';
 
 const RETURN_HREF: Record<ProfileReturnTo, string> = {
   home: '/(parent)/home',
@@ -22,6 +23,7 @@ const RETURN_HREF: Record<ProfileReturnTo, string> = {
   'customer-support': '/(parent)/customer-support',
   'events-meetups': '/(parent)/events-meetups',
   'mother-profile': '/(parent)/mother-profile',
+  'account-details': '/(parent)/account-details',
 };
 
 export function getProfileReturnHref(returnTo?: string): string {

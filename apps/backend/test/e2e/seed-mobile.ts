@@ -39,10 +39,8 @@ type AccountSpec = {
   role: Extract<Role, 'MOTHER' | 'NANNY'>;
   firstName?: string;
   lastName?: string;
-  /** Defaults to APPROVED; A11 seeds a mother who has never uploaded an ID. */
-  idVerificationStatus?: 'PENDING_ID' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
-  /** Nannies only. Defaults to APPROVED; A10 seeds one still awaiting vetting. */
-  approvalStatus?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  /** Defaults to APPROVED; A10 seeds a nanny still awaiting vetting, A11 a mother who has never uploaded an ID. */
+  approvalStatus?: 'PENDING_ID' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 };
 
 /** The console account the lab approves with; a superuser, so nothing is out of reach. */
@@ -111,11 +109,13 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
   const email = placeholderEmail(spec.phone);
   const firebaseUid = await ensureFirebaseUser(email, spec.password, spec.phone);
 
-  // Both roles are gated on an approved ID — a mother cannot book without one
-  // and a nanny cannot reach her dashboard. The lab's baseline is "past the
-  // gate"; the flows that exercise a gate ask for an account on the wrong side
-  // of it, and are re-seeded before every run because they approve it.
-  const idVerificationStatus = spec.idVerificationStatus ?? 'APPROVED';
+  // Both roles are gated on their approval status, but not the same way: a
+  // mother must have an ID on file (not PENDING_ID/REJECTED) before she can
+  // book, while a nanny must be APPROVED before she can reach her dashboard.
+  // The lab's baseline is "past the gate"; the flows that exercise a gate ask
+  // for an account on the wrong side of it, and are re-seeded before every run
+  // because they approve it.
+  const approvalStatus = spec.approvalStatus ?? 'APPROVED';
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -126,15 +126,13 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       firstName: spec.firstName ?? 'E2E',
       lastName: spec.lastName ?? (spec.role === Role.NANNY ? 'Nanny' : 'Mother'),
       role: spec.role,
-      idVerificationStatus,
+      approvalStatus,
       // Booking is gated on a proven address, and the root router blocks an
       // account without one at launch. These stand in for accounts registered
       // the normal way, which prove an address mid-wizard — C2 and A10 drive
       // that step, and a14-mother-email-gate.test.ts covers the endpoints.
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
-      ...LOCATION,
-      address: '1 Test Street, Cairo',
     },
     // The emulator is wiped between runs and issues a fresh uid each time; a
     // stale one would pass sign-in and then fail every authenticated request.
@@ -142,15 +140,29 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       firebaseUid,
       phone: spec.phone,
       role: spec.role,
-      idVerificationStatus,
+      approvalStatus,
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
       // Cleared so a flow that rejected this account last run does not leave a
       // stale reason on the gate's copy.
-      idRejectionReason: null,
+      rejectionReason: null,
       deletedAt: null,
     },
   });
+
+  // Where the account lives: one default "Home" row, which the booking picker
+  // preselects for a mother and proximity matching reads for a nanny. Kept in
+  // step across runs — a flow that added or moved addresses last time must
+  // not leave the baseline account with a different default.
+  const home = await prisma.address.findFirst({
+    where: { userId: user.id, deletedAt: null, isDefault: true },
+  });
+  const homeFields = { label: 'Home', formattedAddress: '1 Test Street, Cairo', ...LOCATION };
+  if (home) {
+    await prisma.address.update({ where: { id: home.id }, data: homeFields });
+  } else {
+    await prisma.address.create({ data: { userId: user.id, isDefault: true, ...homeFields } });
+  }
 
   if (spec.role === Role.NANNY) {
     const existing = await prisma.nannyProfile.findFirst({ where: { userId: user.id } });
@@ -159,10 +171,6 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       yearsOfExperience: 3,
       // Required and has no schema default — omitting it fails at the DB.
       ageRanges: ['0-1', '2-5'],
-      isProfileComplete: true,
-      // A PENDING_REVIEW nanny is invisible to search and cannot be booked, so
-      // APPROVED is the baseline here too.
-      approvalStatus: spec.approvalStatus ?? ('APPROVED' as const),
       availabilityType: 'FULL_TIME' as const,
     };
 

@@ -28,19 +28,18 @@ export const ACCOUNTS = {
     password: PASSWORD,
     role: 'MOTHER',
     firstName: 'Gada',
-    idVerificationStatus: 'PENDING_ID',
+    approvalStatus: 'PENDING_ID',
   },
   /**
    * A nanny who has submitted her ID and is waiting to be vetted, for A10.
-   * `idVerificationStatus` is what the root router actually gates a nanny on —
-   * PENDING_REVIEW holds her on the waiting screen, APPROVED lets her in.
+   * `approvalStatus` is what the root router gates a nanny on — PENDING_REVIEW
+   * holds her on the waiting screen, APPROVED lets her in.
    */
   pendingNanny: {
     phone: '+201100000004',
     password: PASSWORD,
     role: 'NANNY',
     firstName: 'Noha',
-    idVerificationStatus: 'PENDING_REVIEW',
     approvalStatus: 'PENDING_REVIEW',
   },
 };

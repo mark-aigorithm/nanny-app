@@ -98,11 +98,11 @@ export async function deleteCertification(id: number): Promise<{ id: number }> {
 
 /**
  * Reconcile a nanny's certification links to exactly `certificationIds`, run
- * inside a caller-provided transaction (the nanny self-service profile update).
- * Only active, non-deleted catalog ids may be assigned. Rows no longer wanted
- * are soft-deleted; previously soft-deleted rows are reactivated because the
- * `@@unique([nannyProfileId, certificationId])` constraint spans soft-deleted
- * rows, so a plain create would collide.
+ * inside a caller-provided transaction (the shared registration / admin-edit
+ * profile writer). Only active, non-deleted catalog ids may be assigned. Rows
+ * no longer wanted are soft-deleted; previously soft-deleted rows are
+ * reactivated because the `@@unique([nannyProfileId, certificationId])`
+ * constraint spans soft-deleted rows, so a plain create would collide.
  */
 export async function reconcileNannyCertifications(
   tx: Prisma.TransactionClient,

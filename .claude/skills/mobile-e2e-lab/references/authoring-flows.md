@@ -72,7 +72,7 @@ re-seeding undoes the previous flow as well as the previous run). It:
 - **Upserts** each account and **links the phone number onto the email/password Firebase uid** — so
   the emulator's phone sign-in resolves to the same user the app signs in as. Without this, a
   phone-based reset (`useConfirmPhoneAndResetPassword`) or any phone sign-in mints a *second* user.
-- Sets `idVerificationStatus`/`approvalStatus` from the spec, so gate flows (A10/A11) get an account
+- Sets `approvalStatus` from the spec, so gate flows (A10/A11) get an account
   on the wrong side of the gate each run.
 - The DB is **never truncated**; `resetPreviousRun` soft-deletes the accounts' bookings/redemptions
   and frees the package slot (a partial unique index that ignores `deletedAt`).

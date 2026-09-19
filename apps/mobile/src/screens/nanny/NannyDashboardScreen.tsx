@@ -18,7 +18,6 @@ import { formatMoney } from '@mobile/lib/formatMoney';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import NannyExtensionRequestCard from '@mobile/components/NannyExtensionRequestCard';
 import UpcomingShiftBanner from '@mobile/components/UpcomingShiftBanner';
-import ProfileVisibilityBanner from '@mobile/components/ProfileVisibilityBanner';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
 import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-dashboard-screen.styles';
@@ -67,7 +66,6 @@ export default function NannyDashboardScreen() {
           />
         }
       >
-        <ProfileVisibilityBanner note="Your profile is managed by NannyNow. Contact support to update it." />
         <OngoingBookingBanner />
         <NannyExtensionRequestCard />
         <UpcomingShiftBanner bookings={shiftBookings} />

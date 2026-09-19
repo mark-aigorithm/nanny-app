@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { IdVerificationStatus } from '@shared/nanny';
+import { ApprovalStatus } from '@shared/auth';
 import { useIdGateStore } from '@mobile/store/idGateStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
@@ -17,10 +17,10 @@ export function useIdGate() {
   const profile = useUserProfileStore((s) => s.profile);
   const openIdGate = useIdGateStore((s) => s.openIdGate);
 
-  const status = profile?.idVerificationStatus ?? null;
+  const status = profile?.approvalStatus ?? null;
   const needsId =
-    status === IdVerificationStatus.PENDING_ID || status === IdVerificationStatus.REJECTED;
-  const reason = profile?.idRejectionReason ?? null;
+    status === ApprovalStatus.PENDING_ID || status === ApprovalStatus.REJECTED;
+  const reason = profile?.rejectionReason ?? null;
 
   const gate = useCallback(
     <Args extends unknown[]>(action: (...args: Args) => void) =>

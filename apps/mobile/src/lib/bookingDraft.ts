@@ -31,6 +31,12 @@ export type BookingFlowParams = {
   /** '1' when she asked to save these children for her next booking. */
   saveChildren?: string;
   /**
+   * The saved address the nanny is sent to, chosen on the Where step. Required
+   * to submit — it is where the booking happens and what the server measures
+   * the broadcast radius from.
+   */
+  addressId?: string;
+  /**
    * Free hours the parent reserved with Care Points on the review step. Points
    * can only be redeemed against a booking that exists, so this rides through
    * the flow and is applied on the confirmation screen once a nanny accepts.
@@ -42,8 +48,8 @@ export type BookingFlowParams = {
 
 export function hasRequiredBookingDraft(params: BookingFlowParams): boolean {
   // Broadcast flow: a request no longer needs a nanny chosen up front — just a
-  // date and window. A nanny claims it later.
-  return !!(params.dateIso && params.startTimeWall && params.endTimeWall);
+  // date, a window and where. A nanny claims it later.
+  return !!(params.dateIso && params.startTimeWall && params.endTimeWall && params.addressId);
 }
 
 export function getBookingDateDisplay(params: BookingFlowParams): string {
@@ -117,6 +123,7 @@ export function bookingFlowRetryParams(
     instructions: params.instructions,
     promoCode: params.promoCode,
     pointsHours: params.pointsHours,
+    addressId: params.addressId,
   };
 }
 
@@ -142,5 +149,6 @@ export function payBookingParams(booking: BookingResponse): BookingFlowParams {
     ...(nannyName ? { nannyName } : {}),
     ...(booking.nanny?.avatarUrl ? { nannyPhoto: booking.nanny.avatarUrl } : {}),
     ...(booking.specialInstructions ? { instructions: booking.specialInstructions } : {}),
+    ...(booking.address?.details ? { addressId: String(booking.address.details.addressId) } : {}),
   };
 }

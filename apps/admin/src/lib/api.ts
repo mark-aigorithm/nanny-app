@@ -1,4 +1,6 @@
 import type {
+  Address,
+  AdminUpsertNannyAddressInput,
   AdminBooking,
   AdminBookingDetail,
   AdminBookingEditContext,
@@ -10,17 +12,14 @@ import type {
   AdminRefundBookingInput,
   AdminRefundResponse,
   AdminIdReview,
-  AdminIdReviewRoleFilter,
-  AdminIdReviewStatusFilter,
+  AdminApprovalStatusFilter,
   AdminListQuery,
   AdminMarketplaceListing,
   AdminMarketplaceStatusFilter,
   AdminMother,
   AdminMotherDetail,
-  AdminMotherStatusFilter,
   AdminNanny,
   AdminNannyDetail,
-  AdminNannyStatusFilter,
   AdminPackagePurchase,
   AdminPackagePurchaseDetail,
   AdminPackagePurchaseListQuery,
@@ -462,7 +461,7 @@ export async function refundBooking(
 }
 
 export async function fetchNannies(
-  status: AdminNannyStatusFilter,
+  status: AdminApprovalStatusFilter,
   { page, limit, sort }: SortableListQuery,
 ): Promise<Paged<AdminNanny[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminNanny[]>>('/admin/nannies', {
@@ -502,8 +501,26 @@ export async function updateNanny(
   return res.data.data;
 }
 
+/** Rewrites a nanny's single address — the one way it changes after registration. */
+export async function updateNannyAddress(
+  nannyProfileId: number,
+  input: AdminUpsertNannyAddressInput,
+): Promise<Address> {
+  const res = await apiClient.put<ApiEnvelope<Address>>(
+    `/admin/nannies/${nannyProfileId}/address`,
+    input,
+  );
+  return res.data.data;
+}
+
+/** A mother's address book, default first. Read-only in the console. */
+export async function fetchMotherAddresses(motherId: number): Promise<Address[]> {
+  const res = await apiClient.get<ApiEnvelope<Address[]>>(`/admin/mothers/${motherId}/addresses`);
+  return res.data.data;
+}
+
 export async function fetchMothers(
-  status: AdminMotherStatusFilter,
+  status: AdminApprovalStatusFilter,
   { page, limit, sort }: SortableListQuery,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
@@ -541,15 +558,14 @@ export async function rejectMother(id: string, reason?: string): Promise<AdminMo
   return res.data.data;
 }
 
-// ── Combined ID review queue (parents + nannies) ───────────────
+// ── Parent ID review queue ─────────────────────────────────────
 
 export async function fetchIdReviews(
-  status: AdminIdReviewStatusFilter,
-  role: AdminIdReviewRoleFilter,
+  status: AdminApprovalStatusFilter,
   { page, limit, sort }: SortableListQuery,
 ): Promise<Paged<AdminIdReview[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminIdReview[]>>('/admin/id-reviews', {
-    params: { status, role, page, limit, sort },
+    params: { status, page, limit, sort },
   });
   return { data: res.data.data, meta: res.data.meta };
 }

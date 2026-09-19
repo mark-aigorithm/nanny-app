@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 
 import { AvailabilityType, UpdateAdminNannySchema } from '@nanny-app/shared';
 import type {
@@ -22,6 +22,7 @@ import {
 } from '@admin/components/ui';
 import { updateNanny } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { uploadImageToFirebase } from '@admin/lib/storage';
 
 type NannyProfileEditorProps = {
   nanny: AdminNannyDetail;
@@ -91,7 +92,9 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
 
   const [firstName, setFirstName] = useState(nanny.firstName);
   const [lastName, setLastName] = useState(nanny.lastName);
-  const [location, setLocation] = useState(nanny.location ?? '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(nanny.avatarUrl);
+  const [uploading, setUploading] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState(nanny.dateOfBirth ?? '');
   const [bio, setBio] = useState(nanny.bio ?? '');
   const [yearsOfExperience, setYearsOfExperience] = useState(
     nanny.yearsOfExperience !== null ? String(nanny.yearsOfExperience) : '',
@@ -135,14 +138,31 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
     setSchedule((prev) => ({ ...prev, [day]: { ...getDay(prev, day), [field]: value } }));
   }
 
+  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setFormError(null);
+    try {
+      setAvatarUrl(await uploadImageToFirebase(file, 'avatars'));
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Photo upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function buildPayload(): UpdateAdminNanny {
     const years = yearsOfExperience.trim();
+    const dob = dateOfBirth.trim();
     return {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      location: location.trim(),
-      bio: bio.trim(),
+      avatarUrl,
       // Optional-not-nullable server-side: an empty field leaves the current value untouched.
+      ...(dob !== '' ? { dateOfBirth: dob } : {}),
+      // Her address and pin are the Address card's (PUT /nannies/:id/address), not this form's.
+      bio: bio.trim(),
       ...(years !== '' ? { yearsOfExperience: Number(years) } : {}),
       ageRanges: [...ageRanges],
       availabilityType,
@@ -194,12 +214,11 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
             required
           />
         </Field>
-        <Field label="Location" hint="Home address shown to parents.">
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Maadi, Cairo"
-          />
+        <Field label="Photo" hint="Shown to parents on her profile.">
+          <input type="file" accept="image/*" onChange={(e) => void handlePhoto(e)} disabled={uploading} />
+        </Field>
+        <Field label="Date of birth">
+          <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
         </Field>
         <Field label="Years of experience">
           <input
@@ -212,6 +231,14 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
           />
         </Field>
       </div>
+      {avatarUrl && (
+        <div className="row-actions">
+          <img className="id-review-avatar" src={avatarUrl} alt={nanny.name} />
+          <Button size="sm" variant="ghost" onClick={() => setAvatarUrl(null)}>
+            Remove photo
+          </Button>
+        </div>
+      )}
       <Field label="Bio">
         <textarea
           className="input"
@@ -303,7 +330,7 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
       )}
 
       <div className="row-actions">
-        <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
+        <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || uploading}>
           {saveMutation.isPending ? 'Saving…' : 'Save profile'}
         </Button>
         <Button size="sm" variant="ghost" onClick={onDone} disabled={saveMutation.isPending}>

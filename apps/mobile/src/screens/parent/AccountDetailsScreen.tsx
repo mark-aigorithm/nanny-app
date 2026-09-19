@@ -31,10 +31,6 @@ export default function AccountDetailsScreen() {
   const [lastName, setLastName] = useState(profile?.lastName ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zipCode, setZipCode] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(profile?.avatarUrl ?? null);
 
   useEffect(() => {
@@ -197,24 +193,29 @@ export default function AccountDetailsScreen() {
             <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={isEditing} />
           </View>
 
+          {/* Addresses are an address book of their own (one is the default the
+              booking picker preselects); this row shows the default and opens it. */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Address</Text>
-            <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={address} onChangeText={setAddress} autoCapitalize="words" editable={isEditing} />
-          </View>
-
-          <View style={styles.formRow}>
-            <View style={[styles.fieldGroup, { flex: 2 }]}>
-              <Text style={styles.fieldLabel}>City</Text>
-              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={city} onChangeText={setCity} autoCapitalize="words" editable={isEditing} />
-            </View>
-            <View style={[styles.fieldGroup, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>State</Text>
-              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={state} onChangeText={setState} autoCapitalize="characters" maxLength={2} editable={isEditing} />
-            </View>
-            <View style={[styles.fieldGroup, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>ZIP</Text>
-              <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={zipCode} onChangeText={setZipCode} keyboardType="number-pad" maxLength={5} editable={isEditing} />
-            </View>
+            <Text style={styles.fieldLabel}>Addresses</Text>
+            <Pressable
+              style={styles.linkRow}
+              onPress={() =>
+                router.push({
+                  pathname: '/(parent)/addresses',
+                  params: { returnTo: 'account-details' },
+                } as never)
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Manage addresses"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.linkRowText} numberOfLines={1}>
+                  {profile?.address || 'Add your address'}
+                </Text>
+                <Text style={styles.linkRowHint}>Manage where your nanny comes to</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </Pressable>
           </View>
         </View>
 

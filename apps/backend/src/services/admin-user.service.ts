@@ -1,10 +1,11 @@
-import { IdVerificationStatus, type Prisma } from '@prisma/client';
+import { ApprovalStatus, type Prisma } from '@prisma/client';
 
 import { hasSectionAccess, sortDirection } from '@nanny-app/shared';
 import type {
+  Address as AddressDto,
+  AdminApprovalStatusFilter,
   AdminMother,
   AdminMotherDetail,
-  AdminMotherStatusFilter,
   AdminRole,
   AdminSection,
   AdminSortedListQuery,
@@ -21,6 +22,7 @@ import { effectivePermissions } from '@backend/lib/admin-permissions';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
+import { listAddresses } from '@backend/services/address.service';
 import {
   createInAppNotification,
   dispatchPush,
@@ -33,15 +35,16 @@ const motherSelect = {
   email: true,
   phone: true,
   avatarUrl: true,
-  address: true,
+  // The default address row; `location` is its display line.
+  addresses: { where: { isDefault: true, deletedAt: null }, take: 1 },
   isEmailVerified: true,
   isPhoneVerified: true,
   isActive: true,
-  // Identity verification (mothers are reviewed the same way as nannies).
-  idVerificationStatus: true,
+  // The admin's decision on her ID, plus the document itself.
+  approvalStatus: true,
   idDocumentType: true,
-  idRejectionReason: true,
-  idReviewedAt: true,
+  rejectionReason: true,
+  reviewedAt: true,
   idDocumentFrontUrl: true,
   idDocumentBackUrl: true,
   createdAt: true,
@@ -57,15 +60,15 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
     email: row.email,
     phone: row.phone,
     avatarUrl: row.avatarUrl,
-    // Home location lives on the user row (single source of truth).
-    location: row.address,
+    // Home location is the default address row (single source of truth).
+    location: row.addresses[0]?.formattedAddress ?? null,
     isEmailVerified: row.isEmailVerified,
     isPhoneVerified: row.isPhoneVerified,
     isActive: row.isActive,
-    idVerificationStatus: row.idVerificationStatus,
+    approvalStatus: row.approvalStatus,
     idDocumentType: row.idDocumentType,
-    rejectionReason: row.idRejectionReason,
-    reviewedAt: row.idReviewedAt?.toISOString() ?? null,
+    rejectionReason: row.rejectionReason,
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
     idDocumentFrontUrl: row.idDocumentFrontUrl,
     idDocumentBackUrl: row.idDocumentBackUrl,
     bookingCount: row._count.bookingsAsMother,
@@ -84,11 +87,12 @@ async function findReviewableMother(id: number): Promise<AdminMotherRow> {
 }
 
 /** Detail DTO: the list fields plus the raw first/last name split for the edit form. */
-function toMotherDetailDto(row: AdminMotherRow): AdminMotherDetail {
+function toMotherDetailDto(row: AdminMotherRow, addresses: AddressDto[]): AdminMotherDetail {
   return {
     ...toMotherDto(row),
     firstName: row.firstName,
     lastName: row.lastName,
+    addresses,
   };
 }
 
@@ -226,13 +230,13 @@ export async function deleteAdminUser(id: number, actingUserId: number): Promise
  * tab and the ID-review gallery can differ visibly instead of silently.
  */
 export async function listAdminMothers(
-  status: AdminMotherStatusFilter,
+  status: AdminApprovalStatusFilter,
   { page, limit, sort }: AdminSortedListQuery,
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     role: 'MOTHER',
     deletedAt: null,
-    ...(status !== 'ALL' ? { idVerificationStatus: status as IdVerificationStatus } : {}),
+    ...(status !== 'ALL' ? { approvalStatus: status as ApprovalStatus } : {}),
   };
 
   const [total, rows] = await prisma.$transaction([
@@ -254,7 +258,14 @@ export async function listAdminMothers(
 
 /** Full detail for a single mother account (admin detail page). */
 export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
-  return toMotherDetailDto(await findReviewableMother(id));
+  const mother = await findReviewableMother(id);
+  return toMotherDetailDto(mother, await listAddresses(mother.id));
+}
+
+/** A mother's whole address book, for the console's read-only list. */
+export async function listAdminMotherAddresses(id: number): Promise<AddressDto[]> {
+  const mother = await findReviewableMother(id);
+  return listAddresses(mother.id);
 }
 
 /**
@@ -263,16 +274,16 @@ export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
  */
 export async function approveMother(id: number): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
-  if (mother.idVerificationStatus === IdVerificationStatus.APPROVED) {
+  if (mother.approvalStatus === ApprovalStatus.APPROVED) {
     throw errors.badRequest('This mother is already approved.');
   }
 
   await prisma.user.update({
     where: { id },
     data: {
-      idVerificationStatus: IdVerificationStatus.APPROVED,
-      idReviewedAt: new Date(),
-      idRejectionReason: null,
+      approvalStatus: ApprovalStatus.APPROVED,
+      reviewedAt: new Date(),
+      rejectionReason: null,
     },
   });
 
@@ -290,7 +301,7 @@ export async function approveMother(id: number): Promise<AdminMother> {
  */
 export async function rejectMother(id: number, input: RejectNannyInput): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
-  if (mother.idVerificationStatus === IdVerificationStatus.REJECTED) {
+  if (mother.approvalStatus === ApprovalStatus.REJECTED) {
     throw errors.badRequest('This mother is already rejected.');
   }
 
@@ -298,9 +309,9 @@ export async function rejectMother(id: number, input: RejectNannyInput): Promise
   await prisma.user.update({
     where: { id },
     data: {
-      idVerificationStatus: IdVerificationStatus.REJECTED,
-      idReviewedAt: new Date(),
-      idRejectionReason: input.reason ?? null,
+      approvalStatus: ApprovalStatus.REJECTED,
+      reviewedAt: new Date(),
+      rejectionReason: input.reason ?? null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
     },
@@ -347,7 +358,7 @@ export async function updateAdminMother(
     },
     select: motherSelect,
   });
-  return toMotherDetailDto(row);
+  return toMotherDetailDto(row, await listAddresses(row.id));
 }
 
 /**

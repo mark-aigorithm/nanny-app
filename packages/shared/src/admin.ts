@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ApprovalStatusSchema } from './auth';
 import {
   AppliedSkillFeeSchema,
   BookingStatusSchema,
@@ -7,13 +8,13 @@ import {
   PaginationMetaSchema,
   wallClockField,
 } from './booking';
+import { AddressInputSchema, AddressSchema, BookingAddressSchema } from './address';
 import { PublicCertificationSchema } from './certification';
 import { BookingChildSchema } from './child';
 import { CommunityTagSchema, PostModerationStatusSchema } from './community';
 import {
   AvailabilityTypeSchema,
   IdDocumentTypeSchema,
-  IdVerificationStatusSchema,
   WeeklyScheduleSchema,
 } from './nanny';
 import { AdminRoleSchema, OperatorPermissionsSchema } from './operator';
@@ -356,6 +357,11 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   childrenCount: z.number(),
   extraChildren: z.number(),
   extraChildFeePerHour: z.number(),
+  /**
+   * Where the booking happens, snapshotted at creation. Always the whole
+   * address for the console. Null on a booking whose mother had no address.
+   */
+  address: BookingAddressSchema.nullable(),
   subtotal: z.number(),
   durationMultiplier: z.number(),
   serviceFeePercent: z.number(),
@@ -438,8 +444,11 @@ export const AdminEditBookingSchema = z.object({
   usePackageHours: z.boolean().optional(),
   /** Care Points hours to redeem. 0/undefined = none. Bounded by the wallet server-side. */
   carePointsHours: z.number().int().min(0).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  /**
+   * Move the booking to another of the mother's saved addresses (re-snapshots
+   * it and the broadcast coordinates). `undefined` leaves it where it is.
+   */
+  addressId: z.number().int().positive().optional(),
 });
 export type AdminEditBookingInput = z.infer<typeof AdminEditBookingSchema>;
 
@@ -579,10 +588,14 @@ export type AdminRefundResponse = z.infer<typeof AdminRefundResponseSchema>;
 // Nanny review queue (admin vetting of new nanny registrations)
 // ──────────────────────────────────────────────────────────────
 
-export const AdminNannyStatusFilterSchema = z.enum([
+/**
+ * Approval-status filter shared by the Nannies tab, the Mommies tab and the
+ * parent ID-review gallery — the same four states plus ALL.
+ */
+export const AdminApprovalStatusFilterSchema = z.enum([
   'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
 ]);
-export type AdminNannyStatusFilter = z.infer<typeof AdminNannyStatusFilterSchema>;
+export type AdminApprovalStatusFilter = z.infer<typeof AdminApprovalStatusFilterSchema>;
 
 export const AdminNannySchema = z.object({
   /** NannyProfile id (used by approve/reject endpoints). */
@@ -599,7 +612,7 @@ export const AdminNannySchema = z.object({
   skills: z.array(PublicSkillSchema),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
-  idVerificationStatus: IdVerificationStatusSchema,
+  approvalStatus: ApprovalStatusSchema,
   /** Kind of ID on file (passport → front only); null until uploaded. */
   idDocumentType: IdDocumentTypeSchema.nullable(),
   rejectionReason: z.string().nullable(),
@@ -613,7 +626,7 @@ export type AdminNanny = z.infer<typeof AdminNannySchema>;
 
 /** Paginated nanny list query (GET /admin/nannies). A directory, so newest first. */
 export const AdminNannyListQuerySchema = AdminSortedListQuerySchema.extend({
-  status: AdminNannyStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
+  status: AdminApprovalStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
 });
 export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
 
@@ -633,12 +646,29 @@ export const AdminNannyDetailSchema = AdminNannySchema.extend({
   ageRanges: z.array(z.string()),
   availabilityType: AvailabilityTypeSchema,
   schedule: WeeklyScheduleSchema.nullable(),
+  /** Home pin (from the user row); null when never captured. */
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
   /** Lifetime earnings: sum of `nannyAmount` across the nanny's COMPLETED bookings (EGP). */
   amountGained: z.number(),
   /** Number of COMPLETED bookings contributing to `amountGained`. */
   completedBookings: z.number().int(),
+  /**
+   * Her single home base — what `location` is derived from. Null only for an
+   * account that registered without coordinates; PUT /nannies/:id/address
+   * creates it.
+   */
+  address: AddressSchema.nullable(),
 });
 export type AdminNannyDetail = z.infer<typeof AdminNannyDetailSchema>;
+
+/**
+ * Body for PUT /admin/nannies/:id/address — the one place a nanny's address
+ * changes after registration. No label or default flag: she has exactly one,
+ * and it is always "Home".
+ */
+export const AdminUpsertNannyAddressSchema = AddressInputSchema.omit({ label: true, isDefault: true });
+export type AdminUpsertNannyAddressInput = z.infer<typeof AdminUpsertNannyAddressSchema>;
 
 export const RejectNannySchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
@@ -648,11 +678,6 @@ export type RejectNannyInput = z.infer<typeof RejectNannySchema>;
 // ──────────────────────────────────────────────────────────────
 // Mothers directory (admin read-only list of parent accounts)
 // ──────────────────────────────────────────────────────────────
-
-export const AdminMotherStatusFilterSchema = z.enum([
-  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
-]);
-export type AdminMotherStatusFilter = z.infer<typeof AdminMotherStatusFilterSchema>;
 
 export const AdminMotherSchema = z.object({
   /** User id. */
@@ -666,8 +691,8 @@ export const AdminMotherSchema = z.object({
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   isActive: z.boolean(),
-  /** ID verification state — mothers are reviewed the same way as nannies. */
-  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  /** Admin approval state — for a parent, whether her ID checked out. */
+  approvalStatus: ApprovalStatusSchema.nullable(),
   idDocumentType: IdDocumentTypeSchema.nullable(),
   rejectionReason: z.string().nullable(),
   reviewedAt: z.string().nullable(),
@@ -682,7 +707,7 @@ export type AdminMother = z.infer<typeof AdminMotherSchema>;
 
 /** Paginated mother list query (GET /admin/mothers). A directory, so newest first. */
 export const AdminMotherListQuerySchema = AdminSortedListQuerySchema.extend({
-  status: AdminMotherStatusFilterSchema.catch('ALL').default('ALL'),
+  status: AdminApprovalStatusFilterSchema.catch('ALL').default('ALL'),
 });
 export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
 
@@ -695,6 +720,8 @@ export const AdminMotherDetailSchema = AdminMotherSchema.extend({
   firstName: z.string(),
   /** May be the '-' placeholder when the account has no last name. */
   lastName: z.string(),
+  /** Her address book, default first. Read-only in the console. */
+  addresses: z.array(AddressSchema),
 });
 export type AdminMotherDetail = z.infer<typeof AdminMotherDetailSchema>;
 
@@ -717,15 +744,23 @@ export const UpdateAdminMotherSchema = z
 export type UpdateAdminMotherInput = z.infer<typeof UpdateAdminMotherSchema>;
 
 /**
- * Partial update for a nanny account (PATCH /admin/nannies/:id). Mirrors
- * `UpdateAdminMotherSchema`'s precedent, extended with the nanny profile
- * fields captured at registration so admins can correct them post-signup.
+ * Partial update for a nanny account (PATCH /admin/nannies/:id). A nanny
+ * cannot edit her own profile, so the console can correct every field she
+ * entered at registration — name, photo, date of birth, bio, experience, age
+ * ranges, availability, schedule, certifications. Her address (line + pin) is
+ * PUT /admin/nannies/:id/address instead. Email and phone (Firebase Auth
+ * identity) and the ID images (she re-uploads after a reject) are
+ * intentionally not here.
  */
 export const UpdateAdminNannySchema = z
   .object({
     firstName: z.string().trim().min(1).max(80).optional(),
     lastName: z.string().trim().min(1).max(80).optional(),
-    location: z.string().trim().max(200).optional(),
+    avatarUrl: z.string().url().nullable().optional(),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD').optional(),
+    // No location or pin here: her address is edited through
+    // PUT /admin/nannies/:id/address so the line parents read and the pin
+    // proximity matching uses can never drift apart.
     bio: z.string().trim().max(600).optional(),
     yearsOfExperience: z.number().int().min(0).max(60).optional(),
     ageRanges: z.array(z.string()).optional(),
@@ -737,40 +772,23 @@ export const UpdateAdminNannySchema = z
 export type UpdateAdminNanny = z.infer<typeof UpdateAdminNannySchema>;
 
 // ──────────────────────────────────────────────────────────────
-// Combined ID review queue (parents + nannies in one KYC gallery)
+// Parent ID review queue (a parent's approval is an ID check)
 // ──────────────────────────────────────────────────────────────
 
-/** Which account roles the combined ID-review gallery can be narrowed to. */
-export const AdminIdReviewRoleFilterSchema = z.enum(['ALL', 'MOTHER', 'NANNY']);
-export type AdminIdReviewRoleFilter = z.infer<typeof AdminIdReviewRoleFilterSchema>;
-
-/** Verification-status filter for the ID-review queue (same states as the per-role lists). */
-export const AdminIdReviewStatusFilterSchema = z.enum([
-  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
-]);
-export type AdminIdReviewStatusFilter = z.infer<typeof AdminIdReviewStatusFilterSchema>;
-
 /**
- * One card in the combined ID-review gallery. Parents and nannies are pooled
- * into a single queue keyed off the shared User row, where KYC state lives.
+ * One card in the parent ID-review gallery. Nannies are not here: their ID is
+ * reviewed on the nanny detail page as part of approving the application.
  */
 export const AdminIdReviewSchema = z.object({
-  /**
-   * Id to pass to this role's approve/reject endpoint — the User id for a
-   * MOTHER, the NannyProfile id for a NANNY (those endpoints are keyed
-   * differently). Use `userId` for a stable, cross-role identity.
-   */
+  /** User id — what the mother approve/reject endpoints are keyed by. */
   id: z.number().int(),
-  /** Underlying User id — unique across the queue, so it keys the React list. */
-  userId: z.number().int(),
-  role: z.enum(['MOTHER', 'NANNY']),
   name: z.string(),
   avatarUrl: z.string().nullable(),
   location: z.string().nullable(),
   idDocumentType: IdDocumentTypeSchema.nullable(),
   idDocumentFrontUrl: z.string().nullable(),
   idDocumentBackUrl: z.string().nullable(),
-  idVerificationStatus: IdVerificationStatusSchema.nullable(),
+  approvalStatus: ApprovalStatusSchema.nullable(),
   rejectionReason: z.string().nullable(),
   reviewedAt: z.string().nullable(),
   createdAt: z.string(),
@@ -778,15 +796,14 @@ export const AdminIdReviewSchema = z.object({
 export type AdminIdReview = z.infer<typeof AdminIdReviewSchema>;
 
 /**
- * Paginated ID-review queue query (GET /admin/id-reviews). Defaults to the
+ * Paginated parent ID-review query (GET /admin/id-reviews). Defaults to the
  * pending queue, oldest first — this list is worked through, so the person who
  * has been waiting longest is offered first. The console shows that choice as a
  * sort control, so it reads as a decision rather than as the per-role tabs
  * mysteriously running the other way.
  */
 export const AdminIdReviewListQuerySchema = AdminSortedListQuerySchema.extend({
-  status: AdminIdReviewStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
-  role: AdminIdReviewRoleFilterSchema.catch('ALL').default('ALL'),
+  status: AdminApprovalStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
   sort: AdminSortOrderSchema.catch('oldest').default('oldest'),
 });
 export type AdminIdReviewListQuery = z.infer<typeof AdminIdReviewListQuerySchema>;

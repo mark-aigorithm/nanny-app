@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import type { AdminMother } from '@nanny-app/shared';
+import { formatAddressArea } from '@nanny-app/shared';
 
 import {
   Badge,
@@ -26,22 +26,11 @@ import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { MotherEditForm } from '@admin/features/users/mother-edit-form';
 import { approveMother, fetchMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
-}
-
-function statusTone(
-  status: AdminMother['idVerificationStatus'],
-): 'success' | 'danger' | 'neutral' {
-  if (status === 'APPROVED') return 'success';
-  if (status === 'REJECTED') return 'danger';
-  return 'neutral';
 }
 
 const DASH = <span className="table-empty">—</span>;
@@ -87,7 +76,7 @@ export function MotherDetailPage() {
 
   const mutating = approveMutation.isPending || rejectMutation.isPending;
   const hasId = Boolean(mother?.idDocumentFrontUrl || mother?.idDocumentBackUrl);
-  const canReview = canManage && mother?.idVerificationStatus === 'PENDING_REVIEW';
+  const canReview = canManage && mother?.approvalStatus === 'PENDING_REVIEW';
 
   const actions = mother ? (
     <>
@@ -145,10 +134,10 @@ export function MotherDetailPage() {
         },
         {
           label: 'ID status',
-          value: mother.idVerificationStatus ? (
+          value: mother.approvalStatus ? (
             <>
-              <Badge tone={statusTone(mother.idVerificationStatus)}>
-                {statusLabel(mother.idVerificationStatus)}
+              <Badge tone={approvalStatusTone(mother.approvalStatus)}>
+                {approvalStatusLabel(mother.approvalStatus)}
               </Badge>
               {mother.rejectionReason && (
                 <div className="table-subtext">{mother.rejectionReason}</div>
@@ -169,7 +158,7 @@ export function MotherDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={mother ? mother.name : 'Mommy details'}
-        subtitle={mother?.idVerificationStatus ? statusLabel(mother.idVerificationStatus) : 'Parent account'}
+        subtitle={mother?.approvalStatus ? approvalStatusLabel(mother.approvalStatus) : 'Parent account'}
         actions={actions}
       />
 
@@ -206,6 +195,28 @@ export function MotherDetailPage() {
 
           <Card title="Contact">
             <DescriptionList items={contact} />
+          </Card>
+
+          <Card title="Addresses">
+            {mother.addresses.length === 0 ? (
+              <p className="empty-state">No addresses on file.</p>
+            ) : (
+              <ul className="address-list">
+                {mother.addresses.map((address) => (
+                  <li key={address.id} className="address-list-item">
+                    <div className="address-list-head">
+                      <strong>{address.label}</strong>
+                      {address.isDefault && <Badge tone="success">Default</Badge>}
+                    </div>
+                    <div>{address.formattedAddress}</div>
+                    <div className="table-subtext">
+                      {formatAddressArea(address)}
+                      {address.landmark ? ` · ${address.landmark}` : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
 
           <Card title="Account">

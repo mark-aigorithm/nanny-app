@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type {
+  Address,
   BookingOptions,
   BookingResponse,
   PricingConfig,
@@ -98,12 +99,50 @@ export function setPreviewParams(params: Record<string, string>): void {
     params;
 }
 
+/** A mother's address book, as the picker and the Addresses screen read it. */
+export const ADDRESSES: Address[] = [
+  {
+    id: 1,
+    label: 'Home',
+    formattedAddress: '12 Rd 9, Maadi, Cairo Governorate, Egypt',
+    governorate: 'Cairo',
+    area: 'Maadi',
+    street: '12 Road 9',
+    building: '4',
+    floor: '2',
+    apartment: '7',
+    landmark: 'Behind Seoudi Market, ring bell 7',
+    latitude: 29.9602,
+    longitude: 31.2569,
+    isDefault: true,
+    createdAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 2,
+    label: 'Work',
+    formattedAddress: 'Smart Village, Giza Governorate, Egypt',
+    governorate: 'Giza',
+    area: 'Sheikh Zayed',
+    street: null,
+    building: 'B7',
+    floor: '3',
+    apartment: null,
+    landmark: null,
+    latitude: 30.0716,
+    longitude: 31.0165,
+    isDefault: false,
+    createdAt: '2026-09-05T00:00:00.000Z',
+  },
+];
+
 export function PreviewProviders({
   children,
   bookings = [],
+  addresses = ADDRESSES,
 }: {
   children: ReactNode;
   bookings?: BookingResponse[];
+  addresses?: Address[];
 }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
@@ -112,6 +151,7 @@ export function PreviewProviders({
   client.setQueryData(['pricing-config'], PRICING_CONFIG);
   client.setQueryData(['rewards', 'config'], REWARD_CONFIG);
   client.setQueryData(['rewards', 'wallet'], REWARD_WALLET);
+  client.setQueryData(['addresses'], addresses);
   bookings.forEach((b) => client.setQueryData(['bookings', b.id], b));
 
   return (
