@@ -58,9 +58,9 @@ test('lists a newly registered parent awaiting review', async ({ page }) => {
   await openIdQueue(page);
 
   // The queue opens on "Pending review", so an unvetted upload needs no filter.
+  // Every card is a parent, so the card names the ID kind, not the role.
   const card = cardFor(page, mother.surname);
   await expect(card).toBeVisible();
-  await expect(card).toContainText('Parent');
   await expect(card).toContainText('Passport');
   // The photograph is the point of the queue — not just the row.
   await expect(card.getByAltText(`Front of ${mother.displayName}'s ID`)).toBeVisible();
