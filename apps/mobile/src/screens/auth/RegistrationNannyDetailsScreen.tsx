@@ -96,8 +96,10 @@ export default function RegistrationNannyDetailsScreen() {
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
-  // Keep the draft's schedule in sync so it's always ready to send, even
-  // though working hours are seeded from DEFAULT_SCHEDULE (Mon–Fri available), so the draft always has at least one working day unless she switches them all off.
+  // Keep the draft's schedule in sync so it's always ready to send. It is
+  // seeded from DEFAULT_SCHEDULE (Mon–Fri available), so the draft carries at
+  // least one working day unless she switches them all off — and then the
+  // Continue check refuses.
   useEffect(() => {
     patch({ schedule: uiScheduleToApi(schedule) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
