@@ -17,15 +17,13 @@ describe('UpdateAdminNannySchema', () => {
     expect(UpdateAdminNannySchema.safeParse({ avatarUrl: null }).success).toBe(true);
   });
 
-  it('refuses a latitude without a longitude (and vice versa)', () => {
-    const lat = UpdateAdminNannySchema.safeParse({ latitude: 30.0444 });
-    expect(lat.success).toBe(false);
-    if (!lat.success) {
-      expect(lat.error.issues[0]?.message).toBe(
-        'Latitude and longitude must be updated together.',
-      );
-    }
-    expect(UpdateAdminNannySchema.safeParse({ longitude: 31.2357 }).success).toBe(false);
+  it('does not carry the pin or the address line — those go through PUT /nannies/:id/address', () => {
+    // Unknown keys are stripped, so a body of only pin fields is an empty
+    // update, which the "at least one field" rule refuses.
+    expect(UpdateAdminNannySchema.safeParse({ latitude: 30.0444, longitude: 31.2357 }).success).toBe(false);
+    expect(UpdateAdminNannySchema.safeParse({ location: 'Maadi' }).success).toBe(false);
+    const parsed = UpdateAdminNannySchema.safeParse({ bio: 'x', latitude: 30.0444, longitude: 31.2357 });
+    expect(parsed.success && 'latitude' in parsed.data).toBe(false);
   });
 
   it('refuses a malformed date of birth', () => {
