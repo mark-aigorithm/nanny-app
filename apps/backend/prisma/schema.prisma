@@ -188,12 +188,6 @@ model User {
   phoneVerifiedAt      DateTime?             @map("phone_verified_at")
   termsAcceptedAt      DateTime?             @map("terms_accepted_at")
   termsAcceptedVersion String?               @map("terms_accepted_version")
-  /// DEPRECATED — unread and unwritten since add_addresses_table. Location
-  /// lives on the Address model now (mothers have many, nannies one); these
-  /// columns were backfilled into it and are dropped in a follow-up release.
-  address              String?
-  latitude             Decimal?              @db.Decimal(10, 7)
-  longitude            Decimal?              @db.Decimal(10, 7)
   /// Identity documents + the admin's decision, for BOTH nannies and mothers.
   /// Nannies must be APPROVED to appear in search / use the app; mothers must
   /// have uploaded an ID (not PENDING_ID/REJECTED) before booking. Null for

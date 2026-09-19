@@ -194,12 +194,12 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 ## Known Gotchas
 
 **Location lives on `addresses`, not `users`**
-`users.address / latitude / longitude` are deprecated and unread since `add_addresses_table`
-(they were backfilled into each user's default `addresses` row and are dropped in a later
-release). Read a user's location through `getDefaultAddress` in `address.service.ts` — never the
-user columns — and keep the one-default-per-user rule inside that service's transactions; there is
-no database constraint for it (Prisma cannot declare a partial unique index, and one would show as
-permanent drift in `migrate diff`). See `docs/superpowers/specs/2026-09-19-addresses-design.md`.
+`users.address / latitude / longitude` are gone: `add_addresses_table` backfilled them into each
+user's default `addresses` row and `drop_user_location_columns` removed them. Read a user's
+location through `getDefaultAddress` in `address.service.ts`, and keep the one-default-per-user
+rule inside that service's transactions; there is no database constraint for it (Prisma cannot
+declare a partial unique index, and one would show as permanent drift in `migrate diff`). See
+`Docs/superpowers/specs/2026-09-19-addresses-design.md`.
 
 **PostGIS geography type with Prisma**
 Prisma does not natively support PostGIS `geography` columns — they appear as `Unsupported("geography(...)")` in the schema. Radius searches must use raw SQL (`prisma.$queryRaw`). Keep these queries in `nannies.service.ts`, never in routes.

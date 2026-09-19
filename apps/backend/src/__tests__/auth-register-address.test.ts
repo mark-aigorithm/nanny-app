@@ -141,18 +141,6 @@ describe('registerUser — location', () => {
     );
   });
 
-  it('no longer writes the deprecated users.address / latitude / longitude columns', async () => {
-    const tx = makeTx();
-    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
-
-    await registerUser(DECODED, MOTHER_BODY);
-
-    const userData = tx.user.create.mock.calls[0][0].data as Record<string, unknown>;
-    expect('address' in userData).toBe(false);
-    expect('latitude' in userData).toBe(false);
-    expect('longitude' in userData).toBe(false);
-  });
-
   it('answers with the location read back off the new address row', async () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
