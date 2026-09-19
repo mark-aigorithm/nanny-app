@@ -76,7 +76,7 @@ function motherWith(status: string | null, isEmailVerified = true) {
     id: 'mother-1',
     role: Role.MOTHER,
     deletedAt: null,
-    idVerificationStatus: status,
+    approvalStatus: status,
     isEmailVerified,
   };
 }

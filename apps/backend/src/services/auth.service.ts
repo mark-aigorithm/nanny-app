@@ -38,10 +38,9 @@ function toApiRole(role: PrismaRole | null): ApiRole | null {
 /**
  * Convert a Prisma `User` row into the wire format defined by
  * `UserResponseSchema`. Strips internal columns (timestamps, soft-delete
- * markers) and serializes Date fields to ISO strings. Identity-verification
- * state now lives directly on the user row, so no relation include is needed.
- * The ID image URLs are intentionally NOT exposed here — they are KYC-sensitive
- * and only returned by admin endpoints.
+ * markers) and serializes Date fields to ISO strings. The ID image URLs are
+ * intentionally NOT exposed here — they are KYC-sensitive and only returned
+ * by admin endpoints.
  */
 function toUserResponse(user: User): UserResponse {
   return {
@@ -56,9 +55,9 @@ function toUserResponse(user: User): UserResponse {
     role: toApiRole(user.role),
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
-    idVerificationStatus: user.idVerificationStatus,
+    approvalStatus: user.approvalStatus,
     idDocumentType: user.idDocumentType,
-    idRejectionReason: user.idRejectionReason,
+    rejectionReason: user.rejectionReason,
     address: user.address,
     latitude: user.latitude !== null ? Number(user.latitude) : null,
     longitude: user.longitude !== null ? Number(user.longitude) : null,
@@ -166,7 +165,7 @@ export async function registerUser(
         // upload their ID at registration, so they start PENDING_REVIEW (awaiting
         // admin KYC); mothers upload later (before booking), so they start
         // PENDING_ID and are prompted when they try to book.
-        idVerificationStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
+        approvalStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
         idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
         idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
         idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
@@ -379,9 +378,9 @@ export async function submitId(
       idDocumentFrontUrl: body.idDocumentFrontUrl,
       // A passport has no back image — clear any stale value from a prior upload.
       idDocumentBackUrl: body.idDocumentBackUrl ?? null,
-      idVerificationStatus: 'PENDING_REVIEW',
-      idRejectionReason: null,
-      idReviewedAt: null,
+      approvalStatus: 'PENDING_REVIEW',
+      rejectionReason: null,
+      reviewedAt: null,
     },
   });
 

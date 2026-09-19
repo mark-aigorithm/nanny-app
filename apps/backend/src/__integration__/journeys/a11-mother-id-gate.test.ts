@@ -72,7 +72,7 @@ describe('A11 — mother ID verification gates booking', () => {
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
     expect(row.role).toBe('MOTHER');
-    expect(row.idVerificationStatus).toBe('PENDING_ID');
+    expect(row.approvalStatus).toBe('PENDING_ID');
   });
 
   it('refuses a booking from a mother who has never uploaded an ID', async () => {
@@ -99,7 +99,7 @@ describe('A11 — mother ID verification gates booking', () => {
     expect(submitted.status).toBe(200);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
-    expect(row.idVerificationStatus).toBe('PENDING_REVIEW');
+    expect(row.approvalStatus).toBe('PENDING_REVIEW');
 
     // Upload-then-book: having a document in the queue is enough.
     expect((await attemptBooking(mother.token)).status).toBe(201);
@@ -131,7 +131,7 @@ describe('A11 — mother ID verification gates booking', () => {
     await approveMotherId(admin.token, mother.id);
 
     expect(
-      (await prisma.user.findUniqueOrThrow({ where: { id: mother.id } })).idVerificationStatus,
+      (await prisma.user.findUniqueOrThrow({ where: { id: mother.id } })).approvalStatus,
     ).toBe('APPROVED');
 
     const booked = await attemptBooking(mother.token);
@@ -155,8 +155,8 @@ describe('A11 — mother ID verification gates booking', () => {
     expect(rejected.status).toBe(200);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
-    expect(row.idVerificationStatus).toBe('REJECTED');
-    expect(row.idRejectionReason).toBe('The document was unreadable.');
+    expect(row.approvalStatus).toBe('REJECTED');
+    expect(row.rejectionReason).toBe('The document was unreadable.');
 
     // A rejection revokes the permission a submission had granted.
     expect((await attemptBooking(mother.token)).status).toBe(403);
@@ -188,8 +188,8 @@ describe('A11 — mother ID verification gates booking', () => {
     await approveMotherId(admin.token, mother.id);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
-    expect(row.idVerificationStatus).toBe('APPROVED');
-    expect(row.idRejectionReason).toBeNull();
+    expect(row.approvalStatus).toBe('APPROVED');
+    expect(row.rejectionReason).toBeNull();
 
     expect((await attemptBooking(mother.token)).status).toBe(201);
   });

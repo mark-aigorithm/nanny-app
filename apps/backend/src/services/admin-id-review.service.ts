@@ -1,4 +1,4 @@
-import { IdVerificationStatus, type Prisma } from '@prisma/client';
+import { ApprovalStatus, type Prisma } from '@prisma/client';
 
 import { sortDirection } from '@nanny-app/shared';
 import type {
@@ -17,10 +17,10 @@ const idReviewSelect = {
   role: true,
   avatarUrl: true,
   address: true,
-  idVerificationStatus: true,
+  approvalStatus: true,
   idDocumentType: true,
-  idRejectionReason: true,
-  idReviewedAt: true,
+  rejectionReason: true,
+  reviewedAt: true,
   idDocumentFrontUrl: true,
   idDocumentBackUrl: true,
   createdAt: true,
@@ -47,9 +47,9 @@ function toDto(row: AdminIdReviewRow): AdminIdReview {
     idDocumentType: row.idDocumentType,
     idDocumentFrontUrl: row.idDocumentFrontUrl,
     idDocumentBackUrl: row.idDocumentBackUrl,
-    idVerificationStatus: row.idVerificationStatus,
-    rejectionReason: row.idRejectionReason,
-    reviewedAt: row.idReviewedAt?.toISOString() ?? null,
+    approvalStatus: row.approvalStatus,
+    rejectionReason: row.rejectionReason,
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -81,7 +81,7 @@ export async function listIdReviews(
   const where: Prisma.UserWhereInput = {
     deletedAt: null,
     ...roleClause(role),
-    ...(status !== 'ALL' ? { idVerificationStatus: status as IdVerificationStatus } : {}),
+    ...(status !== 'ALL' ? { approvalStatus: status as ApprovalStatus } : {}),
   };
 
   const [total, rows] = await prisma.$transaction([

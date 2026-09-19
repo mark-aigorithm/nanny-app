@@ -61,7 +61,7 @@ describe('A21 — the camera catalogue', () => {
   it('lists a camera against the nanny it is assigned to, and only ID-verified nannies are offered', async () => {
     const admin = await makeAdmin();
     const nanny = await makeNanny({ user: { firstName: 'Mona', lastName: 'Saleh' } });
-    const unverified = await makeNanny({ user: { idVerificationStatus: 'PENDING_REVIEW' } });
+    const unverified = await makeNanny({ user: { approvalStatus: 'PENDING_REVIEW' } });
 
     const options = await request(app)
       .get('/admin/cameras/nanny-options')

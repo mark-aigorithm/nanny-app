@@ -39,10 +39,8 @@ type AccountSpec = {
   role: Extract<Role, 'MOTHER' | 'NANNY'>;
   firstName?: string;
   lastName?: string;
-  /** Defaults to APPROVED; A11 seeds a mother who has never uploaded an ID. */
-  idVerificationStatus?: 'PENDING_ID' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
-  /** Nannies only. Defaults to APPROVED; A10 seeds one still awaiting vetting. */
-  approvalStatus?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  /** Defaults to APPROVED; A10 seeds a nanny still awaiting vetting, A11 a mother who has never uploaded an ID. */
+  approvalStatus?: 'PENDING_ID' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 };
 
 /** The console account the lab approves with; a superuser, so nothing is out of reach. */
@@ -115,7 +113,7 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
   // and a nanny cannot reach her dashboard. The lab's baseline is "past the
   // gate"; the flows that exercise a gate ask for an account on the wrong side
   // of it, and are re-seeded before every run because they approve it.
-  const idVerificationStatus = spec.idVerificationStatus ?? 'APPROVED';
+  const approvalStatus = spec.approvalStatus ?? 'APPROVED';
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -126,7 +124,7 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       firstName: spec.firstName ?? 'E2E',
       lastName: spec.lastName ?? (spec.role === Role.NANNY ? 'Nanny' : 'Mother'),
       role: spec.role,
-      idVerificationStatus,
+      approvalStatus,
       // Booking is gated on a proven address, and the root router blocks an
       // account without one at launch. These stand in for accounts registered
       // the normal way, which prove an address mid-wizard — C2 and A10 drive
@@ -142,12 +140,12 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       firebaseUid,
       phone: spec.phone,
       role: spec.role,
-      idVerificationStatus,
+      approvalStatus,
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
       // Cleared so a flow that rejected this account last run does not leave a
       // stale reason on the gate's copy.
-      idRejectionReason: null,
+      rejectionReason: null,
       deletedAt: null,
     },
   });
@@ -159,10 +157,6 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       yearsOfExperience: 3,
       // Required and has no schema default — omitting it fails at the DB.
       ageRanges: ['0-1', '2-5'],
-      isProfileComplete: true,
-      // A PENDING_REVIEW nanny is invisible to search and cannot be booked, so
-      // APPROVED is the baseline here too.
-      approvalStatus: spec.approvalStatus ?? ('APPROVED' as const),
       availabilityType: 'FULL_TIME' as const,
     };
 

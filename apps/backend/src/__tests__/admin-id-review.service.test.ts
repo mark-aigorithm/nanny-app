@@ -23,10 +23,10 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     role: 'MOTHER',
     avatarUrl: null,
     address: 'Cairo',
-    idVerificationStatus: 'PENDING_REVIEW',
+    approvalStatus: 'PENDING_REVIEW',
     idDocumentType: 'PASSPORT',
-    idRejectionReason: null,
-    idReviewedAt: null,
+    rejectionReason: null,
+    reviewedAt: null,
     idDocumentFrontUrl: 'https://example.com/front.jpg',
     idDocumentBackUrl: null,
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
@@ -80,7 +80,7 @@ describe('listIdReviews', () => {
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { deletedAt: null, role: 'MOTHER', idVerificationStatus: 'PENDING_REVIEW' },
+        where: { deletedAt: null, role: 'MOTHER', approvalStatus: 'PENDING_REVIEW' },
       }),
     );
   });
@@ -125,7 +125,7 @@ describe('listIdReviews', () => {
       idDocumentType: 'PASSPORT',
       idDocumentFrontUrl: 'https://example.com/front.jpg',
       idDocumentBackUrl: null,
-      idVerificationStatus: 'PENDING_REVIEW',
+      approvalStatus: 'PENDING_REVIEW',
       rejectionReason: null,
       reviewedAt: null,
       createdAt: '2026-07-01T00:00:00.000Z',

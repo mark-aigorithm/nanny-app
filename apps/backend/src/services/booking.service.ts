@@ -35,7 +35,7 @@ import { Role } from '@nanny-app/shared';
 import {
   BookingAdjustmentStatus,
   BookingExtensionStatus,
-  IdVerificationStatus,
+  ApprovalStatus,
   NannyBookingDecision,
   NotificationReferenceType,
   NotificationType,
@@ -553,8 +553,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       where: {
         deletedAt: null,
         isProfileComplete: true,
-        // KYC gate now lives on the user row.
-        user: { deletedAt: null, idVerificationStatus: IdVerificationStatus.APPROVED },
+        user: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED },
         // Exclude nannies already booked for an overlapping window — they can't
         // take this one anyway.
         bookings: {
@@ -892,8 +891,8 @@ export async function createBooking(
   // while it is still PENDING_REVIEW (upload-then-book), but not when she has
   // never uploaded (PENDING_ID) or was rejected (REJECTED) and must re-upload.
   if (
-    user.idVerificationStatus === IdVerificationStatus.PENDING_ID ||
-    user.idVerificationStatus === IdVerificationStatus.REJECTED
+    user.approvalStatus === ApprovalStatus.PENDING_ID ||
+    user.approvalStatus === ApprovalStatus.REJECTED
   ) {
     throw errors.forbidden('Please upload your ID before booking.');
   }

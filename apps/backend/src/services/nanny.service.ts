@@ -1,5 +1,5 @@
 import type { DiscountType, NannyProfile, Prisma as PrismaTypes, User } from '@prisma/client';
-import { IdVerificationStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import {
   BookingStatus,
   getMissingNannyProfileFields,
@@ -272,14 +272,14 @@ function buildListWhere(query: NannyListQuery) {
     ...(query.skillId
       ? { nannySkills: { some: { skillId: query.skillId, deletedAt: null } } }
       : {}),
-    // Single `user` condition: exclude soft-deleted users, require an APPROVED
-    // identity verification (the KYC gate now lives on the user row), and add
-    // the name search when present. Kept as one object so the name filter does
-    // not clobber the guards (which would leak soft-deleted / unvetted nannies
-    // into the count and desync it from the raw-SQL rows).
+    // Single `user` condition: exclude soft-deleted users, require an admin
+    // APPROVED account, and add the name search when present. Kept as one
+    // object so the name filter does not clobber the guards (which would leak
+    // soft-deleted / unapproved nannies into the count and desync it from the
+    // raw-SQL rows).
     user: {
       deletedAt: null as null,
-      idVerificationStatus: IdVerificationStatus.APPROVED,
+      approvalStatus: ApprovalStatus.APPROVED,
       ...(query.name
         ? {
             OR: [
@@ -300,7 +300,7 @@ function buildListWhere(query: NannyListQuery) {
 function buildListFilterSql(query: NannyListQuery): Prisma.Sql {
   const filters: Prisma.Sql[] = [
     Prisma.sql`np.is_profile_complete = true`,
-    Prisma.sql`u.id_verification_status::text = 'APPROVED'`,
+    Prisma.sql`u.approval_status::text = 'APPROVED'`,
     Prisma.sql`np.deleted_at IS NULL`,
     Prisma.sql`u.deleted_at IS NULL`,
   ];
@@ -388,13 +388,13 @@ export async function listNannies(
 }
 
 export async function getNannyPublicProfile(nannyProfileId: number): Promise<NannyPublicProfile> {
-  // findFirst (not findUnique) so we can filter on the related user's KYC state,
-  // which is where identity verification now lives.
+  // findFirst (not findUnique) so we can filter on the related user's
+  // approval status.
   const profile = await prisma.nannyProfile.findFirst({
     where: {
       id: nannyProfileId,
       deletedAt: null,
-      user: { idVerificationStatus: IdVerificationStatus.APPROVED, deletedAt: null },
+      user: { approvalStatus: ApprovalStatus.APPROVED, deletedAt: null },
     },
     include: {
       user: true,

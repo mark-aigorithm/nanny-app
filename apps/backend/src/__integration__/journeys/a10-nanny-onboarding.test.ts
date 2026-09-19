@@ -86,7 +86,7 @@ describe('A10 — nanny onboarding and approval', () => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: nanny.userId } });
     expect(user.role).toBe('NANNY');
     // Registering with an ID puts her straight into the review queue.
-    expect(user.idVerificationStatus).toBe('PENDING_REVIEW');
+    expect(user.approvalStatus).toBe('PENDING_REVIEW');
 
     const names = await searchableLastNames(mother.token);
     expect(names.join(' ')).not.toContain(nanny.lastName);
@@ -143,7 +143,7 @@ describe('A10 — nanny onboarding and approval', () => {
    * Being excluded from the broadcast is the *only* thing keeping an unvetted
    * nanny off a booking. `POST /bookings/:id/accept` carries `requireAuth`
    * alone: neither the route nor `applyNannyDecision` checks
-   * `idVerificationStatus`, and `requireApprovedNanny` is mounted only on
+   * `approvalStatus`, and `requireApprovedNanny` is mounted only on
    * `/nanny/dashboard`. Booking ids are sequential integers, so guessing one is
    * not a meaningful obstacle.
    *
@@ -204,7 +204,7 @@ describe('A10 — nanny onboarding and approval', () => {
 
     expect(
       (await prisma.user.findUniqueOrThrow({ where: { id: nanny.userId } }))
-        .idVerificationStatus,
+        .approvalStatus,
     ).toBe('APPROVED');
 
     // The consequence that matters: parents can now find her.
@@ -248,8 +248,8 @@ describe('A10 — nanny onboarding and approval', () => {
     expect(rejected.status).toBe(200);
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: nanny.userId } });
-    expect(user.idVerificationStatus).toBe('REJECTED');
-    expect(user.idRejectionReason).toBe('The ID photo was unreadable.');
+    expect(user.approvalStatus).toBe('REJECTED');
+    expect(user.rejectionReason).toBe('The ID photo was unreadable.');
 
     const names = await searchableLastNames(mother.token);
     expect(names.join(' ')).not.toContain(nanny.lastName);
