@@ -1,8 +1,8 @@
 /**
  * The admin is the only editor of a nanny's profile, so the form has to be
- * able to reach every field. Pinned here: the three fields the nanny cannot
- * touch from the app — photo, date of birth, home pin — are sent, and a pin
- * cannot half-move.
+ * able to reach every field. Pinned here: the fields the nanny cannot touch
+ * from the app — photo and date of birth — are sent. Her address and pin are
+ * the Address card's (see address-editor.test.tsx), not this form's.
  */
 import type { AdminNannyDetail, UpdateAdminNanny } from '@nanny-app/shared';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
@@ -53,6 +53,22 @@ const NANNY: AdminNannyDetail = {
   schedule: null,
   amountGained: 0,
   completedBookings: 0,
+  address: {
+    id: 1,
+    label: 'Home',
+    formattedAddress: 'Cairo',
+    governorate: 'Cairo',
+    area: null,
+    street: null,
+    building: null,
+    floor: null,
+    apartment: null,
+    landmark: null,
+    latitude: 30.0444,
+    longitude: 31.2357,
+    isDefault: true,
+    createdAt: '2026-07-01T00:00:00.000Z',
+  },
   createdAt: '2026-07-01T00:00:00.000Z',
 };
 
@@ -65,7 +81,7 @@ function renderEditor() {
 }
 
 describe('NannyProfileEditor', () => {
-  it('sends photo, date of birth and home pin', async () => {
+  it('sends photo and date of birth', async () => {
     let body: UpdateAdminNanny | null = null;
     server.use(
       http.patch('/api/admin/nannies/:id', async ({ request }) => {
@@ -85,8 +101,6 @@ describe('NannyProfileEditor', () => {
     // jsdom's date/number inputs don't take keystrokes the way a person types
     // them; setting the value directly is what the browser would end up with.
     fireEvent.change(screen.getByLabelText('Date of birth'), { target: { value: '1996-01-20' } });
-    fireEvent.change(screen.getByLabelText(/^Latitude/), { target: { value: '30.05' } });
-    fireEvent.change(screen.getByLabelText('Longitude'), { target: { value: '31.24' } });
 
     await userEvent.click(screen.getByRole('button', { name: 'Save profile' }));
 
@@ -94,20 +108,10 @@ describe('NannyProfileEditor', () => {
     expect(body).toMatchObject({
       avatarUrl: 'https://cdn.example/uploaded.jpg',
       dateOfBirth: '1996-01-20',
-      latitude: 30.05,
-      longitude: 31.24,
     });
-  });
-
-  it('refuses a latitude without a longitude', async () => {
-    renderEditor();
-
-    fireEvent.change(screen.getByLabelText('Longitude'), { target: { value: '' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Save profile' }));
-
-    expect(
-      await screen.findByText('Latitude and longitude must be updated together.'),
-    ).toBeInTheDocument();
+    // The pin never rides on the profile patch.
+    expect('latitude' in (body as unknown as object)).toBe(false);
+    expect('location' in (body as unknown as object)).toBe(false);
   });
 
   it('clears the photo with null', async () => {

@@ -18,6 +18,7 @@ import {
   useToast,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
+import { NannyAddressCard } from '@admin/features/nannies/nanny-address-card';
 import {
   NannyProfileEditor,
   availabilityLabel,
@@ -167,6 +168,8 @@ export function NannyDetailPage() {
               </div>
             )}
           </Card>
+
+          <NannyAddressCard nanny={nanny} canManage={canManage} />
 
           <Card title="Earnings">
             <DescriptionList

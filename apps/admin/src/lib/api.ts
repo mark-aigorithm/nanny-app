@@ -1,4 +1,6 @@
 import type {
+  Address,
+  AdminUpsertNannyAddressInput,
   AdminBooking,
   AdminBookingDetail,
   AdminBookingEditContext,
@@ -496,6 +498,24 @@ export async function updateNanny(
     `/admin/nannies/${id}`,
     input,
   );
+  return res.data.data;
+}
+
+/** Rewrites a nanny's single address — the one way it changes after registration. */
+export async function updateNannyAddress(
+  nannyProfileId: number,
+  input: AdminUpsertNannyAddressInput,
+): Promise<Address> {
+  const res = await apiClient.put<ApiEnvelope<Address>>(
+    `/admin/nannies/${nannyProfileId}/address`,
+    input,
+  );
+  return res.data.data;
+}
+
+/** A mother's address book, default first. Read-only in the console. */
+export async function fetchMotherAddresses(motherId: number): Promise<Address[]> {
+  const res = await apiClient.get<ApiEnvelope<Address[]>>(`/admin/mothers/${motherId}/addresses`);
   return res.data.data;
 }
 

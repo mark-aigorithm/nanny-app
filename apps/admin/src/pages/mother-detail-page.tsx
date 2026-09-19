@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { formatAddressArea } from '@nanny-app/shared';
+
 import {
   Badge,
   Button,
@@ -193,6 +195,28 @@ export function MotherDetailPage() {
 
           <Card title="Contact">
             <DescriptionList items={contact} />
+          </Card>
+
+          <Card title="Addresses">
+            {mother.addresses.length === 0 ? (
+              <p className="empty-state">No addresses on file.</p>
+            ) : (
+              <ul className="address-list">
+                {mother.addresses.map((address) => (
+                  <li key={address.id} className="address-list-item">
+                    <div className="address-list-head">
+                      <strong>{address.label}</strong>
+                      {address.isDefault && <Badge tone="success">Default</Badge>}
+                    </div>
+                    <div>{address.formattedAddress}</div>
+                    <div className="table-subtext">
+                      {formatAddressArea(address)}
+                      {address.landmark ? ` · ${address.landmark}` : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
 
           <Card title="Account">

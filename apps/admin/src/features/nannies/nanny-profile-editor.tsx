@@ -95,13 +95,6 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
   const [avatarUrl, setAvatarUrl] = useState<string | null>(nanny.avatarUrl);
   const [uploading, setUploading] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState(nanny.dateOfBirth ?? '');
-  const [latitude, setLatitude] = useState(
-    nanny.latitude !== null ? String(nanny.latitude) : '',
-  );
-  const [longitude, setLongitude] = useState(
-    nanny.longitude !== null ? String(nanny.longitude) : '',
-  );
-  const [location, setLocation] = useState(nanny.location ?? '');
   const [bio, setBio] = useState(nanny.bio ?? '');
   const [yearsOfExperience, setYearsOfExperience] = useState(
     nanny.yearsOfExperience !== null ? String(nanny.yearsOfExperience) : '',
@@ -162,17 +155,13 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
   function buildPayload(): UpdateAdminNanny {
     const years = yearsOfExperience.trim();
     const dob = dateOfBirth.trim();
-    const lat = latitude.trim();
-    const lng = longitude.trim();
     return {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       avatarUrl,
       // Optional-not-nullable server-side: an empty field leaves the current value untouched.
       ...(dob !== '' ? { dateOfBirth: dob } : {}),
-      location: location.trim(),
-      ...(lat !== '' ? { latitude: Number(lat) } : {}),
-      ...(lng !== '' ? { longitude: Number(lng) } : {}),
+      // Her address and pin are the Address card's (PUT /nannies/:id/address), not this form's.
       bio: bio.trim(),
       ...(years !== '' ? { yearsOfExperience: Number(years) } : {}),
       ageRanges: [...ageRanges],
@@ -231,13 +220,6 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
         <Field label="Date of birth">
           <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
         </Field>
-        <Field label="Location" hint="Home address shown to parents.">
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Maadi, Cairo"
-          />
-        </Field>
         <Field label="Years of experience">
           <input
             type="number"
@@ -257,14 +239,6 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
           </Button>
         </div>
       )}
-      <div className="form-grid">
-        <Field label="Latitude" hint="Home pin — keep it in step with the address so distance search stays right.">
-          <input type="number" step="any" min="-90" max="90" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
-        </Field>
-        <Field label="Longitude">
-          <input type="number" step="any" min="-180" max="180" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
-        </Field>
-      </div>
       <Field label="Bio">
         <textarea
           className="input"

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { formatChildAge } from '@nanny-app/shared';
+import { formatAddressArea, formatChildAge } from '@nanny-app/shared';
 import type { AdminBookingDetail } from '@nanny-app/shared';
 
 import {
@@ -212,6 +212,35 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
       : []),
   ];
 
+  // The address as it was when the mother booked — a snapshot, so it reads the
+  // same after she edits or deletes the entry.
+  const where: DescriptionItem[] = booking.address
+    ? [
+        { label: booking.address.label, value: booking.address.formattedAddress, wide: true },
+        { label: 'Area', value: formatAddressArea(booking.address) },
+        {
+          label: 'Door',
+          value:
+            [
+              booking.address.building ? `Building ${booking.address.building}` : null,
+              booking.address.floor ? `Floor ${booking.address.floor}` : null,
+              booking.address.apartment ? `Apt ${booking.address.apartment}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || DASH,
+        },
+        { label: 'Landmark', value: booking.address.landmark ?? DASH, wide: true },
+        {
+          label: 'Pin',
+          value: (
+            <code>
+              {booking.address.latitude}, {booking.address.longitude}
+            </code>
+          ),
+        },
+      ]
+    : [{ label: 'Address', value: 'No address on this booking.', wide: true }];
+
   return (
     <>
       <Card title="Overview">
@@ -219,6 +248,9 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
       </Card>
       <Card title="Parties">
         <DescriptionList items={parties} />
+      </Card>
+      <Card title="Where">
+        <DescriptionList items={where} />
       </Card>
       <Card title="Schedule">
         <DescriptionList items={schedule} />

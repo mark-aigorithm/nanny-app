@@ -358,10 +358,17 @@ export async function seedPendingBooking(
   const { startHour = 10, durationHours = 4, daysAhead = 1 } = options;
   const mother = options.mother ?? (await seedMother());
 
+  // Booked at the address she registered with — what the app's picker
+  // preselects. Registration made it her default, so it is the first row.
+  const addresses = (await call('GET', '/addresses', mother.token)) as Array<{ id: number }>;
+  const home = addresses[0];
+  if (!home) throw new Error(`Seeded mother ${mother.email} has no address to book at.`);
+
   const booking = (await call('POST', '/bookings', mother.token, {
     startTime: wallClockAhead(startHour, daysAhead),
     endTime: wallClockAhead(startHour + durationHours, daysAhead),
     children: [{ name: 'E2E Child', ageYears: 3, allergies: null }],
+    addressId: home.id,
   })) as { id: number; totalAmount: number };
 
   return { id: booking.id, totalAmount: booking.totalAmount, mother };
