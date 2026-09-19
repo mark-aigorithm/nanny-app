@@ -33,6 +33,8 @@ const nannyInclude = {
       dateOfBirth: true,
       avatarUrl: true,
       address: true,
+      latitude: true,
+      longitude: true,
       isEmailVerified: true,
       isPhoneVerified: true,
       // The admin's decision on her application, plus her ID document.
@@ -141,6 +143,8 @@ function toDetailDto(
     ageRanges: row.ageRanges,
     availabilityType: row.availabilityType,
     schedule: (row.schedule as WeeklySchedule) ?? null,
+    latitude: row.user.latitude !== null ? Number(row.user.latitude) : null,
+    longitude: row.user.longitude !== null ? Number(row.user.longitude) : null,
   };
 }
 
@@ -341,12 +345,11 @@ export async function setNannySkills(
 }
 
 /**
- * Admin edits a nanny's profile fields (PATCH /admin/nannies/:id) — the
- * registration-captured fields (name, location, bio, experience, age ranges,
- * availability, schedule, certifications). Reuses `writeNannyProfileFields`,
- * the same core writer registration and the (now-removed) nanny self-service
- * path used, so the completeness recompute and certification reconcile stay
- * identical across every writer of a nanny profile.
+ * Admin edits a nanny's profile (PATCH /admin/nannies/:id) — every field she
+ * entered at registration: name, photo, date of birth, home address and pin,
+ * bio, experience, age ranges, availability, schedule, certifications. Reuses
+ * `writeNannyProfileFields`, the same core writer registration uses, so the
+ * two writers of a nanny profile cannot drift.
  */
 export async function updateAdminNanny(
   nannyProfileId: number,
