@@ -288,6 +288,32 @@ async function clearPreviousDemoData(linkedMotherId: number | null) {
   console.log('[seed-demo] Cleared previous demo data');
 }
 
+/**
+ * Every seeded user's location is a default "Home" address row — the single
+ * source proximity search and the booking picker read. Idempotent: rewrites
+ * the existing default rather than adding a second one on re-seed. Pass
+ * `keep` to leave an existing row alone (a real registered home).
+ */
+async function ensureHome(
+  userId: number,
+  home: { formattedAddress: string; latitude: string; longitude: string },
+  keep = false,
+): Promise<void> {
+  const existing = await prisma.address.findFirst({
+    where: { userId, deletedAt: null, isDefault: true },
+  });
+  const data = {
+    formattedAddress: home.formattedAddress,
+    latitude: new Prisma.Decimal(home.latitude),
+    longitude: new Prisma.Decimal(home.longitude),
+  };
+  if (existing) {
+    if (!keep) await prisma.address.update({ where: { id: existing.id }, data });
+    return;
+  }
+  await prisma.address.create({ data: { userId, label: 'Home', isDefault: true, ...data } });
+}
+
 async function resolveDemoMother() {
   if (LINKED_MOTHER_UID) {
     const linked = await prisma.user.findUnique({ where: { firebaseUid: LINKED_MOTHER_UID } });
@@ -302,15 +328,13 @@ async function resolveDemoMother() {
         role: Role.MOTHER,
         deletedAt: null,
         avatarUrl: linked.avatarUrl ?? FALLBACK_DEMO_MOTHER.avatarUrl,
-        // Backfill a demo home only if the linked account has none, so a real
-        // registered home (and its coordinates) is never overwritten.
-        address: linked.address ?? FALLBACK_DEMO_MOTHER.address,
-        latitude: linked.latitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
-        longitude: linked.longitude ?? new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
         // Pre-verify so the demo booking flow isn't blocked by the ID gate.
         approvalStatus: 'APPROVED',
       },
     });
+    // Backfill a demo home only if the linked account has none, so a real
+    // registered home (and its coordinates) is never overwritten.
+    await ensureHome(linked.id, { formattedAddress: FALLBACK_DEMO_MOTHER.address, ...FALLBACK_DEMO_MOTHER }, true);
     return linked;
   }
 
@@ -318,10 +342,12 @@ async function resolveDemoMother() {
     FALLBACK_DEMO_MOTHER.email,
     `${FALLBACK_DEMO_MOTHER.firstName} ${FALLBACK_DEMO_MOTHER.lastName}`,
   );
-  return prisma.user.upsert({
+  const { address: fallbackAddress, latitude: fallbackLat, longitude: fallbackLng, ...fallbackFields } =
+    FALLBACK_DEMO_MOTHER;
+  const fallback = await prisma.user.upsert({
     where: { email: FALLBACK_DEMO_MOTHER.email },
     create: {
-      ...FALLBACK_DEMO_MOTHER,
+      ...fallbackFields,
       firebaseUid: fallbackUid,
       role: Role.MOTHER,
       isEmailVerified: true,
@@ -335,23 +361,22 @@ async function resolveDemoMother() {
       firebaseUid: fallbackUid,
       role: Role.MOTHER,
       deletedAt: null,
-      address: FALLBACK_DEMO_MOTHER.address,
-      latitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.latitude),
-      longitude: new Prisma.Decimal(FALLBACK_DEMO_MOTHER.longitude),
       approvalStatus: 'APPROVED',
     },
   });
+  await ensureHome(fallback.id, { formattedAddress: fallbackAddress, latitude: fallbackLat, longitude: fallbackLng });
+  return fallback;
 }
 
 async function ensureSeedMothers() {
   const users = [];
   for (const seed of SEED_MOTHERS) {
     const uid = await ensureAuthUser(seed.email, `${seed.firstName} ${seed.lastName}`);
-    users.push(
-      await prisma.user.upsert({
+    const { address, latitude, longitude, ...fields } = seed;
+    const user = await prisma.user.upsert({
         where: { email: seed.email },
         create: {
-          ...seed,
+          ...fields,
           firebaseUid: uid,
           role: Role.MOTHER,
           isEmailVerified: true,
@@ -365,13 +390,11 @@ async function ensureSeedMothers() {
           avatarUrl: seed.avatarUrl,
           role: Role.MOTHER,
           deletedAt: null,
-          address: seed.address,
-          latitude: new Prisma.Decimal(seed.latitude),
-          longitude: new Prisma.Decimal(seed.longitude),
           approvalStatus: 'APPROVED',
         },
-      }),
-    );
+      });
+    await ensureHome(user.id, { formattedAddress: address, latitude, longitude });
+    users.push(user);
   }
   return users;
 }
@@ -394,8 +417,8 @@ async function seedNannies() {
   const profiles = [];
   for (const n of SEED_NANNIES) {
     const uid = await ensureAuthUser(n.email, `${n.firstName} ${n.lastName}`);
-    // Home location (address + distinct coordinates) lives on the user row —
-    // the single source of truth proximity search reads.
+    // Home location (address + distinct coordinates) is her single address
+    // row — the single source of truth proximity search reads (see ensureHome).
     const user = await prisma.user.upsert({
       where: { email: n.email },
       create: {
@@ -408,9 +431,6 @@ async function seedNannies() {
         role: Role.NANNY,
         isEmailVerified: true,
         isPhoneVerified: true,
-        address: n.location,
-        latitude: new Prisma.Decimal(n.latitude),
-        longitude: new Prisma.Decimal(n.longitude),
         // Demo nannies are pre-vetted so they appear in search (the default
         // PENDING_ID/PENDING_REVIEW would hide them).
         approvalStatus: 'APPROVED',
@@ -422,12 +442,10 @@ async function seedNannies() {
         firebaseUid: uid,
         role: Role.NANNY,
         deletedAt: null,
-        address: n.location,
-        latitude: new Prisma.Decimal(n.latitude),
-        longitude: new Prisma.Decimal(n.longitude),
         approvalStatus: 'APPROVED',
       },
     });
+    await ensureHome(user.id, { formattedAddress: n.location, latitude: n.latitude, longitude: n.longitude });
 
     const profile = await prisma.nannyProfile.upsert({
       where: { userId: user.id },

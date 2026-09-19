@@ -15,7 +15,7 @@ import { prisma } from '@backend/db/prisma';
 import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
 import { makeSuperuser } from '../../../test/factories';
 import { approveMotherId } from '../../../test/journeys/admin';
-import { wallClockTomorrow } from '../../../test/journeys/booking';
+import { defaultAddressId, wallClockTomorrow } from '../../../test/journeys/booking';
 import { proveEmail } from '../../../test/journeys/email-verification';
 
 const ID_FRONT = 'https://storage.example.test/id-front.jpg';
@@ -55,7 +55,7 @@ async function registerMother() {
   return { token, id: response.body.data.id as number, email };
 }
 
-function attemptBooking(token: string) {
+async function attemptBooking(token: string) {
   return request(app)
     .post('/bookings')
     .set(...authHeader(token))
@@ -63,6 +63,8 @@ function attemptBooking(token: string) {
       startTime: wallClockTomorrow(10),
       endTime: wallClockTomorrow(14),
       children: [{ name: 'Test Child', ageYears: 3, allergies: null }],
+      // The address she registered with — what the picker preselects.
+      addressId: await defaultAddressId(token),
     });
 }
 

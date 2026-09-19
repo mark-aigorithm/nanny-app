@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 
 import { config } from '@backend/lib/config';
 import { ok } from '@backend/lib/api-response';
+import { addressRouter } from './address.routes';
 import { adminRouter } from './admin.routes';
 import { authRouter } from './auth.routes';
 import { nannyRouter } from './nanny.routes';
@@ -29,6 +30,7 @@ apiRouter.use('/webhooks', webhookRouter);
 apiRouter.use('/paymob', paymobRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/addresses', addressRouter);
 apiRouter.use('/nanny', nannyRouter);
 apiRouter.use('/bookings', bookingRouter);
 apiRouter.use('/campaigns', campaignRouter);

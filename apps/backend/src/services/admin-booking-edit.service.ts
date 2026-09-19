@@ -49,6 +49,31 @@ import {
   refundPackageHours,
 } from '@backend/services/package-hours.service';
 import { refundBookingPayment } from '@backend/services/payment-refund.service';
+import { toBookingAddressSnapshot } from '@backend/services/address.service';
+
+/**
+ * The booking columns that move it to another of the mother's addresses —
+ * FK, snapshot and broadcast coordinates together, exactly as createBooking
+ * writes them. Empty when the admin left the address alone; a 404 when the
+ * id is not one of hers.
+ */
+async function relocation(
+  tx: Prisma.TransactionClient,
+  motherId: number,
+  addressId: number | undefined,
+): Promise<Prisma.BookingUncheckedUpdateInput> {
+  if (addressId === undefined) return {};
+  const home = await tx.address.findFirst({
+    where: { id: addressId, userId: motherId, deletedAt: null },
+  });
+  if (!home) throw errors.notFound('Address not found.');
+  return {
+    addressId: home.id,
+    bookedAddress: toBookingAddressSnapshot(home) as unknown as Prisma.InputJsonValue,
+    latitude: home.latitude,
+    longitude: home.longitude,
+  };
+}
 
 /** Money comparisons tolerate sub-cent float noise. */
 const EPSILON = 0.005;
@@ -560,8 +585,7 @@ export async function applyBookingEdit(
         extraChildFeePerHour: bd.extraChildFeePerHour,
         bookedChildren: input.children as unknown as Prisma.InputJsonValue,
         promoCodeId: plan.promoCodeId,
-        ...(input.latitude != null ? { latitude: input.latitude } : {}),
-        ...(input.longitude != null ? { longitude: input.longitude } : {}),
+        ...(await relocation(tx, booking.mother.id, input.addressId)),
         // Reset credit fields; re-applied in place below.
         rewardCreditHoursApplied: 0,
         rewardCreditPoints: 0,

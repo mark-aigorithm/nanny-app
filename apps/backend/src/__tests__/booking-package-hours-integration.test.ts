@@ -23,6 +23,7 @@ jest.mock('@backend/db/prisma', () => {
   return {
     prisma: {
       user: { findUnique: jest.fn(), findMany: jest.fn() },
+      address: { findFirst: jest.fn() },
       nannyProfile: { findUnique: jest.fn(), findMany: jest.fn() },
       booking,
       packagePurchase,
@@ -101,8 +102,29 @@ import {
 } from '@backend/services/reward.service';
 import { cancelBooking, createBooking } from '@backend/services/booking.service';
 
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
+
 const m = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   booking: { findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
   packagePurchase: { findMany: jest.Mock };
@@ -148,6 +170,7 @@ const baseBody = {
   startTime: '2099-01-01T10:00:00',
   endTime: '2099-01-01T14:00:00',
   children: [{ name: null, ageYears: 4 }],
+  addressId: HOME_ADDRESS.id,
 };
 
 function bookingRow(overrides: Record<string, unknown> = {}) {
@@ -235,6 +258,7 @@ function pointsUpdate() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  m.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   m.user.findUnique.mockResolvedValue({
     id: 10,
     role: Role.MOTHER,

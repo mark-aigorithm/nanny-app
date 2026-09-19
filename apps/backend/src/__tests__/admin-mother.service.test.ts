@@ -6,6 +6,8 @@ jest.mock('@backend/db/prisma', () => ({
       count: jest.fn(),
       update: jest.fn(),
     },
+    // The detail page carries her address book.
+    address: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
@@ -50,7 +52,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     email: 'nour@example.com',
     phone: '+201000000000',
     avatarUrl: null,
-    address: 'Cairo',
+    // Her default address row — where `location` now comes from.
+    addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
     isEmailVerified: true,
     isPhoneVerified: false,
     isActive: true,

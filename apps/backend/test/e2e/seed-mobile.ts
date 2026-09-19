@@ -133,8 +133,6 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       // that step, and a14-mother-email-gate.test.ts covers the endpoints.
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
-      ...LOCATION,
-      address: '1 Test Street, Cairo',
     },
     // The emulator is wiped between runs and issues a fresh uid each time; a
     // stale one would pass sign-in and then fail every authenticated request.
@@ -151,6 +149,20 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       deletedAt: null,
     },
   });
+
+  // Where the account lives: one default "Home" row, which the booking picker
+  // preselects for a mother and proximity matching reads for a nanny. Kept in
+  // step across runs — a flow that added or moved addresses last time must
+  // not leave the baseline account with a different default.
+  const home = await prisma.address.findFirst({
+    where: { userId: user.id, deletedAt: null, isDefault: true },
+  });
+  const homeFields = { label: 'Home', formattedAddress: '1 Test Street, Cairo', ...LOCATION };
+  if (home) {
+    await prisma.address.update({ where: { id: home.id }, data: homeFields });
+  } else {
+    await prisma.address.create({ data: { userId: user.id, isDefault: true, ...homeFields } });
+  }
 
   if (spec.role === Role.NANNY) {
     const existing = await prisma.nannyProfile.findFirst({ where: { userId: user.id } });

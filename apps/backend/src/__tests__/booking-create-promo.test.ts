@@ -3,6 +3,7 @@ import { Role } from '@nanny-app/shared';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), findMany: jest.fn() },
+    address: { findFirst: jest.fn() },
     nannyProfile: { findUnique: jest.fn(), findMany: jest.fn() },
     booking: { findFirst: jest.fn(), create: jest.fn() },
     // createBooking checks the mother's prepaid package-hours balance; no packages here.
@@ -39,8 +40,29 @@ import {
 } from '@backend/services/app-settings.service';
 import { createBooking, validateBookingPromo } from '@backend/services/booking.service';
 
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
+
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   booking: { findFirst: jest.Mock; create: jest.Mock };
   packagePurchase: { findMany: jest.Mock };
@@ -83,6 +105,7 @@ const baseBody = {
   // One child, so the extra-child fee contributes nothing and these promo
   // assertions keep testing only the promo.
   children: [{ name: null, ageYears: 4 }],
+  addressId: HOME_ADDRESS.id,
 };
 
 function makeBookingRow(overrides: Record<string, unknown> = {}) {
@@ -94,7 +117,7 @@ function makeBookingRow(overrides: Record<string, unknown> = {}) {
     nannyProfileId: 19,
     nannyProfile: {
       id: 19,
-      user: { id: 16, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
+      user: { id: 16, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, addresses: [] },
     },
     status: 'PENDING',
     nannyDecision: 'PENDING',
@@ -128,6 +151,7 @@ function makeBookingRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   mockPrisma.user.findUnique.mockResolvedValue({
     id: 10,
     role: Role.MOTHER,

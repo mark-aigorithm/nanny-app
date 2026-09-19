@@ -67,7 +67,8 @@ function makeRow(
       phone: '+201000000000',
       dateOfBirth: new Date('1998-05-10T00:00:00.000Z'),
       avatarUrl: null,
-      address: 'Cairo',
+      // Her default address row — where `location` now comes from.
+      addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
       isEmailVerified: true,
       isPhoneVerified: false,
       approvalStatus: 'PENDING_REVIEW',
@@ -126,7 +127,7 @@ function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
       phone: null,
       dateOfBirth: null,
       avatarUrl: null,
-      address: null,
+      addresses: [],
       isEmailVerified: true,
       isPhoneVerified: false,
       approvalStatus: 'APPROVED',

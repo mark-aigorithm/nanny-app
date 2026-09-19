@@ -10,7 +10,8 @@ const idReviewSelect = {
   firstName: true,
   lastName: true,
   avatarUrl: true,
-  address: true,
+  // The default address row; `location` is its display line.
+  addresses: { where: { isDefault: true, deletedAt: null }, take: 1 },
   approvalStatus: true,
   idDocumentType: true,
   rejectionReason: true,
@@ -28,8 +29,8 @@ function toDto(row: AdminIdReviewRow): AdminIdReview {
     // Drop the "-" placeholder last name (see toMotherDto) from the display name.
     name: `${row.firstName} ${row.lastName === '-' ? '' : row.lastName}`.trim(),
     avatarUrl: row.avatarUrl,
-    // Home location lives on the user row (single source of truth).
-    location: row.address,
+    // Home location is the default address row (single source of truth).
+    location: row.addresses[0]?.formattedAddress ?? null,
     idDocumentType: row.idDocumentType,
     idDocumentFrontUrl: row.idDocumentFrontUrl,
     idDocumentBackUrl: row.idDocumentBackUrl,

@@ -21,7 +21,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     firstName: 'Nour',
     lastName: 'Ibrahim',
     avatarUrl: null,
-    address: 'Cairo',
+    // Her default address row — where `location` now comes from.
+    addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
     approvalStatus: 'PENDING_REVIEW',
     idDocumentType: 'PASSPORT',
     rejectionReason: null,

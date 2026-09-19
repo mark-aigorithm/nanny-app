@@ -63,9 +63,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
       phone: '+201000000000',
       dateOfBirth: null,
       avatarUrl: null,
-      address: 'Cairo',
-      latitude: null,
-      longitude: null,
+      // Her default address row — where `location` and the pin now come from.
+      addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
       isEmailVerified: true,
       isPhoneVerified: false,
       approvalStatus: 'APPROVED',
@@ -129,14 +128,12 @@ describe('updateAdminNanny', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('passes photo, date of birth and home pin straight through to the writer', async () => {
+  it('passes photo and date of birth straight through to the writer', async () => {
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
 
     await updateAdminNanny(NANNY_PROFILE_ID, {
       avatarUrl: 'https://cdn.example/nanny.jpg',
       dateOfBirth: '1995-06-15',
-      latitude: 30.0444,
-      longitude: 31.2357,
     });
 
     expect(mockWrite).toHaveBeenCalledWith(expect.anything(), {
@@ -145,20 +142,17 @@ describe('updateAdminNanny', () => {
       fields: {
         avatarUrl: 'https://cdn.example/nanny.jpg',
         dateOfBirth: '1995-06-15',
-        latitude: 30.0444,
-        longitude: 31.2357,
       },
     });
   });
 
-  it('exposes the home pin on the detail DTO as numbers', async () => {
-    mockPrisma.nannyProfile.findFirst.mockResolvedValue(
-      makeRow({ user: { ...makeRow().user, latitude: '30.0444000', longitude: '31.2357000' } }),
-    );
+  it('exposes the home pin on the detail DTO as numbers, read off her address row', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
 
     const result = await updateAdminNanny(NANNY_PROFILE_ID, { bio: 'x' });
 
     expect(result.latitude).toBe(30.0444);
     expect(result.longitude).toBe(31.2357);
+    expect(result.address).toMatchObject({ formattedAddress: 'Cairo', isDefault: true });
   });
 });

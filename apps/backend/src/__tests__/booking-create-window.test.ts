@@ -3,6 +3,7 @@ import { Role } from '@nanny-app/shared';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), findMany: jest.fn() },
+    address: { findFirst: jest.fn() },
     nannyProfile: { findMany: jest.fn() },
     booking: { findFirst: jest.fn(), create: jest.fn() },
     // createBooking checks the mother's prepaid package-hours balance; no packages here.
@@ -39,8 +40,29 @@ import { createBooking } from '@backend/services/booking.service';
  * Cairo (= 07:00Z, since July is +03:00) so lead-time assertions are exact.
  */
 
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
+
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findMany: jest.Mock };
   booking: { findFirst: jest.Mock; create: jest.Mock };
   packagePurchase: { findMany: jest.Mock };
@@ -133,6 +155,7 @@ async function create(body: { startTime: string; endTime: string }) {
     ...body,
     skillIds: [],
     children: [{ name: null, ageYears: 4, allergies: null }],
+    addressId: HOME_ADDRESS.id,
   });
   return { response, data: mockPrisma.booking.create.mock.calls[0][0].data };
 }
@@ -147,6 +170,7 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   mockPrisma.user.findUnique.mockResolvedValue({
     id: 10,
     role: Role.MOTHER,

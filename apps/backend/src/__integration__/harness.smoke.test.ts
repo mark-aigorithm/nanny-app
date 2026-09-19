@@ -55,9 +55,13 @@ describe('integration harness', () => {
 
     expect(persisted).not.toBeNull();
     expect(persisted?.firebaseUid).toBe(mother.firebaseUid);
-    // Compared numerically: the column is Decimal(10,7), but Prisma's Decimal
-    // trims trailing zeros on the way out, so the string form is "30.0444".
-    expect(Number(persisted?.latitude)).toBe(30.0444);
+
+    // Her location lives on the default address row the factory made, not the
+    // deprecated users columns. Compared numerically: the column is
+    // Decimal(10,7), but Prisma's Decimal trims trailing zeros on the way out.
+    const home = await prisma.address.findFirst({ where: { userId: mother.id, isDefault: true } });
+    expect(home?.id).toBe(mother.addressId);
+    expect(Number(home?.latitude)).toBe(30.0444);
   });
 
   it('starts each test from an empty database', async () => {

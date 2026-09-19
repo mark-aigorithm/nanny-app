@@ -19,7 +19,7 @@ import { prisma } from '@backend/db/prisma';
 
 import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
 import { makeMother } from '../../../test/factories';
-import { wallClockTomorrow } from '../../../test/journeys/booking';
+import { defaultAddressId, wallClockTomorrow } from '../../../test/journeys/booking';
 import { proveEmail, verifyMyEmail } from '../../../test/journeys/email-verification';
 import { waitForOtp } from '../../../test/mailpit';
 
@@ -82,7 +82,7 @@ async function makeLegacyMother() {
   return { ...mother, placeholder: row.email, realEmail: uniqueEmail() };
 }
 
-function attemptBooking(token: string) {
+async function attemptBooking(token: string) {
   return request(app)
     .post('/bookings')
     .set(...authHeader(token))
@@ -90,6 +90,8 @@ function attemptBooking(token: string) {
       startTime: wallClockTomorrow(10),
       endTime: wallClockTomorrow(14),
       children: [{ name: 'Test Child', ageYears: 3, allergies: null }],
+      // The address she registered with — what the picker preselects.
+      addressId: await defaultAddressId(token),
     });
 }
 

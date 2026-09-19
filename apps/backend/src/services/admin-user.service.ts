@@ -2,6 +2,7 @@ import { ApprovalStatus, type Prisma } from '@prisma/client';
 
 import { hasSectionAccess, sortDirection } from '@nanny-app/shared';
 import type {
+  Address as AddressDto,
   AdminApprovalStatusFilter,
   AdminMother,
   AdminMotherDetail,
@@ -21,6 +22,7 @@ import { effectivePermissions } from '@backend/lib/admin-permissions';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
+import { listAddresses } from '@backend/services/address.service';
 import {
   createInAppNotification,
   dispatchPush,
@@ -33,7 +35,8 @@ const motherSelect = {
   email: true,
   phone: true,
   avatarUrl: true,
-  address: true,
+  // The default address row; `location` is its display line.
+  addresses: { where: { isDefault: true, deletedAt: null }, take: 1 },
   isEmailVerified: true,
   isPhoneVerified: true,
   isActive: true,
@@ -57,8 +60,8 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
     email: row.email,
     phone: row.phone,
     avatarUrl: row.avatarUrl,
-    // Home location lives on the user row (single source of truth).
-    location: row.address,
+    // Home location is the default address row (single source of truth).
+    location: row.addresses[0]?.formattedAddress ?? null,
     isEmailVerified: row.isEmailVerified,
     isPhoneVerified: row.isPhoneVerified,
     isActive: row.isActive,
@@ -84,11 +87,12 @@ async function findReviewableMother(id: number): Promise<AdminMotherRow> {
 }
 
 /** Detail DTO: the list fields plus the raw first/last name split for the edit form. */
-function toMotherDetailDto(row: AdminMotherRow): AdminMotherDetail {
+function toMotherDetailDto(row: AdminMotherRow, addresses: AddressDto[]): AdminMotherDetail {
   return {
     ...toMotherDto(row),
     firstName: row.firstName,
     lastName: row.lastName,
+    addresses,
   };
 }
 
@@ -254,7 +258,14 @@ export async function listAdminMothers(
 
 /** Full detail for a single mother account (admin detail page). */
 export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
-  return toMotherDetailDto(await findReviewableMother(id));
+  const mother = await findReviewableMother(id);
+  return toMotherDetailDto(mother, await listAddresses(mother.id));
+}
+
+/** A mother's whole address book, for the console's read-only list. */
+export async function listAdminMotherAddresses(id: number): Promise<AddressDto[]> {
+  const mother = await findReviewableMother(id);
+  return listAddresses(mother.id);
 }
 
 /**
@@ -347,7 +358,7 @@ export async function updateAdminMother(
     },
     select: motherSelect,
   });
-  return toMotherDetailDto(row);
+  return toMotherDetailDto(row, await listAddresses(row.id));
 }
 
 /**

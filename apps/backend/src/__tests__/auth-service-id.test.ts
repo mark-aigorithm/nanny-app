@@ -3,6 +3,7 @@ import { Role } from '@nanny-app/shared';
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), update: jest.fn() },
+    address: { findFirst: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(),
   },
 }));
@@ -92,6 +93,14 @@ describe('registerUser — ID verification defaults', () => {
       // for the dedicated coverage of that behavior.
       nannyCertification: { findMany: jest.fn().mockResolvedValue([]) },
       nannySkill: { findMany: jest.fn().mockResolvedValue([]) },
+      // The wizard's location becomes the user's first (default) address row.
+      address: {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn(),
+        create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 9, createdAt: new Date(), ...data }),
+        ),
+      },
     };
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
@@ -113,6 +122,14 @@ describe('registerUser — ID verification defaults', () => {
     const tx = {
       user: { create: jest.fn(({ data }) => Promise.resolve(userRowFromData(data))) },
       nannyProfile: { create: jest.fn().mockResolvedValue({}) },
+      // The wizard's location becomes the user's first (default) address row.
+      address: {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn(),
+        create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 9, createdAt: new Date(), ...data }),
+        ),
+      },
     };
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 

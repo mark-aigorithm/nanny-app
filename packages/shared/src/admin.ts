@@ -8,7 +8,7 @@ import {
   PaginationMetaSchema,
   wallClockField,
 } from './booking';
-import { AddressInputSchema, AddressSchema } from './address';
+import { AddressInputSchema, AddressSchema, BookingAddressSchema } from './address';
 import { PublicCertificationSchema } from './certification';
 import { BookingChildSchema } from './child';
 import { CommunityTagSchema, PostModerationStatusSchema } from './community';
@@ -357,6 +357,11 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   childrenCount: z.number(),
   extraChildren: z.number(),
   extraChildFeePerHour: z.number(),
+  /**
+   * Where the booking happens, snapshotted at creation. Always the whole
+   * address for the console. Null on a booking whose mother had no address.
+   */
+  address: BookingAddressSchema.nullable(),
   subtotal: z.number(),
   durationMultiplier: z.number(),
   serviceFeePercent: z.number(),

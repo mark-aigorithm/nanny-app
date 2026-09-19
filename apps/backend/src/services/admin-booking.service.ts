@@ -1,7 +1,8 @@
 import { BookingStatus, NotificationType, Prisma } from '@prisma/client';
 
-import { BookingChildSchema } from '@nanny-app/shared';
+import { BookingAddressSchema, BookingChildSchema } from '@nanny-app/shared';
 import type {
+  BookingAddress,
   AdminBooking,
   AdminBookingDetail,
   AdminBookingStatusFilter,
@@ -84,6 +85,13 @@ function parseBookedChildren(raw: Prisma.JsonValue | null | undefined): BookingC
   return parsed.success ? parsed.data : [];
 }
 
+/** Same treatment for the address snapshot — null rather than a 500 on a bad row. */
+function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAddress | null {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const parsed = BookingAddressSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
 function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
   return {
@@ -120,6 +128,7 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     effectiveHourlyRate: row.effectiveHourlyRate.toNumber(),
     skillAddOns: parseSkillAddOns(row.selectedSkillFees),
     children: parseBookedChildren(row.bookedChildren),
+    address: parseBookedAddress(row.bookedAddress),
     childrenCount: row.childrenCount,
     extraChildren: row.extraChildren,
     extraChildFeePerHour: row.extraChildFeePerHour.toNumber(),

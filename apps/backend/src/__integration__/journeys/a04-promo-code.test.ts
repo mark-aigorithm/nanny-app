@@ -12,7 +12,7 @@ import { prisma } from '@backend/db/prisma';
 
 import { authHeader } from '../../../test/auth';
 import { makeMother, makeNanny, makePromoCode } from '../../../test/factories';
-import { claimBooking, createBookingViaApi } from '../../../test/journeys/booking';
+import { claimBooking, createBookingViaApi, defaultAddressId } from '../../../test/journeys/booking';
 import { payViaPaymob } from '../../../test/journeys/payment';
 
 /** 4 hours at the seeded 120 EGP/h. */
@@ -93,6 +93,7 @@ describe('A4 — promo codes', () => {
         endTime: tomorrowAt(18),
         children: [{ name: 'Test Child', ageYears: 3, allergies: null }],
         promoCode: promo.code,
+        addressId: await defaultAddressId(mother.token),
       });
 
     expect(second.status).toBe(400);
@@ -156,6 +157,7 @@ describe('A4 — promo codes', () => {
         endTime: tomorrowAt(18),
         children: [{ name: 'Test Child', ageYears: 3, allergies: null }],
         promoCode: promo.code,
+        addressId: await defaultAddressId(mother.token),
       });
 
     expect(second.status).toBe(400);

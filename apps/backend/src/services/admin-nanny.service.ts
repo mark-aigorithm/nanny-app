@@ -2,10 +2,12 @@ import { BookingStatus, ApprovalStatus, Prisma } from '@prisma/client';
 
 import { sortDirection } from '@nanny-app/shared';
 import type {
+  Address as AddressDto,
   AdminApprovalStatusFilter,
   AdminNanny,
   AdminNannyDetail,
   AdminSortedListQuery,
+  AdminUpsertNannyAddressInput,
   PaginationMeta,
   RejectNannyInput,
   SetNannySkillsInput,
@@ -20,6 +22,7 @@ import {
   createInAppNotification,
   dispatchPush,
 } from '@backend/services/notification.service';
+import { toAddressDto, upsertNannyAddress } from '@backend/services/address.service';
 import { writeNannyProfileFields } from '@backend/services/nanny.service';
 
 const nannyInclude = {
@@ -32,9 +35,8 @@ const nannyInclude = {
       phone: true,
       dateOfBirth: true,
       avatarUrl: true,
-      address: true,
-      latitude: true,
-      longitude: true,
+      // Her single home base; `location`, the pin and the editor's address come from it.
+      addresses: { where: { isDefault: true, deletedAt: null }, take: 1 },
       isEmailVerified: true,
       isPhoneVerified: true,
       // The admin's decision on her application, plus her ID document.
@@ -69,8 +71,8 @@ function toDto(row: AdminNannyRow): AdminNanny {
       : null,
     avatarUrl: row.user.avatarUrl,
     bio: row.bio,
-    // Home location lives on the user row (single source of truth).
-    location: row.user.address,
+    // Home location is her address row (single source of truth).
+    location: row.user.addresses[0]?.formattedAddress ?? null,
     yearsOfExperience: row.yearsOfExperience,
     certifications: row.nannyCertifications.map((nc) => ({
       id: nc.certification.id,
@@ -136,6 +138,7 @@ export async function listAdminNannies(
 function toDetailDto(
   row: AdminNannyRow,
 ): Omit<AdminNannyDetail, 'userId' | 'amountGained' | 'completedBookings'> {
+  const home = row.user.addresses[0];
   return {
     ...toDto(row),
     firstName: row.user.firstName,
@@ -143,8 +146,11 @@ function toDetailDto(
     ageRanges: row.ageRanges,
     availabilityType: row.availabilityType,
     schedule: (row.schedule as WeeklySchedule) ?? null,
-    latitude: row.user.latitude !== null ? Number(row.user.latitude) : null,
-    longitude: row.user.longitude !== null ? Number(row.user.longitude) : null,
+    // The pin, flattened off her address row for the list/detail consumers
+    // that predate the address object.
+    latitude: home ? Number(home.latitude) : null,
+    longitude: home ? Number(home.longitude) : null,
+    address: home ? toAddressDto(home) : null,
   };
 }
 
@@ -345,8 +351,21 @@ export async function setNannySkills(
 }
 
 /**
+ * Admin rewrites a nanny's single address (PUT /admin/nannies/:id/address) —
+ * the only way it changes after registration. Returns the saved row; the
+ * detail page re-reads `location` and the pin from it.
+ */
+export async function updateAdminNannyAddress(
+  nannyProfileId: number,
+  input: AdminUpsertNannyAddressInput,
+): Promise<AddressDto> {
+  const profile = await findReviewableNanny(nannyProfileId);
+  return upsertNannyAddress(profile.user.id, input);
+}
+
+/**
  * Admin edits a nanny's profile (PATCH /admin/nannies/:id) — every field she
- * entered at registration: name, photo, date of birth, home address and pin,
+ * entered at registration except her address: name, photo, date of birth,
  * bio, experience, age ranges, availability, schedule, certifications. Reuses
  * `writeNannyProfileFields`, the same core writer registration uses, so the
  * two writers of a nanny profile cannot drift.

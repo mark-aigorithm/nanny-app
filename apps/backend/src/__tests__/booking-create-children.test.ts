@@ -15,6 +15,7 @@ jest.mock('@backend/db/prisma', () => {
   return {
     prisma: {
       user: { findUnique: jest.fn(), findMany: jest.fn() },
+      address: { findFirst: jest.fn() },
       nannyProfile: { findMany: jest.fn() },
       booking,
       child,
@@ -50,6 +51,7 @@ import { createBooking } from '@backend/services/booking.service';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findMany: jest.Mock };
   booking: { findFirst: jest.Mock; create: jest.Mock };
   child: { updateMany: jest.Mock; createMany: jest.Mock; findMany: jest.Mock };
@@ -61,6 +63,25 @@ const mockPrisma = prisma as unknown as {
 const mockConfig = getPlatformConfig as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
 const NOW_UTC = new Date('2026-07-20T07:00:00.000Z'); // 10:00 Cairo
 
 const CONFIG = {
@@ -85,6 +106,7 @@ const WINDOW = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
   skillIds: [] as number[],
+  addressId: HOME_ADDRESS.id,
 };
 
 const kid = (ageYears: number, name: string | null = null, allergies: string | null = null) => ({
@@ -167,6 +189,7 @@ beforeEach(() => {
   mockPrisma.user.findMany.mockResolvedValue([]);
   mockPrisma.nannyProfile.findMany.mockResolvedValue([]);
   mockPrisma.booking.findFirst.mockResolvedValue(null);
+  mockPrisma.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   mockPrisma.booking.create.mockResolvedValue(bookingRow());
   mockPrisma.child.findMany.mockResolvedValue([]);
   mockPrisma.skill.findMany.mockResolvedValue([]);

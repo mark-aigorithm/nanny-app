@@ -10,6 +10,7 @@
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn() },
+    address: { findFirst: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(),
   },
 }));
@@ -120,6 +121,14 @@ function makeTx() {
     nannyProfile: {
       create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
         Promise.resolve({ id: 99, ...data }),
+      ),
+    },
+    // The wizard's location becomes the user's first (default) address row.
+    address: {
+      count: jest.fn().mockResolvedValue(0),
+      updateMany: jest.fn(),
+      create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ id: 9, createdAt: new Date(), ...data }),
       ),
     },
   };

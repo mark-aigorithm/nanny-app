@@ -21,6 +21,8 @@ export type TestUser = {
   email: string;
   /** Ready for `Authorization: Bearer …`. */
   token: string;
+  /** Her default address row, when the factory placed her somewhere. */
+  addressId?: number;
 };
 
 /**
@@ -47,6 +49,11 @@ function uniquePhone(seq: number): string {
  * `firebaseUid` and `email` must stay in step with the emulator account, and
  * `role` is what distinguishes one factory from another. Everything else is
  * optional: a caller sets only what its assertion depends on.
+ *
+ * `address`, `latitude` and `longitude` are kept as override names for the
+ * many tests that place a user somewhere, but they no longer touch the
+ * deprecated users columns: the factory writes them to the user's default
+ * `addresses` row, which is where every reader now looks.
  */
 type UserOverrides = Partial<Omit<Prisma.UserCreateInput, 'firebaseUid' | 'email' | 'role'>>;
 
@@ -64,6 +71,8 @@ async function createUser(
   const email = uniqueEmail(prefix, seq);
   const firebaseUid = await createEmulatorUser(email);
 
+  const { address, latitude, longitude, ...userOverrides } = overrides;
+
   const user = await prisma.user.create({
     data: {
       firebaseUid,
@@ -79,11 +88,32 @@ async function createUser(
       // account created before that rule.
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
-      ...overrides,
+      ...userOverrides,
     },
   });
 
-  return { id: user.id, firebaseUid, email, token: await signInAs(email) };
+  let addressId: number | undefined;
+  if (latitude != null && longitude != null) {
+    const row = await prisma.address.create({
+      data: {
+        userId: user.id,
+        label: 'Home',
+        formattedAddress: typeof address === 'string' ? address : '',
+        latitude: latitude as Prisma.Decimal | number | string,
+        longitude: longitude as Prisma.Decimal | number | string,
+        isDefault: true,
+      },
+    });
+    addressId = row.id;
+  }
+
+  return {
+    id: user.id,
+    firebaseUid,
+    email,
+    token: await signInAs(email),
+    ...(addressId === undefined ? {} : { addressId }),
+  };
 }
 
 /**

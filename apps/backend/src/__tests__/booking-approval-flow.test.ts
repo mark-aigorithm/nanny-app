@@ -14,6 +14,7 @@ jest.mock('@backend/db/prisma', () => {
     count: jest.fn(),
   };
   const user = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() };
+  const address = { findFirst: jest.fn() };
   const nannyProfile = { findUnique: jest.fn(), findMany: jest.fn() };
   const payment = { create: jest.fn(), updateMany: jest.fn() };
   const skill = { findMany: jest.fn() };
@@ -24,6 +25,7 @@ jest.mock('@backend/db/prisma', () => {
     prisma: {
       booking,
       user,
+      address,
       nannyProfile,
       payment,
       skill,
@@ -79,6 +81,26 @@ import {
   validateStatusTransition,
 } from '@backend/services/booking.service';
 
+
+/** The address the mother books at; createBooking looks it up and snapshots it. */
+const HOME_ADDRESS = {
+  id: 7,
+  userId: 10,
+  label: 'Home',
+  formattedAddress: '1 Test Street, Cairo',
+  governorate: null,
+  area: null,
+  street: null,
+  building: null,
+  floor: null,
+  apartment: null,
+  landmark: null,
+  latitude: 30.0444,
+  longitude: 31.2357,
+  isDefault: true,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+};
+
 const mockPrisma = prisma as unknown as {
   booking: {
     findUnique: jest.Mock;
@@ -90,6 +112,7 @@ const mockPrisma = prisma as unknown as {
     count: jest.Mock;
   };
   user: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
+  address: { findFirst: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
   payment: { create: jest.Mock; updateMany: jest.Mock };
   skill: { findMany: jest.Mock };
@@ -120,7 +143,7 @@ const mother = { id: 10, firstName: 'Jane', lastName: 'Mom', avatarUrl: null };
 const nannyProfileRel = {
   id: 19,
   userId: nannyUser.id,
-  user: { id: nannyUser.id, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null },
+  user: { id: nannyUser.id, firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, addresses: [] },
 };
 
 function makeBooking(overrides: Record<string, unknown> = {}) {
@@ -164,6 +187,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.address.findFirst.mockResolvedValue(HOME_ADDRESS);
 });
 
 // ── Transition table ──────────────────────────────────────────────────────────
@@ -219,7 +243,7 @@ describe('createBooking (broadcast)', () => {
     mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([]);
     // Broadcast fan-out: one eligible nanny + two admins.
     mockPrisma.nannyProfile.findMany.mockResolvedValue([
-      { userId: nannyUser.id, user: { latitude: null, longitude: null } },
+      { userId: nannyUser.id, user: { addresses: [] } },
     ]);
     mockPrisma.user.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
 
@@ -232,6 +256,7 @@ describe('createBooking (broadcast)', () => {
       endTime: `${dateIso}T13:00:00`,
       skillIds: [],
       children: [{ name: null, ageYears: 4, allergies: null }],
+      addressId: HOME_ADDRESS.id,
     });
 
     expect(result.status).toBe(BookingStatus.PENDING);
@@ -241,7 +266,7 @@ describe('createBooking (broadcast)', () => {
     expect(createData.nannyProfileId).toBeNull();
     // Location snapshot: the mother's coordinates are copied onto the booking
     // so radius filtering stays stable if she later edits her address.
-    expect(createData.latitude).toBe(30.0444);
+    expect(Number(createData.latitude)).toBe(30.0444);
     expect(createData.longitude).toBe(31.2357);
     // Priced from the base platform rate (100) × 3 hrs, split 80/20, no fee on top.
     expect(createData.baseRate).toBe(100);

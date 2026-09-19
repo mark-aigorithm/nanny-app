@@ -39,11 +39,16 @@ describe('A20 — a mother edits her account', () => {
         firstName: 'Nadia',
         lastName: 'Hassan',
         avatarUrl: 'https://storage.example.test/nadia.jpg',
-        address: '14 Garden Street, Maadi',
-        latitude: 29.9602,
-        longitude: 31.2569,
       });
     expect(response.status).toBe(200);
+
+    // Her address is an address-book entry now, edited through /addresses —
+    // the profile's flat `address` field is derived from whichever is default.
+    const moved = await request(app)
+      .patch(`/addresses/${mother.addressId}`)
+      .set(...authHeader(mother.token))
+      .send({ formattedAddress: '14 Garden Street, Maadi', latitude: 29.9602, longitude: 31.2569 });
+    expect(moved.status).toBe(200);
 
     // Reopening the screen reads /auth/me again.
     expect(await me(mother.token)).toMatchObject({
@@ -51,6 +56,7 @@ describe('A20 — a mother edits her account', () => {
       lastName: 'Hassan',
       avatarUrl: 'https://storage.example.test/nadia.jpg',
       address: '14 Garden Street, Maadi',
+      latitude: 29.9602,
     });
 
     const console_ = await request(app)
@@ -60,8 +66,9 @@ describe('A20 — a mother edits her account', () => {
     expect(console_.body.data).toMatchObject({
       firstName: 'Nadia',
       lastName: 'Hassan',
-      // The console calls the address "location".
+      // The console calls the default address "location", and lists the book.
       location: '14 Garden Street, Maadi',
+      addresses: [expect.objectContaining({ id: mother.addressId, isDefault: true })],
     });
   });
 

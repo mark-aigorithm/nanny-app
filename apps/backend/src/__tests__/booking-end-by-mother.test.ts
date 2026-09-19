@@ -70,7 +70,7 @@ function makeBooking(status: string = PrismaBookingStatus.IN_PROGRESS) {
     nannyProfile: {
       id: 19,
       userId: nannyUser.id,
-      user: { firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, address: null, phone: null },
+      user: { firstName: 'Elena', lastName: 'Nanny', avatarUrl: null, addresses: [], phone: null },
     },
     payments: [],
     extensions: [],

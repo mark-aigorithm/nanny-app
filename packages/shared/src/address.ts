@@ -62,11 +62,16 @@ export const AddressInputSchema = AddressPartsSchema.extend({
    */
   isDefault: z.boolean().optional(),
 });
-export type AddressInput = z.infer<typeof AddressInputSchema>;
+/**
+ * The body as sent: every part may be omitted. (The parsed form nulls them —
+ * internal callers such as registration build the input by hand, so the
+ * lenient shape is the one exported.)
+ */
+export type AddressInput = z.input<typeof AddressInputSchema>;
 
 /** Body for PATCH /addresses/:id — any subset of the input. */
 export const UpdateAddressSchema = AddressInputSchema.partial();
-export type UpdateAddressRequest = z.infer<typeof UpdateAddressSchema>;
+export type UpdateAddressRequest = z.input<typeof UpdateAddressSchema>;
 
 /** An address as the API returns it. */
 export const AddressSchema = AddressInputSchema.omit({ isDefault: true }).extend({

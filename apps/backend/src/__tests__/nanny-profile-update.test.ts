@@ -43,15 +43,17 @@ describe('writeNannyProfileFields', () => {
       userId: USER_ID,
       nannyProfileId: NANNY_PROFILE_ID,
       fields: {
+        firstName: 'Amira',
         bio: 'Loves kids, 5 years experience',
-        location: 'Giza',
         certificationIds: [5],
       },
     });
 
+    // Only the name reaches the user row. Location is not writable here at
+    // all — it is an address-book row edited through PUT /admin/nannies/:id/address.
     expect(tx.user.update).toHaveBeenCalledWith({
       where: { id: USER_ID },
-      data: { address: 'Giza' },
+      data: { firstName: 'Amira' },
     });
     expect(tx.nannyProfile.upsert).toHaveBeenCalledWith({
       where: { userId: USER_ID },
@@ -62,7 +64,9 @@ describe('writeNannyProfileFields', () => {
     expect(mockReconcile).toHaveBeenCalledWith(tx, NANNY_PROFILE_ID, [5]);
   });
 
-  it('writes photo, date of birth and home pin onto the user row', async () => {
+  it('writes photo and date of birth onto the user row', async () => {
+    // Her address and pin are not this writer's — they are an address-book row
+    // edited through PUT /admin/nannies/:id/address (see address.service).
     const tx = makeTx();
 
     await writeNannyProfileFields(tx as never, {
@@ -71,8 +75,6 @@ describe('writeNannyProfileFields', () => {
       fields: {
         avatarUrl: 'https://cdn.example/nanny.jpg',
         dateOfBirth: '1995-06-15',
-        latitude: 30.0444,
-        longitude: 31.2357,
       },
     });
 
@@ -81,8 +83,6 @@ describe('writeNannyProfileFields', () => {
       data: {
         avatarUrl: 'https://cdn.example/nanny.jpg',
         dateOfBirth: new Date('1995-06-15'),
-        latitude: 30.0444,
-        longitude: 31.2357,
       },
     });
     expect(tx.nannyProfile.upsert).toHaveBeenCalledWith({

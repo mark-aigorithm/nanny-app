@@ -22,6 +22,7 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
 import { consumeVerificationToken } from '@backend/services/email-verification.service';
+import { createAddress, getDefaultAddress } from './address.service';
 import { listChildren, saveChildren } from './child.service';
 
 /**
@@ -34,14 +35,34 @@ function toApiRole(role: PrismaRole | null): ApiRole | null {
   return null;
 }
 
+/** The location fields of UserResponse, flattened off the default address. */
+type FlatLocation = Pick<UserResponse, 'address' | 'latitude' | 'longitude'>;
+
+/**
+ * The user's default address as the three flat fields the profile response
+ * has always carried, so screens that only show "where you are" keep working
+ * while the address book is the source of truth. Null when there is none.
+ */
+async function flatLocationOf(userId: number): Promise<FlatLocation> {
+  const home = await getDefaultAddress(userId);
+  return home
+    ? {
+        address: home.formattedAddress,
+        latitude: Number(home.latitude),
+        longitude: Number(home.longitude),
+      }
+    : { address: null, latitude: null, longitude: null };
+}
+
 /**
  * Convert a Prisma `User` row into the wire format defined by
  * `UserResponseSchema`. Strips internal columns (timestamps, soft-delete
  * markers) and serializes Date fields to ISO strings. The ID image URLs are
  * intentionally NOT exposed here — they are KYC-sensitive and only returned
- * by admin endpoints.
+ * by admin endpoints. Location comes from the address book (see
+ * flatLocationOf), never from the deprecated user columns.
  */
-function toUserResponse(user: User): UserResponse {
+function toUserResponse(user: User, location: FlatLocation): UserResponse {
   return {
     id: user.id,
     firebaseUid: user.firebaseUid,
@@ -57,9 +78,7 @@ function toUserResponse(user: User): UserResponse {
     approvalStatus: user.approvalStatus,
     idDocumentType: user.idDocumentType,
     rejectionReason: user.rejectionReason,
-    address: user.address,
-    latitude: user.latitude !== null ? Number(user.latitude) : null,
-    longitude: user.longitude !== null ? Number(user.longitude) : null,
+    ...location,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -112,7 +131,7 @@ export async function registerUser(
     if (existing.deletedAt) {
       throw errors.conflict('This account has been deleted.');
     }
-    return toUserResponse(existing);
+    return toUserResponse(existing, await flatLocationOf(existing.id));
   }
 
   // Collision check (different Firebase UID, same email or phone) — the same
@@ -157,9 +176,6 @@ export async function registerUser(
         termsAcceptedAt: new Date(),
         termsAcceptedVersion: body.termsAcceptedVersion,
         lastLoginAt: new Date(),
-        address: body.address ?? null,
-        latitude: body.latitude,
-        longitude: body.longitude,
         // Approval state lives on the user row for both roles. A nanny uploads
         // her ID at registration and starts PENDING_REVIEW, awaiting an admin's
         // decision on her whole application; a mother uploads later, before
@@ -172,6 +188,23 @@ export async function registerUser(
         avatarUrl: isNanny ? (body.avatarUrl ?? null) : null,
       },
     });
+
+    // The wizard's location becomes the user's first address — her default,
+    // and for a nanny the only one she will ever have (support edits it from
+    // here on). Same transaction as the user row, so neither exists alone.
+    // The wizard captures one line and a pin; the structured parts stay null
+    // until the address is edited in-app.
+    const home = await createAddress(
+      user.id,
+      {
+        label: 'Home',
+        formattedAddress: body.address ?? '',
+        latitude: body.latitude,
+        longitude: body.longitude,
+        isDefault: true,
+      },
+      tx,
+    );
 
     if (isNanny) {
       const profile = await tx.nannyProfile.create({
@@ -192,10 +225,14 @@ export async function registerUser(
       await reconcileNannySkills(tx, profile.id, body.skillIds ?? []);
     }
 
-    return user;
+    return { user, home };
   });
 
-  return toUserResponse(created);
+  return toUserResponse(created.user, {
+    address: created.home.formattedAddress,
+    latitude: created.home.latitude,
+    longitude: created.home.longitude,
+  });
 }
 
 /**
@@ -219,7 +256,7 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
     data: { lastLoginAt: new Date() },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /** The current user's row, or a 404 telling the client to finish registration. */
@@ -287,14 +324,12 @@ export async function updateProfile(
       ...(body.lastName !== undefined && { lastName: body.lastName }),
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
-      // Home location — the single source of truth for proximity search.
-      ...(body.address !== undefined && { address: body.address }),
-      ...(body.latitude !== undefined && { latitude: body.latitude }),
-      ...(body.longitude !== undefined && { longitude: body.longitude }),
+      // No location here — it is an address-book entry now, edited through
+      // /addresses so the display line and the pin can never drift apart.
     },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /**
@@ -316,7 +351,7 @@ export async function setVerifiedEmail(
   const user = await requireUser(decoded);
 
   if (user.email === body.email && user.isEmailVerified) {
-    return toUserResponse(user);
+    return toUserResponse(user, await flatLocationOf(user.id));
   }
 
   const emailOwner = await prisma.user.findFirst({
@@ -338,7 +373,7 @@ export async function setVerifiedEmail(
     },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /**
@@ -371,5 +406,5 @@ export async function submitId(
     },
   });
 
-  return toUserResponse(updated);
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
