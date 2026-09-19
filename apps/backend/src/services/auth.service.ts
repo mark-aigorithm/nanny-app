@@ -160,10 +160,11 @@ export async function registerUser(
         address: body.address ?? null,
         latitude: body.latitude,
         longitude: body.longitude,
-        // Identity verification lives on the user row for both roles. Nannies
-        // upload their ID at registration, so they start PENDING_REVIEW (awaiting
-        // admin KYC); mothers upload later (before booking), so they start
-        // PENDING_ID and are prompted when they try to book.
+        // Approval state lives on the user row for both roles. A nanny uploads
+        // her ID at registration and starts PENDING_REVIEW, awaiting an admin's
+        // decision on her whole application; a mother uploads later, before
+        // booking, so she starts PENDING_ID and is prompted when she tries to
+        // book.
         approvalStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
         idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
         idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,

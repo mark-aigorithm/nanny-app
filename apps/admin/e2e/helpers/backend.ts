@@ -243,8 +243,8 @@ export type SeededNanny = SeededMother & { nannyProfileId: number };
 
 /**
  * A nanny who has registered and submitted an ID, and is waiting to be vetted —
- * what the ID-review queue and the Nannies tab exist to act on. Needs no admin
- * token, because registration alone is what puts her in `PENDING_REVIEW`.
+ * what the Nannies tab, filtered to PENDING_REVIEW, exists to act on. Needs no
+ * admin token, because registration alone is what puts her in `PENDING_REVIEW`.
  */
 export async function seedPendingNanny(): Promise<SeededMother> {
   const { email, surname } = unique('nanny');

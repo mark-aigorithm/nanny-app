@@ -170,11 +170,11 @@ returns 401 and leaves the booking APPROVED. Partly covered already by
 `paymob-fake.smoke.test.ts`.
 
 ### A10. Nanny onboarding and approval · `UI:both`
-Role selection → nanny details → location → ID upload → `PendingReviewScreen`. Admin approves in
-the ID-review queue → **the nanny enters the broadcast pool**, which is the assertion that matters:
-a new request created afterwards is pushed to her and appears in `NannyRequestsScreen`, where she
-can claim it. (There is no parent-facing nanny search to become "discoverable" in.) Reject path
-shows the reason in-app.
+Role selection → nanny details → location → ID upload → `PendingReviewScreen`. Admin approves her
+from the Nannies tab → her detail page (profile and ID decided together) → **the nanny enters the
+broadcast pool**, which is the assertion that matters: a new request created afterwards is pushed
+to her and appears in `NannyRequestsScreen`, where she can claim it. (There is no parent-facing
+nanny search to become "discoverable" in.) Reject path shows the reason in-app.
 
 ### A11. Mother ID verification gates booking · `UI:mobile`
 Registration steps 1–3 → `UploadIdScreen` → `PENDING_REVIEW`. **Assert:** booking is refused while

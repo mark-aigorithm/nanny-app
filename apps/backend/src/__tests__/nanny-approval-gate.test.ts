@@ -1,8 +1,9 @@
 /**
  * The only thing that hides a nanny from parents is an admin not having
- * approved her. These pin the `where` clauses of the two places that decide
- * who a parent can see — search and the booking broadcast — so a
- * profile-completeness (or any other) predicate cannot creep back in.
+ * approved her. These pin search's `where` clause (`listNannies`) and the
+ * `requireApprovedNanny` middleware, so a profile-completeness (or any other)
+ * predicate cannot creep back in. The booking broadcast's own `where` is
+ * pinned separately, in `booking-broadcast-radius.test.ts`.
  */
 jest.mock('@backend/db/prisma', () => ({
   prisma: {

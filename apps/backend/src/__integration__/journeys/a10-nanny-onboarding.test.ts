@@ -188,18 +188,21 @@ describe('A10 — nanny onboarding and approval', () => {
     expect(claim.status).toBe(200);
   });
 
-  it('appears in the admin review queue and becomes discoverable on approval', async () => {
+  it('appears in the admin nannies queue and becomes discoverable on approval', async () => {
     const nanny = await registerNanny();
     const admin = await makeSuperuser();
     const mother = await makeMother();
 
+    // A nanny waits in the Nannies tab filtered to PENDING_REVIEW, not the
+    // parents-only ID-review queue — her ID is decided together with the rest
+    // of her application, on her detail page.
     const queue = await request(app)
-      .get('/admin/id-reviews')
+      .get('/admin/nannies?status=PENDING_REVIEW')
       .set(...authHeader(admin.token));
     expect(queue.status).toBe(200);
-    expect((queue.body.data as Array<{ id: number }>).some((r) => r.id === nanny.userId)).toBe(
-      true,
-    );
+    expect(
+      (queue.body.data as Array<{ id: number }>).some((r) => r.id === nanny.nannyProfileId),
+    ).toBe(true);
 
     await approveNannyProfile(admin.token, nanny.nannyProfileId);
 

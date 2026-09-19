@@ -109,10 +109,12 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
   const email = placeholderEmail(spec.phone);
   const firebaseUid = await ensureFirebaseUser(email, spec.password, spec.phone);
 
-  // Both roles are gated on an approved ID — a mother cannot book without one
-  // and a nanny cannot reach her dashboard. The lab's baseline is "past the
-  // gate"; the flows that exercise a gate ask for an account on the wrong side
-  // of it, and are re-seeded before every run because they approve it.
+  // Both roles are gated on their approval status, but not the same way: a
+  // mother must have an ID on file (not PENDING_ID/REJECTED) before she can
+  // book, while a nanny must be APPROVED before she can reach her dashboard.
+  // The lab's baseline is "past the gate"; the flows that exercise a gate ask
+  // for an account on the wrong side of it, and are re-seeded before every run
+  // because they approve it.
   const approvalStatus = spec.approvalStatus ?? 'APPROVED';
 
   const user = await prisma.user.upsert({

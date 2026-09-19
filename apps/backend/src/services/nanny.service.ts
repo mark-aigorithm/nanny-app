@@ -161,7 +161,7 @@ async function requireNannyUser(uid: string) {
   return user;
 }
 
-/** The writable subset of a nanny profile — shared by self-service, registration, and admin-edit writers. */
+/** The writable subset of a nanny profile — shared by registration and the admin-edit writer, the two writers of a nanny profile. */
 export type NannyProfileWritable = {
   firstName?: string;
   lastName?: string;
