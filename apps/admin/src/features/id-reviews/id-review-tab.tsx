@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   ADMIN_PAGE_SIZES,
   ADMIN_SORT_OPTIONS,
-  type AdminIdReviewRoleFilter,
   type AdminApprovalStatusFilter,
   type AdminSortOrder,
 } from '@nanny-app/shared';
@@ -30,16 +29,11 @@ const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'ALL', label: 'All' },
 ];
 
-const ROLE_FILTERS: { value: AdminIdReviewRoleFilter; label: string }[] = [
-  { value: 'ALL', label: 'Everyone' },
-  { value: 'MOTHER', label: 'Parents' },
-  { value: 'NANNY', label: 'Nannies' },
-];
-
 /**
- * Combined ID-review gallery: every uploaded ID as a card, filterable by status
- * and role, with Approve/Reject on each pending card so an admin can clear the
- * KYC queue without opening each user's detail page.
+ * Parent ID-review gallery: every ID a parent has uploaded as a card, filterable
+ * by status, with Approve/Reject on each pending card so an admin can clear the
+ * queue without opening each parent's detail page. Nannies are not here — their
+ * ID is reviewed on the Nannies tab as part of approving the application.
  *
  * Opens oldest-first because it is a work queue — whoever has been waiting
  * longest is offered first — which is the opposite of the Mommies and Nannies
@@ -48,13 +42,12 @@ const ROLE_FILTERS: { value: AdminIdReviewRoleFilter; label: string }[] = [
  */
 export function IdReviewTab() {
   const [status, setStatus] = useState<AdminApprovalStatusFilter>('PENDING_REVIEW');
-  const [role, setRole] = useState<AdminIdReviewRoleFilter>('ALL');
   const [sort, setSort] = useState<AdminSortOrder>('oldest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-id-reviews', status, role, sort, page, limit],
-    queryFn: () => fetchIdReviews(status, role, { page, limit, sort }),
+    queryKey: ['admin-id-reviews', status, sort, page, limit],
+    queryFn: () => fetchIdReviews(status, { page, limit, sort }),
   });
   const reviews = data?.data;
   const meta = data?.meta;
@@ -62,8 +55,9 @@ export function IdReviewTab() {
   return (
     <>
       <p className="panel-lead">
-        Every uploaded ID in one place. Scan the photos, then approve or reject without leaving the
-        page — parents and nannies awaiting review show up here together.
+        Every ID a parent has uploaded, in one place. Scan the photos, then approve or reject
+        without leaving the page. Nannies are reviewed from the Nannies tab, where their profile
+        and ID are decided together.
       </p>
       <div className="filter-bar">
         <FilterSelect
@@ -72,15 +66,6 @@ export function IdReviewTab() {
           options={STATUS_FILTERS}
           onChange={(value) => {
             setStatus(value as AdminApprovalStatusFilter);
-            reset();
-          }}
-        />
-        <FilterSelect
-          label="Role"
-          value={role}
-          options={ROLE_FILTERS}
-          onChange={(value) => {
-            setRole(value as AdminIdReviewRoleFilter);
             reset();
           }}
         />
@@ -117,7 +102,7 @@ export function IdReviewTab() {
           ) : (
             <div className="id-review-grid">
               {reviews.map((review) => (
-                <IdReviewCard key={`${review.role}-${review.id}`} review={review} />
+                <IdReviewCard key={review.id} review={review} />
               ))}
             </div>
           )}

@@ -89,9 +89,9 @@ export function NannyDetailPage() {
     onSuccess: () => {
       invalidate();
       setRejecting(false);
-      toast.success('Nanny rejected');
+      toast.success('Application rejected', nanny?.name);
     },
-    onError: (err) => toast.error('Couldn’t reject nanny', apiErrorMessage(err)),
+    onError: (err) => toast.error('Couldn’t reject application', apiErrorMessage(err)),
   });
 
   const mutating = approveMutation.isPending || rejectMutation.isPending;
@@ -110,12 +110,12 @@ export function NannyDetailPage() {
           disabled={mutating}
           onClick={() => approveMutation.mutate()}
         >
-          Approve
+          Approve nanny
         </Button>
       )}
       {canManage && nanny.approvalStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
-          Reject
+          Reject application
         </Button>
       )}
     </>
@@ -223,7 +223,7 @@ export function NannyDetailPage() {
           message={`Reject ${nanny.name}'s application?`}
           label="Reason (optional — shown to the nanny)"
           placeholder="e.g. Couldn’t verify ID documents"
-          confirmLabel="Reject nanny"
+          confirmLabel="Reject application"
           danger
           multiline
           busy={rejectMutation.isPending}

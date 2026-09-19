@@ -18,7 +18,7 @@ import {
   useToast,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
-import { approveMother, approveNanny, rejectMother, rejectNanny } from '@admin/lib/api';
+import { approveMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
@@ -36,20 +36,16 @@ function initials(name: string): string {
     .join('');
 }
 
-const ROLE_LABEL: Record<AdminIdReview['role'], string> = {
-  MOTHER: 'Parent',
-  NANNY: 'Nanny',
-};
-
 const ID_TYPE_LABEL: Record<IdDocumentType, string> = {
   PASSPORT: 'Passport',
   NATIONAL_ID: 'National ID',
 };
 
 /**
- * One reviewable ID in the gallery: the person, their ID photo(s), and the
- * current KYC status — with Approve/Reject inline when the ID is awaiting review.
- * Approve/reject dispatch to the matching per-role endpoint by `review.role`.
+ * One parent's ID in the gallery: the person, their ID photo(s), and the
+ * current approval status — with Approve/Reject inline while the ID is
+ * awaiting review. A parent's approval is exactly this ID check, so the
+ * decision is made here; nannies are decided on their detail page.
  */
 export function IdReviewCard({ review }: { review: AdminIdReview }) {
   const [confirmingApprove, setConfirmingApprove] = useState(false);
@@ -62,17 +58,12 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['admin-id-reviews'] });
-    // Keep the per-role tables in sync too, so a decision here shows up there.
-    void queryClient.invalidateQueries({
-      queryKey: [review.role === 'MOTHER' ? 'admin-mothers' : 'admin-nannies'],
-    });
+    // Keep the Mommies tab in sync too, so a decision here shows up there.
+    void queryClient.invalidateQueries({ queryKey: ['admin-mothers'] });
   };
 
   const approveMutation = useMutation({
-    mutationFn: async () => {
-      if (review.role === 'MOTHER') await approveMother(id);
-      else await approveNanny(id);
-    },
+    mutationFn: () => approveMother(id),
     onSuccess: () => {
       invalidate();
       setConfirmingApprove(false);
@@ -82,10 +73,7 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async (reason?: string) => {
-      if (review.role === 'MOTHER') await rejectMother(id, reason);
-      else await rejectNanny(id, reason);
-    },
+    mutationFn: (reason?: string) => rejectMother(id, reason),
     onSuccess: () => {
       invalidate();
       setRejecting(false);
@@ -115,9 +103,7 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
         )}
         <div className="id-review-identity">
           <span className="id-review-name">{review.name}</span>
-          <span className="id-review-sub">
-            {ROLE_LABEL[review.role]} · {idTypeLabel}
-          </span>
+          <span className="id-review-sub">{idTypeLabel}</span>
         </div>
         {review.approvalStatus && (
           <Badge tone={approvalStatusTone(review.approvalStatus)}>

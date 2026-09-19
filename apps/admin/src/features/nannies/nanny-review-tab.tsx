@@ -143,8 +143,8 @@ export function NannyReviewTab() {
   return (
     <>
       <p className="panel-lead">
-        New nanny registrations wait here until reviewed. Open a nanny to review her details, edit
-        skills, view her ID, and approve or reject the application.
+        New nanny registrations wait here until reviewed. Open a nanny to check her profile and ID
+        together, edit anything that needs correcting, then approve or reject the application.
       </p>
       <div className="filter-bar">
         <FilterSelect
