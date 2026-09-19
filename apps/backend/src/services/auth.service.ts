@@ -3,7 +3,6 @@ import type {
   Role as PrismaRole,
 } from '@prisma/client';
 import {
-  getMissingNannyProfileFields,
   Role,
   type AvailabilityResponse,
   type CheckAvailabilityRequest,
@@ -174,18 +173,6 @@ export async function registerUser(
     });
 
     if (isNanny) {
-      // Home location (address + coordinates) lives solely on the user row;
-      // proximity search and the booking broadcast read it from there, so it
-      // is not mirrored onto the profile — but completeness still needs it,
-      // so it feeds the same getMissingNannyProfileFields check every other
-      // profile writer uses.
-      const isProfileComplete =
-        getMissingNannyProfileFields({
-          bio: body.bio ?? null,
-          location: body.address ?? null,
-          yearsOfExperience: body.yearsOfExperience ?? null,
-        }).length === 0;
-
       const profile = await tx.nannyProfile.create({
         data: {
           userId: user.id,
@@ -194,7 +181,6 @@ export async function registerUser(
           ageRanges: body.ageRanges ?? [],
           schedule: body.schedule,
           availabilityType: body.availabilityType,
-          isProfileComplete,
         },
       });
 

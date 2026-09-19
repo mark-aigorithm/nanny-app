@@ -198,6 +198,14 @@ describe('notifyBookingBroadcast — radius filter', () => {
     const notified = await runBroadcast({});
     expect(notified).toEqual([1, 13, 14, 15]);
   });
+
+  it('offers the request to every approved, free nanny — approval is the only account gate', async () => {
+    await runBroadcast({});
+
+    const where = mockPrisma.nannyProfile.findMany.mock.calls[0][0].where;
+    expect(where.user).toEqual({ deletedAt: null, approvalStatus: 'APPROVED' });
+    expect(where).not.toHaveProperty('isProfileComplete');
+  });
 });
 
 describe('listAvailableBookings — radius filter', () => {

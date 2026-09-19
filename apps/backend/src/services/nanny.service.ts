@@ -2,7 +2,6 @@ import type { DiscountType, NannyProfile, Prisma as PrismaTypes, User } from '@p
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import {
   BookingStatus,
-  getMissingNannyProfileFields,
   Role,
   type CreateReviewRequest,
   type NannyBookedSlotsQuery,
@@ -107,7 +106,6 @@ function toNannyProfileResponse(
     ageRanges: profile.ageRanges,
     skills: toPublicSkills(profile.nannySkills),
     schedule: (profile.schedule as WeeklySchedule) ?? null,
-    isProfileComplete: profile.isProfileComplete,
     availabilityType: profile.availabilityType,
     rating: Number(profile.rating),
     reviewCount: profile.reviewCount,
@@ -168,7 +166,11 @@ export type NannyProfileWritable = {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string | null;
+  /** YYYY-MM-DD. */
+  dateOfBirth?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   bio?: string;
   yearsOfExperience?: number;
   ageRanges?: string[];
@@ -178,67 +180,49 @@ export type NannyProfileWritable = {
 };
 
 /**
- * Core nanny-profile writer, extracted so registration (Task 3) and the admin
- * edit path (Task 5) can share it with the nanny self-service path here. This
- * is the single interface all three callers use — signature stays exactly
- * `(tx, { userId, nannyProfileId, fields })`.
- *
- * Must run inside a caller-provided transaction, with the `NannyProfile` row
- * already existing (callers upsert/find it first so `nannyProfileId` is
- * always concrete). Writes `User` (firstName/lastName/avatarUrl/address),
- * upserts `NannyProfile` (bio/yearsOfExperience/ageRanges/schedule/
- * availabilityType, recomputing `isProfileComplete`), and reconciles
- * certification links. Since callers only pass the fields they're writing,
- * fields omitted from this call are re-read from the DB (inside the same
- * tx) so the `isProfileComplete` recompute still sees the nanny's current
- * bio/location/yearsOfExperience rather than treating them as missing.
+ * Core nanny-profile writer shared by registration and the admin edit path —
+ * the two writers of a nanny profile (a nanny cannot edit her own). Must run
+ * inside a caller-provided transaction, with the `NannyProfile` row already
+ * existing (callers upsert/find it first so `nannyProfileId` is always
+ * concrete). Writes `User` (name / avatar / date of birth / address / home
+ * pin), upserts `NannyProfile` (bio / yearsOfExperience / ageRanges /
+ * schedule / availabilityType), and reconciles certification links. Fields
+ * the caller omits are left untouched.
  */
 export async function writeNannyProfileFields(
   tx: PrismaTypes.TransactionClient,
   params: { userId: number; nannyProfileId: number; fields: NannyProfileWritable },
 ): Promise<void> {
   const { userId, nannyProfileId, fields } = params;
-  const { firstName, lastName, avatarUrl, location, certificationIds, ...profileFields } = fields;
+  const {
+    firstName,
+    lastName,
+    avatarUrl,
+    dateOfBirth,
+    location,
+    latitude,
+    longitude,
+    certificationIds,
+    ...profileFields
+  } = fields;
 
-  const userNeedsUpdate =
-    firstName !== undefined ||
-    lastName !== undefined ||
-    avatarUrl !== undefined ||
-    location !== undefined;
-
-  const currentUser = userNeedsUpdate
-    ? await tx.user.update({
-        where: { id: userId },
-        data: {
-          ...(firstName !== undefined && { firstName }),
-          ...(lastName !== undefined && { lastName }),
-          ...(avatarUrl !== undefined && { avatarUrl }),
-          ...(location !== undefined && { address: location }),
-        },
-      })
-    : await tx.user.findUniqueOrThrow({ where: { id: userId } });
-
-  const currentProfile = await tx.nannyProfile.findUnique({ where: { id: nannyProfileId } });
-
-  const mergedBio = profileFields.bio ?? currentProfile?.bio;
-  // Completeness reads location from the user row now.
-  const mergedLocation = location ?? currentUser.address;
-  const mergedYears =
-    profileFields.yearsOfExperience !== undefined
-      ? profileFields.yearsOfExperience
-      : currentProfile?.yearsOfExperience;
-
-  const isProfileComplete =
-    getMissingNannyProfileFields({
-      bio: mergedBio ?? null,
-      location: mergedLocation ?? null,
-      yearsOfExperience: mergedYears ?? null,
-    }).length === 0;
+  const userData = {
+    ...(firstName !== undefined && { firstName }),
+    ...(lastName !== undefined && { lastName }),
+    ...(avatarUrl !== undefined && { avatarUrl }),
+    ...(dateOfBirth !== undefined && { dateOfBirth: new Date(dateOfBirth) }),
+    ...(location !== undefined && { address: location }),
+    ...(latitude !== undefined && { latitude }),
+    ...(longitude !== undefined && { longitude }),
+  };
+  if (Object.keys(userData).length > 0) {
+    await tx.user.update({ where: { id: userId }, data: userData });
+  }
 
   await tx.nannyProfile.upsert({
     where: { userId },
-    create: { userId, ...profileFields, isProfileComplete },
-    update: { ...profileFields, isProfileComplete },
+    create: { userId, ...profileFields },
+    update: { ...profileFields },
     select: { id: true },
   });
 
@@ -249,8 +233,7 @@ export async function writeNannyProfileFields(
   }
 }
 
-// ── Self profile (nanny reading her own profile; set at registration, edited
-// only by admins — see writeNannyProfileFields above) ─────────────────────────
+// ── Self profile (nanny reading her own profile — set at registration, edited only by admins) ──
 
 export async function getNannyProfile(decoded: DecodedIdToken): Promise<NannyProfileResponse> {
   const user = await requireNannyUser(decoded.uid);
@@ -266,7 +249,6 @@ export async function getNannyProfile(decoded: DecodedIdToken): Promise<NannyPro
  */
 function buildListWhere(query: NannyListQuery) {
   return {
-    isProfileComplete: true,
     deletedAt: null as null,
     ...(query.availabilityType ? { availabilityType: query.availabilityType } : {}),
     ...(query.skillId
@@ -299,7 +281,6 @@ function buildListWhere(query: NannyListQuery) {
  */
 function buildListFilterSql(query: NannyListQuery): Prisma.Sql {
   const filters: Prisma.Sql[] = [
-    Prisma.sql`np.is_profile_complete = true`,
     Prisma.sql`u.approval_status::text = 'APPROVED'`,
     Prisma.sql`np.deleted_at IS NULL`,
     Prisma.sql`u.deleted_at IS NULL`,

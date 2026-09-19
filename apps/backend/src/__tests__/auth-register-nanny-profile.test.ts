@@ -2,7 +2,7 @@
  * `registerUser` (Task 3 of the nanny-profile-registration-admin-edit plan):
  * for a nanny, the registration payload must populate the User's avatar and
  * the NannyProfile (bio, yearsOfExperience, ageRanges, schedule,
- * availabilityType, isProfileComplete), then reconcile the chosen
+ * availabilityType), then reconcile the chosen
  * certifications + skills inside the same transaction. `reconcileNanny*` are
  * mocked at module level (same pattern as nanny-profile-update.test.ts) so
  * this test isolates registerUser's own writes.
@@ -149,7 +149,6 @@ describe('registerUser — nanny profile population', () => {
         ageRanges: ['0-1', '2-4'],
         schedule: NANNY_BODY.schedule,
         availabilityType: 'FULL_TIME',
-        isProfileComplete: true,
       },
     });
 
@@ -160,20 +159,15 @@ describe('registerUser — nanny profile population', () => {
     expect(res.avatarUrl).toBe(NANNY_BODY.avatarUrl);
   });
 
-  it('falls back to null/empty defaults and marks the profile incomplete when a required field is missing', async () => {
+  it('falls back to empty catalog ids when none were chosen', async () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
-    // No address on file yet (location is one of the completeness gates) and
-    // no catalog ids chosen.
-    const { address: _address, certificationIds: _cert, skillIds: _skill, ...rest } = NANNY_BODY;
+    const { certificationIds: _cert, skillIds: _skill, ...rest } = NANNY_BODY;
     const body: RegisterRequest = rest;
 
     await registerUser(DECODED, body);
 
-    expect(tx.nannyProfile.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ isProfileComplete: false }),
-    });
     expect(mockReconcileCertifications).toHaveBeenCalledWith(tx, 99, []);
     expect(mockReconcileSkills).toHaveBeenCalledWith(tx, 99, []);
   });
