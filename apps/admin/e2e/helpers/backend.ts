@@ -498,7 +498,7 @@ export async function validateAppPromo(
   })) as PromoValidation;
 }
 
-export type KycSubject = {
+export type ApprovalSubject = {
   approvalStatus: string;
   rejectionReason: string | null;
 };
@@ -510,8 +510,16 @@ export type KycSubject = {
  * queue is "cleared" by re-fetching a filtered list, which would look identical
  * if the row had merely stopped matching the filter for some other reason.
  */
-export async function getMotherKyc(adminToken: string, id: number): Promise<KycSubject> {
-  return (await call('GET', `/admin/mothers/${id}`, adminToken)) as KycSubject;
+export async function getMotherKyc(adminToken: string, id: number): Promise<ApprovalSubject> {
+  return (await call('GET', `/admin/mothers/${id}`, adminToken)) as ApprovalSubject;
+}
+
+/** A nanny's approval state, straight from the API — keyed by NannyProfile id. */
+export async function getNannyApproval(
+  adminToken: string,
+  nannyProfileId: number,
+): Promise<ApprovalSubject> {
+  return (await call('GET', `/admin/nannies/${nannyProfileId}`, adminToken)) as ApprovalSubject;
 }
 
 // ── Marketplace (B6) ──────────────────────────────────────────────

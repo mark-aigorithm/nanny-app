@@ -1,11 +1,12 @@
 /**
- * B5 — the Users console and the ID-review queue.
+ * B5 — the Users console: the parent ID-review queue and the nanny decision.
  *
- * This is the console's KYC gate. A parent cannot book and a nanny cannot be
- * offered work until someone here has looked at a photograph of their ID and
- * said yes, so what these specs protect is narrow and specific: that the queue
- * *shows* the person waiting, that a decision made in the gallery actually
- * lands on the account, and that the queue then stops offering them.
+ * A parent cannot book until someone here has looked at a photograph of her ID
+ * and said yes; a nanny cannot be offered work until someone has opened her
+ * application — profile and ID together — and approved it. What these specs
+ * protect is narrow: that the queue *shows* the parent waiting, that a decision
+ * made in the gallery lands on the account, that the queue then stops offering
+ * her, and that a nanny is decided on her own page and nowhere else.
  *
  * What the decision goes on to *unlock* — booking for a parent, entering the
  * broadcast pool for a nanny — belongs to A10 and A11 and is asserted over HTTP
@@ -15,6 +16,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import {
   getMotherKyc,
+  getNannyApproval,
   seedMother,
   seedPendingNanny,
   superuserToken,
@@ -122,23 +124,16 @@ test('a rejected ID is findable again under its own filter', async ({ page }) =>
   expect((await getMotherKyc(admin, mother.id)).approvalStatus).toBe('REJECTED');
 });
 
-test('the role filter separates parents from nannies in one queue', async ({ page }) => {
+test('the gallery is for parents — a waiting nanny is not offered there', async ({ page }) => {
   const mother = await seedMother();
   const nanny = await seedPendingNanny();
 
   await openIdQueue(page);
 
-  // Both are waiting, and the gallery deliberately mixes them.
-  await expect(cardFor(page, mother.surname)).toBeVisible();
-  await expect(cardFor(page, nanny.surname)).toBeVisible();
-
-  await chooseOption(page, 'Role', 'Nannies');
-  await expect(cardFor(page, nanny.surname)).toBeVisible();
-  await expect(cardFor(page, mother.surname)).toHaveCount(0);
-
-  await chooseOption(page, 'Role', 'Parents');
   await expect(cardFor(page, mother.surname)).toBeVisible();
   await expect(cardFor(page, nanny.surname)).toHaveCount(0);
+  // There is no role control to switch to nannies with.
+  await expect(page.locator('.filter-select', { hasText: 'Role' })).toHaveCount(0);
 });
 
 test('the Mommies tab lists a parent and follows her status', async ({ page }) => {
@@ -170,11 +165,44 @@ test('a decision in the gallery shows up on the per-role tab', async ({ page }) 
   await expect(rowFor(page, mother.surname)).toBeVisible();
 });
 
-test('the Nannies tab lists an unvetted registration', async ({ page }) => {
+test('a nanny is approved from her own page, and the Nannies queue lets her go', async ({ page }) => {
+  const admin = await superuserToken();
   const nanny = await seedPendingNanny();
 
   await openTab(page, 'Nannies');
   await chooseOption(page, 'Status', 'Pending review');
+  await rowFor(page, nanny.surname).click();
 
+  // Her ID is part of what is being decided, so it is reachable from here.
+  await expect(page.getByRole('button', { name: 'View ID' })).toBeVisible();
+  await page.getByRole('button', { name: 'Approve nanny' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Nanny approved' })).toBeVisible();
+
+  const nannyProfileId = Number(page.url().split('/').pop());
+  expect((await getNannyApproval(admin, nannyProfileId)).approvalStatus).toBe('APPROVED');
+
+  await openTab(page, 'Nannies');
+  await chooseOption(page, 'Status', 'Pending review');
+  await expect(rowFor(page, nanny.surname)).toHaveCount(0);
+  await chooseOption(page, 'Status', 'Approved');
   await expect(rowFor(page, nanny.surname)).toBeVisible();
+});
+
+test('rejecting a nanny records the reason she will be shown', async ({ page }) => {
+  const admin = await superuserToken();
+  const nanny = await seedPendingNanny();
+
+  await openTab(page, 'Nannies');
+  await chooseOption(page, 'Status', 'Pending review');
+  await rowFor(page, nanny.surname).click();
+
+  await page.getByRole('button', { name: 'Reject application' }).click();
+  await page.getByLabel(/^Reason/).fill('Certificate could not be verified.');
+  await page.getByRole('button', { name: 'Reject application' }).last().click();
+  await expect(page.getByRole('status').filter({ hasText: 'Application rejected' })).toBeVisible();
+
+  const nannyProfileId = Number(page.url().split('/').pop());
+  const approval = await getNannyApproval(admin, nannyProfileId);
+  expect(approval.approvalStatus).toBe('REJECTED');
+  expect(approval.rejectionReason).toBe('Certificate could not be verified.');
 });
