@@ -14,7 +14,7 @@ at all — a nanny never saw where she was going in-app.
 
 | Topic | Decision |
 |---|---|
-| Source of truth | An `addresses` table, for **everyone**. Mothers hold many (one default); a nanny holds exactly one. `users.address/latitude/longitude` are backfilled into it, no longer read or written, and dropped in a later release (two-release rule). |
+| Source of truth | An `addresses` table, for **everyone**. Mothers hold many (one default); a nanny holds exactly one. `users.address/latitude/longitude` were backfilled into it, no longer read or written, and dropped by `drop_user_location_columns` (two-release rule). |
 | Row shape | `label`, `formattedAddress` (Google's line), `governorate`, `area`, `street` (auto-filled from Google, editable), `building`, `floor`, `apartment` (typed), `landmark` (free text — the Egyptian way of finding a door), `latitude`, `longitude`, `isDefault`. |
 | Google's parts (probed live) | Egypt has no `locality`. Governorate = `administrative_area_level_1` minus " Governorate"; area = `administrative_area_level_2`; street = `street_number + route`, present only when the result is a `street_address`/`premise` — a dropped pin lists a plus code or POI first, so reverse geocoding prefers the first street result. Building/floor/apartment never come from Google. |
 | One default per user | Kept by `address.service` in a transaction (clear the old default, set the new). Not a partial unique index: Prisma cannot declare one and it shows as permanent drift in `migrate diff`. |
@@ -37,5 +37,4 @@ Unit: `address.service`, `booking-address` (snapshot + reveal gate), `auth-regis
 
 ## Follow-ups
 
-- `drop_user_location_columns` migration one release later.
 - Registration capturing structured parts (`createAddress` already accepts them).

@@ -50,12 +50,17 @@ function uniquePhone(seq: number): string {
  * `role` is what distinguishes one factory from another. Everything else is
  * optional: a caller sets only what its assertion depends on.
  *
- * `address`, `latitude` and `longitude` are kept as override names for the
- * many tests that place a user somewhere, but they no longer touch the
- * deprecated users columns: the factory writes them to the user's default
- * `addresses` row, which is where every reader now looks.
+ * `address`, `latitude` and `longitude` are not user columns (they were, until
+ * drop_user_location_columns); they are kept as override names for the many
+ * tests that place a user somewhere, and the factory writes them to the
+ * user's default `addresses` row, which is where every reader looks. Pass
+ * `latitude: null, longitude: null` for a user with no address at all.
  */
-type UserOverrides = Partial<Omit<Prisma.UserCreateInput, 'firebaseUid' | 'email' | 'role'>>;
+type UserOverrides = Partial<Omit<Prisma.UserCreateInput, 'firebaseUid' | 'email' | 'role'>> & {
+  address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 /** Creates the emulator account, the `users` row, and signs in. */
 async function createUser(
@@ -98,9 +103,9 @@ async function createUser(
       data: {
         userId: user.id,
         label: 'Home',
-        formattedAddress: typeof address === 'string' ? address : '',
-        latitude: latitude as Prisma.Decimal | number | string,
-        longitude: longitude as Prisma.Decimal | number | string,
+        formattedAddress: address ?? '',
+        latitude,
+        longitude,
         isDefault: true,
       },
     });
