@@ -63,10 +63,9 @@ module.exports = {
       // Must load before anything reads `config`, which validates and freezes
       // the environment at import time.
       setupFiles: ['<rootDir>/test/env.ts'],
+      // Also raises the per-test timeout: `testTimeout` is a run-level option
+      // that Jest ignores (with a warning) inside a project entry.
       setupFilesAfterEnv: ['<rootDir>/test/setup-integration.ts'],
-      // Real database round-trips plus an emulator sign-in per factory user;
-      // Jest's 5s default is not enough for a test that builds a few entities.
-      testTimeout: 30_000,
     },
   ],
 };

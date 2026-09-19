@@ -14,6 +14,13 @@ import { resetDatabase } from './db/reset';
 import { resetPaymobFake } from './journeys/payment';
 import { clearMailbox } from './mailpit';
 
+// Real database round-trips plus an emulator sign-in per factory user; Jest's
+// 5s default is not enough for a test that builds a few entities. Set here
+// because `testTimeout` in jest.config.cjs is run-level only — inside the
+// integration project entry Jest ignores it, and the unit project should keep
+// the short default.
+jest.setTimeout(30_000);
+
 beforeEach(async () => {
   await resetDatabase();
   await clearEmulatorUsers();
