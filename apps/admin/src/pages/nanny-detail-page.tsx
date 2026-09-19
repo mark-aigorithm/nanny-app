@@ -240,6 +240,14 @@ export function NannyDetailPage() {
 function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
   return [
     {
+      label: 'Photo',
+      value: nanny.avatarUrl ? (
+        <img className="id-review-avatar" src={nanny.avatarUrl} alt="" />
+      ) : (
+        DASH
+      ),
+    },
+    {
       label: 'Status',
       value: (
         <>
@@ -253,6 +261,13 @@ function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
     { label: 'Email', value: nanny.email },
     { label: 'Phone', value: nanny.phone ?? DASH },
     { label: 'Location', value: nanny.location ?? DASH },
+    {
+      label: 'Home pin',
+      value:
+        nanny.latitude !== null && nanny.longitude !== null
+          ? `${nanny.latitude}, ${nanny.longitude}`
+          : DASH,
+    },
     { label: 'Date of birth', value: nanny.dateOfBirth ? formatDate(nanny.dateOfBirth) : DASH },
     {
       label: 'Experience',
