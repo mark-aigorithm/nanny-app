@@ -270,6 +270,7 @@ export async function seedPendingNanny(): Promise<SeededMother> {
     yearsOfExperience: 5,
     availabilityType: 'FULL_TIME',
     ageRanges: ['0-1', '2-5'],
+    schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
   })) as { id: number };
 
   return { token, id: user.id, email, surname, displayName: `E2E ${surname}` };
@@ -300,6 +301,7 @@ export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny
     yearsOfExperience: 5,
     availabilityType: 'FULL_TIME',
     ageRanges: ['0-1', '2-5'],
+    schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
   })) as { id: number };
 
   // The approve route takes the *profile* id, which registration does not

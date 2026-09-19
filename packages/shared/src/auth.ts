@@ -115,7 +115,8 @@ export const RegisterRequestSchema = z
     idDocumentFrontUrl: z.string().url().optional(),
     idDocumentBackUrl: z.string().url().optional(),
     // Nanny profile fields captured at registration. Mothers omit these; the
-    // second refine below makes the essentials mandatory for nannies.
+    // refines below make everything but certifications and skills mandatory
+    // for nannies — registration is the only time she enters her profile.
     avatarUrl: z.string().url().optional(),
     bio: z.string().trim().max(600).optional(),
     yearsOfExperience: z.number().int().min(0).max(60).optional(),
@@ -143,6 +144,23 @@ export const RegisterRequestSchema = z
     {
       message: 'Nannies must provide a photo, bio, years of experience, and availability.',
       path: ['bio'],
+    },
+  )
+  .refine((v) => v.role !== 'NANNY' || !!v.address, {
+    message: 'Please enter your street address.',
+    path: ['address'],
+  })
+  .refine((v) => v.role !== 'NANNY' || (v.ageRanges?.length ?? 0) > 0, {
+    message: 'Please pick at least one age range you care for.',
+    path: ['ageRanges'],
+  })
+  .refine(
+    (v) =>
+      v.role !== 'NANNY' ||
+      Object.values(v.schedule ?? {}).some((day) => day.available),
+    {
+      message: 'Please mark at least one day you can work.',
+      path: ['schedule'],
     },
   );
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;

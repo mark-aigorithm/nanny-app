@@ -48,6 +48,10 @@ export default function RegistrationNannyLocationScreen() {
       setLocationError('Please set your home location on the map.');
       return;
     }
+    if (!draft.address.trim()) {
+      setLocationError('Please enter your street address.');
+      return;
+    }
     setLocationError(null);
     // Nannies upload their ID next; that screen continues to the final step.
     router.push({ pathname: '/(auth)/register-nanny-id', params: { role } });

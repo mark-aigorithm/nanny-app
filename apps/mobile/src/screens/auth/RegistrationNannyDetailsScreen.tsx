@@ -171,7 +171,13 @@ export default function RegistrationNannyDetailsScreen() {
   const yearsTrimmed = draft.yearsOfExperience.trim();
   const yearsNum = Number(yearsTrimmed);
   const isYearsValid = yearsTrimmed !== '' && Number.isFinite(yearsNum) && yearsNum >= 0;
-  const canContinue = draft.bio.trim().length > 0 && isYearsValid && draft.availabilityType !== null;
+  const hasWorkingDay = DAY_ORDER.some((d) => schedule[d]?.available);
+  const canContinue =
+    draft.bio.trim().length > 0 &&
+    isYearsValid &&
+    draft.availabilityType !== null &&
+    draft.ageRanges.length > 0 &&
+    hasWorkingDay;
 
   function handleContinue() {
     if (!draft.bio.trim()) {
@@ -184,6 +190,14 @@ export default function RegistrationNannyDetailsScreen() {
     }
     if (!draft.availabilityType) {
       setFormError('Please select your availability.');
+      return;
+    }
+    if (draft.ageRanges.length === 0) {
+      setFormError('Please pick at least one age range you care for.');
+      return;
+    }
+    if (!hasWorkingDay) {
+      setFormError('Please mark at least one day you can work.');
       return;
     }
     setFormError(null);
@@ -290,9 +304,9 @@ export default function RegistrationNannyDetailsScreen() {
             </View>
           </View>
 
-          {/* Age ranges (optional) */}
+          {/* Age ranges */}
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionLabel}>Age ranges you care for (optional)</Text>
+            <Text style={styles.sectionLabel}>Age ranges you care for</Text>
             <View style={styles.chipsRow}>
               {AGE_RANGE_OPTIONS.map((range) => {
                 const isSelected = draft.ageRanges.includes(range);

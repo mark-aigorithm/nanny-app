@@ -55,6 +55,7 @@ async function registerNanny(lastName = 'Candidate') {
       yearsOfExperience: 5,
       availabilityType: 'FULL_TIME',
       ageRanges: ['0-1', '2-5'],
+      schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
     });
 
   expect(response.status).toBe(201);
