@@ -19,11 +19,15 @@ const validBooking = {
 };
 
 describe('CreateBookingSchema', () => {
-  it('requires the address the mother chose', () => {
-    const { addressId: _omit, ...withoutAddress } = validBooking;
-    expect(CreateBookingSchema.safeParse(withoutAddress).success).toBe(false);
+  it('takes the address the mother chose', () => {
     expect(CreateBookingSchema.safeParse({ ...validBooking, addressId: 0 }).success).toBe(false);
     expect(CreateBookingSchema.parse(validBooking).addressId).toBe(7);
+  });
+
+  it('accepts a body with no address — app builds older than the address book send none', () => {
+    const { addressId: _omit, ...withoutAddress } = validBooking;
+    const parsed = CreateBookingSchema.parse(withoutAddress);
+    expect(parsed.addressId).toBeUndefined();
   });
 
   it('no longer carries loose coordinates — the address is the location', () => {

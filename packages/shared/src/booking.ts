@@ -462,12 +462,16 @@ export const CreateBookingSchema = z.object({
   startTime: wallClockField('startTime'),
   endTime: wallClockField('endTime'),
   /**
-   * Which of the mother's saved addresses the nanny is sent to. Required — it
-   * is where the booking happens and what the broadcast radius is measured
-   * from. The server snapshots the row (see BookingAddressSchema), so a later
-   * edit to the address never moves a booking already made.
+   * Which of the mother's saved addresses the nanny is sent to — where the
+   * booking happens and what the broadcast radius is measured from. The
+   * server snapshots the row (see BookingAddressSchema), so a later edit to
+   * the address never moves a booking already made.
+   *
+   * Optional only for app builds that predate the address book: they send no
+   * id and are booked at the mother's default address, as they always were.
+   * The current app always sends one.
    */
-  addressId: z.number().int().positive(),
+  addressId: z.number().int().positive().optional(),
   specialInstructions: z.string().trim().max(1000).optional(),
   promoCode: z.string().trim().min(1).optional(),
   /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */

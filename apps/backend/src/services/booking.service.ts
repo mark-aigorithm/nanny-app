@@ -1045,11 +1045,19 @@ export async function createBooking(
   // Where the nanny is sent. Must be one of the mother's own live addresses —
   // looked up by owner, so another mother's id reads as "not found" rather
   // than "not yours". Snapshotted below so a later edit never moves this
-  // booking.
+  // booking. A body with no id comes from an app build older than the
+  // address book; it books at her default address, as those builds always did.
   const home = await prisma.address.findFirst({
-    where: { id: body.addressId, userId: user.id, deletedAt: null },
+    where:
+      body.addressId === undefined
+        ? { userId: user.id, isDefault: true, deletedAt: null }
+        : { id: body.addressId, userId: user.id, deletedAt: null },
   });
-  if (!home) throw errors.notFound('Address not found.');
+  if (!home) {
+    throw body.addressId === undefined
+      ? errors.badRequest('Add an address before booking.')
+      : errors.notFound('Address not found.');
+  }
 
   // Idempotency: a double-tapped "Request care" must not create two broadcasts.
   // Reuse an existing unclaimed request for the same mother and time window.

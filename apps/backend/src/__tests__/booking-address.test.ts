@@ -257,6 +257,30 @@ describe('createBooking — the chosen address', () => {
 
     expect(res.address).toEqual({ area: 'Sheikh Zayed, Giza', details: SNAPSHOT });
   });
+
+  // App builds from before the address book post no addressId at all. They
+  // book at the mother's default address, which is where they always did.
+  it('books at the default address when the body names none', async () => {
+    const { addressId: _omitted, ...legacyBody } = BODY;
+
+    await createBooking(MOTHER, legacyBody);
+
+    expect(mockPrisma.address.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 10, isDefault: true, deletedAt: null } }),
+    );
+    expect(mockPrisma.booking.create.mock.calls[0][0].data).toMatchObject({ addressId: 7 });
+  });
+
+  it('400s a mother with no address at all when the body names none', async () => {
+    const { addressId: _omitted, ...legacyBody } = BODY;
+    mockPrisma.address.findFirst.mockResolvedValue(null);
+
+    await expect(createBooking(MOTHER, legacyBody)).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Add an address before booking.',
+    });
+    expect(mockPrisma.booking.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('the address on a booking read', () => {
