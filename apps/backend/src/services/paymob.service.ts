@@ -214,6 +214,17 @@ export async function createPaymobIntentionForBooking(
     throw errors.badRequest('This booking is already paid.');
   }
 
+  // Nothing owed — a promo or credit covered the whole price. Paymob refuses
+  // an intention for 0 ("amount ≥ 1") and there is nothing to collect, so
+  // settle it here: a zero CAPTURED payment keeps "CONFIRMED ⟹ a captured
+  // payment" true and walks the same confirm path as a real capture (promo
+  // spent, nanny told, receipt sent). The 400 is what stops the app opening a
+  // checkout for it; the message says what happened instead.
+  if (Number(booking.totalAmount) <= 0) {
+    await settleWithoutCharge({ bookingId }, user.id, body.method);
+    throw errors.badRequest('Nothing to pay — this booking is confirmed.');
+  }
+
   return openIntention({
     user: { ...user, phone: user.phone },
     owner: { bookingId },
@@ -223,6 +234,41 @@ export async function createPaymobIntentionForBooking(
     redirectionQuery: `bookingId=${encodeURIComponent(bookingId)}`,
     method: body.method,
   });
+}
+
+/**
+ * Settle a booking that owes nothing: retire any pending attempt, record a
+ * zero payment and capture it through the ordinary confirm path — no Paymob
+ * call, no transaction id.
+ */
+async function settleWithoutCharge(
+  owner: { bookingId: number },
+  motherId: number,
+  method: CreatePaymobIntentionRequest['method'],
+): Promise<void> {
+  await prisma.payment.updateMany({
+    where: { ...owner, status: PaymentStatus.PENDING, deletedAt: null },
+    data: {
+      status: PaymentStatus.FAILED,
+      failureReason: 'Superseded by a new payment attempt.',
+      paymobNextReconcileAt: null,
+      paymobClientSecret: null,
+    },
+  });
+  const payment = await prisma.payment.create({
+    data: {
+      ...owner,
+      purpose: PaymentPurpose.BOOKING,
+      motherId,
+      amount: 0,
+      currency: 'EGP',
+      method,
+      status: PaymentStatus.PENDING,
+      paymobIntentionAttempt: 1,
+      paymobReconcileAttempt: 0,
+    },
+  });
+  await finalizePaymentCaptured(payment.id, null);
 }
 
 /**
