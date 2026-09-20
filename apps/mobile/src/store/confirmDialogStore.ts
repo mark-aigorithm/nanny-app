@@ -21,8 +21,16 @@ export interface ConfirmDialogOptions {
 interface ConfirmDialogStore {
   /** Options for the open dialog; null means nothing is showing. */
   dialog: ConfirmDialogOptions | null;
+  /**
+   * How many nested hosts are mounted — a screen mounts one inside its own
+   * Modal (see ConfirmDialogHost). While any is, the root host yields, so the
+   * dialog is drawn by the host that iOS can actually present.
+   */
+  nestedHosts: number;
   confirm: (options: ConfirmDialogOptions) => void;
   dismiss: () => void;
+  registerNestedHost: () => void;
+  unregisterNestedHost: () => void;
 }
 
 /**
@@ -38,8 +46,11 @@ interface ConfirmDialogStore {
  */
 export const useConfirmDialogStore = create<ConfirmDialogStore>((set) => ({
   dialog: null,
+  nestedHosts: 0,
   confirm: (options) => set({ dialog: options }),
   dismiss: () => set({ dialog: null }),
+  registerNestedHost: () => set((s) => ({ nestedHosts: s.nestedHosts + 1 })),
+  unregisterNestedHost: () => set((s) => ({ nestedHosts: Math.max(0, s.nestedHosts - 1) })),
 }));
 
 /** Imperative helper so call sites read like the Alert.alert they replace. */

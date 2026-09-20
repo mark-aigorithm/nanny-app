@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import type { CareLogResponse, CareLogType } from '@nanny-app/shared';
 
 import { ScreenContainer, StackHeader } from '@mobile/components/ui';
+import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
 import { colors } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
@@ -335,6 +336,11 @@ export default function CareLogScreen() {
         animationType="slide"
         onRequestClose={closeSheet}
       >
+        {/* Dialogs raised from inside the sheet (photo source, permission,
+            save error) must be presented from the sheet's own Modal — iOS
+            refuses a second Modal from the root while this one is open and
+            leaves the app unresponsive. */}
+        <ConfirmDialogHost nested />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.sheetOverlay}

@@ -8,15 +8,33 @@ import { styles } from './styles/confirm-dialog-host.styles';
 /**
  * Renders the app's confirmation dialog. Mounted once in the root layout;
  * everything else drives it through `confirmDialog()`.
+ *
+ * The dialog is a Modal, and on iOS a Modal can only be presented by the view
+ * controller on top. A screen that opens its own Modal (the care-log sheet)
+ * and raises a dialog from inside it therefore mounts a second host — `nested`
+ * — *inside* that Modal: iOS presents the dialog from the sheet, and the root
+ * host yields while the nested one is mounted. Without this the presentation
+ * is refused and the app is left unresponsive under an invisible dialog.
  */
-export default function ConfirmDialogHost() {
+export default function ConfirmDialogHost({ nested = false }: { nested?: boolean }) {
   const dialog = useConfirmDialogStore((s) => s.dialog);
   const dismiss = useConfirmDialogStore((s) => s.dismiss);
+  const nestedHosts = useConfirmDialogStore((s) => s.nestedHosts);
+  const registerNestedHost = useConfirmDialogStore((s) => s.registerNestedHost);
+  const unregisterNestedHost = useConfirmDialogStore((s) => s.unregisterNestedHost);
+
+  useEffect(() => {
+    if (!nested) return;
+    registerNestedHost();
+    return unregisterNestedHost;
+  }, [nested, registerNestedHost, unregisterNestedHost]);
+
+  const yieldsToNested = !nested && nestedHosts > 0;
 
   const enter = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!dialog) {
+    if (!dialog || yieldsToNested) {
       enter.setValue(0);
       return;
     }
@@ -26,9 +44,9 @@ export default function ConfirmDialogHost() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [dialog, enter]);
+  }, [dialog, enter, yieldsToNested]);
 
-  if (!dialog) return null;
+  if (!dialog || yieldsToNested) return null;
 
   const handleCancel = () => {
     dialog.onCancel?.();
