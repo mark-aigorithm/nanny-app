@@ -53,8 +53,12 @@ export type QaPriority = z.infer<typeof QaPrioritySchema>;
 /**
  * NOT_RUN is the absence of a result, so it is also what a scenario reads as
  * before anyone has touched it — there is no separate "unset".
+ *
+ * INVALID is a verdict on the scenario, not the app: the steps no longer match
+ * the build, or the expectation is wrong. It is kept apart from FAIL so a
+ * release is not held for a defect in the checklist.
  */
-export const QA_STATUSES = ['NOT_RUN', 'PASS', 'FAIL', 'BLOCKED'] as const;
+export const QA_STATUSES = ['NOT_RUN', 'PASS', 'FAIL', 'BLOCKED', 'INVALID'] as const;
 export const QaStatusSchema = z.enum(QA_STATUSES);
 export type QaStatus = z.infer<typeof QaStatusSchema>;
 

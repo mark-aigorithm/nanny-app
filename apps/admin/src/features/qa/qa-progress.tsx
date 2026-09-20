@@ -4,6 +4,7 @@ import {
   Ban,
   CircleAlert,
   CircleCheck,
+  CircleOff,
   ClipboardList,
   ICON_SIZE,
   StatCard,
@@ -21,14 +22,16 @@ function percent(part: number, total: number): number {
  * individual row.
  */
 export function QaProgress({ counts, loading }: { counts: QaCounts; loading?: boolean }) {
-  const run = counts.PASS + counts.FAIL + counts.BLOCKED;
+  // Invalid counts as run: someone looked at it and reached a verdict, even
+  // if the verdict is about the scenario rather than the app.
+  const run = counts.PASS + counts.FAIL + counts.BLOCKED + counts.INVALID;
 
   return (
     <div className="qa-progress">
       <div
         className="qa-progress-bar"
         role="img"
-        aria-label={`${run} of ${counts.total} scenarios run — ${counts.PASS} passed, ${counts.FAIL} failed, ${counts.BLOCKED} blocked`}
+        aria-label={`${run} of ${counts.total} scenarios run — ${counts.PASS} passed, ${counts.FAIL} failed, ${counts.BLOCKED} blocked, ${counts.INVALID} invalid`}
       >
         {/* Segment widths are computed, which is the one legitimate inline
             style; the colours themselves are tokens in global.css. */}
@@ -43,6 +46,10 @@ export function QaProgress({ counts, loading }: { counts: QaCounts; loading?: bo
         <span
           className="qa-progress-fill qa-progress-fill--blocked"
           style={{ width: `${percent(counts.BLOCKED, counts.total)}%` }}
+        />
+        <span
+          className="qa-progress-fill qa-progress-fill--invalid"
+          style={{ width: `${percent(counts.INVALID, counts.total)}%` }}
         />
       </div>
 
@@ -74,6 +81,14 @@ export function QaProgress({ counts, loading }: { counts: QaCounts; loading?: bo
           iconTone="bronze"
           hint={counts.BLOCKED > 0 ? 'Could not be tested' : undefined}
           icon={<Ban size={ICON_SIZE.stat} />}
+          loading={loading}
+        />
+        <StatCard
+          label="Invalid"
+          value={counts.INVALID}
+          iconTone="muted"
+          hint={counts.INVALID > 0 ? 'Scenario needs rewriting' : undefined}
+          icon={<CircleOff size={ICON_SIZE.stat} />}
           loading={loading}
         />
       </div>

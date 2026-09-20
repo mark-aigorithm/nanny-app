@@ -44,6 +44,7 @@ export {
   // Feedback
   CircleAlert,
   CircleCheck,
+  CircleOff,
   Info,
   RefreshCw,
   TriangleAlert,

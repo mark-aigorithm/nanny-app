@@ -74,7 +74,40 @@ describe('QaChecklistPage', () => {
     renderPage();
 
     expect(await screen.findByText(`1 / ${QA_SCENARIOS.length}`)).toBeInTheDocument();
-    expect(screen.getByText('MB')).toBeInTheDocument();
+    const row = screen.getByText(FIRST.title).closest('tr')!;
+    expect(within(row).getByRole('button', { name: /status for scenario 1/i })).toHaveTextContent(
+      'Pass',
+    );
+
+    // The tester lives in the expanded row now that there is no By column.
+    await userEvent.click(within(row).getByRole('button', { name: new RegExp(FIRST.title, 'i') }));
+    expect(await screen.findByLabelText(/tested by/i)).toHaveValue('MB');
+  });
+
+  it('offers Invalid for a scenario that is wrong rather than the app', async () => {
+    const saved = vi.fn();
+    const entry = { status: 'INVALID', note: '', tester: '', updatedAt: '2026-09-05T10:00:00.000Z' };
+    // The save invalidates and re-reads the board, so the re-read has to
+    // hold the entry too or the count would snap back to zero.
+    server.use(
+      http.get('/api/qa-checklist', () =>
+        ok({ entries: saved.mock.calls.length > 0 ? { [FIRST.id]: entry } : {} }),
+      ),
+      http.put('/api/qa-checklist/:scenarioId', async ({ request }) => {
+        saved(await request.json());
+        return ok(entry);
+      }),
+    );
+    renderPage();
+
+    const row = (await screen.findByText(FIRST.title)).closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: /status for scenario 1/i }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Invalid' }));
+
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(saved.mock.calls[0]![0]).toMatchObject({ status: 'INVALID' });
+    // Counted as run — someone reached a verdict — but not as a failure.
+    expect(await screen.findByText(`1 / ${QA_SCENARIOS.length}`)).toBeInTheDocument();
   });
 
   it('saves a result to the server when one is picked', async () => {
@@ -94,7 +127,7 @@ describe('QaChecklistPage', () => {
     renderPage();
 
     const row = (await screen.findByText(FIRST.title)).closest('tr')!;
-    await userEvent.click(within(row).getByRole('button', { name: /result for scenario 1/i }));
+    await userEvent.click(within(row).getByRole('button', { name: /status for scenario 1/i }));
     await userEvent.click(await screen.findByRole('option', { name: 'Pass' }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
@@ -114,7 +147,7 @@ describe('QaChecklistPage', () => {
     renderPage();
 
     const row = (await screen.findByText(FIRST.title)).closest('tr')!;
-    await userEvent.click(within(row).getByRole('button', { name: /result for scenario 1/i }));
+    await userEvent.click(within(row).getByRole('button', { name: /status for scenario 1/i }));
     await userEvent.click(await screen.findByRole('option', { name: 'Pass' }));
 
     // The optimistic tick shows, then rolls back — so the counter must land
@@ -149,7 +182,7 @@ describe('QaChecklistPage', () => {
     // Straight from the textarea to the result control, with no blur in
     // between — the sequence that used to drop the text.
     const row = screen.getByText(FIRST.title).closest('tr')!;
-    await userEvent.click(within(row).getByRole('button', { name: /result for scenario 1/i }));
+    await userEvent.click(within(row).getByRole('button', { name: /status for scenario 1/i }));
     await userEvent.click(await screen.findByRole('option', { name: 'Fail' }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());

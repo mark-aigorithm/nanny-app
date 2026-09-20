@@ -6,7 +6,7 @@ type StatCardProps = {
   label: string;
   value: ReactNode;
   icon?: ReactNode;
-  iconTone?: 'primary' | 'gold' | 'bronze';
+  iconTone?: 'primary' | 'gold' | 'bronze' | 'muted';
   hint?: string;
   loading?: boolean;
 };

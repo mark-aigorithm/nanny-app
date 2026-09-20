@@ -2707,6 +2707,11 @@ input[type='number'] {
   color: var(--color-bronze);
 }
 
+.stat-card-icon--muted {
+  background: var(--color-warm-subtle);
+  color: var(--color-text-muted);
+}
+
 .stat-card-body {
   min-width: 0;
 }
@@ -3796,9 +3801,9 @@ input[type='number'] {
   flex-wrap: wrap;
 }
 
-/* Progress: one bar, three segments, left to right in the order a reader
-   cares about — passed, then failed, then blocked. The remainder is the
-   track showing through. */
+/* Progress: one bar, four segments, left to right in the order a reader
+   cares about — passed, then failed, then blocked, then invalid. The
+   remainder is the track showing through. */
 .qa-progress {
   display: flex;
   flex-direction: column;
@@ -3828,6 +3833,12 @@ input[type='number'] {
 
 .qa-progress-fill--blocked {
   background: var(--color-gold-warm);
+}
+
+/* Invalid is a verdict on the scenario, not the app, so it reads as neutral
+   rather than as another shade of trouble. */
+.qa-progress-fill--invalid {
+  background: var(--color-taupe);
 }
 
 .qa-stat-row {
@@ -3915,25 +3926,32 @@ input[type='number'] {
   gap: 0.3rem;
 }
 
-/* Narrower than the 180px a dropdown gets in a filter bar — four short words
+/* The board never scrolls sideways: a fixed layout keeps the table at the
+   width of its card, the number and status columns are pinned, and the
+   scenario column absorbs everything else — on a phone that is most of the
+   row. The generic .table-wrap scroll is switched off because nothing can
+   overflow it now, and leaving it on would clip the status popover on the
+   last rows. */
+.qa-table .table-wrap {
+  overflow: visible;
+}
+
+.qa-table .table {
+  table-layout: fixed;
+}
+
+.qa-table th:first-child {
+  width: 3.5rem;
+}
+
+.qa-table th:last-child {
+  width: 10rem;
+}
+
+/* Narrower than the 180px a dropdown gets in a filter bar — five short words
    is all it ever has to show, and the scenario column wants the room. */
-.qa-result-control .dropdown-trigger {
-  min-width: 128px;
-}
-
-.qa-by {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.qa-by-name {
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-}
-
-.qa-muted {
-  color: var(--color-text-placeholder);
+.qa-status-control .dropdown-trigger {
+  min-width: 0;
 }
 
 /* Expanded detail */
@@ -4036,6 +4054,27 @@ input[type='number'] {
 @media (max-width: 720px) {
   .qa-page {
     padding: 1.25rem 0.75rem 3rem;
+  }
+
+  /* Tighter gutters and a slimmer status column, so the scenario keeps as
+     much of a phone's width as it can. */
+  .qa-table th:first-child {
+    width: 3rem;
+  }
+
+  /* Just enough for "Blocked" and the chevron. */
+  .qa-table th:last-child {
+    width: 8.25rem;
+  }
+
+  .qa-table th:first-child,
+  .qa-table td:first-child {
+    padding-left: 0.75rem;
+  }
+
+  .qa-table th:last-child,
+  .qa-table td:last-child {
+    padding-right: 0.75rem;
   }
 
   .qa-detail {

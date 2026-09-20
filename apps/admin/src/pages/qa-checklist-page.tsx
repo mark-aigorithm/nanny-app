@@ -47,13 +47,7 @@ const STATUS_LABELS: Record<QaStatus, string> = {
   PASS: 'Pass',
   FAIL: 'Fail',
   BLOCKED: 'Blocked',
-};
-
-const STATUS_TONE: Record<QaStatus, 'neutral' | 'success' | 'danger' | 'warning'> = {
-  NOT_RUN: 'neutral',
-  PASS: 'success',
-  FAIL: 'danger',
-  BLOCKED: 'warning',
+  INVALID: 'Invalid',
 };
 
 /** A scenario with its display number and whatever has been recorded for it. */
@@ -114,7 +108,14 @@ export function QaChecklistPage() {
   );
 
   const counts = useMemo<QaCounts>(() => {
-    const base: QaCounts = { NOT_RUN: 0, PASS: 0, FAIL: 0, BLOCKED: 0, total: allRows.length };
+    const base: QaCounts = {
+      NOT_RUN: 0,
+      PASS: 0,
+      FAIL: 0,
+      BLOCKED: 0,
+      INVALID: 0,
+      total: allRows.length,
+    };
     for (const row of allRows) base[row.status] += 1;
     return base;
   }, [allRows]);
@@ -206,36 +207,21 @@ export function QaChecklistPage() {
       ),
     },
     {
-      key: 'result',
-      header: 'Result',
+      key: 'status',
+      header: 'Status',
       nowrap: true,
       render: (row) => (
         // Not the `compact` variant the bookings console uses: that one
         // capitalizes every word, which would render "Not run" as "Not Run".
-        <div className="row-control qa-result-control">
+        <div className="row-control qa-status-control">
           <Select
             value={row.status}
-            aria-label={`Result for scenario ${row.number}`}
+            aria-label={`Status for scenario ${row.number}`}
             options={QA_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
             onChange={(next) => record(row.scenario, next)}
           />
         </div>
       ),
-    },
-    {
-      key: 'by',
-      header: 'By',
-      nowrap: true,
-      render: (row) => {
-        const entry = entries[row.scenario.id];
-        if (!entry || entry.status === 'NOT_RUN') return <span className="qa-muted">—</span>;
-        return (
-          <span className="qa-by">
-            <Badge tone={STATUS_TONE[entry.status]}>{STATUS_LABELS[entry.status]}</Badge>
-            {entry.tester && <span className="qa-by-name">{entry.tester}</span>}
-          </span>
-        );
-      },
     },
   ];
 
@@ -305,11 +291,11 @@ export function QaChecklistPage() {
             ]}
           />
           <FilterSelect
-            label="Result"
+            label="Status"
             value={status}
             onChange={(value) => setStatusFilter(value as QaStatus | typeof ANY)}
             options={[
-              { value: ANY, label: 'Any result' },
+              { value: ANY, label: 'Any status' },
               ...QA_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] })),
             ]}
           />
@@ -324,7 +310,7 @@ export function QaChecklistPage() {
           </div>
         </div>
 
-        {isLoading && <TableSkeleton columns={4} />}
+        {isLoading && <TableSkeleton columns={3} />}
 
         {error != null && !data && (
           <ErrorState
@@ -342,28 +328,33 @@ export function QaChecklistPage() {
                 Showing {rows.length} of {allRows.length} scenarios.
               </p>
             )}
-            <Table
-              columns={columns}
-              rows={rows}
-              rowKey={(row) => row.scenario.id}
-              empty="No scenarios match these filters."
-              renderExpanded={(row) =>
-                expanded.has(row.scenario.id) ? (
-                  <QaScenarioDetail
-                    scenario={row.scenario}
-                    draft={draftFor(row.scenario.id)}
-                    saving={setStatus.isPending}
-                    onChange={(patch) => {
-                      draftsRef.current[row.scenario.id] = {
-                        ...draftFor(row.scenario.id),
-                        ...patch,
-                      };
-                    }}
-                    onCommit={() => record(row.scenario, row.status)}
-                  />
-                ) : null
-              }
-            />
+            {/* The wrapper is what pins the column widths (see .qa-table in
+                global.css) so the board fits a phone instead of scrolling
+                sideways — the scenario column takes whatever is left. */}
+            <div className="qa-table">
+              <Table
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.scenario.id}
+                empty="No scenarios match these filters."
+                renderExpanded={(row) =>
+                  expanded.has(row.scenario.id) ? (
+                    <QaScenarioDetail
+                      scenario={row.scenario}
+                      draft={draftFor(row.scenario.id)}
+                      saving={setStatus.isPending}
+                      onChange={(patch) => {
+                        draftsRef.current[row.scenario.id] = {
+                          ...draftFor(row.scenario.id),
+                          ...patch,
+                        };
+                      }}
+                      onCommit={() => record(row.scenario, row.status)}
+                    />
+                  ) : null
+                }
+              />
+            </div>
           </>
         )}
 
