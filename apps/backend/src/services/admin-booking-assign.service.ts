@@ -153,9 +153,101 @@ export async function assignBookingNanny(
   return toDto(updated);
 }
 
+/**
+ * The nanny picker's rows for one booking: approved, live nannies (optionally
+ * name-searched), each with the three verdicts an admin weighs before
+ * choosing — a clash with her other bookings (refused on assign), the add-on
+ * skills she lacks, and how far the job is from her home. The two soft ones use
+ * the same helpers and settings as the broadcast, so the picker and the pool
+ * agree on what "eligible" means.
+ */
 export async function listBookingCandidates(
-  _id: number,
-  _query: AdminBookingCandidateQuery,
+  id: number,
+  { q, limit }: AdminBookingCandidateQuery,
 ): Promise<AdminBookingCandidate[]> {
-  throw new Error('not implemented');
+  const booking = await prisma.booking.findFirst({
+    where: { id, deletedAt: null },
+    select: {
+      id: true,
+      nannyProfileId: true,
+      startTime: true,
+      endTime: true,
+      latitude: true,
+      longitude: true,
+      selectedSkillFees: true,
+    },
+  });
+  if (!booking) throw errors.notFound('Booking not found');
+
+  const nameFilter: Prisma.UserWhereInput = q
+    ? {
+        OR: [
+          { firstName: { contains: q, mode: 'insensitive' } },
+          { lastName: { contains: q, mode: 'insensitive' } },
+        ],
+      }
+    : {};
+
+  const [radiusKm, skillMatching, profiles] = await Promise.all([
+    getBroadcastRadiusKm(),
+    getSkillMatchingEnabled(),
+    prisma.nannyProfile.findMany({
+      where: {
+        deletedAt: null,
+        ...(booking.nannyProfileId ? { id: { not: booking.nannyProfileId } } : {}),
+        user: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED, ...nameFilter },
+      },
+      select: {
+        id: true,
+        rating: true,
+        reviewCount: true,
+        user: {
+          select: { firstName: true, lastName: true, phone: true, ...nannyHomeInclude },
+        },
+        nannySkills: { where: { deletedAt: null }, select: { skillId: true } },
+      },
+      orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
+      take: limit,
+    }),
+  ]);
+
+  // One query for every clash, not one per nanny.
+  const busy = new Set<number>();
+  if (profiles.length > 0) {
+    const clashes = await prisma.booking.findMany({
+      where: {
+        nannyProfileId: { in: profiles.map((p) => p.id) },
+        id: { not: booking.id },
+        deletedAt: null,
+        status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
+        startTime: { lt: booking.endTime },
+        endTime: { gt: booking.startTime },
+      },
+      select: { nannyProfileId: true },
+    });
+    for (const c of clashes) if (c.nannyProfileId !== null) busy.add(c.nannyProfileId);
+  }
+
+  const required = parseSkillAddOns(booking.selectedSkillFees);
+  const bookingPoint = toLatLng(booking.latitude, booking.longitude);
+
+  return profiles.map((p) => {
+    const held = heldSkillIds(p.nannySkills);
+    const home = nannyHomePoint(p.user);
+    const distance =
+      bookingPoint && home ? Math.round(distanceKm(bookingPoint, home) * 10) / 10 : null;
+    return {
+      id: p.id,
+      name: `${p.user.firstName} ${p.user.lastName}`.trim(),
+      phone: p.user.phone,
+      rating: p.rating.toNumber(),
+      reviewCount: p.reviewCount,
+      conflict: busy.has(p.id),
+      missingSkills: skillMatching
+        ? required.filter((s) => !held.has(s.id)).map((s) => s.name)
+        : [],
+      distanceKm: distance,
+      outsideRadius: radiusKm > 0 && distance !== null && distance > radiusKm,
+    };
+  });
 }

@@ -271,3 +271,136 @@ describe('assignBookingNanny', () => {
     expect(mockNotify).not.toHaveBeenCalled();
   });
 });
+
+describe('listBookingCandidates', () => {
+  /**
+   * A booking as the candidates query selects it. Coordinates are plain
+   * numbers, not `dec()`: `toLatLng` runs `Number()` on them, which a real
+   * Prisma.Decimal supports via valueOf but the `dec` stub does not.
+   */
+  function bookingRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 4,
+      nannyProfileId: null,
+      startTime: new Date('2026-08-01T10:00:00.000Z'),
+      endTime: new Date('2026-08-01T13:00:00.000Z'),
+      latitude: 30.0444,
+      longitude: 31.2357,
+      selectedSkillFees: [
+        { id: 1, name: 'CPR', feeType: 'FLAT', feeValue: 10, amountPerHour: 10 },
+        { id: 2, name: 'French', feeType: null, feeValue: 0, amountPerHour: 0 },
+      ],
+      ...overrides,
+    };
+  }
+
+  /** A nanny profile as the candidates query selects it. */
+  function profile(
+    id: number,
+    first: string,
+    skillIds: number[],
+    home: { latitude: number; longitude: number } | null = { latitude: 30.0444, longitude: 31.2357 },
+  ) {
+    return {
+      id,
+      rating: dec(4.5),
+      reviewCount: 3,
+      user: {
+        firstName: first,
+        lastName: 'Nanny',
+        phone: null,
+        addresses: home ? [{ formattedAddress: 'x', latitude: home.latitude, longitude: home.longitude }] : [],
+      },
+      nannySkills: skillIds.map((skillId) => ({ skillId })),
+    };
+  }
+
+  it('404s on an unknown booking', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValueOnce(null);
+    await expect(listBookingCandidates(4, { limit: 20 })).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('excludes the current nanny and filters to approved, live profiles by name', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValueOnce(bookingRow({ nannyProfileId: 19 }));
+    mockPrisma.nannyProfile.findMany.mockResolvedValueOnce([]);
+    // No candidates come back, so listBookingCandidates never queries for clashes.
+    // `booking.findMany` is deliberately left unmocked here (see the assertion
+    // below) rather than queued with an unconsumed mockResolvedValueOnce, which
+    // would leak into the next test's queue: jest.clearAllMocks() in beforeEach
+    // clears call history but not queued once-implementations.
+
+    await listBookingCandidates(4, { q: 'sar', limit: 5 });
+
+    const call = mockPrisma.nannyProfile.findMany.mock.calls[0][0];
+    expect(call.where).toEqual({
+      deletedAt: null,
+      id: { not: 19 },
+      user: {
+        deletedAt: null,
+        approvalStatus: 'APPROVED',
+        OR: [
+          { firstName: { contains: 'sar', mode: 'insensitive' } },
+          { lastName: { contains: 'sar', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(call.take).toBe(5);
+    // Nobody to check for clashes, so no second query.
+    expect(mockPrisma.booking.findMany).not.toHaveBeenCalled();
+  });
+
+  it('flags a clash, missing skills and distance per nanny', async () => {
+    mockRadius.mockResolvedValue(5);
+    mockPrisma.booking.findFirst.mockResolvedValueOnce(bookingRow());
+    mockPrisma.nannyProfile.findMany.mockResolvedValueOnce([
+      profile(21, 'Busy', [1, 2]),
+      profile(22, 'Far', [1], { latitude: 30.2, longitude: 31.2357 }), // ~17 km north
+      profile(23, 'Nowhere', [1, 2], null),
+    ]);
+    mockPrisma.booking.findMany.mockResolvedValueOnce([{ nannyProfileId: 21 }]);
+
+    const rows = await listBookingCandidates(4, { limit: 20 });
+
+    // The clash query is scoped to these nannies, this window, live bookings only.
+    const clash = mockPrisma.booking.findMany.mock.calls[0][0];
+    expect(clash.where).toMatchObject({
+      nannyProfileId: { in: [21, 22, 23] },
+      id: { not: 4 },
+      deletedAt: null,
+      status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      startTime: { lt: new Date('2026-08-01T13:00:00.000Z') },
+      endTime: { gt: new Date('2026-08-01T10:00:00.000Z') },
+    });
+
+    expect(rows).toEqual([
+      {
+        id: 21, name: 'Busy Nanny', phone: null, rating: 4.5, reviewCount: 3,
+        conflict: true, missingSkills: [], distanceKm: 0, outsideRadius: false,
+      },
+      {
+        id: 22, name: 'Far Nanny', phone: null, rating: 4.5, reviewCount: 3,
+        conflict: false, missingSkills: ['French'], distanceKm: 17.3, outsideRadius: true,
+      },
+      {
+        id: 23, name: 'Nowhere Nanny', phone: null, rating: 4.5, reviewCount: 3,
+        conflict: false, missingSkills: [], distanceKm: null, outsideRadius: false,
+      },
+    ]);
+  });
+
+  it('reports no missing skills when matching is switched off, and no radius verdict at radius 0', async () => {
+    mockSkillMatching.mockResolvedValue(false);
+    mockRadius.mockResolvedValue(0);
+    mockPrisma.booking.findFirst.mockResolvedValueOnce(bookingRow());
+    mockPrisma.nannyProfile.findMany.mockResolvedValueOnce([
+      profile(22, 'Far', [], { latitude: 30.2, longitude: 31.2357 }),
+    ]);
+    mockPrisma.booking.findMany.mockResolvedValueOnce([]);
+
+    const [row] = await listBookingCandidates(4, { limit: 20 });
+
+    expect(row?.missingSkills).toEqual([]);
+    expect(row?.distanceKm).toBe(17.3);
+    expect(row?.outsideRadius).toBe(false);
+  });
+});
