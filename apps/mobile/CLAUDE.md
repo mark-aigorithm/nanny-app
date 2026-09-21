@@ -28,6 +28,9 @@ src/
 - All server state via **React Query** (TanStack) — no manual fetch/useEffect for data.
 - UI state (auth, theme) via **Zustand**.
 - No business logic in screens — delegate to hooks and services.
+- Connectivity: `src/lib/network.ts` is the only importer of `expo-network`. `OfflineGate` (mounted
+  once in `app/_layout.tsx`) covers the app with `screens/OfflineScreen` while the device is offline;
+  `bindOnlineManager` keeps React Query's pause/resume in step. Never read `expo-network` elsewhere.
 
 ---
 
