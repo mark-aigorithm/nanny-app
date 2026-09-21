@@ -153,3 +153,15 @@ jest.mock('@react-native-firebase/storage', () => {
   const instance = { ref: jest.fn(() => reference), useEmulator: jest.fn() };
   return { __esModule: true, default: () => instance };
 });
+
+// 9. Network — the offline gate subscribes at the root, so a screen test that
+//    renders the root tree must see "online" and a listener that never fires;
+//    otherwise the offline overlay would cover whatever it is asserting on.
+//    Connectivity tests override with their own `jest.mock(...)`.
+jest.mock('expo-network', () => ({
+  getNetworkStateAsync: jest
+    .fn()
+    .mockResolvedValue({ type: 'WIFI', isConnected: true, isInternetReachable: true }),
+  addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
+  NetworkStateType: { NONE: 'NONE', UNKNOWN: 'UNKNOWN', WIFI: 'WIFI', CELLULAR: 'CELLULAR' },
+}));
