@@ -87,19 +87,15 @@ export function useCreatePost() {
 }
 
 /**
- * The signed-in mother's own marketplace listings, in every moderation state —
- * this is the only place a pending or rejected listing is visible to her.
+ * The signed-in mother's own posts of every type, in every moderation state —
+ * this is the only place a pending or rejected post is listed for her.
  */
-export function useMyListings() {
+export function useMyPosts() {
   return useInfiniteQuery<PostsPage>({
-    queryKey: [COMMUNITY_KEY, 'my-listings'],
+    queryKey: [COMMUNITY_KEY, 'my-posts'],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      const params: MyPostsQuery = {
-        page: pageParam as number,
-        limit: 20,
-        type: 'marketplace',
-      };
+      const params: MyPostsQuery = { page: pageParam as number, limit: 20 };
       const { items, meta } = await unwrapPaginated<CommunityPostResponse[], PaginationMeta>(
         api.get('/community/my-posts', { params }),
       );
@@ -110,7 +106,7 @@ export function useMyListings() {
   });
 }
 
-/** Edit a post. A marketplace listing goes back to pending review on save. */
+/** Edit a post. Every post goes back to pending review on save. */
 export function useUpdatePost() {
   const qc = useQueryClient();
   return useMutation<

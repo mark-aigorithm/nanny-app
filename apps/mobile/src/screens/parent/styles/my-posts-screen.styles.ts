@@ -45,11 +45,11 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Listing card
-  listingCard: {
+  // Post card
+  postCard: {
     gap: spacing.sm,
   },
-  listingHeader: {
+  postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -64,21 +64,27 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listingBody: {
+  postBody: {
     flex: 1,
     gap: spacing.xxs,
   },
-  listingTitle: {
+  typeLabel: {
+    ...typeScale.caption,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
+  },
+  postTitle: {
     ...typeScale.bodyMd,
     fontWeight: '600',
     color: colors.textDark,
   },
-  listingPrice: {
+  postDetail: {
     ...typeScale.bodySm,
     fontWeight: '700',
     color: colors.primary,
   },
-  listingTime: {
+  postTime: {
     ...typeScale.caption,
     color: colors.textMuted,
   },

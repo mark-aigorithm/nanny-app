@@ -105,20 +105,18 @@ export default function CommunityScreen() {
           })}
         </ScrollView>
 
-        {/* Listings are reviewed before they go live, so a seller needs
+        {/* Every post is reviewed before it goes live, so an author needs
             somewhere to track hers — and to fix a rejected one. */}
-        {activeFilter === 'Marketplace' && (
-          <Pressable
-            style={styles.myListingsLink}
-            onPress={gate(
-              () => router.push('/(parent)/my-listings' as never),
-              'Create your free account to sell in the marketplace.',
-            )}
-          >
-            <Ionicons name="pricetags-outline" size={16} color={colors.primaryDark} />
-            <Text style={styles.myListingsText}>My listings</Text>
-          </Pressable>
-        )}
+        <Pressable
+          style={styles.myPostsLink}
+          onPress={gate(
+            () => router.push('/(parent)/my-posts' as never),
+            'Create your free account to post in the community.',
+          )}
+        >
+          <Ionicons name="albums-outline" size={16} color={colors.primaryDark} />
+          <Text style={styles.myPostsText}>My posts</Text>
+        </Pressable>
       </View>
 
       <FlatList

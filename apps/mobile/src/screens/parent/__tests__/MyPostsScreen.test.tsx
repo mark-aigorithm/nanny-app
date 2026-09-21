@@ -18,11 +18,11 @@ jest.mock('expo-router', () => ({
 }));
 
 import { unwrapPaginated } from '@mobile/lib/api';
-import MyListingsScreen from '@mobile/screens/parent/MyListingsScreen';
+import MyPostsScreen from '@mobile/screens/parent/MyPostsScreen';
 
 const mockUnwrapPaginated = unwrapPaginated as jest.Mock;
 
-function makeListing(overrides: Partial<CommunityPostResponse> = {}): CommunityPostResponse {
+function makePost(overrides: Partial<CommunityPostResponse> = {}): CommunityPostResponse {
   return {
     id: 44,
     type: 'marketplace',
@@ -50,10 +50,10 @@ function makeListing(overrides: Partial<CommunityPostResponse> = {}): CommunityP
   };
 }
 
-function mockListings(listings: CommunityPostResponse[]) {
+function mockPosts(posts: CommunityPostResponse[]) {
   mockUnwrapPaginated.mockResolvedValue({
-    items: listings,
-    meta: { page: 1, limit: 20, total: listings.length, totalPages: 1 },
+    items: posts,
+    meta: { page: 1, limit: 20, total: posts.length, totalPages: 1 },
   });
 }
 
@@ -63,7 +63,7 @@ function renderScreen() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MyListingsScreen />
+      <MyPostsScreen />
     </QueryClientProvider>,
   );
 }
@@ -72,10 +72,10 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('MyListingsScreen', () => {
+describe('MyPostsScreen', () => {
   it('shows the rejection reason and an edit-and-resubmit action', async () => {
-    mockListings([
-      makeListing({
+    mockPosts([
+      makePost({
         moderationStatus: 'rejected',
         rejectionReason: 'Photos are too blurry',
       }),
@@ -90,13 +90,45 @@ describe('MyListingsScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(
       expect.objectContaining({
         pathname: '/(parent)/create-post',
-        params: expect.objectContaining({ postId: '44', returnTo: 'my-listings' }),
+        params: expect.objectContaining({ postId: '44', returnTo: 'my-posts' }),
       }),
     );
   });
 
-  it('marks a listing awaiting review and offers no resubmit copy', async () => {
-    mockListings([makeListing({ moderationStatus: 'pending' })]);
+  it('labels each type and shows an event’s date and place', async () => {
+    mockPosts([
+      makePost({
+        id: 45,
+        type: 'event',
+        title: 'Coffee morning',
+        location: 'Maadi',
+        eventStartsAt: '2026-10-01T09:00:00.000Z',
+        price: null,
+        moderationStatus: 'pending',
+      }),
+      makePost({
+        id: 46,
+        type: 'qa',
+        title: null,
+        body: 'Where do I buy a pram?',
+        price: null,
+        moderationStatus: 'pending',
+      }),
+    ]);
+
+    const { getByText, getAllByText } = renderScreen();
+
+    await waitFor(() => expect(getByText('Coffee morning')).toBeTruthy());
+    expect(getByText('Event')).toBeTruthy();
+    expect(getByText(/Maadi/)).toBeTruthy();
+    expect(getByText('Q&A')).toBeTruthy();
+    expect(getByText('Where do I buy a pram?')).toBeTruthy();
+    expect(getAllByText('Under review')).toHaveLength(2);
+    expect(getAllByText('Edit post')).toHaveLength(2);
+  });
+
+  it('keeps the listing wording for a pending listing', async () => {
+    mockPosts([makePost({ moderationStatus: 'pending' })]);
 
     const { getByText, queryByText } = renderScreen();
 
@@ -105,20 +137,28 @@ describe('MyListingsScreen', () => {
     expect(queryByText('Edit & resubmit')).toBeNull();
   });
 
-  it('shows a live listing without an edit prompt', async () => {
-    mockListings([makeListing()]);
+  it('opens a live post in the feed it belongs to', async () => {
+    mockPosts([makePost({ id: 45, type: 'event', title: 'Coffee morning', price: null })]);
 
     const { getByText, queryByText } = renderScreen();
 
     await waitFor(() => expect(getByText('Live')).toBeTruthy());
-    expect(queryByText('Edit listing')).toBeNull();
+    expect(queryByText('Edit post')).toBeNull();
+
+    fireEvent.press(getByText('Coffee morning'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(parent)/post-detail',
+        params: expect.objectContaining({ postId: '45', filter: 'Events' }),
+      }),
+    );
   });
 
   it('explains the empty state', async () => {
-    mockListings([]);
+    mockPosts([]);
 
     const { getByText } = renderScreen();
 
-    await waitFor(() => expect(getByText('Nothing listed yet')).toBeTruthy());
+    await waitFor(() => expect(getByText('Nothing posted yet')).toBeTruthy());
   });
 });

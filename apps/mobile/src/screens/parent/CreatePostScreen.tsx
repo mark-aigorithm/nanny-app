@@ -41,6 +41,16 @@ function sanitizeInteger(value: string) {
   return value.replace(/[^0-9]/g, '');
 }
 
+/** Type-specific so the marketplace line stays exactly what the E2E flow asserts. */
+function reviewNotice(type: CreatePostUiType, editing: boolean): string {
+  const noun = type === 'Marketplace' ? 'listing' : type === 'Event' ? 'event' : 'post';
+  if (editing) return `Saving sends this ${noun} back for review before it goes live again.`;
+  if (type === 'Marketplace') {
+    return 'Listings are reviewed by our team before they appear in the marketplace.';
+  }
+  return `${type === 'Event' ? 'Events' : 'Posts'} are reviewed by our team before they appear in the community.`;
+}
+
 export default function CreatePostScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -227,9 +237,7 @@ export default function CreatePostScreen() {
           {submitting ? (
             <ActivityIndicator color={colors.white} size="small" />
           ) : (
-            <Text style={styles.postButtonText}>
-              {editingId ? (postType === 'Marketplace' ? 'Resubmit' : 'Save') : 'Post'}
-            </Text>
+            <Text style={styles.postButtonText}>{editingId ? 'Resubmit' : 'Post'}</Text>
           )}
         </Pressable>
       </View>
@@ -264,16 +272,12 @@ export default function CreatePostScreen() {
           </View>
         )}
 
-        {postType === 'Marketplace' && (
-          <View style={styles.reviewNotice}>
-            <Ionicons name="shield-checkmark-outline" size={16} color={colors.textTertiary} />
-            <Text style={styles.reviewNoticeText}>
-              {editingId
-                ? 'Saving sends this listing back for review before it goes live again.'
-                : 'Listings are reviewed by our team before they appear in the marketplace.'}
-            </Text>
-          </View>
-        )}
+        <View style={styles.reviewNotice}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={colors.textTertiary} />
+          <Text style={styles.reviewNoticeText}>
+            {reviewNotice(postType, Boolean(editingId))}
+          </Text>
+        </View>
 
         {editingId && existingPost?.moderationStatus === 'rejected' && existingPost.rejectionReason && (
           <View style={styles.rejectionNotice}>

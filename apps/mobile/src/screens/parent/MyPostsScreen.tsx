@@ -13,12 +13,18 @@ import { useRouter } from 'expo-router';
 import type { CommunityPostResponse } from '@nanny-app/shared';
 
 import { Button, Card, ScreenContainer, StackHeader } from '@mobile/components/ui';
-import { useMyListings } from '@mobile/hooks/useCommunity';
+import { useMyPosts } from '@mobile/hooks/useCommunity';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
-import { formatPrice, formatTimeAgo } from '@mobile/lib/communityUtils';
+import {
+  feedFilterForType,
+  formatEventDate,
+  formatPrice,
+  formatTimeAgo,
+  getPostTypeLabel,
+} from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { colors } from '@mobile/theme';
-import { styles } from './styles/my-listings-screen.styles';
+import { styles } from './styles/my-posts-screen.styles';
 
 type StatusMeta = {
   label: string;
@@ -57,7 +63,24 @@ function statusMeta(post: CommunityPostResponse): StatusMeta {
   }
 }
 
-function ListingRow({
+/** The one-line detail under the title: what the type is about. */
+function detailLine(post: CommunityPostResponse): string | null {
+  switch (post.type) {
+    case 'marketplace':
+      return formatPrice(post.price);
+    case 'event':
+      return [formatEventDate(post.eventStartsAt), post.location].filter(Boolean).join(' · ');
+    default:
+      return null;
+  }
+}
+
+function editLabel(post: CommunityPostResponse): string {
+  if (post.moderationStatus === 'rejected') return 'Edit & resubmit';
+  return post.type === 'marketplace' ? 'Edit listing' : 'Edit post';
+}
+
+function PostRow({
   post,
   onEdit,
   onOpen,
@@ -67,13 +90,14 @@ function ListingRow({
   onOpen: () => void;
 }) {
   const meta = statusMeta(post);
+  const detail = detailLine(post);
   const imageUri = post.imageUrls
     .map(resolveImageUri)
     .find((url): url is string => Boolean(url));
 
   return (
-    <Card style={styles.listingCard}>
-      <Pressable style={styles.listingHeader} onPress={onOpen}>
+    <Card style={styles.postCard}>
+      <Pressable style={styles.postHeader} onPress={onOpen}>
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.thumb} resizeMode="cover" />
         ) : (
@@ -81,12 +105,13 @@ function ListingRow({
             <Ionicons name="image-outline" size={20} color={colors.textPlaceholder} />
           </View>
         )}
-        <View style={styles.listingBody}>
-          <Text style={styles.listingTitle} numberOfLines={1}>
-            {post.title}
+        <View style={styles.postBody}>
+          <Text style={styles.typeLabel}>{getPostTypeLabel(post.type)}</Text>
+          <Text style={styles.postTitle} numberOfLines={1}>
+            {post.title ?? post.body}
           </Text>
-          <Text style={styles.listingPrice}>{formatPrice(post.price)}</Text>
-          <Text style={styles.listingTime}>{formatTimeAgo(post.createdAt)}</Text>
+          {detail && <Text style={styles.postDetail}>{detail}</Text>}
+          <Text style={styles.postTime}>{formatTimeAgo(post.createdAt)}</Text>
         </View>
       </Pressable>
 
@@ -103,7 +128,7 @@ function ListingRow({
         <Button
           variant={post.moderationStatus === 'rejected' ? 'primary' : 'outline'}
           onPress={onEdit}
-          title={post.moderationStatus === 'rejected' ? 'Edit & resubmit' : 'Edit listing'}
+          title={editLabel(post)}
         />
       )}
     </Card>
@@ -111,35 +136,39 @@ function ListingRow({
 }
 
 /**
- * The seller's own marketplace listings. Everything she has posted lives here
- * with its review state — this is where a rejected listing shows the admin's
- * reason and gets edited and resubmitted.
+ * Everything the mother has posted — questions, events and listings — with
+ * its review state. This is where a rejected post shows the admin's reason and
+ * gets edited and resubmitted.
  */
-export default function MyListingsScreen() {
+export default function MyPostsScreen() {
   const router = useRouter();
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useMyListings();
+    useMyPosts();
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
 
-  const listings = useMemo(() => data?.pages.flatMap((page) => page.posts) ?? [], [data]);
+  const posts = useMemo(() => data?.pages.flatMap((page) => page.posts) ?? [], [data]);
 
   const openEdit = (postId: number) =>
     router.push({
       pathname: '/(parent)/create-post',
-      params: { postId: String(postId), returnTo: 'my-listings' },
+      params: { postId: String(postId), returnTo: 'my-posts' },
     } as never);
 
-  const openDetail = (postId: number) =>
+  const openDetail = (post: CommunityPostResponse) =>
     router.push({
       pathname: '/(parent)/post-detail',
-      params: { postId: String(postId), returnTo: 'community', filter: 'Marketplace' },
+      params: {
+        postId: String(post.id),
+        returnTo: 'community',
+        filter: feedFilterForType(post.type),
+      },
     } as never);
 
   return (
     <ScreenContainer useSafeArea={false}>
       <StackHeader
-        title="My listings"
-        subtitle="New and edited listings are reviewed before they go live."
+        title="My posts"
+        subtitle="New and edited posts are reviewed before they go live."
       />
 
       <ScrollView
@@ -161,25 +190,26 @@ export default function MyListingsScreen() {
         )}
 
         {isError && (
-          <Text style={styles.errorText}>Couldn’t load your listings. Pull to refresh.</Text>
+          <Text style={styles.errorText}>Couldn’t load your posts. Pull to refresh.</Text>
         )}
 
-        {!isLoading && !isError && listings.length === 0 && (
+        {!isLoading && !isError && posts.length === 0 && (
           <Card style={styles.emptyCard}>
-            <Ionicons name="pricetags-outline" size={26} color={colors.textPlaceholder} />
-            <Text style={styles.emptyTitle}>Nothing listed yet</Text>
+            <Ionicons name="albums-outline" size={26} color={colors.textPlaceholder} />
+            <Text style={styles.emptyTitle}>Nothing posted yet</Text>
             <Text style={styles.emptyBody}>
-              Sell something in the marketplace and it will show up here while it’s reviewed.
+              Ask a question, host an event or sell something and it will show up here while
+              it’s reviewed.
             </Text>
           </Card>
         )}
 
-        {listings.map((post) => (
-          <ListingRow
+        {posts.map((post) => (
+          <PostRow
             key={post.id}
             post={post}
             onEdit={() => openEdit(post.id)}
-            onOpen={() => openDetail(post.id)}
+            onOpen={() => openDetail(post)}
           />
         ))}
 

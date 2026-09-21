@@ -79,19 +79,16 @@ export default function NotificationsScreen() {
       });
       return;
     }
-    // A rejected listing needs fixing, so send her to My listings; an approved
-    // one is live, so open it in the feed.
+    // A rejected post needs fixing, so send her to My posts; an approved one
+    // is live, so open it. The notification doesn't carry the post's type, so
+    // the detail screen returns to the community's default pill.
     if (notification.referenceType === 'community_post' && notification.referenceId) {
       if (notification.type === 'marketplace_listing_rejected') {
-        router.push('/(parent)/my-listings' as never);
+        router.push('/(parent)/my-posts' as never);
       } else {
         router.push({
           pathname: '/(parent)/post-detail',
-          params: {
-            postId: notification.referenceId,
-            returnTo: 'community',
-            filter: 'Marketplace',
-          },
+          params: { postId: notification.referenceId, returnTo: 'community' },
         });
       }
       return;

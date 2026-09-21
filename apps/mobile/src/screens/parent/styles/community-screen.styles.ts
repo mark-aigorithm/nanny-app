@@ -51,8 +51,8 @@ export const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
-  // "My listings" shortcut (Marketplace filter only)
-  myListingsLink: {
+  // "My posts" shortcut (every filter — every post is reviewed)
+  myPostsLink: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-end',
@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,
   },
-  myListingsText: {
+  myPostsText: {
     ...typeScale.labelSm,
     color: colors.primaryDark,
   },

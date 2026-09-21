@@ -50,6 +50,18 @@ export function getPostTypeTagStyle(type: CommunityPostType): 'qa' | 'marketplac
   return type;
 }
 
+/** The feed pill a post belongs under — for opening its detail from elsewhere. */
+export function feedFilterForType(type: CommunityPostType): 'Q&A' | 'Marketplace' | 'Events' {
+  switch (type) {
+    case 'qa':
+      return 'Q&A';
+    case 'marketplace':
+      return 'Marketplace';
+    case 'event':
+      return 'Events';
+  }
+}
+
 export type CommunityFeedFilter = CommunityPostType | undefined;
 
 export function filterPillToType(pill: string): CommunityFeedFilter {
@@ -121,14 +133,14 @@ export type CommentsPage = {
   meta: PaginationMeta;
 };
 
-export type CommunityReturnTo = 'community' | 'community-feed' | 'my-listings';
+export type CommunityReturnTo = 'community' | 'community-feed' | 'my-posts';
 
 export function getCommunityReturnHref(params: {
   returnTo?: string;
   filter?: string;
 }): { pathname: string; params?: { filter: string } } {
-  if (params.returnTo === 'my-listings') {
-    return { pathname: '/(parent)/my-listings' };
+  if (params.returnTo === 'my-posts') {
+    return { pathname: '/(parent)/my-posts' };
   }
   if (params.returnTo === 'community-feed') {
     return {

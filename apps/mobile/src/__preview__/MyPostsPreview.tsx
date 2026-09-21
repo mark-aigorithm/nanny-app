@@ -4,12 +4,12 @@ import { View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { CommunityPostResponse } from '@nanny-app/shared';
 
-import MyListingsScreen from '@mobile/screens/parent/MyListingsScreen';
+import MyPostsScreen from '@mobile/screens/parent/MyPostsScreen';
 import { setPreviewParams } from './harness';
 
 setPreviewParams({});
 
-function listing(overrides: Partial<CommunityPostResponse>): CommunityPostResponse {
+function post(overrides: Partial<CommunityPostResponse>): CommunityPostResponse {
   return {
     id: 1,
     type: 'marketplace',
@@ -38,32 +38,43 @@ function listing(overrides: Partial<CommunityPostResponse>): CommunityPostRespon
 }
 
 const POSTS: CommunityPostResponse[] = [
-  listing({
+  post({
     id: 1,
     title: 'Baby stroller — barely used',
     price: 1200,
     moderationStatus: 'rejected',
     rejectionReason: 'The photos are too blurry to see the item — please add clearer ones.',
   }),
-  listing({
+  post({
     id: 2,
-    title: 'Nursery chest of drawers',
-    price: 2400,
+    type: 'event',
+    title: 'Mums & littles coffee morning',
+    price: null,
+    location: 'Maadi Community Hall',
+    eventStartsAt: new Date(Date.now() + 5 * 86_400_000).toISOString(),
     moderationStatus: 'pending',
   }),
-  listing({
+  post({
     id: 3,
+    type: 'qa',
+    title: null,
+    body: 'Where do I buy a pram in Cairo that is not overpriced?',
+    price: null,
+    moderationStatus: 'pending',
+  }),
+  post({
+    id: 4,
     title: 'Bundle of 0–6m clothes',
     price: 350,
     moderationStatus: 'approved',
   }),
 ];
 
-export default function MyListingsPreview() {
+export default function MyPostsPreview() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
-  client.setQueryData(['community', 'my-listings'], {
+  client.setQueryData(['community', 'my-posts'], {
     pages: [{ posts: POSTS, meta: { page: 1, limit: 20, total: POSTS.length, totalPages: 1 } }],
     pageParams: [1],
   });
@@ -71,7 +82,7 @@ export default function MyListingsPreview() {
   return (
     <QueryClientProvider client={client}>
       <View style={{ width: 390, height: 844, overflow: 'hidden' }}>
-        <MyListingsScreen />
+        <MyPostsScreen />
       </View>
     </QueryClientProvider>
   );
