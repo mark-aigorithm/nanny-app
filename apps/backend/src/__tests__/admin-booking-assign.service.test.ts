@@ -1,7 +1,5 @@
 import { BookingStatus as PrismaBookingStatus } from '@prisma/client';
 
-import { AppError } from '@backend/lib/errors';
-
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     user: { findFirst: jest.fn() },
@@ -255,9 +253,9 @@ describe('assignBookingNanny', () => {
     });
     mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeNanny());
 
-    await expect(assignBookingNanny(4, ADMIN_UID, { nannyProfileId: 21 })).rejects.toBeInstanceOf(
-      AppError,
-    );
+    await expect(assignBookingNanny(4, ADMIN_UID, { nannyProfileId: 21 })).rejects.toMatchObject({
+      statusCode: 409,
+    });
     expect(mockPrisma.booking.updateMany).not.toHaveBeenCalled();
   });
 

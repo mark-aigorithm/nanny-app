@@ -40,7 +40,7 @@ deliberate choice by showing the warning on the row.
 
 Body `{ nannyProfileId: number }` (`AssignBookingNannySchema`). Privilege: `bookings` MANAGE.
 
-`assignBookingNanny(id, adminFirebaseUid, input)` in `admin-booking.service.ts`:
+`assignBookingNanny(id, adminFirebaseUid, input)` in `admin-booking-assign.service.ts`:
 
 1. Resolve the admin; load the booking (`findAdminBooking`).
 2. Status ∉ {PENDING, APPROVED, CONFIRMED} → 400 `A <status> booking is locked and its nanny cannot be changed.`
@@ -74,7 +74,9 @@ stays "No response", exactly as on any admin-approved booking today.
 ### `GET /admin/bookings/:id/candidates?q=&limit=`
 
 Privilege: `bookings` VIEW. Query `AdminBookingCandidateQuerySchema`: `q` optional string
-(trimmed, max 80), `limit` int 1–50 default 20.
+(trimmed, max 80), `limit` int 1–50 default 20. The admin picker always requests `limit=50` (the
+schema's cap) and shows a hint below the list — "Showing the first 50 nannies — search to narrow
+the list." — when a response comes back exactly at that cap.
 
 `listBookingCandidates(id, query)`:
 
@@ -105,8 +107,8 @@ Returns `AdminBookingCandidate[]`:
 }
 ```
 
-`matchesSkills` / `heldSkillIds` / `requiredSkillIds` / `nannyHomePoint` are exported from
-`booking.service.ts` for reuse (they are module-private today).
+`heldSkillIds` / `nannyHomePoint` are exported from `booking.service.ts` for reuse (`matchesSkills`
+and `requiredSkillIds` stay module-private — the candidates list doesn't need them).
 
 ### Wiring
 
@@ -161,7 +163,7 @@ Both render only when `useCanManage('bookings')` and `status ∈ {PENDING, APPRO
 
 | Tier | File | Covers |
 |---|---|---|
-| Backend unit | `__tests__/admin-booking.service.test.ts` | assign: each locked status → 400; unapproved nanny → 400; same nanny → 400; conflict propagates; PENDING → APPROVED with approver stamped; APPROVED/CONFIRMED keep status; decision reset; guarded write count 0 → 409; notifications to new nanny, previous nanny, mother (both copies). candidates: excludes current nanny and non-approved; flags conflict / missingSkills / outsideRadius; `missingSkills` empty when matching is off; `q` filters by name; 404 on unknown booking. |
+| Backend unit | `__tests__/admin-booking-assign.service.test.ts` | assign: each locked status → 400; unapproved nanny → 400; same nanny → 400; conflict propagates; PENDING → APPROVED with approver stamped; APPROVED/CONFIRMED keep status; decision reset; guarded write count 0 → 409; notifications to new nanny, previous nanny, mother (both copies). candidates: excludes current nanny and non-approved; flags conflict / missingSkills / outsideRadius; `missingSkills` empty when matching is off; `q` filters by name; 404 on unknown booking. |
 | Backend unit | `__tests__/admin-permissions.test.ts` | walks the router — fails until the two rows exist |
 | Backend integration | `__integration__/journeys/a23-admin-assign-nanny.test.ts` | assign on PENDING → APPROVED and the mother can pay; reassign on CONFIRMED swaps the nanny and leaves the payment row intact; conflict is refused; candidates list marks the busy nanny |
 | Admin component | `features/bookings/__tests__/assign-nanny-modal.test.tsx` (MSW) | busy row disabled; warning badges rendered; selecting + confirming sends `PATCH …/nanny` with the id and toasts; PENDING booking shows "Assign & approve" |

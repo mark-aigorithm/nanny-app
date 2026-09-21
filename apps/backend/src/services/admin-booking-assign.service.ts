@@ -10,7 +10,7 @@ import type {
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import { distanceKm, toLatLng } from '@backend/lib/geo';
+import { distanceKm, isWithinRadius, toLatLng } from '@backend/lib/geo';
 import {
   bookingInclude,
   findAdminBooking,
@@ -28,6 +28,7 @@ import {
   heldSkillIds,
   nannyHomeInclude,
   nannyHomePoint,
+  validateStatusTransition,
 } from '@backend/services/booking.service';
 
 function statusLabel(status: BookingStatus): string {
@@ -77,10 +78,20 @@ export async function assignBookingNanny(
     throw errors.badRequest('Only an approved nanny can be assigned.');
   }
 
+  // Read-then-write, same as the nanny claim path: the conflict check runs
+  // against what we just read, not inside the guarded write below, so two
+  // concurrent assigns of one nanny to two overlapping bookings can both pass
+  // this check and both win their own updateMany. A DB exclusion constraint
+  // would close that gap for real; out of scope here.
   await assertNoConflict(nanny.id, booking.startTime, booking.endTime, id);
 
   const now = new Date();
   const approving = booking.status === BookingStatus.PENDING;
+  if (approving) {
+    // Parity with the nanny's own claim path (booking.service.ts), which
+    // validates the same PENDING → APPROVED transition before its write.
+    validateStatusTransition(booking.status, BookingStatus.APPROVED);
+  }
   const written = await prisma.booking.updateMany({
     where: {
       id,
@@ -234,8 +245,11 @@ export async function listBookingCandidates(
   return profiles.map((p) => {
     const held = heldSkillIds(p.nannySkills);
     const home = nannyHomePoint(p.user);
-    const distance =
-      bookingPoint && home ? Math.round(distanceKm(bookingPoint, home) * 10) / 10 : null;
+    // Rounded only for display — the radius verdict below uses the raw
+    // distance so the picker and the broadcast pool can't disagree at the
+    // boundary (a distance that rounds to exactly the radius, say).
+    const rawDistance = bookingPoint && home ? distanceKm(bookingPoint, home) : null;
+    const distance = rawDistance !== null ? Math.round(rawDistance * 10) / 10 : null;
     return {
       id: p.id,
       name: `${p.user.firstName} ${p.user.lastName}`.trim(),
@@ -247,7 +261,7 @@ export async function listBookingCandidates(
         ? required.filter((s) => !held.has(s.id)).map((s) => s.name)
         : [],
       distanceKm: distance,
-      outsideRadius: radiusKm > 0 && distance !== null && distance > radiusKm,
+      outsideRadius: !isWithinRadius(bookingPoint, home, radiusKm),
     };
   });
 }

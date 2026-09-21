@@ -103,7 +103,7 @@ describe('A23 — admin assigns a nanny', () => {
 
     await expect(
       assignBookingNanny(admin.token, request.id, busy.nannyProfileId),
-    ).rejects.toThrow(/409|400/);
+    ).rejects.toThrow(/409/);
 
     // Still unclaimed — the refused write left nothing behind.
     const row = await prisma.booking.findUniqueOrThrow({ where: { id: request.id } });
