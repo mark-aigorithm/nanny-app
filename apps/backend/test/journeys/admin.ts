@@ -8,6 +8,7 @@
  * journeys act as a superuser, but the access-matrix tests pass operators.
  */
 import type {
+  AdminBookingCandidate,
   AdminEditBookingInput,
   AdminRefundBookingInput,
   UpdateBookingTimesInput,
@@ -64,6 +65,30 @@ export function updateBookingTimes(
   input: UpdateBookingTimesInput,
 ) {
   return send(token, 'patch', `/admin/bookings/${bookingId}/times`, input);
+}
+
+export function assignBookingNanny(token: string, bookingId: number, nannyProfileId: number) {
+  return send(token, 'patch', `/admin/bookings/${bookingId}/nanny`, { nannyProfileId });
+}
+
+/** The picker's rows; `q` narrows by name like the console's search box. */
+export async function fetchBookingCandidates(
+  token: string,
+  bookingId: number,
+  q?: string,
+): Promise<AdminBookingCandidate[]> {
+  const response = await request(app)
+    .get(`/admin/bookings/${bookingId}/candidates`)
+    .query(q === undefined ? {} : { q })
+    .set(...authHeader(token));
+
+  if (response.status !== 200) {
+    throw new Error(
+      `GET /admin/bookings/${bookingId}/candidates failed with ${response.status}: ` +
+        JSON.stringify(response.body),
+    );
+  }
+  return response.body.data as AdminBookingCandidate[];
 }
 
 export function previewBookingEdit(

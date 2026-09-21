@@ -1,6 +1,8 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 
 import {
+  AdminBookingCandidateQuerySchema,
+  type AdminBookingCandidateQuery,
   AdminBookingListQuerySchema,
   type AdminBookingListQuery,
   AdminEditBookingSchema,
@@ -35,6 +37,7 @@ import {
   RejectNannySchema,
   SetBookingStatusSchema,
   AdminUpsertNannyAddressSchema,
+  AssignBookingNannySchema,
   SetNannySkillsSchema,
   UpdateAdminMotherSchema,
   UpdateAdminNannySchema,
@@ -72,6 +75,10 @@ import {
   setBookingStatus,
   updateBookingTimes,
 } from '@backend/services/admin-booking.service';
+import {
+  assignBookingNanny,
+  listBookingCandidates,
+} from '@backend/services/admin-booking-assign.service';
 import {
   applyBookingEdit,
   getBookingEditContext,
@@ -268,6 +275,36 @@ adminRouter.patch(
       if (!req.firebaseUser) throw errors.unauthorized();
       res.json(
         ok(await updateBookingTimes(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Nanny assignment (unclaimed request, or swap on a paid booking) ──
+
+adminRouter.get(
+  '/bookings/:id/candidates',
+  validateQuery(AdminBookingCandidateQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = res.locals['validatedQuery'] as AdminBookingCandidateQuery;
+      res.json(ok(await listBookingCandidates(routeIdParam(req.params.id), query)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/bookings/:id/nanny',
+  validateBody(AssignBookingNannySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await assignBookingNanny(routeIdParam(req.params.id), req.firebaseUser.uid, req.body)),
       );
     } catch (err) {
       next(err);
