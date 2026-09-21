@@ -52,10 +52,10 @@ appId: com.nannyapp.mobile
 # the screen where she can fix and resubmit it.
 - tapOn: 'Your listing needs changes'
 - extendedWaitUntil:
-    visible: 'My listings'
+    visible: 'My posts'
     timeout: 30000
 
-# Back from My listings lands on Home rather than popping to the notification
+# Back from My posts lands on Home rather than popping to the notification
 # it came from — the handler pushes across to a different section, not deeper
 # into this one. So the way back in is the bell, which is also the honest path:
 # it is what a person taps.

@@ -264,8 +264,8 @@ function seedListingNotifications() {
   var rejected = createListing(motherToken, 'Pram');
 
   var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
-  call('POST', adminToken, '/admin/marketplace/listings/' + approved + '/approve');
-  call('POST', adminToken, '/admin/marketplace/listings/' + rejected + '/reject', {
+  call('POST', adminToken, '/admin/community/posts/' + approved + '/approve');
+  call('POST', adminToken, '/admin/community/posts/' + rejected + '/reject', {
     reason: 'Photos are too blurry to see the item.',
   });
 
@@ -316,6 +316,22 @@ function communityReset() {
   }
 
   output.removed = String(removed);
+}
+
+/**
+ * Publishes the event the flow just proposed on screen. Every post now waits
+ * for review, and a second mother cannot RSVP to — or even see — an event
+ * that is still pending; approving it is what makes the capacity check about
+ * capacity rather than about visibility.
+ */
+function adminApproveEvent() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var events = call('GET', motherToken, '/community/my-posts?type=event&limit=50');
+  if (!events || events.length === 0) throw new Error('The mother has no event posts.');
+
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  call('POST', adminToken, '/admin/community/posts/' + events[0].id + '/approve');
+  output.eventId = String(events[0].id);
 }
 
 /**
@@ -511,7 +527,7 @@ function seedConversation() {
 
   var listingId = createListing(motherToken, 'Highchair');
   var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
-  call('POST', adminToken, '/admin/marketplace/listings/' + listingId + '/approve');
+  call('POST', adminToken, '/admin/community/posts/' + listingId + '/approve');
 
   var contact = call('POST', buyerToken, '/community/posts/' + listingId + '/contact');
   var conversationId = contact.conversation.id;
@@ -773,6 +789,7 @@ var STEPS = {
   'seed-listing-notifications': seedListingNotifications,
   'unread-count': unreadCount,
   'community-reset': communityReset,
+  'admin-approve-event': adminApproveEvent,
   'event-at-capacity': eventAtCapacity,
   'configure-support': configureSupport,
   'mother-book': motherBook,

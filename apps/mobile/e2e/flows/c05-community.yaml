@@ -6,9 +6,15 @@
 # and a marketplace listing adds the photo. The listing needs Firebase Storage,
 # which the test stack now runs as an emulator; the photo picker is system UI a
 # device flow cannot drive, so under E2E CreatePostScreen short-circuits it to a
-# bundled placeholder (lib/e2eImage) that still uploads for real. A listing is
-# moderated, so it is not public on submit — it shows on the seller's own "My
-# listings" as "Under review", which is where the assertion lands.
+# bundled placeholder (lib/e2eImage) that still uploads for real.
+#
+# Every post is moderated, so nothing here is public on submit. The author still
+# sees her own pending post in the feed — under an "Under review" chip — which
+# is what lets the create → appear → like → comment loop run without an admin.
+# The event is approved over HTTP before the second mother is turned away,
+# because a pending event is invisible to her and "not found" would prove
+# nothing about capacity. The listing lands on the seller's own "My posts" as
+# "Under review", which is where its assertion lands.
 #
 # The flow opens by deleting every post the mother owns. The database is never
 # truncated and a post has no natural key, so last night's run left a question
@@ -67,11 +73,12 @@ appId: com.nannyapp.mobile
 - tapOn:
     id: 'createPost.submit'
 
-# Posting returns to the feed on the filter it was opened from, and a Q&A post
-# is not moderated — so it is live the moment it is written.
+# Posting returns to the feed on the filter it was opened from. The question is
+# pending, but the author sees her own — with the chip that says so.
 - extendedWaitUntil:
     visible: 'E2E lab question about pram storage'
     timeout: 30000
+- assertVisible: 'Under review'
 
 # ── Like and comment ───────────────────────────────────────────────────────
 # Done on the detail screen rather than the feed card: the feed renders one
@@ -176,6 +183,13 @@ appId: com.nannyapp.mobile
 - assertVisible: '1 going'
 
 # ── The ceiling ────────────────────────────────────────────────────────────
+# Approved over HTTP first: a pending event is invisible to anybody but its
+# author, so the second mother would be told "not found", not "full".
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: admin-approve-event
+
 # A second mother tries the seat that is no longer there. Asserted over HTTP
 # because the app has nowhere to show the refusal — see the note at the top.
 # The count is read back too: a 409 that also decremented somebody's RSVP would
@@ -189,15 +203,15 @@ appId: com.nannyapp.mobile
 
 # ── List (marketplace) ──────────────────────────────────────────────────────
 # The arrow returns to the feed the detail was opened from — the Events filter.
-# The Marketplace pill is where a listing is created and where "My listings"
-# lives, so switch to it first; exitCreatePost then returns here too.
+# The Marketplace pill is where a listing is created, so switch to it first;
+# exitCreatePost then returns here too. "My posts" sits under every pill.
 - tapOn: 'Back'
 - extendedWaitUntil:
     visible: 'Events'
     timeout: 30000
 - tapOn: 'Marketplace'
 - extendedWaitUntil:
-    visible: 'My listings'
+    visible: 'My posts'
     timeout: 30000
 
 - tapOn: 'Create post'
@@ -233,13 +247,13 @@ appId: com.nannyapp.mobile
 - tapOn:
     id: 'createPost.submit'
 
-# Back on the Marketplace feed; the listing is pending, so it is on My listings
+# Back on the Marketplace feed; the listing is pending, so it is on My posts
 # rather than the public feed. community-reset (top of flow) cleared a prior
 # run's copy, so the title is this run's.
 - extendedWaitUntil:
-    visible: 'My listings'
+    visible: 'My posts'
     timeout: 30000
-- tapOn: 'My listings'
+- tapOn: 'My posts'
 - extendedWaitUntil:
     visible: 'E2E lab stroller'
     timeout: 30000

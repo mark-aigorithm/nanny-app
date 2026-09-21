@@ -49,7 +49,7 @@ appId: com.nannyapp.mobile
 
 - tapOn: 'Marketplace'
 - extendedWaitUntil:
-    visible: 'My listings'
+    visible: 'My posts'
     timeout: 30000
 - takeScreenshot: ${OUT}/20-community-marketplace
 
