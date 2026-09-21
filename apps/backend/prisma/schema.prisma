@@ -910,7 +910,14 @@ model Booking {
   motherEndedAt            DateTime?            @map("mother_ended_at")
   /// Parent-generated hand-off PIN gating nanny check-in. The parent reveals a
   /// 4-digit code within the check-in window; the nanny must enter it to start.
-  /// Stored hashed (sha-256) and cleared on successful check-in. See booking.service.
+  /// Stored in the clear: it is four digits, lives 15 minutes, is single-use and
+  /// attempt-capped, and the admin console reads it back to support a hand-off
+  /// over the phone — an unsalted hash of it protected nothing (10k guesses).
+  /// Cleared on successful check-in. See booking.service.
+  startPin                 String?              @map("start_pin")
+  /// Unread and unwritten since `startPin` replaced it (store_booking_start_pin_in_clear).
+  /// Kept one release so a task still running the old client can select it;
+  /// drop it in the next migration.
   startPinHash             String?              @map("start_pin_hash")
   startPinGeneratedAt      DateTime?            @map("start_pin_generated_at")
   startPinExpiresAt        DateTime?            @map("start_pin_expires_at")
@@ -1518,7 +1525,9 @@ model EmailLog {
 /// mutating the old one, so the rate-limit windows below can simply count rows.
 ///
 /// Neither the code nor the token is stored in the clear — only their sha-256
-/// hashes, the same treatment `Booking.startPinHash` gives the start PIN.
+/// hashes. (Unlike the booking start PIN, which is stored in the clear: a
+/// verification code travels by email and proves ownership of an address, so
+/// a leaked table must not hand out working codes.)
 ///
 /// The flow is two-phase because the nanny has no account yet when she
 /// verifies: `POST /auth/email/verify` swaps a correct code for a short-lived
