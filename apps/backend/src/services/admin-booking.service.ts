@@ -1,4 +1,4 @@
-import { BookingStatus, NotificationType, Prisma } from '@prisma/client';
+import { BookingStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
 
 import { BookingAddressSchema, BookingChildSchema } from '@nanny-app/shared';
 import type {
@@ -55,7 +55,11 @@ export const bookingInclude = {
 
 export type AdminBookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
-/** Wide include for the single-booking detail page: full parties + full payment. */
+/**
+ * Wide include for the single-booking detail page: full parties + every
+ * payment. The newest is the one the payment card shows; all of them feed the
+ * overpayment figure, since a top-up is its own row.
+ */
 const bookingDetailInclude = {
   mother: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
   nannyProfile: {
@@ -66,13 +70,31 @@ const bookingDetailInclude = {
       },
     },
   },
-  payments: { orderBy: { id: 'desc' }, take: 1 },
+  payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } },
   promoCode: { select: { code: true } },
 } satisfies Prisma.BookingInclude;
 
 type AdminBookingDetailRow = Prisma.BookingGetPayload<{
   include: typeof bookingDetailInclude;
 }>;
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Sum of money the mother has actually paid and kept: captured minus refunded,
+ * over every payment on the booking. The one figure the editor's delta, the
+ * refund guard and the detail page all agree on.
+ */
+export function sumCapturedPaid(
+  payments: { amount: Prisma.Decimal; refundedAmount: Prisma.Decimal; status: PaymentStatus }[],
+): number {
+  const paid = payments
+    .filter((p) => p.status === PaymentStatus.CAPTURED || p.status === PaymentStatus.REFUNDED)
+    .reduce((sum, p) => sum + (p.amount.toNumber() - p.refundedAmount.toNumber()), 0);
+  return round2(paid);
+}
 
 export function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
@@ -94,6 +116,8 @@ function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAd
 
 function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
+  const amountPaid = sumCapturedPaid(row.payments);
+  const refundableAmount = Math.max(0, round2(amountPaid - row.totalAmount.toNumber()));
   // Decided here, not in the browser: the admin's clock must not be what says
   // whether the code the parent is reading out is still good.
   const livePinExpiresAt =
@@ -162,6 +186,8 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
           refundedAt: payment.refundedAt?.toISOString() ?? null,
         }
       : null,
+    amountPaid,
+    refundableAmount,
     specialInstructions: row.specialInstructions,
     cancellationReason: row.cancellationReason,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,

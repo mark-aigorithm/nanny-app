@@ -377,6 +377,14 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   packageHoursApplied: z.number(),
   // Full payment record (supersedes the list's flat `paymentStatus`).
   payment: AdminBookingPaymentSchema.nullable(),
+  /** Money the mother has paid and kept, across every captured payment (amount − refunded). */
+  amountPaid: z.number(),
+  /**
+   * How much of `amountPaid` exceeds the current total — what an admin can still
+   * give back (POST .../refund). Non-zero after an edit lowered the price and the
+   * refund follow-up was skipped or failed; 0 otherwise.
+   */
+  refundableAmount: z.number(),
   // Notes & lifecycle.
   specialInstructions: z.string().nullable(),
   cancellationReason: z.string().nullable(),

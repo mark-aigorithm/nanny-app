@@ -15,7 +15,7 @@ import { prisma } from '@backend/db/prisma';
 
 import { authHeader } from '../../../test/auth';
 import { makeMother, makeNanny, makeSuperuser } from '../../../test/factories';
-import { editBooking, refundBooking } from '../../../test/journeys/admin';
+import { editBooking, getAdminBookingDetail, refundBooking } from '../../../test/journeys/admin';
 import {
   claimBooking,
   createBookingViaApi,
@@ -81,6 +81,23 @@ describe('A3 — refund a paid booking', () => {
     expect(Number(payment.refundedAmount)).toBe(refundable);
     expect(payment.status).toBe(PaymentStatus.CAPTURED);
     expect(payment.refundedAt).not.toBeNull();
+  });
+
+  it('keeps the overpayment visible on the booking until it is returned', async () => {
+    // The editor offers a refund right after saving; if that is dismissed, the
+    // detail page is where an admin finds the money still owed — so the figure
+    // has to come from the booking itself, not from the edit response.
+    const { admin, booking, settlement, paidTotal } = await paidBookingWithOverpayment();
+
+    const before = await getAdminBookingDetail(admin.token, booking.id);
+    expect(before.amountPaid).toBe(paidTotal);
+    expect(before.refundableAmount).toBe(settlement.refundableAmount);
+
+    await refundBooking(admin.token, booking.id, { method: 'PAYMOB', reason: 'Settled later.' });
+
+    const after = await getAdminBookingDetail(admin.token, booking.id);
+    expect(after.refundableAmount).toBe(0);
+    expect(after.amountPaid).toBe(after.totalAmount);
   });
 
   it('refuses a second refund once the overpayment is exhausted', async () => {

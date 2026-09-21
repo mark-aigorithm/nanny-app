@@ -63,7 +63,10 @@ jest.mock('@backend/services/promo-code.service', () => ({
   validatePromoCode: jest.fn(),
 }));
 
+// Keep the real "what she has paid" sum — it is the input to the money math
+// under test; only the detail DTO fetch is stubbed.
 jest.mock('@backend/services/admin-booking.service', () => ({
+  ...jest.requireActual('@backend/services/admin-booking.service'),
   getAdminBooking: jest.fn(),
 }));
 

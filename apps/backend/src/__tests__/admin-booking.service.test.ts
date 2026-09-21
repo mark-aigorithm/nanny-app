@@ -375,6 +375,70 @@ describe('getAdminBooking (detail)', () => {
     await expect(getAdminBooking(999)).rejects.toThrow(AppError);
   });
 
+  function capturedPayment(amount: number, refunded = 0, overrides: Record<string, unknown> = {}) {
+    return {
+      status: 'CAPTURED',
+      method: 'CARD',
+      amount: dec(amount),
+      currency: 'EGP',
+      paymobOrderId: 'ord-1',
+      paymobTransactionId: 'txn-1',
+      paymobIntentionId: 'int-1',
+      failureReason: null,
+      refundedAmount: dec(refunded),
+      refundedAt: null,
+      ...overrides,
+    };
+  }
+
+  it('reports the overpayment once an edit has priced the booking below what was paid', async () => {
+    // Paid 318 for three hours; an admin then shortened it to 212 worth.
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({ totalAmount: dec(212), payments: [capturedPayment(318)] }),
+    );
+
+    const dto = await getAdminBooking(4);
+
+    expect(dto.amountPaid).toBe(318);
+    expect(dto.refundableAmount).toBe(106);
+  });
+
+  it('nets refunds and top-ups across every payment, not just the newest', async () => {
+    // Newest first, as the include orders them: a 100 top-up, then the original
+    // 318 of which 50 already went back. Total is 300 → 368 kept, 68 over.
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({
+        totalAmount: dec(300),
+        payments: [
+          capturedPayment(100, 0, { paymobTransactionId: 'txn-2' }),
+          capturedPayment(318, 50, { status: 'CAPTURED' }),
+        ],
+      }),
+    );
+
+    const dto = await getAdminBooking(4);
+
+    expect(dto.amountPaid).toBe(368);
+    expect(dto.refundableAmount).toBe(68);
+    // The payment card still shows the newest attempt.
+    expect(dto.payment?.paymobTransactionId).toBe('txn-2');
+  });
+
+  it('reports nothing refundable while the booking is unpaid or paid exactly', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({ totalAmount: dec(318), payments: [capturedPayment(318)] }),
+    );
+    const paidExactly = await getAdminBooking(4);
+    expect(paidExactly.refundableAmount).toBe(0);
+
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({ payments: [capturedPayment(318, 0, { status: 'PENDING' })] }),
+    );
+    const unpaid = await getAdminBooking(4);
+    expect(unpaid.amountPaid).toBe(0);
+    expect(unpaid.refundableAmount).toBe(0);
+  });
+
   it('exposes the start PIN and its expiry while the PIN is live', async () => {
     const expiresAt = new Date(Date.now() + 10 * 60_000);
     mockPrisma.booking.findFirst.mockResolvedValue(

@@ -29,7 +29,7 @@ import {
   assertNoConflict,
   computeDurationHours,
 } from '@backend/services/booking.service';
-import { getAdminBooking } from '@backend/services/admin-booking.service';
+import { getAdminBooking, sumCapturedPaid } from '@backend/services/admin-booking.service';
 import {
   buildBreakdown,
   getPricingInputs,
@@ -140,14 +140,6 @@ async function notifyBookingParty(
     body,
     data: { type: pushType, bookingId: String(bookingId), title },
   });
-}
-
-/** Sum of money the mother has actually paid and kept: captured minus refunded. */
-function sumCapturedPaid(payments: { amount: Prisma.Decimal; refundedAmount: Prisma.Decimal; status: PaymentStatus }[]): number {
-  const paid = payments
-    .filter((p) => p.status === PaymentStatus.CAPTURED || p.status === PaymentStatus.REFUNDED)
-    .reduce((sum, p) => sum + (num(p.amount) - num(p.refundedAmount)), 0);
-  return round2(paid);
 }
 
 function money(n: number): string {

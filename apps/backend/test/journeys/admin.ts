@@ -9,6 +9,7 @@
  */
 import type {
   AdminBookingCandidate,
+  AdminBookingDetail,
   AdminEditBookingInput,
   AdminRefundBookingInput,
   UpdateBookingTimesInput,
@@ -137,6 +138,21 @@ export function refundBooking(
   input: AdminRefundBookingInput,
 ) {
   return send(token, 'post', `/admin/bookings/${bookingId}/refund`, input);
+}
+
+/** The detail page's payload — what the console decides "still owed back" from. */
+export async function getAdminBookingDetail(token: string, bookingId: number): Promise<AdminBookingDetail> {
+  const response = await request(app)
+    .get(`/admin/bookings/${bookingId}`)
+    .set(...authHeader(token));
+
+  if (response.status !== 200) {
+    throw new Error(
+      `GET /admin/bookings/${bookingId} failed with ${response.status}: ` +
+        JSON.stringify(response.body),
+    );
+  }
+  return response.body.data as AdminBookingDetail;
 }
 
 // ── Identity review ───────────────────────────────────────────────
