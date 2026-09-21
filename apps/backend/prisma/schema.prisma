@@ -1172,9 +1172,9 @@ enum CommunityPostType {
   @@map("community_post_type")
 }
 
-/// Moderation state of a community post. Only MARKETPLACE listings are
-/// reviewed — Q&A and events are created APPROVED and never enter the queue.
-/// The column defaults to APPROVED so posts that predate moderation stay live.
+/// Moderation state of a community post. Every type is reviewed — a new or
+/// edited post is PENDING until an admin approves it. The column defaults to
+/// APPROVED so posts that predate moderation stay live.
 enum PostModerationStatus {
   PENDING
   APPROVED

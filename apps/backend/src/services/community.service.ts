@@ -182,6 +182,8 @@ function mapCreateInput(body: CreateCommunityPostRequest, authorId: number) {
     type: toPrismaPostType(body.type),
     tags: body.tags ?? [],
     imageUrls: body.imageUrls ?? [],
+    // Every post goes through admin review before it reaches the feed.
+    moderationStatus: PrismaPostModerationStatus.PENDING,
   };
 
   switch (body.type) {
@@ -198,8 +200,6 @@ function mapCreateInput(body: CreateCommunityPostRequest, authorId: number) {
         body: body.body ?? null,
         price: new Prisma.Decimal(body.price),
         imageUrls: body.imageUrls,
-        // Listings go through admin review before they reach the feed.
-        moderationStatus: PrismaPostModerationStatus.PENDING,
       };
     case 'event':
       return {
@@ -379,17 +379,14 @@ export async function updatePost(
     throw errors.forbidden('Official listings are managed from the admin console.');
   }
 
-  // Any edit to a listing sends it back through review — including an edit to
-  // an already-approved one, so changed prices and photos are always seen.
-  const reReview =
-    existing.type === PrismaCommunityPostType.MARKETPLACE
-      ? {
-          moderationStatus: PrismaPostModerationStatus.PENDING,
-          rejectionReason: null,
-          reviewedAt: null,
-          reviewedById: null,
-        }
-      : {};
+  // Any edit sends the post back through review — including an edit to an
+  // already-approved one, so changed prices, dates and photos are always seen.
+  const reReview = {
+    moderationStatus: PrismaPostModerationStatus.PENDING,
+    rejectionReason: null,
+    reviewedAt: null,
+    reviewedById: null,
+  };
 
   const post = await prisma.communityPost.update({
     where: { id: postId },
@@ -670,6 +667,7 @@ export async function toggleEventRsvp(
   requireMother(user);
 
   const post = await loadPostOrThrow(postId);
+  assertPostVisible(post, user.id);
   if (post.type !== PrismaCommunityPostType.EVENT) {
     throw errors.badRequest('RSVP is only available for event posts.');
   }

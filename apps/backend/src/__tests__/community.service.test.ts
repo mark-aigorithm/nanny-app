@@ -280,7 +280,7 @@ describe('community.service', () => {
   });
 });
 
-describe('community.service — marketplace moderation', () => {
+describe('community.service — moderation', () => {
   it('creates a marketplace listing as PENDING review', async () => {
     mockPrisma.communityPost.create.mockResolvedValue({
       ...marketplacePost,
@@ -305,8 +305,11 @@ describe('community.service — marketplace moderation', () => {
     expect(result.moderationStatus).toBe('pending');
   });
 
-  it('leaves QA posts approved — only listings are reviewed', async () => {
-    mockPrisma.communityPost.create.mockResolvedValue(samplePost as never);
+  it('creates a QA post as PENDING review', async () => {
+    mockPrisma.communityPost.create.mockResolvedValue({
+      ...samplePost,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
 
     const result = await createPost(decoded, {
       type: 'qa',
@@ -317,10 +320,38 @@ describe('community.service — marketplace moderation', () => {
 
     expect(mockPrisma.communityPost.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.not.objectContaining({ moderationStatus: expect.anything() }),
+        data: expect.objectContaining({
+          moderationStatus: PrismaPostModerationStatus.PENDING,
+        }),
       }),
     );
-    expect(result.moderationStatus).toBe('approved');
+    expect(result.moderationStatus).toBe('pending');
+  });
+
+  it('creates an event as PENDING review', async () => {
+    mockPrisma.communityPost.create.mockResolvedValue({
+      ...samplePost,
+      type: PrismaCommunityPostType.EVENT,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
+
+    await createPost(decoded, {
+      type: 'event',
+      title: 'Coffee morning',
+      location: 'Maadi',
+      eventStartsAt: '2026-10-01T09:00:00.000Z',
+      tags: [],
+      imageUrls: [],
+    });
+
+    expect(mockPrisma.communityPost.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: PrismaCommunityPostType.EVENT,
+          moderationStatus: PrismaPostModerationStatus.PENDING,
+        }),
+      }),
+    );
   });
 
   it('scopes the feed to approved posts plus the signed-in author’s own', async () => {
@@ -441,18 +472,40 @@ describe('community.service — marketplace moderation', () => {
     expect(result.moderationStatus).toBe('pending');
   });
 
-  it('does not re-review an edited QA post', async () => {
+  it('sends an edited QA post back to review too', async () => {
     mockPrisma.communityPost.findFirst.mockResolvedValue(samplePost as never);
-    mockPrisma.communityPost.update.mockResolvedValue(samplePost as never);
+    mockPrisma.communityPost.update.mockResolvedValue({
+      ...samplePost,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
     mockPrisma.postLike.findFirst.mockResolvedValue(null);
     mockPrisma.eventRsvp.findFirst.mockResolvedValue(null);
 
-    await updatePost(decoded, 22, { body: 'Edited' });
+    const result = await updatePost(decoded, 22, { body: 'Edited' });
 
     expect(mockPrisma.communityPost.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.not.objectContaining({ moderationStatus: expect.anything() }),
+        data: expect.objectContaining({
+          moderationStatus: PrismaPostModerationStatus.PENDING,
+          rejectionReason: null,
+          reviewedAt: null,
+          reviewedById: null,
+        }),
       }),
+    );
+    expect(result.moderationStatus).toBe('pending');
+  });
+
+  it('hides another member’s pending event from RSVP behind a 404', async () => {
+    mockPrisma.communityPost.findFirst.mockResolvedValue({
+      ...samplePost,
+      type: PrismaCommunityPostType.EVENT,
+      authorId: 999,
+      moderationStatus: PrismaPostModerationStatus.PENDING,
+    } as never);
+
+    await expect(toggleEventRsvp(decoded, 22)).rejects.toEqual(
+      expect.objectContaining<Partial<AppError>>({ statusCode: 404 }),
     );
   });
 
