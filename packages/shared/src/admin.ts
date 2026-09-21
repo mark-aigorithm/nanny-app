@@ -11,7 +11,11 @@ import {
 import { AddressInputSchema, AddressSchema, BookingAddressSchema } from './address';
 import { PublicCertificationSchema } from './certification';
 import { BookingChildSchema } from './child';
-import { CommunityTagSchema, PostModerationStatusSchema } from './community';
+import {
+  CommunityPostTypeSchema,
+  CommunityTagSchema,
+  PostModerationStatusSchema,
+} from './community';
 import {
   AvailabilityTypeSchema,
   IdDocumentTypeSchema,
@@ -862,24 +866,35 @@ export const AdminIdReviewListQuerySchema = AdminSortedListQuerySchema.extend({
 export type AdminIdReviewListQuery = z.infer<typeof AdminIdReviewListQuerySchema>;
 
 // ──────────────────────────────────────────────────────────────
-// Marketplace moderation (review queue + official listings)
+// Community moderation (review queue for every post type) + official listings
 // ──────────────────────────────────────────────────────────────
 
-/** Moderation filter for the listing queue. Defaults to the pending queue. */
-export const AdminMarketplaceStatusFilterSchema = z.enum([
+/** Moderation filter for the queue. Defaults to the pending queue. */
+export const AdminCommunityStatusFilterSchema = z.enum([
   'ALL', 'PENDING', 'APPROVED', 'REJECTED',
 ]);
-export type AdminMarketplaceStatusFilter = z.infer<typeof AdminMarketplaceStatusFilterSchema>;
+export type AdminCommunityStatusFilter = z.infer<typeof AdminCommunityStatusFilterSchema>;
 
-/** One row in the admin marketplace table. */
-export const AdminMarketplaceListingSchema = z.object({
+/** Post-type filter for the queue. `ALL` is the default: one queue, oldest first. */
+export const AdminCommunityTypeFilterSchema = z.enum(['ALL', 'QA', 'MARKETPLACE', 'EVENT']);
+export type AdminCommunityTypeFilter = z.infer<typeof AdminCommunityTypeFilterSchema>;
+
+/** One row in the admin community table — any post type. */
+export const AdminCommunityPostSchema = z.object({
   /** CommunityPost id. */
   id: z.number().int(),
-  title: z.string(),
+  type: CommunityPostTypeSchema,
+  /** Null for a Q&A post with no headline — show the body instead. */
+  title: z.string().nullable(),
   body: z.string().nullable(),
   price: z.number().nullable(),
   imageUrls: z.array(z.string()),
   tags: z.array(z.string()),
+  /** Events only. */
+  location: z.string().nullable(),
+  eventStartsAt: z.string().nullable(),
+  maxAttendees: z.number().int().nullable(),
+  rsvpCount: z.number().int(),
   moderationStatus: PostModerationStatusSchema,
   rejectionReason: z.string().nullable(),
   reviewedAt: z.string().nullable(),
@@ -887,8 +902,8 @@ export const AdminMarketplaceListingSchema = z.object({
   isOfficial: z.boolean(),
   /** Official listings only: the number buyers contact instead of messaging. */
   contactPhone: z.string().nullable(),
-  /** Seller. For an official listing this is the admin who created it. */
-  seller: z.object({
+  /** Author. For an official listing this is the admin who created it. */
+  author: z.object({
     id: z.number().int(),
     name: z.string(),
     avatarUrl: z.string().nullable(),
@@ -896,22 +911,23 @@ export const AdminMarketplaceListingSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
-export type AdminMarketplaceListing = z.infer<typeof AdminMarketplaceListingSchema>;
+export type AdminCommunityPost = z.infer<typeof AdminCommunityPostSchema>;
 
-/** Paginated listing queue query (GET /admin/marketplace/listings). */
-export const AdminMarketplaceListQuerySchema = AdminListQuerySchema.extend({
-  status: AdminMarketplaceStatusFilterSchema.catch('PENDING').default('PENDING'),
+/** Paginated queue query (GET /admin/community/posts). */
+export const AdminCommunityPostListQuerySchema = AdminListQuerySchema.extend({
+  type: AdminCommunityTypeFilterSchema.catch('ALL').default('ALL'),
+  status: AdminCommunityStatusFilterSchema.catch('PENDING').default('PENDING'),
 });
-export type AdminMarketplaceListQuery = z.infer<typeof AdminMarketplaceListQuerySchema>;
+export type AdminCommunityPostListQuery = z.infer<typeof AdminCommunityPostListQuerySchema>;
 
 /**
- * The reason is mandatory here (unlike `RejectNannySchema`) — the seller has to
+ * The reason is mandatory here (unlike `RejectNannySchema`) — the author has to
  * know what to change before she resubmits.
  */
-export const RejectListingSchema = z.object({
+export const RejectPostSchema = z.object({
   reason: z.string().trim().min(1, 'A reason is required').max(500),
 });
-export type RejectListingInput = z.infer<typeof RejectListingSchema>;
+export type RejectPostInput = z.infer<typeof RejectPostSchema>;
 
 /** Official ("Sold by NannyNow") listing an admin publishes directly. */
 export const CreateOfficialListingSchema = z.object({

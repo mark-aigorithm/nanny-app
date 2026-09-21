@@ -24,9 +24,10 @@ export const CommunityPostTypeSchema = z.enum(['qa', 'marketplace', 'event']);
 export type CommunityPostType = z.infer<typeof CommunityPostTypeSchema>;
 
 /**
- * Moderation state of a post. Only marketplace listings are reviewed — Q&A and
- * event posts are always `approved`. A rejected listing stays visible to its
- * author (with the reason) so she can edit and resubmit it.
+ * Moderation state of a post. Every type — Q&A, marketplace, event — is
+ * reviewed: a new or edited post is `pending` until an admin approves it. A
+ * rejected post stays visible to its author (with the reason) so she can edit
+ * and resubmit it; rejecting a live post is how an admin takes it down.
  */
 export const PostModerationStatusSchema = z.enum(['pending', 'approved', 'rejected']);
 export type PostModerationStatus = z.infer<typeof PostModerationStatusSchema>;
@@ -95,8 +96,8 @@ export type CommunityFeedQuery = z.infer<typeof CommunityFeedQuerySchema>;
 
 /**
  * The author's own posts, whatever their moderation state — this is what the
- * mobile "My listings" screen reads so a seller can see her pending and
- * rejected listings alongside the live ones.
+ * mobile "My posts" screen reads so she can see her pending and rejected
+ * posts alongside the live ones.
  */
 export const MyPostsQuerySchema = z.object({
   type: CommunityPostTypeSchema.optional(),

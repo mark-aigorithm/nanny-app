@@ -35,14 +35,17 @@ export const ADMIN_SECTIONS = [
 export const AdminSectionSchema = z.enum(ADMIN_SECTIONS);
 export type AdminSection = z.infer<typeof AdminSectionSchema>;
 
-/** Human labels, matching the sidebar wording exactly. */
+/**
+ * Human labels, matching the sidebar wording exactly. `marketplace` is the
+ * stored permission key; the section now covers every community post.
+ */
 export const ADMIN_SECTION_LABELS: Record<AdminSection, string> = {
   dashboard: 'Dashboard',
   bookings: 'Bookings',
   users: 'Users',
   promoCodes: 'Promo Codes',
   campaigns: 'Campaigns',
-  marketplace: 'Marketplace',
+  marketplace: 'Community',
   skills: 'Nanny Skills',
   certifications: 'Certifications',
   packages: 'Packages',
@@ -59,7 +62,7 @@ export const ADMIN_SECTION_PATHS: Record<AdminSection, string> = {
   users: '/users',
   promoCodes: '/promo-codes',
   campaigns: '/campaigns',
-  marketplace: '/marketplace',
+  marketplace: '/community',
   skills: '/skills',
   certifications: '/certifications',
   packages: '/packages',
