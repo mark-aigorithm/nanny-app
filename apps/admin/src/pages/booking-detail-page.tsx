@@ -139,6 +139,20 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
           : `${booking.childrenCount}`,
       wide: true,
     },
+    {
+      // Only present while the PIN the parent is reading out is still good;
+      // the API nulls it otherwise, so a dash covers "not started", "expired"
+      // and "already used" alike.
+      label: 'Start PIN',
+      value: booking.startPin ? (
+        <>
+          <code>{booking.startPin}</code>
+          {booking.startPinExpiresAt ? ` · expires ${formatDateTime(booking.startPinExpiresAt)}` : ''}
+        </>
+      ) : (
+        DASH
+      ),
+    },
     { label: 'Checked in', value: booking.nannyCheckedInAt ? formatDateTime(booking.nannyCheckedInAt) : DASH },
     { label: 'Checked out', value: booking.nannyCheckedOutAt ? formatDateTime(booking.nannyCheckedOutAt) : DASH },
     { label: 'Approved at', value: booking.adminApprovedAt ? formatDateTime(booking.adminApprovedAt) : DASH },
