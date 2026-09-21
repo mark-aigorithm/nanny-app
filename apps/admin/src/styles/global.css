@@ -2026,8 +2026,9 @@ input[type='number'] {
   font-size: 1.1rem;
 }
 
+/* The Modal component wraps its children in this — consumers never add gutters. */
 .modal-body {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
 }
 
 .id-doc-grid {
@@ -2419,23 +2420,28 @@ input[type='number'] {
   width: min(440px, 100%);
 }
 
+/* Side gutters come from .modal-body above; the footer only owns the bottom edge. */
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 0.6rem;
-  padding: 1rem 1.5rem 1.25rem;
+  padding: 0 1.5rem 1.25rem;
 }
 
+/* Vertical rhythm for the ConfirmDialog / PromptDialog / edit-row bodies. */
 .modal-text {
-  margin: 0;
-  padding: 1.25rem 1.5rem 0.5rem;
+  margin: 0 0 0.75rem;
   color: var(--color-text-secondary);
   font-size: 0.92rem;
   line-height: 1.5;
 }
 
-.modal-field {
-  padding: 0.5rem 1.5rem 0.5rem;
+.modal-text:last-child {
+  margin-bottom: 0;
+}
+
+.modal-field + .modal-field {
+  margin-top: 1rem;
 }
 
 /* ── Toasts ─────────────────────────────────────────────── */

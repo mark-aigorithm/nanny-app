@@ -24,35 +24,33 @@ export function IdDocumentModal({ subject, onClose }: IdDocumentModalProps) {
 
   return (
     <Modal title={`${subject.name}'s ID`} onClose={onClose}>
-      <div className="modal-body">
-        <div className="id-doc-grid">
+      <div className="id-doc-grid">
+        <figure className="id-doc-figure">
+          <figcaption className="id-doc-caption">Front</figcaption>
+          {subject.idDocumentFrontUrl ? (
+            <img
+              className="id-doc-image"
+              src={subject.idDocumentFrontUrl}
+              alt={`Front of ${subject.name}'s ID`}
+            />
+          ) : (
+            <p className="table-subtext">Not provided.</p>
+          )}
+        </figure>
+        {showBack && (
           <figure className="id-doc-figure">
-            <figcaption className="id-doc-caption">Front</figcaption>
-            {subject.idDocumentFrontUrl ? (
+            <figcaption className="id-doc-caption">Back</figcaption>
+            {subject.idDocumentBackUrl ? (
               <img
                 className="id-doc-image"
-                src={subject.idDocumentFrontUrl}
-                alt={`Front of ${subject.name}'s ID`}
+                src={subject.idDocumentBackUrl}
+                alt={`Back of ${subject.name}'s ID`}
               />
             ) : (
               <p className="table-subtext">Not provided.</p>
             )}
           </figure>
-          {showBack && (
-            <figure className="id-doc-figure">
-              <figcaption className="id-doc-caption">Back</figcaption>
-              {subject.idDocumentBackUrl ? (
-                <img
-                  className="id-doc-image"
-                  src={subject.idDocumentBackUrl}
-                  alt={`Back of ${subject.name}'s ID`}
-                />
-              ) : (
-                <p className="table-subtext">Not provided.</p>
-              )}
-            </figure>
-          )}
-        </div>
+        )}
       </div>
     </Modal>
   );

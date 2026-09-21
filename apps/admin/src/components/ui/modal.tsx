@@ -14,6 +14,9 @@ type ModalProps = {
 /**
  * Reusable modal dialog: backdrop, close button, Escape-to-close, and
  * click-outside-to-close. Generalizes the old bespoke ID-document viewer.
+ *
+ * Children render inside a padded `.modal-body`, so a consumer passes its
+ * content bare — no wrapper needed for the gutters.
  */
 export function Modal({ title, onClose, children, footer, size = 'md' }: ModalProps) {
   useEffect(() => {
@@ -38,7 +41,7 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
             <X size={ICON_SIZE.inline} />
           </button>
         </div>
-        {children}
+        <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>,
