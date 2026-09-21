@@ -1737,7 +1737,7 @@ apps/admin/e2e/b05-users-and-id-review.spec.ts  (9 tests)
     - a nanny is approved from her own page, and the Nannies queue lets her go
     - rejecting a nanny records the reason she will be shown
 
-apps/admin/e2e/b06-marketplace-moderation.spec.ts  (7 tests)
+apps/admin/e2e/b06-community-moderation.spec.ts  (9 tests)
     - a new listing waits for review and reaches nobody meanwhile
     - approving publishes it and opens the seller’s inbox
     - rejecting sends the seller the reason
@@ -1745,6 +1745,8 @@ apps/admin/e2e/b06-marketplace-moderation.spec.ts  (7 tests)
     - taking down a live listing pulls it out of the feed
     - editing a live listing sends it back through review
     - an official listing is published rather than reviewed
+    - a question waits for review like a listing, and lands in the Q&A feed once approved
+    - taking down a live event closes RSVP with it
 
 apps/admin/e2e/b07-support-faq.spec.ts  (2 tests)
     - a question added in the console reaches the app, in the console’s order

@@ -282,28 +282,34 @@ first — but the E2E database is never truncated, so a freshly seeded person is
 page, and every filter change resets to the first. And that ordering is the **opposite** of the
 Mommies and Nannies tabs, which are newest-first: the same people, two views, two directions.
 
-### B6. Marketplace listing lifecycle · `UI:both` — **covered** by `b06-marketplace-moderation.spec.ts`
+### B6. Community post moderation · `UI:both` — **covered** by `b06-community-moderation.spec.ts`
 Note the modelling: listings **are** community posts — `/community/posts` with a category, surfaced
-by `/community/my-posts`, moderated through `/admin/marketplace/listings`. There is no marketplace
-table, so "did it reach the marketplace" is a question about the community feed, never about an
-admin list.
+by `/community/my-posts`, and moderated — like every other type — through `/admin/community/posts`.
+There is no marketplace table, so "did it reach the marketplace" is a question about the community
+feed, never about an admin list. Since 2026-09-21 every post type waits for review, so the same
+queue (the console's **Community** page, with a Type filter) holds questions and events too.
 
 Written as one driver plus HTTP, per blocker 3: Playwright drives the console, and everything on the
-app's side — posting, editing, browsing the feed, "Contact seller" — is advanced by
+app's side — posting, editing, browsing the feed, "Contact seller", RSVP — is advanced by
 `e2e/helpers/backend.ts`. The full loop is covered: pending → approve → live → buyer contacts seller
 (which auto-creates the conversation), plus reject-with-reason → seller fixes → back in the queue →
 approve.
 
 **The trap this flow sets, and the reason the helper takes a viewer token:** an author always sees
-her own listing in any moderation state, because "My listings" has to show her a rejection so she can
-act on it. So visibility is only ever asserted through a **buyer's** token — asked with the seller's,
-every one of these tests passes before an admin has done anything at all. `listingVisibleTo` and
-`findInMarketplaceFeed` both require the viewer explicitly for that reason.
+her own post in any moderation state, because "My posts" has to show her a rejection so she can act
+on it. So visibility is only ever asserted through a **reader's** token — asked with the author's,
+every one of these tests passes before an admin has done anything at all. `postVisibleTo` and
+`findInFeed` both require the viewer explicitly for that reason.
 
 Two behaviours were worth pinning on their own. Rejection doubles as a **takedown** — the menu item
-on a live listing reads "Take down", and it drops the listing out of the feed and closes the contact
+on a live post reads "Take down", and it drops the post out of the feed and closes the contact
 route with it. And an edit to an **already-approved** listing re-enters review rather than publishing
 through, which is what stops a seller quietly changing the price on something people can see.
+
+The wider gate gets two tests of its own. A **question** is invisible to a reader until approved and
+then appears in the Q&A feed, found through the Type filter. And taking down a live **event** closes
+RSVP with it: a guest's RSVP is a 404 while the event is pending, a 200 once live, and a 404 again
+after the takedown — while the author still reads the reason from `/community/my-posts`.
 
 Not covered: the official-listing **form**. It uploads a photo to Firebase Storage and the test stack
 runs an Auth emulator only, so official listings are published over HTTP through the same route the

@@ -1,39 +1,46 @@
 /**
- * B6 — a listing's life, from a mother posting it to a buyer messaging her
- * about it.
+ * B6 — a post's life, from a mother writing it to a reader seeing it.
  *
  * The console is the only surface driven here. Everything on the app's side of
- * the flow — posting, editing, browsing the feed, tapping "Contact seller" — is
- * advanced over HTTP by `helpers/backend.ts`, which is the suite's standing rule
- * for a flow that spans two surfaces: one driver per spec, always.
+ * the flow — posting, editing, browsing the feed, tapping "Contact seller" or
+ * "RSVP" — is advanced over HTTP by `helpers/backend.ts`, which is the suite's
+ * standing rule for a flow that spans two surfaces: one driver per spec, always.
  *
  * Two things about the modelling are worth knowing before reading further,
  * because both change what an assertion is allowed to mean.
  *
  * A listing **is** a community post. There is no marketplace table; the console
- * moderates `CommunityPost` rows of type `marketplace`, and the same rows are
- * what the app's feed renders. So "did it reach the marketplace" is a question
- * about `/community/posts`, not about an admin list.
+ * moderates `CommunityPost` rows of every type — `marketplace`, `qa`, `event` —
+ * and the same rows are what the app's feed renders. So "did it reach the
+ * feed" is a question about `/community/posts`, not about an admin list.
  *
- * And an author always sees her own listing, in any moderation state, so that
- * "My listings" can show her a rejection and let her fix it. Visibility is
- * therefore only ever asserted through a **buyer's** token. Asked with the
- * seller's, every one of these tests would pass before the admin had done
+ * And an author always sees her own post, in any moderation state, so that
+ * "My posts" can show her a rejection and let her fix it. Visibility is
+ * therefore only ever asserted through a **reader's** token. Asked with the
+ * author's, every one of these tests would pass before the admin had done
  * anything at all.
+ *
+ * Most tests use a listing, the type with the most behaviour hanging off it
+ * (messaging, official listings). The last two pin what the wider gate adds:
+ * a question and an event go through the same queue.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import {
-  approveListingAsAdmin,
+  approvePostAsAdmin,
   contactSeller,
   editListing,
+  findInFeed,
   findInMarketplaceFeed,
-  listMyListings,
-  listingVisibleTo,
-  rejectListingAsAdmin,
+  listMyPosts,
+  postVisibleTo,
+  rejectPostAsAdmin,
+  rsvpStatus,
+  seedEvent,
   seedListing,
   seedMother,
   seedOfficialListing,
+  seedQuestion,
   superuserToken,
 } from './helpers/backend';
 import { actionsFor, chooseOption, gotoConsole, rowFor } from './helpers/locators';
@@ -42,10 +49,10 @@ import { storageStatePath } from './roles';
 test.use({ storageState: storageStatePath('superuser') });
 
 /**
- * Every test here provisions two accounts through the Auth emulator and posts a
- * listing before the browser does anything, which alone can outrun Playwright's
- * 30s default. Raised so that a genuine failure is reported as the assertion
- * that failed, rather than as a timeout on whatever step happened to be running.
+ * Every test here provisions two accounts through the Auth emulator and posts
+ * before the browser does anything, which alone can outrun Playwright's 30s
+ * default. Raised so that a genuine failure is reported as the assertion that
+ * failed, rather than as a timeout on whatever step happened to be running.
  */
 test.beforeEach(({}, testInfo) => {
   testInfo.setTimeout(90_000);
@@ -59,20 +66,20 @@ function toast(page: Page, text: string): Locator {
 type Queue = 'Pending review' | 'Live' | 'Rejected' | 'All';
 
 async function openQueue(page: Page, queue: Queue = 'Pending review'): Promise<void> {
-  await gotoConsole(page, '/marketplace');
+  await gotoConsole(page, '/community');
   // The page opens on the pending queue, which is the only one an admin has to
   // act on; anything else needs the filter.
   if (queue !== 'Pending review') await chooseOption(page, 'Status', queue);
 }
 
 /**
- * Walks the queue to whichever page holds a listing, and returns its row.
+ * Walks the queue to whichever page holds a post, and returns its row.
  *
  * Neither "first page" nor "last page" is correct. The pending queue is
  * **oldest-first** — it is a work queue, so the longest wait is served first —
  * while every other filter is newest-first with official listings pinned above
  * the rest. The E2E database is never truncated, so both ends drift further from
- * "the listing this spec just posted" with every run that has ever executed.
+ * "the post this spec just made" with every run that has ever executed.
  * Walking is the only answer that does not depend on which filter is showing.
  *
  * Driven by whether *Next page* is still enabled rather than by the page count,
@@ -102,7 +109,7 @@ async function findRow(page: Page, title: string): Promise<Locator> {
   throw new Error(`“${title}” is not in this queue.`);
 }
 
-/** Opens a listing's row menu and picks one of its items. */
+/** Opens a post's row menu and picks one of its items. */
 async function chooseAction(page: Page, title: string, item: string): Promise<void> {
   await actionsFor(page, title).click();
   await page.getByRole('menuitem', { name: item }).click();
@@ -113,16 +120,17 @@ test('a new listing waits for review and reaches nobody meanwhile', async ({ pag
   const buyer = await seedMother();
 
   // Invisible to a buyer both ways it could be reached: by link and by feed.
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(false);
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(false);
   expect(await findInMarketplaceFeed(buyer.token, listing.id)).toBeNull();
 
-  // Visible to its author, though — this is the case that makes a
-  // seller-token assertion worthless, so it is pinned rather than assumed.
-  expect(await listingVisibleTo(listing.seller.token, listing.id)).toBe(true);
+  // Visible to its author, though — this is the case that makes an
+  // author-token assertion worthless, so it is pinned rather than assumed.
+  expect(await postVisibleTo(listing.seller.token, listing.id)).toBe(true);
 
   await openQueue(page);
   const row = await findRow(page, listing.title);
   await expect(row).toContainText('Pending review');
+  await expect(row).toContainText('Marketplace');
   await expect(row).toContainText(listing.seller.displayName);
 });
 
@@ -137,9 +145,9 @@ test('approving publishes it and opens the seller’s inbox', async ({ page }) =
   await openQueue(page);
   await findRow(page, listing.title);
   await chooseAction(page, listing.title, 'Approve');
-  await expect(toast(page, 'Listing approved')).toBeVisible();
+  await expect(toast(page, 'Post approved')).toBeVisible();
 
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(true);
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(true);
   const inFeed = await findInMarketplaceFeed(buyer.token, listing.id);
   expect(inFeed?.title).toBe(listing.title);
 
@@ -161,16 +169,16 @@ test('rejecting sends the seller the reason', async ({ page }) => {
 
   await page.getByLabel('Reason').fill(REASON);
   await page.getByRole('button', { name: 'Reject listing' }).click();
-  await expect(toast(page, 'Listing rejected')).toBeVisible();
+  await expect(toast(page, 'Post rejected')).toBeVisible();
 
   // The reason is the point: it is what the seller is shown, and what she is
   // expected to act on. A status alone would tell her nothing.
-  const mine = await listMyListings(listing.seller.token);
+  const mine = await listMyPosts(listing.seller.token);
   const entry = mine.find((item) => item.id === listing.id);
   expect(entry?.moderationStatus).toBe('rejected');
   expect(entry?.rejectionReason).toBe(REASON);
 
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(false);
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(false);
 });
 
 test('a rejected listing the seller fixes comes back to the queue', async ({ page }) => {
@@ -178,14 +186,14 @@ test('a rejected listing the seller fixes comes back to the queue', async ({ pag
   const listing = await seedListing();
   const buyer = await seedMother();
 
-  await rejectListingAsAdmin(admin, listing.id, 'Needs a clearer photo.');
+  await rejectPostAsAdmin(admin, listing.id, 'Needs a clearer photo.');
 
   // The seller edits the price rather than the title, so the console row is
   // still findable by the same text — and so the assertion is about the
   // resubmission, not about a row that changed its name.
   await editListing(listing.seller.token, listing.id, { price: 1200 });
 
-  const resubmitted = (await listMyListings(listing.seller.token)).find(
+  const resubmitted = (await listMyPosts(listing.seller.token)).find(
     (item) => item.id === listing.id,
   );
   expect(resubmitted?.moderationStatus).toBe('pending');
@@ -198,8 +206,8 @@ test('a rejected listing the seller fixes comes back to the queue', async ({ pag
   await expect(row).toContainText('Pending review');
 
   await chooseAction(page, listing.title, 'Approve');
-  await expect(toast(page, 'Listing approved')).toBeVisible();
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(true);
+  await expect(toast(page, 'Post approved')).toBeVisible();
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(true);
 });
 
 test('taking down a live listing pulls it out of the feed', async ({ page }) => {
@@ -207,21 +215,21 @@ test('taking down a live listing pulls it out of the feed', async ({ page }) => 
   const listing = await seedListing();
   const buyer = await seedMother();
 
-  await approveListingAsAdmin(admin, listing.id);
+  await approvePostAsAdmin(admin, listing.id);
   expect(await findInMarketplaceFeed(buyer.token, listing.id)).not.toBeNull();
 
   await openQueue(page, 'Live');
   await findRow(page, listing.title);
 
   // Rejection doubles as the takedown, and the menu says so: on an approved
-  // listing the item reads "Take down". Asserting the wording is not cosmetic —
+  // post the item reads "Take down". Asserting the wording is not cosmetic —
   // it is how an admin knows this removes something people can currently see.
   await chooseAction(page, listing.title, 'Take down');
   await page.getByLabel('Reason').fill('Item was reported as already sold.');
   await page.getByRole('button', { name: 'Take down' }).click();
-  await expect(toast(page, 'Listing rejected')).toBeVisible();
+  await expect(toast(page, 'Post rejected')).toBeVisible();
 
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(false);
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(false);
   expect(await findInMarketplaceFeed(buyer.token, listing.id)).toBeNull();
   // And the conversation route closes with it, so a stale link cannot be used
   // to start a chat about a listing that was pulled.
@@ -233,8 +241,8 @@ test('editing a live listing sends it back through review', async ({ page }) => 
   const listing = await seedListing();
   const buyer = await seedMother();
 
-  await approveListingAsAdmin(admin, listing.id);
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(true);
+  await approvePostAsAdmin(admin, listing.id);
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(true);
 
   // The surprising one, and the reason this test exists: an edit to an
   // *already approved* listing is not published straight through. It re-enters
@@ -242,7 +250,7 @@ test('editing a live listing sends it back through review', async ({ page }) => 
   // listing without anyone seeing it until an admin has looked again.
   await editListing(listing.seller.token, listing.id, { price: 9, body: 'Price dropped.' });
 
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(false);
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(false);
   expect(await findInMarketplaceFeed(buyer.token, listing.id)).toBeNull();
 
   await openQueue(page);
@@ -250,8 +258,8 @@ test('editing a live listing sends it back through review', async ({ page }) => 
   await expect(row).toContainText('Pending review');
 
   await chooseAction(page, listing.title, 'Approve');
-  await expect(toast(page, 'Listing approved')).toBeVisible();
-  expect(await listingVisibleTo(buyer.token, listing.id)).toBe(true);
+  await expect(toast(page, 'Post approved')).toBeVisible();
+  expect(await postVisibleTo(buyer.token, listing.id)).toBe(true);
 });
 
 test('an official listing is published rather than reviewed', async ({ page }) => {
@@ -265,7 +273,7 @@ test('an official listing is published rather than reviewed', async ({ page }) =
   const official = await seedOfficialListing(admin);
 
   // Live immediately — an admin authored it, so there is nobody to review it.
-  expect(await listingVisibleTo(buyer.token, official.id)).toBe(true);
+  expect(await postVisibleTo(buyer.token, official.id)).toBe(true);
   // But there is no seller inbox behind it: buyers use the contact number, and
   // the refusal is a 400 rather than the 404 an unpublished listing gives.
   expect((await contactSeller(buyer.token, official.id)).status).toBe(400);
@@ -286,5 +294,52 @@ test('an official listing is published rather than reviewed', async ({ page }) =
   await page.getByRole('button', { name: 'Delete listing' }).click();
   await expect(toast(page, 'Official listing deleted')).toBeVisible();
 
-  expect(await listingVisibleTo(buyer.token, official.id)).toBe(false);
+  expect(await postVisibleTo(buyer.token, official.id)).toBe(false);
+});
+
+test('a question waits for review like a listing, and lands in the Q&A feed once approved', async ({
+  page,
+}) => {
+  const question = await seedQuestion();
+  const reader = await seedMother();
+
+  expect(await postVisibleTo(reader.token, question.id)).toBe(false);
+  expect(await findInFeed(reader.token, 'qa', question.id)).toBeNull();
+
+  await openQueue(page);
+  await chooseOption(page, 'Type', 'Q&A');
+  const row = await findRow(page, question.title);
+  await expect(row).toContainText('Q&A');
+  await expect(row).toContainText('Pending review');
+
+  await chooseAction(page, question.title, 'Approve');
+  await expect(toast(page, 'Post approved')).toBeVisible();
+  expect(await findInFeed(reader.token, 'qa', question.id)).not.toBeNull();
+});
+
+test('taking down a live event closes RSVP with it', async ({ page }) => {
+  const admin = await superuserToken();
+  const event = await seedEvent();
+  const guest = await seedMother();
+
+  // Unpublished: a guest cannot even find it to RSVP.
+  expect(await rsvpStatus(guest.token, event.id)).toBe(404);
+
+  await approvePostAsAdmin(admin, event.id);
+  expect(await rsvpStatus(guest.token, event.id)).toBe(200);
+
+  await openQueue(page, 'Live');
+  await chooseOption(page, 'Type', 'Events');
+  const row = await findRow(page, event.title);
+  await expect(row).toContainText('Maadi Community Hall');
+
+  await chooseAction(page, event.title, 'Take down');
+  await page.getByLabel('Reason').fill('Venue is not confirmed.');
+  await page.getByRole('button', { name: 'Take down' }).click();
+  await expect(toast(page, 'Post rejected')).toBeVisible();
+
+  expect(await postVisibleTo(guest.token, event.id)).toBe(false);
+  // The author still sees it, with the reason, so she can fix it.
+  const mine = await listMyPosts(event.author.token);
+  expect(mine.find((p) => p.id === event.id)?.rejectionReason).toBe('Venue is not confirmed.');
 });

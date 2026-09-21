@@ -531,13 +531,13 @@ export async function getNannyApproval(
   return (await call('GET', `/admin/nannies/${nannyProfileId}`, adminToken)) as ApprovalSubject;
 }
 
-// ── Marketplace (B6) ──────────────────────────────────────────────
+// ── Community moderation (B6) ─────────────────────────────────────
 //
 // Listings are not their own model: a listing *is* a community post of type
 // `marketplace`, written by a mother through the ordinary community API and
-// moderated through `/admin/marketplace/listings`. Everything a seller or a
-// buyer does lives under `/community`, which is why these helpers call it
-// rather than anything admin-shaped.
+// moderated — like every other post type — through `/admin/community/posts`.
+// Everything an author or a reader does lives under `/community`, which is
+// why these helpers call it rather than anything admin-shaped.
 
 const LISTING_PHOTO = 'https://storage.example.test/e2e-listing.jpg';
 
@@ -548,6 +548,52 @@ export type SeededListing = {
   price: number;
   seller: SeededMother;
 };
+
+export type SeededPost = {
+  id: number;
+  /** Unique per call — the console's table row is located by it. */
+  title: string;
+  author: SeededMother;
+};
+
+/** A Q&A post a mother has just asked: PENDING, so not yet in anybody's feed. */
+export async function seedQuestion(
+  options: { author?: SeededMother } = {},
+): Promise<SeededPost> {
+  const author = options.author ?? (await seedMother());
+  const { surname } = unique('question');
+  const title = `E2E question ${surname}`;
+
+  const post = (await call('POST', '/community/posts', author.token, {
+    type: 'qa',
+    title,
+    body: 'Where do I buy a pram in Cairo? Seeded by the admin E2E suite.',
+  })) as { id: number };
+
+  return { id: post.id, title, author };
+}
+
+/** An event a mother has just proposed: PENDING, so nobody else can RSVP yet. */
+export async function seedEvent(options: { author?: SeededMother } = {}): Promise<SeededPost> {
+  const author = options.author ?? (await seedMother());
+  const { surname } = unique('event');
+  const title = `E2E coffee morning ${surname}`;
+
+  const post = (await call('POST', '/community/posts', author.token, {
+    type: 'event',
+    title,
+    location: 'Maadi Community Hall',
+    eventStartsAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    maxAttendees: 10,
+  })) as { id: number };
+
+  return { id: post.id, title, author };
+}
+
+/** A viewer's attempt to RSVP — 404 while the event is unpublished, 200 once live. */
+export async function rsvpStatus(viewerToken: string, id: number): Promise<number> {
+  return statusOf('POST', `/community/posts/${id}/rsvp`, viewerToken);
+}
 
 /**
  * A listing a mother has just posted: `PENDING`, and therefore not yet in
@@ -583,32 +629,28 @@ export async function editListing(
   await call('PATCH', `/community/posts/${id}`, sellerToken, patch);
 }
 
-export type MyListing = {
+export type MyPost = {
   id: number;
   title: string | null;
   moderationStatus: 'pending' | 'approved' | 'rejected';
   rejectionReason: string | null;
 };
 
-/** The seller's own listings, in every moderation state — the "My listings" screen. */
-export async function listMyListings(sellerToken: string): Promise<MyListing[]> {
-  return (await call(
-    'GET',
-    '/community/my-posts?type=marketplace&limit=50',
-    sellerToken,
-  )) as MyListing[];
+/** The author's own posts, in every moderation state — the "My posts" screen. */
+export async function listMyPosts(authorToken: string): Promise<MyPost[]> {
+  return (await call('GET', '/community/my-posts?limit=50', authorToken)) as MyPost[];
 }
 
 /**
- * Whether a listing is visible to somebody who is not its author.
+ * Whether a post is visible to somebody who is not its author.
  *
- * Read as a *buyer*, never as the seller: the feed and the detail route both
- * show an author her own pending and rejected listings, so the same assertion
- * made with the seller's token passes before the admin has approved anything.
+ * Read as a *reader*, never as the author: the feed and the detail route both
+ * show an author her own pending and rejected posts, so the same assertion
+ * made with the author's token passes before the admin has approved anything.
  * That is the one mistake this flow invites, and the reason this helper takes a
- * token rather than defaulting to the listing's own.
+ * token rather than defaulting to the post's own.
  */
-export async function listingVisibleTo(viewerToken: string, id: number): Promise<boolean> {
+export async function postVisibleTo(viewerToken: string, id: number): Promise<boolean> {
   const status = await statusOf('GET', `/community/posts/${id}`, viewerToken);
   if (status === 200) return true;
   if (status === 404) return false;
@@ -616,21 +658,22 @@ export async function listingVisibleTo(viewerToken: string, id: number): Promise
 }
 
 /**
- * Finds a listing in the marketplace feed the app actually renders, or returns
+ * Finds a post in the feed the app actually renders for `type`, or returns
  * null.
  *
  * Pages rather than reading the first 50: official listings are pinned above
  * seller ones and the E2E database is never truncated, so page 1 drifts further
  * from "what was just posted" with every run.
  */
-export async function findInMarketplaceFeed(
+export async function findInFeed(
   viewerToken: string,
+  type: 'qa' | 'marketplace' | 'event',
   id: number,
 ): Promise<{ id: number; title: string | null } | null> {
   for (let page = 1; page <= 20; page += 1) {
     const posts = (await call(
       'GET',
-      `/community/posts?type=marketplace&limit=50&page=${page}`,
+      `/community/posts?type=${type}&limit=50&page=${page}`,
       viewerToken,
     )) as Array<{ id: number; title: string | null }>;
 
@@ -638,7 +681,11 @@ export async function findInMarketplaceFeed(
     if (match) return match;
     if (posts.length < 50) return null;
   }
-  throw new Error('Walked 20 pages of the marketplace feed without reaching the end.');
+  throw new Error(`Walked 20 pages of the ${type} feed without reaching the end.`);
+}
+
+export function findInMarketplaceFeed(viewerToken: string, id: number) {
+  return findInFeed(viewerToken, 'marketplace', id);
 }
 
 /**
@@ -667,20 +714,20 @@ export async function contactSeller(
  */
 /**
  * Moderation decisions made over HTTP, for *setting up* a spec whose subject is
- * some later step — a listing that is already live before the console takes it
- * down, or already rejected before the seller fixes it. Never used to make the
+ * some later step — a post that is already live before the console takes it
+ * down, or already rejected before the author fixes it. Never used to make the
  * decision a spec is actually about: that one goes through the console.
  */
-export async function approveListingAsAdmin(adminToken: string, id: number): Promise<void> {
-  await call('POST', `/admin/marketplace/listings/${id}/approve`, adminToken);
+export async function approvePostAsAdmin(adminToken: string, id: number): Promise<void> {
+  await call('POST', `/admin/community/posts/${id}/approve`, adminToken);
 }
 
-export async function rejectListingAsAdmin(
+export async function rejectPostAsAdmin(
   adminToken: string,
   id: number,
   reason: string,
 ): Promise<void> {
-  await call('POST', `/admin/marketplace/listings/${id}/reject`, adminToken, { reason });
+  await call('POST', `/admin/community/posts/${id}/reject`, adminToken, { reason });
 }
 
 export async function seedOfficialListing(adminToken: string): Promise<{ id: number; title: string }> {
