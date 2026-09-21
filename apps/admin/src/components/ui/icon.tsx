@@ -15,6 +15,7 @@ export {
   BadgeCheck,
   Package,
   Megaphone,
+  MessagesSquare,
   Store,
   Video,
   Settings,

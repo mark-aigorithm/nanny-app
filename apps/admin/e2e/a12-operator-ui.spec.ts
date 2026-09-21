@@ -23,7 +23,7 @@ const ALL_NAV_LABELS = [
   'Users',
   'Promo Codes',
   'Campaigns',
-  'Marketplace',
+  'Community',
   'Nanny Skills',
   'Certifications',
   'Packages',

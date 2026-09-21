@@ -4,7 +4,7 @@ import { useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   COMMUNITY_TAGS,
   CreateOfficialListingSchema,
-  type AdminMarketplaceListing,
+  type AdminCommunityPost,
   type CommunityTag,
   type CreateOfficialListingInput,
 } from '@nanny-app/shared';
@@ -29,9 +29,9 @@ function emptyDraft(): DraftState {
   return { title: '', body: '', price: '', imageUrls: [], tags: [], contactPhone: '' };
 }
 
-function draftFromListing(listing: AdminMarketplaceListing): DraftState {
+function draftFromListing(listing: AdminCommunityPost): DraftState {
   return {
-    title: listing.title,
+    title: listing.title ?? '',
     body: listing.body ?? '',
     price: listing.price !== null ? String(listing.price) : '',
     imageUrls: listing.imageUrls,
@@ -199,9 +199,9 @@ export function OfficialListingForm() {
   const createMutation = useMutation({
     mutationFn: createOfficialListing,
     onSuccess: (listing) => {
-      void queryClient.invalidateQueries({ queryKey: ['marketplace-listings'] });
+      void queryClient.invalidateQueries({ queryKey: ['community-posts'] });
       setDraft(emptyDraft());
-      toast.success('Official listing published', listing.title);
+      toast.success('Official listing published', listing.title ?? '');
     },
     onError: (err) => setFormError(apiErrorMessage(err)),
   });
@@ -266,7 +266,7 @@ export function OfficialListingEditModal({
   onCancel,
   onSave,
 }: {
-  listing: AdminMarketplaceListing;
+  listing: AdminCommunityPost;
   busy: boolean;
   onCancel: () => void;
   onSave: (input: CreateOfficialListingInput) => void;

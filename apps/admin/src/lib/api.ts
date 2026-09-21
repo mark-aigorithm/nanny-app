@@ -14,9 +14,10 @@ import type {
   AdminRefundResponse,
   AdminIdReview,
   AdminApprovalStatusFilter,
+  AdminCommunityPost,
+  AdminCommunityStatusFilter,
+  AdminCommunityTypeFilter,
   AdminListQuery,
-  AdminMarketplaceListing,
-  AdminMarketplaceStatusFilter,
   AdminMother,
   AdminMotherDetail,
   AdminNanny,
@@ -633,41 +634,41 @@ export async function fetchPackagePurchaseDetail(
   return res.data.data;
 }
 
-// ── Marketplace moderation ─────────────────────────────────────
+// ── Community moderation (every post type) ─────────────────────
 
-export async function fetchMarketplaceListings(
-  status: AdminMarketplaceStatusFilter,
+export async function fetchCommunityPosts(
+  type: AdminCommunityTypeFilter,
+  status: AdminCommunityStatusFilter,
   { page, limit }: AdminListQuery,
-): Promise<Paged<AdminMarketplaceListing[]>> {
-  const res = await apiClient.get<PagedEnvelope<AdminMarketplaceListing[]>>(
-    '/admin/marketplace/listings',
-    { params: { status, page, limit } },
+): Promise<Paged<AdminCommunityPost[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminCommunityPost[]>>(
+    '/admin/community/posts',
+    { params: { type, status, page, limit } },
   );
   return { data: res.data.data, meta: res.data.meta };
 }
 
-export async function approveListing(id: number): Promise<AdminMarketplaceListing> {
-  const res = await apiClient.post<ApiEnvelope<AdminMarketplaceListing>>(
-    `/admin/marketplace/listings/${id}/approve`,
+export async function approvePost(id: number): Promise<AdminCommunityPost> {
+  const res = await apiClient.post<ApiEnvelope<AdminCommunityPost>>(
+    `/admin/community/posts/${id}/approve`,
   );
   return res.data.data;
 }
 
-export async function rejectListing(
-  id: number,
-  reason: string,
-): Promise<AdminMarketplaceListing> {
-  const res = await apiClient.post<ApiEnvelope<AdminMarketplaceListing>>(
-    `/admin/marketplace/listings/${id}/reject`,
+export async function rejectPost(id: number, reason: string): Promise<AdminCommunityPost> {
+  const res = await apiClient.post<ApiEnvelope<AdminCommunityPost>>(
+    `/admin/community/posts/${id}/reject`,
     { reason },
   );
   return res.data.data;
 }
 
+// ── Official marketplace listings ──────────────────────────────
+
 export async function createOfficialListing(
   input: CreateOfficialListingInput,
-): Promise<AdminMarketplaceListing> {
-  const res = await apiClient.post<ApiEnvelope<AdminMarketplaceListing>>(
+): Promise<AdminCommunityPost> {
+  const res = await apiClient.post<ApiEnvelope<AdminCommunityPost>>(
     '/admin/marketplace/listings',
     input,
   );
@@ -677,8 +678,8 @@ export async function createOfficialListing(
 export async function updateOfficialListing(
   id: number,
   input: UpdateOfficialListingInput,
-): Promise<AdminMarketplaceListing> {
-  const res = await apiClient.patch<ApiEnvelope<AdminMarketplaceListing>>(
+): Promise<AdminCommunityPost> {
+  const res = await apiClient.patch<ApiEnvelope<AdminCommunityPost>>(
     `/admin/marketplace/listings/${id}`,
     input,
   );

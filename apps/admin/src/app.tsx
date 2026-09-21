@@ -16,7 +16,7 @@ import { AdminsPage } from './pages/admins-page';
 import { CamerasPage } from './pages/cameras-page';
 import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
-import { MarketplacePage } from './pages/marketplace-page';
+import { CommunityPage } from './pages/community-page';
 import { UsersPage } from './pages/users-page';
 import { MotherDetailPage } from './pages/mother-detail-page';
 import { NannyDetailPage } from './pages/nanny-detail-page';
@@ -155,10 +155,10 @@ export function App() {
                 }
               />
               <Route
-                path="marketplace"
+                path="community"
                 element={
                   <Guarded section="marketplace">
-                    <MarketplacePage />
+                    <CommunityPage />
                   </Guarded>
                 }
               />

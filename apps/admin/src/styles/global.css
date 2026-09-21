@@ -3643,9 +3643,9 @@ input[type='number'] {
   font-size: 0.9rem;
 }
 
-/* ── Marketplace moderation (Marketplace) ───────────────── */
+/* ── Community moderation (Community) ───────────────────── */
 
-/* Item cell: thumbnail beside the title + one-line description. */
+/* Post cell: thumbnail beside the title + one-line description. */
 .listing-cell {
   display: flex;
   align-items: center;
@@ -3685,6 +3685,12 @@ input[type='number'] {
   font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Second line of the Details cell — an event's venue under its date. */
+.listing-cell-meta {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
 }
 
 .listing-status {

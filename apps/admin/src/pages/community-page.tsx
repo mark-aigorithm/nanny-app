@@ -3,7 +3,8 @@ import { useState } from 'react';
 
 import {
   ADMIN_PAGE_SIZES,
-  type AdminMarketplaceStatusFilter,
+  type AdminCommunityStatusFilter,
+  type AdminCommunityTypeFilter,
 } from '@nanny-app/shared';
 
 import {
@@ -14,68 +15,85 @@ import {
   StaleRefreshBanner,
   TableSkeleton,
 } from '@admin/components/ui';
-import { ListingTable } from '@admin/features/marketplace/listing-table';
+import { PostTable } from '@admin/features/community/post-table';
 import { OfficialListingForm } from '@admin/features/marketplace/official-listing-form';
-import { fetchMarketplaceListings } from '@admin/lib/api';
+import { fetchCommunityPosts } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 
-const STATUS_FILTERS: { value: AdminMarketplaceStatusFilter; label: string }[] = [
+const TYPE_FILTERS: { value: AdminCommunityTypeFilter; label: string }[] = [
+  { value: 'ALL', label: 'All types' },
+  { value: 'MARKETPLACE', label: 'Marketplace' },
+  { value: 'QA', label: 'Q&A' },
+  { value: 'EVENT', label: 'Events' },
+];
+
+const STATUS_FILTERS: { value: AdminCommunityStatusFilter; label: string }[] = [
   { value: 'PENDING', label: 'Pending review' },
   { value: 'APPROVED', label: 'Live' },
   { value: 'REJECTED', label: 'Rejected' },
   { value: 'ALL', label: 'All' },
 ];
 
-export function MarketplacePage() {
+export function CommunityPage() {
   const canManage = useCanManage('marketplace');
-  const [status, setStatus] = useState<AdminMarketplaceStatusFilter>('PENDING');
+  const [type, setType] = useState<AdminCommunityTypeFilter>('ALL');
+  const [status, setStatus] = useState<AdminCommunityStatusFilter>('PENDING');
   const { page, limit, setPage, setLimit, reset } = usePagination();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['marketplace-listings', status, page, limit],
-    queryFn: () => fetchMarketplaceListings(status, { page, limit }),
+    queryKey: ['community-posts', type, status, page, limit],
+    queryFn: () => fetchCommunityPosts(type, status, { page, limit }),
   });
-  const listings = data?.data;
+  const posts = data?.data;
   const meta = data?.meta;
 
   return (
     <section>
       <PageHeader
-        title="Marketplace"
-        subtitle="Review what mothers list for sale before it reaches the feed, and publish official listings of your own."
+        title="Community"
+        subtitle="Review what mothers post — questions, events and listings — before it reaches the feed, and publish official listings of your own."
       />
 
       {canManage && <OfficialListingForm />}
 
       <p className="panel-lead">
-        New and edited listings wait here until you approve them. Rejecting one sends the seller
-        the reason so she can fix it and resubmit — and takes a live listing straight out of
-        the feed.
+        New and edited posts wait here until you approve them. Rejecting one sends the author
+        the reason so she can fix it and resubmit — and takes a live post straight out of the
+        feed.
       </p>
 
       <div className="filter-bar">
+        <FilterSelect
+          label="Type"
+          value={type}
+          options={TYPE_FILTERS}
+          onChange={(value) => {
+            setType(value as AdminCommunityTypeFilter);
+            reset();
+          }}
+        />
         <FilterSelect
           label="Status"
           value={status}
           options={STATUS_FILTERS}
           onChange={(value) => {
-            setStatus(value as AdminMarketplaceStatusFilter);
+            setStatus(value as AdminCommunityStatusFilter);
             reset();
           }}
         />
       </div>
 
-      {isLoading && <TableSkeleton columns={6} />}
-      {error != null && !listings && (
+      {isLoading && <TableSkeleton columns={7} />}
+      {error != null && !posts && (
         <ErrorState
           message={apiErrorMessage(error)}
           onRetry={() => void refetch()}
           retrying={isFetching}
         />
       )}
-      {listings && (
+      {posts && (
         <>
           {error != null && (
             <StaleRefreshBanner
@@ -84,7 +102,7 @@ export function MarketplacePage() {
               retrying={isFetching}
             />
           )}
-          <ListingTable listings={listings} />
+          <PostTable posts={posts} />
           {meta && (
             <Pagination
               page={meta.page}
@@ -92,7 +110,7 @@ export function MarketplacePage() {
               total={meta.total}
               limit={meta.limit}
               limitOptions={ADMIN_PAGE_SIZES}
-              label="listings"
+              label="posts"
               onPageChange={setPage}
               onLimitChange={setLimit}
             />
