@@ -83,7 +83,7 @@ Privilege: `bookings` VIEW. Query `AdminBookingCandidateQuerySchema`: `q` option
   `id ≠ booking.nannyProfileId`, and (if `q`) `firstName` or `lastName` contains `q`
   (case-insensitive). Ordered by last name, first name. `take: limit`.
 - Include `user` (name, phone, default address coordinates via the same `nannyHomeInclude` the
-  broadcast uses), `nannySkills`, `hourlyRate`.
+  broadcast uses), `nannySkills`, `rating`, `reviewCount`.
 - One extra query for conflicts: bookings with `nannyProfileId in <candidate ids>`, not
   CANCELLED/REFUNDED, `id ≠ booking.id`, overlapping the window → a `Set` of busy ids.
 - `getSkillMatchingEnabled()`, `getBroadcastRadiusKm()`, the booking's required skill ids
@@ -96,7 +96,8 @@ Returns `AdminBookingCandidate[]`:
   id: number;             // nannyProfileId
   name: string;
   phone: string | null;
-  hourlyRate: number;
+  rating: number;         // her cached average (0 when unreviewed) — there is no per-nanny rate
+  reviewCount: number;
   conflict: boolean;      // overlaps another booking of hers — picker disables the row
   missingSkills: string[];// required add-on names she doesn't hold ([] when matching is off)
   distanceKm: number | null; // null when either side has no coordinates
@@ -128,7 +129,7 @@ Props: `{ booking: AdminBooking | AdminBookingDetail; onClose: () => void }` (ne
   via `fetchBookingCandidates(id, q)`. `LoadingState` / `ErrorState` / empty-state copy
   ("No approved nannies match.").
 - Candidate rows as a radio group (`role="radio"`, accessible name = nanny name). Each row: name,
-  phone, `EGP {rate}/h`, and badges:
+  phone, `★ 4.5 (3)` (or "No reviews yet"), and badges:
   - `conflict` → `Badge tone="danger"` "Busy" and the row is disabled (`aria-disabled`, title
     "Has an overlapping booking").
   - `missingSkills.length > 0` → `Badge tone="warning"` "Missing: {names}".
