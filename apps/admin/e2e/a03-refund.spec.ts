@@ -58,16 +58,53 @@ test('saves a shortened booking and refunds the overpayment to the card', async 
 
   // Saving an overpaid edit opens the refund follow-up rather than ending there.
   await expect(page.getByText('Refund the overpayment')).toBeVisible();
-  await expect(page.getByText(/left the mother overpaid by/)).toBeVisible();
+  await expect(page.getByText(/is overpaid by/)).toBeVisible();
 
   await page.getByLabel('Reason').fill('We shortened the booking at your request.');
   await page.getByRole('button', { name: 'Refund', exact: true }).click();
 
   await expect(page.getByRole('status')).toContainText('Refund issued');
 
-  // The money actually moved: the booking is re-priced for four hours.
+  // The money actually moved: the booking is re-priced for four hours and
+  // nothing is left owing.
   const updated = await getBooking(admin, booking.id);
   expect(updated.totalAmount).toBeLessThan(booking.totalAmount);
+  expect(updated.refundableAmount).toBe(0);
+});
+
+test('keeps the refund reachable after the follow-up is dismissed', async ({ page }) => {
+  const admin = await superuserToken();
+  const booking = await seedPaidBooking(admin, { startHour: 10, durationHours: 6 });
+
+  await openEditor(page, booking.id);
+  await page.getByLabel('Ends').fill(localDateTimeTomorrow(14));
+  await expect(page.getByText(/^Refund due /)).toBeVisible();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+
+  // The operator walks away from the follow-up — Paymob was down, the phone
+  // rang, whatever. The edit is saved; the money has not moved.
+  await expect(page.getByText('Refund the overpayment')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+  const unsettled = await getBooking(admin, booking.id);
+  expect(unsettled.refundableAmount).toBeGreaterThan(0);
+
+  // Coming back later — a fresh load, not the editor's own state — the page
+  // still says she is owed money and offers to return it.
+  await page.reload();
+  await expect(page.getByRole('note')).toContainText('overpaid by');
+  await page.getByRole('button', { name: 'Refund overpayment' }).click();
+
+  await expect(page.getByText('Refund the overpayment')).toBeVisible();
+  await page.getByLabel('Reason').fill('Settling the shortened booking.');
+  await page.getByRole('button', { name: 'Refund', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Refund issued');
+
+  // Settled for real, and the page stops asking.
+  const settled = await getBooking(admin, booking.id);
+  expect(settled.refundableAmount).toBe(0);
+  expect(settled.amountPaid).toBe(settled.totalAmount);
+  await expect(page.getByRole('button', { name: 'Refund overpayment' })).toHaveCount(0);
 });
 
 test('records the refund on the detail page', async ({ page }) => {

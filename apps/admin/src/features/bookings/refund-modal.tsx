@@ -19,9 +19,11 @@ type RefundModalProps = {
 };
 
 /**
- * Settle a booking overpayment after an edit lowered the total: refund the money
- * to the card via Paymob, or grant the mother a custom number of Care Points
- * (the EGP difference is shown for reference — there's no fixed conversion).
+ * Settle a booking overpayment — an edit lowered the total below what the
+ * mother paid: refund the money to the card via Paymob, or grant her a custom
+ * number of Care Points (the EGP difference is shown for reference — there's
+ * no fixed conversion). Opened right after the edit, or later from the detail
+ * page if that follow-up was skipped.
  */
 export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }: RefundModalProps) {
   const [method, setMethod] = useState<RefundMethod>('PAYMOB');
@@ -83,8 +85,8 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
       }
     >
       <p className="panel-lead">
-        This edit left the mother overpaid by <strong>{formatEgp(refundableAmount)}</strong>. Choose how
-        to return it.
+        The mother is overpaid by <strong>{formatEgp(refundableAmount)}</strong> on this booking. Choose
+        how to return it.
       </p>
 
       <div className="refund-methods">

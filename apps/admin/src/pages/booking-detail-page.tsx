@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -15,13 +15,15 @@ import {
   ErrorState,
   LoadingState,
   StaleRefreshBanner,
+  useToast,
 } from '@admin/components/ui';
 import { fetchBooking } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
-import { formatDateTime } from '@admin/lib/format';
+import { formatDateTime, formatEgp } from '@admin/lib/format';
 import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
 import { BookingEditor } from '@admin/features/bookings/booking-editor';
+import { RefundModal } from '@admin/features/bookings/refund-modal';
 
 /** Statuses in which the booking's details are still editable (pre-service). */
 const EDITABLE_STATUSES = new Set(['PENDING', 'APPROVED', 'CONFIRMED']);
@@ -44,9 +46,12 @@ const DASH = <span className="table-empty">—</span>;
 
 export function BookingDetailPage() {
   const canManage = useCanManage('bookings');
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const { id = '' } = useParams();
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [refunding, setRefunding] = useState(false);
   const { data: booking, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['booking', id],
     queryFn: () => fetchBooking(id),
@@ -55,6 +60,10 @@ export function BookingDetailPage() {
 
   const canEdit = canManage && booking != null && EDITABLE_STATUSES.has(booking.status);
   const canAssign = canManage && booking != null && canAssignBookingNanny(booking.status);
+  // An edit that lowered the price leaves the mother overpaid until someone
+  // returns the difference. The editor offers that right after saving; this
+  // keeps it reachable if that follow-up was cancelled or the refund failed.
+  const canRefund = canManage && booking != null && booking.refundableAmount > 0;
 
   const actions =
     editing && canEdit ? (
@@ -106,10 +115,42 @@ export function BookingDetailPage() {
           {canEdit && editing ? (
             <BookingEditor booking={booking} onDone={() => setEditing(false)} />
           ) : (
-            <BookingSections booking={booking} />
+            <>
+              {canRefund && (
+                <div className="overpaid-banner" role="note">
+                  <span>
+                    The mother is overpaid by <strong>{formatEgp(booking.refundableAmount)}</strong> —
+                    she paid {formatEgp(booking.amountPaid)} and the booking now totals{' '}
+                    {formatEgp(booking.totalAmount)}.
+                  </span>
+                  <Button size="sm" onClick={() => setRefunding(true)}>
+                    Refund overpayment
+                  </Button>
+                </div>
+              )}
+              <BookingSections booking={booking} />
+            </>
           )}
           {assigning && canAssign && (
             <AssignNannyModal booking={booking} onClose={() => setAssigning(false)} />
+          )}
+          {refunding && canRefund && (
+            <RefundModal
+              bookingId={booking.id}
+              refundableAmount={booking.refundableAmount}
+              onClose={() => setRefunding(false)}
+              onRefunded={(result) => {
+                queryClient.setQueryData(['booking', id], result.booking);
+                void queryClient.invalidateQueries({ queryKey: ['bookings'] });
+                setRefunding(false);
+                toast.success(
+                  'Refund issued',
+                  result.method === 'PAYMOB'
+                    ? `${formatEgp(result.refundedAmount ?? 0)} was refunded to the card.`
+                    : `${result.grantedPoints ?? 0} Care Points were granted.`,
+                );
+              }}
+            />
           )}
         </>
       )}

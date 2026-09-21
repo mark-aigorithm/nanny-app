@@ -429,11 +429,17 @@ async function settleCheckout(clientSecret: string): Promise<void> {
 export async function getBooking(adminToken: string, id: number): Promise<{
   status: string;
   totalAmount: number;
+  /** Captured minus refunded, across every payment on the booking. */
+  amountPaid: number;
+  /** How much of `amountPaid` is above `totalAmount` — what is still owed back. */
+  refundableAmount: number;
   cancellationReason: string | null;
 }> {
   return (await call('GET', `/admin/bookings/${id}`, adminToken)) as {
     status: string;
     totalAmount: number;
+    amountPaid: number;
+    refundableAmount: number;
     cancellationReason: string | null;
   };
 }

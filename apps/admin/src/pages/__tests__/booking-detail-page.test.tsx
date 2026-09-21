@@ -2,9 +2,14 @@
  * The Schedule card carries the parent's live start PIN so support can read it
  * to a nanny on the phone. The API already decides "live" — this pins that the
  * page shows the code and its expiry when given one, and a dash when not.
+ *
+ * The page is also where an overpayment gets settled when the editor's own
+ * refund follow-up was skipped: the banner and its modal must reach the refund
+ * endpoint, and must not appear to a view-only operator or on a settled booking.
  */
-import type { AdminBookingDetail, AdminUser } from '@nanny-app/shared';
-import { screen } from '@testing-library/react';
+import type { AdminBookingDetail, AdminRefundResponse, AdminUser } from '@nanny-app/shared';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -62,6 +67,8 @@ const BOOKING: AdminBookingDetail = {
   rewardCreditHours: 0,
   packageHoursApplied: 0,
   payment: null,
+  amountPaid: 318,
+  refundableAmount: 0,
   specialInstructions: null,
   cancellationReason: null,
   cancelledAt: null,
@@ -75,12 +82,28 @@ const BOOKING: AdminBookingDetail = {
   startPinExpiresAt: null,
 };
 
-function backend(booking: AdminBookingDetail) {
+function backend(booking: AdminBookingDetail, me: AdminUser = ADMIN) {
   server.use(
-    http.get('/api/admin/me', () => ok(ADMIN)),
+    http.get('/api/admin/me', () => ok(me)),
     http.get('/api/admin/bookings/4', () => ok(booking)),
   );
 }
+
+/** A four-hour booking the mother paid six hours for — 106 EGP to give back. */
+const OVERPAID: AdminBookingDetail = {
+  ...BOOKING,
+  totalAmount: 212,
+  amountPaid: 318,
+  refundableAmount: 106,
+};
+
+/** An operator who can open bookings but not change them. */
+const VIEWER: AdminUser = {
+  ...ADMIN,
+  id: 2,
+  role: 'OPERATOR',
+  permissions: { bookings: 'VIEW' },
+};
 
 function renderPage() {
   return renderWithProviders(
@@ -127,5 +150,68 @@ describe('BookingDetailPage', () => {
     await screen.findByText('Start PIN');
 
     expect(rowValue('Start PIN')).toBe('—');
+  });
+
+  it('flags an overpaid booking and lets a manager refund it from the page', async () => {
+    backend(OVERPAID);
+    const settled: AdminRefundResponse = {
+      method: 'PAYMOB',
+      refundedAmount: 106,
+      grantedPoints: null,
+      booking: { ...OVERPAID, amountPaid: 212, refundableAmount: 0 },
+    };
+    const posted: unknown[] = [];
+    server.use(
+      http.post('/api/admin/bookings/4/refund', async ({ request }) => {
+        posted.push(await request.json());
+        return ok(settled);
+      }),
+    );
+    renderPage();
+    const user = userEvent.setup();
+
+    // The banner says how much and why, not just that something is off.
+    const banner = await screen.findByRole('note');
+    expect(banner).toHaveTextContent('overpaid by EGP 106.00');
+    expect(banner).toHaveTextContent('paid EGP 318.00');
+
+    await user.click(screen.getByRole('button', { name: 'Refund overpayment' }));
+    expect(await screen.findByText('Refund the overpayment')).toBeInTheDocument();
+    // The amount is pre-filled with the full overpayment. (`Field` folds the
+    // unit suffix and hint into the label text, hence the substring match.)
+    expect(screen.getByLabelText(/^Amount to refund/)).toHaveValue(106);
+
+    await user.type(screen.getByLabelText(/^Reason/), 'Shortened at her request.');
+    await user.click(screen.getByRole('button', { name: 'Refund' }));
+
+    await waitFor(() =>
+      expect(posted).toEqual([
+        { method: 'PAYMOB', amount: 106, reason: 'Shortened at her request.' },
+      ]),
+    );
+    expect(await screen.findByText('Refund issued')).toBeInTheDocument();
+    // Settled: the banner goes away without a refetch.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Refund overpayment' })).not.toBeInTheDocument(),
+    );
+  });
+
+  it('shows no refund control when nothing is overpaid', async () => {
+    backend(BOOKING);
+    renderPage();
+
+    await screen.findByText('Start PIN');
+
+    expect(screen.queryByRole('button', { name: 'Refund overpayment' })).not.toBeInTheDocument();
+  });
+
+  it('hides the refund control from a view-only operator', async () => {
+    backend(OVERPAID, VIEWER);
+    renderPage();
+
+    await screen.findByText('Start PIN');
+
+    expect(screen.queryByRole('button', { name: 'Refund overpayment' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/overpaid by/)).not.toBeInTheDocument();
   });
 });
