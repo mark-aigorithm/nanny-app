@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import type { AdminBookingCandidate } from '@nanny-app/shared';
@@ -29,6 +29,8 @@ type AssignNannyModalProps = {
 };
 
 const SEARCH_DEBOUNCE_MS = 250;
+/** Matches the schema's cap (`AdminBookingCandidateQuerySchema`) — see the hint below the list. */
+export const CANDIDATE_PAGE_SIZE = 50;
 
 function useDebounced(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -58,8 +60,14 @@ export function AssignNannyModal({ booking, onClose }: AssignNannyModalProps) {
 
   const { data: candidates, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['booking-candidates', booking.id, q],
-    queryFn: () => fetchBookingCandidates(booking.id, q || undefined),
+    queryFn: () => fetchBookingCandidates(booking.id, q || undefined, CANDIDATE_PAGE_SIZE),
+    placeholderData: keepPreviousData,
   });
+
+  // The stored id can point at a row that isn't rendered any more — filtered
+  // out by a narrower search, or flipped to a conflict by a refetch — so the
+  // choice is derived from the current list on every render, never trusted.
+  const selectedCandidate = candidates?.find((c) => c.id === selected && !c.conflict) ?? null;
 
   const mutation = useMutation({
     mutationFn: (nannyProfileId: number) => assignBookingNanny(booking.id, nannyProfileId),
@@ -70,7 +78,13 @@ export function AssignNannyModal({ booking, onClose }: AssignNannyModalProps) {
       toast.success('Nanny assigned');
       onClose();
     },
-    onError: (err) => toast.error('Couldn’t assign nanny', apiErrorMessage(err)),
+    onError: (err) => {
+      // A 409 means the booking changed under the admin — refresh what's
+      // behind the modal so the retry (or a plain close) sees fresh state.
+      void queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking', String(booking.id)] });
+      toast.error('Couldn’t assign nanny', apiErrorMessage(err));
+    },
   });
 
   const approving = booking.status === 'PENDING';
@@ -87,8 +101,8 @@ export function AssignNannyModal({ booking, onClose }: AssignNannyModalProps) {
             Cancel
           </Button>
           <Button
-            onClick={() => selected !== null && mutation.mutate(selected)}
-            disabled={selected === null || mutation.isPending}
+            onClick={() => selectedCandidate !== null && mutation.mutate(selectedCandidate.id)}
+            disabled={selectedCandidate === null || mutation.isPending}
           >
             {mutation.isPending ? 'Assigning…' : confirmLabel}
           </Button>
@@ -170,6 +184,9 @@ export function AssignNannyModal({ booking, onClose }: AssignNannyModalProps) {
               );
             })}
           </ul>
+        )}
+        {candidates && candidates.length === CANDIDATE_PAGE_SIZE && (
+          <p className="field-hint">{`Showing the first ${CANDIDATE_PAGE_SIZE} nannies — search to narrow the list.`}</p>
         )}
       </div>
     </Modal>

@@ -413,10 +413,11 @@ export async function setBookingStatus(
 export async function fetchBookingCandidates(
   id: number,
   q?: string,
+  limit = 50,
 ): Promise<AdminBookingCandidate[]> {
   const res = await apiClient.get<ApiEnvelope<AdminBookingCandidate[]>>(
     `/admin/bookings/${id}/candidates`,
-    { params: q ? { q } : {} },
+    { params: { limit, ...(q ? { q } : {}) } },
   );
   return res.data.data;
 }

@@ -105,10 +105,11 @@ describe('AssignNannyModal', () => {
   });
 
   it('sends the search box as q', async () => {
-    const seen: string[] = [];
+    const seen: { q: string; limit: string | null }[] = [];
     server.use(
       http.get('/api/admin/bookings/4/candidates', ({ request }) => {
-        seen.push(new URL(request.url).searchParams.get('q') ?? '');
+        const params = new URL(request.url).searchParams;
+        seen.push({ q: params.get('q') ?? '', limit: params.get('limit') });
         return ok([]);
       }),
     );
@@ -118,6 +119,56 @@ describe('AssignNannyModal', () => {
     await screen.findByText('No approved nannies match.');
     await user.type(screen.getByRole('searchbox', { name: 'Search nannies' }), 'sar');
 
-    await waitFor(() => expect(seen).toContain('sar'));
+    await waitFor(() => expect(seen.map((s) => s.q)).toContain('sar'));
+    // Every request — with or without a search term — is capped at 50.
+    expect(seen.every((s) => s.limit === '50')).toBe(true);
+  });
+
+  it('disables the button when the chosen nanny is filtered out', async () => {
+    server.use(
+      http.get('/api/admin/bookings/4/candidates', ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q');
+        return ok(q === 'nour' ? [CANDIDATES[1]] : CANDIDATES);
+      }),
+    );
+    renderModal(PENDING);
+    const user = userEvent.setup();
+
+    const button = await screen.findByRole('button', { name: 'Assign & approve' });
+    await user.click(await screen.findByRole('radio', { name: /Sara Near/ }));
+    expect(button).toBeEnabled();
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search nannies' }), 'nour');
+
+    await waitFor(() => expect(button).toBeDisabled());
+  });
+
+  it('hints when the list is capped', async () => {
+    const fifty: AdminBookingCandidate[] = Array.from({ length: 50 }, (_, i) => ({
+      id: i + 1,
+      name: `Nanny ${i + 1}`,
+      phone: null,
+      rating: 4.5,
+      reviewCount: 1,
+      conflict: false,
+      missingSkills: [],
+      distanceKm: 1,
+      outsideRadius: false,
+    }));
+    server.use(http.get('/api/admin/bookings/4/candidates', () => ok(fifty)));
+    const { unmount } = renderWithProviders(
+      <ToastProvider>
+        <AssignNannyModal booking={PENDING} onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+
+    expect(await screen.findByText(/Showing the first 50/)).toBeInTheDocument();
+    unmount();
+
+    server.use(http.get('/api/admin/bookings/4/candidates', () => ok(CANDIDATES)));
+    renderModal(PENDING);
+
+    await screen.findByRole('radio', { name: /Sara Near/ });
+    expect(screen.queryByText(/Showing the first 50/)).not.toBeInTheDocument();
   });
 });
