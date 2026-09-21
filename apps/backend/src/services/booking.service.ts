@@ -236,7 +236,7 @@ function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAd
  * when she has none — which, like a request with no coordinates, bypasses the
  * distance filter rather than hiding work from her (see isWithinRadius).
  */
-function nannyHomePoint(user: {
+export function nannyHomePoint(user: {
   addresses: { latitude: Prisma.Decimal; longitude: Prisma.Decimal }[];
 }): LatLng | null {
   const home = user.addresses[0];
@@ -328,7 +328,7 @@ function requiredSkillIds(b: { selectedSkillFees: Prisma.JsonValue | null }): nu
 }
 
 /** The skill ids a nanny actually holds, from her NannySkill join rows. */
-function heldSkillIds(nannySkills: { skillId: number }[] | undefined): Set<number> {
+export function heldSkillIds(nannySkills: { skillId: number }[] | undefined): Set<number> {
   return new Set((nannySkills ?? []).map((ns) => ns.skillId));
 }
 

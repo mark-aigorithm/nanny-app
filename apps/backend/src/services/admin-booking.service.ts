@@ -40,7 +40,7 @@ import {
   resolveDurationMultiplier,
 } from '@backend/services/pricing.service';
 
-const bookingInclude = {
+export const bookingInclude = {
   mother: { select: { id: true, firstName: true, lastName: true, phone: true } },
   nannyProfile: {
     select: {
@@ -53,7 +53,7 @@ const bookingInclude = {
   promoCode: { select: { code: true } },
 } satisfies Prisma.BookingInclude;
 
-type AdminBookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
+export type AdminBookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
 /** Wide include for the single-booking detail page: full parties + full payment. */
 const bookingDetailInclude = {
@@ -74,7 +74,7 @@ type AdminBookingDetailRow = Prisma.BookingGetPayload<{
   include: typeof bookingDetailInclude;
 }>;
 
-function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
+export function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
 }
 
@@ -178,7 +178,7 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
   };
 }
 
-function toDto(row: AdminBookingRow): AdminBooking {
+export function toDto(row: AdminBookingRow): AdminBooking {
   const payment = row.payments[0] ?? null;
   return {
     id: row.id,
@@ -212,7 +212,7 @@ function toDto(row: AdminBookingRow): AdminBooking {
 }
 
 /** Resolve the calling admin's internal user id from their Firebase uid. */
-async function resolveAdminId(adminFirebaseUid: string): Promise<number> {
+export async function resolveAdminId(adminFirebaseUid: string): Promise<number> {
   const admin = await prisma.user.findFirst({
     where: {
       firebaseUid: adminFirebaseUid,
@@ -225,7 +225,7 @@ async function resolveAdminId(adminFirebaseUid: string): Promise<number> {
   return admin.id;
 }
 
-async function notifyBookingParty(
+export async function notifyBookingParty(
   userId: number,
   type: NotificationType,
   pushType: string,
@@ -248,7 +248,7 @@ async function notifyBookingParty(
   });
 }
 
-async function findAdminBooking(id: number): Promise<AdminBookingRow> {
+export async function findAdminBooking(id: number): Promise<AdminBookingRow> {
   const booking = await prisma.booking.findFirst({
     where: { id, deletedAt: null },
     include: bookingInclude,
