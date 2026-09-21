@@ -2,6 +2,7 @@ import type {
   Address,
   AdminUpsertNannyAddressInput,
   AdminBooking,
+  AdminBookingCandidate,
   AdminBookingDetail,
   AdminBookingEditContext,
   AdminBookingStatusFilter,
@@ -406,6 +407,24 @@ export async function setBookingStatus(
     `/admin/bookings/${id}/status`,
     { status },
   );
+  return res.data.data;
+}
+
+export async function fetchBookingCandidates(
+  id: number,
+  q?: string,
+): Promise<AdminBookingCandidate[]> {
+  const res = await apiClient.get<ApiEnvelope<AdminBookingCandidate[]>>(
+    `/admin/bookings/${id}/candidates`,
+    { params: q ? { q } : {} },
+  );
+  return res.data.data;
+}
+
+export async function assignBookingNanny(id: number, nannyProfileId: number): Promise<AdminBooking> {
+  const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(`/admin/bookings/${id}/nanny`, {
+    nannyProfileId,
+  });
   return res.data.data;
 }
 

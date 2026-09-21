@@ -29,4 +29,8 @@ export const SKILL_FIXTURE: Skill = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-export const handlers = [http.get('/api/admin/skills', () => ok([SKILL_FIXTURE]))];
+export const handlers = [
+  http.get('/api/admin/skills', () => ok([SKILL_FIXTURE])),
+  // The nanny picker: an empty pool by default; a test that wants rows overrides it.
+  http.get('/api/admin/bookings/:id/candidates', () => ok([])),
+];
