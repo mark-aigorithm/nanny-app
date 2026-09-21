@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { formatAddressArea, formatChildAge } from '@nanny-app/shared';
+import { canAssignBookingNanny, formatAddressArea, formatChildAge } from '@nanny-app/shared';
 import type { AdminBookingDetail } from '@nanny-app/shared';
 
 import {
@@ -20,6 +20,7 @@ import { fetchBooking } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { formatDateTime } from '@admin/lib/format';
+import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
 import { BookingEditor } from '@admin/features/bookings/booking-editor';
 
 /** Statuses in which the booking's details are still editable (pre-service). */
@@ -45,6 +46,7 @@ export function BookingDetailPage() {
   const canManage = useCanManage('bookings');
   const { id = '' } = useParams();
   const [editing, setEditing] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const { data: booking, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['booking', id],
     queryFn: () => fetchBooking(id),
@@ -52,18 +54,27 @@ export function BookingDetailPage() {
   });
 
   const canEdit = canManage && booking != null && EDITABLE_STATUSES.has(booking.status);
+  const canAssign = canManage && booking != null && canAssignBookingNanny(booking.status);
 
-  const actions = canEdit ? (
-    editing ? (
+  const actions =
+    editing && canEdit ? (
       <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
         Cancel
       </Button>
-    ) : (
-      <Button size="sm" onClick={() => setEditing(true)}>
-        Edit booking
-      </Button>
-    )
-  ) : undefined;
+    ) : canEdit || canAssign ? (
+      <>
+        {canAssign && (
+          <Button variant="ghost" size="sm" onClick={() => setAssigning(true)}>
+            {booking?.nanny ? 'Change nanny' : 'Assign nanny'}
+          </Button>
+        )}
+        {canEdit && (
+          <Button size="sm" onClick={() => setEditing(true)}>
+            Edit booking
+          </Button>
+        )}
+      </>
+    ) : undefined;
 
   return (
     <section>
@@ -96,6 +107,9 @@ export function BookingDetailPage() {
             <BookingEditor booking={booking} onDone={() => setEditing(false)} />
           ) : (
             <BookingSections booking={booking} />
+          )}
+          {assigning && canAssign && (
+            <AssignNannyModal booking={booking} onClose={() => setAssigning(false)} />
           )}
         </>
       )}

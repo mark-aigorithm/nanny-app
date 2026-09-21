@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ADMIN_PAGE_SIZES,
   BookingStatusSchema,
+  canAssignBookingNanny,
   canTransitionBookingStatus,
   PLATFORM_TIMEZONE,
   SetBookingStatusSchema,
@@ -33,6 +34,7 @@ import {
   StaleRefreshBanner,
   Table,
   TableSkeleton,
+  UserPlus,
   useToast,
 } from '@admin/components/ui';
 import {
@@ -51,6 +53,7 @@ import {
   toDateTimeLocalInput,
 } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
+import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
 
 const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'REFUNDED']);
 
@@ -73,10 +76,10 @@ const OVERRIDE_STATUSES = BookingStatusSchema.options.filter((s) => s !== 'REFUN
  *
  * Two rules, both the server's. The transition table only allows PENDING →
  * APPROVED; on top of that, `approveBooking` refuses a booking with no nanny
- * assigned ("Assign a nanny to this unclaimed request before approving it"),
- * which the table cannot express. The only code path that assigns a nanny is
- * her claiming the request — and that sets APPROVED itself — so this is false
- * for every request the current app can produce.
+ * assigned. A request gets its nanny either from her own claim (which approves
+ * it itself) or from an admin's "Assign nanny", which also approves — so in
+ * practice Approve appears only on the rare request that was assigned some
+ * other way.
  */
 function canApproveBooking(booking: AdminBooking): boolean {
   return canTransitionBookingStatus(booking.status, 'APPROVED') && booking.nanny !== null;
@@ -146,6 +149,7 @@ export function BookingsPage() {
   const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
   const [editing, setEditing] = useState<{ id: number; start: string; end: string } | null>(null);
   const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
+  const [assigning, setAssigning] = useState<AdminBooking | null>(null);
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -366,6 +370,14 @@ export function BookingsPage() {
                 Approve
               </MenuItem>
             )}
+            {canAssignBookingNanny(booking.status) && (
+              <MenuItem
+                icon={<UserPlus size={ICON_SIZE.menu} />}
+                onSelect={() => setAssigning(booking)}
+              >
+                {booking.nanny ? 'Change nanny' : 'Assign nanny'}
+              </MenuItem>
+            )}
             {!isTerminal && (
               <MenuItem
                 icon={<Pencil size={ICON_SIZE.menu} />}
@@ -403,7 +415,7 @@ export function BookingsPage() {
     <section>
       <PageHeader
         title="Bookings"
-        subtitle="Requests are broadcast to nearby nannies (radius set in Configuration); the first to accept claims a booking and the parent pays. Edit a booking's times or override its status here."
+        subtitle="Requests are broadcast to nearby nannies (radius set in Configuration); the first to accept claims a booking and the parent pays. Assign a nanny yourself when nobody claims one, change the nanny on a booking, edit its times, or override its status here."
       />
       <div className="filter-bar">
         <FilterSelect
@@ -508,6 +520,10 @@ export function BookingsPage() {
           onSubmit={(reason) => rejectMutation.mutate({ id: rejecting.id, reason: reason || undefined })}
           onCancel={() => setRejecting(null)}
         />
+      )}
+
+      {assigning && (
+        <AssignNannyModal booking={assigning} onClose={() => setAssigning(null)} />
       )}
     </section>
   );
