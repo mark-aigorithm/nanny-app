@@ -160,7 +160,7 @@ beforeEach(() => {
     cancelledAt: null,
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
-    startPinHash: null,
+    startPin: null,
     startPinExpiresAt: null,
     payments: [],
     // Matches bookingInclude: the relation is always present, empty by default.

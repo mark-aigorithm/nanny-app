@@ -104,7 +104,7 @@ function makeBooking(status: string = PrismaBookingStatus.IN_PROGRESS) {
     nannyCheckedInAt: startTime,
     nannyCheckedOutAt: null,
     motherEndedAt: null,
-    startPinHash: null,
+    startPin: null,
     startPinGeneratedAt: null,
     startPinExpiresAt: null,
     startPinAttempts: 0,

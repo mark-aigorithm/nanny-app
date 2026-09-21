@@ -157,7 +157,7 @@ function bookingRow() {
     cancelledAt: null,
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
-    startPinHash: null,
+    startPin: null,
     startPinExpiresAt: null,
     payments: [],
     extensions: [],

@@ -2,7 +2,6 @@ import { Role, BookingStatus } from '@nanny-app/shared';
 import { BookingStatus as PrismaBookingStatus } from '@prisma/client';
 
 import { AppError } from '@backend/lib/errors';
-import { hashPin } from '@backend/lib/pin';
 import {
   CHECK_IN_EARLY_MINUTES,
   START_PIN_MAX_ATTEMPTS,
@@ -93,7 +92,7 @@ function makeBooking(overrides: Partial<{
   status: string;
   startTime: Date;
   endTime: Date;
-  startPinHash: string | null;
+  startPin: string | null;
   startPinExpiresAt: Date | null;
   startPinAttempts: number;
   adjustments: ReturnType<typeof pendingAdjustment>[];
@@ -130,8 +129,7 @@ function makeBooking(overrides: Partial<{
     cancelledAt: null,
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
-    startPinHash:
-      overrides.startPinHash === undefined ? hashPin(DEFAULT_PIN) : overrides.startPinHash,
+    startPin: overrides.startPin === undefined ? DEFAULT_PIN : overrides.startPin,
     startPinGeneratedAt: new Date(),
     startPinExpiresAt:
       overrides.startPinExpiresAt === undefined
@@ -153,8 +151,8 @@ describe('booking shift transitions', () => {
       mockPrisma.user.findUnique.mockResolvedValue(motherUser);
     });
 
-    it('returns a 4-digit PIN and persists only its hash (attempts reset)', async () => {
-      const booking = makeBooking({ startPinHash: null, startPinExpiresAt: null });
+    it('returns a 4-digit PIN and persists it in the clear (attempts reset)', async () => {
+      const booking = makeBooking({ startPin: null, startPinExpiresAt: null });
       mockPrisma.booking.findUnique.mockResolvedValue(booking);
       mockPrisma.booking.update.mockResolvedValue(booking);
 
@@ -163,8 +161,7 @@ describe('booking shift transitions', () => {
       expect(result.pin).toMatch(/^\d{4}$/);
       expect(typeof result.expiresAt).toBe('string');
       const data = mockPrisma.booking.update.mock.calls[0][0].data;
-      expect(data.startPinHash).toBe(hashPin(result.pin));
-      expect(data.startPinHash).not.toBe(result.pin);
+      expect(data.startPin).toBe(result.pin);
       expect(data.startPinAttempts).toBe(0);
     });
 
@@ -217,7 +214,7 @@ describe('booking shift transitions', () => {
     it('rejects while a balance-due adjustment is unpaid', async () => {
       mockPrisma.booking.findUnique.mockResolvedValue(
         makeBooking({
-          startPinHash: null,
+          startPin: null,
           startPinExpiresAt: null,
           adjustments: [pendingAdjustment()],
         }),
@@ -246,7 +243,7 @@ describe('booking shift transitions', () => {
       expect(result.status).toBe(BookingStatus.IN_PROGRESS);
       const data = mockPrisma.booking.update.mock.calls[0][0].data;
       expect(data.status).toBe(PrismaBookingStatus.IN_PROGRESS);
-      expect(data.startPinHash).toBeNull();
+      expect(data.startPin).toBeNull();
       expect(data.startPinExpiresAt).toBeNull();
       expect(mockNotify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: mother.id, type: 'NANNY_CHECKIN' }),
@@ -262,7 +259,7 @@ describe('booking shift transitions', () => {
 
     it('rejects when the parent has not started (no PIN)', async () => {
       mockPrisma.booking.findUnique.mockResolvedValue(
-        makeBooking({ startPinHash: null, startPinExpiresAt: null }),
+        makeBooking({ startPin: null, startPinExpiresAt: null }),
       );
 
       await expect(

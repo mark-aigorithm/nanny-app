@@ -169,7 +169,7 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
     motherEndedAt: null,
-    startPinHash: null,
+    startPin: null,
     startPinExpiresAt: null,
     payments: [],
     extensions: [],

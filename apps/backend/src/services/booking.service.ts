@@ -49,7 +49,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
 import { isWithinRadius, toLatLng, type LatLng } from '@backend/lib/geo';
-import { hashPin, randomStartPin } from '@backend/lib/pin';
+import { randomStartPin } from '@backend/lib/pin';
 import { toBookingAddressSnapshot } from '@backend/services/address.service';
 import {
   assertWallClock,
@@ -1863,8 +1863,9 @@ export async function refundBookingPoints(
 /**
  * Parent generates the 4-digit start PIN — the hand-off gate for check-in. Only
  * the mother who owns the booking may call this, and only inside the check-in
- * window. Returns the plaintext PIN once (never persisted or returned again);
- * only the sha-256 hash is stored. Calling again regenerates and resets attempts.
+ * window. The PIN is stored in the clear (the admin console reads it back to
+ * support a hand-off) and is single-use, attempt-capped and short-lived.
+ * Calling again regenerates and resets attempts.
  */
 export async function generateStartPin(
   decoded: DecodedIdToken,
@@ -1906,7 +1907,7 @@ export async function generateStartPin(
   await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      startPinHash: hashPin(pin),
+      startPin: pin,
       startPinGeneratedAt: now,
       startPinExpiresAt: expiresAt,
       startPinAttempts: 0,
@@ -1957,7 +1958,7 @@ export async function checkInBooking(
 
   // Start-PIN gate — the parent must have revealed a still-valid PIN and the
   // nanny must enter it correctly. Wrong guesses are counted and capped.
-  if (!booking.startPinHash || !booking.startPinExpiresAt) {
+  if (!booking.startPin || !booking.startPinExpiresAt) {
     throw errors.badRequest('The parent has not started this booking yet. Ask them to tap Start.');
   }
   if (now > booking.startPinExpiresAt) {
@@ -1966,7 +1967,7 @@ export async function checkInBooking(
   if (booking.startPinAttempts >= START_PIN_MAX_ATTEMPTS) {
     throw errors.badRequest('Too many incorrect attempts. Ask the parent to start again.');
   }
-  if (hashPin(pin) !== booking.startPinHash) {
+  if (pin !== booking.startPin) {
     // Atomically bump the attempt count only while it still matches what we read,
     // so a burst of parallel guesses can't slip past the cap (updateMany allows
     // the non-unique guard in the where clause).
@@ -1985,7 +1986,7 @@ export async function checkInBooking(
       status: BookingStatus.IN_PROGRESS,
       nannyCheckedInAt: now,
       // Clear the PIN so the code can't be reused.
-      startPinHash: null,
+      startPin: null,
       startPinExpiresAt: null,
       startPinAttempts: 0,
     },
