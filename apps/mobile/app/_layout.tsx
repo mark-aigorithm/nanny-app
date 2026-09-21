@@ -15,7 +15,9 @@ import {
 } from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { queryClient } from '@mobile/lib/queryClient';
+import { queryClient, bindOnlineManager } from '@mobile/lib/queryClient';
+import { subscribeIsOffline } from '@mobile/lib/network';
+import OfflineGate from '@mobile/components/OfflineGate';
 import { auth } from '@mobile/lib/firebase';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useGuestStore } from '@mobile/store/guestStore';
@@ -23,6 +25,10 @@ import { useMe } from '@mobile/hooks/useMe';
 import { usePushNotifications } from '@mobile/hooks/usePushNotifications';
 
 SplashScreen.preventAutoHideAsync();
+
+// Let React Query pause/resume on real device connectivity rather than
+// `navigator.onLine`. Module level: once per app process, before any query.
+bindOnlineManager(subscribeIsOffline);
 
 /**
  * Side-effect-only component that fetches the application user profile
@@ -84,6 +90,9 @@ export default function RootLayout() {
         {/* Global confirmation dialog — mounted at the root so every area of
             the app (parent, nanny, auth) gets the same themed popup. */}
         <ConfirmDialogHost />
+        {/* Full-screen "you're offline" overlay — covers every area of the app
+            while the device has no connection and lifts by itself. */}
+        <OfflineGate />
       </SafeAreaProvider>
     </QueryClientProvider>
   );
