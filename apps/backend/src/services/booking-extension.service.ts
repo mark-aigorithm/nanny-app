@@ -637,10 +637,13 @@ async function notifyMotherExtensionDecided(
 ): Promise<void> {
   const nannyName = booking.nannyProfile?.user.firstName ?? 'Your nanny';
   const plural = hours === 1 ? '' : 's';
-  const title = accepted ? 'Extra hours confirmed' : 'Extension declined';
+  const title = accepted ? 'Extra hours confirmed' : `${nannyName} can't stay longer`;
+  // A decline is a dead end for THIS booking, so the message hands her the way
+  // out — a fresh booking — rather than just reporting the no. The app routes
+  // the tap to the start-a-booking screen for the same reason.
   const body = accepted
     ? `${nannyName} can stay ${hours} more hour${plural}. Pay EGP ${amountDue} to confirm.`
-    : `${nannyName} can't stay the extra ${hours} hour${plural}.`;
+    : `${nannyName} isn't able to add the extra ${hours} hour${plural} this time. If you still need cover, you can book a new session whenever you're ready — we'll find someone who can help.`;
 
   await createInAppNotification({
     userId: booking.motherId,

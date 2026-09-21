@@ -117,6 +117,11 @@ export function isBookingCompletedPush(data?: Record<string, string>): boolean {
   return type === 'booking_completed';
 }
 
+export function isExtensionDeclinedPush(data?: Record<string, string>): boolean {
+  const type = data?.['type']?.toLowerCase();
+  return type === 'booking_extension_declined';
+}
+
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
   queryClient: ReturnType<typeof useQueryClient>,
@@ -147,6 +152,13 @@ function navigateFromNotification(
       pathname: '/(parent)/book/extension-checkout',
       params: { extensionId },
     } as never);
+    return;
+  }
+
+  // "Your nanny can't stay" is a dead end for that booking, so the tap starts
+  // a new one rather than landing her back on the shift she can't extend.
+  if (isExtensionDeclinedPush(data)) {
+    router.push('/(parent)/book/booking-date-picker' as never);
     return;
   }
 

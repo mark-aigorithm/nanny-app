@@ -320,6 +320,30 @@ describe('respondToBookingExtension', () => {
     );
   });
 
+  it('declining tells the mother gently and points her at a new booking', async () => {
+    mockPrisma.bookingExtension.findFirst.mockResolvedValue(makeExtension());
+    mockPrisma.bookingExtension.update.mockResolvedValue(makeExtension({ status: 'DECLINED' }));
+
+    await respondToBookingExtension({ uid: 'firebase-nanny' } as never, 77, false);
+
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: motherUser.id,
+        type: 'BOOKING_EXTENSION_DECLINED',
+        title: "Elena can't stay longer",
+        body: expect.stringContaining('book a new session'),
+      }),
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      motherUser.id,
+      expect.objectContaining({
+        title: "Elena can't stay longer",
+        body: expect.stringContaining('book a new session'),
+        data: expect.objectContaining({ type: 'booking_extension_declined', extensionId: '77' }),
+      }),
+    );
+  });
+
   it('refuses to answer a request that is no longer pending', async () => {
     mockPrisma.bookingExtension.findFirst.mockResolvedValue(
       makeExtension({ status: 'ACCEPTED' }),

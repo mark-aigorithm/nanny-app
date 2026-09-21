@@ -1,6 +1,9 @@
 jest.mock('@mobile/lib/firebase', () => ({ auth: () => ({ currentUser: null }) }));
 
-import { isBookingCompletedPush } from '@mobile/hooks/usePushNotifications';
+import {
+  isBookingCompletedPush,
+  isExtensionDeclinedPush,
+} from '@mobile/hooks/usePushNotifications';
 
 describe('isBookingCompletedPush', () => {
   it('matches the backend push type string', () => {
@@ -17,5 +20,23 @@ describe('isBookingCompletedPush', () => {
 
   it('is false for missing data', () => {
     expect(isBookingCompletedPush(undefined)).toBe(false);
+  });
+});
+
+describe('isExtensionDeclinedPush', () => {
+  it('matches the backend push type string', () => {
+    expect(isExtensionDeclinedPush({ type: 'booking_extension_declined' })).toBe(true);
+  });
+
+  it('matches the enum-cased type defensively', () => {
+    expect(isExtensionDeclinedPush({ type: 'BOOKING_EXTENSION_DECLINED' })).toBe(true);
+  });
+
+  it('is false for the accepted sibling', () => {
+    expect(isExtensionDeclinedPush({ type: 'booking_extension_accepted' })).toBe(false);
+  });
+
+  it('is false for missing data', () => {
+    expect(isExtensionDeclinedPush(undefined)).toBe(false);
   });
 });

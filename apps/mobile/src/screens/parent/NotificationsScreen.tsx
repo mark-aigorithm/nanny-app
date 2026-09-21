@@ -96,6 +96,12 @@ export default function NotificationsScreen() {
       }
       return;
     }
+    // The nanny couldn't stay, so that booking is a dead end — start a new one
+    // instead of opening the shift she can't extend.
+    if (notification.type === 'booking_extension_declined') {
+      router.push('/(parent)/book/booking-date-picker' as never);
+      return;
+    }
     if (notification.referenceType === 'booking' && notification.referenceId) {
       navigateToBookingDetail(router, notification.referenceId, {
         focusCareLog: notification.type === 'care_log_entry',
