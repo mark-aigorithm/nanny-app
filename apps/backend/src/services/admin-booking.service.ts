@@ -94,6 +94,14 @@ function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAd
 
 function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
+  // Decided here, not in the browser: the admin's clock must not be what says
+  // whether the code the parent is reading out is still good.
+  const livePinExpiresAt =
+    row.startPin != null &&
+    row.startPinExpiresAt != null &&
+    row.startPinExpiresAt.getTime() > Date.now()
+      ? row.startPinExpiresAt
+      : null;
   return {
     id: row.id,
     status: row.status,
@@ -161,6 +169,8 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
     nannyDecidedAt: row.nannyDecidedAt?.toISOString() ?? null,
     nannyCheckedInAt: row.nannyCheckedInAt?.toISOString() ?? null,
     nannyCheckedOutAt: row.nannyCheckedOutAt?.toISOString() ?? null,
+    startPin: livePinExpiresAt ? row.startPin : null,
+    startPinExpiresAt: livePinExpiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     // Loyalty points are not implemented yet — always null for now.

@@ -381,6 +381,13 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   nannyDecidedAt: z.string().nullable(),
   nannyCheckedInAt: z.string().nullable(),
   nannyCheckedOutAt: z.string().nullable(),
+  /**
+   * The parent's hand-off PIN, so support can read it to a nanny over the
+   * phone. Both fields are null unless the PIN is live right now — not yet
+   * generated, expired and already used all look the same to the console.
+   */
+  startPin: z.string().nullable(),
+  startPinExpiresAt: z.string().nullable(),
   updatedAt: z.string(),
   /** Loyalty points redeemed against this booking. Not yet implemented — always null for now. */
   pointsRedeemed: z.number().nullable(),

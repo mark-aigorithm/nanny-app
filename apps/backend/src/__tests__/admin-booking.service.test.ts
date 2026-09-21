@@ -92,6 +92,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     nannyDecidedAt: null,
     nannyCheckedInAt: null,
     nannyCheckedOutAt: null,
+    startPin: null,
+    startPinExpiresAt: null,
     promoCode: null,
     payments: [{ status: 'PENDING' }],
     mother: { id: 10, firstName: 'Jane', lastName: 'Mom', phone: '+201000000000' },
@@ -371,5 +373,41 @@ describe('getAdminBooking (detail)', () => {
   it('throws when the booking does not exist', async () => {
     mockPrisma.booking.findFirst.mockResolvedValue(null);
     await expect(getAdminBooking(999)).rejects.toThrow(AppError);
+  });
+
+  it('exposes the start PIN and its expiry while the PIN is live', async () => {
+    const expiresAt = new Date(Date.now() + 10 * 60_000);
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({ payments: [], startPin: '0042', startPinExpiresAt: expiresAt }),
+    );
+
+    const dto = await getAdminBooking(4);
+
+    expect(dto.startPin).toBe('0042');
+    expect(dto.startPinExpiresAt).toBe(expiresAt.toISOString());
+  });
+
+  it('hides an expired start PIN', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({
+        payments: [],
+        startPin: '0042',
+        startPinExpiresAt: new Date(Date.now() - 60_000),
+      }),
+    );
+
+    const dto = await getAdminBooking(4);
+
+    expect(dto.startPin).toBeNull();
+    expect(dto.startPinExpiresAt).toBeNull();
+  });
+
+  it('returns null PIN fields when the parent has not started', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(makeRow({ payments: [] }));
+
+    const dto = await getAdminBooking(4);
+
+    expect(dto.startPin).toBeNull();
+    expect(dto.startPinExpiresAt).toBeNull();
   });
 });
