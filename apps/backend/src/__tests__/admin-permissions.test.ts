@@ -120,9 +120,10 @@ describe('privilege evaluation', () => {
     expect(allows('GET', '/promo-codes', 'OPERATOR', { promoCodes: 'NONE' })).toBe(false);
   });
 
-  it('keeps sections independent — Marketplace access grants nothing else', () => {
+  it('keeps sections independent — Community access grants nothing else', () => {
     const perms: OperatorPermissions = { marketplace: 'MANAGE' };
-    expect(allows('POST', '/marketplace/listings/3/approve', 'OPERATOR', perms)).toBe(true);
+    expect(allows('POST', '/community/posts/3/approve', 'OPERATOR', perms)).toBe(true);
+    expect(allows('POST', '/marketplace/listings', 'OPERATOR', perms)).toBe(true);
     expect(allows('GET', '/bookings', 'OPERATOR', perms)).toBe(false);
     expect(allows('GET', '/rewards/wallets', 'OPERATOR', perms)).toBe(false);
     expect(allows('PATCH', '/mothers/8', 'OPERATOR', perms)).toBe(false);

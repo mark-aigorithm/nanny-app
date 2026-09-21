@@ -8,10 +8,10 @@ import {
   AdminEditBookingSchema,
   AdminEditBookingCommitSchema,
   AdminRefundBookingSchema,
+  AdminCommunityPostListQuerySchema,
+  type AdminCommunityPostListQuery,
   AdminIdReviewListQuerySchema,
   type AdminIdReviewListQuery,
-  AdminMarketplaceListQuerySchema,
-  type AdminMarketplaceListQuery,
   AdminMotherListQuerySchema,
   type AdminMotherListQuery,
   AdminNannyListQuerySchema,
@@ -33,8 +33,8 @@ import {
   RewardWalletListQuerySchema,
   type RewardWalletListQuery,
   RejectAdminBookingSchema,
-  RejectListingSchema,
   RejectNannySchema,
+  RejectPostSchema,
   SetBookingStatusSchema,
   AdminUpsertNannyAddressSchema,
   AssignBookingNannySchema,
@@ -96,11 +96,13 @@ import {
 } from '@backend/services/admin-nanny.service';
 import { listIdReviews } from '@backend/services/admin-id-review.service';
 import {
-  approveListing,
+  approvePost,
+  listCommunityPosts,
+  rejectPost,
+} from '@backend/services/admin-community.service';
+import {
   createOfficialListing,
   deleteOfficialListing,
-  listMarketplaceListings,
-  rejectListing,
   updateOfficialListing,
 } from '@backend/services/admin-marketplace.service';
 import {
@@ -543,23 +545,50 @@ adminRouter.get(
   },
 );
 
-// ── Marketplace moderation ─────────────────────────────────────
+// ── Community moderation (every post type) ─────────────────────
 
 adminRouter.get(
-  '/marketplace/listings',
-  validateQuery(AdminMarketplaceListQuerySchema),
+  '/community/posts',
+  validateQuery(AdminCommunityPostListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit } = res.locals[
-        'validatedQuery'
-      ] as AdminMarketplaceListQuery;
-      const { listings, meta } = await listMarketplaceListings(status, { page, limit });
-      res.json(okPaged(listings, meta));
+      const query = res.locals['validatedQuery'] as AdminCommunityPostListQuery;
+      const { posts, meta } = await listCommunityPosts(query);
+      res.json(okPaged(posts, meta));
     } catch (err) {
       next(err);
     }
   },
 );
+
+adminRouter.post(
+  '/community/posts/:id/approve',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await approvePost(routeIdParam(req.params.id), req.firebaseUser.uid)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/community/posts/:id/reject',
+  validateBody(RejectPostSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(
+        ok(await rejectPost(routeIdParam(req.params.id), req.body, req.firebaseUser.uid)),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Official marketplace listings ──────────────────────────────
 
 adminRouter.post(
   '/marketplace/listings',
@@ -569,33 +598,6 @@ adminRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const listing = await createOfficialListing(req.body, req.firebaseUser.uid);
       res.status(201).json(ok(listing));
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-adminRouter.post(
-  '/marketplace/listings/:id/approve',
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!req.firebaseUser) throw errors.unauthorized();
-      res.json(ok(await approveListing(routeIdParam(req.params.id), req.firebaseUser.uid)));
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-adminRouter.post(
-  '/marketplace/listings/:id/reject',
-  validateBody(RejectListingSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!req.firebaseUser) throw errors.unauthorized();
-      res.json(
-        ok(await rejectListing(routeIdParam(req.params.id), req.body, req.firebaseUser.uid)),
-      );
     } catch (err) {
       next(err);
     }

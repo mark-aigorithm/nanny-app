@@ -92,19 +92,20 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'POST', pattern: '/mothers/:id/reject', requires: section('users', 'MANAGE') },
   { method: 'GET', pattern: '/id-reviews', requires: section('users', 'VIEW') },
 
-  // ── Marketplace moderation ──────────────────────────────────
-  { method: 'GET', pattern: '/marketplace/listings', requires: section('marketplace', 'VIEW') },
+  // ── Community moderation (every post type) + official listings ──
+  // Stored permission key stays `marketplace`; the console labels it "Community".
+  { method: 'GET', pattern: '/community/posts', requires: section('marketplace', 'VIEW') },
+  {
+    method: 'POST',
+    pattern: '/community/posts/:id/approve',
+    requires: section('marketplace', 'MANAGE'),
+  },
+  {
+    method: 'POST',
+    pattern: '/community/posts/:id/reject',
+    requires: section('marketplace', 'MANAGE'),
+  },
   { method: 'POST', pattern: '/marketplace/listings', requires: section('marketplace', 'MANAGE') },
-  {
-    method: 'POST',
-    pattern: '/marketplace/listings/:id/approve',
-    requires: section('marketplace', 'MANAGE'),
-  },
-  {
-    method: 'POST',
-    pattern: '/marketplace/listings/:id/reject',
-    requires: section('marketplace', 'MANAGE'),
-  },
   { method: 'PATCH', pattern: '/marketplace/listings/:id', requires: section('marketplace', 'MANAGE') },
   { method: 'DELETE', pattern: '/marketplace/listings/:id', requires: section('marketplace', 'MANAGE') },
 
