@@ -40,6 +40,24 @@ const VALID_BOOKING_TRANSITIONS: Record<BookingStatus, readonly BookingStatus[]>
 };
 
 /**
+ * Statuses in which an admin may still put a nanny on the booking or swap the
+ * one it has: unclaimed requests, and bookings that are approved or paid but
+ * not yet started. Once the nanny has checked in the assignment is history,
+ * not a plan. Consumed by the backend guard and the console's action menus so
+ * neither can offer what the other refuses.
+ */
+export const BOOKING_NANNY_ASSIGNABLE_STATUSES: ReadonlySet<BookingStatus> = new Set<BookingStatus>([
+  'PENDING',
+  'APPROVED',
+  'CONFIRMED',
+]);
+
+/** Non-throwing check over a status that may have come off the wire as a plain string. */
+export function canAssignBookingNanny(status: string): boolean {
+  return BOOKING_NANNY_ASSIGNABLE_STATUSES.has(status as BookingStatus);
+}
+
+/**
  * Non-throwing transition check. Takes plain strings because most callers hold
  * a status that came off the wire (`AdminBooking.status`) rather than a parsed
  * enum; an unknown status is simply not transitionable.

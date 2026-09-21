@@ -423,6 +423,52 @@ export const UpdateBookingTimesSchema = z.object({
 });
 export type UpdateBookingTimesInput = z.infer<typeof UpdateBookingTimesSchema>;
 
+/**
+ * Admin puts a nanny on a booking, or swaps the one it has
+ * (PATCH /admin/bookings/:id/nanny). On a PENDING request this also approves
+ * it — the same step a nanny's own claim performs.
+ */
+export const AssignBookingNannySchema = z.object({
+  nannyProfileId: z.number().int().positive(),
+});
+export type AssignBookingNannyInput = z.infer<typeof AssignBookingNannySchema>;
+
+/** Search for the nanny picker (GET /admin/bookings/:id/candidates). */
+export const AdminBookingCandidateQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .transform((s) => (s ? s : undefined)),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+});
+export type AdminBookingCandidateQuery = z.infer<typeof AdminBookingCandidateQuerySchema>;
+
+/**
+ * One row of the nanny picker: an approved nanny plus the verdicts an admin
+ * needs before choosing her. `conflict` is a hard block (the server refuses the
+ * assignment too); the other two are warnings the admin may knowingly override.
+ */
+export const AdminBookingCandidateSchema = z.object({
+  /** NannyProfile id — what PATCH /nanny takes. */
+  id: z.number().int(),
+  name: z.string(),
+  phone: z.string().nullable(),
+  /** Cached average rating; 0 until she has a review. */
+  rating: z.number(),
+  reviewCount: z.number().int(),
+  /** She already holds a booking overlapping this window. */
+  conflict: z.boolean(),
+  /** Names of the booking's skill add-ons she doesn't hold; empty when matching is off. */
+  missingSkills: z.array(z.string()),
+  /** Home-to-booking distance; null when either side has no coordinates. */
+  distanceKm: z.number().nullable(),
+  /** Beyond the configured broadcast radius (never true when radius is 0 or distance is null). */
+  outsideRadius: z.boolean(),
+});
+export type AdminBookingCandidate = z.infer<typeof AdminBookingCandidateSchema>;
+
 // ──────────────────────────────────────────────────────────────
 // Admin booking editor (edit inputs → re-price → settle the money delta)
 // ──────────────────────────────────────────────────────────────
