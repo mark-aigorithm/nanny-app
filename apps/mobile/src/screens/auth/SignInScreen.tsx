@@ -1,89 +1,94 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, TextInput, Pressable, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { useSignIn } from '@mobile/hooks/useAuth';
-import {
-  validatePhone,
-  validatePassword,
-  toE164,
-  phoneToPlaceholderEmail,
-} from '@mobile/lib/validation';
-import { Button, TextInputField } from '@mobile/components/ui';
+import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
+import { Button, OtpCodeInput } from '@mobile/components/ui';
+import { useSendPhoneOtp, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
+import { validatePhone, toE164 } from '@mobile/lib/validation';
+import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { styles } from './styles/sign-in-screen.styles';
 
 export default function SignInScreen() {
+  const router = useRouter();
   const [countryCode] = useState('+20');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const router = useRouter();
-  const signIn = useSignIn();
+  const sendOtp = useSendPhoneOtp();
+  const confirmSignIn = useConfirmPhoneSignIn();
 
-  function clearErrors() {
-    setPhoneError(null);
-    setPasswordError(null);
-    setFormError(null);
-  }
+  const phoneE164 = toE164(countryCode, phone);
+  const isCodePhase = confirmation !== null;
+
+  const sendCode = useCallback(
+    (forceResend?: boolean) => {
+      setFormError(null);
+      setPhoneError(null);
+      const phoneValidation = validatePhone(phone);
+      if (phoneValidation) {
+        setPhoneError(phoneValidation);
+        return;
+      }
+      sendOtp.mutate(
+        { phone: phoneE164, forceResend },
+        {
+          onSuccess: (result) => {
+            setConfirmation(result);
+            setSecondsLeft(RESEND_SECONDS);
+          },
+          onError: (err) => {
+            if (err.field === 'phone') setPhoneError(err.message);
+            else setFormError(err.message);
+          },
+        },
+      );
+    },
+    // `sendOtp` is a fresh object each render; the mutation itself is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [phone, phoneE164],
+  );
+
+  useEffect(() => {
+    if (!isCodePhase || secondsLeft <= 0) return undefined;
+    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [isCodePhase, secondsLeft]);
 
   function handleSignIn() {
-    clearErrors();
-
-    const phoneValidation = validatePhone(phone);
-    if (phoneValidation) {
-      setPhoneError(phoneValidation);
+    if (!confirmation) return;
+    setFormError(null);
+    if (code.length !== OTP_LENGTH) {
+      setFormError(`Enter the ${OTP_LENGTH}-digit code we sent you.`);
       return;
     }
-    const passwordValidation = validatePassword(password);
-    if (passwordValidation) {
-      setPasswordError(passwordValidation);
-      return;
-    }
-
-    // Sign-up is phone-only, backed by a phone-derived placeholder email in
-    // Firebase — sign in against that same synthesized credential.
-    const email = phoneToPlaceholderEmail(toE164(countryCode, phone));
-
-    signIn.mutate(
-      { email, password },
+    confirmSignIn.mutate(
+      { confirmation, code },
       {
-        onSuccess: () => {
-          // Bounce through the root gate so it can wait for /auth/me and
-          // route based on profile state (handles orphan-session + role).
-          router.replace('/');
-        },
+        onSuccess: () => router.replace('/'),
         onError: (err) => {
-          if (err.field === 'password') setPasswordError(err.message);
-          else if (err.field === 'phone') setPhoneError(err.message);
-          // 'email'/'form' fields have no dedicated input here (phone-only
-          // sign-in), so surface them as a form-level error.
-          else setFormError(err.message);
+          // A dead number sends her back to the phone field, not the code box.
+          // The message belongs under that field only — a form banner would
+          // just repeat it once she's looking at the phone phase again.
+          if (err.field === 'phone') {
+            setConfirmation(null);
+            setCode('');
+            setPhoneError(err.message);
+          } else {
+            setFormError(err.message);
+          }
         },
       },
     );
   }
 
-  function handleForgotPassword() {
-    router.push('/(auth)/forgot-password');
-  }
-
-  function handleSignUp() {
-    router.push('/(auth)/role-selection');
-  }
+  const resendDisabled = secondsLeft > 0 || sendOtp.isPending;
 
   return (
     <KeyboardAvoidingView
@@ -92,8 +97,6 @@ export default function SignInScreen() {
     >
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
-
-        {/* Decorative glow blobs */}
         <View style={styles.blobTopLeft} />
         <View style={styles.blobBottomRight} />
 
@@ -103,89 +106,98 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headline}>Welcome back</Text>
             <Text style={styles.subtitle}>
-              Sign in to continue your childcare journey.
+              {isCodePhase
+                ? `Enter the ${OTP_LENGTH}-digit code we sent to ${countryCode} ${phone}.`
+                : 'Sign in to continue your childcare journey.'}
             </Text>
           </View>
 
-          {/* Form */}
-          <View style={styles.form}>
-            {/* Phone field */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Phone</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.countryCodeBox}>
-                  <Text style={styles.countryCodeText}>{countryCode}</Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
+          {!isCodePhase ? (
+            <View style={styles.form}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Phone</Text>
+                <View style={styles.phoneRow}>
+                  <View style={styles.countryCodeBox}>
+                    <Text style={styles.countryCodeText}>{countryCode}</Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
+                  </View>
+                  <TextInput
+                    testID="signIn.phone"
+                    style={styles.phoneInput}
+                    value={phone}
+                    onChangeText={(val: string) => {
+                      setPhone(val);
+                      if (phoneError) setPhoneError(null);
+                      if (formError) setFormError(null);
+                    }}
+                    placeholder="100 000 0000"
+                    placeholderTextColor={colors.textPlaceholder}
+                    keyboardType="phone-pad"
+                    autoCorrect={false}
+                  />
                 </View>
-                <TextInput
-                  testID="signIn.phone"
-                  style={styles.phoneInput}
-                  value={phone}
-                  onChangeText={(val: string) => {
-                    setPhone(val);
-                    if (phoneError) setPhoneError(null);
-                    if (formError) setFormError(null);
-                  }}
-                  placeholder="100 000 0000"
-                  placeholderTextColor={colors.textPlaceholder}
-                  keyboardType="phone-pad"
-                  autoCorrect={false}
-                />
+                {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
               </View>
-              {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
             </View>
-
-            {/* Password field */}
-            <View style={styles.fieldGroup}>
-              <TextInputField
-                testID="signIn.password"
-                label="Password"
-                value={password}
-                onChangeText={(val: string) => {
-                  setPassword(val);
-                  if (passwordError) setPasswordError(null);
+          ) : (
+            <View style={styles.form}>
+              <OtpCodeInput
+                testID="signIn.code"
+                value={code}
+                onChange={(val) => {
+                  setCode(val);
                   if (formError) setFormError(null);
                 }}
-                placeholder="••••••••"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                error={passwordError}
+                disabled={confirmSignIn.isPending}
               />
-
-              {/* Forgot password link */}
-              <View style={styles.passwordMeta}>
-                <View />
-                <Pressable onPress={handleForgotPassword} hitSlop={8}>
-                  <Text style={styles.forgotLink}>Forgot password?</Text>
+              <View style={styles.resendRow}>
+                <Text style={styles.timerText}>
+                  {sendOtp.isPending ? 'Sending code…' : "Didn't get a code?"}
+                </Text>
+                <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
+                  <Text style={[styles.resendLink, resendDisabled && styles.resendLinkDisabled]}>
+                    {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : 'Resend code'}
+                  </Text>
                 </Pressable>
               </View>
             </View>
-          </View>
+          )}
 
-          {/* Form-level error banner */}
           {formError && (
             <View style={styles.formErrorBanner}>
               <Text style={styles.formErrorText}>{formError}</Text>
             </View>
           )}
 
-          {/* Sign in button */}
           <Button
-            title={signIn.isPending ? 'Signing in…' : 'Sign in'}
-            onPress={handleSignIn}
+            title={
+              isCodePhase
+                ? confirmSignIn.isPending
+                  ? 'Signing in…'
+                  : 'Sign in'
+                : sendOtp.isPending
+                  ? 'Sending…'
+                  : 'Send code'
+            }
+            onPress={isCodePhase ? handleSignIn : () => sendCode()}
             variant="primary"
             fullWidth
-            disabled={signIn.isPending}
+            disabled={isCodePhase ? confirmSignIn.isPending : sendOtp.isPending}
           />
 
-          {/* Footer */}
-          <Pressable style={styles.footerRow} onPress={handleSignUp}>
-            <Text style={styles.footerLabel}>Don't have an account? </Text>
+          <Pressable
+            style={styles.altDoorRow}
+            onPress={() => router.push('/(auth)/sign-in-email')}
+            hitSlop={8}
+          >
+            <Text style={styles.altDoorLink}>Sign in with email and password instead</Text>
+          </Pressable>
+
+          <Pressable style={styles.footerRow} onPress={() => router.push('/(auth)/role-selection')}>
+            <Text style={styles.footerLabel}>Don&apos;t have an account? </Text>
             <Text style={styles.footerLink}>Sign up</Text>
           </Pressable>
         </ScrollView>

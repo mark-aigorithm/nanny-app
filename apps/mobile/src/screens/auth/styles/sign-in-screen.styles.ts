@@ -104,16 +104,35 @@ export const styles = StyleSheet.create({
     color: colors.error,
   },
 
-  // Password meta row
-  passwordMeta: {
+  // Resend row — verbatim from forgot-password-screen.styles.ts so the two
+  // OTP panes (sign-in, password reset) look identical.
+  resendRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 18,
   },
-  forgotLink: {
+  resendLink: {
     ...typeScale.labelMd,
     color: colors.primary,
+  },
+  resendLinkDisabled: {
+    color: colors.textPlaceholder,
+  },
+  timerText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+
+  // Link to the secondary (email/password) sign-in door
+  altDoorRow: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  altDoorLink: {
+    fontFamily: fontFamily.bold,
+    fontSize: 14,
+    color: colors.primaryDark,
   },
 
   // Form-level error banner

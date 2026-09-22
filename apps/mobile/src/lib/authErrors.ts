@@ -17,11 +17,6 @@ function isFirebaseError(error: unknown): error is FirebaseErrorShape {
 }
 
 export function mapFirebaseAuthError(error: unknown): MappedAuthError {
-  // Log the raw error so it shows up in the Metro terminal / JS console.
-  // Remove this before shipping.
-  // eslint-disable-next-line no-console
-  console.error('[auth] Firebase error:', error);
-
   if (!isFirebaseError(error)) {
     const msg =
       error instanceof Error ? error.message : String(error);
@@ -35,7 +30,7 @@ export function mapFirebaseAuthError(error: unknown): MappedAuthError {
       return { field: 'email', message: "We couldn't find an account with those details." };
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return { field: 'password', message: 'Incorrect phone number or password.' };
+      return { field: 'password', message: 'Incorrect email or password.' };
     case 'auth/email-already-in-use':
       return { field: 'email', message: 'An account with this email already exists.' };
     case 'auth/weak-password':
@@ -63,11 +58,6 @@ export function mapFirebaseAuthError(error: unknown): MappedAuthError {
         message: 'Network error. Check your connection and try again.',
       };
     default:
-      // Surface the raw code so we can see what's actually going wrong.
-      // Replace with the generic message before shipping.
-      return {
-        field: 'form',
-        message: `Auth error: ${error.code}`,
-      };
+      return { field: 'form', message: 'Something went wrong. Please try again.' };
   }
 }

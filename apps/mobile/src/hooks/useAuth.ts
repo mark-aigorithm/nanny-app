@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import type {
   AvailabilityResponse,
   CheckAvailabilityRequest,
@@ -11,12 +12,13 @@ import type {
 
 import { auth } from '@mobile/lib/firebase';
 import type { PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
-import { api, unwrap } from '@mobile/lib/api';
+import { api, getApiErrorMessage, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
-export function useSignIn() {
+/** Signs in with the email/password credential. The secondary door. */
+export function useSignInWithEmail() {
   return useMutation<
     UserCredential,
     MappedAuthError,
@@ -24,9 +26,55 @@ export function useSignIn() {
   >({
     mutationFn: async ({ email, password }) => {
       try {
-        return await auth().signInWithEmailAndPassword(email.trim(), password);
+        return await auth().signInWithEmailAndPassword(email.trim().toLowerCase(), password);
       } catch (error) {
         throw mapFirebaseAuthError(error);
+      }
+    },
+  });
+}
+
+/**
+ * Finishes the default door: check the SMS code, then make sure the number
+ * actually belongs to an account.
+ *
+ * Confirming a code *is* a sign-in, so Firebase mints a phone-only account for
+ * a number it has never seen — invisible to the email door and unusable by
+ * "reset password", which is how an account once looked deleted while its row
+ * survived. A 404 from /auth/me is that case: delete what we just created and
+ * say so, rather than leaving a stray uid squatting on the number.
+ */
+export function useConfirmPhoneSignIn() {
+  return useMutation<void, MappedAuthError, { confirmation: PhoneConfirmation; code: string }>({
+    mutationFn: async ({ confirmation, code }) => {
+      try {
+        await confirmation.confirm(code);
+      } catch (error) {
+        throw mapFirebaseAuthError(error);
+      }
+
+      const user = auth().currentUser;
+      if (!user) {
+        throw {
+          field: 'form',
+          message: 'Your code was verified but the session was lost. Please try again.',
+        } satisfies MappedAuthError;
+      }
+
+      try {
+        await api.get('/auth/me');
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          await user.delete();
+          throw {
+            field: 'phone',
+            message: "We couldn't find an account for that number. Sign up first.",
+          } satisfies MappedAuthError;
+        }
+        throw {
+          field: 'form',
+          message: getApiErrorMessage(error, 'Could not sign you in. Please try again.'),
+        } satisfies MappedAuthError;
       }
     },
   });
