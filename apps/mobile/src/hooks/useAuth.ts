@@ -65,7 +65,14 @@ export function useConfirmPhoneSignIn() {
         await api.get('/auth/me');
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 404) {
-          await user.delete();
+          // Best-effort cleanup. If the delete itself fails we must still not
+          // leave her signed in as an account the backend does not know — sign
+          // out instead, and let registration re-confirm into the same uid.
+          try {
+            await user.delete();
+          } catch {
+            await auth().signOut().catch(() => undefined);
+          }
           throw {
             field: 'phone',
             message: "We couldn't find an account for that number. Sign up first.",
