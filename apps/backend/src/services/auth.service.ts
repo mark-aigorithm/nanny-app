@@ -18,7 +18,7 @@ import {
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import type { DecodedIdToken } from '@backend/lib/firebase';
+import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
 import { consumeVerificationToken } from '@backend/services/email-verification.service';
@@ -228,6 +228,10 @@ export async function registerUser(
     return { user, home };
   });
 
+  // Our own OTP proved the address inside the transaction above; keep
+  // Firebase's copy of that fact in step, so reset mail is never held back.
+  await firebaseAuth.updateUser(decoded.uid, { emailVerified: true });
+
   return toUserResponse(created.user, {
     address: created.home.formattedAddress,
     latitude: created.home.latitude,
@@ -333,6 +337,27 @@ export async function updateProfile(
 }
 
 /**
+ * Moves the account's Firebase address to the one she just proved.
+ *
+ * Firebase keys the password credential by email, so this is what makes
+ * `sendPasswordResetEmail` reach a real inbox — and it is the migration path
+ * for accounts created while the credential was a phone-derived placeholder.
+ * Called *before* the token is spent: a refusal here must leave the token
+ * spendable so a retry can succeed.
+ */
+async function moveFirebaseEmail(uid: string, email: string): Promise<void> {
+  try {
+    await firebaseAuth.updateUser(uid, { email, emailVerified: true });
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === 'auth/email-already-exists') {
+      throw errors.conflict('An account with this email already exists.');
+    }
+    throw err;
+  }
+}
+
+/**
  * Attaches a proven email address to the signed-in user, spending the token
  * issued by `POST /auth/email/verify`. Registration now proves the address for
  * both roles, so this serves accounts created before that: they carry a
@@ -361,6 +386,9 @@ export async function setVerifiedEmail(
   if (emailOwner) {
     throw errors.conflict('An account with this email already exists.');
   }
+
+  // Firebase first: a failure here must not burn the token.
+  await moveFirebaseEmail(user.firebaseUid, body.email);
 
   await consumeVerificationToken(body.email, body.verificationToken);
 

@@ -8,6 +8,10 @@ jest.mock('@backend/db/prisma', () => ({
   },
 }));
 
+jest.mock('@backend/lib/firebase', () => ({
+  firebaseAuth: { updateUser: jest.fn() },
+}));
+
 // Registration spends an email verification token for both roles; the token
 // path itself is covered by auth-register-nanny-profile.test.ts.
 jest.mock('@backend/services/email-verification.service', () => ({

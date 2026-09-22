@@ -13,6 +13,10 @@ jest.mock('@backend/db/prisma', () => ({
   },
 }));
 
+jest.mock('@backend/lib/firebase', () => ({
+  firebaseAuth: { updateUser: jest.fn() },
+}));
+
 jest.mock('@backend/services/certification.service', () => ({
   reconcileNannyCertifications: jest.fn().mockResolvedValue(undefined),
 }));
