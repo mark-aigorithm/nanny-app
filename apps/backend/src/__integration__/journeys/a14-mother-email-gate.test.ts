@@ -16,6 +16,7 @@ import request from 'supertest';
 
 import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
+import { firebaseAuth } from '@backend/lib/firebase';
 
 import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
 import { makeMother } from '../../../test/factories';
@@ -154,6 +155,12 @@ describe('A14 — accounts created before the rule', () => {
     expect(row.email).toBe(mother.realEmail);
     expect(row.isEmailVerified).toBe(true);
     expect(row.emailVerifiedAt).not.toBeNull();
+
+    // The whole point of the gate now: Firebase must hold the real address, or
+    // sendPasswordResetEmail has nowhere to send.
+    const fbUser = await firebaseAuth.getUser(mother.firebaseUid);
+    expect(fbUser.email).toBe(mother.realEmail);
+    expect(fbUser.emailVerified).toBe(true);
 
     expect((await attemptBooking(mother.token)).status).toBe(201);
   });
