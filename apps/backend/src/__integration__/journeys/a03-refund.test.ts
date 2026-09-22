@@ -6,6 +6,11 @@
  * edit the booking down, then give the difference back — either to the card
  * (a real refund call to the Paymob fake, accumulated on the original
  * transaction) or as Care Points.
+ *
+ * Both routes have to close the overpayment, not just move money: points that
+ * left the figure untouched would let the same difference go back a second time
+ * to the card, and would make a later edit back up to the original length look
+ * like it cost her nothing.
  */
 import { PaymentStatus } from '@prisma/client';
 import request from 'supertest';
@@ -124,17 +129,25 @@ describe('A3 — refund a paid booking', () => {
   });
 
   it('can settle the overpayment as Care Points instead of money', async () => {
-    const { mother, admin, booking, session } = await paidBookingWithOverpayment();
+    const { mother, admin, booking, session, settlement } = await paidBookingWithOverpayment();
+    const refundable = settlement.refundableAmount;
 
     const result = (await refundBooking(admin.token, booking.id, {
       method: 'CARE_POINTS',
       points: 250,
       reason: 'Goodwill for the change.',
-    })) as { method: string; refundedAmount: number | null; grantedPoints: number };
+    })) as {
+      method: string;
+      refundedAmount: number | null;
+      grantedPoints: number;
+      settledAmount: number;
+    };
 
     expect(result.method).toBe('CARE_POINTS');
     expect(result.grantedPoints).toBe(250);
     expect(result.refundedAmount).toBeNull();
+    // How many points is the admin's call; the EGP it settles is the overpayment.
+    expect(result.settledAmount).toBe(refundable);
 
     // No money moved — the card payment is untouched.
     const payment = await prisma.payment.findUniqueOrThrow({ where: { id: session.paymentId } });
@@ -146,5 +159,52 @@ describe('A3 — refund a paid booking', () => {
       .set(...authHeader(mother.token));
     expect(wallet.status).toBe(200);
     expect(wallet.body.data).toMatchObject({ pointsBalance: 250, lifetimeEarned: 250 });
+
+    // The booking records what was settled, so the console stops offering it...
+    const detail = await getAdminBookingDetail(admin.token, booking.id);
+    expect(detail.refundedAsPointsAmount).toBe(refundable);
+    expect(detail.refundedAsPointsAt).not.toBeNull();
+    expect(detail.refundableAmount).toBe(0);
+
+    // ...and the same money cannot then also go back to her card.
+    await expect(
+      refundBooking(admin.token, booking.id, { method: 'PAYMOB', reason: 'And the cash too.' }),
+    ).rejects.toThrow(/400/);
+
+    // The ledger entry names the booking whose overpayment it settled.
+    const entry = await prisma.rewardLedgerEntry.findFirstOrThrow({
+      where: { userId: mother.id, type: 'ADMIN_GRANT' },
+    });
+    expect(entry.bookingId).toBe(booking.id);
+  });
+
+  it('charges the settled amount back when the booking is priced up again', async () => {
+    // The mother is made whole with points, then the booking grows back to its
+    // original length. The points were a real refund, so she owes that money
+    // again — the cash she paid no longer covers the new total on its own.
+    const { admin, booking, settlement } = await paidBookingWithOverpayment();
+    const refundable = settlement.refundableAmount;
+
+    await refundBooking(admin.token, booking.id, {
+      method: 'CARE_POINTS',
+      points: 250,
+      reason: 'Goodwill for the change.',
+    });
+
+    const { settlement: reRaised } = await editBooking(admin.token, booking.id, {
+      startTime: wallClockTomorrow(START_HOUR),
+      endTime: wallClockTomorrow(START_HOUR + 6),
+      children: CHILDREN,
+      skillIds: [],
+    });
+
+    expect(reRaised.refundedAsPointsAmount).toBe(refundable);
+    expect(reRaised.balanceDueAmount).toBe(refundable);
+    expect(reRaised.adjustmentId).not.toBeNull();
+
+    const adjustment = await prisma.bookingAdjustment.findFirstOrThrow({
+      where: { bookingId: booking.id },
+    });
+    expect(Number(adjustment.amountEgp)).toBe(refundable);
   });
 });

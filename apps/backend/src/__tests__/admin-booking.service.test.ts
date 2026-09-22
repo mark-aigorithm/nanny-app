@@ -34,8 +34,10 @@ import {
   approveBooking,
   getAdminBooking,
   listAdminBookings,
+  netAmountPaid,
   rejectBooking,
   setBookingStatus,
+  sumCapturedPaid,
   updateBookingTimes,
 } from '@backend/services/admin-booking.service';
 
@@ -84,6 +86,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     // them — and the detail DTO calls .toNumber() on both.
     rewardCreditHoursApplied: dec(0),
     packageHoursApplied: dec(0),
+    refundedAsPointsAmount: dec(0),
+    refundedAsPointsAt: null,
     selectedSkillFees: [],
     specialInstructions: null,
     cancellationReason: null,
@@ -319,6 +323,31 @@ describe('listAdminBookings (paginated)', () => {
   });
 });
 
+describe('netAmountPaid', () => {
+  const captured = (amount: number, refunded = 0) =>
+    ({ amount: dec(amount), refundedAmount: dec(refunded), status: 'CAPTURED' }) as never;
+
+  it('takes an overpayment returned as points off what she has effectively paid', () => {
+    const booking = { payments: [captured(600)], refundedAsPointsAmount: dec(200) } as never;
+
+    // The cash figure is unchanged — only the net one moves.
+    expect(sumCapturedPaid([captured(600)])).toBe(600);
+    expect(netAmountPaid(booking)).toBe(400);
+  });
+
+  it('stacks with a card refund on the same booking', () => {
+    const booking = { payments: [captured(600, 100)], refundedAsPointsAmount: dec(200) } as never;
+
+    expect(netAmountPaid(booking)).toBe(300);
+  });
+
+  it('is just the cash when nothing was settled as points', () => {
+    const booking = { payments: [captured(318)], refundedAsPointsAmount: dec(0) } as never;
+
+    expect(netAmountPaid(booking)).toBe(318);
+  });
+});
+
 describe('getAdminBooking (detail)', () => {
   it('returns the full breakdown, payment record, and a null pointsRedeemed', async () => {
     mockPrisma.booking.findFirst.mockResolvedValue(
@@ -422,6 +451,42 @@ describe('getAdminBooking (detail)', () => {
     expect(dto.refundableAmount).toBe(68);
     // The payment card still shows the newest attempt.
     expect(dto.payment?.paymobTransactionId).toBe('txn-2');
+  });
+
+  it('stops reporting an overpayment that was settled as Care Points', async () => {
+    // The same 106 overpayment as above, given back as points instead of money.
+    // It is no longer refundable, but the page still has to say where it went.
+    const settledAt = new Date('2026-08-02T09:00:00.000Z');
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({
+        totalAmount: dec(212),
+        payments: [capturedPayment(318)],
+        refundedAsPointsAmount: dec(106),
+        refundedAsPointsAt: settledAt,
+      }),
+    );
+
+    const dto = await getAdminBooking(4);
+
+    // amountPaid stays the cash she handed over; the points come off separately.
+    expect(dto.amountPaid).toBe(318);
+    expect(dto.refundedAsPointsAmount).toBe(106);
+    expect(dto.refundedAsPointsAt).toBe(settledAt.toISOString());
+    expect(dto.refundableAmount).toBe(0);
+  });
+
+  it('offers back only the part of an overpayment not yet settled as points', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(
+      makeRow({
+        totalAmount: dec(212),
+        payments: [capturedPayment(318)],
+        refundedAsPointsAmount: dec(40),
+      }),
+    );
+
+    const dto = await getAdminBooking(4);
+
+    expect(dto.refundableAmount).toBe(66); // 318 − 40 − 212
   });
 
   it('reports nothing refundable while the booking is unpaid or paid exactly', async () => {

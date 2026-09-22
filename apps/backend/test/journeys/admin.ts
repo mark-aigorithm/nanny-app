@@ -107,6 +107,8 @@ export function applyBookingEdit(token: string, bookingId: number, input: object
 export type EditSettlement = {
   delta: number;
   amountPaid: number;
+  /** Of `amountPaid`, what already went back to her as Care Points. */
+  refundedAsPointsAmount: number;
   refundableAmount: number;
   balanceDueAmount: number;
   adjustmentId: number | null;

@@ -29,7 +29,11 @@ import {
   assertNoConflict,
   computeDurationHours,
 } from '@backend/services/booking.service';
-import { getAdminBooking, sumCapturedPaid } from '@backend/services/admin-booking.service';
+import {
+  getAdminBooking,
+  netAmountPaid,
+  sumCapturedPaid,
+} from '@backend/services/admin-booking.service';
 import {
   buildBreakdown,
   getPricingInputs,
@@ -40,7 +44,7 @@ import {
   applyBookingRedemption,
   getOrCreateWallet,
   getRewardConfig,
-  grantPoints,
+  grantPointsInTx,
   refundBookingRedemption,
 } from '@backend/services/reward.service';
 import {
@@ -476,13 +480,15 @@ export async function previewBookingEdit(
   const plan = await buildEditPlan(prisma, booking, input);
 
   const amountPaid = sumCapturedPaid(booking.payments);
-  const rawDelta = round2(plan.simFinalTotal - amountPaid);
+  const refundedAsPointsAmount = num(booking.refundedAsPointsAmount);
+  const rawDelta = round2(plan.simFinalTotal - netAmountPaid(booking));
   const delta = Math.abs(rawDelta) < 0.01 ? 0 : rawDelta;
 
   return {
     old: summaryFromBooking(booking as never),
     new: summaryFromPlan(plan),
     amountPaid,
+    refundedAsPointsAmount,
     delta,
     refundableAmount: Math.max(0, round2(-delta)),
     balanceDueAmount: Math.max(0, round2(delta)),
@@ -638,7 +644,10 @@ export async function applyBookingEdit(
     });
 
     const amountPaid = sumCapturedPaid(booking.payments);
-    const rawDelta = round2(finalTotal - amountPaid);
+    const refundedAsPointsAmount = num(booking.refundedAsPointsAmount);
+    // Against the NET paid figure: an overpayment already settled as Care Points
+    // is money she has had back, so raising the price again has to charge it.
+    const rawDelta = round2(finalTotal - netAmountPaid(booking));
     const delta = Math.abs(rawDelta) < 0.01 ? 0 : rawDelta;
 
     const newSummary: BookingMoneySummary = {
@@ -676,6 +685,7 @@ export async function applyBookingEdit(
     return {
       delta,
       amountPaid,
+      refundedAsPointsAmount,
       adjustmentId,
       oldSummary,
       newSummary,
@@ -721,6 +731,7 @@ export async function applyBookingEdit(
     settlement: {
       delta: result.delta,
       amountPaid: result.amountPaid,
+      refundedAsPointsAmount: result.refundedAsPointsAmount,
       refundableAmount: Math.max(0, round2(-result.delta)),
       balanceDueAmount: Math.max(0, round2(result.delta)),
       adjustmentId: result.adjustmentId,
@@ -737,17 +748,18 @@ export async function refundBooking(
   const adminId = await resolveAdminId(adminFirebaseUid);
   const booking = await loadEditBooking(id);
 
-  const amountPaid = sumCapturedPaid(booking.payments);
-  const refundable = round2(amountPaid - num(booking.totalAmount));
+  // Net of anything already settled as points — that money is back with her, so
+  // it is not refundable a second time by either method.
+  const refundable = round2(netAmountPaid(booking) - num(booking.totalAmount));
   if (refundable <= EPSILON) {
     throw errors.badRequest('There is no overpayment to refund on this booking.');
   }
+  const amount = round2(input.amount ?? refundable);
+  if (amount > refundable + EPSILON) {
+    throw errors.badRequest(`The refund cannot exceed the overpaid amount (${money(refundable)}).`);
+  }
 
   if (input.method === 'PAYMOB') {
-    const amount = round2(input.amount ?? refundable);
-    if (amount > refundable + EPSILON) {
-      throw errors.badRequest(`The refund cannot exceed the overpaid amount (${money(refundable)}).`);
-    }
     await refundBookingPayment({ bookingId: id, amountEgp: amount });
     await notifyBookingParty(
       booking.mother.id,
@@ -758,16 +770,41 @@ export async function refundBooking(
       id,
     );
     const detail = await getAdminBooking(id);
-    return { method: 'PAYMOB', refundedAmount: amount, grantedPoints: null, booking: detail };
+    return {
+      method: 'PAYMOB',
+      refundedAmount: amount,
+      grantedPoints: null,
+      settledAmount: amount,
+      booking: detail,
+    };
   }
 
-  // CARE_POINTS — admin-entered custom points (no fixed EGP→points conversion).
+  // CARE_POINTS — the admin chooses how many points are fair; what the booking
+  // records is the EGP of overpayment they settle, so the same money can't also
+  // go back to the card. Points and record move together or not at all.
   const points = input.points!;
-  await grantPoints({
-    userId: booking.mother.id,
-    points,
-    reason: `Booking refund: ${input.reason}`,
-    adminId,
+  await prisma.$transaction(async (tx) => {
+    await grantPointsInTx(tx, {
+      userId: booking.mother.id,
+      points,
+      reason: `Booking refund: ${input.reason}`,
+      adminId,
+      bookingId: id,
+    });
+    // Guarded on the figure this refund was priced against: a second settlement
+    // racing this one finds it changed and is turned away rather than stacking.
+    const settled = await tx.booking.updateMany({
+      where: { id, refundedAsPointsAmount: booking.refundedAsPointsAmount, deletedAt: null },
+      data: {
+        refundedAsPointsAmount: round2(num(booking.refundedAsPointsAmount) + amount),
+        refundedAsPointsAt: new Date(),
+        adminActionById: adminId,
+        adminActionAt: new Date(),
+      },
+    });
+    if (settled.count === 0) {
+      throw errors.conflict('This booking was refunded elsewhere. Reload and try again.');
+    }
   });
   await notifyBookingParty(
     booking.mother.id,
@@ -778,5 +815,11 @@ export async function refundBooking(
     id,
   );
   const detail = await getAdminBooking(id);
-  return { method: 'CARE_POINTS', refundedAmount: null, grantedPoints: points, booking: detail };
+  return {
+    method: 'CARE_POINTS',
+    refundedAmount: null,
+    grantedPoints: points,
+    settledAmount: amount,
+    booking: detail,
+  };
 }

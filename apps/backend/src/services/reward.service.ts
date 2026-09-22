@@ -376,6 +376,46 @@ export async function getMyHistory(
 
 // ── Admin: manual grant / revoke ───────────────────────────────
 
+/**
+ * The wallet half of an admin grant/revoke, inside a caller's transaction: move
+ * the balance and write the ledger entry. Split out of grantPoints so a caller
+ * that must record something of its own alongside the points — settling a
+ * booking overpayment, say — can do both or neither. Sends no notification; the
+ * caller owns what the user is told.
+ */
+export async function grantPointsInTx(
+  tx: Prisma.TransactionClient,
+  input: { userId: number; points: number; reason: string; adminId: number; bookingId?: number },
+): Promise<WalletRow> {
+  const wallet = await getOrCreateWallet(input.userId, tx);
+  // Clamp a revoke so the balance never goes negative.
+  const delta = Math.max(input.points, -wallet.pointsBalance);
+  if (delta === 0) {
+    throw errors.badRequest('This user has no Care Points to revoke.');
+  }
+  const balanceAfter = wallet.pointsBalance + delta;
+  const row = await tx.rewardWallet.update({
+    where: { id: wallet.id },
+    data: {
+      pointsBalance: balanceAfter,
+      ...(delta > 0 ? { lifetimeEarned: { increment: delta } } : {}),
+    },
+  });
+  await tx.rewardLedgerEntry.create({
+    data: {
+      walletId: wallet.id,
+      userId: input.userId,
+      type: delta > 0 ? 'ADMIN_GRANT' : 'ADMIN_REVOKE',
+      points: delta,
+      balanceAfter,
+      reason: input.reason,
+      adminId: input.adminId,
+      bookingId: input.bookingId ?? null,
+    },
+  });
+  return row;
+}
+
 /** Admin credits (positive) or debits (negative) a user's points balance. */
 export async function grantPoints(input: {
   userId: number;
@@ -390,34 +430,7 @@ export async function grantPoints(input: {
   if (!user) throw errors.notFound('User not found');
 
   const isGrant = input.points > 0;
-  const updated = await prisma.$transaction(async (tx) => {
-    const wallet = await getOrCreateWallet(input.userId, tx);
-    // Clamp a revoke so the balance never goes negative.
-    const delta = Math.max(input.points, -wallet.pointsBalance);
-    if (delta === 0) {
-      throw errors.badRequest('This user has no Care Points to revoke.');
-    }
-    const balanceAfter = wallet.pointsBalance + delta;
-    const row = await tx.rewardWallet.update({
-      where: { id: wallet.id },
-      data: {
-        pointsBalance: balanceAfter,
-        ...(delta > 0 ? { lifetimeEarned: { increment: delta } } : {}),
-      },
-    });
-    await tx.rewardLedgerEntry.create({
-      data: {
-        walletId: wallet.id,
-        userId: input.userId,
-        type: delta > 0 ? 'ADMIN_GRANT' : 'ADMIN_REVOKE',
-        points: delta,
-        balanceAfter,
-        reason: input.reason,
-        adminId: input.adminId,
-      },
-    });
-    return row;
-  });
+  const updated = await prisma.$transaction((tx) => grantPointsInTx(tx, input));
 
   await notifyPoints(
     input.userId,

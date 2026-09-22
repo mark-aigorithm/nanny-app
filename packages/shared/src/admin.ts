@@ -380,7 +380,13 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   /** Money the mother has paid and kept, across every captured payment (amount − refunded). */
   amountPaid: z.number(),
   /**
-   * How much of `amountPaid` exceeds the current total — what an admin can still
+   * Overpayment already returned to her as Care Points rather than to her card,
+   * and when it was last settled that way. Netted out of `amountPaid` below.
+   */
+  refundedAsPointsAmount: z.number(),
+  refundedAsPointsAt: z.string().nullable(),
+  /**
+   * `amountPaid − refundedAsPointsAmount − totalAmount` — what an admin can still
    * give back (POST .../refund). Non-zero after an edit lowered the price and the
    * refund follow-up was skipped or failed; 0 otherwise.
    */
@@ -563,7 +569,12 @@ export const AdminEditPreviewResponseSchema = z.object({
   new: BookingMoneySummarySchema,
   /** Sum of captured payments (amount − refundedAmount) tied to the booking. */
   amountPaid: z.number(),
-  /** new.totalAmount − amountPaid. Negative = overpaid (refundable); positive = owes. */
+  /** Of that, what was already returned as Care Points — netted out of the delta below. */
+  refundedAsPointsAmount: z.number(),
+  /**
+   * `new.totalAmount − (amountPaid − refundedAsPointsAmount)`. Negative = overpaid
+   * (refundable); positive = owes.
+   */
   delta: z.number(),
   refundableAmount: z.number(),
   balanceDueAmount: z.number(),
@@ -597,8 +608,10 @@ export type AdminBookingEditContext = z.infer<typeof AdminBookingEditContextSche
 
 /** Settlement summary attached to the commit / refund responses. */
 export const BookingSettlementSchema = z.object({
+  /** Measured against the net paid figure (amountPaid − refundedAsPointsAmount). */
   delta: z.number(),
   amountPaid: z.number(),
+  refundedAsPointsAmount: z.number(),
   refundableAmount: z.number(),
   balanceDueAmount: z.number(),
   /** The BookingAdjustment id created when the mother owes more; null otherwise. */
@@ -614,15 +627,19 @@ export type AdminEditCommitResponse = z.infer<typeof AdminEditCommitResponseSche
 
 /**
  * Refund a booking overpayment (POST /admin/bookings/:id/refund).
- * PAYMOB: money back to the card via Paymob's refund API (amount defaults to the
- * full refundable amount). CARE_POINTS: the admin grants a custom number of
- * points — the EGP charge-difference is shown in the UI only for reference, so
- * there is no fixed EGP→points conversion here.
+ * PAYMOB: money back to the card via Paymob's refund API. CARE_POINTS: the admin
+ * grants a custom number of points — how many is their call, so there is no fixed
+ * EGP→points conversion. Either way the booking records the EGP settled, so the
+ * same overpayment can't then be given back a second time.
  */
 export const AdminRefundBookingSchema = z
   .object({
     method: z.enum(['PAYMOB', 'CARE_POINTS']),
-    /** EGP to refund via Paymob. Omit to refund the full refundable amount. */
+    /**
+     * EGP of the overpayment this refund settles. Omit to settle all of it.
+     * PAYMOB moves exactly this much to the card; CARE_POINTS records it as
+     * settled while the mother is credited `points` instead.
+     */
     amount: z.number().positive().optional(),
     /** Care Points to grant (CARE_POINTS only). */
     points: z.number().int().positive().optional(),
@@ -645,6 +662,8 @@ export const AdminRefundResponseSchema = z.object({
   refundedAmount: z.number().nullable(),
   /** Points granted (CARE_POINTS); null for a Paymob refund. */
   grantedPoints: z.number().int().nullable(),
+  /** EGP of overpayment this refund settled — set on both methods. */
+  settledAmount: z.number(),
   booking: AdminBookingDetailSchema,
 });
 export type AdminRefundResponse = z.infer<typeof AdminRefundResponseSchema>;

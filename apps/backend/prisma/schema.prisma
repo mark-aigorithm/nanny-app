@@ -751,7 +751,10 @@ model RewardLedgerEntry {
   /// Running balance immediately after this entry was applied.
   balanceAfter Int             @map("balance_after")
   reason       String?
-  /// Set on EARN entries (the booking that generated the points).
+  /// The booking these points came from: the one that generated them on an EARN
+  /// entry, or — on an ADMIN_GRANT made as a booking refund — the one whose
+  /// overpayment they settled. awardPointsForBooking's idempotency check filters
+  /// on type EARN, so the two never collide.
   bookingId    Int?            @map("booking_id")
   /// Set instead of bookingId when points were spent on a mid-shift extension,
   /// so an extension's REDEEM is distinguishable from the parent booking's own.
@@ -856,6 +859,14 @@ model Booking {
   rewardCreditHoursApplied Decimal              @default(0) @map("reward_credit_hours_applied") @db.Decimal(6, 2)
   rewardCreditPoints       Int                  @default(0) @map("reward_credit_points")
   rewardCreditAmount       Decimal              @default(0) @map("reward_credit_amount") @db.Decimal(10, 2)
+  /// Overpayment on this booking that was returned to the mother as Care Points
+  /// instead of to her card, and when. Netted out of what she has effectively
+  /// paid exactly as Payment.refundedAmount is — so the refund guard stops
+  /// offering money she already had back, and a later edit that raises the
+  /// price charges it back instead of treating it as covered. Accumulates
+  /// across settlements. See refundBooking in admin-booking-edit.service.
+  refundedAsPointsAmount   Decimal              @default(0) @map("refunded_as_points_amount") @db.Decimal(10, 2)
+  refundedAsPointsAt       DateTime?            @map("refunded_as_points_at")
   /// Package hours ("bucket") redeemed against this booking before payment,
   /// the skill add-ons those hours covered, and their monetary value (folded
   /// into discountAmount). See PackagePurchase / PackageHoursLedger.

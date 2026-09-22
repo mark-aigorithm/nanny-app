@@ -96,6 +96,24 @@ export function sumCapturedPaid(
   return round2(paid);
 }
 
+/**
+ * What the mother has effectively paid for the booking: the cash she has kept,
+ * less any overpayment already returned to her as Care Points.
+ *
+ * A points settlement gives money back just as a card refund does, so it belongs
+ * on the same side of every comparison — otherwise the refund guard keeps
+ * offering an overpayment that has been settled, and an edit that raises the
+ * price again treats the settled amount as still covering it. This, not
+ * sumCapturedPaid, is what the refundable figure and the editor's delta measure
+ * against.
+ */
+export function netAmountPaid(booking: {
+  payments: { amount: Prisma.Decimal; refundedAmount: Prisma.Decimal; status: PaymentStatus }[];
+  refundedAsPointsAmount: Prisma.Decimal;
+}): number {
+  return round2(sumCapturedPaid(booking.payments) - booking.refundedAsPointsAmount.toNumber());
+}
+
 export function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
 }
@@ -117,7 +135,8 @@ function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAd
 function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
   const amountPaid = sumCapturedPaid(row.payments);
-  const refundableAmount = Math.max(0, round2(amountPaid - row.totalAmount.toNumber()));
+  const refundedAsPointsAmount = row.refundedAsPointsAmount.toNumber();
+  const refundableAmount = Math.max(0, round2(netAmountPaid(row) - row.totalAmount.toNumber()));
   // Decided here, not in the browser: the admin's clock must not be what says
   // whether the code the parent is reading out is still good.
   const livePinExpiresAt =
@@ -187,6 +206,8 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
         }
       : null,
     amountPaid,
+    refundedAsPointsAmount,
+    refundedAsPointsAt: row.refundedAsPointsAt?.toISOString() ?? null,
     refundableAmount,
     specialInstructions: row.specialInstructions,
     cancellationReason: row.cancellationReason,
