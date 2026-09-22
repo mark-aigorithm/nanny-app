@@ -8,6 +8,7 @@ import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useVerifiedEmailSubmit } from '@mobile/hooks/useVerifiedEmailSubmit';
 import { validateEmail } from '@mobile/lib/validation';
+import { auth } from '@mobile/lib/firebase';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/verify-email-screen.styles';
 
@@ -47,6 +48,9 @@ export default function VerifyEmailScreen() {
 
   const handleConfirm = async () => {
     if (!(await confirmCode(email, code))) return;
+    // The backend just moved the address on the Firebase account; without this
+    // the client keeps serving the old one from its cached user record.
+    await auth().currentUser?.reload();
     // The submit hook already wrote the updated profile into the store, which
     // is what the root router reads; drop the cached /auth/me alongside it so
     // nothing refetches its way back to an unverified profile.

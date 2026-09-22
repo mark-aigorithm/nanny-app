@@ -24,7 +24,7 @@ import {
 import { useRedeemReferralCode } from '@mobile/hooks/useReferrals';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
-import { toE164, phoneToPlaceholderEmail } from '@mobile/lib/validation';
+import { toE164 } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step3-screen.styles';
 
 // Bumping this version triggers a re-acceptance flow when terms change.
@@ -136,16 +136,9 @@ export default function RegistrationStep3Screen() {
     // Mobile uses 'parent' / 'nanny'; backend enum is 'MOTHER' / 'NANNY'.
     const apiRole = localRole === 'parent' ? 'MOTHER' : 'NANNY';
 
-    // Two different addresses, deliberately.
-    //
-    // `credentialEmail` is the placeholder linked onto the phone-verified
-    // Firebase account so SignInScreen has something to check — sign-in is by
-    // phone for everyone, so it is the placeholder for everyone.
-    //
-    // `profileEmail` is what lands in `users.email`: the real address proved on
-    // step 2, for both roles. It is how receipts, payment records and account
-    // recovery reach them, and it is never a placeholder.
-    const credentialEmail = phoneToPlaceholderEmail(phoneE164);
+    // One address now, not two. The real address proved on step 2 is both the
+    // Firebase credential (so Firebase's password-reset mail can reach her)
+    // and `users.email`. The phone-derived placeholder is gone.
     const profileEmail = draft.email.trim().toLowerCase();
 
     // Read out of the draft here so the null check narrows for the register
@@ -157,7 +150,7 @@ export default function RegistrationStep3Screen() {
     }
 
     confirmPhone.mutate(
-      { confirmation, code: otp, email: credentialEmail, password: draft.password },
+      { confirmation, code: otp, email: profileEmail, password: draft.password },
       {
         onSuccess: async () => {
           patch({ termsAcceptedAt: Date.now() });

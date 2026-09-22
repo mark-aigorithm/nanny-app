@@ -180,10 +180,11 @@ export function useSendPhoneOtp() {
  * email/password credential `SignInScreen` expects, so the verified phone
  * becomes an additional factor on one account rather than a second account.
  *
- * The address passed here is always the placeholder derived from the phone
- * number (see `phoneToPlaceholderEmail`) — for both roles, because sign-in is
- * by phone for both. It is only a credential; the real address, proved on step
- * 2 of the wizard, goes to `POST /auth/register` and lands in `users.email`.
+ * The address passed here is the real one, already proved by our own email
+ * OTP on step 2 of the wizard. It becomes both this credential (so
+ * `EmailSignInScreen` has something to check, and so Firebase's own
+ * password-reset mail can reach her) and, via `POST /auth/register`,
+ * `users.email` — one proven address, not a placeholder plus a real one.
  *
  * Idempotent: a retry after a failure further down the wizard re-confirms into
  * the same uid, where the password provider is already attached.
