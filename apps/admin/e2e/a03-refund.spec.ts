@@ -6,6 +6,10 @@
  * whether the mother is asked for more money or given some back. The editor
  * never lets an admin type a total — the assertions below are about the flow
  * around that, not about arithmetic (which the backend suite owns).
+ *
+ * Whichever way the difference is returned — to the card or as Care Points —
+ * the page has to stop offering it afterwards, or the next operator to open the
+ * booking gives it back a second time.
  */
 import { expect, test } from '@playwright/test';
 
@@ -143,6 +147,20 @@ test('can return an overpayment as Care Points instead of money', async ({ page 
   await page.getByRole('button', { name: 'Refund', exact: true }).click();
 
   await expect(page.getByRole('status')).toContainText('Refund issued');
+
+  // Points settle the overpayment just as money does. Coming back to the page
+  // later, it must not offer the same difference again — that is how a mother
+  // ends up with the points AND a card refund for one overpayment.
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Refund overpayment' })).toHaveCount(0);
+  await expect(page.getByRole('note')).toHaveCount(0);
+
+  // It does say where the money went, on the payment card.
+  await expect(page.getByText('Returned as Care Points')).toBeVisible();
+
+  const settled = await getBooking(admin, booking.id);
+  expect(settled.refundableAmount).toBe(0);
+  expect(settled.refundedAsPointsAmount).toBe(settled.amountPaid - settled.totalAmount);
 });
 
 test('asks for confirmation before charging the mother more', async ({ page }) => {

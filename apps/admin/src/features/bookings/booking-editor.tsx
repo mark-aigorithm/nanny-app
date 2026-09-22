@@ -467,6 +467,16 @@ function PreviewRail({
                 <span>{formatEgp(preview.amountPaid)}</span>
               </span>
             </li>
+            {/* Without this line, "Mother owes X" right after settling an
+                overpayment with points reads like the editor lost track. */}
+            {preview.refundedAsPointsAmount > 0 && (
+              <li>
+                <span className="summary-line">
+                  <strong>Already returned as points</strong>
+                  <span>−{formatEgp(preview.refundedAsPointsAmount)}</span>
+                </span>
+              </li>
+            )}
             <li className={delta > 0 ? 'preview-delta preview-delta--due' : delta < 0 ? 'preview-delta preview-delta--refund' : 'preview-delta'}>
               <span className="summary-line">
                 <strong>{deltaLabel}</strong>

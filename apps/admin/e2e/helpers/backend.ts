@@ -431,7 +431,9 @@ export async function getBooking(adminToken: string, id: number): Promise<{
   totalAmount: number;
   /** Captured minus refunded, across every payment on the booking. */
   amountPaid: number;
-  /** How much of `amountPaid` is above `totalAmount` — what is still owed back. */
+  /** Of `amountPaid`, what was given back as Care Points rather than to the card. */
+  refundedAsPointsAmount: number;
+  /** What is still owed back: `amountPaid − refundedAsPointsAmount − totalAmount`. */
   refundableAmount: number;
   cancellationReason: string | null;
 }> {
@@ -439,6 +441,7 @@ export async function getBooking(adminToken: string, id: number): Promise<{
     status: string;
     totalAmount: number;
     amountPaid: number;
+    refundedAsPointsAmount: number;
     refundableAmount: number;
     cancellationReason: string | null;
   };

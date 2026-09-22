@@ -21,9 +21,10 @@ type RefundModalProps = {
 /**
  * Settle a booking overpayment — an edit lowered the total below what the
  * mother paid: refund the money to the card via Paymob, or grant her a custom
- * number of Care Points (the EGP difference is shown for reference — there's
- * no fixed conversion). Opened right after the edit, or later from the detail
- * page if that follow-up was skipped.
+ * number of Care Points (how many is the admin's call — there's no fixed
+ * conversion). Either way the overpayment is settled and stops being offered.
+ * Opened right after the edit, or later from the detail page if that follow-up
+ * was skipped.
  */
 export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }: RefundModalProps) {
   const [method, setMethod] = useState<RefundMethod>('PAYMOB');
@@ -125,7 +126,7 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
       ) : (
         <Field
           label="Care Points to grant"
-          hint={`For reference, the overpayment is ${formatEgp(refundableAmount)}.`}
+          hint={`Granting points settles the ${formatEgp(refundableAmount)} overpayment — it will no longer be refundable to the card.`}
         >
           <span className="unit-input">
             <input

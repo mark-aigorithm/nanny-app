@@ -120,8 +120,11 @@ export function BookingDetailPage() {
                 <div className="overpaid-banner" role="note">
                   <span>
                     The mother is overpaid by <strong>{formatEgp(booking.refundableAmount)}</strong> —
-                    she paid {formatEgp(booking.amountPaid)} and the booking now totals{' '}
-                    {formatEgp(booking.totalAmount)}.
+                    she paid {formatEgp(booking.amountPaid)}
+                    {booking.refundedAsPointsAmount > 0
+                      ? `, ${formatEgp(booking.refundedAsPointsAmount)} of it is already back with her as Care Points,`
+                      : ''}{' '}
+                    and the booking now totals {formatEgp(booking.totalAmount)}.
                   </span>
                   <Button size="sm" onClick={() => setRefunding(true)}>
                     Refund overpayment
@@ -263,6 +266,17 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
               ? `${money(booking.payment.refundedAmount)}${booking.payment.refundedAt ? ` on ${formatDateTime(booking.payment.refundedAt)}` : ''}`
               : DASH,
         },
+        // Money returned to her, just not through the card — so it belongs on
+        // the payment card next to what the card gave back, and only when some
+        // of the overpayment was actually settled this way.
+        ...(booking.refundedAsPointsAmount > 0
+          ? [
+              {
+                label: 'Returned as Care Points',
+                value: `${money(booking.refundedAsPointsAmount)}${booking.refundedAsPointsAt ? ` on ${formatDateTime(booking.refundedAsPointsAt)}` : ''}`,
+              },
+            ]
+          : []),
         { label: 'Failure reason', value: booking.payment.failureReason ?? DASH, wide: true },
       ]
     : [];

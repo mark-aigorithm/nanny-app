@@ -68,6 +68,8 @@ const BOOKING: AdminBookingDetail = {
   packageHoursApplied: 0,
   payment: null,
   amountPaid: 318,
+  refundedAsPointsAmount: 0,
+  refundedAsPointsAt: null,
   refundableAmount: 0,
   specialInstructions: null,
   cancellationReason: null,
@@ -158,6 +160,7 @@ describe('BookingDetailPage', () => {
       method: 'PAYMOB',
       refundedAmount: 106,
       grantedPoints: null,
+      settledAmount: 106,
       booking: { ...OVERPAID, amountPaid: 212, refundableAmount: 0 },
     };
     const posted: unknown[] = [];
@@ -194,6 +197,37 @@ describe('BookingDetailPage', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Refund overpayment' })).not.toBeInTheDocument(),
     );
+  });
+
+  it('stops asking for a refund once the overpayment was settled as Care Points', async () => {
+    // The same shortened booking after the admin granted points instead of
+    // refunding the card: the money is back with her, so the page must not
+    // offer to return it a second time — but it should say where it went.
+    backend({
+      ...OVERPAID,
+      refundedAsPointsAmount: 106,
+      refundedAsPointsAt: '2026-09-21T09:00:00.000Z',
+      refundableAmount: 0,
+      payment: {
+        status: 'CAPTURED',
+        method: 'CARD',
+        amount: 318,
+        currency: 'EGP',
+        paymobOrderId: null,
+        paymobTransactionId: null,
+        paymobIntentionId: null,
+        failureReason: null,
+        refundedAmount: 0,
+        refundedAt: null,
+      },
+    });
+    renderPage();
+
+    await screen.findByText('Returned as Care Points');
+
+    expect(rowValue('Returned as Care Points')).toContain('EGP 106.00');
+    expect(screen.queryByRole('button', { name: 'Refund overpayment' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/overpaid by/)).not.toBeInTheDocument();
   });
 
   it('shows no refund control when nothing is overpaid', async () => {
