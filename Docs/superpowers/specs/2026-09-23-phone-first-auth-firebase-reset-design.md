@@ -1,7 +1,7 @@
 # Phone-first auth with Firebase-owned password reset
 
 **Date:** 2026-09-23
-**Status:** Approved, not yet implemented
+**Status:** Implemented on `feat/phone-first-auth`, pending rollout
 
 ---
 
@@ -121,7 +121,11 @@ the dependency.
       this exact address — without spending it
       (`assertVerificationTokenIsValid`, read-only),
    3. `firebaseAuth.updateUser(uid, { email, emailVerified: true })`,
-   4. consume the token and write the row, in the existing transaction.
+   4. consume the token, then write the row — two sequential statements, not
+      one wrapping transaction (unlike `registerUser`'s create, which does use
+      `prisma.$transaction`). That's why the paragraph below matters: a DB
+      write failure after Firebase has already moved leaves the two out of
+      sync until the retry below self-heals it.
 
    The read-only token check goes *before* Firebase, not after: without it, a
    garbage or foreign token would move the account to an unproven address (and
@@ -238,17 +242,42 @@ care about.
 ### Live-Firebase suite (new)
 
 Runs against **`nanny-now-d8518`** — the same project that serves production —
-so the guard is written before the tests.
+so the guard is written before the tests. The guard lives server-side, not in
+a standalone script: a device run only ever talks to it over HTTP.
 
-**Guard (`e2e/live/guard.mjs`)**
+**Guard (`apps/backend/src/services/e2e-auth.service.ts` +
+`e2e-auth.routes.ts`)**
 
-- `TEST_PHONES` allowlist, asserted on every create / sign-in / delete.
-- Deletion additionally refused unless the uid was created in *this* run
-  (tracked in a run manifest).
-- No `listUsers`, no bulk wipe, ever.
-- `.env.test`'s existing refusal to run against a database that is not
-  `nannyapp_test` stays, so only **auth** is live: rows, mail and payments
-  remain local.
+- The whole `/e2e-auth` router is mounted only when `E2E_LIVE_AUTH_ENABLED` is
+  set and `NODE_ENV !== 'production'` (`routes/index.ts`); `assertEnabled`
+  re-checks both, plus that the database is `nannyapp_test`, on every call.
+- `TEST_PHONES` allowlist — `+201234567891` and `+201234567892` — checked
+  before any Firebase call on the phone-keyed operations (`purgeAccount`,
+  `describeAccount`). `completeReset` is keyed by email instead, so it must
+  look the account up first; it then checks the same allowlist against that
+  account's phone and, either way it fails ("no such account" or "phone not
+  reserved"), refuses with the identical status and message — an
+  unauthenticated caller must not learn which.
+- `POST /e2e-auth/begin` establishes a run's baseline: both reserved numbers
+  must currently carry no Firebase account, or it refuses untouched.
+  `purgeAccount`/`completeReset` then refuse until a run has begun, and even
+  then only act on an account whose Firebase-reported creation time is at or
+  after that baseline (`assertCreatedDuringRun`) — a uid merely *existing* on
+  a reserved number is not proof this run created it.
+- No `listUsers`, no bulk wipe, ever. Rows, mail and payments stay local —
+  only Firebase Auth is live.
+
+**Runner (`apps/mobile/e2e/live.mjs`)**
+
+Every invocation, whatever flow(s) it was asked for: reads both numbers
+(`GET /e2e-auth/account`) and stops if either already has an account (someone
+else's run may be in flight); `POST /e2e-auth/begin`; registers the managed
+account once (`flows/live/_register-managed.yaml`); runs the requested flows
+in suite order; then, in a `finally` — pass, fail, or Ctrl+C — purges both
+numbers and reports what the harness sees on each. Everything besides Auth,
+Storage included, stays on the local emulator/test stack even in this suite
+(`e2e:metro:live` points only Auth at the real project) — only phone sign-in,
+the password credential, and Firebase's own reset mail are live.
 
 **Numbers.** Of the five test numbers in the console, three are bound to
 accounts in use (`+201288719791`, `+201234567890`, `+201234567893`) and are
@@ -299,15 +328,40 @@ device behaves off the test-number path. Check once, on a real build:
 The migration script is the point of no return: once an account's Firebase email
 is the real one, a build that still derives the placeholder cannot sign into it.
 
-1. **Ship the mobile change** — JS-only, so EAS Update OTA reaches installed
-   builds. Its default door is SMS, which does not care what the credential
-   address is.
-2. **Deploy the backend.**
-3. **Run the migration dry-run**, read the report, then run it for real.
+**There is no OTA path for the mobile half of this.** `apps/mobile/package.json`
+has no `expo-updates`, `eas.json` has no channels, and `app.config.ts` has no
+`updates` or `runtimeVersion` — so "ship the mobile change" can only mean a new
+binary (TestFlight / an APK), not an EAS Update pushed to installed builds. The
+backend, separately, deploys on **merge**: it runs on Vercel with Git-triggered
+deploys (`apps/backend/vercel.json`, `api/index.js`; `deploy-backend.yml` is
+still a TODO stub), so if Vercel's production branch is the branch this merges
+to, the merge *is* the backend deploy — it does not wait for a separate step.
 
-Between 1 and 3 the email door returns "incorrect email or password" for
-unmigrated accounts and people use SMS. With five accounts, that window is
-minutes.
+1. **Build and distribute the new binary first** — TestFlight and an APK — and
+   confirm every tester is actually running it before doing anything else. Its
+   default door is SMS, which does not care what the credential address is, so
+   testers can use the app normally on the new build with no backend or
+   migration changes yet.
+2. **Merge.** Before doing so, confirm (a) which branch is Vercel's production
+   branch for this project, so you know merging to it is the deploy, and (b)
+   that `E2E_LIVE_AUTH_ENABLED` is **not** set in that Vercel project's
+   environment — the live-auth router must never be reachable in production.
+3. **Run the migration dry-run**, read the report, then run it with `--apply`.
+4. **Re-run the dry-run** once any stragglers have updated. An old binary
+   keeps registering new accounts with the placeholder credential the whole
+   time it's in the field, and the verify gate never catches those (their
+   `isEmailVerified` is already true) — only a later migration run converts
+   them.
+
+Between step 1 and step 3, an old binary that somehow reaches the new backend
+(a tester who updates late, or any gap in step 1's distribution) sees the email
+door return "incorrect email or password" for its still-unmigrated account.
+This is not a lockout: **"Forgot password" → "Text me a code" still signs that
+account in** by SMS, the same as before this change, and it stays that way
+until a migration run converts the account. For the same reason, the realistic
+window here is however long it takes every tester to update — likely hours to
+days for a small test group, not "minutes" as an earlier draft of this doc
+claimed.
 
 Step 3 signs every account it touches out of its current session (see Session
 revocation above) — each one signs back in by SMS, a one-time cost accepted for
@@ -315,4 +369,12 @@ this rollout.
 
 **Firebase Console** — customise the password-reset template (sender name,
 subject, reply-to) under Authentication → Templates. A verified custom sender
-domain is optional and can come later.
+domain is optional and can come later. Also decide on the password policy: the
+hosted reset page enforces only Firebase's own default (6+ characters, no
+composition rule), which is looser than the app's create-time rules (8+
+characters, an uppercase letter, a digit) — the email sign-in door only checks
+for a non-empty password (see I3 in the review that shipped alongside this),
+specifically so a password set there isn't rejected on the way back in. Either
+configure Authentication → Settings → Password policy to match the app's rules
+so the hosted page enforces them too, or accept that the hosted page is looser
+and leave it — both are consistent with the app as shipped.

@@ -232,7 +232,7 @@ issuer, not a mock.
 2. **Merge to `main`** triggers `cdk deploy` for changed stacks
 
 ### Mobile
-- OTA updates via Expo EAS Update for JS-only changes
+- EAS Update (OTA) is **not configured yet** — no `expo-updates` dependency, no channels in `eas.json`, no `updates`/`runtimeVersion` in `app.config.ts` — so every mobile change, JS-only or not, currently ships as a new binary via EAS Build
 - Full native build via Expo EAS Build for native dependency changes
 - App Store / Play Store submission via EAS Submit
 
