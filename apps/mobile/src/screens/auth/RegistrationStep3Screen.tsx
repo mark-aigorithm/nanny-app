@@ -18,9 +18,14 @@ import ReferralCodeField from '@mobile/components/ReferralCodeField';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import {
   useConfirmPhoneAndLink,
+  useLinkPhoneToCurrentUser,
   useRegisterProfile,
+  useSendPhoneLinkCode,
   useSendPhoneOtp,
+  type PhoneLinkChallenge,
 } from '@mobile/hooks/useAuth';
+import type { MappedAuthError } from '@mobile/lib/authErrors';
+import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
 import { useRedeemReferralCode } from '@mobile/hooks/useReferrals';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
@@ -38,6 +43,15 @@ function dobToIso(dob: string): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * What the code on this screen is checked against. The phone wizard signs in
+ * *with* the phone (then links the password onto that account); a Google/Apple
+ * wizard is already signed in and links the phone *onto* that account.
+ */
+type PhoneChallenge =
+  | { kind: 'sign-in'; confirmation: PhoneConfirmation }
+  | { kind: 'link'; link: PhoneLinkChallenge };
+
 export default function RegistrationStep3Screen() {
   const router = useRouter();
 
@@ -45,8 +59,12 @@ export default function RegistrationStep3Screen() {
   const patch = useRegistrationDraftStore((s) => s.patch);
   const resetDraft = useRegistrationDraftStore((s) => s.reset);
 
+  const isSocial = draft.authProvider !== 'phone';
+
   const sendOtp = useSendPhoneOtp();
+  const sendLinkCode = useSendPhoneLinkCode();
   const confirmPhone = useConfirmPhoneAndLink();
+  const linkPhone = useLinkPhoneToCurrentUser();
   const registerProfile = useRegisterProfile();
   const redeemReferral = useRedeemReferralCode();
 
@@ -58,7 +76,7 @@ export default function RegistrationStep3Screen() {
 
   const [otp, setOtp] = useState('');
   // Firebase's handle on the SMS it sent; the code is checked against it.
-  const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
+  const [challenge, setChallenge] = useState<PhoneChallenge | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const [referralCode, setReferralCode] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -70,21 +88,41 @@ export default function RegistrationStep3Screen() {
   const sendCode = useCallback(
     (forceResend: boolean) => {
       setFormError(null);
-      sendOtp.mutate(
-        { phone: phoneE164, forceResend },
-        {
-          onSuccess: (result) => {
-            setConfirmation(result);
-            setSecondsLeft(RESEND_SECONDS);
+      const onError = (err: MappedAuthError) => setFormError(err.message);
+      if (isSocial) {
+        sendLinkCode.mutate(
+          { phone: phoneE164, forceResend },
+          {
+            onSuccess: (link) => {
+              setChallenge({ kind: 'link', link });
+              // Android read the SMS itself — fill the boxes in for her.
+              if (link.code) setOtp(link.code);
+              setSecondsLeft(RESEND_SECONDS);
+            },
+            onError,
           },
-          onError: (err) => setFormError(err.message),
-        },
-      );
+        );
+      } else {
+        sendOtp.mutate(
+          { phone: phoneE164, forceResend },
+          {
+            onSuccess: (confirmation) => {
+              setChallenge({ kind: 'sign-in', confirmation });
+              setSecondsLeft(RESEND_SECONDS);
+            },
+            onError,
+          },
+        );
+      }
     },
-    // `sendOtp` is a new object every render; the mutation itself is stable.
+    // The mutation objects are new every render; the mutations are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phoneE164],
+    [phoneE164, isSocial],
   );
+
+  // Android verified the number without an SMS at all: there is no code to type.
+  const instantlyVerified =
+    challenge?.kind === 'link' && challenge.link.autoVerified && !challenge.link.code;
 
   // Send once on arrival. A ref, not a dep list, because React 18 mounts twice
   // in dev and a second send would invalidate the first code.
@@ -106,12 +144,12 @@ export default function RegistrationStep3Screen() {
     router.back();
   }
 
-  function handleCompleteSetup() {
-    if (!confirmation) {
+  async function handleCompleteSetup() {
+    if (!challenge) {
       setFormError("We haven't sent your code yet. Tap resend to try again.");
       return;
     }
-    if (otp.length !== OTP_LENGTH) {
+    if (!instantlyVerified && otp.length !== OTP_LENGTH) {
       setFormError(`Enter the ${OTP_LENGTH}-digit code we sent you.`);
       return;
     }
@@ -136,130 +174,129 @@ export default function RegistrationStep3Screen() {
     // Mobile uses 'parent' / 'nanny'; backend enum is 'MOTHER' / 'NANNY'.
     const apiRole = localRole === 'parent' ? 'MOTHER' : 'NANNY';
 
-    // One address now, not two. The real address proved on step 2 is both the
-    // Firebase credential (so Firebase's password-reset mail can reach her)
-    // and `users.email`. The phone-derived placeholder is gone.
+    // One address: the real one — proved on step 2 by the phone wizard, or by
+    // Google/Apple for a social sign-up. It is `users.email`, and for the phone
+    // wizard also the Firebase password credential.
     const profileEmail = draft.email.trim().toLowerCase();
 
-    // Read out of the draft here so the null check narrows for the register
-    // call below, which runs inside a callback.
+    // A social sign-up has no token: Firebase verified its address, and the
+    // backend checks that instead.
     const emailVerificationToken = draft.emailVerificationToken;
-    if (!emailVerificationToken) {
+    if (!isSocial && !emailVerificationToken) {
       setFormError('Your email is not verified. Please go back and confirm the code.');
       return;
     }
 
-    confirmPhone.mutate(
-      { confirmation, code: otp, email: profileEmail, password: draft.password },
-      {
-        onSuccess: async () => {
-          patch({ termsAcceptedAt: Date.now() });
+    // 1. Put the verified phone on the Firebase account.
+    try {
+      if (challenge.kind === 'sign-in') {
+        await confirmPhone.mutateAsync({
+          confirmation: challenge.confirmation,
+          code: otp,
+          email: profileEmail,
+          password: draft.password,
+        });
+      } else {
+        await linkPhone.mutateAsync({ challenge: challenge.link, code: otp, phone: phoneE164 });
+      }
+    } catch (error) {
+      const err = error as MappedAuthError;
+      if (isSocial && err.code === 'auth/credential-already-in-use') {
+        // Collision B: this number belongs to an account that already exists.
+        await abandonSocialSignUpForLink(phoneE164);
+        router.replace('/(auth)/sign-in');
+        return;
+      }
+      setFormError(err.message);
+      return;
+    }
 
-          // Nannies must supply their ID (both sides for a national ID, front
-          // only for a passport). Upload happens here, after the Firebase
-          // account exists (uploadImageToFirebase needs the signed-in uid) and
-          // before the profile is saved so the resulting URLs go out with the
-          // register request. The profile photo (required for nannies since
-          // RegistrationStep1Screen) uploads alongside it, for the same reason.
-          let idDocumentFrontUrl: string | undefined;
-          let idDocumentBackUrl: string | undefined;
-          let avatarUrl: string | undefined;
-          const idDocumentType = draft.idDocumentType ?? undefined;
-          if (apiRole === 'NANNY') {
-            const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
-            if (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri)) {
-              setFormError('Your ID is missing. Please go back and upload it.');
-              return;
-            }
-            if (!draft.photoUri) {
-              setFormError('Your profile photo is missing. Please go back and add it.');
-              return;
-            }
-            try {
-              setIsUploadingId(true);
-              idDocumentFrontUrl = await uploadImageToFirebase(draft.idFrontUri, 'nanny-ids');
-              if (needsBack && draft.idBackUri) {
-                idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
-              }
-              avatarUrl = await uploadImageToFirebase(draft.photoUri, 'avatars');
-            } catch (err) {
-              setFormError(
-                err instanceof Error
-                  ? err.message
-                  : 'Could not upload your ID. Please try again.',
-              );
-              return;
-            } finally {
-              setIsUploadingId(false);
-            }
-          }
+    patch({ termsAcceptedAt: Date.now() });
 
-          registerProfile.mutate(
-            {
-              firstName: draft.firstName,
-              lastName: draft.lastName,
-              email: profileEmail,
-              // Spent server-side inside the register transaction — this is
-              // what makes the account start out with a verified address.
-              emailVerificationToken,
-              phone: phoneE164,
-              dateOfBirth: dobIso,
-              role: apiRole,
-              termsAcceptedVersion: TERMS_VERSION,
-              address: draft.address || undefined,
-              latitude,
-              longitude,
-              idDocumentType,
-              idDocumentFrontUrl,
-              idDocumentBackUrl,
-              ...(apiRole === 'NANNY' && {
-                avatarUrl,
-                bio: draft.bio,
-                yearsOfExperience: draft.yearsOfExperience
-                  ? parseInt(draft.yearsOfExperience, 10)
-                  : undefined,
-                ageRanges: draft.ageRanges,
-                availabilityType: draft.availabilityType ?? undefined,
-                schedule: draft.schedule ?? undefined,
-                certificationIds: draft.certificationIds,
-                skillIds: draft.skillIds,
-              }),
-            },
-            {
-              onSuccess: async () => {
-                // Redeem any referral code now that the backend account exists.
-                // Deliberately non-blocking: the account is already created, so
-                // a failed redeem must never strand the user mid-onboarding.
-                const code = referralCode.trim();
-                if (apiRole === 'MOTHER' && code) {
-                  try {
-                    await redeemReferral.mutateAsync(code);
-                  } catch {
-                    // Swallowed on purpose — see above.
-                  }
-                }
-                resetDraft();
-                router.replace({
-                  pathname: '/(auth)/notification-permission',
-                  params: { role: localRole },
-                });
-              },
-              onError: (err) => {
-                // Backend rejected the registration — the Firebase user
-                // already exists, so the user can retry by tapping
-                // Complete setup again (idempotent on the backend).
-                setFormError(
-                  err instanceof Error ? err.message : 'Could not save your profile.',
-                );
-              },
-            },
-          );
-        },
-        onError: (err) => {
-          setFormError(err.message);
-        },
-      },
-    );
+    // 2. Nannies must supply their ID (both sides for a national ID, front
+    // only for a passport). Uploaded now that the account is signed in
+    // (uploadImageToFirebase needs the uid) and before the profile is saved,
+    // so the URLs go out with the register request. The profile photo
+    // uploads alongside it for the same reason.
+    let idDocumentFrontUrl: string | undefined;
+    let idDocumentBackUrl: string | undefined;
+    let avatarUrl: string | undefined;
+    const idDocumentType = draft.idDocumentType ?? undefined;
+    if (apiRole === 'NANNY') {
+      const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
+      if (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri)) {
+        setFormError('Your ID is missing. Please go back and upload it.');
+        return;
+      }
+      if (!draft.photoUri) {
+        setFormError('Your profile photo is missing. Please go back and add it.');
+        return;
+      }
+      try {
+        setIsUploadingId(true);
+        idDocumentFrontUrl = await uploadImageToFirebase(draft.idFrontUri, 'nanny-ids');
+        if (needsBack && draft.idBackUri) {
+          idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
+        }
+        avatarUrl = await uploadImageToFirebase(draft.photoUri, 'avatars');
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : 'Could not upload your ID. Please try again.');
+        return;
+      } finally {
+        setIsUploadingId(false);
+      }
+    }
+
+    // 3. Create the application account. Idempotent on the backend, so
+    // tapping Complete setup again after a failure is a safe retry.
+    try {
+      await registerProfile.mutateAsync({
+        firstName: draft.firstName,
+        lastName: draft.lastName,
+        email: profileEmail,
+        // Spent server-side inside the register transaction — this is what
+        // makes a phone sign-up start out with a verified address.
+        ...(emailVerificationToken ? { emailVerificationToken } : {}),
+        phone: phoneE164,
+        dateOfBirth: dobIso,
+        role: apiRole,
+        termsAcceptedVersion: TERMS_VERSION,
+        address: draft.address || undefined,
+        latitude,
+        longitude,
+        idDocumentType,
+        idDocumentFrontUrl,
+        idDocumentBackUrl,
+        ...(apiRole === 'NANNY' && {
+          avatarUrl,
+          bio: draft.bio,
+          yearsOfExperience: draft.yearsOfExperience
+            ? parseInt(draft.yearsOfExperience, 10)
+            : undefined,
+          ageRanges: draft.ageRanges,
+          availabilityType: draft.availabilityType ?? undefined,
+          schedule: draft.schedule ?? undefined,
+          certificationIds: draft.certificationIds,
+          skillIds: draft.skillIds,
+        }),
+      });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not save your profile.');
+      return;
+    }
+
+    // 4. Redeem any referral code now that the account exists. Deliberately
+    // non-blocking: a failed redeem must never strand her mid-onboarding.
+    const code = referralCode.trim();
+    if (apiRole === 'MOTHER' && code) {
+      try {
+        await redeemReferral.mutateAsync(code);
+      } catch {
+        // Swallowed on purpose — see above.
+      }
+    }
+    resetDraft();
+    router.replace({ pathname: '/(auth)/notification-permission', params: { role: localRole } });
   }
 
   function handleOtpChange(value: string) {
@@ -268,13 +305,13 @@ export default function RegistrationStep3Screen() {
   }
 
   const isSubmitting =
-    confirmPhone.isPending || isUploadingId || registerProfile.isPending;
+    confirmPhone.isPending || linkPhone.isPending || isUploadingId || registerProfile.isPending;
   const canSubmit =
-    confirmation !== null &&
-    otp.length === OTP_LENGTH &&
+    challenge !== null &&
+    (instantlyVerified || otp.length === OTP_LENGTH) &&
     termsAccepted &&
     !isSubmitting;
-  const resendDisabled = secondsLeft > 0 || sendOtp.isPending;
+  const resendDisabled = secondsLeft > 0 || sendOtp.isPending || sendLinkCode.isPending;
 
   return (
     <View style={styles.container}>
@@ -311,23 +348,31 @@ export default function RegistrationStep3Screen() {
         <View style={styles.headlineGroup}>
           <Text style={styles.headline}>Verify your phone number</Text>
           <Text style={styles.subtitle}>
-            {`Enter the ${OTP_LENGTH}-digit code we sent to `}
-            <Text style={styles.phoneHighlight}>{phoneDisplay}</Text>
+            {instantlyVerified ? (
+              'Your number was verified automatically.'
+            ) : (
+              <>
+                {`Enter the ${OTP_LENGTH}-digit code we sent to `}
+                <Text style={styles.phoneHighlight}>{phoneDisplay}</Text>
+              </>
+            )}
           </Text>
         </View>
 
         {/* OTP input */}
         <View style={styles.otpSection}>
-          <OtpCodeInput
-            testID="registerStep3.code"
-            value={otp}
-            onChange={handleOtpChange}
-            disabled={isSubmitting}
-          />
+          {!instantlyVerified && (
+            <OtpCodeInput
+              testID="registerStep3.code"
+              value={otp}
+              onChange={handleOtpChange}
+              disabled={isSubmitting}
+            />
+          )}
 
           <View style={styles.resendRow}>
             <Text style={styles.timerText}>
-              {sendOtp.isPending ? 'Sending code…' : "Didn't get a code?"}
+              {sendOtp.isPending || sendLinkCode.isPending ? 'Sending code…' : "Didn't get a code?"}
             </Text>
             <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
               <Text
@@ -371,7 +416,7 @@ export default function RegistrationStep3Screen() {
         {/* Complete setup button */}
         <Button
           title={
-            confirmPhone.isPending
+            confirmPhone.isPending || linkPhone.isPending
               ? 'Verifying…'
               : isUploadingId
                 ? 'Uploading ID…'
@@ -379,7 +424,7 @@ export default function RegistrationStep3Screen() {
                   ? 'Saving…'
                   : 'Complete setup'
           }
-          onPress={handleCompleteSetup}
+          onPress={() => void handleCompleteSetup()}
           disabled={!canSubmit}
         />
       </ScrollView>

@@ -26,6 +26,8 @@ import Button from '@mobile/components/ui/button';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useCheckAvailability } from '@mobile/hooks/useAuth';
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
+import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { validateEmail, validatePhone, toE164 } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
@@ -61,6 +63,13 @@ export default function RegistrationStep1Screen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+
+  // A Google/Apple sign-up: the provider verified the email, so it is fixed,
+  // and the email-code and password steps are skipped.
+  const isSocial = draft.authProvider !== 'phone';
+  const stepLabel = isSocial
+    ? isNanny ? 'STEP 1 OF 5' : 'STEP 1 OF 3'
+    : isNanny ? 'STEP 1 OF 6' : 'STEP 1 OF 5';
 
   const [formError, setFormError] = useState<string | null>(null);
   // Per-field "already taken" errors from the availability check. Kept apart
@@ -177,10 +186,27 @@ export default function RegistrationStep1Screen() {
       setFormError(getApiErrorMessage(err, 'Could not check your details. Please try again.'));
       return;
     }
+    if (isSocial && (availability.emailTaken || availability.phoneTaken)) {
+      // Collision B: this person already has an account. Drop the Google/Apple
+      // account just created, keep the credential, and have them sign in with
+      // the number they typed — the credential is linked once they do.
+      await abandonSocialSignUpForLink(toE164(draft.countryCode, draft.phone));
+      router.replace('/(auth)/sign-in');
+      return;
+    }
     setEmailError(availability.emailTaken ? EMAIL_TAKEN_MESSAGE : null);
     setPhoneError(availability.phoneTaken ? PHONE_TAKEN_MESSAGE : null);
     if (availability.emailTaken || availability.phoneTaken) return;
 
+    if (isSocial) {
+      // Both roles set a home location next, as CreatePasswordScreen routes
+      // the phone wizard.
+      router.push({
+        pathname: isNanny ? '/(auth)/register-nanny-location' : '/(auth)/register-step-2',
+        params: { role },
+      });
+      return;
+    }
     router.push({ pathname: '/(auth)/register-email', params: { role } });
   }
 
@@ -204,7 +230,13 @@ export default function RegistrationStep1Screen() {
 
         {/* Progress bar */}
         <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, isNanny && styles.progressBarFillNanny]} />
+          <View
+            style={[
+              styles.progressBarFill,
+              isNanny && styles.progressBarFillNanny,
+              isSocial && !isNanny && styles.progressBarFillSocialMother,
+            ]}
+          />
         </View>
 
         {/* Scrollable body */}
@@ -216,7 +248,7 @@ export default function RegistrationStep1Screen() {
         >
           {/* Step label */}
           <Text style={styles.stepLabel}>
-            {isNanny ? 'STEP 1 OF 6' : 'STEP 1 OF 5'} — PERSONAL INFO
+            {stepLabel} — PERSONAL INFO
           </Text>
 
           {/* Photo picker */}
@@ -279,7 +311,13 @@ export default function RegistrationStep1Screen() {
               autoCapitalize="none"
               autoCorrect={false}
               textContentType="emailAddress"
+              editable={!isSocial}
             />
+            {isSocial && draft.authProvider !== 'phone' && (
+              <Text style={styles.verifiedHint}>
+                {`Verified by ${SOCIAL_PROVIDER_LABEL[draft.authProvider]}`}
+              </Text>
+            )}
 
             {/* Phone */}
             <View style={styles.fieldGroup}>

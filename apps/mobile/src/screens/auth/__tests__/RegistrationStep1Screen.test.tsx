@@ -5,9 +5,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Router + route params are the per-file mocks; firebase, the API layer, the
 // image picker and safe-area insets come from the global jest.setup.js.
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: mockReplace }),
   useLocalSearchParams: () => ({ role: 'parent' }),
+}));
+
+const mockAbandon = jest.fn().mockResolvedValue(undefined);
+jest.mock('@mobile/lib/pendingLink', () => ({
+  abandonSocialSignUpForLink: (...args: unknown[]) => mockAbandon(...args),
 }));
 
 // Native date picker has no jest implementation; the screen only mounts it
@@ -166,5 +172,50 @@ describe('RegistrationStep1Screen — availability check on Continue', () => {
 
     expect(mockPost).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('RegistrationStep1Screen — Google/Apple sign-up', () => {
+  function fillSocialDraft() {
+    fillDraft();
+    useRegistrationDraftStore.setState({ authProvider: 'google', email: 'mona@gmail.com' });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useRegistrationDraftStore.getState().reset();
+  });
+
+  it('shows the provider-verified email read-only and counts three steps', () => {
+    fillSocialDraft();
+    const { getByDisplayValue, getByText } = renderScreen();
+
+    expect(getByDisplayValue('mona@gmail.com').props.editable).toBe(false);
+    expect(getByText('Verified by Google')).toBeTruthy();
+    expect(getByText('STEP 1 OF 3 — PERSONAL INFO')).toBeTruthy();
+  });
+
+  it('skips the email-code and password steps', async () => {
+    fillSocialDraft();
+    mockPost.mockResolvedValueOnce(availability(false, false));
+    const { getByText } = renderScreen();
+
+    fireEvent.press(getByText('Continue'));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-2', params: { role: 'parent' } }),
+    );
+  });
+
+  it('hands a taken phone to the collision flow instead of flagging the field', async () => {
+    fillSocialDraft();
+    mockPost.mockResolvedValueOnce(availability(false, true));
+    const { getByText, queryByText } = renderScreen();
+
+    fireEvent.press(getByText('Continue'));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+    expect(mockAbandon).toHaveBeenCalledWith('+201234567893');
+    expect(queryByText(PHONE_TAKEN)).toBeNull();
   });
 });

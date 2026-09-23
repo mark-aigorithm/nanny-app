@@ -290,6 +290,107 @@ export function useConfirmPhoneAndLink() {
 }
 
 /**
+ * A code sent to link a phone onto the account that is already signed in —
+ * the Google/Apple wizard's step 3. On Android, Firebase can read the SMS
+ * itself (`autoVerified` with the `code` filled in) or skip it entirely on an
+ * instant verification (`autoVerified` with no code), in which case the
+ * native side holds the credential.
+ */
+export type PhoneLinkChallenge = {
+  verificationId: string | null;
+  autoVerified: boolean;
+  code: string | null;
+};
+
+const PHONE_TAKEN_ERROR: MappedAuthError = {
+  field: 'phone',
+  message: 'This phone number already has an account.',
+  code: 'auth/credential-already-in-use',
+};
+
+/**
+ * Sends the SMS for linking, not for signing in: `verifyPhoneNumber` leaves
+ * the signed-in Google/Apple account alone, where `signInWithPhoneNumber`
+ * would replace it.
+ *
+ * Resolves on the first usable event. The listener's own promise is not used:
+ * on Android it waits out the whole auto-retrieval timeout before settling.
+ */
+export function useSendPhoneLinkCode() {
+  return useMutation<PhoneLinkChallenge, MappedAuthError, { phone: string; forceResend?: boolean }>({
+    mutationFn: ({ phone, forceResend }) =>
+      new Promise<PhoneLinkChallenge>((resolve, reject) => {
+        auth()
+          .verifyPhoneNumber(phone, forceResend ?? false)
+          .on(
+            'state_changed',
+            (snapshot) => {
+              if (snapshot.state === 'sent' || snapshot.state === 'timeout') {
+                resolve({ verificationId: snapshot.verificationId, autoVerified: false, code: null });
+              } else if (snapshot.state === 'verified') {
+                resolve({ verificationId: snapshot.verificationId, autoVerified: true, code: snapshot.code });
+              } else if (snapshot.state === 'error') {
+                reject(mapFirebaseAuthError(snapshot.error));
+              }
+            },
+            (error) => reject(mapFirebaseAuthError(error)),
+          );
+      }),
+  });
+}
+
+/**
+ * Links the verified phone onto the signed-in Google/Apple account, so SMS
+ * sign-in and SMS reset reach the same uid. Then refreshes the ID token so
+ * `/auth/register` sees `phone_number` and marks the phone verified.
+ *
+ * A number that already belongs to another account rejects with
+ * `code: 'auth/credential-already-in-use'` — the caller's cue for collision B.
+ * Idempotent across retries: the same number already linked is done; a
+ * different one left by an abandoned attempt is swapped, as the phone wizard
+ * does for its password credential.
+ */
+export function useLinkPhoneToCurrentUser() {
+  return useMutation<void, MappedAuthError, { challenge: PhoneLinkChallenge; code: string; phone: string }>({
+    mutationFn: async ({ challenge, code, phone }) => {
+      const user = auth().currentUser;
+      if (!user) {
+        throw {
+          field: 'form',
+          message: 'Your session ended. Please continue with Google or Apple again.',
+        } satisfies MappedAuthError;
+      }
+
+      const credential =
+        challenge.autoVerified && !challenge.code
+          ? auth.PhoneAuthProvider.credential(null)
+          : auth.PhoneAuthProvider.credential(challenge.verificationId, challenge.code ?? code);
+
+      const toMapped = (error: unknown): MappedAuthError =>
+        (error as { code?: unknown })?.code === 'auth/credential-already-in-use'
+          ? PHONE_TAKEN_ERROR
+          : mapFirebaseAuthError(error);
+
+      try {
+        await user.linkWithCredential(credential);
+      } catch (error) {
+        if ((error as { code?: unknown })?.code !== 'auth/provider-already-linked') throw toMapped(error);
+        if (user.phoneNumber !== phone) {
+          try {
+            await user.unlink('phone');
+            await user.linkWithCredential(credential);
+          } catch (relinkError) {
+            throw toMapped(relinkError);
+          }
+        }
+      }
+
+      await user.getIdToken(true);
+    },
+  });
+}
+
+/**
  * Calls the backend `POST /auth/register` to create the application User
  * row for the freshly-signed-up Firebase user. Run after the phone link
  * succeeds, when `auth().currentUser` is fully populated. The endpoint is

@@ -73,6 +73,15 @@ export const styles = StyleSheet.create({
   progressBarFillNanny: {
     width: '16.6%',
   },
+  // Social mother: three steps, so step 1 fills a third.
+  progressBarFillSocialMother: {
+    width: '33.3%',
+  },
+  verifiedHint: {
+    ...typeScale.bodySm,
+    color: colors.successText,
+    marginTop: -spacing.sm,
+  },
 
   // Scroll
   scroll: {
