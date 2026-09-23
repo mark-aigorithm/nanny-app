@@ -12,7 +12,28 @@
           "package_name": "com.nannyapp.mobile"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "936472549582-cpisbe6qf54i1sdh404pkuvid27bn20e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nannyapp.mobile",
+            "certificate_hash": "45760a966bdf0e03b4989b09ffff88ab7121e1ef"
+          }
+        },
+        {
+          "client_id": "936472549582-d8q8v18pb8gerfgqkhbe69sf7fldojhb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nannyapp.mobile",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "936472549582-scl1ot7iaqj4tjr257nnt9gob0t7njht.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC3eB2qrs8KVEPu5ny8J9sBAPcLbvWnuL8"
@@ -20,7 +41,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "936472549582-scl1ot7iaqj4tjr257nnt9gob0t7njht.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "936472549582-aid7qs4d40if7kpn5jsqn3roe3rrcfqi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.nannyapp.mobile"
+              }
+            }
+          ]
         }
       }
     }

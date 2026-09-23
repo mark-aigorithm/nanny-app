@@ -1,4 +1,6 @@
 import type { ExpoConfig } from 'expo/config';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /** Keep in sync with src/constants/app.ts — Expo config cannot import from src/. */
 const APP_NAME = 'NannyNow';
@@ -13,6 +15,33 @@ const GOOGLE_MAPS_API_KEY = process.env['GOOGLE_MAPS_API_KEY'] ?? '';
 // Geocoding APIs enabled works without a second env var.
 const GOOGLE_PLACES_API_KEY =
   process.env['GOOGLE_PLACES_API_KEY'] ?? GOOGLE_MAPS_API_KEY;
+
+/**
+ * The OAuth "web" client Firebase created when Google sign-in was enabled.
+ * Native Google Sign-In needs it as `webClientId` to mint an ID token that
+ * Firebase accepts. Read from google-services.json rather than copied, so it
+ * can never drift from the file Firebase issues.
+ */
+function readGoogleWebClientId(): string {
+  type GoogleServices = {
+    client?: { oauth_client?: { client_id: string; client_type: number }[] }[];
+  };
+  const file = JSON.parse(
+    readFileSync(join(__dirname, 'google-services.json'), 'utf8'),
+  ) as GoogleServices;
+  const web = file.client
+    ?.flatMap((c) => c.oauth_client ?? [])
+    .find((o) => o.client_type === 3);
+  if (!web) {
+    throw new Error(
+      'google-services.json has no web OAuth client (client_type 3). ' +
+        'Re-download it from Firebase after enabling Google sign-in.',
+    );
+  }
+  return web.client_id;
+}
+
+const GOOGLE_WEB_CLIENT_ID = readGoogleWebClientId();
 
 const config: ExpoConfig = {
   name: APP_NAME,  slug: 'nanny-app',
@@ -29,6 +58,9 @@ const config: ExpoConfig = {
     supportsTablet: false,
     bundleIdentifier: 'com.nannyapp.mobile',
     googleServicesFile: "./GoogleService-Info.plist",
+    // Sign in with Apple capability. EAS enables it on the App ID at build
+    // time. Apple is offered on iOS only — see lib/socialAuth.ts.
+    usesAppleSignIn: true,
     // Standard HTTPS/Firebase only — exempt encryption. Setting this stops
     // TestFlight/App Store Connect asking the export-compliance question on
     // every build.
@@ -78,6 +110,10 @@ const config: ExpoConfig = {
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
     "@react-native-firebase/messaging",
+    // Native Google account picker. No options: with ios.googleServicesFile
+    // set, the plugin reads REVERSED_CLIENT_ID from the plist itself.
+    '@react-native-google-signin/google-signin',
+    'expo-apple-authentication',
     "@react-native-community/datetimepicker",
     [
       'expo-image-picker',
@@ -112,6 +148,8 @@ const config: ExpoConfig = {
     currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
     // Google Places / Geocoding key — read by src/lib/googlePlaces.ts.
     googlePlacesApiKey: GOOGLE_PLACES_API_KEY,
+    // Web OAuth client id for native Google Sign-In — read by lib/socialAuth.ts.
+    googleWebClientId: GOOGLE_WEB_CLIENT_ID,
     // No Firebase client credentials here. Auth, Storage and Messaging are all
     // @react-native-firebase modules, which auto-initialize from
     // google-services.json (Android) / GoogleService-Info.plist (iOS) — the

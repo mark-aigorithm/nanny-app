@@ -63,3 +63,4 @@ export { auth };
 export type FirebaseUser = FirebaseAuthTypes.User;
 export type PhoneConfirmation = FirebaseAuthTypes.ConfirmationResult;
 export type UserCredential = FirebaseAuthTypes.UserCredential;
+export type AuthCredential = FirebaseAuthTypes.AuthCredential;

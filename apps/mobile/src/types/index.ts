@@ -53,7 +53,7 @@ export type { SettingsItem, UserProfile, AccountDetails } from './profile';
 
 export type { PromoCard, QuickAction } from './dashboard';
 
-export type { Role, Child } from './registration';
+export type { Role, Child, SocialProvider, AuthProvider } from './registration';
 
 export type { FilterChipData, SortOption } from './search';
 

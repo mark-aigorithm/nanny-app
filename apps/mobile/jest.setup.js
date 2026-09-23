@@ -55,7 +55,7 @@ jest.mock('@mobile/lib/api', () => {
 });
 
 // 3. Safe-area insets — no SafeAreaProvider is mounted in jest.
-// (mocks 4–8 follow the safe-area block below)
+// (mocks 4–10 follow the safe-area block below)
 jest.mock('react-native-safe-area-context', () => {
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 390, height: 844 };
@@ -164,4 +164,41 @@ jest.mock('expo-network', () => ({
     .mockResolvedValue({ type: 'WIFI', isConnected: true, isInternetReachable: true }),
   addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
   NetworkStateType: { NONE: 'NONE', UNKNOWN: 'UNKNOWN', WIFI: 'WIFI', CELLULAR: 'CELLULAR' },
+}));
+
+// 10. Google Sign-In, Apple Authentication and expo-crypto are native modules
+//     with no JS implementation under jest. Any screen rendering the social
+//     buttons reaches them through lib/socialAuth. The defaults: Google's sheet
+//     is never opened, Apple is unavailable (so the Apple button renders
+//     nothing), and hashing is deterministic. Tests that exercise a sign-in
+//     override these per file.
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn().mockResolvedValue(true),
+    signIn: jest.fn(),
+    signOut: jest.fn().mockResolvedValue(null),
+  },
+  isErrorWithCode: (error) =>
+    typeof error === 'object' && error !== null && typeof error.code === 'string',
+  statusCodes: {
+    SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
+  },
+}));
+
+jest.mock('expo-apple-authentication', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(false),
+  signInAsync: jest.fn(),
+  AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
+  AppleAuthenticationButtonType: { SIGN_IN: 0, CONTINUE: 1 },
+  AppleAuthenticationButtonStyle: { WHITE: 0, WHITE_OUTLINE: 1, BLACK: 2 },
+  AppleAuthenticationButton: () => null,
+}));
+
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => 'raw-nonce'),
+  digestStringAsync: jest.fn(async () => 'hashed-nonce'),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 }));
