@@ -41,6 +41,21 @@ if (authEmulatorHost) {
   }
 }
 
+// The live-Firebase E2E suite (e2e/live.mjs) signs in on the two phone numbers
+// the Firebase console lists as test numbers: fixed codes, no SMS. Firebase
+// still tries to verify the *app* first — Play Integrity, then a reCAPTCHA page
+// — which an Android emulator driven by Maestro cannot get through. This skips
+// that step, and Firebase honours it only for those fictional console numbers:
+// a real number still fails without a verified app. The extra
+// `firebaseAppVerificationDisabledForTesting` is populated from
+// FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING by app.config.ts, set only by
+// `e2e:metro:live`, and false in every real build, where this is a no-op.
+const appVerificationDisabledForTesting =
+  Constants.expoConfig?.extra?.['firebaseAppVerificationDisabledForTesting'] === true;
+if (appVerificationDisabledForTesting) {
+  auth().settings.appVerificationDisabledForTesting = true;
+}
+
 export { auth };
 export type FirebaseUser = FirebaseAuthTypes.User;
 export type PhoneConfirmation = FirebaseAuthTypes.ConfirmationResult;

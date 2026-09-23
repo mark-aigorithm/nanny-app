@@ -21,3 +21,26 @@ export const EMULATOR_ENV = {
   // every real build — see apps/mobile/src/lib/paymobCheckout.ts.
   PAYMOB_CHECKOUT_ORIGIN: 'http://10.0.2.2:4010',
 };
+
+/** The one key the live variant must never carry — see LIVE_AUTH_ENV. */
+export const AUTH_EMULATOR_KEY = 'FIREBASE_AUTH_EMULATOR_HOST';
+
+const { [AUTH_EMULATOR_KEY]: _authEmulatorHost, ...STILL_LOCAL } = EMULATOR_ENV;
+
+/**
+ * The live-Firebase auth suite's variant (`e2e:metro:live`, driven by
+ * `e2e/live.mjs`): Auth talks to the real project, everything else stays local.
+ *
+ *   - No FIREBASE_AUTH_EMULATOR_HOST, so lib/firebase.ts leaves native Auth on
+ *     the project google-services.json names — the one production uses.
+ *   - Storage stays on the emulator. That keeps the photo pickers' E2E
+ *     placeholder on (lib/e2eImage keys off this host), and it keeps any upload
+ *     a flow makes out of the production bucket.
+ *   - App verification is disabled for testing, because an emulator driven by
+ *     Maestro cannot pass Play Integrity or a reCAPTCHA page. Firebase honours
+ *     this only for the console's fictional test numbers — see lib/firebase.ts.
+ */
+export const LIVE_AUTH_ENV = {
+  ...STILL_LOCAL,
+  FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING: 'true',
+};

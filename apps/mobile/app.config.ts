@@ -131,6 +131,14 @@ const config: ExpoConfig = {
     // FIREBASE_STORAGE_EMULATOR_HOST=10.0.2.2:9199. Doubles as the E2E flag the
     // photo-picker affordance keys off (lib/e2eImage.ts).
     firebaseStorageEmulatorHost: process.env['FIREBASE_STORAGE_EMULATOR_HOST'] ?? '',
+    // Lets native phone auth skip app verification (Play Integrity, or the
+    // reCAPTCHA page it falls back to) for the live-Firebase E2E suite, whose
+    // Android emulator cannot pass either. Firebase honours it only for the
+    // console's fictional test numbers. False in every real build, in which case
+    // lib/firebase.ts leaves verification alone; only `e2e:metro:live` sets
+    // FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING=true.
+    firebaseAppVerificationDisabledForTesting:
+      process.env['FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING'] === 'true',
     // Where the Paymob checkout WebView loads from. Empty in every real build,
     // in which case paymobCheckout.ts uses Paymob's own host. End-to-end runs
     // set it to the local Paymob fake — from an Android emulator the host

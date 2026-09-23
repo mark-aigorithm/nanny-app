@@ -219,6 +219,7 @@ All placeholder/mock data lives in `src/mocks/`, organized by domain:
 | `GOOGLE_PLACES_API_KEY` | Places / Geocoding key; falls back to the Maps key |
 | `FIREBASE_AUTH_EMULATOR_HOST` | E2E only — points native Auth at the local emulator |
 | `FIREBASE_STORAGE_EMULATOR_HOST` | E2E only — points native Storage at the local emulator |
+| `FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING` | Live E2E only (`e2e:metro:live`) — `'true'` skips phone-auth app verification, honoured by Firebase only for console test numbers |
 | `PAYMOB_CHECKOUT_ORIGIN` | E2E only — points the checkout WebView at the Paymob fake |
 
 **No Firebase client credentials are configured here.** Auth, Storage and

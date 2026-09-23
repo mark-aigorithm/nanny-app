@@ -1,0 +1,83 @@
+# Reset by SMS, proven by signing in with the new password afterwards —
+# landing back in the app is client state the SDK reports on any success.
+#
+# Sets MANAGED_NEWER_PASSWORD, a third password: in the suite reset-email has
+# already moved the account to MANAGED_NEW_PASSWORD, so setting that again would
+# change nothing and prove nothing. Run on its own (or first) it starts from the
+# registration password — a change either way. live.mjs keeps this flow last.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+
+- tapOn: 'Get Started'
+- assertVisible: 'Create your account'
+- tapOn: 'Sign in'
+- assertVisible: 'Welcome back'
+- tapOn: 'Sign in with email and password instead'
+- assertVisible: 'Sign in with email'
+# `?` escaped: a text selector is a full-match regex.
+- tapOn: 'Forgot password\?'
+- extendedWaitUntil:
+    visible: 'Reset your password'
+    timeout: 30000
+
+- tapOn: 'Text me a code instead'
+- tapOn:
+    id: 'forgotPassword.phone'
+- inputText: ${MANAGED_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+
+# The verify phase — code boxes and both password fields — only renders once
+# Firebase has handed back a confirmation, so its label is the proof the send
+# went through.
+- extendedWaitUntil:
+    visible: 'New password'
+    timeout: 60000
+
+- tapOn:
+    id: 'forgotPassword.code.boxes'
+- inputText: ${MANAGED_CODE}
+- hideKeyboard
+# By placeholder: unique, and never the reveal toggle beside the field.
+- tapOn: 'Enter a new password'
+- inputText: ${MANAGED_NEWER_PASSWORD}
+- hideKeyboard
+- tapOn: 'Re-enter your password'
+- inputText: ${MANAGED_NEWER_PASSWORD}
+- hideKeyboard
+# Below the requirements card; a no-op when it is already on screen.
+- scrollUntilVisible:
+    element:
+      text: 'Reset password'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Reset password'
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# The proof: sign out, then in again with the new password.
+- tapOn: 'Account'
+# The last row of the account screen, and the floating tab bar sits over the
+# bottom of it — centred so the tap cannot land on the bar.
+- scrollUntilVisible:
+    element:
+      text: 'Sign out'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Care you can trust'
+    timeout: 30000
+
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MANAGED_EMAIL}
+      PASSWORD: ${MANAGED_NEWER_PASSWORD}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

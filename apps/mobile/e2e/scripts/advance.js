@@ -29,12 +29,30 @@
  * (MOTHER_EMAIL, NANNY_EMAIL, GATED_MOTHER_EMAIL, PENDING_NANNY_EMAIL,
  * PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD) and where to reach things
  * (BACKEND_URL, AUTH_EMULATOR_URL). See run.mjs for the full list.
+ *
+ * The live-Firebase suite (live.mjs) passes a much shorter list — BACKEND_URL,
+ * MAILPIT_URL and its own MANAGED_* / ABSENT_* values — and deliberately no
+ * AUTH_EMULATOR_URL. Only the `live-*` steps and `email-otp` run under it.
  */
 
-/** The emulator ignores the key but the endpoint still requires the parameter. */
-var IDENTITY_TOOLKIT = AUTH_EMULATOR_URL + '/identitytoolkit.googleapis.com/v1';
+/**
+ * The emulator ignores the key but the endpoint still requires the parameter.
+ *
+ * Null under live.mjs, which passes no emulator URL: reading an undefined
+ * global throws, and doing it here at load would kill every live step before
+ * its own code ran.
+ */
+var IDENTITY_TOOLKIT =
+  typeof AUTH_EMULATOR_URL === 'undefined'
+    ? null
+    : AUTH_EMULATOR_URL + '/identitytoolkit.googleapis.com/v1';
 
 function signIn(email, password) {
+  if (!IDENTITY_TOOLKIT) {
+    throw new Error(
+      'This step signs in through the Auth emulator, and this run has none (live.mjs passes no AUTH_EMULATOR_URL).',
+    );
+  }
   var res = http.post(IDENTITY_TOOLKIT + '/accounts:signInWithPassword?key=fake-api-key', {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -714,6 +732,96 @@ function emailOtp() {
   output.emailOtp = m[1];
 }
 
+// ── The live-Firebase harness (live.mjs) ────────────────────────────────────
+//
+// These talk to the backend's /e2e-auth routes, which exist only under
+// `start:test:live-auth` and refuse every number but the two reserved test
+// numbers. They read LIVE_PHONE (E.164), LIVE_EMAIL and LIVE_NEW_PASSWORD from
+// the runScript `env:` block, the way phone-otp reads OTP_PHONE. Purging is not
+// among them: live.mjs purges both numbers once, when the run ends, and a flow
+// that tidied up after itself would hide exactly what the assertions look for.
+
+/**
+ * What Firebase and the test database hold for LIVE_PHONE. The phone goes out
+ * URL-encoded: Express decodes a bare `+` in a query string to a space, which
+ * the harness then refuses as "not a reserved number".
+ */
+function liveAccount() {
+  var res = http.get(BACKEND_URL + '/e2e-auth/account?phone=' + encodeURIComponent(LIVE_PHONE));
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error('GET /e2e-auth/account → ' + res.status + ' ' + res.body);
+  }
+  return json(res.body).data;
+}
+
+/**
+ * Registration really made the account the app thinks it made: one Firebase
+ * user on the reserved number, carrying the address she typed as a password
+ * credential alongside the phone, and a row behind it.
+ *
+ *   - runScript:
+ *       file: ../../scripts/advance.js
+ *       env:
+ *         ADVANCE: live-assert-account
+ *         LIVE_PHONE: '+201234567891'
+ *         LIVE_EMAIL: 'someone@example.com'
+ *
+ * Throws on the first thing that is wrong, and leaves `output.firebaseExists`,
+ * `output.firebaseEmail`, `output.providers` and `output.dbRowExists` behind.
+ */
+function liveAssertAccount() {
+  var state = liveAccount();
+  var detail = ' for ' + LIVE_PHONE + ': ' + JSON.stringify(state);
+  var providers = state.providers || [];
+
+  if (!state.firebaseExists) throw new Error('No Firebase account' + detail);
+  if (String(state.firebaseEmail || '').toLowerCase() !== String(LIVE_EMAIL).toLowerCase()) {
+    throw new Error('The Firebase account does not carry ' + LIVE_EMAIL + detail);
+  }
+  if (providers.indexOf('phone') < 0 || providers.indexOf('password') < 0) {
+    throw new Error('Expected both the phone and the password provider' + detail);
+  }
+  if (!state.dbRowExists) throw new Error('No users row' + detail);
+
+  output.firebaseExists = 'true';
+  output.firebaseEmail = String(state.firebaseEmail);
+  output.providers = providers.join(',');
+  output.dbRowExists = 'true';
+}
+
+/**
+ * Asserts the reserved number has no Firebase account left behind.
+ *
+ *   - runScript:
+ *       file: ../../scripts/advance.js
+ *       env:
+ *         ADVANCE: live-assert-no-account
+ *         LIVE_PHONE: '+201234567892'
+ */
+function liveAssertNoAccount() {
+  var state = liveAccount();
+  if (state.firebaseExists) {
+    throw new Error(
+      'A Firebase account was left behind for ' + LIVE_PHONE + ': ' + JSON.stringify(state),
+    );
+  }
+  output.firebaseExists = 'false';
+}
+
+/**
+ * Does what Firebase's hosted reset page does: mint the oobCode and spend it.
+ * The app's half ends at "check your email"; this is the other half.
+ */
+function liveCompleteReset() {
+  var res = http.post(BACKEND_URL + '/e2e-auth/complete-reset', {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: LIVE_EMAIL, newPassword: LIVE_NEW_PASSWORD }),
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error('POST /e2e-auth/complete-reset → ' + res.status + ' ' + res.body);
+  }
+}
+
 /**
  * The existing mother's referral code, for a registration flow to type into the
  * C7 referral field. Read from her own /referrals/me (generated lazily there if
@@ -784,6 +892,9 @@ var STEPS = {
   'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
   'email-otp': emailOtp,
+  'live-assert-account': liveAssertAccount,
+  'live-assert-no-account': liveAssertNoAccount,
+  'live-complete-reset': liveCompleteReset,
   'referrer-code': referrerCode,
   'nanny-accept': nannyAccept,
   'seed-listing-notifications': seedListingNotifications,

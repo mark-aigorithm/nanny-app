@@ -1,0 +1,37 @@
+# The default door, against the real project.
+#
+# The code is fixed in the Firebase console for this number, so nothing is sent
+# and nothing has to be read back — which is the whole reason these two numbers
+# are reserved.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+
+- tapOn: 'Get Started'
+- assertVisible: 'Create your account'
+- tapOn: 'Sign in'
+- assertVisible: 'Welcome back'
+
+- tapOn:
+    id: 'signIn.phone'
+- inputText: ${MANAGED_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+
+# The code phase only renders once Firebase has handed back a confirmation, so
+# this line appearing is the proof the send went through. `?` is escaped: a
+# text selector is a regex over the node's whole text.
+- extendedWaitUntil:
+    visible: "Didn't get a code\\?"
+    timeout: 60000
+
+# The real input is offscreen; the visible boxes carry `.boxes` and focus it.
+- tapOn:
+    id: 'signIn.code.boxes'
+- inputText: ${MANAGED_CODE}
+- hideKeyboard
+- tapOn: 'Sign in'
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

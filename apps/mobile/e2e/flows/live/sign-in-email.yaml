@@ -1,0 +1,16 @@
+# The secondary door: the real address is the Firebase credential now, so this
+# is the assertion that registration linked the right one.
+#
+# Runs before either reset in the suite (live.mjs owns the order), so the
+# account still has the password registration gave it.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MANAGED_EMAIL}
+      PASSWORD: ${MANAGED_PASSWORD}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

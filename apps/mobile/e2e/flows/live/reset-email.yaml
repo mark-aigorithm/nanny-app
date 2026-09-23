@@ -1,0 +1,54 @@
+# Reset by email. The app's half ends at "check your email"; the rest happens on
+# Firebase's hosted page, which a device cannot drive — so the harness mints the
+# oobCode and spends it exactly as that page would, and the flow then proves the
+# password really changed by signing in with the new one.
+#
+# Sets MANAGED_NEW_PASSWORD. live.mjs runs this after sign-in-email and before
+# reset-sms, so the account arrives on the registration password and the new
+# one is a real change.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+
+- tapOn: 'Get Started'
+- assertVisible: 'Create your account'
+- tapOn: 'Sign in'
+- assertVisible: 'Welcome back'
+- tapOn: 'Sign in with email and password instead'
+- assertVisible: 'Sign in with email'
+# `?` escaped: a text selector is a full-match regex.
+- tapOn: 'Forgot password\?'
+- extendedWaitUntil:
+    visible: 'Reset your password'
+    timeout: 30000
+
+- tapOn: 'Email me a reset link'
+- tapOn:
+    id: 'forgotPassword.email'
+- inputText: ${MANAGED_EMAIL}
+- hideKeyboard
+- tapOn: 'Send link'
+
+# Deliberately non-committal copy: Firebase answers the same for an address it
+# has never seen, so the screen must not claim delivery. The sentence is the
+# start of a longer node ("… Open it to choose a new password …"), hence `.*`.
+- extendedWaitUntil:
+    visible: 'If an account exists for that address, the link is on its way.*'
+    timeout: 60000
+
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: live-complete-reset
+      LIVE_EMAIL: ${MANAGED_EMAIL}
+      LIVE_NEW_PASSWORD: ${MANAGED_NEW_PASSWORD}
+
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MANAGED_EMAIL}
+      PASSWORD: ${MANAGED_NEW_PASSWORD}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

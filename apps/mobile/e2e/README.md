@@ -128,6 +128,117 @@ pnpm test:e2e:mobile smoke
 The runner checks all four prerequisites before doing anything and names the
 missing command rather than failing inside a flow.
 
+## Live-Firebase auth suite
+
+Everything above runs against the Auth emulator. The five flows in
+`flows/live/` do not: they drive the sign-in doors and both reset channels
+against the **real** Firebase project, `nanny-now-d8518` — the one production
+uses — because what they check is how Firebase itself behaves: phone sign-in,
+the password credential registration links, and Firebase's own reset mail.
+
+| Flow | What it proves |
+|---|---|
+| `sign-in-sms` | The default door: number + code lands on Home |
+| `sign-in-email` | The secondary door: registration linked the real address as the password credential |
+| `sign-in-sms-no-account` | The orphan guard: a code for an unregistered number is refused, and the harness confirms no Firebase account was left squatting on it |
+| `reset-email` | The app asks Firebase to mail a link; the harness spends a reset code the way the hosted page would; signing in with the new password proves it changed |
+| `reset-sms` | Code + new password in the app, then sign out and back in with that password |
+
+**Two reserved numbers, and only ever these two.** Both are test numbers in the
+Firebase console: their codes are fixed and no SMS is sent.
+
+| Number | Code | Role |
+|---|---|---|
+| `+201234567891` | `111111` | The managed account (`markbotros0+e2e1@gmail.com`): registered through the app at the start of every run, purged at the end |
+| `+201234567892` | `222222` | Never registered: drives the orphan guard |
+
+The backend harness (`apps/backend/src/services/e2e-auth.service.ts`) refuses
+every other number before it makes a single Firebase call, and has deliberately
+no "list and clean up" operation. **No other number may ever be added to that
+allowlist** — this project serves production, and the allowlist is the whole of
+the safety story.
+
+### Running it
+
+The same four processes as the emulator suite, with two swapped:
+
+```bash
+pnpm test:env
+```
+```bash
+pnpm --filter=@nanny-app/backend start:test:live-auth
+```
+```bash
+emulator -avd nanny-e2e -gpu host
+```
+```bash
+pnpm --filter @nanny-app/mobile e2e:metro:live
+```
+
+Then, from `apps/mobile`:
+
+```bash
+node e2e/live.mjs              # all five
+node e2e/live.mjs reset-email  # one — still registers first and purges after
+```
+
+- **`start:test:live-auth` instead of `start:test`.** Rows, mail (Mailpit) and
+  payments stay on the test stack; only the Firebase Admin SDK talks to the real
+  project (which means FCM pushes go out live too — see
+  `apps/backend/test/env.live-auth.ts`). It listens on :3001 like `start:test`, so
+  stop one before starting the other. The runner refuses to start unless
+  `/e2e-auth/account` answers, which the plain test backend never does.
+- **`e2e:metro:live` instead of `e2e:metro`.** No rebuild: a debug build takes
+  its config from Metro, so the one `e2e:build` APK serves both suites and
+  switching means restarting Metro. The live variant leaves out
+  `FIREBASE_AUTH_EMULATOR_HOST`, so native Auth talks to the real project; it
+  **keeps Storage on the emulator**, which keeps the photo pickers' E2E
+  placeholder on and keeps every upload out of the production bucket; and it sets
+  `FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING`, which has `lib/firebase.ts`
+  skip Play Integrity / reCAPTCHA — neither of which an emulator driven by
+  Maestro can pass. Firebase honours that flag only for console test numbers. The
+  runner reads Metro's manifest and refuses one serving the emulator config.
+- The Auth emulator that `pnpm test:env` starts is left running and unused.
+- `live.mjs` never runs the emulator suite's seeder and never talks to the Auth
+  emulator. Its only state operations are the backend's `/e2e-auth` calls.
+
+### What a run does
+
+1. **`POST /e2e-auth/begin`.** The backend refuses (409) if either number
+   already has a Firebase account. Such an account pre-dates the run, so the
+   runner stops **without purging anything** — it never deletes an account it did
+   not create. Find out where it came from, delete it by hand (Firebase console →
+   Authentication), then run again.
+2. **Registers the managed account through the app** —
+   `flows/live/_register-managed.yaml`, C2's wizard with the fixed code and no
+   referral — then checks from Firebase's side that the account carries both the
+   phone and the password provider, her address, and a row. Registration is the
+   live proof that the real address gets linked, which is why it is not done over
+   the Admin SDK. If it fails, no flow runs.
+3. **Runs the flows in suite order** — `sign-in-sms` → `sign-in-email` →
+   `sign-in-sms-no-account` → `reset-email` → `reset-sms` — whatever order they
+   were asked for in. The account is registered once per run, so the order is what
+   gives each flow the right starting password, and each reset sets one the
+   account cannot already have (`E2eNewPassw0rd!`, then `E2eNewerPassw0rd!`).
+4. **Finally — pass, fail or Ctrl+C — purges both numbers**, then prints what the
+   harness sees on each. Both should end with `firebaseExists: false`. The
+   backend only purges an account whose Firebase creation time is after `begin`.
+
+`reset-email` sends Firebase's real reset mail to the managed address on every
+run. Nothing reads it: the harness mints and spends its own reset code.
+
+**If a run ends without purging** (a second Ctrl+C, a crash), the next `begin`
+refuses. While the same live-auth backend process is still running and nothing
+has called `begin` since, the run it began can still be purged:
+
+```bash
+curl -X POST -H 'Content-Type: application/json' -d '{"phone":"+201234567891"}' http://127.0.0.1:3001/e2e-auth/purge
+curl -X POST -H 'Content-Type: application/json' -d '{"phone":"+201234567892"}' http://127.0.0.1:3001/e2e-auth/purge
+```
+
+Once the backend has restarted, or a `begin` has refused (which locks the
+harness), only the Firebase console can remove it.
+
 ## Layout
 
 | Path | What it is |
@@ -138,9 +249,12 @@ missing command rather than failing inside a flow.
 | `accounts.mjs` | Who the lab signs in as — shared by the runner and the seeder |
 | `fixtures.mjs` | What it spends: promo codes, a package, Care Points, platform settings |
 | `run.mjs` | Prerequisite checks → seed → `maestro test`, per flow |
+| `live.mjs` | The live-Firebase auth suite: begin → register → flows → purge (below) |
+| `flows/live/*.yaml` | Its five flows, plus `_register-managed.yaml`; never run by `run.mjs` |
+| `lab.mjs` | What both runners share: Maestro, Metro, device prep, one `maestro test` |
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
 | `android.mjs` | Locating adb and the one device to drive |
-| `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command |
+| `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command (`--live-auth` for the live suite's variant) |
 
 The subflows are where the awkward parts live, and most flows are little more
 than a sequence of them:
@@ -148,7 +262,7 @@ than a sequence of them:
 | Subflow | What it does |
 |---|---|
 | `_launch.yaml` | Cold start with state cleared — five steps, all of them load-bearing (below) |
-| `_sign-in.yaml` | Signs in `${PHONE}` from the welcome screen |
+| `_sign-in.yaml` | Signs in `${EMAIL}` / `${PASSWORD}` through the email door, from the welcome screen |
 | `_book-to-review.yaml` | Home → the review step, with a booking that starts in ten minutes |
 | `_book-and-pay.yaml` | The above, plus the nanny accepting and a real checkout |
 | `_relaunch.yaml` | Reopens the app and waits for `${EXPECT}` |
@@ -163,9 +277,13 @@ single flow runnable on its own.
 
 ## Notes
 
-**Sign-in is phone-based.** The app derives a Firebase credential from the phone
-number, so the seeder does the same derivation. The flows type only the local
-digits — the country code is a separate, fixed control.
+**Sign-in, as setup, goes through the email door.** Phone + SMS code is the
+app's default door, but reading a code back on every flow would be pure cost, so
+`_sign-in.yaml` uses the email + password door instead; the seeded credential is
+each account's real address. The doors themselves are covered live — see
+[Live-Firebase auth suite](#live-firebase-auth-suite). Where a flow types a phone
+number it types only the local digits — the country code is a separate, fixed
+control.
 
 **Selectors.** Flows prefer visible text; `testID`s exist only where text is
 ambiguous or absent (icon buttons, repeated labels, list cards), following
