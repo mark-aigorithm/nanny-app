@@ -17,7 +17,7 @@ appId: com.nannyapp.mobile
 - runFlow:
     file: _sign-in.yaml
     env:
-      PHONE: ${GATED_MOTHER_PHONE}
+      EMAIL: ${GATED_MOTHER_EMAIL}
 
 # ── Stopped ────────────────────────────────────────────────────────────────
 # She reaches her home screen like anyone else. The gate is on the action, not

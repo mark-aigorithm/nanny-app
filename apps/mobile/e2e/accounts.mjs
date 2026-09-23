@@ -7,6 +7,10 @@
  * The `+2011` prefix keeps these clear of the backend factories, which mint
  * `+2010…` numbers — `users.phone` is unique, and the E2E database is not
  * truncated between runs.
+ *
+ * The seeded Firebase credential is now each account's real address: the app
+ * links a mother's or nanny's own email at registration, so the lab does the
+ * same rather than deriving one from the phone number.
  */
 
 /** The country code the sign-in screen is fixed to. */
@@ -16,8 +20,20 @@ export const COUNTRY_CODE = '+20';
 export const PASSWORD = 'E2ePassw0rd!';
 
 export const ACCOUNTS = {
-  mother: { phone: '+201100000001', password: PASSWORD, role: 'MOTHER', firstName: 'Mona' },
-  nanny: { phone: '+201100000002', password: PASSWORD, role: 'NANNY', firstName: 'Nadia' },
+  mother: {
+    phone: '+201100000001',
+    email: 'e2e-mother@nannyapp.test',
+    password: PASSWORD,
+    role: 'MOTHER',
+    firstName: 'Mona',
+  },
+  nanny: {
+    phone: '+201100000002',
+    email: 'e2e-nanny@nannyapp.test',
+    password: PASSWORD,
+    role: 'NANNY',
+    firstName: 'Nadia',
+  },
   /**
    * A mother who has never uploaded an ID, for A11. Separate from the one every
    * other flow signs in as, because that one has to stay past the gate — a
@@ -25,6 +41,7 @@ export const ACCOUNTS = {
    */
   gatedMother: {
     phone: '+201100000003',
+    email: 'e2e-gated-mother@nannyapp.test',
     password: PASSWORD,
     role: 'MOTHER',
     firstName: 'Gada',
@@ -37,6 +54,7 @@ export const ACCOUNTS = {
    */
   pendingNanny: {
     phone: '+201100000004',
+    email: 'e2e-pending-nanny@nannyapp.test',
     password: PASSWORD,
     role: 'NANNY',
     firstName: 'Noha',
@@ -95,16 +113,4 @@ export const ADMIN = {
  */
 export function localDigits(phoneE164) {
   return phoneE164.startsWith(COUNTRY_CODE) ? phoneE164.slice(COUNTRY_CODE.length) : phoneE164;
-}
-
-/**
- * The Firebase credential the app derives from a phone number.
- *
- * Sign-up is phone-only, so there is no real email anywhere — the app
- * synthesizes one (`phoneToPlaceholderEmail` in src/lib/validation.ts) and the
- * backend's seeder derives the same string. `scripts/advance.js` needs it to
- * sign in over HTTP as the same person the flow is signed in as on the device.
- */
-export function placeholderEmail(phoneE164) {
-  return `${phoneE164.replace(/\D/g, '')}@phone.nannyapp.local`;
 }

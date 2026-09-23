@@ -18,7 +18,7 @@ env:
 - runFlow:
     file: _sign-in.yaml
     env:
-      PHONE: ${MOTHER_PHONE}
+      EMAIL: ${MOTHER_EMAIL}
 
 # ── Request, then pay ──────────────────────────────────────────────────────
 - runFlow: _book-and-pay.yaml

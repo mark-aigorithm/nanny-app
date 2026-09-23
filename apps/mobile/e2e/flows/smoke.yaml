@@ -9,7 +9,7 @@ appId: com.nannyapp.mobile
 - runFlow:
     file: _sign-in.yaml
     env:
-      PHONE: ${MOTHER_PHONE}
+      EMAIL: ${MOTHER_EMAIL}
 
 # The home screen the root gate routes a mother to. "Book care" renders for
 # guests too, so the guest card's absence is what proves the session is real —

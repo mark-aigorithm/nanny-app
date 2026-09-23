@@ -1,10 +1,11 @@
-# Signs in the account whose local phone digits are ${PHONE}.
+# Signs in the account whose email is ${EMAIL}.
 #
 # Not a test — the leading underscore keeps run.mjs from treating it as one.
 # Expects `_launch.yaml` to have run: it starts from the welcome screen.
 #
-# Every control here is selected by visible copy, because on these screens the
-# copy is unique and stable. The one exception is the password field; see below.
+# Flows sign in as *setup*; the doors themselves are covered by the live-Firebase
+# suite (e2e/flows/live). The email door is used here because it needs no code:
+# the SMS door would have to read a verification code on every single flow.
 appId: com.nannyapp.mobile
 ---
 - tapOn: 'Get Started'
@@ -13,17 +14,15 @@ appId: com.nannyapp.mobile
 - tapOn: 'Sign in'
 
 - assertVisible: 'Welcome back'
-- tapOn:
-    id: 'signIn.phone'
-- inputText: ${PHONE}
+- tapOn: 'Sign in with email and password instead'
 
-# Both fields are named rather than selected by their placeholders: the
-# password's is a run of bullet characters, which does not survive the round
-# trip through a Windows console into Maestro's regex, and `below: 'Password'`
-# is only *usually* the input — it also matches the reveal-password toggle, and
-# when it picks that one the password is silently typed into the phone field.
+- assertVisible: 'Sign in with email'
 - tapOn:
-    id: 'signIn.password'
+    id: 'emailSignIn.email'
+- inputText: ${EMAIL}
+- hideKeyboard
+- tapOn:
+    id: 'emailSignIn.password'
 - inputText: ${PASSWORD}
 - hideKeyboard
 - tapOn: 'Sign in'

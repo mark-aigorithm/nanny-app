@@ -27,7 +27,6 @@ import {
   REGISTRATION,
   REGISTRATION_NANNY,
   localDigits,
-  placeholderEmail,
 } from './accounts.mjs';
 import { APP_ID, fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
 import { CARE_POINTS, PACKAGE, PLATFORM_SETTINGS, PROMO_CODES } from './fixtures.mjs';
@@ -363,12 +362,12 @@ function runFlow(maestro, flow) {
     // the country code plus the digits, not the digits a person types.
     MOTHER_PHONE_E164: ACCOUNTS.mother.phone,
     // The throwaway account a registration flow signs up as — the digits it
-    // types, the E.164 the phone-otp step reads, the placeholder email that
-    // stays her Firebase sign-in credential, and the real address she types on
-    // step 1 and proves on step 2.
+    // types, the E.164 the phone-otp step reads, and the real address she
+    // types on step 1, proves on step 2, and links as her Firebase sign-in
+    // credential.
     REGISTRATION_PHONE: localDigits(REGISTRATION.phone),
     REGISTRATION_PHONE_E164: REGISTRATION.phone,
-    REGISTRATION_EMAIL: placeholderEmail(REGISTRATION.phone),
+    REGISTRATION_EMAIL: REGISTRATION.email,
     REGISTRATION_REAL_EMAIL: REGISTRATION.email,
     REGISTRATION_FIRST_NAME: REGISTRATION.firstName,
     // The nanny sign-up (A10): her digits + E.164 for the phone step, and the
@@ -378,10 +377,10 @@ function runFlow(maestro, flow) {
     REGISTRATION_NANNY_EMAIL: REGISTRATION_NANNY.email,
     REGISTRATION_NANNY_FIRST_NAME: REGISTRATION_NANNY.firstName,
     MAILPIT_URL,
-    MOTHER_EMAIL: placeholderEmail(ACCOUNTS.mother.phone),
-    NANNY_EMAIL: placeholderEmail(ACCOUNTS.nanny.phone),
-    GATED_MOTHER_EMAIL: placeholderEmail(ACCOUNTS.gatedMother.phone),
-    PENDING_NANNY_EMAIL: placeholderEmail(ACCOUNTS.pendingNanny.phone),
+    MOTHER_EMAIL: ACCOUNTS.mother.email,
+    NANNY_EMAIL: ACCOUNTS.nanny.email,
+    GATED_MOTHER_EMAIL: ACCOUNTS.gatedMother.email,
+    PENDING_NANNY_EMAIL: ACCOUNTS.pendingNanny.email,
     ADMIN_EMAIL: ADMIN.email,
     ADMIN_PASSWORD: ADMIN.password,
     PASSWORD,

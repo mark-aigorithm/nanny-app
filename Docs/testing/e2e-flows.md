@@ -336,7 +336,7 @@ each proves the screen is wired.
 
 | # | Flow | Driver |
 |---|---|---|
-| C1 | Sign in, sign out, forgot password, create password — **covered** by `c01-session-lifecycle.yaml` | `UI:mobile` |
+| C1 | Sign in, sign out, forgot password, create password — moved to the live-Firebase auth suite | `UI:mobile` |
 | C2 | Role selection branching (mother vs nanny paths diverge) — **covered** by `c02-role-selection.yaml` | `UI:mobile` |
 | C3 | Notification permission gate → push token registered on login, cleared on logout — **not covered**, see below | `UI:mobile` |
 | C4 | Nanny day: dashboard → requests → booking detail → care log authoring — **covered** by `c04-nanny-day.yaml` | `UI:mobile` |
@@ -354,28 +354,17 @@ refused to drive, and it would also mint a new account on every run against a da
 never truncated. Both flows therefore stop at step 1 and say so; what each one loses is named in
 its own section below.
 
-### C1. Session lifecycle · `UI:mobile` — **covered** by `c01-session-lifecycle.yaml`
-The only flow whose subject is the auth screens themselves; every other one signs in and moves on.
+### C1. Session lifecycle · `UI:mobile` — moved to the live-Firebase suite
+Previously `c01-session-lifecycle.yaml`, which drove sign in, sign out, forgot password and create
+password against the seeded Auth-emulator account like every other mobile flow. The auth doors
+themselves need a real Firebase project to mean anything — the emulator accepts any reset code, and
+by design it cannot deliver a real SMS or email — so that coverage moves to the live-Firebase suite
+(see `apps/mobile/e2e/README.md`). Every other Maestro flow still signs in as *setup only*, now
+through the email door (`_sign-in.yaml`), which needs no code to drive.
 
-Two assertions here are about things a screen cannot show. **Signing out is checked by reopening the
-app** — navigating back to the welcome screen looks identical whether or not Firebase's persisted
-session was cleared, and Firebase restores a session on launch, so a sign-out that only changed the
-route would put her straight back on Home. And the reset is checked against the **Auth emulator's own
-out-of-band code list**, counted either side of the tap: "Check your inbox" is client state the
-screen sets on any success the SDK reports, nothing clears the emulator's list, and a code left by an
-earlier run would satisfy a bare "does one exist".
-
-A wrong password has to *look* like a password. `validatePassword` runs before any network call and
-rejects anything under eight characters or missing an uppercase letter or a digit, so an obviously
-junk string asserts the client-side rule while appearing to test the server's answer.
-
-**KNOWN GAP pinned here: the reset screen asks for an email address no user of this app has.**
-Sign-up is phone-only — `RegistrationStep3Screen` derives a placeholder from the phone number and
-that synthesized string is both the Firebase credential and the address on the user row. Registration
-never asks for a real one. So `sendPasswordResetEmail` succeeds only for a string the person has
-never been shown, and anything they might actually type comes back "We couldn't find an account with
-those details." The flow asserts **both** halves, so closing the gap turns the first assertion red
-rather than passing quietly.
+The known gap this flow used to pin — the reset screen asking for an address no phone-only user had —
+is closed: registration now links the user's own email as the Firebase credential, and there is no
+phone-derived placeholder left in the app.
 
 ### C2. Role selection branching · `UI:mobile` — **covered** by `c02-role-selection.yaml`
 The screen's whole job is a fork, and the fork is visible on the very next screen: a mother signs

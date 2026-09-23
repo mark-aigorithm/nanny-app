@@ -91,9 +91,9 @@ function bookingWindow(
 }
 
 /**
- * Mirror of the mobile app's `phoneToPlaceholderEmail` (apps/mobile/src/lib/validation.ts):
- * sign-in is phone-number-only, backed by email/password with an email
- * derived from the E.164 digits. Keep the two in sync.
+ * These demo accounts predate real-email registration and keep their
+ * phone-derived addresses as fixtures — re-seeding this environment with
+ * different addresses would collide with the Firebase uids it already holds.
  */
 function phoneToPlaceholderEmail(phoneE164: string): string {
   const digits = phoneE164.replace(/\D/g, '');

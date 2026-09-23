@@ -21,7 +21,7 @@ appId: com.nannyapp.mobile
 - runFlow:
     file: _sign-in.yaml
     env:
-      PHONE: ${MOTHER_PHONE}
+      EMAIL: ${MOTHER_EMAIL}
 
 - runFlow: _book-and-pay.yaml
 

@@ -7,16 +7,13 @@
  * SDK, the Prisma client and the test environment all live in the backend, and
  * neither the mobile package nor a Maestro flow has any of them.
  *
- * The one subtlety is the email. Mobile sign-up is phone-only, so the app
- * synthesizes a Firebase credential from the phone number
- * (`phoneToPlaceholderEmail` in apps/mobile/src/lib/validation.ts) and signs in
- * with *that*. The derivation is duplicated below rather than imported — the
- * backend cannot import from the mobile package — so a change to either side
- * shows up as a sign-in failure in the smoke flow, which is the cheapest place
- * to notice it.
+ * Each account carries its own real email address (`apps/mobile/e2e/accounts.mjs`),
+ * matching what registration now links as the Firebase credential — there is no
+ * placeholder to derive, so the address is used as-is for both the Firebase
+ * user and the `users` row.
  *
  * Usage:
- *   E2E_MOBILE_ACCOUNTS='[{"phone":"+201100000001","password":"…","role":"MOTHER"}]' \
+ *   E2E_MOBILE_ACCOUNTS='[{"phone":"+201100000001","email":"e2e-mother@nannyapp.test","password":"…","role":"MOTHER"}]' \
  *   E2E_LAB_FIXTURES='{"platformSettings":{…},"promoCodes":[…],…}' \
  *     pnpm exec ts-node --transpile-only -r tsconfig-paths/register test/e2e/seed-mobile.ts
  *
@@ -35,6 +32,8 @@ import { firebaseAuth } from '@backend/lib/firebase';
 type AccountSpec = {
   /** E.164, as the app builds it from the country code plus typed digits. */
   phone: string;
+  /** The real address registration links as the Firebase credential. */
+  email: string;
   password: string;
   role: Extract<Role, 'MOTHER' | 'NANNY'>;
   firstName?: string;
@@ -68,14 +67,6 @@ type LabFixtures = {
 const LOCATION = { latitude: 30.0444, longitude: 31.2357 };
 
 /**
- * Must stay in step with `phoneToPlaceholderEmail` on mobile: digits only, then
- * the fixed domain.
- */
-function placeholderEmail(phoneE164: string): string {
-  return `${phoneE164.replace(/\D/g, '')}@phone.nannyapp.local`;
-}
-
-/**
  * Provisions the Firebase account behind one row.
  *
  * `phoneNumber` matters for more than realism: recovery is phone-based
@@ -106,7 +97,7 @@ async function ensureFirebaseUser(
 }
 
 async function seedAccount(spec: AccountSpec): Promise<number> {
-  const email = placeholderEmail(spec.phone);
+  const email = spec.email;
   const firebaseUid = await ensureFirebaseUser(email, spec.password, spec.phone);
 
   // Both roles are gated on their approval status, but not the same way: a
@@ -300,12 +291,12 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
  * `deleted_at`). The Firebase user is removed so phone sign-in mints a fresh
  * uid and the number/email are free there too.
  */
-async function wipeAccount(spec: { phone: string; role?: string; email?: string }): Promise<void> {
-  const email = placeholderEmail(spec.phone);
+async function wipeAccount(spec: { phone: string; role?: string; email: string }): Promise<void> {
+  const email = spec.email;
 
-  // Look the DB row up by phone, not email: the row carries the real address
-  // proved mid-wizard, while the Firebase credential keeps the phone-derived
-  // placeholder — the phone is the one identifier both sides share.
+  // Look the DB row up by phone, not email: a run that crashed before the
+  // email-verification step never linked one, and phone is the one identifier
+  // guaranteed to be on the row from registration's first step.
   const user = await prisma.user.findUnique({ where: { phone: spec.phone } });
   if (user) {
     const tag = `wiped-${user.id}-`;
@@ -342,9 +333,7 @@ async function wipeAccount(spec: { phone: string; role?: string; email?: string 
   // address is per-row (a 60s resend cooldown, 5 sends an hour). Left behind,
   // those rows make the second run of the day fail on a 429 rather than on
   // anything the flow is testing.
-  if (spec.email) {
-    await prisma.emailVerification.deleteMany({ where: { email: spec.email } });
-  }
+  await prisma.emailVerification.deleteMany({ where: { email: spec.email } });
 
   // eslint-disable-next-line no-console
   console.log(`[seed-mobile] wipe      ${spec.phone}  (${email})`);
@@ -437,7 +426,7 @@ async function main(): Promise<void> {
   // run cannot trip the seeding that follows.
   const rawWipe = process.env['E2E_MOBILE_WIPE'];
   if (rawWipe) {
-    const toWipe = JSON.parse(rawWipe) as { phone: string; role?: string; email?: string }[];
+    const toWipe = JSON.parse(rawWipe) as { phone: string; role?: string; email: string }[];
     for (const spec of toWipe) await wipeAccount(spec);
   }
 

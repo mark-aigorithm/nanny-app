@@ -20,8 +20,8 @@
 #
 # Step 2 proves her address against our own email OTP, read out of Mailpit —
 # the same mid-wizard step A10 drives for a nanny. It is what puts a real
-# address on `users.email`; the phone-derived placeholder stays behind as the
-# Firebase sign-in credential only.
+# address on `users.email`, and that same address becomes her Firebase
+# sign-in credential — there is no phone-derived placeholder any more.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -65,7 +65,7 @@ appId: com.nannyapp.mobile
 - inputText: 'Lab'
 - hideKeyboard
 # A real address, verified on the very next screen — this is what lands in
-# `users.email`, not the placeholder her sign-in credential keeps.
+# `users.email` and becomes her Firebase sign-in credential.
 - tapOn: 'you@example.com'
 - inputText: ${REGISTRATION_REAL_EMAIL}
 - hideKeyboard
