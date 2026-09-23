@@ -96,7 +96,8 @@ async function main(): Promise<void> {
         log('no-firebase-account', user.firebaseUid);
         continue;
       }
-      throw err;
+      log('failed', (err as { code?: string }).code ?? String(err));
+      continue;
     }
 
     if (current === user.email) {
