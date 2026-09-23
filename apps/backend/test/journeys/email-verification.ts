@@ -10,7 +10,7 @@ import request from 'supertest';
 
 import { app } from '@backend/app';
 
-import { authHeader } from '../auth';
+import { authHeader, exchangeCustomToken } from '../auth';
 import { waitForOtp } from '../mailpit';
 
 /**
@@ -43,9 +43,20 @@ export async function proveEmail(email: string, actingToken?: string): Promise<s
 
 /**
  * The mother's half of the gate: prove an address, then attach it to the
- * signed-in account so she can book. Returns the updated user response.
+ * signed-in account so she can book. Returns the updated user response and a
+ * fresh ID token.
+ *
+ * Attaching the address swaps the Firebase email, which revokes every
+ * existing session for this uid — including `token`, the one this call was
+ * authenticated with — so `/auth/email` hands back a custom token in its
+ * place. A caller that keeps making authenticated calls after this must use
+ * the returned `token`, exactly as the real app re-signs in via
+ * `signInWithCustomToken` instead of continuing to use its now-dead ID token.
  */
-export async function verifyMyEmail(token: string, email: string): Promise<unknown> {
+export async function verifyMyEmail(
+  token: string,
+  email: string,
+): Promise<{ profile: unknown; token: string }> {
   const verificationToken = await proveEmail(email, token);
 
   const response = await request(app)
@@ -57,5 +68,7 @@ export async function verifyMyEmail(token: string, email: string): Promise<unkno
     throw new Error(`Attaching ${email} failed (${response.status}): ${response.body?.error}`);
   }
 
-  return response.body.data;
+  const freshToken = await exchangeCustomToken(response.body.data.customToken);
+
+  return { profile: response.body.data, token: freshToken };
 }

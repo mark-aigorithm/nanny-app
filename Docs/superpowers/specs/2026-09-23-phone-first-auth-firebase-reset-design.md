@@ -95,8 +95,10 @@ The wizard still sets a password; it is the email door's key and the thing reset
 resets.
 
 **`VerifyEmailScreen`** — unchanged on screen; its backend call now also swaps
-the Firebase address, and its success path calls `user.reload()` so the client's
-cached `currentUser.email` does not go stale.
+the Firebase address. That swap revokes the caller's own session (see Session
+revocation, under Edge cases), so its success path calls
+`signInWithCustomToken` with the token the backend returns, rather than
+`user.reload()` — there is no live session left to reload.
 
 `phoneToPlaceholderEmail` is deleted from `validation.ts` so nothing can regrow
 the dependency.
@@ -154,6 +156,21 @@ paths therefore check, in the screen that owns them:
 The root gate's orphan handling stays **sign-out only**: a wizard interrupted
 mid-flight has a Firebase account with no DB row yet, and deleting it on the
 next launch would destroy work in progress.
+
+**Session revocation.** Changing an account's Firebase email — an admin edit,
+or `setVerifiedEmail`'s own swap for a legacy account — is a "major account
+change" that revokes every existing session for that uid (Firebase bumps
+`tokensValidAfterTime`), including the ID token the request that triggered it
+was authenticated with. `POST /auth/email` mints a Firebase custom token right
+after the swap and returns it alongside the profile; `VerifyEmailScreen` trades
+it for a fresh session via `signInWithCustomToken` so the gate reads as
+seamless rather than as a surprise sign-out. If that exchange itself fails, the
+gate has still succeeded server-side — the app signs out fully and sends her
+back to the phone sign-in door with "Your email is verified. Please sign in
+again." The one-off migration script (`migrate-firebase-emails.ts`) hits the
+same revocation for every account it converts and does not attempt a
+re-sign-in; each migrated user is signed out once and signs back in by SMS —
+a one-time rollout cost, accepted rather than engineered around.
 
 **Other cases**
 
@@ -266,6 +283,10 @@ is the real one, a build that still derives the placeholder cannot sign into it.
 Between 1 and 3 the email door returns "incorrect email or password" for
 unmigrated accounts and people use SMS. With five accounts, that window is
 minutes.
+
+Step 3 signs every account it touches out of its current session (see Session
+revocation above) — each one signs back in by SMS, a one-time cost accepted for
+this rollout.
 
 **Firebase Console** — customise the password-reset template (sender name,
 subject, reply-to) under Authentication → Templates. A verified custom sender

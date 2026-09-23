@@ -33,19 +33,26 @@ export function useVerifiedEmailSubmit() {
   }
 
   /**
-   * Check the code and spend the token it buys. Resolves true once her row
-   * carries the address; false leaves `error` set for the modal to show.
+   * Check the code and spend the token it buys. Resolves with the fresh
+   * Firebase custom token once her row carries the address — attaching it
+   * swaps the Firebase email, which revokes the caller's own session, so the
+   * backend mints this as the way back in (see `setVerifiedEmail`'s doc
+   * comment on the backend). The screen trades it for a session via
+   * `signInWithCustomToken`. Null leaves `error` set for it to show.
    */
-  async function confirmCode(email: string, code: string): Promise<boolean> {
+  async function confirmCode(email: string, code: string): Promise<string | null> {
     setError(null);
     const normalised = email.trim().toLowerCase();
     try {
       const { verificationToken } = await verifyOtp.mutateAsync({ email: normalised, code });
-      await setVerifiedEmail.mutateAsync({ email: normalised, verificationToken });
-      return true;
+      const { customToken } = await setVerifiedEmail.mutateAsync({
+        email: normalised,
+        verificationToken,
+      });
+      return customToken;
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not confirm that code. Please try again.'));
-      return false;
+      return null;
     }
   }
 

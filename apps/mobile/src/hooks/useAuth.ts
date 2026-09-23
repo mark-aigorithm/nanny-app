@@ -5,6 +5,7 @@ import type {
   CheckAvailabilityRequest,
   RegisterRequest,
   SetVerifiedEmailRequest,
+  SetVerifiedEmailResponse,
   UserResponse,
   VerifyEmailOtpRequest,
   VerifyEmailOtpResponse,
@@ -308,10 +309,15 @@ export function useVerifyEmailOtp() {
  * Spends a verification token to attach the address to the signed-in user.
  * The mother's half of the gate; see `useVerifiedEmailSubmit`, which owns the
  * ordering against the matching Firebase credential update.
+ *
+ * The response also carries a fresh Firebase custom token: moving the
+ * account's Firebase email revokes the caller's own session, so
+ * `useVerifiedEmailSubmit` trades this token in via `signInWithCustomToken`
+ * right after.
  */
 export function useSetVerifiedEmail() {
   const setProfile = useUserProfileStore((s) => s.setProfile);
-  return useMutation<UserResponse, Error, SetVerifiedEmailRequest>({
+  return useMutation<SetVerifiedEmailResponse, Error, SetVerifiedEmailRequest>({
     mutationFn: async (body) => unwrap(api.post('/auth/email', body)),
     onSuccess: (profile) => setProfile(profile),
   });

@@ -233,6 +233,22 @@ export const UserResponseSchema = z.object({
 });
 export type UserResponse = z.infer<typeof UserResponseSchema>;
 
+/**
+ * Response of POST /auth/email — the updated profile plus a fresh Firebase
+ * custom token.
+ *
+ * Moving the account's Firebase email is a "major account change" that
+ * revokes every existing session for that uid (Firebase bumps
+ * `tokensValidAfterTime`), including the ID token the caller authenticated
+ * this very request with. The mobile client trades this custom token for a
+ * fresh session via `signInWithCustomToken` immediately after, so the gate
+ * never leaves her signed out mid-flow.
+ */
+export const SetVerifiedEmailResponseSchema = UserResponseSchema.extend({
+  customToken: z.string(),
+});
+export type SetVerifiedEmailResponse = z.infer<typeof SetVerifiedEmailResponseSchema>;
+
 /** Body for PATCH /auth/me — all fields optional (patch semantics). */
 export const UpdateProfileRequestSchema = z.object({
   firstName: z.string().trim().min(1).max(80).optional(),

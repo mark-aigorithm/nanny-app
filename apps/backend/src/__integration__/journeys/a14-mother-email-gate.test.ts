@@ -149,7 +149,7 @@ describe('A14 — accounts created before the rule', () => {
   it('mails a code, swaps it for a token, and opens booking once the address is attached', async () => {
     const mother = await makeLegacyMother();
 
-    await verifyMyEmail(mother.token, mother.realEmail);
+    const { token: freshToken } = await verifyMyEmail(mother.token, mother.realEmail);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
     expect(row.email).toBe(mother.realEmail);
@@ -162,7 +162,17 @@ describe('A14 — accounts created before the rule', () => {
     expect(fbUser.email).toBe(mother.realEmail);
     expect(fbUser.emailVerified).toBe(true);
 
-    expect((await attemptBooking(mother.token)).status).toBe(201);
+    // The swap above revoked `mother.token` (the session it was authenticated
+    // with) — confirm the exchanged custom token really is a session for the
+    // same account, not a coincidentally-valid one for someone else, then use
+    // it the way the real app now does for everything past the gate. Not
+    // asserted: that `mother.token` itself is now rejected — that depends on
+    // whether a clock second elapsed between mint and swap, so it would be
+    // flaky.
+    const decoded = await firebaseAuth.verifyIdToken(freshToken);
+    expect(decoded.uid).toBe(mother.firebaseUid);
+
+    expect((await attemptBooking(freshToken)).status).toBe(201);
   });
 
   it('records the send in the email log', async () => {

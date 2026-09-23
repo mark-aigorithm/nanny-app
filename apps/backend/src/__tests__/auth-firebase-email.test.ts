@@ -9,7 +9,7 @@ jest.mock('@backend/db/prisma', () => ({
 }));
 
 jest.mock('@backend/lib/firebase', () => ({
-  firebaseAuth: { updateUser: jest.fn() },
+  firebaseAuth: { updateUser: jest.fn(), createCustomToken: jest.fn() },
 }));
 
 jest.mock('@backend/services/email-verification.service', () => ({
@@ -26,6 +26,7 @@ const mockPrisma = prisma as unknown as {
   $transaction: jest.Mock;
 };
 const mockUpdateUser = firebaseAuth.updateUser as unknown as jest.Mock;
+const mockCreateCustomToken = firebaseAuth.createCustomToken as unknown as jest.Mock;
 const mockConsume = consumeVerificationToken as unknown as jest.Mock;
 
 const DECODED = { uid: 'fb-1', phone_number: '+201000000000' } as never;
@@ -55,6 +56,7 @@ function userRow(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockUpdateUser.mockResolvedValue(undefined);
+  mockCreateCustomToken.mockResolvedValue('minted-custom-token');
   mockConsume.mockResolvedValue(undefined);
 });
 
@@ -98,6 +100,45 @@ describe('setVerifiedEmail', () => {
 
     expect(mockConsume).not.toHaveBeenCalled();
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('mints a fresh session token after the swap, since the swap just revoked the caller\'s own', async () => {
+    const order: string[] = [];
+    mockPrisma.user.findUnique.mockResolvedValue(userRow());
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockUpdateUser.mockImplementation(async () => {
+      order.push('firebase');
+    });
+    mockCreateCustomToken.mockImplementation(async () => {
+      order.push('customToken');
+      return 'minted-custom-token';
+    });
+    mockPrisma.user.update.mockResolvedValue(
+      userRow({ email: 'mona@example.com', isEmailVerified: true }),
+    );
+
+    const result = await setVerifiedEmail(DECODED, {
+      email: 'mona@example.com',
+      verificationToken: 'tok-1',
+    });
+
+    expect(mockCreateCustomToken).toHaveBeenCalledWith('fb-1');
+    expect(order.indexOf('customToken')).toBeGreaterThan(order.indexOf('firebase'));
+    expect(result.customToken).toBe('minted-custom-token');
+  });
+
+  it('mints no session token when Firebase refuses the address', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(userRow());
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockUpdateUser.mockRejectedValue(
+      Object.assign(new Error('exists'), { code: 'auth/email-already-exists' }),
+    );
+
+    await expect(
+      setVerifiedEmail(DECODED, { email: 'taken@example.com', verificationToken: 'tok-1' }),
+    ).rejects.toThrow('An account with this email already exists.');
+
+    expect(mockCreateCustomToken).not.toHaveBeenCalled();
   });
 
   it('is a no-op when she already holds the verified address', async () => {

@@ -11,6 +11,7 @@ import {
   type Role as ApiRole,
   type SaveChildrenRequest,
   type SetVerifiedEmailRequest,
+  type SetVerifiedEmailResponse,
   type SubmitIdRequest,
   type UpdateProfileRequest,
   type UserResponse,
@@ -368,15 +369,26 @@ async function moveFirebaseEmail(uid: string, email: string): Promise<void> {
  * verified, the row is returned unchanged rather than failing on a token that
  * a retried request already consumed. That matters because the client updates
  * Firebase before calling this, so a network blip here is retried.
+ *
+ * Returns a fresh Firebase custom token alongside the profile. Moving the
+ * account's Firebase email is a "major account change" that revokes every
+ * existing session for that uid (Firebase bumps `tokensValidAfterTime`) — the
+ * very ID token this request was authenticated with dies the instant the
+ * swap happens. Without a way back in, the caller would be silently signed
+ * out mid-flow, so the mobile client exchanges this token for a new session
+ * via `signInWithCustomToken` right after. Minted on every path (including
+ * the no-op above) so the response shape — and the client's re-sign-in call —
+ * never has to branch on which path was taken.
  */
 export async function setVerifiedEmail(
   decoded: DecodedIdToken,
   body: SetVerifiedEmailRequest,
-): Promise<UserResponse> {
+): Promise<SetVerifiedEmailResponse> {
   const user = await requireUser(decoded);
 
   if (user.email === body.email && user.isEmailVerified) {
-    return toUserResponse(user, await flatLocationOf(user.id));
+    const customToken = await firebaseAuth.createCustomToken(user.firebaseUid);
+    return { ...toUserResponse(user, await flatLocationOf(user.id)), customToken };
   }
 
   const emailOwner = await prisma.user.findFirst({
@@ -401,7 +413,11 @@ export async function setVerifiedEmail(
     },
   });
 
-  return toUserResponse(updated, await flatLocationOf(updated.id));
+  // See the doc comment above: the swap above just revoked the caller's own
+  // session, so mint the replacement before returning.
+  const customToken = await firebaseAuth.createCustomToken(user.firebaseUid);
+
+  return { ...toUserResponse(updated, await flatLocationOf(updated.id)), customToken };
 }
 
 /**

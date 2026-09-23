@@ -69,6 +69,36 @@ export function authHeader(token: string): ['Authorization', string] {
 }
 
 /**
+ * Exchanges a Firebase custom token — the kind `firebaseAuth.createCustomToken`
+ * mints — for a real ID token, the same way the mobile client's
+ * `signInWithCustomToken` does. `POST /auth/email` now returns one of these
+ * because swapping the Firebase email revokes every existing session for that
+ * uid; a caller that keeps making authenticated requests after that gate must
+ * exchange it for a fresh token instead of reusing the one it went in with.
+ */
+export async function exchangeCustomToken(customToken: string): Promise<string> {
+  const response = await fetch(
+    `${IDENTITY_TOOLKIT}/accounts:signInWithCustomToken?key=${API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+    },
+  );
+
+  const body = (await response.json()) as { idToken?: string; error?: { message?: string } };
+
+  if (!body.idToken) {
+    throw new Error(
+      `Exchanging the custom token failed: ${body.error?.message ?? response.status}. ` +
+        'Is the Auth emulator running (pnpm test:emulator)?',
+    );
+  }
+
+  return body.idToken;
+}
+
+/**
  * Deletes every account in the emulator project.
  *
  * Called from the per-test reset so Firebase state cannot outlive the database
