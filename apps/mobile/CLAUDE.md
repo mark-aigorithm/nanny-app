@@ -149,7 +149,7 @@ All shared domain types live in `src/types/`, organized by domain file:
 | `care.ts` | `ActivityItem`, `QuickEntry`, `LogEntry`, `LiveActivityItem`, `ChildInfo` |
 | `profile.ts` | `SettingsItem`, `UserProfile` |
 | `dashboard.ts` | `PromoCard`, `QuickAction` |
-| `registration.ts` | `Role`, `Child` |
+| `registration.ts` | `Role`, `Child`, `SocialProvider`, `AuthProvider` |
 | `search.ts` | `FilterChipData`, `SortOption` |
 | `support.ts` | `FaqItem` |
 | `index.ts` | Barrel re-export of all above |
@@ -263,6 +263,18 @@ re-prebuild to get the maps back; iOS is unaffected, as it renders Apple Maps an
 
 **pnpm + React Native**
 Metro bundler does not understand pnpm's symlink structure by default. You may need `resolver.nodeModulesPaths` or `unstable_enablePackageExports` in `metro.config.js`.
+
+**Google and Apple sign-in**
+- Google Sign-In only works on builds signed with a key whose SHA-1 is registered on the
+  Firebase Android app. The debug keystore (`android/app/debug.keystore`) and the release key
+  are both registered; a new signing key needs its SHA-1 added, then google-services.json
+  re-downloaded.
+- `extra.googleWebClientId` is read from google-services.json at config time — never hardcode it.
+- Apple is iOS-only (`lib/socialAuth.ts` `isAppleSignInAvailable`).
+- Under the Auth emulator, "Continue with Google" opens an E2E-only picker instead of Google's
+  sheet (`E2eGooglePickerHost`); see e2e/README.md.
+- `pendingLinkStore` links whatever it holds on the next successful sign-in, so only a real
+  collision may put a credential there. Never persist it.
 
 ---
 

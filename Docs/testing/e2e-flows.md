@@ -346,6 +346,8 @@ each proves the screen is wired.
 | C8 | Notification centre: list, mark read, mark all read, unread count — **covered** by `c08-notification-centre.yaml` | `UI:mobile` |
 | C9 | Customer support contact screen — **covered** by `c09-customer-support.yaml` | `UI:mobile` |
 | C10 | Failure states: backend unreachable, token expired mid-session, no results — **covered** by `c10-failure-states.yaml` | `UI:mobile` |
+| C11 | Google sign-up for a mother through the E2E Google picker, then sign out and sign in with Google again — **covered** by `c11-google-sign-up.yaml` | `UI:mobile` |
+| C12 | Collision B: a Google sign-up that finds the seeded mother's phone taken, signs in by SMS, and links Google — asserted via the emulator — **covered** by `c12-google-collision.yaml` | `UI:mobile` |
 
 **The photo picker is what bounds C2 and C7.** Step 1 of registration disables `Continue` until
 `draft.photoUri` is set — for a mother as well as a nanny — so *every* path through the signup
@@ -511,6 +513,30 @@ seeder soft-deletes what previous runs left behind — so "nothing here" is a fa
 refreshes it transparently, so nothing inside a flow's lifetime can expire one; forcing it means
 disabling the account every other flow signs in as. The 401 path is asserted where it can be, in the
 backend's own integration tests.
+
+### C11. Google sign-up, then Google sign-in · `UI:mobile` — **covered** by `c11-google-sign-up.yaml`
+Google's own sheet needs a real Google account on the device, so under the Auth emulator "Continue
+with Google" opens the E2E-only picker instead (`lib/socialAuth`, `E2eGooglePickerHost`): the
+address typed there becomes a Google identity the emulator accepts. Everything after that is the
+production path — `signInWithCredential`, the `/auth/me` 404 that marks a new person, the social
+wizard (no email-code or password step, step 1 of 3 with the email prefilled read-only), the phone
+linked onto the Google account, and `POST /auth/register` with no email token.
+
+The second half signs out and comes back through "Welcome back" with the same Google identity: a
+200 from `/auth/me`, straight home. That is the existing-account door exercised without a
+seeder-linked identity — the account the first half created is what makes it real.
+
+### C12. Collision B: Google onto an existing phone · `UI:mobile` — **covered** by `c12-google-collision.yaml`
+A new Google identity starts the social wizard and types the seeded mother's phone. Step 1's
+availability check finds the number taken, so the app deletes the throwaway Google account it just
+made, keeps the credential, and sends her to "Welcome back" with the number prefilled and a banner
+explaining why. Signing in by SMS proves she owns the account; only then is the Google identity
+linked onto it.
+
+The last step asks the emulator directly, because "linked" is exactly what a screen cannot show —
+it asserts `google.com` is present among the account's providers. The seeder unlinks `google.com`
+from seeded accounts on every run, so a second run starts clean; this flow, like the others, runs
+twice per the lab rule.
 
 ---
 

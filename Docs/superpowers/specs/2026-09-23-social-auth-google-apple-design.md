@@ -1,7 +1,7 @@
 # Sign in with Google and Apple
 
 **Date:** 2026-09-23
-**Status:** Designed, not started — branch `feat/social-auth` (off `feat/phone-first-auth`)
+**Status:** Implemented on `feat/social-auth`, pending rollout
 **Builds on:** [Phone-first auth with Firebase-owned password reset](2026-09-23-phone-first-auth-firebase-reset-design.md)
 
 ---
@@ -71,6 +71,10 @@ registered through the phone-first wizard hold a verified email.
     `AppleAuthenticationButton` on iOS only, and only when
     `AppleAuthentication.isAvailableAsync()` is true.
   - Takes an optional `role` so "Create your account" can pass the selection.
+  - Awaits `mutateAsync` rather than calling `mutate` with per-call callbacks: on
+    "Create your account", picking a role switches the screen to social mode and
+    can unmount these buttons mid sign-in, which would otherwise drop the
+    callback and strand the flow. Found on-device (device-run bug fix).
 - **`src/hooks/useSocialSignIn.ts`**
   1. Get the credential; if cancelled, do nothing.
   2. Call `auth().signInWithCredential(credential)`.
@@ -133,6 +137,10 @@ registered through the phone-first wizard hold a verified email.
 | Phone (today) | role-selection → step-1 → register-email → register-create-password → (mother) step-2 / (nanny) nanny-location → nanny-id → nanny-details → step-3 |
 | Social | role-selection → step-1 → (mother) step-2 / (nanny) nanny-location → nanny-id → nanny-details → step-3 |
 
+The social wizard is shorter than the phone wizard, so its progress indicator counts its own steps
+rather than reusing the phone wizard's: mother `1/3 → 2/3 → final`; nanny
+`1/5 → 2/5 → 3/5 → 4/5 → final`.
+
 **Step 1 (`RegistrationStep1Screen`)**
 - First and last name are prefilled and editable.
 - Email is prefilled and **read-only**, with the hint "Verified by Google" or
@@ -147,13 +155,18 @@ registered through the phone-first wizard hold a verified email.
 Google/Apple account, so the phone is **linked**, not signed into. A new hook,
 `useConfirmPhoneAndLinkToCurrentUser`:
 
-1. Send the code with `auth().verifyPhoneNumber(e164)`. This does not sign
+1. Before spending the code, check the account's current phone. Android's
+   instant verification hands back a **single-use** native credential, so the
+   credential is only worth spending once: if the current phone already
+   matches, skip the link and go straight to register; if it's a different
+   number, `unlink('phone')` then link the new one, once.
+2. Send the code with `auth().verifyPhoneNumber(e164)`. This does not sign
    anyone in (`signInWithPhoneNumber` would).
-2. Link with `PhoneAuthProvider.credential(verificationId, code)`, then
+3. Link with `PhoneAuthProvider.credential(verificationId, code)`, then
    `currentUser.linkWithCredential(...)`.
-3. Refresh the ID token (`getIdToken(true)`) so it carries `phone_number` for
+4. Refresh the ID token (`getIdToken(true)`) so it carries `phone_number` for
    `isPhoneVerified`.
-4. Call `POST /auth/register` with no `emailVerificationToken`.
+5. Call `POST /auth/register` with no `emailVerificationToken`.
 
 Error handling:
 - **`auth/credential-already-in-use`**: the number belongs to another account,
@@ -161,6 +174,9 @@ Error handling:
 - **`auth/provider-already-linked`** (a retry): if the linked number is this
   number, continue to register. If it's a different number, `unlink('phone')`
   and link the new one, mirroring the phone wizard's password relink (I4).
+- A link that fails **after** an instantly-verified (auto-retrieved) credential
+  was already consumed clears the challenge, so the user resends the code
+  rather than retrying a credential that Android has already spent.
 
 ## Backend (`apps/backend`)
 
@@ -214,6 +230,13 @@ Trigger: `auth/account-exists-with-different-credential`.
 4. If the link fails, the user stays signed in; clear the store and show a
    `noticeDialog`: "You're signed in, but we couldn't connect Google. Try
    Continue with Google next time." Sign-in is never blocked by a failed link.
+   - **`auth/provider-already-linked`** is a failure, not a retry trigger here:
+     the account already holds a different identity from that provider, so the
+     notice is shown as above.
+   - The provider sheet is re-asked (collision B's fallback, below) only on
+     `auth/invalid-credential` or `auth/missing-or-invalid-nonce` — the codes
+     that mean the credential itself was spent or malformed, not that linking
+     is impossible. Review-approved during implementation.
 
 ### Collision B — during social sign-up
 
@@ -223,8 +246,11 @@ Triggers: step 1 availability reports the phone or email taken, or step 3 gets
 1. The signed-in user is the Google/Apple-only account just created, with no
    row. **Delete it** (`currentUser.delete()`; the sign-in is recent, so no
    re-auth is needed).
-   - Guard: every `providerData` entry is `google.com` or `apple.com`, and
-     `/auth/me` has returned 404. If the guard fails, sign out instead.
+   - Guard: every `providerData` entry is `google.com` or `apple.com`,
+     `/auth/me` has returned 404, **and** the registration draft is social
+     (`authProvider` is `google`/`apple`) with a `socialCredential` present. If
+     the guard fails, sign out instead. Review-approved during implementation:
+     the draft check keeps a stray phone-wizard draft from ever hitting delete.
    - Deleting frees the Google/Apple identity. Otherwise the later link fails
      with `credential-already-in-use`.
 2. Move the draft's `socialCredential` into `pendingLinkStore`, with
@@ -232,11 +258,18 @@ Triggers: step 1 availability reports the phone or email taken, or step 3 gets
 3. Go to `/(auth)/sign-in` with the banner and the phone field prefilled from
    `phoneHint`.
 4. After SMS sign-in, link as in collision A.
-   - **If Firebase rejects the reused credential** (the token was already spent
-     once, which matters for Apple's nonce-bound token), run the provider sheet
-     **once more** and link the fresh credential.
-   - Whether this fallback is ever needed is to be measured during
-     implementation. Keep it either way; it is the safe path.
+   - **If Firebase rejects the reused credential** with `auth/invalid-credential`
+     or `auth/missing-or-invalid-nonce` (the token was already spent once, which
+     matters for Apple's nonce-bound token), run the provider sheet **once
+     more** and link the fresh credential. Any other failure (e.g.
+     `auth/provider-already-linked`) is the collision-A failure path instead —
+     the user stays signed in and sees the notice.
+   - **Measured:** on the Auth emulator, reusing the Google credential after
+     deleting the throwaway account linked cleanly both times the flow was run
+     (`c12-google-collision.yaml` green on both runs, `google.com` present on
+     the seeded mother afterward) — the fallback was never exercised. Kept
+     anyway as the safe path; Apple's nonce-bound reuse is unmeasured until
+     TestFlight, where the fallback matters most.
 
 This also covers **legacy accounts** whose Firebase email is still the phone
 placeholder: Google creates a new uid, step 1 finds the real address taken in
@@ -302,15 +335,22 @@ placeholder: Google creates a new uid, step 1 finds the real address taken in
   emulator accepts.
   - `POST /auth/register` without a token → 201 and `isEmailVerified: true`.
   - A fake token with `email_verified: false` → 400.
+  - **Measured (A24):** the Auth emulator honoured `email_verified: false` on
+    an unsigned Google IdP claim, so this 400 case holds on the emulator with
+    no contingency needed.
 
 ### Device E2E (Android emulator, Auth emulator)
 
 **The seam:** when `extra.firebaseAuthEmulatorHost` is set,
 `getGoogleCredential()` opens an **E2E-only picker** with one email field
 instead of Google's sheet. It builds
-`GoogleAuthProvider.credential(<unsigned fake ID token>)` for that address,
-which the emulator accepts. The gating matches the photo-picker seam
-(`lib/e2eImage`), so a real build never shows it.
+`GoogleAuthProvider.credential(JSON.stringify(claims))` for that address — a
+raw JSON claim set, not an unsigned JWT. The gating matches the photo-picker
+seam (`lib/e2eImage`), so a real build never shows it.
+
+**Measured token format:** the Auth emulator accepted that raw JSON claim set
+straight from the native Android SDK; the unsigned-JWT fallback this design
+originally anticipated was not needed.
 
 Flows (in `apps/mobile/e2e/flows`):
 
