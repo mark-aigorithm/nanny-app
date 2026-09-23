@@ -88,7 +88,13 @@ async function ensureFirebaseUser(
     const existing = await firebaseAuth.getUserByEmail(email);
     // Reset the password (and re-link the phone): a half-provisioned account
     // from an earlier run would otherwise fail sign-in with a stale credential.
-    await firebaseAuth.updateUser(existing.uid, fields);
+    // And drop a Google identity C12 linked last run — left on, it would sign
+    // straight into this account instead of reaching the collision it tests.
+    const hasGoogle = existing.providerData.some((p) => p.providerId === 'google.com');
+    await firebaseAuth.updateUser(
+      existing.uid,
+      hasGoogle ? { ...fields, providersToUnlink: ['google.com'] } : fields,
+    );
     return existing.uid;
   } catch {
     const created = await firebaseAuth.createUser({ email, ...fields });
@@ -291,13 +297,14 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
  * `deleted_at`). The Firebase user is removed so phone sign-in mints a fresh
  * uid and the number/email are free there too.
  */
-async function wipeAccount(spec: { phone: string; role?: string; email: string }): Promise<void> {
+async function wipeAccount(spec: { phone?: string; role?: string; email: string }): Promise<void> {
   const email = spec.email;
 
   // Look the DB row up by phone, not email: a run that crashed before the
   // email-verification step never linked one, and phone is the one identifier
-  // guaranteed to be on the row from registration's first step.
-  const user = await prisma.user.findUnique({ where: { phone: spec.phone } });
+  // guaranteed to be on the row from registration's first step. An email-only
+  // spec (C12's Google identity) never has a row.
+  const user = spec.phone ? await prisma.user.findUnique({ where: { phone: spec.phone } }) : null;
   if (user) {
     const tag = `wiped-${user.id}-`;
     await prisma.user.update({
@@ -317,10 +324,12 @@ async function wipeAccount(spec: { phone: string; role?: string; email: string }
   // Remove the Firebase account under either handle — a fully-linked user is
   // found by email; a run that died between phone-verify and link leaves a
   // phone-only user found only by number.
-  for (const lookup of [
-    () => firebaseAuth.getUserByEmail(email),
-    () => firebaseAuth.getUserByPhoneNumber(spec.phone),
-  ]) {
+  const lookups = [() => firebaseAuth.getUserByEmail(email)];
+  if (spec.phone) {
+    const phone = spec.phone;
+    lookups.push(() => firebaseAuth.getUserByPhoneNumber(phone));
+  }
+  for (const lookup of lookups) {
     try {
       const fb = await lookup();
       await firebaseAuth.deleteUser(fb.uid);
@@ -336,7 +345,7 @@ async function wipeAccount(spec: { phone: string; role?: string; email: string }
   await prisma.emailVerification.deleteMany({ where: { email: spec.email } });
 
   // eslint-disable-next-line no-console
-  console.log(`[seed-mobile] wipe      ${spec.phone}  (${email})`);
+  console.log(`[seed-mobile] wipe      ${spec.phone ?? '(no phone)'}  (${email})`);
 }
 
 /** Upserts the codes A4 spends, resetting the counters a previous run moved. */
@@ -426,7 +435,7 @@ async function main(): Promise<void> {
   // run cannot trip the seeding that follows.
   const rawWipe = process.env['E2E_MOBILE_WIPE'];
   if (rawWipe) {
-    const toWipe = JSON.parse(rawWipe) as { phone: string; role?: string; email: string }[];
+    const toWipe = JSON.parse(rawWipe) as { phone?: string; role?: string; email: string }[];
     for (const spec of toWipe) await wipeAccount(spec);
   }
 

@@ -429,6 +429,57 @@ fails again with nothing left to trigger another. Wrap the recovery in `- retry:
 `runFlow: _launch.yaml`, which clears the app's own storage — that is what keeps
 them order-independent.
 
+## Google sign-in (C11, C12)
+
+**C11** signs a mother up with Google from "Create your account" — the social
+wizard's three steps, the phone linked onto the Google account, no email-code or
+password screen — then signs out and back in with the same Google identity.
+**C12** is collision B: a new Google identity types the seeded mother's number
+on step 1, is sent to "Welcome back" with the number prefilled and a banner,
+signs in by SMS, and only then has Google linked onto her account.
+
+**The E2E Google picker is the one seam.** Google's own account sheet needs a
+real Google account signed in on the device, and the lab's emulator has none
+(nor should it — a flow cannot type a real Google password). So when the app
+points at the Auth emulator (`extra.firebaseAuthEmulatorHost` is set — only
+`e2e:metro` sets it), `getGoogleCredential` in `src/lib/socialAuth.ts` opens a
+small modal instead ("Choose a test Google account", input
+`e2eGooglePicker.email`, button "Use this Google account"), mounted by
+`E2eGooglePickerHost` from the root layout. The typed address becomes
+`GoogleAuthProvider.credential(JSON.stringify({ sub: 'e2e-<email>', email,
+email_verified: true, name: 'E2E Google' }))` — an unsigned claim set the
+emulator accepts in place of a Google ID token, and it does take the JSON form
+straight from the native Android SDK (no unsigned-JWT wrapping needed). The
+`sub` comes from the address, so the same address is the same Google identity on
+every run. Everything after the credential — `signInWithCredential`, the
+`/auth/me` 404 that marks a new person, the wizard, `linkWithCredential`,
+`POST /auth/register` — is the production path. No real build mounts the picker.
+
+**Accounts.** `SOCIAL_REGISTRATION` (`+201100000007`, `e2e-google-reg@…`) is
+C11's throwaway mother, wiped by phone and email before every flow like
+`REGISTRATION`. `SOCIAL_COLLISION` (`e2e-google-collide@…`) never gets a row: the
+seeder deletes any Google-only Firebase account a crashed run left under that
+address (an email-only `E2E_MOBILE_WIPE` entry), and `ensureFirebaseUser` unlinks
+`google.com` from every seeded account — C12 links it onto the mother, and left
+there it would sign straight into her account on the next run instead of
+reaching the collision.
+
+**`emulator-providers`** is the advance step C12 ends on. "Google is now linked"
+is exactly what no screen shows, so it asks the emulator directly
+(`accounts:lookup` with the `Bearer owner` admin token) for the account behind
+`OTP_PHONE`, and leaves `output.providers` (comma-joined provider ids) and
+`output.hasGoogle` (`'true'` / `'false'`).
+
+**Apple has no device coverage.** Sign in with Apple is iOS-only and this lab is
+Android-only; it is on the manual test matrix in the social sign-in spec.
+
+**A new native module needs a rebuild before any flow can run.** Metro only
+delivers JS; the Google Sign-In module and the new `google-services.json` are
+native. After adding one, run `npx expo prebuild --platform android --no-install`
+from `apps/mobile` (never `--clean` over local native changes), then
+`node e2e/build.mjs`. A stale APK fails the flow at the first call into the
+missing module.
+
 ## Why launching takes five steps
 
 `_launch.yaml` looks over-engineered until each step has cost you an afternoon.

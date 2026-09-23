@@ -1,0 +1,128 @@
+# C11 — a mother signs up with Google, then signs in with Google again.
+#
+# Google's own sheet needs a real Google account on the device, so under the
+# Auth emulator "Continue with Google" opens the E2E picker instead
+# (lib/socialAuth): the address typed there becomes an unsigned Google
+# identity the emulator accepts. Everything after that is the production path
+# — signInWithCredential, the /auth/me 404 that marks a new person, the social
+# wizard (no email-code or password step), the phone linked onto the Google
+# account, and POST /auth/register with no email token.
+#
+# The second half signs out and comes back through "Welcome back" with the
+# same Google identity: a 200 from /auth/me, straight home.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+
+# Google needs a role on this screen; the button is disabled until one is picked.
+- tapOn: "I'm a mother"
+- tapOn: 'Continue with Google'
+
+- extendedWaitUntil:
+    visible: 'Choose a test Google account'
+    timeout: 30000
+- tapOn:
+    id: 'e2eGooglePicker.email'
+- inputText: ${SOCIAL_REGISTRATION_EMAIL}
+- hideKeyboard
+- tapOn: 'Use this Google account'
+
+# ── Step 1 of 3 — Google supplied the name and a verified, fixed email ─────
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 3.*'
+    timeout: 60000
+- assertVisible: ${SOCIAL_REGISTRATION_EMAIL}
+- assertVisible: 'Verified by Google'
+
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+
+- tapOn: '100 000 0000'
+- inputText: ${SOCIAL_REGISTRATION_PHONE}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+# No email-code screen, no password screen: straight to location.
+- extendedWaitUntil:
+    visible: 'Where are you based?'
+    timeout: 30000
+- tapOn:
+    point: '50%,44%'
+- tapOn: 'Continue'
+
+# ── Final step — the phone is linked onto the Google account ───────────────
+- extendedWaitUntil:
+    visible: 'Verify your phone number'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${SOCIAL_REGISTRATION_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'registerStep3.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'I agree to.*'
+- tapOn: 'Complete setup'
+
+- extendedWaitUntil:
+    visible: 'Stay in the loop'
+    timeout: 60000
+- tapOn: 'Not now'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── Sign out, then back in with the same Google identity ───────────────────
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element:
+      text: 'Sign out'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Care you can trust'
+    timeout: 30000
+
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+- tapOn: 'Sign in'
+- extendedWaitUntil:
+    visible: 'Welcome back'
+    timeout: 30000
+- tapOn: 'Continue with Google'
+- extendedWaitUntil:
+    visible: 'Choose a test Google account'
+    timeout: 30000
+- tapOn:
+    id: 'e2eGooglePicker.email'
+- inputText: ${SOCIAL_REGISTRATION_EMAIL}
+- hideKeyboard
+- tapOn: 'Use this Google account'
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

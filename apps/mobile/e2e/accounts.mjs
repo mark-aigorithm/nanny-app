@@ -96,6 +96,28 @@ export const REGISTRATION_NANNY = {
 };
 
 /**
+ * The Google sign-up C11 drives through the E2E Google picker (lib/socialAuth):
+ * the picker hands the Auth emulator an unsigned Google identity for `email`,
+ * so no real Google account is involved. Throwaway like REGISTRATION — the
+ * seeder wipes it, by email and phone, before each run.
+ */
+export const SOCIAL_REGISTRATION = {
+  phone: '+201100000007',
+  email: 'e2e-google-reg@nannyapp.test',
+  role: 'MOTHER',
+};
+
+/**
+ * The Google identity C12 signs up with before finding that the seeded
+ * mother's phone is taken. It never gets a row; the seeder deletes any
+ * Google-only Firebase account a crashed run left under this address, and
+ * unlinks it from the mother, where the previous run connected it.
+ */
+export const SOCIAL_COLLISION = {
+  email: 'e2e-google-collide@nannyapp.test',
+};
+
+/**
  * The console account the lab approves with.
  *
  * A superuser rather than a scoped operator: what these flows care about is the

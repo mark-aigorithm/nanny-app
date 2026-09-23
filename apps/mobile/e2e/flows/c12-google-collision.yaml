@@ -1,0 +1,80 @@
+# C12 — collision B: a Google sign-up that turns out to belong to an existing
+# account.
+#
+# A new Google identity starts the social wizard and types the seeded mother's
+# phone. Step 1's availability check finds the number taken, so the app deletes
+# the throwaway Google account it just made, keeps the credential, and sends
+# her to "Welcome back" with the number prefilled and a banner explaining why.
+# Signing in by SMS proves she owns the account; only then is the Google
+# identity linked onto it. The last step asks the emulator directly, because
+# "linked" is exactly what a screen cannot show.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- tapOn: 'Get Started'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+- tapOn: "I'm a mother"
+- tapOn: 'Continue with Google'
+- extendedWaitUntil:
+    visible: 'Choose a test Google account'
+    timeout: 30000
+- tapOn:
+    id: 'e2eGooglePicker.email'
+- inputText: ${SOCIAL_COLLISION_EMAIL}
+- hideKeyboard
+- tapOn: 'Use this Google account'
+
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 3.*'
+    timeout: 60000
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+# The seeded mother's number — already an account.
+- tapOn: '100 000 0000'
+- inputText: ${MOTHER_PHONE}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+# ── Sent to sign in, with the reason and the number already there ──────────
+- extendedWaitUntil:
+    visible: 'You already have an account. Sign in with your phone once to connect Google.'
+    timeout: 60000
+- tapOn: 'Send code'
+- extendedWaitUntil:
+    visible: "Didn't get a code?"
+    timeout: 60000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${MOTHER_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'signIn.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'Sign in'
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── The proof: Google now hangs off her account ────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: emulator-providers
+      OTP_PHONE: ${MOTHER_PHONE_E164}
+- assertTrue: ${output.hasGoogle == 'true'}

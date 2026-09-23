@@ -665,6 +665,44 @@ function phoneOtp() {
 }
 
 /**
+ * Which sign-in methods the emulator account behind OTP_PHONE carries — the
+ * proof a collision really linked Google onto the existing account, which no
+ * screen shows. Admin lookup through the emulator's `Bearer owner` token.
+ *
+ *   - runScript:
+ *       file: ../scripts/advance.js
+ *       env:
+ *         ADVANCE: emulator-providers
+ *         OTP_PHONE: ${MOTHER_PHONE_E164}
+ *   - assertTrue: ${output.hasGoogle == 'true'}
+ */
+function emulatorProviders() {
+  var url =
+    AUTH_EMULATOR_URL +
+    '/identitytoolkit.googleapis.com/v1/projects/' +
+    AUTH_PROJECT_ID +
+    '/accounts:lookup';
+  var res = http.post(url, {
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ phoneNumber: [OTP_PHONE] }),
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error('accounts:lookup → ' + res.status + ' ' + res.body);
+  }
+  var users = json(res.body).users || [];
+  if (users.length !== 1) {
+    throw new Error(
+      'Expected one account for ' + OTP_PHONE + ', found ' + users.length + ': ' + res.body,
+    );
+  }
+  var ids = (users[0].providerUserInfo || []).map(function (p) {
+    return p.providerId;
+  });
+  output.providers = ids.join(',');
+  output.hasGoogle = ids.indexOf('google.com') >= 0 ? 'true' : 'false';
+}
+
+/**
  * The six-digit code the nanny-registration email step "sent".
  *
  * A nanny proves a real address mid-wizard against our own email OTP (not
@@ -891,6 +929,7 @@ function adminTimeEdit() {
 var STEPS = {
   'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
+  'emulator-providers': emulatorProviders,
   'email-otp': emailOtp,
   'live-assert-account': liveAssertAccount,
   'live-assert-no-account': liveAssertNoAccount,

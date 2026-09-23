@@ -26,6 +26,8 @@ import {
   PASSWORD,
   REGISTRATION,
   REGISTRATION_NANNY,
+  SOCIAL_COLLISION,
+  SOCIAL_REGISTRATION,
   localDigits,
 } from './accounts.mjs';
 import { fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
@@ -138,8 +140,8 @@ function seedLab() {
         E2E_MOBILE_ACCOUNTS: JSON.stringify(Object.values(ACCOUNTS)),
         // The registration flows sign these accounts up from scratch, so the
         // seeder wipes them (Firebase user + DB row) rather than upserting them
-        // — otherwise the second run collides on the unique phone. One mother
-        // (C2/C7), one nanny (A10).
+        // — otherwise the second run collides on the unique phone. Two mothers
+        // (C2/C7, C11), one nanny (A10), and C12's Google identity.
         E2E_MOBILE_WIPE: JSON.stringify([
           { phone: REGISTRATION.phone, role: REGISTRATION.role, email: REGISTRATION.email },
           {
@@ -147,6 +149,14 @@ function seedLab() {
             role: REGISTRATION_NANNY.role,
             email: REGISTRATION_NANNY.email,
           },
+          // C11 signs up with Google from scratch; C12's throwaway Google
+          // account has no phone, only the address.
+          {
+            phone: SOCIAL_REGISTRATION.phone,
+            role: SOCIAL_REGISTRATION.role,
+            email: SOCIAL_REGISTRATION.email,
+          },
+          { email: SOCIAL_COLLISION.email },
         ]),
         E2E_LAB_FIXTURES: JSON.stringify({
           platformSettings: PLATFORM_SETTINGS,
@@ -207,6 +217,14 @@ function runFlow(maestro, flow) {
     REGISTRATION_NANNY_PHONE_E164: REGISTRATION_NANNY.phone,
     REGISTRATION_NANNY_EMAIL: REGISTRATION_NANNY.email,
     REGISTRATION_NANNY_FIRST_NAME: REGISTRATION_NANNY.firstName,
+    // Google sign-up (C11): the address typed into the E2E Google picker, and
+    // the number the social wizard links onto that Google account.
+    SOCIAL_REGISTRATION_EMAIL: SOCIAL_REGISTRATION.email,
+    SOCIAL_REGISTRATION_PHONE: localDigits(SOCIAL_REGISTRATION.phone),
+    SOCIAL_REGISTRATION_PHONE_E164: SOCIAL_REGISTRATION.phone,
+    // Collision B (C12): a new Google identity that types the seeded mother's
+    // number, so it must end up linked onto her account.
+    SOCIAL_COLLISION_EMAIL: SOCIAL_COLLISION.email,
     MAILPIT_URL,
     MOTHER_EMAIL: ACCOUNTS.mother.email,
     NANNY_EMAIL: ACCOUNTS.nanny.email,
