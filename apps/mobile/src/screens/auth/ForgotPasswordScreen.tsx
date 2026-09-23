@@ -19,17 +19,29 @@ import OtpCodeInput from '@mobile/components/ui/otp-code-input';
 import {
   useSendPhoneOtp,
   useConfirmPhoneAndResetPassword,
+  useSendPasswordResetEmail,
 } from '@mobile/hooks/useAuth';
-import { validatePhone, toE164 } from '@mobile/lib/validation';
+import { validatePhone, toE164, validateEmail } from '@mobile/lib/validation';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { styles } from './styles/forgot-password-screen.styles';
 
-// Sign-in is by phone, so recovery is too: text a code, verify it (which signs
-// the user in), then set a new password on the account. One screen, two phases
-// gated on whether Firebase has handed back a confirmation for the SMS yet.
+// Reset opens on a channel choice: Firebase can mail its own reset link now
+// that it holds a real address, or — for anyone who can't reach the inbox —
+// text a code, verify it (which signs the user in), then set a new password
+// on the account. The SMS path has two phases, gated on whether Firebase has
+// handed back a confirmation for the SMS yet.
 export default function ForgotPasswordScreen() {
   const router = useRouter();
 
+  const [channel, setChannel] = useState<'email' | 'sms' | null>(null);
+
+  // Email channel
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const sendResetEmail = useSendPasswordResetEmail();
+
+  // SMS channel
   const [countryCode] = useState('+20');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -95,15 +107,41 @@ export default function ForgotPasswordScreen() {
     return () => clearTimeout(id);
   }, [isVerifyPhase, secondsLeft]);
 
+  function handleSendResetEmail() {
+    setEmailError(null);
+    const emailValidation = validateEmail(email);
+    if (emailValidation) {
+      setEmailError(emailValidation);
+      return;
+    }
+    sendResetEmail.mutate(email, {
+      onSuccess: () => setEmailSent(true),
+      onError: (err) => setEmailError(err.message),
+    });
+  }
+
   function handleBack() {
-    // Back steps out of the verify phase first, then off the screen.
+    // Back steps out of the verify phase first, then the channel choice,
+    // then off the screen.
     if (isVerifyPhase) {
       setConfirmation(null);
       setOtp('');
       setFormError(null);
       return;
     }
-    router.push('/(auth)/sign-in');
+    if (channel !== null) {
+      setChannel(null);
+      // Reset the email sub-state too, so choosing "Email me a reset link"
+      // again starts fresh rather than re-showing the sent card.
+      setEmailSent(false);
+      setEmailError(null);
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(auth)/sign-in-email');
+    }
   }
 
   function handleReset() {
@@ -123,7 +161,18 @@ export default function ForgotPasswordScreen() {
         // The code confirm signed them in and the password is updated — send
         // them through the root gate, which routes by profile + role.
         onSuccess: () => router.replace('/'),
-        onError: (err) => setFormError(err.message),
+        onError: (err) => {
+          // A number with no account behind it (the orphan guard) sends her
+          // back to the phone field, not the code box — same handling as
+          // SignInScreen's identical `field: 'phone'` case.
+          if (err.field === 'phone') {
+            setConfirmation(null);
+            setOtp('');
+            setPhoneError(err.message);
+          } else {
+            setFormError(err.message);
+          }
+        },
       },
     );
   }
@@ -160,108 +209,172 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.phoneHighlight}>{`${countryCode} ${phone}`}</Text>
                 {' and choose a new password.'}
               </Text>
-            ) : (
+            ) : channel === 'sms' ? (
               <Text style={styles.subtitle}>
                 Enter your phone number and we{'’'}ll text you a code to reset
                 your password.
               </Text>
+            ) : channel === 'email' ? (
+              <Text style={styles.subtitle}>
+                Enter the email address on your account and we{'’'}ll send you a
+                link to reset your password.
+              </Text>
+            ) : (
+              <Text style={styles.subtitle}>
+                Choose how you{'’'}d like to reset your password.
+              </Text>
             )}
           </View>
 
-          {!isVerifyPhase ? (
-            /* ── Phase 1: phone ── */
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Phone</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.countryCodeBox}>
-                  <Text style={styles.countryCodeText}>{countryCode}</Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
-                </View>
-                <TextInput
-                  testID="forgotPassword.phone"
-                  style={styles.phoneInput}
-                  value={phone}
-                  onChangeText={(val: string) => {
-                    setPhone(val);
-                    if (phoneError) setPhoneError(null);
-                    if (formError) setFormError(null);
-                  }}
-                  placeholder="100 000 0000"
-                  placeholderTextColor={colors.textPlaceholder}
-                  keyboardType="phone-pad"
-                  autoCorrect={false}
-                />
-              </View>
-              {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
-            </View>
-          ) : (
-            /* ── Phase 2: verify + new password ── */
+          {channel === null && (
             <View style={styles.form}>
-              <View style={styles.otpSection}>
-                <OtpCodeInput
-                  testID="forgotPassword.code"
-                  value={otp}
-                  onChange={(val) => {
-                    setOtp(val);
+              <Button
+                title="Email me a reset link"
+                onPress={() => setChannel('email')}
+                variant="primary"
+                fullWidth
+              />
+              <Button
+                title="Text me a code instead"
+                onPress={() => setChannel('sms')}
+                variant="outline"
+                fullWidth
+              />
+            </View>
+          )}
+
+          {channel === 'email' && !emailSent && (
+            <View style={styles.form}>
+              <TextInputField
+                testID="forgotPassword.email"
+                label="Email"
+                value={email}
+                onChangeText={(val: string) => {
+                  setEmail(val);
+                  if (emailError) setEmailError(null);
+                }}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                error={emailError}
+              />
+              <Button
+                title={sendResetEmail.isPending ? 'Sending…' : 'Send link'}
+                onPress={handleSendResetEmail}
+                variant="primary"
+                fullWidth
+                disabled={sendResetEmail.isPending}
+              />
+            </View>
+          )}
+
+          {channel === 'email' && emailSent && (
+            <View style={styles.sentCard}>
+              <Ionicons name="mail-outline" size={28} color={colors.primary} />
+              <Text style={styles.sentText}>
+                <Text>If an account exists for that address, the link is on its way.</Text>
+                {' Open it to choose a new password, then sign in with your email.'}
+              </Text>
+            </View>
+          )}
+
+          {channel === 'sms' && (
+            !isVerifyPhase ? (
+              /* ── Phase 1: phone ── */
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Phone</Text>
+                <View style={styles.phoneRow}>
+                  <View style={styles.countryCodeBox}>
+                    <Text style={styles.countryCodeText}>{countryCode}</Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
+                  </View>
+                  <TextInput
+                    testID="forgotPassword.phone"
+                    style={styles.phoneInput}
+                    value={phone}
+                    onChangeText={(val: string) => {
+                      setPhone(val);
+                      if (phoneError) setPhoneError(null);
+                      if (formError) setFormError(null);
+                    }}
+                    placeholder="100 000 0000"
+                    placeholderTextColor={colors.textPlaceholder}
+                    keyboardType="phone-pad"
+                    autoCorrect={false}
+                  />
+                </View>
+                {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
+              </View>
+            ) : (
+              /* ── Phase 2: verify + new password ── */
+              <View style={styles.form}>
+                <View style={styles.otpSection}>
+                  <OtpCodeInput
+                    testID="forgotPassword.code"
+                    value={otp}
+                    onChange={(val) => {
+                      setOtp(val);
+                      if (formError) setFormError(null);
+                    }}
+                    disabled={resetPassword.isPending}
+                  />
+                  <View style={styles.resendRow}>
+                    <Text style={styles.timerText}>
+                      {sendOtp.isPending ? 'Sending code…' : "Didn't get a code?"}
+                    </Text>
+                    <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
+                      <Text style={[styles.resendLink, resendDisabled && styles.resendLinkDisabled]}>
+                        {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : 'Resend code'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <TextInputField
+                  label="New password"
+                  value={password}
+                  onChangeText={(val: string) => {
+                    setPassword(val);
                     if (formError) setFormError(null);
                   }}
-                  disabled={resetPassword.isPending}
+                  placeholder="Enter a new password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
                 />
-                <View style={styles.resendRow}>
-                  <Text style={styles.timerText}>
-                    {sendOtp.isPending ? 'Sending code…' : "Didn't get a code?"}
-                  </Text>
-                  <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
-                    <Text style={[styles.resendLink, resendDisabled && styles.resendLinkDisabled]}>
-                      {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : 'Resend code'}
-                    </Text>
-                  </Pressable>
+                <TextInputField
+                  label="Confirm password"
+                  value={confirmPassword}
+                  onChangeText={(val: string) => {
+                    setConfirmPassword(val);
+                    if (formError) setFormError(null);
+                  }}
+                  placeholder="Re-enter your password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                />
+
+                <View style={styles.requirementsCard}>
+                  <Text style={styles.requirementsTitle}>Your password must include:</Text>
+                  {requirements.map((req) => (
+                    <View key={req.key} style={styles.requirementRow}>
+                      <Ionicons
+                        name={req.met ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={18}
+                        color={req.met ? colors.success : colors.textMuted}
+                      />
+                      <Text style={[styles.requirementText, req.met && styles.requirementTextMet]}>
+                        {req.label}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               </View>
-
-              <TextInputField
-                label="New password"
-                value={password}
-                onChangeText={(val: string) => {
-                  setPassword(val);
-                  if (formError) setFormError(null);
-                }}
-                placeholder="Enter a new password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="newPassword"
-              />
-              <TextInputField
-                label="Confirm password"
-                value={confirmPassword}
-                onChangeText={(val: string) => {
-                  setConfirmPassword(val);
-                  if (formError) setFormError(null);
-                }}
-                placeholder="Re-enter your password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="newPassword"
-              />
-
-              <View style={styles.requirementsCard}>
-                <Text style={styles.requirementsTitle}>Your password must include:</Text>
-                {requirements.map((req) => (
-                  <View key={req.key} style={styles.requirementRow}>
-                    <Ionicons
-                      name={req.met ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={18}
-                      color={req.met ? colors.success : colors.textMuted}
-                    />
-                    <Text style={[styles.requirementText, req.met && styles.requirementTextMet]}>
-                      {req.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
+            )
           )}
 
           {/* Form-level error */}
@@ -272,25 +385,27 @@ export default function ForgotPasswordScreen() {
           )}
 
           {/* CTA */}
-          <Button
-            title={
-              isVerifyPhase
-                ? resetPassword.isPending
-                  ? 'Resetting…'
-                  : 'Reset password'
-                : sendOtp.isPending
-                  ? 'Sending…'
-                  : 'Send code'
-            }
-            onPress={isVerifyPhase ? handleReset : () => sendCode(false)}
-            variant="primary"
-            fullWidth
-            disabled={
-              isVerifyPhase
-                ? resetPassword.isPending || otp.length !== OTP_LENGTH || !passwordValid
-                : sendOtp.isPending
-            }
-          />
+          {channel === 'sms' && (
+            <Button
+              title={
+                isVerifyPhase
+                  ? resetPassword.isPending
+                    ? 'Resetting…'
+                    : 'Reset password'
+                  : sendOtp.isPending
+                    ? 'Sending…'
+                    : 'Send code'
+              }
+              onPress={isVerifyPhase ? handleReset : () => sendCode(false)}
+              variant="primary"
+              fullWidth
+              disabled={
+                isVerifyPhase
+                  ? resetPassword.isPending || otp.length !== OTP_LENGTH || !passwordValid
+                  : sendOtp.isPending
+              }
+            />
+          )}
         </ScrollView>
       </View>
     </KeyboardAvoidingView>

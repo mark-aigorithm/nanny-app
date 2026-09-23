@@ -169,4 +169,19 @@ export const styles = StyleSheet.create({
     ...typeScale.bodyMd,
     color: colors.error,
   },
+
+  // Email channel — "link sent" confirmation card
+  sentCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+  },
+  sentText: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    flex: 1,
+  },
 });

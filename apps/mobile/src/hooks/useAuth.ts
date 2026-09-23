@@ -11,11 +11,32 @@ import type {
 } from '@nanny-app/shared';
 
 import { auth } from '@mobile/lib/firebase';
-import type { PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
+import type { FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
 import { api, getApiErrorMessage, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
+
+/** Thrown whenever a phone number turns out to have no account behind it. */
+const NO_ACCOUNT_FOR_PHONE_ERROR: MappedAuthError = {
+  field: 'phone',
+  message: "We couldn't find an account for that number. Sign up first.",
+};
+
+/**
+ * Discards a phone-only account Firebase just minted for a number that turned
+ * out to have no application account behind it. Best-effort: if the delete
+ * itself fails we must still not leave the app signed in as an account
+ * nothing recognizes, so fall back to signing out — a retry re-confirms into
+ * the same uid either way.
+ */
+async function discardPhoneOnlyAccount(user: FirebaseUser): Promise<void> {
+  try {
+    await user.delete();
+  } catch {
+    await auth().signOut().catch(() => undefined);
+  }
+}
 
 /** Signs in with the email/password credential. The secondary door. */
 export function useSignInWithEmail() {
@@ -68,15 +89,8 @@ export function useConfirmPhoneSignIn() {
           // Best-effort cleanup. If the delete itself fails we must still not
           // leave her signed in as an account the backend does not know — sign
           // out instead, and let registration re-confirm into the same uid.
-          try {
-            await user.delete();
-          } catch {
-            await auth().signOut().catch(() => undefined);
-          }
-          throw {
-            field: 'phone',
-            message: "We couldn't find an account for that number. Sign up first.",
-          } satisfies MappedAuthError;
+          await discardPhoneOnlyAccount(user);
+          throw NO_ACCOUNT_FOR_PHONE_ERROR;
         }
         throw {
           field: 'form',
@@ -94,6 +108,13 @@ export function useConfirmPhoneSignIn() {
  * email/password credential that `SignInScreen` checks. Because confirming the
  * code is itself a fresh sign-in, `updatePassword` never trips
  * `auth/requires-recent-login`.
+ *
+ * Confirming a code *is* a sign-in, though, so a number with no account gets
+ * the same treatment as `useConfirmPhoneSignIn`'s 404: Firebase mints a fresh
+ * phone-only user (no email) rather than landing on a real one. Writing a
+ * password onto that user would "succeed" against a credential nothing can
+ * sign in with, so it is discarded instead, guarded on `user.email` alone —
+ * no backend round trip needed, since a phone-only account never has one.
  */
 export function useConfirmPhoneAndResetPassword() {
   return useMutation<
@@ -115,6 +136,11 @@ export function useConfirmPhoneAndResetPassword() {
           field: 'form',
           message: 'Your code was verified but the session was lost. Please try again.',
         } satisfies MappedAuthError;
+      }
+
+      if (!user.email) {
+        await discardPhoneOnlyAccount(user);
+        throw NO_ACCOUNT_FOR_PHONE_ERROR;
       }
 
       try {
@@ -288,6 +314,25 @@ export function useSetVerifiedEmail() {
   return useMutation<UserResponse, Error, SetVerifiedEmailRequest>({
     mutationFn: async (body) => unwrap(api.post('/auth/email', body)),
     onSuccess: (profile) => setProfile(profile),
+  });
+}
+
+/**
+ * Asks Firebase to mail its own reset link to `email`.
+ *
+ * Email-enumeration protection means an unknown address resolves exactly like
+ * a known one, so the screen must never report delivery — the copy says "if an
+ * account exists". `auth/invalid-email` is the one real error left.
+ */
+export function useSendPasswordResetEmail() {
+  return useMutation<void, MappedAuthError, string>({
+    mutationFn: async (email) => {
+      try {
+        await auth().sendPasswordResetEmail(email.trim().toLowerCase());
+      } catch (error) {
+        throw mapFirebaseAuthError(error);
+      }
+    },
   });
 }
 
