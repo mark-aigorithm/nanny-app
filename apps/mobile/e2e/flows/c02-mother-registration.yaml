@@ -153,6 +153,10 @@ appId: com.nannyapp.mobile
 # ── C7: the referral field, validated live ─────────────────────────────────
 # The existing mother's own code (read over HTTP); the field calls the
 # optional-auth validate endpoint and confirms it before the account exists.
+# She is signed in to Firebase here but has no users row yet, so this is the
+# assertion that catches the endpoint demanding one. Match the referrer's name
+# (Mona, accounts.mjs) — the field's permanent hint also starts "Invited by",
+# so a bare 'Invited by.*' passes even when validation fails.
 - runScript:
     file: ../scripts/advance.js
     env:
@@ -161,7 +165,7 @@ appId: com.nannyapp.mobile
 - inputText: ${output.referrerCode}
 - hideKeyboard
 - extendedWaitUntil:
-    visible: 'Invited by.*'
+    visible: 'Invited by Mona .*'
     timeout: 30000
 
 # Accept the terms and finish. The label is one text node — "Terms of Service"
