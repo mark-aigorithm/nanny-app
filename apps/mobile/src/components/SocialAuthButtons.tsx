@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
 import { Button } from '@mobile/components/ui';
-import { useSocialSignIn } from '@mobile/hooks/useSocialSignIn';
+import { useSocialSignIn, type SocialSignInOutcome } from '@mobile/hooks/useSocialSignIn';
+import { isMappedAuthError } from '@mobile/lib/authErrors';
 import { isAppleSignInAvailable } from '@mobile/lib/socialAuth';
 import { borderRadius } from '@mobile/theme';
 import type { Role, SocialProvider } from '@mobile/types';
@@ -20,6 +21,8 @@ type SocialAuthButtonsProps = {
   role?: Role;
   disabled?: boolean;
 };
+
+const SIGN_IN_FAILED = 'Sign-in failed. Please try again.';
 
 /**
  * "Continue with Google" on both platforms, and Apple's own button on iOS when
@@ -44,31 +47,34 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
 
   const busy = disabled || socialSignIn.isPending;
 
-  function start(provider: SocialProvider) {
+  async function start(provider: SocialProvider) {
     if (busy) return;
     setError(null);
-    socialSignIn.mutate(
-      { provider, role },
-      {
-        onSuccess: (outcome) => {
-          switch (outcome) {
-            case 'signed-in':
-              router.replace('/');
-              break;
-            case 'new-user':
-              if (role) router.push({ pathname: '/(auth)/register-step-1', params: { role } });
-              else router.push('/(auth)/role-selection');
-              break;
-            case 'needs-link':
-              if (context === 'sign-up') router.push('/(auth)/sign-in');
-              break;
-            case 'cancelled':
-              break;
-          }
-        },
-        onError: (err) => setError(err.message),
-      },
-    );
+    // Awaited, not handed to mutate()'s callbacks: React Query drops those once
+    // this component unmounts, and on "Create your account" it does — seeding
+    // the social draft flips that screen into its signed-in mode, which hides
+    // these buttons before the outcome arrives, and she would be left there.
+    let outcome: SocialSignInOutcome;
+    try {
+      outcome = await socialSignIn.mutateAsync({ provider, role });
+    } catch (err) {
+      setError(isMappedAuthError(err) ? err.message : SIGN_IN_FAILED);
+      return;
+    }
+    switch (outcome) {
+      case 'signed-in':
+        router.replace('/');
+        break;
+      case 'new-user':
+        if (role) router.push({ pathname: '/(auth)/register-step-1', params: { role } });
+        else router.push('/(auth)/role-selection');
+        break;
+      case 'needs-link':
+        if (context === 'sign-up') router.push('/(auth)/sign-in');
+        break;
+      case 'cancelled':
+        break;
+    }
   }
 
   return (
@@ -78,7 +84,7 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
         icon="logo-google"
         variant="outline"
         fullWidth
-        onPress={() => start('google')}
+        onPress={() => void start('google')}
         disabled={busy}
       />
       {appleAvailable && (
@@ -87,7 +93,7 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
           buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
           cornerRadius={borderRadius['2xl']}
           style={styles.appleButton}
-          onPress={() => start('apple')}
+          onPress={() => void start('apple')}
         />
       )}
       {error && <Text style={styles.error}>{error}</Text>}
