@@ -5,11 +5,18 @@
  *
  * Why this can't just be `test/env.ts` plus an env var override on the
  * command line: `test/env.ts` loads `.env.test` with `override: true`, which
- * (re-)sets `FIREBASE_AUTH_EMULATOR_HOST` and the emulator's placeholder
- * `FIREBASE_*` credentials. `lib/config.ts` then loads `.env` *without*
- * override — dotenv leaves an already-set key alone — so the real
- * credentials in `.env` never win. Setting `FIREBASE_AUTH_EMULATOR_HOST=`
- * on the command line doesn't help either: an empty string is still "set".
+ * *unconditionally* re-sets `FIREBASE_AUTH_EMULATOR_HOST` (and the emulator's
+ * placeholder `FIREBASE_*` credentials) from that file — clobbering whatever
+ * the shell already exported, before `lib/firebase.ts` ever reads it. So
+ * `cross-env FIREBASE_AUTH_EMULATOR_HOST= … -r ./test/env.ts` doesn't work:
+ * it isn't that an empty string fails to count as "unset" (`lib/firebase.ts`'s
+ * own check, `Boolean(process.env['FIREBASE_AUTH_EMULATOR_HOST'])`, would
+ * correctly treat `''` as falsy) — it's that `test/env.ts`'s `-r` runs
+ * *after* the shell sets that empty value and overwrites it with
+ * `.env.test`'s real emulator host before anything downstream gets a look.
+ * `lib/config.ts` then loads `.env` *without* override — dotenv leaves an
+ * already-set key alone — so even the real credentials in `.env` never win
+ * once the emulator placeholders are in place.
  *
  * So this loader runs in a fixed order, entirely in-process:
  *
@@ -26,6 +33,16 @@
  * Never prints, logs, copies, or echoes a value from `.env` beyond the one
  * summary line at the bottom — which names the project id and database, not
  * credentials.
+ *
+ * Two side effects worth knowing before running this profile:
+ *  - `FIREBASE_STORAGE_BUCKET` is deliberately not one of the keys copied
+ *    below, so it stays whatever `.env.test` set — the demo bucket
+ *    (`demo-nannyapp.appspot.com`), not the live project's bucket.
+ *  - Everything else that goes through `lib/firebase.ts`'s admin app —
+ *    notably FCM push via `notification.service.ts` — now runs against the
+ *    *live* project too. If a device token in the local `nannyapp_test`
+ *    database belongs to a real device, this profile can push a real
+ *    notification to it.
  */
 import fs from 'node:fs';
 import path from 'node:path';

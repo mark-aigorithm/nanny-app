@@ -35,6 +35,10 @@ e2eAuthRouter.post('/begin', async (_req: Request, res: Response, next: NextFunc
   }
 });
 
+// Send the phone as `%2B201234567891` — Express's query parser decodes a
+// literal `+` in a query string to a space (it's the `application/
+// x-www-form-urlencoded` convention), and a phone with a space instead of a
+// `+` fails the reserved-number check closed rather than open.
 e2eAuthRouter.get('/account', async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(ok(await describeAccount(requiredString(req.query['phone'], 'phone'))));
