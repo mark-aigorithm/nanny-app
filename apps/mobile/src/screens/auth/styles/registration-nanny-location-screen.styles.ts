@@ -83,6 +83,10 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 3,
   },
+  // Google/Apple sign-up: step 2 of 5, for both bars.
+  progressFillSocial: {
+    width: '40%',
+  },
 
   // Scroll
   scroll: {

@@ -30,6 +30,9 @@ export default function RegistrationNannyIdScreen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+  // A Google/Apple sign-up skips the email-code and password steps, so it
+  // counts fewer of them.
+  const isSocial = draft.authProvider !== 'phone';
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -84,13 +87,13 @@ export default function RegistrationNannyIdScreen() {
             <Text style={styles.brandText}>{APP_NAME}</Text>
           </View>
           <View style={styles.miniProgressTrack}>
-            <View style={styles.miniProgressFill} />
+            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
           </View>
         </View>
 
         {/* Full-width progress bar */}
         <View style={styles.progressBarTrack}>
-          <View style={styles.progressBarFill} />
+          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
         </View>
 
         {/* Scrollable body */}
@@ -101,7 +104,9 @@ export default function RegistrationNannyIdScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>VERIFY YOUR IDENTITY</Text>
+          <Text style={styles.stepLabel}>
+            {isSocial ? 'STEP 3 OF 5 — VERIFY YOUR IDENTITY' : 'VERIFY YOUR IDENTITY'}
+          </Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Upload your ID</Text>

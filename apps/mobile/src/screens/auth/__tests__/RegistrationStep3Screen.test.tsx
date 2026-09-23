@@ -117,3 +117,70 @@ it('Google wizard: a number that already has an account starts the collision flo
   expect(mockAbandon).toHaveBeenCalledWith('+201234567891');
   expect(mockRegister).not.toHaveBeenCalled();
 });
+
+it('Google wizard: keeps Complete setup disabled while the collision hand-off runs', async () => {
+  seedMotherDraft({ authProvider: 'google' });
+  mockLinkPhone.mockRejectedValueOnce({
+    field: 'phone',
+    message: 'This phone number already has an account.',
+    code: 'auth/credential-already-in-use',
+  });
+  let finishHandOff: () => void = () => undefined;
+  mockAbandon.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finishHandOff = resolve;
+      }),
+  );
+  renderScreen();
+
+  completeSetup();
+  await waitFor(() => expect(mockAbandon).toHaveBeenCalledTimes(1));
+  // A second tap while the throwaway account is being deleted must not run
+  // the link again against a signed-out user.
+  fireEvent.press(screen.getByText('Complete setup'));
+  expect(mockLinkPhone).toHaveBeenCalledTimes(1);
+
+  finishHandOff();
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+  expect(mockAbandon).toHaveBeenCalledTimes(1);
+});
+
+describe('Google wizard on an Android instant verification', () => {
+  const INSTANT = { verificationId: null, autoVerified: true, code: null };
+  const RESEND_MESSAGE = "We couldn't confirm your number. Tap Resend code to get a code by SMS.";
+
+  beforeEach(() => {
+    mockSendLinkCode.mockImplementationOnce((_v: unknown, o: Opts<unknown>) => o.onSuccess?.(INSTANT));
+  });
+
+  it('completes setup without a code to type', async () => {
+    seedMotherDraft({ authProvider: 'google' });
+    renderScreen();
+
+    expect(screen.getByText('Your number was verified automatically.')).toBeTruthy();
+    expect(screen.queryByTestId('registerStep3.code')).toBeNull();
+
+    fireEvent.press(screen.getByText('I agree to Terms of Service and Privacy Policy'));
+    fireEvent.press(screen.getByText('Complete setup'));
+
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+    expect(mockLinkPhone).toHaveBeenCalledWith({ challenge: INSTANT, code: '', phone: '+201234567891' });
+  });
+
+  it('drops the spent verification after a failed link and points her at resend', async () => {
+    seedMotherDraft({ authProvider: 'google' });
+    mockLinkPhone.mockRejectedValueOnce({ field: 'form', message: 'Something went wrong. Please try again.' });
+    renderScreen();
+
+    fireEvent.press(screen.getByText('I agree to Terms of Service and Privacy Policy'));
+    fireEvent.press(screen.getByText('Complete setup'));
+
+    await waitFor(() => expect(screen.getByText(RESEND_MESSAGE)).toBeTruthy());
+    expect(mockRegister).not.toHaveBeenCalled();
+    // Back to typing a code, and resend is available straight away.
+    expect(screen.getByTestId('registerStep3.code')).toBeTruthy();
+    fireEvent.press(screen.getByText('Resend code'));
+    expect(mockSendLinkCode).toHaveBeenLastCalledWith({ phone: '+201234567891', forceResend: true }, expect.anything());
+  });
+});

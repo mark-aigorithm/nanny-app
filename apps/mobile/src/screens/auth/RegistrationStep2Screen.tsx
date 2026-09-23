@@ -30,6 +30,9 @@ export default function RegistrationStep2Screen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+  // A Google/Apple sign-up skips the email-code and password steps, so it
+  // counts fewer of them.
+  const isSocial = draft.authProvider !== 'phone';
 
   const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -85,13 +88,13 @@ export default function RegistrationStep2Screen() {
             <Text style={styles.brandText}>{APP_NAME}</Text>
           </View>
           <View style={styles.miniProgressTrack}>
-            <View style={styles.miniProgressFill} />
+            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
           </View>
         </View>
 
         {/* Full-width progress bar */}
         <View style={styles.progressBarTrack}>
-          <View style={styles.progressBarFill} />
+          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
         </View>
 
         {/* Scrollable body */}
@@ -102,7 +105,9 @@ export default function RegistrationStep2Screen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 4 OF 5 — LOCATION & PREFERENCES</Text>
+          <Text style={styles.stepLabel}>
+            {isSocial ? 'STEP 2 OF 3' : 'STEP 4 OF 5'} — LOCATION & PREFERENCES
+          </Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Where are you based?</Text>

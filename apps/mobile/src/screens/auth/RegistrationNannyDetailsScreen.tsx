@@ -86,6 +86,9 @@ export default function RegistrationNannyDetailsScreen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+  // A Google/Apple sign-up skips the email-code and password steps, so it
+  // counts fewer of them.
+  const isSocial = draft.authProvider !== 'phone';
 
   const { data: certCatalog } = useCertificationCatalog();
   const { data: skillCatalog } = useSkillCatalog();
@@ -226,13 +229,13 @@ export default function RegistrationNannyDetailsScreen() {
             <Text style={styles.brandText}>{APP_NAME}</Text>
           </View>
           <View style={styles.miniProgressTrack}>
-            <View style={styles.miniProgressFill} />
+            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
           </View>
         </View>
 
         {/* Full-width progress bar */}
         <View style={styles.progressBarTrack}>
-          <View style={styles.progressBarFill} />
+          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
         </View>
 
         {/* Scrollable body */}
@@ -243,7 +246,9 @@ export default function RegistrationNannyDetailsScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Step label */}
-          <Text style={styles.stepLabel}>STEP 6 OF 6 — PROFESSIONAL DETAILS</Text>
+          <Text style={styles.stepLabel}>
+            {isSocial ? 'STEP 4 OF 5' : 'STEP 6 OF 6'} — PROFESSIONAL DETAILS
+          </Text>
 
           {/* Section title */}
           <Text style={styles.sectionTitle}>Tell families about yourself</Text>

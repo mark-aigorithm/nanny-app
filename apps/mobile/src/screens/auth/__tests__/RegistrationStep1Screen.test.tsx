@@ -218,4 +218,28 @@ describe('RegistrationStep1Screen — Google/Apple sign-up', () => {
     expect(mockAbandon).toHaveBeenCalledWith('+201234567893');
     expect(queryByText(PHONE_TAKEN)).toBeNull();
   });
+
+  it('keeps Continue disabled while the collision hand-off runs', async () => {
+    fillSocialDraft();
+    mockPost.mockResolvedValueOnce(availability(false, true));
+    let finishHandOff: () => void = () => undefined;
+    mockAbandon.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishHandOff = resolve;
+        }),
+    );
+    const { getByText } = renderScreen();
+
+    fireEvent.press(getByText('Continue'));
+    await waitFor(() => expect(mockAbandon).toHaveBeenCalledTimes(1));
+    // A second tap while the throwaway account is being deleted must not
+    // check availability, or hand off, a second time.
+    fireEvent.press(getByText('Continue'));
+    expect(mockPost).toHaveBeenCalledTimes(1);
+
+    finishHandOff();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+    expect(mockAbandon).toHaveBeenCalledTimes(1);
+  });
 });

@@ -78,6 +78,10 @@ export default function RegistrationStep1Screen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const checkAvailability = useCheckAvailability();
+  // Collision B deletes or signs out the account this sign-up is working on.
+  // Continue stays disabled from then until the replace to sign-in, so a
+  // second tap can't run against that account.
+  const [isHandingOff, setIsHandingOff] = useState(false);
   // The "photo required" hint stays hidden until the first Continue attempt —
   // showing it on arrival, before the user has done anything, reads as an error.
   const [showPhotoError, setShowPhotoError] = useState(false);
@@ -190,6 +194,7 @@ export default function RegistrationStep1Screen() {
       // Collision B: this person already has an account. Drop the Google/Apple
       // account just created, keep the credential, and have them sign in with
       // the number they typed — the credential is linked once they do.
+      setIsHandingOff(true);
       await abandonSocialSignUpForLink(toE164(draft.countryCode, draft.phone));
       router.replace('/(auth)/sign-in');
       return;
@@ -370,7 +375,7 @@ export default function RegistrationStep1Screen() {
           <Button
             title={checkAvailability.isPending ? 'Checking…' : 'Continue'}
             onPress={() => void handleContinue()}
-            disabled={checkAvailability.isPending}
+            disabled={checkAvailability.isPending || isHandingOff}
           />
         </View>
 

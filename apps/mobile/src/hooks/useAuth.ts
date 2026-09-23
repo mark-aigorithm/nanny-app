@@ -346,9 +346,15 @@ export function useSendPhoneLinkCode() {
  *
  * A number that already belongs to another account rejects with
  * `code: 'auth/credential-already-in-use'` — the caller's cue for collision B.
- * Idempotent across retries: the same number already linked is done; a
- * different one left by an abandoned attempt is swapped, as the phone wizard
- * does for its password credential.
+ *
+ * Idempotent across retries, decided from the account *before* the credential
+ * is touched: the same number already linked is done; a different one left by
+ * an abandoned attempt is unlinked first; then the credential is linked once.
+ * It can only be used once. After an Android instant verification the native
+ * side hands out its cached credential for a single link and then forgets it,
+ * so linking, failing and linking again would always be refused. A
+ * `provider-already-linked` from that single link is therefore unexpected, and
+ * is mapped like any other failure.
  */
 export function useLinkPhoneToCurrentUser() {
   return useMutation<void, MappedAuthError, { challenge: PhoneLinkChallenge; code: string; phone: string }>({
@@ -361,27 +367,20 @@ export function useLinkPhoneToCurrentUser() {
         } satisfies MappedAuthError;
       }
 
-      const credential =
-        challenge.autoVerified && !challenge.code
-          ? auth.PhoneAuthProvider.credential(null)
-          : auth.PhoneAuthProvider.credential(challenge.verificationId, challenge.code ?? code);
-
-      const toMapped = (error: unknown): MappedAuthError =>
-        (error as { code?: unknown })?.code === 'auth/credential-already-in-use'
-          ? PHONE_TAKEN_ERROR
-          : mapFirebaseAuthError(error);
-
-      try {
-        await user.linkWithCredential(credential);
-      } catch (error) {
-        if ((error as { code?: unknown })?.code !== 'auth/provider-already-linked') throw toMapped(error);
-        if (user.phoneNumber !== phone) {
-          try {
-            await user.unlink('phone');
-            await user.linkWithCredential(credential);
-          } catch (relinkError) {
-            throw toMapped(relinkError);
-          }
+      // A retry after a later step failed: the number is already on the
+      // account, and re-linking would spend a credential for nothing.
+      if (user.phoneNumber !== phone) {
+        try {
+          if (user.phoneNumber) await user.unlink('phone');
+          const credential =
+            challenge.autoVerified && !challenge.code
+              ? auth.PhoneAuthProvider.credential(null)
+              : auth.PhoneAuthProvider.credential(challenge.verificationId, challenge.code ?? code);
+          await user.linkWithCredential(credential);
+        } catch (error) {
+          throw (error as { code?: unknown })?.code === 'auth/credential-already-in-use'
+            ? PHONE_TAKEN_ERROR
+            : mapFirebaseAuthError(error);
         }
       }
 

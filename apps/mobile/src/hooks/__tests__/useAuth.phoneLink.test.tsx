@@ -57,6 +57,7 @@ beforeEach(() => {
     getIdToken: mockGetIdToken,
   };
   mockLinkWithCredential.mockResolvedValue(undefined);
+  mockUnlink.mockResolvedValue(undefined);
   mockGetIdToken.mockResolvedValue('token');
 });
 
@@ -129,6 +130,8 @@ describe('useLinkPhoneToCurrentUser', () => {
     });
 
     expect(mockPhoneCredential).toHaveBeenCalledWith(null);
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
+    expect(mockGetIdToken).toHaveBeenCalledWith(true);
     await settled(result);
   });
 
@@ -142,29 +145,70 @@ describe('useLinkPhoneToCurrentUser', () => {
     await settled(result);
   });
 
-  it('treats the same number already linked (a retry) as done', async () => {
+  it('treats the same number already linked (a retry) as done, without spending a credential', async () => {
     mockCurrentUser!.phoneNumber = '+201234567891';
-    mockLinkWithCredential.mockRejectedValue({ code: 'auth/provider-already-linked' });
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891' });
 
+    expect(mockPhoneCredential).not.toHaveBeenCalled();
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
     expect(mockUnlink).not.toHaveBeenCalled();
     expect(mockGetIdToken).toHaveBeenCalledWith(true);
     await settled(result);
   });
 
-  it('swaps a different number left by an abandoned attempt', async () => {
+  it('unlinks a different number left by an abandoned attempt before linking once', async () => {
     mockCurrentUser!.phoneNumber = '+201111111111';
-    mockLinkWithCredential
-      .mockRejectedValueOnce({ code: 'auth/provider-already-linked' })
-      .mockResolvedValueOnce(undefined);
+    const order: string[] = [];
+    mockUnlink.mockImplementation(async () => {
+      order.push('unlink');
+    });
+    mockLinkWithCredential.mockImplementation(async () => {
+      order.push('link');
+    });
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891' });
 
     expect(mockUnlink).toHaveBeenCalledWith('phone');
-    expect(mockLinkWithCredential).toHaveBeenCalledTimes(2);
+    expect(order).toEqual(['unlink', 'link']);
+    await settled(result);
+  });
+
+  it('maps an unexpected provider-already-linked from the single link like any other failure', async () => {
+    mockLinkWithCredential.mockRejectedValue({ code: 'auth/provider-already-linked' });
+    const { result } = wrap(() => useLinkPhoneToCurrentUser());
+
+    await expect(
+      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891' }),
+    ).rejects.toEqual({ field: 'form', message: 'Something went wrong. Please try again.' });
+    expect(mockUnlink).not.toHaveBeenCalled();
+    expect(mockGetIdToken).not.toHaveBeenCalled();
+    await settled(result);
+  });
+
+  it('never re-spends an instant-verification credential when Complete setup is retried', async () => {
+    // The native side hands its cached credential out for one link and then
+    // forgets it: a second `credential(null)` link is refused. A link that
+    // lands puts the number on the account, as RNFB's currentUser reflects.
+    let nativeCredentialCached = true;
+    mockLinkWithCredential.mockImplementation(async (credential: { verificationId: string | null }) => {
+      if (credential.verificationId === null) {
+        if (!nativeCredentialCached) throw { code: 'auth/invalid-credential' };
+        nativeCredentialCached = false;
+      }
+      mockCurrentUser!.phoneNumber = '+201234567891';
+    });
+    const INSTANT = { verificationId: null, autoVerified: true, code: null };
+    const { result } = wrap(() => useLinkPhoneToCurrentUser());
+
+    await result.current.mutateAsync({ challenge: INSTANT, code: '', phone: '+201234567891' });
+    // Register (or an ID upload) failed further down; she taps Complete setup again.
+    await result.current.mutateAsync({ challenge: INSTANT, code: '', phone: '+201234567891' });
+
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
+    expect(mockGetIdToken).toHaveBeenCalledTimes(2);
     await settled(result);
   });
 });

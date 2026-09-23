@@ -35,6 +35,12 @@ import { styles } from './styles/registration-step3-screen.styles';
 // Bumping this version triggers a re-acceptance flow when terms change.
 const TERMS_VERSION = 'v1.0';
 
+// An Android instant verification can be linked only once (see
+// useLinkPhoneToCurrentUser), so after a failed link the only way on is a
+// fresh SMS.
+const INSTANT_VERIFICATION_SPENT_MESSAGE =
+  "We couldn't confirm your number. Tap Resend code to get a code by SMS.";
+
 /** Convert 'mm/dd/yyyy' to 'YYYY-MM-DD'. Returns empty string on bad input. */
 function dobToIso(dob: string): string {
   const m = dob.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -84,6 +90,10 @@ export default function RegistrationStep3Screen() {
   // The nanny's ID images upload between account creation and profile save;
   // that gap isn't covered by either mutation's pending flag, so track it here.
   const [isUploadingId, setIsUploadingId] = useState(false);
+  // Collision B deletes or signs out the account this screen is working on.
+  // Complete setup stays disabled from then until the replace to sign-in, so
+  // a second tap can't run against that account.
+  const [isHandingOff, setIsHandingOff] = useState(false);
 
   const sendCode = useCallback(
     (forceResend: boolean) => {
@@ -203,8 +213,18 @@ export default function RegistrationStep3Screen() {
       const err = error as MappedAuthError;
       if (isSocial && err.code === 'auth/credential-already-in-use') {
         // Collision B: this number belongs to an account that already exists.
+        setIsHandingOff(true);
         await abandonSocialSignUpForLink(phoneE164);
         router.replace('/(auth)/sign-in');
+        return;
+      }
+      if (instantlyVerified) {
+        // The native side has already spent that verification; linking with
+        // it again would always fail, and there is no code box to fall back
+        // on. Drop it so she can have an SMS sent straight away.
+        setChallenge(null);
+        setSecondsLeft(0);
+        setFormError(INSTANT_VERIFICATION_SPENT_MESSAGE);
         return;
       }
       setFormError(err.message);
@@ -305,7 +325,11 @@ export default function RegistrationStep3Screen() {
   }
 
   const isSubmitting =
-    confirmPhone.isPending || linkPhone.isPending || isUploadingId || registerProfile.isPending;
+    confirmPhone.isPending ||
+    linkPhone.isPending ||
+    isHandingOff ||
+    isUploadingId ||
+    registerProfile.isPending;
   const canSubmit =
     challenge !== null &&
     (instantlyVerified || otp.length === OTP_LENGTH) &&
