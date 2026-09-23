@@ -249,9 +249,10 @@ placeholder: Google creates a new uid, step 1 finds the real address taken in
 - **`app.config.ts`:**
   - Add `ios.usesAppleSignIn: true`. EAS enables the Sign in with Apple
     capability on the App ID at build time.
-  - Add `['@react-native-google-signin/google-signin', { iosUrlScheme }]` to
-    `plugins`. `iosUrlScheme` is read at config time from
-    `GoogleService-Info.plist`'s `REVERSED_CLIENT_ID`.
+  - Add `'@react-native-google-signin/google-signin'` to `plugins`, with no
+    options. When `ios.googleServicesFile` is set, the plugin reads
+    `REVERSED_CLIENT_ID` from the plist itself; `iosUrlScheme` is only for
+    projects that don't use Firebase.
   - Add `extra.googleWebClientId`, read at config time from the `oauth_client`
     entry with `client_type: 3` in `google-services.json`.
   - Both IDs therefore come from the files Firebase issues. Nothing is
@@ -313,13 +314,17 @@ which the emulator accepts. The gating matches the photo-picker seam
 
 Flows (in `apps/mobile/e2e/flows`):
 
-1. **Google sign-up, mother:** role → Google → step 1 prefilled with the email
-   read-only → no email or password screens → location → phone code → home.
-2. **Google sign-in, existing account:** the seeder links a Google identity
-   onto a seeded account; Google → home.
-3. **Collision B:** Google sign-up using a seeded account's phone → banner →
+1. **Google sign-up, then sign-in again, mother:**
+   - Sign up: role → Google → step 1 prefilled with the email read-only → no
+     email or password screens → location → phone code → home.
+   - Then: sign out → Welcome back → Google with the same identity → home.
+     This covers the existing-account door (a 200 from `/auth/me`) without a
+     seeder-linked identity.
+2. **Collision B:** Google sign-up using a seeded account's phone → banner →
    SMS sign-in with the phone prefilled → home. An `advance.js` step asserts
    the account's providers now include `google.com`.
+   - The seeder unlinks `google.com` from seeded accounts on every run, so the
+     second run starts clean.
 
 Each flow is run twice, per the lab rule.
 
