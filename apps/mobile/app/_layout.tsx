@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
+import E2eGooglePickerHost from '@mobile/components/E2eGooglePickerHost';
 import { useFonts } from 'expo-font';
 import {
   Manrope_400Regular,
@@ -19,6 +20,7 @@ import { queryClient, bindOnlineManager } from '@mobile/lib/queryClient';
 import { subscribeIsOffline } from '@mobile/lib/network';
 import OfflineGate from '@mobile/components/OfflineGate';
 import { auth } from '@mobile/lib/firebase';
+import { isAuthEmulator } from '@mobile/lib/socialAuth';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useGuestStore } from '@mobile/store/guestStore';
 import { useMe } from '@mobile/hooks/useMe';
@@ -90,6 +92,9 @@ export default function RootLayout() {
         {/* Global confirmation dialog — mounted at the root so every area of
             the app (parent, nanny, auth) gets the same themed popup. */}
         <ConfirmDialogHost />
+        {/* E2E only: stands in for Google's account sheet against the Auth
+            emulator. Never mounted in a real build. */}
+        {isAuthEmulator() && <E2eGooglePickerHost />}
         {/* Full-screen "you're offline" overlay — covers every area of the app
             while the device has no connection and lifts by itself. */}
         <OfflineGate />

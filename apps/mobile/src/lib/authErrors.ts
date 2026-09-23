@@ -3,7 +3,22 @@ export type AuthErrorField = 'email' | 'password' | 'phone' | 'form';
 export type MappedAuthError = {
   field: AuthErrorField;
   message: string;
+  /**
+   * The Firebase code, set only where a caller branches on it (e.g.
+   * `auth/credential-already-in-use` starting the collision flow). The copy in
+   * `message` stays the thing screens show.
+   */
+  code?: string;
 };
+
+export function isMappedAuthError(value: unknown): value is MappedAuthError {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { field?: unknown }).field === 'string' &&
+    typeof (value as { message?: unknown }).message === 'string'
+  );
+}
 
 type FirebaseErrorShape = { code: string };
 
@@ -57,6 +72,13 @@ export function mapFirebaseAuthError(error: unknown): MappedAuthError {
         field: 'form',
         message: 'Network error. Check your connection and try again.',
       };
+    case 'auth/account-exists-with-different-credential':
+      return {
+        field: 'form',
+        message: 'You already have an account with this email. Sign in with your phone once to connect it.',
+      };
+    case 'auth/user-disabled':
+      return { field: 'form', message: 'This account has been disabled. Contact support for help.' };
     default:
       return { field: 'form', message: 'Something went wrong. Please try again.' };
   }
