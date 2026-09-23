@@ -11,6 +11,7 @@ import { campaignRouter } from './campaign.routes';
 import { communityRouter } from './community.routes';
 import { conversationRouter } from './conversation.routes';
 import { deviceRouter } from './device.routes';
+import { e2eAuthRouter } from './e2e-auth.routes';
 import { notificationRouter } from './notification.routes';
 import { packageRouter } from './package.routes';
 import { paymobRouter } from './paymob.routes';
@@ -47,4 +48,10 @@ apiRouter.use('/support', supportRouter);
 // on, so an environment that is not running a release test never exposes it.
 if (config.qaChecklistEnabled) {
   apiRouter.use('/qa-checklist', qaRouter);
+}
+
+// Unauthenticated and destructive by design — see e2e-auth.routes.ts. Mounted
+// only when the flag is set, and never in production.
+if (config.e2eLiveAuthEnabled && config.nodeEnv !== 'production') {
+  apiRouter.use('/e2e-auth', e2eAuthRouter);
 }

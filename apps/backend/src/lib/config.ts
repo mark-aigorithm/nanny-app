@@ -57,6 +57,16 @@ const ConfigSchema = z.object({
     .string()
     .optional()
     .transform((v) => v?.trim().toLowerCase() === 'true'),
+
+  // The live-Firebase E2E harness. Off unless explicitly turned on: its
+  // endpoints are unauthenticated and they delete Firebase accounts.
+  E2E_LIVE_AUTH_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim().toLowerCase() === 'true'),
+  // Web API key of the Firebase project, used only to spend an oobCode over
+  // the Identity Toolkit REST API from the harness.
+  FIREBASE_WEB_API_KEY: z.string().optional(),
 });
 
 const parsed = ConfigSchema.safeParse(process.env);
@@ -172,10 +182,12 @@ export const config = {
     // into real newlines for the Firebase SDK.
     privateKey: raw.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     storageBucket: raw.FIREBASE_STORAGE_BUCKET,
+    webApiKey: raw.FIREBASE_WEB_API_KEY ?? '',
   },
   paymob: buildPaymobConfig(),
   email: buildEmailConfig(),
   qaChecklistEnabled: raw.QA_CHECKLIST_ENABLED,
+  e2eLiveAuthEnabled: raw.E2E_LIVE_AUTH_ENABLED,
 } as const;
 
 export type Config = typeof config;
