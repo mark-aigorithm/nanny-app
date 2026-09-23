@@ -118,6 +118,21 @@ export async function checkAvailability(
 }
 
 /**
+ * What a Google or Apple sign-up brings instead of our email OTP token: the
+ * Firebase ID token itself says this exact address is verified. Only Firebase
+ * sets `email_verified` — after Google or Apple vouched for the address, or
+ * after one of its own verification flows — so a client cannot claim it. A
+ * phone sign-up's linked email/password credential is still unverified at
+ * this point, so that path keeps presenting a token.
+ */
+function assertFirebaseVerifiedEmail(decoded: DecodedIdToken, email: string): void {
+  const tokenEmail = decoded.email?.trim().toLowerCase();
+  if (decoded.email_verified !== true || !tokenEmail || tokenEmail !== email.trim().toLowerCase()) {
+    throw errors.badRequest('Please verify your email address before finishing sign-up.');
+  }
+}
+
+/**
  * Creates the application User row for a freshly-created Firebase account.
  * The mobile client calls this immediately after `createUserWithEmailAndPassword`
  * + phone verification, passing the profile data collected by the registration
@@ -150,15 +165,21 @@ export async function registerUser(
     throw errors.conflict('An account with this phone number already exists.');
   }
   const isNanny = body.role === Role.NANNY;
-  // Both roles prove their address mid-wizard and arrive holding the token for
-  // it (the shared schema makes it mandatory), so no account is created with an
-  // unproven address.
+  // Phone sign-ups prove their address mid-wizard and arrive holding the token
+  // for it. Google and Apple sign-ups arrive without one, because Firebase has
+  // already verified the provider's address — so check that instead. Either
+  // way, no account is created with an unproven address.
   const emailVerificationToken = body.emailVerificationToken;
+  if (!emailVerificationToken) {
+    assertFirebaseVerifiedEmail(decoded, body.email);
+  }
   const created = await prisma.$transaction(async (tx) => {
     // Inside the transaction so the token isn't burned by a registration that
     // then fails — either the user exists with a verified address, or the token
     // is still spendable on a retry.
-    await consumeVerificationToken(body.email, emailVerificationToken, tx);
+    if (emailVerificationToken) {
+      await consumeVerificationToken(body.email, emailVerificationToken, tx);
+    }
 
     const user = await tx.user.create({
       data: {
@@ -169,7 +190,8 @@ export async function registerUser(
         lastName: body.lastName,
         dateOfBirth: new Date(body.dateOfBirth),
         role: body.role,
-        // The token above was just spent for this address, so it is proven.
+        // Proven either way: the token above was spent for this address, or
+        // Firebase's own token vouched for it.
         isEmailVerified: true,
         // Phone is verified server-side via the Firebase token's phone_number
         // claim. If the mobile client linked the phone before calling /register,

@@ -94,10 +94,16 @@ export const RegisterRequestSchema = z
     // so the backend doesn't have to derive it from the JWT for the insert.
     email: EmailSchema,
     // Proof from POST /auth/email/verify that this address belongs to whoever
-    // is registering. Both roles prove their address mid-wizard, so no account
-    // is ever created with an unproven one — which is what lets receipts,
-    // payment records and account recovery rely on `users.email`.
-    emailVerificationToken: z.string().min(1, 'Please verify your email address before finishing sign-up.'),
+    // is registering — required unless Firebase itself already verified it. A
+    // Google or Apple sign-up arrives without one: its Firebase ID token says
+    // `email_verified: true` for exactly this address, and `registerUser`
+    // checks that instead. Every other sign-up still brings the token, so no
+    // account is ever created with an unproven address — which is what lets
+    // receipts, payment records and account recovery rely on `users.email`.
+    emailVerificationToken: z
+      .string()
+      .min(1, 'Please verify your email address before finishing sign-up.')
+      .optional(),
     phone: PhoneE164Schema,
     dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD'),
     role: RoleSchema,

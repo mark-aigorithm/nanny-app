@@ -99,6 +99,42 @@ export async function exchangeCustomToken(customToken: string): Promise<string> 
 }
 
 /**
+ * Signs in with Google against the emulator and returns a usable ID token.
+ *
+ * The Auth emulator accepts an unsigned JSON claim set in place of a real
+ * Google ID token and creates the account on first use — exactly the state the
+ * app is in after `signInWithCredential(GoogleAuthProvider.credential(...))`
+ * for someone new: a Firebase user holding Google's address, and no row.
+ */
+export async function signInWithGoogleAs(
+  email: string,
+  { emailVerified = true }: { emailVerified?: boolean } = {},
+): Promise<string> {
+  const claims = JSON.stringify({ sub: `google-${email}`, email, email_verified: emailVerified });
+  const response = await fetch(`${IDENTITY_TOOLKIT}/accounts:signInWithIdp?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      postBody: `id_token=${encodeURIComponent(claims)}&providerId=google.com`,
+      requestUri: 'http://localhost',
+      returnSecureToken: true,
+      returnIdpCredential: true,
+    }),
+  });
+
+  const body = (await response.json()) as { idToken?: string; error?: { message?: string } };
+
+  if (!body.idToken) {
+    throw new Error(
+      `Emulator Google sign-in failed for ${email}: ${body.error?.message ?? response.status}. ` +
+        'Is the Auth emulator running (pnpm test:emulator)?',
+    );
+  }
+
+  return body.idToken;
+}
+
+/**
  * Deletes every account in the emulator project.
  *
  * Called from the per-test reset so Firebase state cannot outlive the database
