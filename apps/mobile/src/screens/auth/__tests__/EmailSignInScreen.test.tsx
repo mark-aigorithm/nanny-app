@@ -61,3 +61,34 @@ it('shows the mapped error under the password field and does not navigate', asyn
   await waitFor(() => expect(screen.getByText('Incorrect email or password.')).toBeTruthy());
   expect(mockReplace).not.toHaveBeenCalled();
 });
+
+it('reaches Firebase with a password that is valid there but fails the app-side strength rules', async () => {
+  // Firebase's hosted reset page (Authentication → Settings → Password
+  // policy, default: 6+ characters) only enforces Firebase's own rule, not
+  // this app's 8-char/uppercase/digit checklist — so someone who resets to
+  // e.g. "sunshine22" must still be able to sign in with it. Only a
+  // non-empty check belongs at this door; strength rules stay in the wizard
+  // and the SMS reset, where the password is actually being created.
+  mockSignInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  renderScreen();
+
+  fireEvent.changeText(screen.getByTestId('emailSignIn.email'), 'mona@example.com');
+  fireEvent.changeText(screen.getByTestId('emailSignIn.password'), 'sunshine22');
+  fireEvent.press(screen.getByText('Sign in'));
+
+  await waitFor(() =>
+    expect(mockSignInWithEmailAndPassword).toHaveBeenCalledWith('mona@example.com', 'sunshine22'),
+  );
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+});
+
+it('refuses an empty password locally, with no Firebase call', async () => {
+  renderScreen();
+
+  fireEvent.changeText(screen.getByTestId('emailSignIn.email'), 'mona@example.com');
+  fireEvent.press(screen.getByText('Sign in'));
+
+  await waitFor(() => expect(screen.getByText('Please enter your password.')).toBeTruthy());
+  expect(mockSignInWithEmailAndPassword).not.toHaveBeenCalled();
+  expect(mockReplace).not.toHaveBeenCalled();
+});

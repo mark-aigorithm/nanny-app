@@ -89,8 +89,11 @@ async function main(): Promise<void> {
     }
 
     let current: string | undefined;
+    let currentVerified: boolean;
     try {
-      current = (await firebaseAuth.getUser(user.firebaseUid)).email;
+      const fbUser = await firebaseAuth.getUser(user.firebaseUid);
+      current = fbUser.email;
+      currentVerified = fbUser.emailVerified;
     } catch (err) {
       if ((err as { code?: string }).code === 'auth/user-not-found') {
         log('no-firebase-account', user.firebaseUid);
@@ -100,13 +103,22 @@ async function main(): Promise<void> {
       continue;
     }
 
-    if (current === user.email) {
+    // Both must hold: the address AND Firebase's own verified flag. An
+    // account registered through the new app while the old backend was
+    // still live (or the M1 race — the row committed but the post-registration
+    // updateUser failed) already has the right address but `emailVerified:
+    // false` — this must still be updated, not skipped as correct.
+    if (current === user.email && currentVerified) {
       log('already-correct');
       continue;
     }
 
+    // The email itself may already be right; only the verified flag needs
+    // fixing. Say so, rather than a masked address pointing at itself.
+    const detail = current === user.email ? 'verify only' : `${maskEmail(current)} → ${maskEmail(user.email)}`;
+
     if (!apply) {
-      log('would-update', `${maskEmail(current)} → ${maskEmail(user.email)}`);
+      log('would-update', detail);
       continue;
     }
 
@@ -115,7 +127,7 @@ async function main(): Promise<void> {
         email: user.email,
         emailVerified: true,
       });
-      log('updated', `${maskEmail(current)} → ${maskEmail(user.email)}`);
+      log('updated', detail);
     } catch (err) {
       log('failed', (err as { code?: string }).code ?? String(err));
     }

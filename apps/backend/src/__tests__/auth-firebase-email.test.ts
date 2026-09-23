@@ -176,8 +176,15 @@ describe('setVerifiedEmail', () => {
   });
 
   it('is a no-op when she already holds the verified address', async () => {
+    // Outside the recovery window on purpose — this test is about the plain
+    // idempotent-address behaviour, not the recovery-token minting the
+    // dedicated tests below cover.
     mockPrisma.user.findUnique.mockResolvedValue(
-      userRow({ email: 'mona@example.com', isEmailVerified: true, emailVerifiedAt: new Date() }),
+      userRow({
+        email: 'mona@example.com',
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(Date.now() - (HOUR_MS + 60_000)),
+      }),
     );
 
     await setVerifiedEmail(DECODED, {
@@ -186,10 +193,12 @@ describe('setVerifiedEmail', () => {
     });
 
     expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockAssertTokenValid).not.toHaveBeenCalled();
     expect(mockConsume).not.toHaveBeenCalled();
   });
 
-  it('mints a recovery token on the no-op path when verified within the last hour', async () => {
+  it('mints a recovery token on the no-op path when verified within the last hour, after checking the token', async () => {
+    const order: string[] = [];
     mockPrisma.user.findUnique.mockResolvedValue(
       userRow({
         email: 'mona@example.com',
@@ -197,6 +206,16 @@ describe('setVerifiedEmail', () => {
         emailVerifiedAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
       }),
     );
+    mockAssertTokenValid.mockImplementation(async () => {
+      order.push('validate');
+    });
+    mockConsume.mockImplementation(async () => {
+      order.push('consume');
+    });
+    mockCreateCustomToken.mockImplementation(async () => {
+      order.push('mint');
+      return 'minted-custom-token';
+    });
 
     const result = await setVerifiedEmail(DECODED, {
       email: 'mona@example.com',
@@ -205,11 +224,43 @@ describe('setVerifiedEmail', () => {
 
     // Recovery path only, not a fresh swap — Firebase's email is untouched.
     expect(mockUpdateUser).not.toHaveBeenCalled();
-    expect(mockCreateCustomToken).toHaveBeenCalledWith('fb-1');
+    // A genuine retry after a lost response always arrives with a fresh,
+    // unspent token (verifyEmailOtp only matches unverified rows) — without
+    // this check, any valid (even revoked) ID token, the account's own
+    // already-verified address, and any non-empty verificationToken would
+    // mint a fresh, long-lived session on their own.
+    expect(mockAssertTokenValid).toHaveBeenCalledWith('mona@example.com', 'tok-1');
+    expect(mockConsume).toHaveBeenCalledWith('mona@example.com', 'tok-1');
+    expect(order).toEqual(['validate', 'consume', 'mint']);
     expect(result.customToken).toBe('minted-custom-token');
   });
 
-  it('mints no token on the no-op path once the recovery window has passed', async () => {
+  it('refuses to mint a recovery token on the no-op path when the token is garbage, and mints nothing', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      userRow({
+        email: 'mona@example.com',
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+      }),
+    );
+    mockAssertTokenValid.mockRejectedValue(
+      new Error('Your email verification has expired. Please request a new code and try again.'),
+    );
+
+    // This is the hole I2 closes: without the check, *any* non-empty
+    // verificationToken (Zod only requires min(1)) reached this far and
+    // minted a session — turning a stolen or revoked ID token into
+    // indefinite access for the first hour after every registration or gate
+    // pass.
+    await expect(
+      setVerifiedEmail(DECODED, { email: 'mona@example.com', verificationToken: 'garbage' }),
+    ).rejects.toThrow('expired');
+
+    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockCreateCustomToken).not.toHaveBeenCalled();
+  });
+
+  it('mints no token on the no-op path once the recovery window has passed, and never checks the token', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       userRow({
         email: 'mona@example.com',
@@ -223,11 +274,13 @@ describe('setVerifiedEmail', () => {
       verificationToken: 'tok-1',
     });
 
+    expect(mockAssertTokenValid).not.toHaveBeenCalled();
+    expect(mockConsume).not.toHaveBeenCalled();
     expect(mockCreateCustomToken).not.toHaveBeenCalled();
     expect(result.customToken).toBeUndefined();
   });
 
-  it('mints no token on the no-op path when emailVerifiedAt was never set', async () => {
+  it('mints no token on the no-op path when emailVerifiedAt was never set, and never checks the token', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       userRow({ email: 'mona@example.com', isEmailVerified: true, emailVerifiedAt: null }),
     );
@@ -237,6 +290,8 @@ describe('setVerifiedEmail', () => {
       verificationToken: 'tok-1',
     });
 
+    expect(mockAssertTokenValid).not.toHaveBeenCalled();
+    expect(mockConsume).not.toHaveBeenCalled();
     expect(mockCreateCustomToken).not.toHaveBeenCalled();
     expect(result.customToken).toBeUndefined();
   });
@@ -274,5 +329,42 @@ describe('registerUser', () => {
     } as never);
 
     expect(mockUpdateUser).toHaveBeenCalledWith('fb-1', { emailVerified: true });
+  });
+
+  it('still resolves when the post-transaction Firebase call fails — the registration already committed', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.$transaction.mockResolvedValue({
+      user: userRow({ isEmailVerified: true }),
+      home: { formattedAddress: 'Cairo', latitude: 30, longitude: 31 },
+    });
+    mockUpdateUser.mockRejectedValue(new Error('Firebase is having a moment'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    // The transaction already committed the row by the time this call runs
+    // (auth.service.ts:237) — a failure here must not turn a real, successful
+    // registration into a 500, and the idempotent retry path (the `existing`
+    // early-return above) never reaches this call again to fix it up later.
+    const result = await registerUser(DECODED, {
+      firstName: 'Mona',
+      lastName: 'Ali',
+      email: 'mona@example.com',
+      phone: '+201000000000',
+      dateOfBirth: '1994-01-01',
+      role: Role.MOTHER,
+      termsAcceptedVersion: '1.0',
+      latitude: 30.05,
+      longitude: 31.23,
+      address: 'Cairo',
+      emailVerificationToken: 'tok-1',
+    } as never);
+
+    expect(result.email).toBe('201000000000@phone.nannyapp.local');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[auth] failed to mark the new Firebase account email-verified',
+      expect.objectContaining({ uid: 'fb-1', err: expect.any(Error) }),
+    );
+
+    warnSpy.mockRestore();
   });
 });

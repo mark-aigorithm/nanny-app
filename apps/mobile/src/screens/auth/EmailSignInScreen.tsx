@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { Button, TextInputField } from '@mobile/components/ui';
 import { useSignInWithEmail } from '@mobile/hooks/useAuth';
-import { validateEmail, validatePassword } from '@mobile/lib/validation';
+import { validateEmail, validateSignInPassword } from '@mobile/lib/validation';
 import { styles } from './styles/email-sign-in-screen.styles';
 
 /**
@@ -34,7 +34,7 @@ export default function EmailSignInScreen() {
       setEmailError(emailValidation);
       return;
     }
-    const passwordValidation = validatePassword(password);
+    const passwordValidation = validateSignInPassword(password);
     if (passwordValidation) {
       setPasswordError(passwordValidation);
       return;

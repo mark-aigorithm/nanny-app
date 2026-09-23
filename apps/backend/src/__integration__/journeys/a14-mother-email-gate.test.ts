@@ -209,7 +209,7 @@ describe('A14 — accounts created before the rule', () => {
     expect(row.isEmailVerified).toBe(false);
   });
 
-  it('refuses to spend a verification token twice', async () => {
+  it('refuses to retarget an already-proven token at a different address', async () => {
     const mother = await makeLegacyMother();
     const verificationToken = await proveEmail(mother.realEmail);
 
@@ -221,11 +221,19 @@ describe('A14 — accounts created before the rule', () => {
 
     // The swap above revoked `mother.token` — exchange the custom token it
     // returned for a fresh session, the same way the real app does, so the
-    // second call below is refused for reusing the verification token, not
-    // for presenting an Authorization header that's already dead.
+    // second call below is refused for the verification token, not for
+    // presenting an Authorization header that's already dead.
     const freshToken = await exchangeCustomToken(first.body.data.customToken);
 
-    // A second, different address cannot ride the same proof.
+    // Requesting a *different* address than the one this token was proven
+    // for takes the "real swap" branch (user.email !== body.email), which
+    // refuses at the read-only pre-check (assertVerificationTokenIsValid):
+    // the stored row's email is mother.realEmail, not this one, so
+    // isTokenSpendable's `row.email === email` check fails before Firebase
+    // or the spend is ever reached. It's also already consumed by the call
+    // above, but that isn't what trips this particular 400 — single use for
+    // the *same* address is what the unit tests pin
+    // (auth-firebase-email.test.ts); this one is about address-binding.
     const second = await request(app)
       .post('/auth/email')
       .set(...authHeader(freshToken))

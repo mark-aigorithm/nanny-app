@@ -233,8 +233,22 @@ export async function registerUser(
   });
 
   // Our own OTP proved the address inside the transaction above; keep
-  // Firebase's copy of that fact in step, so reset mail is never held back.
-  await firebaseAuth.updateUser(decoded.uid, { emailVerified: true });
+  // Firebase's copy of that fact in step with ours (NOT, as an earlier
+  // comment here claimed, so reset mail isn't held back — Firebase mails a
+  // reset link to an unverified address too). Best-effort: the row above is
+  // already committed, so a Firebase hiccup here must not turn a real,
+  // successful registration into a 500 — and the idempotent retry path
+  // (the `existing` early-return above) never reaches this call again to
+  // reconcile it later. `migrate-firebase-emails.ts` catches anything left
+  // out of step.
+  try {
+    await firebaseAuth.updateUser(decoded.uid, { emailVerified: true });
+  } catch (err) {
+    console.warn('[auth] failed to mark the new Firebase account email-verified', {
+      uid: decoded.uid,
+      err,
+    });
+  }
 
   return toUserResponse(created.user, {
     address: created.home.formattedAddress,
@@ -375,6 +389,16 @@ async function moveFirebaseEmail(uid: string, email: string): Promise<void> {
  * address. Outside the window, the no-op returns without a token — the
  * caller's existing session is presumably still fine, since nothing here
  * revoked it.
+ *
+ * The window alone is not proof of anything: `verificationToken` is only
+ * `min(1)` in the shared schema, so *inside* the window this branch also
+ * requires that token to be a currently-spendable one (see the
+ * `assertVerificationTokenIsValid` / `consumeVerificationToken` calls below)
+ * — otherwise any valid (even revoked) ID token, the account's own
+ * already-verified address, and any non-empty string would mint a fresh,
+ * indefinite session. A genuine retry after a lost response always arrives
+ * with a fresh, unspent token, because `verifyEmailOtp` only matches
+ * unverified rows — so the real recovery case still goes through.
  */
 const SESSION_RECOVERY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
@@ -415,6 +439,13 @@ export async function setVerifiedEmail(
     if (!verifiedRecently) {
       return profile;
     }
+
+    // Proof of a fresh OTP round for this exact address, not just "some
+    // non-empty string" — see the doc comment on SESSION_RECOVERY_WINDOW_MS.
+    // An invalid or foreign token must mint nothing and throw, same as the
+    // real-swap branch below.
+    await assertVerificationTokenIsValid(body.email, body.verificationToken);
+    await consumeVerificationToken(body.email, body.verificationToken);
 
     const customToken = await firebaseAuth.createCustomToken(user.firebaseUid);
     return { ...profile, customToken };

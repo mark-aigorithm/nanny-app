@@ -238,18 +238,33 @@ export function useConfirmPhoneAndLink() {
         } satisfies MappedAuthError;
       }
 
+      const credential = auth.EmailAuthProvider.credential(email.trim().toLowerCase(), password);
+
       try {
-        await user.linkWithCredential(
-          auth.EmailAuthProvider.credential(email.trim().toLowerCase(), password),
-        );
+        await user.linkWithCredential(credential);
       } catch (error) {
-        // Only a password provider already on *this* uid is a no-op. The
-        // "already in use" codes mean a different account owns that address,
-        // which the user has to resolve — let those surface.
-        if ((error as { code?: string })?.code === 'auth/provider-already-linked') {
-          return;
+        // A password provider already on *this* uid used to be a safe no-op,
+        // because the credential was derived from the phone — any two link
+        // attempts for the same number were identical. Now that it's the
+        // user's own chosen email and password, that's no longer true: a
+        // wizard abandoned after this step and restarted with a different
+        // email or password confirms into the same uid, where the link call
+        // is a no-op that would otherwise silently leave Firebase on the
+        // abandoned attempt's email/password while the DB row gets the new
+        // one. `updateEmail` can't fix this up afterward — it's blocked
+        // under email-enumeration protection — so unlink the stale
+        // credential and link the new one in its place. The "already in
+        // use" codes mean a different account owns that address, which the
+        // user has to resolve — let those surface, same as before.
+        if ((error as { code?: string })?.code !== 'auth/provider-already-linked') {
+          throw mapFirebaseAuthError(error);
         }
-        throw mapFirebaseAuthError(error);
+        try {
+          await user.unlink('password');
+          await user.linkWithCredential(credential);
+        } catch (relinkError) {
+          throw mapFirebaseAuthError(relinkError);
+        }
       }
     },
   });
