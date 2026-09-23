@@ -15,10 +15,11 @@ export const referralRouter = Router();
 
 /**
  * Pre-submit check for the signup field, so a new parent can see who invited
- * them before committing. Deliberately optional-auth: it is called mid-signup,
- * before a Firebase account exists. When the caller *is* signed in, the service
- * also rejects their own code. Returns only a first name and the welcome
- * amount — never contact details.
+ * them before committing. Deliberately optional-auth, and the service never
+ * requires a users row: the signup wizard calls it signed in to Firebase but
+ * before /auth/register has created the account. When the caller owns a code,
+ * the service also rejects it as a self-referral. Returns only a first name and
+ * the welcome amount — never contact details.
  */
 referralRouter.get(
   '/validate',

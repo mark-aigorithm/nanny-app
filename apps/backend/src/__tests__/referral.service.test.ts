@@ -449,39 +449,70 @@ describe('getReferralSummary', () => {
 });
 
 describe('validateReferralCode', () => {
+  const CALLER_UID = 'caller-uid';
+
+  /**
+   * Answers user lookups the way the table would: the code's owner by
+   * `referralCode`, and the caller's own row (when she has one yet) by
+   * `firebaseUid` — so the tests hold whichever lookups the service makes.
+   */
+  function mockUsers(opts: {
+    referrer: { id: number; firstName: string; firebaseUid: string } | null;
+    callerRow: { id: number } | null;
+  }): void {
+    mockPrisma.user.findFirst.mockImplementation(
+      async (args: { where: { referralCode?: string; firebaseUid?: string } }) => {
+        if (args.where.referralCode !== undefined) {
+          return args.where.referralCode === 'SARAH-4K2P' ? opts.referrer : null;
+        }
+        if (args.where.firebaseUid === CALLER_UID) return opts.callerRow;
+        return null;
+      },
+    );
+  }
+
+  const SARAH = { id: REFERRER_ID, firstName: 'Sarah', firebaseUid: 'sarah-uid' };
+
   it('confirms a valid code and names the referrer', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
-    mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: REFEREE_ID })
-      .mockResolvedValueOnce({ id: REFERRER_ID, firstName: 'Sarah' });
+    mockUsers({ referrer: SARAH, callerRow: { id: REFEREE_ID } });
 
-    await expect(validateReferralCode('firebase-uid', 'sarah-4k2p')).resolves.toEqual({
+    await expect(validateReferralCode(CALLER_UID, 'sarah-4k2p')).resolves.toEqual({
       valid: true,
       referrerFirstName: 'Sarah',
       refereePoints: 100,
     });
   });
 
-  it('validates for an anonymous caller mid-signup, before an account exists', async () => {
+  it('validates for an anonymous caller', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
-    mockPrisma.user.findFirst.mockResolvedValue({ id: REFERRER_ID, firstName: 'Sarah' });
+    mockUsers({ referrer: SARAH, callerRow: null });
 
     await expect(validateReferralCode(null, 'SARAH-4K2P')).resolves.toEqual({
       valid: true,
       referrerFirstName: 'Sarah',
       refereePoints: 100,
     });
-    // No uid to resolve, so the only lookup is the code itself.
-    expect(mockPrisma.user.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  // The signup wizard's real state: phone-verified in Firebase, so the app
+  // sends a token, but /auth/register has not run so there is no users row.
+  it('validates for a signed-in caller who has no account row yet', async () => {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
+    mockUsers({ referrer: SARAH, callerRow: null });
+
+    await expect(validateReferralCode(CALLER_UID, 'SARAH-4K2P')).resolves.toEqual({
+      valid: true,
+      referrerFirstName: 'Sarah',
+      refereePoints: 100,
+    });
   });
 
   it('reports a self-referral as simply invalid', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
-    mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: REFEREE_ID })
-      .mockResolvedValueOnce({ id: REFEREE_ID, firstName: 'Dana' });
+    mockUsers({ referrer: { ...SARAH, firebaseUid: CALLER_UID }, callerRow: { id: REFERRER_ID } });
 
-    await expect(validateReferralCode('firebase-uid', 'DANA-1234')).resolves.toEqual({
+    await expect(validateReferralCode(CALLER_UID, 'SARAH-4K2P')).resolves.toEqual({
       valid: false,
       referrerFirstName: null,
       refereePoints: 100,
@@ -493,7 +524,7 @@ describe('validateReferralCode', () => {
       makeConfig({ referralEnabled: false }),
     );
 
-    await expect(validateReferralCode('firebase-uid', 'SARAH-4K2P')).resolves.toEqual({
+    await expect(validateReferralCode(CALLER_UID, 'SARAH-4K2P')).resolves.toEqual({
       valid: false,
       referrerFirstName: null,
       refereePoints: 100,
