@@ -20,10 +20,14 @@
  *
  * Every run, whatever it was asked for:
  *
+ *   0. Reads both numbers (GET /e2e-auth/account) and stops, begun and purged
+ *      nothing, if either has a Firebase account — so a second runner never
+ *      resets the baseline of a run already in flight.
  *   1. POST /e2e-auth/begin. The backend refuses if either number already has
  *      a Firebase account — that account pre-dates this run and a person has to
  *      look at it — and then this runner stops without purging anything. It
- *      never deletes an account it did not create.
+ *      never deletes an account it did not create. Once begun, it deletes the
+ *      managed address's old mail from Mailpit.
  *   2. Registers the managed account through the app, once
  *      (flows/live/_register-managed.yaml).
  *   3. Runs the requested flows, in suite order (see SUITE).
@@ -43,6 +47,7 @@ import {
   quietDeviceChrome,
   requireAppInstalled,
   requireMetro,
+  requireMetroFor,
   resolveMaestro,
   reverseMetroPort,
   runMaestro,
@@ -59,8 +64,6 @@ const BACKEND_URL = 'http://127.0.0.1:3001';
 
 /** Mailpit's HTTP API — registration's email code is our backend's, and stays local. */
 const MAILPIT_URL = 'http://127.0.0.1:8025';
-
-const METRO_URL = 'http://127.0.0.1:8081';
 
 /**
  * Deliberately not exported: importing this module runs a live suite against
@@ -185,38 +188,73 @@ async function requireLiveBackend() {
 }
 
 /**
- * Metro has to be the live one. A debug build takes its config from Metro, so
- * plain `e2e:metro` would quietly point the app's Auth back at the emulator —
- * the flows would then fail on codes the emulator never issued, and none of
- * them would be about the real project. The manifest Metro serves carries the
- * two values that differ; if it cannot be read this only warns, because the
- * backend and the flows would still fail loudly on a wrong Metro.
+ * Read-only, before `begin`: both reserved numbers must be free.
+ *
+ * `begin` itself refuses (409) when either has an account — but a refused
+ * begin also resets the harness's baseline, which would lock out a run another
+ * session has in flight on this same backend (its purge would then refuse, and
+ * leave the managed account for a person to delete). A GET changes nothing, so
+ * a second runner that finds an account here stops without touching the run
+ * that owns it.
  */
-async function requireLiveMetro() {
-  const response = await fetch(`${METRO_URL}/`, {
-    headers: { 'expo-platform': 'android', accept: 'application/expo+json,application/json' },
-    signal: AbortSignal.timeout(60_000),
-  }).catch(() => null);
-  const manifest = response?.ok ? await response.text().catch(() => '') : '';
-
-  const emulatorHost = manifest.match(/"firebaseAuthEmulatorHost"\s*:\s*"([^"]*)"/);
-  const verificationOff = manifest.match(/"firebaseAppVerificationDisabledForTesting"\s*:\s*(true|false)/);
-  if (!emulatorHost || !verificationOff) {
-    console.warn(
-      "[live] Could not read the app's config from Metro's manifest, so cannot confirm it is\n" +
-        '       the live one. It must have been started with:\n' +
-        '         pnpm --filter @nanny-app/mobile e2e:metro:live',
-    );
-    return;
+async function requireFreeNumbers() {
+  for (const phone of [LIVE.managed.phone, LIVE.absent.phone]) {
+    let result;
+    try {
+      result = await harness('GET', `/account?phone=${encodeURIComponent(phone)}`);
+    } catch (error) {
+      return fail(`GET /e2e-auth/account for ${phone} did not answer (${error.message}). Nothing was begun.`);
+    }
+    if (!result.ok || !result.data) {
+      fail(
+        `GET /e2e-auth/account for ${phone} → ${result.status} ${result.error ?? result.text}\n` +
+          'Cannot confirm the reserved numbers are free, so nothing was begun.',
+      );
+    }
+    if (result.data.firebaseExists) {
+      fail(
+        `${phone} already has a Firebase account: ${JSON.stringify(result.data)}\n\n` +
+          'Either another live run is in progress on this backend, or the account pre-dates any\n' +
+          'run. Nothing was begun and nothing was purged. See e2e/README.md, "Live-Firebase auth\n' +
+          'suite", before running again.',
+      );
+    }
   }
+}
 
-  if (emulatorHost[1] !== '' || verificationOff[1] !== 'true') {
-    fail(
-      `Metro is serving the emulator config (Auth emulator "${emulatorHost[1]}", app ` +
-        `verification disabled: ${verificationOff[1]}). Stop it and start the live one:\n` +
-        '  pnpm --filter @nanny-app/mobile e2e:metro:live',
-    );
-  }
+/**
+ * Empties Mailpit of the managed address's mail, so registration's email-otp
+ * step can only find the code this run sends — `email-otp` takes the newest
+ * message to the address, and a previous run's would otherwise be there to
+ * find if this run's send were slow or lost. Mailpit is the local test stack;
+ * nothing here reaches the live project.
+ *
+ * Searches by address, then keeps only exact matches (Mailpit's `to:` is a
+ * substring match), and deletes those by ID.
+ */
+async function clearManagedMail() {
+  const query = encodeURIComponent(`to:"${LIVE.managed.email}"`);
+  const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}&limit=500`, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!search.ok) throw new Error(`Mailpit search → ${search.status} ${await search.text()}`);
+
+  const wanted = LIVE.managed.email.toLowerCase();
+  const ids = ((await search.json()).messages ?? [])
+    .filter((message) =>
+      (message.To ?? []).some((to) => String(to.Address).toLowerCase() === wanted),
+    )
+    .map((message) => message.ID);
+  if (ids.length === 0) return 0;
+
+  const removed = await fetch(`${MAILPIT_URL}/api/v1/messages`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ IDs: ids }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!removed.ok) throw new Error(`Mailpit delete → ${removed.status} ${await removed.text()}`);
+  return ids.length;
 }
 
 /**
@@ -299,14 +337,24 @@ async function main() {
   requireAppInstalled(adb, device);
   await requireLiveBackend();
   await requireMetro('e2e:metro:live');
-  await requireLiveMetro();
+  // Plain `e2e:metro` would quietly point the app's Auth back at the emulator.
+  await requireMetroFor('live');
   reverseMetroPort(adb, device);
   quietDeviceChrome(adb, device);
 
   console.log(`[live] device ${device}, maestro ${maestro}`);
   console.log(`[live] flows: ${flows.join(', ')}`);
 
+  await requireFreeNumbers();
   await beginRun();
+
+  // Nothing has been created yet, so a failure here needs no purge.
+  try {
+    const cleared = await clearManagedMail();
+    console.log(`[live] cleared ${cleared} old message(s) to ${LIVE.managed.email} from Mailpit`);
+  } catch (error) {
+    fail(`Could not clear Mailpit for ${LIVE.managed.email} (${error.message}). Nothing was registered.`);
+  }
 
   // From here every way out goes through the purge below — `fail()` exits the
   // process, so nothing inside the try may call it. Ctrl+C would normally kill

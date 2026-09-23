@@ -129,6 +129,87 @@ async function warmMetro(metroScript) {
 }
 
 /**
+ * The two app-config values that tell the suites' Metros apart, as Metro is
+ * serving them right now — or null if the manifest cannot be read.
+ *
+ * A debug build takes its config from Metro, not from the APK, so this is what
+ * the app on the device will actually run with. `e2e:metro` sets the Auth
+ * emulator host; `e2e:metro:live` leaves it empty and disables app
+ * verification (see emulator-env.mjs).
+ */
+async function readMetroAuthConfig() {
+  const response = await fetch('http://127.0.0.1:8081/', {
+    headers: { 'expo-platform': 'android', accept: 'application/expo+json,application/json' },
+    signal: AbortSignal.timeout(60_000),
+  }).catch(() => null);
+  const manifest = response?.ok ? await response.text().catch(() => '') : '';
+
+  const emulatorHost = manifest.match(/"firebaseAuthEmulatorHost"\s*:\s*"([^"]*)"/);
+  const verificationOff = manifest.match(
+    /"firebaseAppVerificationDisabledForTesting"\s*:\s*(true|false)/,
+  );
+  if (!emulatorHost || !verificationOff) return null;
+
+  return {
+    authEmulatorHost: emulatorHost[1],
+    appVerificationDisabled: verificationOff[1] === 'true',
+  };
+}
+
+/**
+ * Refuses a Metro serving the other suite's config. `suite` is `'emulator'`
+ * (run.mjs) or `'live'` (live.mjs).
+ *
+ *   - The emulator suite seeds and signs in against the Auth emulator. Under a
+ *     live Metro the app would sign in to the real project — the one
+ *     production uses — with the lab's seeded addresses, so this refusal is
+ *     strict: an unreadable manifest refuses too, because "could not confirm
+ *     it is the emulator" is not good enough to run against.
+ *   - The live suite under an emulator Metro would only fail — on codes the
+ *     emulator never issued — and the backend and flows would say so loudly,
+ *     so an unreadable manifest there only warns.
+ */
+export async function requireMetroFor(suite) {
+  const config = await readMetroAuthConfig();
+  const liveScript = '  pnpm --filter @nanny-app/mobile e2e:metro:live';
+  const emulatorScript = '  pnpm --filter @nanny-app/mobile e2e:metro';
+
+  if (suite === 'emulator') {
+    if (!config) {
+      fail(
+        "Could not read the app's config from Metro's manifest, so cannot confirm Auth points at\n" +
+          'the emulator — and the other possibility is the real project. Restart Metro with:\n' +
+          emulatorScript,
+      );
+    }
+    if (config.authEmulatorHost === '') {
+      fail(
+        'Metro is serving the live-Firebase config (no Auth emulator host), so the app would sign\n' +
+          'in to the real project. Stop it and start the emulator one:\n' +
+          emulatorScript,
+      );
+    }
+    return;
+  }
+
+  if (!config) {
+    console.warn(
+      "[live] Could not read the app's config from Metro's manifest, so cannot confirm it is\n" +
+        '       the live one. It must have been started with:\n' +
+        `       ${liveScript.trim()}`,
+    );
+    return;
+  }
+  if (config.authEmulatorHost !== '' || !config.appVerificationDisabled) {
+    fail(
+      `Metro is serving the emulator config (Auth emulator "${config.authEmulatorHost}", app ` +
+        `verification disabled: ${config.appVerificationDisabled}). Stop it and start the live one:\n` +
+        liveScript,
+    );
+  }
+}
+
+/**
  * Maps :8081 inside the emulator to Metro on the host.
  *
  * Without this the dev-client link would have to name `10.0.2.2`, which works

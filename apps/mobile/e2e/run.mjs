@@ -34,6 +34,7 @@ import {
   quietDeviceChrome,
   requireAppInstalled,
   requireMetro,
+  requireMetroFor,
   resolveMaestro,
   reverseMetroPort,
   runMaestro,
@@ -243,6 +244,9 @@ async function main() {
   requireAppInstalled(adb, device);
   await requireBackend();
   await requireMetro();
+  // The seeder and every advance.js step talk to the Auth emulator; a live
+  // Metro would point the app at the real project instead.
+  await requireMetroFor('emulator');
   reverseMetroPort(adb, device);
   quietDeviceChrome(adb, device);
 

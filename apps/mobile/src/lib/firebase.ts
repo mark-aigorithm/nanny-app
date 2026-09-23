@@ -50,7 +50,10 @@ if (authEmulatorHost) {
 // `firebaseAppVerificationDisabledForTesting` is populated from
 // FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING by app.config.ts, set only by
 // `e2e:metro:live`, and false in every real build, where this is a no-op.
+// Also gated on __DEV__: the suite only ever runs a debug build, so a release
+// binary ignores the flag even if a stray env var ever set it at build time.
 const appVerificationDisabledForTesting =
+  __DEV__ &&
   Constants.expoConfig?.extra?.['firebaseAppVerificationDisabledForTesting'] === true;
 if (appVerificationDisabledForTesting) {
   auth().settings.appVerificationDisabledForTesting = true;

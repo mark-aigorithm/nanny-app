@@ -196,8 +196,11 @@ node e2e/live.mjs reset-email  # one — still registers first and purges after
   placeholder on and keeps every upload out of the production bucket; and it sets
   `FIREBASE_APP_VERIFICATION_DISABLED_FOR_TESTING`, which has `lib/firebase.ts`
   skip Play Integrity / reCAPTCHA — neither of which an emulator driven by
-  Maestro can pass. Firebase honours that flag only for console test numbers. The
-  runner reads Metro's manifest and refuses one serving the emulator config.
+  Maestro can pass. Firebase honours that flag only for console test numbers
+  (and `lib/firebase.ts` applies it only in a `__DEV__` build). The runner reads
+  Metro's manifest and refuses one serving the emulator config — and `run.mjs`
+  refuses the reverse, a Metro with no Auth emulator host (or one whose manifest
+  it cannot read), so the emulator suite can never sign in to the real project.
 - The Auth emulator that `pnpm test:env` starts is left running and unused.
 - `live.mjs` never runs the emulator suite's seeder and never talks to the Auth
   emulator. Its only state operations are the backend's `/e2e-auth` calls.
@@ -208,7 +211,12 @@ node e2e/live.mjs reset-email  # one — still registers first and purges after
    already has a Firebase account. Such an account pre-dates the run, so the
    runner stops **without purging anything** — it never deletes an account it did
    not create. Find out where it came from, delete it by hand (Firebase console →
-   Authentication), then run again.
+   Authentication), then run again. Before calling `begin` the runner reads both
+   numbers (`GET /e2e-auth/account`, read-only) and stops on the same condition —
+   because a *refused* `begin` also resets the harness's baseline, which would
+   lock out the purge of a run another session has in flight. Once begun, it
+   deletes the managed address's old mail from Mailpit, so registration's
+   `email-otp` step can only find this run's code.
 2. **Registers the managed account through the app** —
    `flows/live/_register-managed.yaml`, C2's wizard with the fixed code and no
    referral — then checks from Firebase's side that the account carries both the
