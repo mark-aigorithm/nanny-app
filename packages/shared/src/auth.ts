@@ -234,18 +234,24 @@ export const UserResponseSchema = z.object({
 export type UserResponse = z.infer<typeof UserResponseSchema>;
 
 /**
- * Response of POST /auth/email — the updated profile plus a fresh Firebase
- * custom token.
+ * Response of POST /auth/email — the updated profile plus, sometimes, a fresh
+ * Firebase custom token.
  *
  * Moving the account's Firebase email is a "major account change" that
  * revokes every existing session for that uid (Firebase bumps
  * `tokensValidAfterTime`), including the ID token the caller authenticated
- * this very request with. The mobile client trades this custom token for a
- * fresh session via `signInWithCustomToken` immediately after, so the gate
- * never leaves her signed out mid-flow.
+ * this very request with. When that happened on this call, `customToken` is
+ * present and the mobile client trades it for a fresh session via
+ * `signInWithCustomToken` right after, so the gate never leaves her signed
+ * out mid-flow. It is **absent** whenever the call did not touch Firebase
+ * (the idempotent no-op path, outside its short recovery window) — the
+ * client's existing session is still good, so it skips the re-sign-in and
+ * proceeds as normal. A client built against an older backend that never
+ * sent this field at all must be treated the same way: no token means
+ * nothing to trade in.
  */
 export const SetVerifiedEmailResponseSchema = UserResponseSchema.extend({
-  customToken: z.string(),
+  customToken: z.string().optional(),
 });
 export type SetVerifiedEmailResponse = z.infer<typeof SetVerifiedEmailResponseSchema>;
 

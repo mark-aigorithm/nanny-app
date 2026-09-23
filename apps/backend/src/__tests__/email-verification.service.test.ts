@@ -23,6 +23,7 @@ import { prisma } from '@backend/db/prisma';
 import { sendEmail } from '@backend/lib/email/transport';
 import { hashOtp } from '@backend/lib/otp';
 import {
+  assertVerificationTokenIsValid,
   consumeVerificationToken,
   sendEmailOtp,
   verifyEmailOtp,
@@ -272,5 +273,53 @@ describe('consumeVerificationToken', () => {
         where: expect.objectContaining({ tokenHash: hashOtp(TOKEN) }),
       }),
     );
+  });
+});
+
+describe('assertVerificationTokenIsValid', () => {
+  const TOKEN = 'a'.repeat(64);
+
+  function verifiedRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 1,
+      email: EMAIL,
+      tokenHash: hashOtp(TOKEN),
+      verifiedAt: new Date(),
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 15 * MINUTE),
+      deletedAt: null,
+      ...overrides,
+    };
+  }
+
+  // Same predicate as consumeVerificationToken (isTokenSpendable) — these
+  // mirror that describe block's cases to prove the read-only check and the
+  // spend can't drift apart, without spending anything itself.
+  it('resolves for a live token, without touching the row', async () => {
+    m.emailVerification.findFirst.mockResolvedValue(verifiedRow());
+    await expect(assertVerificationTokenIsValid(EMAIL, TOKEN)).resolves.toBeUndefined();
+    expect(m.emailVerification.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a token already spent', async () => {
+    m.emailVerification.findFirst.mockResolvedValue(verifiedRow({ consumedAt: new Date() }));
+    await expect(assertVerificationTokenIsValid(EMAIL, TOKEN)).rejects.toThrow('expired');
+  });
+
+  it('refuses a token issued for a different address', async () => {
+    m.emailVerification.findFirst.mockResolvedValue(verifiedRow({ email: 'someone@else.com' }));
+    await expect(assertVerificationTokenIsValid(EMAIL, TOKEN)).rejects.toThrow('expired');
+  });
+
+  it('refuses a token past its window', async () => {
+    m.emailVerification.findFirst.mockResolvedValue(
+      verifiedRow({ expiresAt: new Date(Date.now() - MINUTE) }),
+    );
+    await expect(assertVerificationTokenIsValid(EMAIL, TOKEN)).rejects.toThrow('expired');
+  });
+
+  it('refuses an unknown token', async () => {
+    m.emailVerification.findFirst.mockResolvedValue(null);
+    await expect(assertVerificationTokenIsValid(EMAIL, TOKEN)).rejects.toThrow('expired');
   });
 });

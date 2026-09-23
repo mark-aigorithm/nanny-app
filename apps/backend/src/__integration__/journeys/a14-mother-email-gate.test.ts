@@ -18,7 +18,7 @@ import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
 import { firebaseAuth } from '@backend/lib/firebase';
 
-import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
+import { authHeader, createEmulatorUser, exchangeCustomToken, signInAs } from '../../../test/auth';
 import { makeMother } from '../../../test/factories';
 import { defaultAddressId, wallClockTomorrow } from '../../../test/journeys/booking';
 import { proveEmail, verifyMyEmail } from '../../../test/journeys/email-verification';
@@ -213,16 +213,22 @@ describe('A14 — accounts created before the rule', () => {
     const mother = await makeLegacyMother();
     const verificationToken = await proveEmail(mother.realEmail);
 
-    await request(app)
+    const first = await request(app)
       .post('/auth/email')
       .set(...authHeader(mother.token))
       .send({ email: mother.realEmail, verificationToken })
       .expect(200);
 
+    // The swap above revoked `mother.token` — exchange the custom token it
+    // returned for a fresh session, the same way the real app does, so the
+    // second call below is refused for reusing the verification token, not
+    // for presenting an Authorization header that's already dead.
+    const freshToken = await exchangeCustomToken(first.body.data.customToken);
+
     // A second, different address cannot ride the same proof.
     const second = await request(app)
       .post('/auth/email')
-      .set(...authHeader(mother.token))
+      .set(...authHeader(freshToken))
       .send({ email: uniqueEmail(), verificationToken });
     expect(second.status).toBe(400);
   });

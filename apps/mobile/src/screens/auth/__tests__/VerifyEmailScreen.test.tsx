@@ -24,28 +24,13 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockSignOut = jest.fn();
-const mockSignOutMutateAsync = jest.fn();
 jest.mock('@mobile/hooks/useAuth', () => ({
-  useSignOut: () => ({ mutate: mockSignOut, mutateAsync: mockSignOutMutateAsync, isPending: false }),
-}));
-
-// Overrides jest.setup.js's global stub — this screen is the one place that
-// needs signInWithCustomToken, to re-establish a session after the backend's
-// email swap revokes the one the screen walked in with.
-const mockSignInWithCustomToken = jest.fn();
-const mockFirebaseSignOut = jest.fn();
-jest.mock('@mobile/lib/firebase', () => ({
-  auth: () => ({
-    signInWithCustomToken: mockSignInWithCustomToken,
-    signOut: mockFirebaseSignOut,
-    currentUser: null,
-  }),
+  useSignOut: () => ({ mutate: mockSignOut, isPending: false }),
 }));
 
 import VerifyEmailScreen from '@mobile/screens/auth/VerifyEmailScreen';
 
 const EMAIL = 'sarah@example.com';
-const CUSTOM_TOKEN = 'custom-token-abc';
 
 function renderScreen() {
   const queryClient = new QueryClient({
@@ -69,11 +54,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockError = null;
   mockRequestCode.mockResolvedValue(true);
-  // Success now resolves with the fresh Firebase custom token the backend
-  // mints after the email swap, not a bare boolean.
-  mockConfirmCode.mockResolvedValue(CUSTOM_TOKEN);
-  mockSignInWithCustomToken.mockResolvedValue(undefined);
-  mockSignOutMutateAsync.mockResolvedValue(undefined);
+  // The hook now owns re-establishing a session after the gate's swap (see
+  // useVerifiedEmailSubmit.test.ts); the screen only sees where that leaves
+  // her, as one of 'home' | 'sign-in' | null.
+  mockConfirmCode.mockResolvedValue('home');
 });
 
 describe('VerifyEmailScreen', () => {
@@ -94,32 +78,22 @@ describe('VerifyEmailScreen', () => {
     fireEvent.press(screen.getByText('Confirm'));
 
     await waitFor(() => expect(mockConfirmCode).toHaveBeenCalledWith(EMAIL, '123456'));
-    // The gate's swap revoked the session the screen walked in with — the
-    // returned custom token re-establishes one for the same account before
-    // handing off to the role router.
-    await waitFor(() => expect(mockSignInWithCustomToken).toHaveBeenCalledWith(CUSTOM_TOKEN));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
-  it('signs out and sends her to sign in again when the fresh session cannot be established', async () => {
-    mockSignInWithCustomToken.mockRejectedValue(new Error('network blip'));
+  it('sends her to sign in again when the hook could not keep the session alive', async () => {
+    // The hook reports 'sign-in' once it has already signed her out and
+    // raised the notice dialog itself (see useVerifiedEmailSubmit.test.ts)
+    // — the screen's only remaining job is picking the right destination.
+    mockConfirmCode.mockResolvedValue('sign-in');
     const screen = renderScreen();
 
     await reachCodePane(screen);
     fireEvent.changeText(screen.getByTestId('verifyEmail.code'), '123456');
     fireEvent.press(screen.getByText('Confirm'));
 
-    await waitFor(() => expect(mockSignInWithCustomToken).toHaveBeenCalledWith(CUSTOM_TOKEN));
-    // The gate already succeeded server-side (the row and the Firebase
-    // address are both updated) — only the re-sign-in failed, so the old
-    // session must be dropped explicitly rather than left half-dead.
-    await waitFor(() => expect(mockSignOutMutateAsync).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(
-        screen.getByText('Your email is verified. Please sign in again.'),
-      ).toBeTruthy(),
-    );
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    await waitFor(() => expect(mockConfirmCode).toHaveBeenCalledWith(EMAIL, '123456'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
   });
 
   it('refuses to send to an address that is not one', async () => {
@@ -152,7 +126,6 @@ describe('VerifyEmailScreen', () => {
     fireEvent.press(screen.getByText('Confirm'));
 
     await waitFor(() => expect(mockConfirmCode).toHaveBeenCalled());
-    expect(mockSignInWithCustomToken).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 

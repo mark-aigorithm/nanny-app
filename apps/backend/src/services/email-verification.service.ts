@@ -1,4 +1,4 @@
-import { EmailStatus, EmailTemplate, type Prisma } from '@prisma/client';
+import { EmailStatus, EmailTemplate, type EmailVerification, type Prisma } from '@prisma/client';
 import type { VerifyEmailOtpResponse } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
@@ -214,6 +214,58 @@ export async function verifyEmailOtp(
   };
 }
 
+const TOKEN_INVALID_MESSAGE =
+  'Your email verification has expired. Please request a new code and try again.';
+
+/**
+ * Whether a verification-token row is currently spendable for `email`: it
+ * exists, was proven by a correct code, matches the address it was issued
+ * for, and hasn't already been spent or fallen outside its window.
+ *
+ * The one predicate behind both `assertVerificationTokenIsValid` (a
+ * read-only pre-check some callers run before an irreversible side effect)
+ * and `consumeVerificationToken` (which spends it), so the two can never
+ * drift apart on what counts as valid.
+ */
+function isTokenSpendable(
+  row: EmailVerification | null,
+  email: string,
+): row is EmailVerification {
+  return (
+    row !== null &&
+    row.email === email &&
+    row.verifiedAt !== null &&
+    row.consumedAt === null &&
+    row.expiresAt.getTime() > Date.now()
+  );
+}
+
+/**
+ * Read-only check that a verification token is currently spendable for
+ * `email`, without spending it.
+ *
+ * Exists so a caller that is about to perform an irreversible side effect
+ * gated on "this token is real" — `setVerifiedEmail`'s Firebase email swap —
+ * can refuse a garbage or foreign token *before* that side effect runs,
+ * rather than running it first and discovering the token was never valid
+ * only when `consumeVerificationToken` is reached afterward. Spending still
+ * happens there, unchanged; this only front-loads the same check.
+ */
+export async function assertVerificationTokenIsValid(
+  rawEmail: string,
+  token: string,
+): Promise<void> {
+  const email = rawEmail.trim().toLowerCase();
+
+  const row = await prisma.emailVerification.findFirst({
+    where: { tokenHash: hashOtp(token), deletedAt: null },
+  });
+
+  if (!isTokenSpendable(row, email)) {
+    throw errors.badRequest(TOKEN_INVALID_MESSAGE);
+  }
+}
+
 /**
  * Spend a verification token, asserting it was issued for `email`, is unspent
  * and is still inside its window. Single-use — the second attempt is refused.
@@ -233,16 +285,8 @@ export async function consumeVerificationToken(
     where: { tokenHash: hashOtp(token), deletedAt: null },
   });
 
-  if (
-    !row ||
-    row.email !== email ||
-    row.verifiedAt === null ||
-    row.consumedAt !== null ||
-    row.expiresAt.getTime() <= Date.now()
-  ) {
-    throw errors.badRequest(
-      'Your email verification has expired. Please request a new code and try again.',
-    );
+  if (!isTokenSpendable(row, email)) {
+    throw errors.badRequest(TOKEN_INVALID_MESSAGE);
   }
 
   await client.emailVerification.update({

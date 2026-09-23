@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
 import { APP_NAME, OTP_LENGTH } from '@mobile/constants';
@@ -8,7 +7,6 @@ import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useVerifiedEmailSubmit } from '@mobile/hooks/useVerifiedEmailSubmit';
 import { validateEmail } from '@mobile/lib/validation';
-import { auth } from '@mobile/lib/firebase';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/verify-email-screen.styles';
 
@@ -25,17 +23,11 @@ import { styles } from './styles/verify-email-screen.styles';
  */
 export default function VerifyEmailScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const signOut = useSignOut();
 
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  // Set only on the rare path where the gate succeeds server-side but the
-  // re-sign-in below fails — see handleConfirm. There is no existing
-  // convention in this app for carrying a message across a route, so it is
-  // shown here, right before the screen navigates away.
-  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
 
   const { requestCode, confirmCode, isSending, isConfirming, error, setError } =
     useVerifiedEmailSubmit();
@@ -52,33 +44,13 @@ export default function VerifyEmailScreen() {
   };
 
   const handleConfirm = async () => {
-    const customToken = await confirmCode(email, code);
-    if (!customToken) return;
-
-    try {
-      // Moving the Firebase email (just done, server-side) revokes every
-      // existing session for this uid, including the one this screen is
-      // running on — so the ID token behind auth().currentUser is already
-      // dead. Trade the backend's custom token for a fresh session on the
-      // same uid instead of reload()ing a session that no longer exists.
-      await auth().signInWithCustomToken(customToken);
-    } catch {
-      // The gate already succeeded — her row and the Firebase account both
-      // hold the new address — only re-establishing a session failed. Sign
-      // out fully (same mutation as the button below, so the push token is
-      // released and the cached profile/query state is cleared) rather than
-      // leave her on a dead session, and send her to the phone sign-in door.
-      await signOut.mutateAsync().catch(() => undefined);
-      setSessionMessage('Your email is verified. Please sign in again.');
-      router.replace('/(auth)/sign-in');
-      return;
-    }
-
-    // The submit hook already wrote the updated profile into the store, which
-    // is what the root router reads; drop the cached /auth/me alongside it so
-    // nothing refetches its way back to an unverified profile.
-    await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-    router.replace('/');
+    // The hook owns spending the code, and — when the backend's swap revoked
+    // this session — re-establishing one; this screen only needs to know
+    // where that leaves her. `null` means the code/token was rejected and
+    // `error` is already set, so stay put.
+    const outcome = await confirmCode(email, code);
+    if (!outcome) return;
+    router.replace(outcome === 'home' ? '/' : '/(auth)/sign-in');
   };
 
   return (
@@ -137,9 +109,7 @@ export default function VerifyEmailScreen() {
             />
           )}
 
-          {(error || sessionMessage) && (
-            <Text style={styles.error}>{error ?? sessionMessage}</Text>
-          )}
+          {error && <Text style={styles.error}>{error}</Text>}
         </ScrollView>
 
         <View style={styles.footer}>

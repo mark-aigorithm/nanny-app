@@ -310,16 +310,17 @@ export function useVerifyEmailOtp() {
  * The mother's half of the gate; see `useVerifiedEmailSubmit`, which owns the
  * ordering against the matching Firebase credential update.
  *
- * The response also carries a fresh Firebase custom token: moving the
- * account's Firebase email revokes the caller's own session, so
+ * The response sometimes also carries a fresh Firebase custom token: moving
+ * the account's Firebase email revokes the caller's own session, so
  * `useVerifiedEmailSubmit` trades this token in via `signInWithCustomToken`
- * right after.
+ * right after. It is a one-time credential, not profile data, so it is
+ * stripped before the response is written into the profile store.
  */
 export function useSetVerifiedEmail() {
   const setProfile = useUserProfileStore((s) => s.setProfile);
   return useMutation<SetVerifiedEmailResponse, Error, SetVerifiedEmailRequest>({
     mutationFn: async (body) => unwrap(api.post('/auth/email', body)),
-    onSuccess: (profile) => setProfile(profile),
+    onSuccess: ({ customToken, ...profile }) => setProfile(profile),
   });
 }
 

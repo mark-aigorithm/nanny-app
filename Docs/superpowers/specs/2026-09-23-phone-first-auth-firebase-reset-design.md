@@ -96,9 +96,11 @@ resets.
 
 **`VerifyEmailScreen`** — unchanged on screen; its backend call now also swaps
 the Firebase address. That swap revokes the caller's own session (see Session
-revocation, under Edge cases), so its success path calls
+revocation, under Edge cases), so `useVerifiedEmailSubmit` calls
 `signInWithCustomToken` with the token the backend returns, rather than
-`user.reload()` — there is no live session left to reload.
+`user.reload()` — there is no live session left to reload. The screen itself
+stays thin: the hook reports where to go (home, or back to sign-in if the
+re-sign-in itself failed), not how it got there.
 
 `phoneToPlaceholderEmail` is deleted from `validation.ts` so nothing can regrow
 the dependency.
@@ -115,14 +117,22 @@ the dependency.
    matters:
 
    1. check the address is not taken (existing `assertEmailAvailable`),
-   2. `firebaseAuth.updateUser(uid, { email, emailVerified: true })`,
-   3. consume the token and write the row, in the existing transaction.
+   2. check the verification token is real — spendable, unexpired, issued for
+      this exact address — without spending it
+      (`assertVerificationTokenIsValid`, read-only),
+   3. `firebaseAuth.updateUser(uid, { email, emailVerified: true })`,
+   4. consume the token and write the row, in the existing transaction.
 
-   Firebase goes first because a failure there — `auth/email-already-exists`,
-   mapped to the existing "An account with this email already exists."
-   conflict — must leave the token unspent. If the DB write fails after Firebase
-   succeeded, the user lands back on `VerifyEmailScreen` and re-runs it;
-   `updateUser` with the same address is a no-op, so it self-heals.
+   The read-only token check goes *before* Firebase, not after: without it, a
+   garbage or foreign token would move the account to an unproven address (and
+   revoke the caller's own session) only to 400 once the spend noticed —
+   letting any signed-in user squat an arbitrary address on their own Firebase
+   account. Firebase still goes before the spend because a failure there —
+   `auth/email-already-exists`, mapped to the existing "An account with this
+   email already exists." conflict — must leave the token unspent. If the DB
+   write fails after Firebase succeeded, the user lands back on
+   `VerifyEmailScreen` and re-runs it; `updateUser` with the same address is a
+   no-op, so it self-heals.
 
 3. **`prisma/migrate-firebase-emails.ts`** — one-off, dry-run by default. For
    every live user with `isEmailVerified = true` whose Firebase account's email
@@ -157,20 +167,33 @@ The root gate's orphan handling stays **sign-out only**: a wizard interrupted
 mid-flight has a Firebase account with no DB row yet, and deleting it on the
 next launch would destroy work in progress.
 
-**Session revocation.** Changing an account's Firebase email — an admin edit,
-or `setVerifiedEmail`'s own swap for a legacy account — is a "major account
-change" that revokes every existing session for that uid (Firebase bumps
-`tokensValidAfterTime`), including the ID token the request that triggered it
-was authenticated with. `POST /auth/email` mints a Firebase custom token right
-after the swap and returns it alongside the profile; `VerifyEmailScreen` trades
-it for a fresh session via `signInWithCustomToken` so the gate reads as
-seamless rather than as a surprise sign-out. If that exchange itself fails, the
-gate has still succeeded server-side — the app signs out fully and sends her
-back to the phone sign-in door with "Your email is verified. Please sign in
-again." The one-off migration script (`migrate-firebase-emails.ts`) hits the
-same revocation for every account it converts and does not attempt a
-re-sign-in; each migrated user is signed out once and signs back in by SMS —
-a one-time rollout cost, accepted rather than engineered around.
+**Session revocation.** Changing an account's Firebase email — a Firebase
+console edit, or `setVerifiedEmail`'s own swap for a legacy account — is a
+"major account change" that revokes every existing session for that uid
+(Firebase bumps `tokensValidAfterTime`), including the ID token the request
+that triggered it was authenticated with. `POST /auth/email` mints a Firebase
+custom token right after the swap and returns it alongside the profile; the
+mobile client trades it for a fresh session via `signInWithCustomToken` so the
+gate reads as seamless rather than as a surprise sign-out. A response with no
+`customToken` — the idempotent no-op path outside its short recovery window,
+or an older backend deployed before this field existed — means nothing was
+revoked, so the client keeps its current session rather than treating a
+missing token as a failure. If the exchange itself fails when a token *is*
+present, the gate has still succeeded server-side — the app signs out fully
+and sends her back to the phone sign-in door with "Your email is verified.
+Please sign in again." The one-off migration script
+(`migrate-firebase-emails.ts`) hits the same revocation for every account it
+converts and does not attempt a re-sign-in; each migrated user is signed out
+once and signs back in by SMS — a one-time rollout cost, accepted rather than
+engineered around.
+
+The token check that gates the swap (`consumeVerificationToken`'s predicate)
+is also asserted *before* the swap runs, not only after: `setVerifiedEmail`
+used to move the Firebase email first and only discover an invalid token
+afterward, which let a garbage or foreign token move an account to an
+unproven address (and revoke its own session) with nothing to show for it but
+a 400. The read-only pre-check and the spend share one predicate function so
+they cannot drift apart on what "valid" means.
 
 **Other cases**
 
@@ -191,10 +214,12 @@ a one-time rollout cost, accepted rather than engineered around.
 
 ### Emulator suite (unchanged, fast)
 
-- **Backend unit** — `setVerifiedEmail`: `updateUser` runs before the token is
-  consumed; a Firebase failure leaves the token spendable;
-  `auth/email-already-exists` surfaces as the existing conflict.
-  `registerUser`: marks the Firebase account verified.
+- **Backend unit** — `setVerifiedEmail`: the token is checked before Firebase
+  is touched at all, and `updateUser` runs before the token is consumed; a
+  Firebase failure leaves the token spendable and mints no custom token;
+  `auth/email-already-exists` surfaces as the existing conflict; the no-op
+  path mints a recovery token only within its short window. `registerUser`:
+  marks the Firebase account verified.
 - **Backend integration** — the a14 mother-email-gate journey asserts that the
   emulator account's email is the real address once the gate is passed, so the
   migration path is covered by a test rather than only by the one-off script.

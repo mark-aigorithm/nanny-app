@@ -22,7 +22,10 @@ import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
-import { consumeVerificationToken } from '@backend/services/email-verification.service';
+import {
+  assertVerificationTokenIsValid,
+  consumeVerificationToken,
+} from '@backend/services/email-verification.service';
 import { createAddress, getDefaultAddress } from './address.service';
 import { listChildren, saveChildren } from './child.service';
 
@@ -359,6 +362,23 @@ async function moveFirebaseEmail(uid: string, email: string): Promise<void> {
 }
 
 /**
+ * How recently `emailVerifiedAt` must have happened for the idempotent no-op
+ * branch below to also mint a session-recovery token. Covers a real swap
+ * whose response (customToken included) never reached the client — e.g. a
+ * network drop right after the swap — so a retry lands here instead of on a
+ * fresh `verificationToken` it no longer has, and still needs a way back in.
+ *
+ * Bounded on purpose: `requireAuth` does not check revocation (see the design
+ * doc's Session revocation note), so a revoked-but-not-yet-expired ID token
+ * could otherwise keep converting itself into fresh sessions indefinitely
+ * just by calling this endpoint with the account's own already-verified
+ * address. Outside the window, the no-op returns without a token — the
+ * caller's existing session is presumably still fine, since nothing here
+ * revoked it.
+ */
+const SESSION_RECOVERY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/**
  * Attaches a proven email address to the signed-in user, spending the token
  * issued by `POST /auth/email/verify`. Registration now proves the address for
  * both roles, so this serves accounts created before that: they carry a
@@ -370,15 +390,15 @@ async function moveFirebaseEmail(uid: string, email: string): Promise<void> {
  * a retried request already consumed. That matters because the client updates
  * Firebase before calling this, so a network blip here is retried.
  *
- * Returns a fresh Firebase custom token alongside the profile. Moving the
- * account's Firebase email is a "major account change" that revokes every
- * existing session for that uid (Firebase bumps `tokensValidAfterTime`) — the
- * very ID token this request was authenticated with dies the instant the
- * swap happens. Without a way back in, the caller would be silently signed
- * out mid-flow, so the mobile client exchanges this token for a new session
- * via `signInWithCustomToken` right after. Minted on every path (including
- * the no-op above) so the response shape — and the client's re-sign-in call —
- * never has to branch on which path was taken.
+ * The response's `customToken` is present exactly when this call may have
+ * revoked the caller's own session: moving the account's Firebase email is a
+ * "major account change" that revokes every existing session for that uid
+ * (Firebase bumps `tokensValidAfterTime`) — the very ID token this request
+ * was authenticated with dies the instant the swap happens. Without a way
+ * back in, the caller would be silently signed out mid-flow, so the mobile
+ * client exchanges this token for a new session via `signInWithCustomToken`
+ * right after. Absent when nothing was revoked (the no-op branch, outside its
+ * recovery window), so the client knows to keep its current session instead.
  */
 export async function setVerifiedEmail(
   decoded: DecodedIdToken,
@@ -387,8 +407,17 @@ export async function setVerifiedEmail(
   const user = await requireUser(decoded);
 
   if (user.email === body.email && user.isEmailVerified) {
+    const profile = toUserResponse(user, await flatLocationOf(user.id));
+
+    const verifiedRecently =
+      user.emailVerifiedAt !== null &&
+      Date.now() - user.emailVerifiedAt.getTime() <= SESSION_RECOVERY_WINDOW_MS;
+    if (!verifiedRecently) {
+      return profile;
+    }
+
     const customToken = await firebaseAuth.createCustomToken(user.firebaseUid);
-    return { ...toUserResponse(user, await flatLocationOf(user.id)), customToken };
+    return { ...profile, customToken };
   }
 
   const emailOwner = await prisma.user.findFirst({
@@ -399,7 +428,18 @@ export async function setVerifiedEmail(
     throw errors.conflict('An account with this email already exists.');
   }
 
-  // Firebase first: a failure here must not burn the token.
+  // Read-only, and BEFORE any mutation: a garbage or foreign token must be
+  // refused here, not after moveFirebaseEmail has already moved the account
+  // to an address nobody proved (and revoked the caller's own session) —
+  // which is what let any signed-in user squat an arbitrary address on their
+  // Firebase account and block its real owner from ever registering with it.
+  // `consumeVerificationToken` re-checks the identical predicate right before
+  // spending the token below, so this only front-loads an equivalent check —
+  // it does not relax what "valid" means.
+  await assertVerificationTokenIsValid(body.email, body.verificationToken);
+
+  // Firebase next: a failure here (e.g. auth/email-already-exists) must not
+  // burn the token.
   await moveFirebaseEmail(user.firebaseUid, body.email);
 
   await consumeVerificationToken(body.email, body.verificationToken);
