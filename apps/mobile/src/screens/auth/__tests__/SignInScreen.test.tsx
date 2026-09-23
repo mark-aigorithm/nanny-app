@@ -16,7 +16,11 @@ const mockSignOut = jest.fn();
 // than `currentUser`, which the brief's literal test code used and which
 // fails at collection time with "module factory ... not allowed to
 // reference any out-of-scope variables".
-let mockCurrentUser: { delete: jest.Mock; email: string | null } | null = null;
+let mockCurrentUser: {
+  delete: jest.Mock;
+  email: string | null;
+  providerData: { providerId: string }[];
+} | null = null;
 
 jest.mock('@mobile/lib/firebase', () => ({
   auth: Object.assign(
@@ -55,7 +59,7 @@ function renderScreen() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockCurrentUser = { delete: mockDelete, email: 'mona@example.com' };
+  mockCurrentUser = { delete: mockDelete, email: 'mona@example.com', providerData: [{ providerId: 'phone' }] };
   mockSignInWithPhoneNumber.mockResolvedValue({ confirm: mockConfirm });
   mockConfirm.mockResolvedValue(undefined);
   mockGet.mockResolvedValue({ data: { data: { id: 1 }, error: null } });
@@ -120,4 +124,34 @@ it('signs out if delete fails when no profile exists', async () => {
     screen.getByText("We couldn't find an account for that number. Sign up first."),
   ).toBeTruthy();
   expect(mockReplace).not.toHaveBeenCalled();
+});
+
+it('signs out rather than deleting when the stray account also holds a Google identity', async () => {
+  // A Google sign-up whose /auth/register failed after its phone was linked:
+  // deleting would take the Google identity with it.
+  mockCurrentUser = {
+    delete: mockDelete,
+    email: 'mona@gmail.com',
+    providerData: [{ providerId: 'google.com' }, { providerId: 'phone' }],
+  };
+  mockGet.mockRejectedValue({
+    isAxiosError: true,
+    response: { status: 404, data: { error: 'User profile not found. Please complete registration.' } },
+  });
+  mockSignOut.mockResolvedValueOnce(undefined);
+
+  renderScreen();
+
+  fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567894');
+  fireEvent.press(screen.getByText('Send code'));
+  await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
+
+  fireEvent.changeText(screen.getByTestId('signIn.code'), '444444');
+  fireEvent.press(screen.getByText('Sign in'));
+
+  await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+  expect(mockDelete).not.toHaveBeenCalled();
+  expect(
+    screen.getByText("We couldn't find an account for that number. Sign up first."),
+  ).toBeTruthy();
 });

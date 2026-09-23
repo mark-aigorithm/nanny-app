@@ -24,8 +24,12 @@ const mockSignOut = jest.fn();
 // babel-plugin-jest-hoist only allows a jest.mock() factory to close over
 // variables whose name starts with "mock" (see SignInScreen.test.tsx), hence
 // `mockCurrentUser` rather than `currentUser`.
-let mockCurrentUser: { email: string | null; updatePassword: jest.Mock; delete: jest.Mock } | null =
-  null;
+let mockCurrentUser: {
+  email: string | null;
+  updatePassword: jest.Mock;
+  delete: jest.Mock;
+  providerData?: { providerId: string }[];
+} | null = null;
 
 jest.mock('@mobile/lib/firebase', () => ({
   auth: Object.assign(
@@ -84,7 +88,7 @@ it('mails a reset link and never claims the address exists', async () => {
 it('refuses to write a password onto an SMS-minted account with no email on file', async () => {
   // `confirm()` leaves a currentUser with no email — the "orphan" case: the
   // number has no account, so Firebase just minted a fresh phone-only user.
-  mockCurrentUser = { email: null, updatePassword: mockUpdatePassword, delete: mockDelete };
+  mockCurrentUser = { email: null, updatePassword: mockUpdatePassword, delete: mockDelete, providerData: [{ providerId: 'phone' }] };
   mockDelete.mockResolvedValue(undefined);
 
   renderScreen();
@@ -108,7 +112,7 @@ it('refuses to write a password onto an SMS-minted account with no email on file
 });
 
 it('signs out if the orphan-account delete itself fails', async () => {
-  mockCurrentUser = { email: null, updatePassword: mockUpdatePassword, delete: mockDelete };
+  mockCurrentUser = { email: null, updatePassword: mockUpdatePassword, delete: mockDelete, providerData: [{ providerId: 'phone' }] };
   mockDelete.mockRejectedValueOnce(new Error('Network error'));
   mockSignOut.mockResolvedValueOnce(undefined);
 

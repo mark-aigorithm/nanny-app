@@ -25,18 +25,28 @@ const NO_ACCOUNT_FOR_PHONE_ERROR: MappedAuthError = {
 };
 
 /**
- * Discards a phone-only account Firebase just minted for a number that turned
- * out to have no application account behind it. Best-effort: if the delete
- * itself fails we must still not leave the app signed in as an account
- * nothing recognizes, so fall back to signing out — a retry re-confirms into
- * the same uid either way.
+ * Discards the account Firebase just minted for a number that turned out to
+ * have no application account behind it — but only when a phone number is all
+ * it holds. Anything more (a password, Google, Apple) is a real sign-up that
+ * stalled before its row was written; deleting it would take the user's
+ * Google or Apple identity with it, so sign out instead and let them resume.
+ * Best-effort: if the delete itself fails we must still not leave the app
+ * signed in as an account nothing recognizes, so fall back to signing out — a
+ * retry re-confirms into the same uid either way.
  */
 async function discardPhoneOnlyAccount(user: FirebaseUser): Promise<void> {
-  try {
-    await user.delete();
-  } catch {
-    await auth().signOut().catch(() => undefined);
+  const phoneOnly =
+    user.providerData.length > 0 &&
+    user.providerData.every((provider) => provider.providerId === 'phone');
+  if (phoneOnly) {
+    try {
+      await user.delete();
+      return;
+    } catch {
+      // Fall through to signing out.
+    }
   }
+  await auth().signOut().catch(() => undefined);
 }
 
 /** Signs in with the email/password credential. The secondary door. */
