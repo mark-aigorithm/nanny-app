@@ -368,7 +368,6 @@ function runFlow(maestro, flow) {
     REGISTRATION_PHONE: localDigits(REGISTRATION.phone),
     REGISTRATION_PHONE_E164: REGISTRATION.phone,
     REGISTRATION_EMAIL: REGISTRATION.email,
-    REGISTRATION_REAL_EMAIL: REGISTRATION.email,
     REGISTRATION_FIRST_NAME: REGISTRATION.firstName,
     // The nanny sign-up (A10): her digits + E.164 for the phone step, and the
     // real address she verifies against the email OTP read from Mailpit.

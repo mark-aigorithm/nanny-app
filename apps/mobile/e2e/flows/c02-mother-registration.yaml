@@ -67,7 +67,7 @@ appId: com.nannyapp.mobile
 # A real address, verified on the very next screen — this is what lands in
 # `users.email` and becomes her Firebase sign-in credential.
 - tapOn: 'you@example.com'
-- inputText: ${REGISTRATION_REAL_EMAIL}
+- inputText: ${REGISTRATION_EMAIL}
 - hideKeyboard
 - tapOn: '100 000 0000'
 - inputText: ${REGISTRATION_PHONE}
@@ -96,7 +96,7 @@ appId: com.nannyapp.mobile
     file: ../scripts/advance.js
     env:
       ADVANCE: email-otp
-      EMAIL_OTP_ADDRESS: ${REGISTRATION_REAL_EMAIL}
+      EMAIL_OTP_ADDRESS: ${REGISTRATION_EMAIL}
 - assertTrue: ${output.emailOtp != null}
 - tapOn:
     id: 'registerEmail.code.boxes'
