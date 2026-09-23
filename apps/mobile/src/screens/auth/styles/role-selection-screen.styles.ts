@@ -134,6 +134,9 @@ export const styles = StyleSheet.create({
     ...shadows.lg,
     shadowColor: colors.primaryDark,
   },
+  socialSection: {
+    gap: spacing.lg,
+  },
 
   // "Already have an account?" divider
   dividerRow: {

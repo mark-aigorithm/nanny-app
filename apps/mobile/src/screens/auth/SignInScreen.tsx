@@ -5,16 +5,23 @@ import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, OtpCodeInput } from '@mobile/components/ui';
+import { Button, Divider, OtpCodeInput } from '@mobile/components/ui';
+import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useSendPhoneOtp, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
-import { validatePhone, toE164 } from '@mobile/lib/validation';
+import { linkPendingCredential } from '@mobile/lib/pendingLink';
+import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
+import { validatePhone, toE164, fromE164 } from '@mobile/lib/validation';
+import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { styles } from './styles/sign-in-screen.styles';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const pending = usePendingLinkStore((s) => s.pending);
+  const clearPending = usePendingLinkStore((s) => s.clear);
   const [countryCode] = useState('+20');
-  const [phone, setPhone] = useState('');
+  // A collision during a Google/Apple sign-up brings the number typed there.
+  const [phone, setPhone] = useState(() => fromE164('+20', pending?.phoneHint ?? null));
   const [code, setCode] = useState('');
   const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
@@ -71,7 +78,11 @@ export default function SignInScreen() {
     confirmSignIn.mutate(
       { confirmation, code },
       {
-        onSuccess: () => router.replace('/'),
+        onSuccess: async () => {
+          // Completes a Google/Apple collision, if one brought her here.
+          await linkPendingCredential();
+          router.replace('/');
+        },
         onError: (err) => {
           // A dead number sends her back to the phone field, not the code box.
           // The message belongs under that field only — a form banner would
@@ -114,6 +125,17 @@ export default function SignInScreen() {
                 : 'Sign in to continue your childcare journey.'}
             </Text>
           </View>
+
+          {pending && (
+            <View style={styles.linkBanner}>
+              <Text style={styles.linkBannerText}>
+                {`You already have an account. Sign in with your phone once to connect ${SOCIAL_PROVIDER_LABEL[pending.provider]}.`}
+              </Text>
+              <Pressable onPress={clearPending} hitSlop={8}>
+                <Text style={styles.linkBannerDismiss}>Not now</Text>
+              </Pressable>
+            </View>
+          )}
 
           {!isCodePhase ? (
             <View style={styles.form}>
@@ -187,6 +209,13 @@ export default function SignInScreen() {
             fullWidth
             disabled={isCodePhase ? confirmSignIn.isPending : sendOtp.isPending}
           />
+
+          {!isCodePhase && (
+            <View style={styles.socialSection}>
+              <Divider label="or" />
+              <SocialAuthButtons context="sign-in" />
+            </View>
+          )}
 
           <Pressable
             style={styles.altDoorRow}

@@ -9,8 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import type { Role } from '@mobile/types';
-import { Button } from '@mobile/components/ui';
+import { Button, Divider } from '@mobile/components/ui';
+import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { colors } from '@mobile/theme';
+import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/role-selection-screen.styles';
 
@@ -19,12 +21,22 @@ export default function RoleSelectionScreen() {
   const router = useRouter();
   const patchDraft = useRegistrationDraftStore((s) => s.patch);
   const resetDraft = useRegistrationDraftStore((s) => s.reset);
+  // Arrived from "Continue with Google/Apple" on sign-in as a new person: she
+  // is already signed in with that provider and her draft holds what it gave.
+  const authProvider = useRegistrationDraftStore((s) => s.authProvider);
+  const socialEmail = useRegistrationDraftStore((s) => s.email);
+  const isSocial = authProvider !== 'phone';
 
   function handleContinue() {
     if (!selectedRole) return;
-    // Start a fresh draft for this registration attempt and seed the role.
-    resetDraft();
-    patchDraft({ role: selectedRole });
+    if (isSocial) {
+      // Keep what Google/Apple supplied; only the role is new.
+      patchDraft({ role: selectedRole });
+    } else {
+      // Start a fresh draft for this registration attempt and seed the role.
+      resetDraft();
+      patchDraft({ role: selectedRole });
+    }
     router.push({ pathname: '/(auth)/register-step-1', params: { role: selectedRole } });
   }
 
@@ -52,7 +64,9 @@ export default function RoleSelectionScreen() {
         <View style={styles.headingGroup}>
           <Text style={styles.headline}>Create your account</Text>
           <Text style={styles.subtitle}>
-            Tell us who you are so we can set up the right experience for you.
+            {isSocial
+              ? `Signed in with ${SOCIAL_PROVIDER_LABEL[authProvider]} as ${socialEmail}. Tell us who you are to finish setting up.`
+              : 'Tell us who you are so we can set up the right experience for you.'}
           </Text>
         </View>
 
@@ -90,6 +104,17 @@ export default function RoleSelectionScreen() {
           disabled={!selectedRole}
           style={styles.continueButton}
         />
+
+        {!isSocial && (
+          <View style={styles.socialSection}>
+            <Divider label="or" />
+            <SocialAuthButtons
+              context="sign-up"
+              role={selectedRole ?? undefined}
+              disabled={!selectedRole}
+            />
+          </View>
+        )}
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />

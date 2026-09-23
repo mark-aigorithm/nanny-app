@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -24,6 +25,17 @@ function halfTypedMotherDraft() {
   });
 }
 
+// The screen now renders SocialAuthButtons, whose useSocialSignIn needs a
+// QueryClientProvider.
+function renderScreen() {
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RoleSelectionScreen />
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   useRegistrationDraftStore.getState().reset();
@@ -32,7 +44,7 @@ beforeEach(() => {
 describe('RoleSelectionScreen', () => {
   it('throws a half-typed draft away when a different role is chosen', () => {
     halfTypedMotherDraft();
-    const { getByText } = render(<RoleSelectionScreen />);
+    const { getByText } = renderScreen();
 
     fireEvent.press(getByText("I'm a nanny"));
     fireEvent.press(getByText('Sign up as a nanny'));
@@ -54,7 +66,7 @@ describe('RoleSelectionScreen', () => {
 
   it('starts every attempt from a clean draft, even for the same role', () => {
     halfTypedMotherDraft();
-    const { getByText } = render(<RoleSelectionScreen />);
+    const { getByText } = renderScreen();
 
     fireEvent.press(getByText("I'm a mother"));
     fireEvent.press(getByText('Sign up as a mother'));
@@ -66,9 +78,35 @@ describe('RoleSelectionScreen', () => {
   });
 
   it('does nothing until a role is picked', () => {
-    const { getByText } = render(<RoleSelectionScreen />);
-    fireEvent.press(getByText(/continue/i));
+    const { getByText } = renderScreen();
+    fireEvent.press(getByText('Continue'));
     expect(mockPush).not.toHaveBeenCalled();
     expect(useRegistrationDraftStore.getState().role).toBeNull();
+  });
+
+  it('offers Google beside the role choice', () => {
+    const { getByText } = renderScreen();
+    expect(getByText('Continue with Google')).toBeTruthy();
+  });
+
+  it('keeps a Google draft on Continue and hides the social buttons', () => {
+    useRegistrationDraftStore.setState({ authProvider: 'google', email: 'mona@gmail.com', firstName: 'Mona' });
+    const { getByText, queryByText } = renderScreen();
+
+    expect(
+      getByText('Signed in with Google as mona@gmail.com. Tell us who you are to finish setting up.'),
+    ).toBeTruthy();
+    expect(queryByText('Continue with Google')).toBeNull();
+
+    fireEvent.press(getByText("I'm a mother"));
+    fireEvent.press(getByText('Sign up as a mother'));
+
+    expect(useRegistrationDraftStore.getState()).toMatchObject({
+      role: 'parent',
+      authProvider: 'google',
+      firstName: 'Mona',
+      email: 'mona@gmail.com',
+    });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-1', params: { role: 'parent' } });
   });
 });

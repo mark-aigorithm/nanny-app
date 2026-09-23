@@ -36,3 +36,13 @@ export function toE164(countryCode: string, phone: string): string {
   const cc = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
   return `${cc}${digits}`;
 }
+
+/**
+ * The digits a person types for `e164` next to the country-code box — the
+ * reverse of `toE164`. Empty when the number is from another country code.
+ */
+export function fromE164(countryCode: string, e164: string | null): string {
+  if (!e164) return '';
+  const cc = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
+  return e164.startsWith(cc) ? e164.slice(cc.length) : '';
+}

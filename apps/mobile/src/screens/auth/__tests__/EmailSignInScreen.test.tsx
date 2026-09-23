@@ -8,18 +8,23 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockSignInWithEmailAndPassword = jest.fn();
+const mockLinkWithCredential = jest.fn();
 // babel-plugin-jest-hoist only allows a jest.mock() factory to close over
 // variables whose name starts with "mock" (see SignInScreen.test.tsx).
 jest.mock('@mobile/lib/firebase', () => ({
   auth: Object.assign(
     () => ({
       signInWithEmailAndPassword: mockSignInWithEmailAndPassword,
+      get currentUser() {
+        return { linkWithCredential: mockLinkWithCredential };
+      },
     }),
     { EmailAuthProvider: { credential: jest.fn() } },
   ),
 }));
 
 import EmailSignInScreen from '../EmailSignInScreen';
+import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 
 function renderScreen() {
   const queryClient = new QueryClient({
@@ -34,6 +39,7 @@ function renderScreen() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  usePendingLinkStore.getState().clear();
 });
 
 it('signs in with the lower-cased email and password, then leaves for the root router', async () => {
@@ -91,4 +97,20 @@ it('refuses an empty password locally, with no Firebase call', async () => {
   await waitFor(() => expect(screen.getByText('Please enter your password.')).toBeTruthy());
   expect(mockSignInWithEmailAndPassword).not.toHaveBeenCalled();
   expect(mockReplace).not.toHaveBeenCalled();
+});
+
+it('connects a pending Google identity once signed in', async () => {
+  const credential = { providerId: 'google.com', token: 't', secret: '' };
+  usePendingLinkStore.getState().set({ provider: 'google', credential: credential as never, phoneHint: null });
+  mockSignInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  mockLinkWithCredential.mockResolvedValue(undefined);
+  renderScreen();
+
+  fireEvent.changeText(screen.getByTestId('emailSignIn.email'), 'mona@example.com');
+  fireEvent.changeText(screen.getByTestId('emailSignIn.password'), 'Password1');
+  fireEvent.press(screen.getByText('Sign in'));
+
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  expect(mockLinkWithCredential).toHaveBeenCalledWith(credential);
+  expect(usePendingLinkStore.getState().pending).toBeNull();
 });

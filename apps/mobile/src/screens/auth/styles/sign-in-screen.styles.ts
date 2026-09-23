@@ -57,6 +57,31 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  // Collision banner — a Google/Apple identity waiting to be connected.
+  linkBanner: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  linkBannerText: {
+    ...typeScale.bodyMd,
+    color: colors.textPrimary,
+  },
+  linkBannerDismiss: {
+    fontFamily: fontFamily.bold,
+    fontSize: 14,
+    color: colors.primaryDark,
+  },
+
+  // "or" + Google/Apple, under the phone door.
+  socialSection: {
+    marginTop: spacing.lg,
+    gap: spacing.lg,
+  },
+
   // Form
   form: {
     gap: spacing.xl,

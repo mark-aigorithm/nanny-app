@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { Button, TextInputField } from '@mobile/components/ui';
 import { useSignInWithEmail } from '@mobile/hooks/useAuth';
+import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { validateEmail, validateSignInPassword } from '@mobile/lib/validation';
 import { styles } from './styles/email-sign-in-screen.styles';
 
@@ -43,7 +44,11 @@ export default function EmailSignInScreen() {
     signIn.mutate(
       { email, password },
       {
-        onSuccess: () => router.replace('/'),
+        onSuccess: async () => {
+          // Completes a Google/Apple collision, if one brought her here.
+          await linkPendingCredential();
+          router.replace('/');
+        },
         onError: (err) => {
           if (err.field === 'password') setPasswordError(err.message);
           else if (err.field === 'email') setEmailError(err.message);
