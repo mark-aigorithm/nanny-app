@@ -29,9 +29,12 @@ jest.mock('@react-native-firebase/messaging', () => ({
   }),
 }));
 
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
 import { api } from '@mobile/lib/api';
 import { auth } from '@mobile/lib/firebase';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 const mockDelete = api.delete as jest.Mock;
@@ -73,7 +76,12 @@ describe('useSignOut', () => {
     mockSignOut.mockResolvedValue(undefined);
     mockGetToken.mockReset();
     mockGetToken.mockResolvedValue(FCM_TOKEN);
+    // `useSignOut` now calls `signOutOfGoogle()` unconditionally, so every test
+    // in this file invokes it — clear the call count each time rather than let
+    // it accumulate across tests.
+    (GoogleSignin.signOut as jest.Mock).mockClear();
     useUserProfileStore.setState({ profile: null });
+    usePendingLinkStore.getState().clear();
   });
 
   afterEach(() => {
@@ -149,5 +157,17 @@ describe('useSignOut', () => {
     await result.current.mutateAsync();
 
     await waitFor(() => expect(useUserProfileStore.getState().profile).toBeNull());
+  });
+
+  it('forgets the Google account and any parked link', async () => {
+    withNativePush(false);
+    mockSignOut.mockResolvedValue(undefined);
+    usePendingLinkStore.getState().set({ provider: 'google', credential: { providerId: 'google.com', token: 't', secret: '' } as never, phoneHint: null });
+    const { result } = renderSignOut();
+
+    await result.current.mutateAsync();
+
+    expect(GoogleSignin.signOut).toHaveBeenCalledTimes(1);
+    expect(usePendingLinkStore.getState().pending).toBeNull();
   });
 });

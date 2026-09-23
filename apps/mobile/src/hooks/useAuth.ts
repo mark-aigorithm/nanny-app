@@ -16,6 +16,8 @@ import type { FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/li
 import { api, getApiErrorMessage, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
+import { signOutOfGoogle } from '@mobile/lib/socialAuth';
+import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 /** Thrown whenever a phone number turns out to have no account behind it. */
@@ -177,6 +179,11 @@ export function useSignOut() {
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }
+      // A parked Google/Apple credential must never link onto whoever signs
+      // in next; and forgetting the Google account on the device makes the
+      // next tap show the account picker again.
+      usePendingLinkStore.getState().clear();
+      await signOutOfGoogle();
     },
     onSuccess: () => {
       // Wipe any cached server data (profile, /me, etc.) so the next user

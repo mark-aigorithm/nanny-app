@@ -1,9 +1,20 @@
 import { create } from 'zustand';
 import type { AvailabilityType, IdDocumentType, WeeklySchedule } from '@nanny-app/shared';
-import type { Role } from '@mobile/types';
+import type { AuthCredential } from '@mobile/lib/firebase';
+import type { AuthProvider, Role } from '@mobile/types';
 
 export type RegistrationDraft = {
   role: Role | null;
+  // How this registration started. 'phone' is the full wizard; 'google' or
+  // 'apple' means the user already signed in with that provider, which
+  // supplied a verified email — so the email-code and password steps are
+  // skipped, and step 3 links the phone onto that account instead of signing
+  // in with it.
+  authProvider: AuthProvider;
+  // The Google/Apple credential that started a social registration, kept so
+  // that a collision can move it into pendingLinkStore and link it onto the
+  // existing account. In-memory only, like `password` below.
+  socialCredential: AuthCredential | null;
   // Step 1 — personal info
   firstName: string;
   lastName: string;
@@ -54,6 +65,8 @@ type RegistrationDraftState = RegistrationDraft & {
 
 const INITIAL: RegistrationDraft = {
   role: null,
+  authProvider: 'phone',
+  socialCredential: null,
   firstName: '',
   lastName: '',
   phone: '',
