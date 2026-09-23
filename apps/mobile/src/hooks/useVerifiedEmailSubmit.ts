@@ -78,7 +78,7 @@ export function useVerifiedEmailSubmit() {
 
     // A missing/empty customToken means nothing was revoked: either this was
     // the idempotent no-op path outside its recovery window, or — a backend
-    // deployed after this mobile build shipped OTA, mid-rollout — the
+    // deployed after the app binary reached users, mid-rollout — the
     // endpoint never sent one at all. Either way the current session is
     // still good, so there is nothing to trade in; treat it exactly like the
     // "no swap happened" case rather than silently stalling here.

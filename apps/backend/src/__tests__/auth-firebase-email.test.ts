@@ -342,9 +342,9 @@ describe('registerUser', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     // The transaction already committed the row by the time this call runs
-    // (auth.service.ts:237) — a failure here must not turn a real, successful
-    // registration into a 500, and the idempotent retry path (the `existing`
-    // early-return above) never reaches this call again to fix it up later.
+    // (registerUser's firebaseAuth.updateUser) — a failure here must not turn
+    // a real, successful registration into a 500, and the idempotent retry
+    // path (the `existing` early-return above) never reaches this call again.
     const result = await registerUser(DECODED, {
       firstName: 'Mona',
       lastName: 'Ali',

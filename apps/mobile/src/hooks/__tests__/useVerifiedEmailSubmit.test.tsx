@@ -76,8 +76,8 @@ describe('confirmCode', () => {
   });
 
   it('skips the re-sign-in and still reports "home" when no customToken comes back', async () => {
-    // Guards the mismatched-deploy window: the mobile OTA can ship before the
-    // backend that returns customToken (per the spec's rollout order), so a
+    // Guards the mismatched-deploy window: the new app binary can reach users before the
+    // backend that returns customToken deploys (see the spec's Rollout), so a
     // plain profile response from an old backend must not be mistaken for a
     // dead session — nothing was revoked, so there's nothing to trade in.
     mockSetVerifiedEmail.mockResolvedValue({ id: 1 });

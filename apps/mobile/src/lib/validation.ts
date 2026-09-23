@@ -10,21 +10,13 @@ export function validateEmail(email: string): string | null {
   return null;
 }
 
-export function validatePassword(password: string): string | null {
-  if (!password) return 'Please enter your password.';
-  if (password.length < 8) return 'Password must be at least 8 characters.';
-  if (!/[A-Z]/.test(password)) return 'Password must include an uppercase letter.';
-  if (!/\d/.test(password)) return 'Password must include a number.';
-  return null;
-}
-
 /**
  * The email sign-in door only checks that a password was typed — it must not
- * re-run our own creation-time strength rules (`validatePassword`), because a
- * password can also be set on Firebase's hosted reset page, which enforces
- * only Firebase's own policy (default: 6+ characters, no composition rule).
- * Someone who resets to e.g. "sunshine22" would otherwise never reach
- * Firebase to find out it's already accepted there.
+ * enforce creation-time strength rules, because a password can also be set on
+ * Firebase's hosted reset page, which enforces only Firebase's own policy
+ * (default: 6+ characters, no composition rule). Someone who resets to e.g.
+ * "sunshine22" would otherwise never reach Firebase to find out it's already
+ * accepted there.
  */
 export function validateSignInPassword(password: string): string | null {
   if (!password) return 'Please enter your password.';

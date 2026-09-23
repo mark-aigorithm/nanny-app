@@ -233,7 +233,7 @@ describe('A14 — accounts created before the rule', () => {
     // or the spend is ever reached. It's also already consumed by the call
     // above, but that isn't what trips this particular 400 — single use for
     // the *same* address is what the unit tests pin
-    // (auth-firebase-email.test.ts); this one is about address-binding.
+    // (email-verification.service.test.ts); this one is about address-binding.
     const second = await request(app)
       .post('/auth/email')
       .set(...authHeader(freshToken))
