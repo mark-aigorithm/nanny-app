@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockSignInWithCredential = jest.fn();
@@ -70,6 +70,9 @@ it('does nothing when the sheet is closed', async () => {
 
   await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('cancelled');
   expect(mockSignInWithCredential).not.toHaveBeenCalled();
+  // Let the mutation observer settle before the test (and its afterEach
+  // unmount) proceeds, so React's state update isn't left dangling outside act().
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 
 it('signs an existing account straight in', async () => {
@@ -78,6 +81,7 @@ it('signs an existing account straight in', async () => {
   await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('signed-in');
   expect(mockSignInWithCredential).toHaveBeenCalledWith(CREDENTIAL);
   expect(useRegistrationDraftStore.getState().authProvider).toBe('phone');
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 
 it('keeps a brand-new account and seeds the social draft', async () => {
@@ -98,6 +102,7 @@ it('keeps a brand-new account and seeds the social draft', async () => {
   expect(mockCurrentUser?.delete).not.toHaveBeenCalled();
   // Only a collision may park a credential for linking.
   expect(usePendingLinkStore.getState().pending).toBeNull();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 
 it("falls back to Firebase's address when Apple withholds it on a repeat sign-in", async () => {
@@ -113,6 +118,7 @@ it("falls back to Firebase's address when Apple withholds it on a repeat sign-in
   await result.current.mutateAsync({ provider: 'apple' });
 
   expect(useRegistrationDraftStore.getState().email).toBe('abc@privaterelay.appleid.com');
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 
 it('refuses a new account with no email at all, and signs out', async () => {
@@ -123,6 +129,9 @@ it('refuses a new account with no email at all, and signs out', async () => {
 
   await expect(result.current.mutateAsync({ provider: 'apple' })).rejects.toMatchObject({ field: 'form' });
   expect(mockSignOut).toHaveBeenCalledTimes(1);
+  // Let the mutation observer settle before the test (and its afterEach
+  // unmount) proceeds, so React's state update isn't left dangling outside act().
+  await waitFor(() => expect(result.current.isError).toBe(true));
 });
 
 it('parks the credential when the email belongs to an account with another sign-in method', async () => {
@@ -132,6 +141,7 @@ it('parks the credential when the email belongs to an account with another sign-
   await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('needs-link');
   expect(usePendingLinkStore.getState().pending).toEqual({ provider: 'google', credential: CREDENTIAL, phoneHint: null });
   expect(mockGet).not.toHaveBeenCalled();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 
 it('maps any other Firebase error', async () => {
@@ -142,13 +152,19 @@ it('maps any other Firebase error', async () => {
     field: 'form',
     message: 'Network error. Check your connection and try again.',
   });
+  await waitFor(() => expect(result.current.isError).toBe(true));
 });
 
-it('drops a stale pending link when a new attempt starts', async () => {
+it('drops a stale pending link even when the new attempt is cancelled', async () => {
+  // Pins that clearing happens unconditionally at the start of the mutation,
+  // before the "sheet closed" check returns early — not just as a side
+  // effect of a successful sign-in.
   usePendingLinkStore.getState().set({ provider: 'apple', credential: CREDENTIAL as never, phoneHint: null });
+  mockGetSocialCredential.mockResolvedValue(null);
   const { result } = renderSocialSignIn();
 
-  await result.current.mutateAsync({ provider: 'google' });
+  await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('cancelled');
 
   expect(usePendingLinkStore.getState().pending).toBeNull();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });

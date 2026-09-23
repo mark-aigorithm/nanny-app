@@ -87,15 +87,36 @@ describe('linkPendingCredential', () => {
     expect(mockNoticeDialog).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Couldn't connect Google" }),
     );
+    // Cleared eagerly — a failed link must never be retried on the next attempt.
+    expect(usePendingLinkStore.getState().pending).toBeNull();
   });
 
-  it('treats an already-linked provider as done', async () => {
+  it('does not retry a failure unrelated to the credential itself', async () => {
+    usePendingLinkStore.getState().set({ provider: 'google', credential: GOOGLE_CREDENTIAL as never, phoneHint: null });
+    mockLinkWithCredential.mockRejectedValue({ code: 'auth/too-many-requests' });
+
+    await linkPendingCredential();
+
+    expect(mockGetSocialCredential).not.toHaveBeenCalled();
+    expect(mockNoticeDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Couldn't connect Google" }),
+    );
+  });
+
+  it('treats an already-linked provider as a final failure, not success', async () => {
+    // In both collision flows the parked identity cannot already be on this
+    // user — signInWithCredential would have signed straight in instead — so
+    // this code means the account already holds a *different* Google/Apple
+    // identity, and the link failed.
     usePendingLinkStore.getState().set({ provider: 'google', credential: GOOGLE_CREDENTIAL as never, phoneHint: null });
     mockLinkWithCredential.mockRejectedValue({ code: 'auth/provider-already-linked' });
 
     await linkPendingCredential();
 
-    expect(mockNoticeDialog).not.toHaveBeenCalled();
+    expect(mockGetSocialCredential).not.toHaveBeenCalled();
+    expect(mockNoticeDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Couldn't connect Google" }),
+    );
   });
 
   it('tells the user when the second attempt is cancelled', async () => {
@@ -159,5 +180,22 @@ describe('abandonSocialSignUpForLink', () => {
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(usePendingLinkStore.getState().pending?.provider).toBe('google');
+  });
+
+  it('signs out, rather than deletes, a Google-only account when the draft never saw a 404', async () => {
+    // The draft is at its default ('phone', no socialCredential) — reset() in
+    // beforeEach already leaves it there — so nothing here proves this
+    // Google-only account is the throwaway a social sign-up just created.
+    mockCurrentUser = {
+      linkWithCredential: mockLinkWithCredential,
+      delete: mockDelete,
+      providerData: [{ providerId: 'google.com' }],
+    };
+
+    await abandonSocialSignUpForLink(null);
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(usePendingLinkStore.getState().pending).toBeNull();
   });
 });

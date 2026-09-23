@@ -5,12 +5,17 @@ import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 
-/** Link failures a fresh credential cannot fix — no point asking again. */
-const FINAL_LINK_ERRORS = new Set([
-  'auth/credential-already-in-use',
-  'auth/email-already-in-use',
-  'auth/network-request-failed',
-]);
+/**
+ * Link failures caused by the reused credential itself being refused — a
+ * stale/expired token, or (Apple) a nonce that no longer matches this app
+ * session. Only these are worth a second try with a fresh credential from
+ * the provider's own sheet. Every other failure — including
+ * `auth/provider-already-linked`, which in both collision flows can only
+ * mean the account already holds a *different* Google/Apple identity, since
+ * `signInWithCredential` would otherwise have signed the user straight in —
+ * means retrying would not help, so it is a final failure instead.
+ */
+const RETRYABLE_LINK_ERRORS = new Set(['auth/invalid-credential', 'auth/missing-or-invalid-nonce']);
 
 /**
  * Links the parked Google/Apple credential onto the account the user just
@@ -23,7 +28,9 @@ const FINAL_LINK_ERRORS = new Set([
  * Collision B reuses a credential that already signed in once (the throwaway
  * social account it then deleted). Apple's token is nonce-bound and may be
  * refused a second time, so a refused credential gets one more try with a
- * fresh one from the provider's sheet.
+ * fresh one from the provider's sheet — but only when Firebase blamed the
+ * credential itself; any other refusal (e.g. it belongs to a different
+ * account) is final.
  */
 export async function linkPendingCredential(): Promise<void> {
   const pending = usePendingLinkStore.getState().pending;
@@ -37,14 +44,12 @@ export async function linkPendingCredential(): Promise<void> {
       return null;
     } catch (error) {
       const code = (error as { code?: unknown })?.code;
-      // Already linked means there is nothing left to do.
-      if (code === 'auth/provider-already-linked') return null;
       return typeof code === 'string' ? code : 'unknown';
     }
   };
 
   let failure = await attempt(pending.credential);
-  if (failure && !FINAL_LINK_ERRORS.has(failure)) {
+  if (failure && RETRYABLE_LINK_ERRORS.has(failure)) {
     try {
       const fresh = await getSocialCredential(pending.provider);
       if (fresh) failure = await attempt(fresh.credential);
@@ -70,18 +75,23 @@ export async function linkPendingCredential(): Promise<void> {
  * sign in, where `phoneHint` prefills the number they typed.
  *
  * Only ever called from inside the social wizard, which starts only after
- * `/auth/me` returned 404 — so the signed-in account has no row. The provider
- * check below is the other half of that guard: anything besides Google/Apple
- * on the account means it is not the throwaway, so it is signed out, never
- * deleted.
+ * `/auth/me` returned 404 — so the signed-in account has no row. Both halves
+ * of that guard are checked here before deleting anything: the draft's own
+ * `authProvider`/`socialCredential` prove a 404 actually happened during
+ * *this* social sign-in (useSocialSignIn is the only place that sets them),
+ * and the account's `providerData` proves it is still social-only. Either
+ * one failing means this is not the throwaway account this flow created, so
+ * it is signed out, never deleted.
  */
 export async function abandonSocialSignUpForLink(phoneHint: string | null): Promise<void> {
   const draft = useRegistrationDraftStore.getState();
   const { authProvider, socialCredential } = draft;
   const user = auth().currentUser;
+  const draftProvesSocialSignUp = authProvider !== 'phone' && socialCredential !== null;
 
   if (user) {
     const socialOnly =
+      draftProvesSocialSignUp &&
       user.providerData.length > 0 &&
       user.providerData.every((p) => p.providerId === 'google.com' || p.providerId === 'apple.com');
     let deleted = false;
@@ -96,7 +106,7 @@ export async function abandonSocialSignUpForLink(phoneHint: string | null): Prom
     if (!deleted) await auth().signOut().catch(() => undefined);
   }
 
-  if (socialCredential && authProvider !== 'phone') {
+  if (authProvider !== 'phone' && socialCredential) {
     usePendingLinkStore.getState().set({ provider: authProvider, credential: socialCredential, phoneHint });
   }
   draft.reset();

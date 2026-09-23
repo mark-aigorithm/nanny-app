@@ -174,15 +174,17 @@ export function useSignOut() {
       // the DELETE with the current user's JWT, which is gone after signOut().
       // It never throws, so it cannot block or fail the sign-out itself.
       await unregisterPushToken();
+      // A parked Google/Apple credential must never link onto whoever signs
+      // in next — cleared unconditionally, before the sign-out call, so it
+      // still holds even if that call throws.
+      usePendingLinkStore.getState().clear();
       try {
         await auth().signOut();
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }
-      // A parked Google/Apple credential must never link onto whoever signs
-      // in next; and forgetting the Google account on the device makes the
-      // next tap show the account picker again.
-      usePendingLinkStore.getState().clear();
+      // Forgetting the Google account on the device makes the next tap show
+      // the account picker again.
       await signOutOfGoogle();
     },
     onSuccess: () => {
