@@ -110,7 +110,8 @@ the dependency.
 ## Backend (`apps/backend/src/services/auth.service.ts`)
 
 1. **`registerUser`** — after the row is created,
-   `firebaseAuth.updateUser(uid, { emailVerified: true })`. We proved the
+   `firebaseAuth.updateUser(uid, { emailVerified: true })`, best-effort: a
+   failure is logged and never fails the registration itself. We proved the
    address with our own OTP; Firebase's copy should not disagree.
 
 2. **`setVerifiedEmail`** — the migration path for legacy accounts. Order
@@ -179,8 +180,11 @@ that triggered it was authenticated with. `POST /auth/email` mints a Firebase
 custom token right after the swap and returns it alongside the profile; the
 mobile client trades it for a fresh session via `signInWithCustomToken` so the
 gate reads as seamless rather than as a surprise sign-out. A response with no
-`customToken` — the idempotent no-op path outside its short recovery window,
-or an older backend deployed before this field existed — means nothing was
+`customToken` — the idempotent no-op path outside its short recovery window
+(or inside the window but without a fresh, spendable verification token for
+that address — the mint checks and consumes one first, the same predicate as
+the real swap, so being inside the window is not by itself enough), or an
+older backend deployed before this field existed — means nothing was
 revoked, so the client keeps its current session rather than treating a
 missing token as a failure. If the exchange itself fails when a token *is*
 present, the gate has still succeeded server-side — the app signs out fully
@@ -222,8 +226,10 @@ they cannot drift apart on what "valid" means.
   is touched at all, and `updateUser` runs before the token is consumed; a
   Firebase failure leaves the token spendable and mints no custom token;
   `auth/email-already-exists` surfaces as the existing conflict; the no-op
-  path mints a recovery token only within its short window. `registerUser`:
-  marks the Firebase account verified.
+  path mints a recovery token only within its short window *and* only when the
+  request also carries a fresh, spendable verification token for that address
+  (checked, then consumed). `registerUser`: marks the Firebase account
+  verified, best-effort — a failure there never fails registration.
 - **Backend integration** — the a14 mother-email-gate journey asserts that the
   emulator account's email is the real address once the gate is passed, so the
   migration path is covered by a test rather than only by the one-off script.
@@ -343,25 +349,42 @@ to, the merge *is* the backend deploy — it does not wait for a separate step.
    testers can use the app normally on the new build with no backend or
    migration changes yet.
 2. **Merge.** Before doing so, confirm (a) which branch is Vercel's production
-   branch for this project, so you know merging to it is the deploy, and (b)
+   branch for this project — if it isn't the branch you're merging to, the
+   merge alone is not the deploy, so deploy explicitly afterward — and (b)
    that `E2E_LIVE_AUTH_ENABLED` is **not** set in that Vercel project's
    environment — the live-auth router must never be reachable in production.
 3. **Run the migration dry-run**, read the report, then run it with `--apply`.
-4. **Re-run the dry-run** once any stragglers have updated. An old binary
-   keeps registering new accounts with the placeholder credential the whole
-   time it's in the field, and the verify gate never catches those (their
-   `isEmailVerified` is already true) — only a later migration run converts
-   them.
+4. **Dry-run, then `--apply`, again** once any stragglers have updated. An old
+   binary keeps registering new accounts with the placeholder credential the
+   whole time it's in the field, and the verify gate never catches those
+   (their `isEmailVerified` is already true) — only this later migration run
+   converts them.
 
-Between step 1 and step 3, an old binary that somehow reaches the new backend
-(a tester who updates late, or any gap in step 1's distribution) sees the email
-door return "incorrect email or password" for its still-unmigrated account.
-This is not a lockout: **"Forgot password" → "Text me a code" still signs that
-account in** by SMS, the same as before this change, and it stays that way
-until a migration run converts the account. For the same reason, the realistic
-window here is however long it takes every tester to update — likely hours to
-days for a small test group, not "minutes" as an earlier draft of this doc
-claimed.
+Between step 1 and step 3, an old binary and a new binary can each reach the
+new backend against a not-yet-migrated account, and they fail differently —
+the fix for one is never the fix for the other:
+
+- **An old binary** (what `main` ships today) has no email door at all: its
+  sign-in is phone + password checked against the phone-derived placeholder
+  (`SignInScreen.tsx`). That still works on an unmigrated account. It breaks
+  the moment the account *is* migrated — by step 3's `--apply`, or by the
+  account passing the verify-email gate on the new backend — and stays broken
+  until that tester installs the new binary: Firebase now answers
+  `auth/invalid-credential` for the placeholder, and the old build's copy
+  shows "Incorrect phone number or password." Its own forgot-password screen
+  is SMS-only ("Send code"), so it still signs the tester in every time — the
+  fix here is updating the app, not re-running the migration.
+- **A new binary against a still-unmigrated account** is the mixed state that
+  actually lasts — the gap between step 1 and step 3, however long it takes
+  every tester to update (likely hours to days for a small test group, not
+  "minutes" as an earlier draft of this doc claimed). Here the email door
+  returns "Incorrect email or password" (enumeration protection makes this
+  indistinguishable from a genuinely wrong password), an email reset silently
+  sends nothing (Firebase mails the undeliverable placeholder, and the same
+  enumeration protection hides that it went nowhere), while **"Forgot
+  password" → "Text me a code" still signs the account in** by SMS, the same
+  as before this change. The remedy is to use SMS until a migration run
+  converts the account.
 
 Step 3 signs every account it touches out of its current session (see Session
 revocation above) — each one signs back in by SMS, a one-time cost accepted for
@@ -373,8 +396,8 @@ domain is optional and can come later. Also decide on the password policy: the
 hosted reset page enforces only Firebase's own default (6+ characters, no
 composition rule), which is looser than the app's create-time rules (8+
 characters, an uppercase letter, a digit) — the email sign-in door only checks
-for a non-empty password (see I3 in the review that shipped alongside this),
-specifically so a password set there isn't rejected on the way back in. Either
+for a non-empty password, specifically so a password set there isn't rejected
+on the way back in. Either
 configure Authentication → Settings → Password policy to match the app's rules
 so the hosted page enforces them too, or accept that the hosted page is looser
 and leave it — both are consistent with the app as shipped.

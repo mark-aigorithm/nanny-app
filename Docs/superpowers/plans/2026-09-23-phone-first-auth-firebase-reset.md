@@ -2203,15 +2203,21 @@ On a real build (TestFlight for iOS, a debug APK for Android), record the result
 
 Check 4 can be confirmed with the read-only lookup pattern in `MEMORY.md` → *Prod account diagnostics*.
 
-- [ ] **Step 2: Ship the mobile change**
+> The original Steps 2-3 below (an EAS Update OTA, and a `deploy-backend.yml`-driven
+> ECS deploy) are superseded and replaced by the steps that follow: this repo has no
+> OTA configured (no `expo-updates`, no `eas.json` channels, no `app.config.ts`
+> `updates`/`runtimeVersion`), and the backend deploys via Vercel Git-triggered
+> deploys, not ECS. See spec §Rollout for the current sequence.
 
-EAS Update OTA — the whole mobile change is JS-only, so installed builds pick it up. Its default door is SMS, which does not depend on the credential address.
+- [ ] **Step 2: Build and distribute the new binary to every tester**
 
-- [ ] **Step 3: Deploy the backend**
+TestFlight and an APK — there is no OTA path for this change, so shipping it means a new binary. Confirm every tester is actually running it before doing anything else; its default door is SMS, which does not depend on the credential address, so testers can use the app normally with no backend or migration changes yet.
 
-Merge to `main`; `deploy-backend.yml` handles the rest. Confirm `E2E_LIVE_AUTH_ENABLED` is **not** set in the production task definition.
+- [ ] **Step 3: Merge (the backend deploy)**
 
-- [ ] **Step 4: Migrate the remaining accounts**
+The backend deploys via Vercel Git-triggered deploys (`apps/backend/vercel.json`, `api/index.js`; `deploy-backend.yml` is still a TODO stub). Before merging, confirm (a) which branch is Vercel's production branch for this project — if it isn't the branch you're merging to, the merge alone is not the deploy, so deploy explicitly afterward — and (b) that `E2E_LIVE_AUTH_ENABLED` is **not** set in that Vercel project's environment; the live-auth router must never be reachable in production.
+
+- [ ] **Step 4: Migrate the accounts**
 
 ```bash
 pnpm --filter=@nanny-app/backend db:migrate-firebase-emails
@@ -2223,7 +2229,13 @@ Read the tally. Then, only if it looks right:
 pnpm --filter=@nanny-app/backend db:migrate-firebase-emails -- --apply
 ```
 
-- [ ] **Step 5: Customise the Firebase reset template**
+This signs every migrated account out of its current session (see spec's Session revocation note); each one signs back in by SMS. Between this step and every tester updating, an old binary that reaches the new backend against a migrated account breaks (its own SMS-based forgot-password screen still gets it back in) — the fix there is updating the app, not re-running the migration. Once any stragglers have updated, dry-run again, then `--apply` again to convert them.
+
+- [ ] **Step 5: Decide the Firebase password policy**
+
+The hosted reset page enforces only Firebase's own default (6+ characters, no composition rule) — looser than the app's create-time rules (8+ characters, an uppercase letter, a digit); the email sign-in door only checks for a non-empty password, specifically so a password set on the hosted page isn't rejected on the way back in. Either configure Authentication → Settings → Password policy to match the app's rules so the hosted page enforces them too, or accept that the hosted page is looser and leave it — both are consistent with the app as shipped.
+
+- [ ] **Step 6: Customise the Firebase reset template**
 
 Firebase Console → Authentication → Templates → Password reset: sender name, subject and reply-to. A verified custom sender domain is optional and can come later.
 
