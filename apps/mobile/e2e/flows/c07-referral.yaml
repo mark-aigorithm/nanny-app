@@ -1,21 +1,16 @@
 # C7 — referral: the code, the invite it earned, and the check a new signup runs.
 #
-# ── Scope note, the same one A10 carries ───────────────────────────────────
+# ── Scope ──────────────────────────────────────────────────────────────────
 # The catalogue describes this as "generate code → new user applies it at
-# registration → /referral/validate". The middle step is not drivable here, and
-# not for a reason worth working around: **step 1 of registration requires a
-# profile photo** for everyone — `Continue` refuses to advance until
-# `draft.photoUri` is set — so reaching the referral field on step 3 means driving the Android
-# photo picker and its crop screen, which is the system UI A10 refused for the
-# same reason. It would also mint a new account on every run against a database
-# that is never truncated.
+# registration → /referral/validate". The middle step — typing the code into
+# the signup field — is driven by C2 on its final step, since C2 already walks
+# the whole mother wizard (the E2E photo placeholder opened step 1's gate).
 #
-# So the invitee's side is asserted at the endpoint the field actually calls.
+# Here the invitee's side is asserted at the endpoint the field calls.
 # `/referral/validate` is optional-auth for exactly this case — it runs before a
 # Firebase account exists — so the flow calls it with no token at all, which is
 # the state the field is genuinely in, and asks it both questions: a real code
-# and a junk one. What is left uncovered is the field's own rendering, and that
-# is a component test, not an E2E one.
+# and a junk one.
 #
 # The referrer's side is driven in full, and it is the half with the interesting
 # content: the point values in the copy come from the reward config, so an admin

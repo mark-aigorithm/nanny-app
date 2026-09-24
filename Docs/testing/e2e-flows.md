@@ -83,12 +83,13 @@ Look for a flow's coverage by reading the table, not by listing the directory.
 | A11 | `a11-mother-id-gate` | `a11-mother-id-gate.yaml` | That the gate is on the *action*, not on the app |
 | A12 | `a12-operator-access-matrix` | `a12-operator-ui.spec.ts` | The sidebar, and a direct URL to a forbidden section |
 
-Mobile specs live in `apps/mobile/e2e/flows/`, admin specs in `apps/admin/e2e/`. Two are
-deliberately narrower on mobile than described below: **A10 and A11 start from a seeded account
-rather than driving registration**, because registration ends at an ID upload that opens the
-Android photo picker and its crop screen — system UI that changes between OS versions, for the
-least return in the suite. What registration itself decides is asserted over HTTP in the matching
-API journeys. See `apps/mobile/e2e/README.md`.
+Mobile specs live in `apps/mobile/e2e/flows/`, admin specs in `apps/admin/e2e/`. Under E2E the
+photo pickers return a bundled placeholder (`lib/e2eImage`) instead of opening Android's picker,
+and the seeder wipes the accounts registration flows create before each run, so **A10 drives the
+whole nanny wizard**, ID upload included. One is deliberately narrower on mobile than described
+below: **A11 starts from a seeded account**, because its subject is the gate lifting *after*
+sign-up, not the wizard; what registration itself decides is asserted over HTTP in the matching
+API journey. See `apps/mobile/e2e/README.md`.
 
 ### A1. Booking happy path, card payment · `UI:mobile` (+ the nanny advanced over HTTP)
 The flagship, and the flow this catalogue previously described wrongly. **Care is broadcast
@@ -349,12 +350,11 @@ each proves the screen is wired.
 | C11 | Google sign-up for a mother through the E2E Google picker, then sign out and sign in with Google again — **covered** by `c11-google-sign-up.yaml` | `UI:mobile` |
 | C12 | Collision B: a Google sign-up that finds the seeded mother's phone taken, signs in by SMS, and links Google — asserted via the emulator — **covered** by `c12-google-collision.yaml` | `UI:mobile` |
 
-**The photo picker is what bounds C2 and C7.** Step 1 of registration disables `Continue` until
-`draft.photoUri` is set — for a mother as well as a nanny — so *every* path through the signup
-forms opens the Android photo picker and its crop screen. That is the system UI A10 already
-refused to drive, and it would also mint a new account on every run against a database that is
-never truncated. Both flows therefore stop at step 1 and say so; what each one loses is named in
-its own section below.
+**The photo picker no longer bounds C2 and C7.** Step 1 of registration still disables
+`Continue` until `draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker
+returns a bundled placeholder, and the seeder wipes the registering account before each run. C2
+therefore drives a mother's whole wizard to her home screen, and the invitee's half of C7 rides on
+C2's final step.
 
 ### C1. Session lifecycle · `UI:mobile` — moved to the live-Firebase suite
 Previously `c01-session-lifecycle.yaml`, which drove sign in, sign out, forgot password and create
@@ -376,8 +376,9 @@ the one that is easy to leave untested — that switching choices **throws the h
 away**. The draft is a persisted store, so a stale one is exactly how the wrong role's answers
 reach the backend.
 
-Stops at step 1 of each path, for the photo-picker reason above. What that leaves uncovered is what
-the later screens *ask for*, which is each screen's own business rather than the selection's.
+It then drives the mother's path to the end — email OTP from Mailpit, password, location, phone OTP,
+the referral field (C7) and terms — and lands on her home screen, which proves the whole chain
+(`POST /auth/register` included) landed.
 
 ### C3. Push token on login and logout · `UI:mobile` — **not covered**
 Both halves are blocked, for different reasons, and the second one is a finding rather than a
@@ -394,8 +395,9 @@ which calls `DELETE /devices/push-token` (`unregisterPushToken`) with the old us
 `auth().signOut()` — and shows nothing for it. It is pinned by `useAuth.signOut.test.tsx` instead.
 (It once did nothing at all: the lab mother had piled up 56 live `device_tokens` rows.)
 
-The permission gate is a third casualty of the photo picker: `NotificationPermissionScreen` is
-pushed from the end of registration and has no other entrance.
+The permission screen itself is driven: `NotificationPermissionScreen` is pushed from the end of
+registration, and C2, A10 and C11 each tap through it ("Stay in the loop"). What it registers is the
+unseen part above.
 
 ### C4. Nanny day · `UI:mobile` — **covered** by `c04-nanny-day.yaml`
 The first flow to open the nanny's app. Every other one sees her side only through what the
@@ -452,10 +454,10 @@ The referrer's side in full: her code as the API issued it, the invite that rede
 the point values in the copy — which come from the reward config, so the assertions fail if a
 console change stops reaching the screen.
 
-The invitee's side stops at the endpoint. `/referrals/validate` is optional-auth precisely because
-it runs mid-signup before a Firebase account exists, so the flow calls it **with no token at all**
-— the state the field is genuinely in — and asks it both questions, a real code and a junk one. What
-is left uncovered is `ReferralCodeField`'s own rendering, which is a component test.
+The invitee's side is asserted twice. Through the UI, C2 types the mother's code into the signup
+field on its final step and waits for it to validate. At the endpoint, this flow calls
+`/referrals/validate` — optional-auth precisely because it runs mid-signup before a Firebase account
+exists — **with no token at all** and asks it both questions, a real code and a junk one.
 
 Redeeming is once per account and permanent (a unique index on `referee_id`), so a second run is
 answered 409. That is the same end state, not a failure: the referral row is there either way, which
@@ -608,11 +610,9 @@ pattern the P1 and P2 specs should follow, so they are kept rather than deleted.
    count rather than "one more than before". Prefer emptying where a route allows it; anchor where
    it does not.
 
-6. **New: registration cannot be driven at all**, on either path. Step 1 disables `Continue` until
-   `draft.photoUri` is set, so a mother's signup opens the Android photo picker just as a nanny's
-   does — and a completed registration would mint an account per run in a database nothing
-   truncates. This bounds three flows: A10 and A11 start from seeded accounts, C2 stops at step 1,
-   C7 asserts `/referrals/validate` directly instead of through the field that calls it, and C3's
-   permission gate has no other entrance. Nothing here is worth a photo-picker driver; if it ever
-   becomes worth it, a debug-build affordance that pre-fills the draft photo would unblock all four
-   at once.
+6. **Resolved: registration can be driven.** Step 1 disables `Continue` until `draft.photoUri` is
+   set, which used to mean the Android photo picker on every signup and an account minted per run.
+   Under E2E the pickers return a bundled placeholder (`lib/e2eImage`), and the seeder wipes the
+   registering accounts before each run, so C2 and A10 drive their whole wizards. A11 still starts
+   seeded, by choice (its subject is the gate after sign-up); C3 stays uncovered for its own reason
+   (no route exposes device tokens).
