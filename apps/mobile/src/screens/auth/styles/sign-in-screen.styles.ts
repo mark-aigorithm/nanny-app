@@ -82,6 +82,32 @@ export const styles = StyleSheet.create({
     gap: spacing.lg,
   },
 
+  // "Forgot password?" — reset works for every door, so it sits on this one
+  forgotRow: {
+    alignItems: 'center',
+  },
+  forgotLink: {
+    fontFamily: fontFamily.bold,
+    fontSize: 14,
+    color: colors.primaryDark,
+  },
+
+  // "New to NannyNow?" + Sign up
+  signUpSection: {
+    gap: spacing.md,
+  },
+
+  // Guest browsing — deliberately quieter than every sign-in route above it
+  guestRow: {
+    alignItems: 'center',
+    paddingBottom: spacing.lg,
+  },
+  guestLink: {
+    fontFamily: fontFamily.medium,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+
   // Form
   form: {
     gap: spacing.xl,
@@ -149,17 +175,6 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Link to the secondary (email/password) sign-in door
-  altDoorRow: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
-  altDoorLink: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
-    color: colors.primaryDark,
-  },
-
   // Form-level error banner
   formErrorBanner: {
     backgroundColor: colors.errorLight,
@@ -170,22 +185,5 @@ export const styles = StyleSheet.create({
   formErrorText: {
     ...typeScale.bodyMd,
     color: colors.error,
-  },
-
-  // Footer
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footerLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  footerLink: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
-    color: colors.primaryDark,
   },
 });

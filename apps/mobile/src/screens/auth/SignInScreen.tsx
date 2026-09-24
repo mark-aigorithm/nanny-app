@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
+import { APP_NAME, OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
 import { Button, Divider, OtpCodeInput } from '@mobile/components/ui';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useSendPhoneOtp, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
@@ -12,6 +12,7 @@ import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { validatePhone, toE164, fromE164 } from '@mobile/lib/validation';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
+import { useGuestStore } from '@mobile/store/guestStore';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { styles } from './styles/sign-in-screen.styles';
 
@@ -22,6 +23,15 @@ export default function SignInScreen() {
   const [countryCode] = useState('+20');
   // A collision during a Google/Apple sign-up brings the number typed there.
   const [phone, setPhone] = useState(() => fromE164('+20', pending?.phoneHint ?? null));
+
+  // Sign-in now sits under the sign-up screen, so a collision found there
+  // comes back to this screen already mounted — the initializer above has
+  // run. Carry the number she typed across when the connection is parked.
+  const phoneHint = pending?.phoneHint ?? null;
+  useEffect(() => {
+    if (phoneHint) setPhone(fromE164('+20', phoneHint));
+  }, [phoneHint]);
+
   const [code, setCode] = useState('');
   const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
@@ -118,7 +128,7 @@ export default function SignInScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.headline}>Welcome back</Text>
+            <Text style={styles.headline}>{`Welcome to ${APP_NAME}`}</Text>
             <Text style={styles.subtitle}>
               {isCodePhase
                 ? `Enter the ${OTP_LENGTH}-digit code we sent to ${countryCode} ${phone}.`
@@ -211,24 +221,53 @@ export default function SignInScreen() {
           />
 
           {!isCodePhase && (
-            <View style={styles.socialSection}>
-              <Divider label="or" />
-              <SocialAuthButtons context="sign-in" />
-            </View>
+            <>
+              <View style={styles.socialSection}>
+                <Divider label="or" />
+                <SocialAuthButtons context="sign-in" />
+                <Button
+                  title="Sign in with email"
+                  icon="mail-outline"
+                  onPress={() => router.push('/(auth)/sign-in-email')}
+                  variant="outline"
+                  fullWidth
+                />
+              </View>
+
+              <Pressable
+                style={styles.forgotRow}
+                onPress={() => router.push('/(auth)/forgot-password')}
+                hitSlop={8}
+              >
+                <Text style={styles.forgotLink}>Forgot password?</Text>
+              </Pressable>
+
+              <View style={styles.signUpSection}>
+                <Divider label={`New to ${APP_NAME}?`} />
+                <Button
+                  title="Sign up"
+                  onPress={() => router.push('/(auth)/role-selection')}
+                  variant="outline"
+                  fullWidth
+                />
+              </View>
+
+              {/* A pending connection means she has an account to finish signing
+                  in to — browsing as a guest would quietly drop it. */}
+              {!pending && (
+                <Pressable
+                  style={styles.guestRow}
+                  onPress={() => {
+                    useGuestStore.getState().enterGuestMode();
+                    router.replace('/(parent)/home');
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.guestLink}>Continue as guest</Text>
+                </Pressable>
+              )}
+            </>
           )}
-
-          <Pressable
-            style={styles.altDoorRow}
-            onPress={() => router.push('/(auth)/sign-in-email')}
-            hitSlop={8}
-          >
-            <Text style={styles.altDoorLink}>Sign in with email and password instead</Text>
-          </Pressable>
-
-          <Pressable style={styles.footerRow} onPress={() => router.push('/(auth)/role-selection')}>
-            <Text style={styles.footerLabel}>Don&apos;t have an account? </Text>
-            <Text style={styles.footerLink}>Sign up</Text>
-          </Pressable>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>

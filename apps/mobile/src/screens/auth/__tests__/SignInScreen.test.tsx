@@ -1,10 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush }),
 }));
 
 const mockConfirm = jest.fn();
@@ -46,6 +47,7 @@ jest.mock('@mobile/lib/api', () => ({
 
 import SignInScreen from '../SignInScreen';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
+import { useGuestStore } from '@mobile/store/guestStore';
 
 // No shared render helper exists yet (see VerifyEmailScreen.test.tsx) — wrap
 // the screen in a QueryClientProvider the same way that test does.
@@ -63,6 +65,7 @@ function renderScreen() {
 beforeEach(() => {
   jest.clearAllMocks();
   usePendingLinkStore.getState().clear();
+  useGuestStore.setState({ isGuest: false });
   mockCurrentUser = {
     delete: mockDelete,
     email: 'mona@example.com',
@@ -207,4 +210,62 @@ it('drops the pending connection on "Not now"', () => {
   expect(
     screen.queryByText('You already have an account. Sign in with your phone once to connect Google.'),
   ).toBeNull();
+});
+
+describe('the front door', () => {
+  it('welcomes by the app name', () => {
+    renderScreen();
+    expect(screen.getByText('Welcome to NannyNow')).toBeTruthy();
+  });
+
+  it('opens the email door from its button', () => {
+    renderScreen();
+    fireEvent.press(screen.getByText('Sign in with email'));
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/sign-in-email');
+  });
+
+  it('opens password reset from "Forgot password?"', () => {
+    renderScreen();
+    fireEvent.press(screen.getByText('Forgot password?'));
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/forgot-password');
+  });
+
+  it('opens sign-up from "Sign up"', () => {
+    renderScreen();
+    expect(screen.getByText('New to NannyNow?')).toBeTruthy();
+    fireEvent.press(screen.getByText('Sign up'));
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/role-selection');
+  });
+
+  it('lets a visitor browse as a guest', () => {
+    renderScreen();
+    fireEvent.press(screen.getByText('Continue as guest'));
+    expect(useGuestStore.getState().isGuest).toBe(true);
+    expect(mockReplace).toHaveBeenCalledWith('/(parent)/home');
+  });
+
+  it('hides the guest link while a Google connection is waiting to be linked', () => {
+    usePendingLinkStore.getState().set(PENDING_GOOGLE);
+    renderScreen();
+    expect(screen.queryByText('Continue as guest')).toBeNull();
+  });
+
+  it('shows only the code UI once a code is on its way', async () => {
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
+    fireEvent.press(screen.getByText('Send code'));
+    await waitFor(() => expect(screen.getByTestId('signIn.code')).toBeTruthy());
+    expect(screen.queryByText('Sign in with email')).toBeNull();
+    expect(screen.queryByText('Forgot password?')).toBeNull();
+    expect(screen.queryByText('Sign up')).toBeNull();
+    expect(screen.queryByText('Continue as guest')).toBeNull();
+  });
+
+  it('prefills the number when a connection is parked after the screen mounted', () => {
+    renderScreen();
+    act(() => {
+      usePendingLinkStore.getState().set(PENDING_GOOGLE);
+    });
+    expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
+  });
 });
