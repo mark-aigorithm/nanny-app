@@ -321,6 +321,20 @@ describe('useConfirmPhoneAndResetPassword', () => {
     await settled(result);
   });
 
+  it('signs out, but never deletes, an account with a row and no email', async () => {
+    // A row re-attached to a fresh phone-only Firebase account after its old
+    // one was deleted: /auth/me finds the row, but there is no email to put a
+    // password on. Deleting this Firebase account would orphan the row again.
+    phoneOnlyUser();
+    const { result } = wrap(() => useConfirmPhoneAndResetPassword());
+
+    await expect(result.current.mutateAsync(vars)).rejects.toEqual({ field: 'phone', message: NO_ACCOUNT });
+    expect(mockCurrentUser?.delete).not.toHaveBeenCalled();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockCurrentUser?.updatePassword).not.toHaveBeenCalled();
+    await settled(result);
+  });
+
   it("says it couldn't connect on any other failure and writes no password", async () => {
     mockGet.mockRejectedValue(SERVER_ERROR);
     const { result } = wrap(() => useConfirmPhoneAndResetPassword());

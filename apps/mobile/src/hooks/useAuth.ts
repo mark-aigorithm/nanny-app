@@ -219,7 +219,7 @@ export function useConfirmPhoneSignIn() {
  * is discarded. An unfinished sign-up (`'needs-setup'`) is left alone — its
  * password is the one she chose moments ago in the wizard, and the root gate
  * resumes it. An account with a row but no email on file has no password to
- * reset and gets the same treatment as the phone-only one.
+ * reset: it is signed out with the same message, but never deleted.
  */
 export function useConfirmPhoneAndResetPassword() {
   return useMutation<
@@ -232,8 +232,15 @@ export function useConfirmPhoneAndResetPassword() {
 
       const account = await checkAccount(user);
       if (account === 'unfinished') return 'needs-setup';
-      if (account === 'phone-only-new' || !user.email) {
+      if (account === 'phone-only-new') {
         await discardPhoneOnlyAccount(user);
+        throw NO_ACCOUNT_FOR_PHONE_ERROR;
+      }
+      if (!user.email) {
+        // A row, but no email to put a password on — e.g. a row the server
+        // re-attached to a fresh phone-only Firebase account. Never delete it:
+        // that would orphan the row again.
+        await auth().signOut().catch(() => undefined);
         throw NO_ACCOUNT_FOR_PHONE_ERROR;
       }
 
