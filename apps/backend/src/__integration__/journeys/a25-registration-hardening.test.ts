@@ -11,8 +11,10 @@ import { CURRENT_TERMS_VERSION } from '@nanny-app/shared';
 import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
 import { firebaseAuth } from '@backend/lib/firebase';
+import { uniqueClashFields } from '@backend/lib/prisma-errors';
 
 import { authHeader, createEmulatorUser, signInAs } from '../../../test/auth';
+import { makeMother } from '../../../test/factories';
 import { proveEmail } from '../../../test/journeys/email-verification';
 import { storageUrl } from '../../../test/storage-url';
 
@@ -87,13 +89,58 @@ describe('A25 — registration refuses what it cannot trust', () => {
     expect(await prisma.user.count({ where: { phone } })).toBe(0);
   });
 
-  it('answers two simultaneous registrations with the same single account', async () => {
+  it('answers a double tap with one account', async () => {
     const { token, body, phone } = await motherAboutToRegister();
 
+    // Whether these two requests actually overlap on the server is not
+    // guaranteed by `Promise.all` alone; the recovery path this exercises
+    // (resolveFailedRegistration) is proven directly, request-order and all,
+    // by the unit suite in auth-register-hardening.test.ts.
     const [first, second] = await Promise.all([register(token, body), register(token, body)]);
 
     expect([first.status, second.status]).toEqual([201, 201]);
     expect(first.body.data.id).toBe(second.body.data.id);
     expect(await prisma.user.count({ where: { phone } })).toBe(1);
+  });
+});
+
+describe('A25 — a real unique clash names its column', () => {
+  it('names the phone column', async () => {
+    const mother = await makeMother();
+    // The factory's own return value doesn't carry the phone it set — read
+    // the row back for the value to collide on.
+    const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id } });
+
+    const clash = await prisma.user
+      .create({
+        data: {
+          firebaseUid: `a25-clash-${Date.now()}-phone`,
+          email: `a25-clash-${Date.now()}-phone@test.local`,
+          phone: row.phone,
+          firstName: 'Clash',
+          lastName: 'Phone',
+        },
+      })
+      .catch((err: unknown) => err);
+
+    expect(uniqueClashFields(clash)).toContain('phone');
+  });
+
+  it('names the email column', async () => {
+    const mother = await makeMother();
+
+    const clash = await prisma.user
+      .create({
+        data: {
+          firebaseUid: `a25-clash-${Date.now()}-email`,
+          email: mother.email,
+          phone: `+2016${String(Date.now()).slice(-8)}`,
+          firstName: 'Clash',
+          lastName: 'Email',
+        },
+      })
+      .catch((err: unknown) => err);
+
+    expect(uniqueClashFields(clash)).toContain('email');
   });
 });

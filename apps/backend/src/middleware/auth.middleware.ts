@@ -7,7 +7,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      /** Decoded Firebase ID token, populated by `requireAuth`. */
+      /** Decoded Firebase ID token, populated by `requireAuth` or `requireFreshAuth`. */
       firebaseUser?: DecodedIdToken;
     }
   }

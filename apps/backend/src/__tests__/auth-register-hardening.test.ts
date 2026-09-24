@@ -94,7 +94,27 @@ function makeTx() {
   };
 }
 
+/**
+ * The real shape a P2002 arrives in on this backend's Prisma 7 +
+ * @prisma/adapter-pg runtime (observed directly — see
+ * apps/backend/src/lib/prisma-errors.ts's doc comment): the column lives on
+ * `meta.driverAdapterError.cause.constraint.fields`, not `meta.target`.
+ */
 function uniqueClash(target: string[]) {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+    meta: {
+      modelName: 'User',
+      driverAdapterError: Object.assign(new Error('unique'), {
+        cause: { kind: 'UniqueConstraintViolation', constraint: { fields: target } },
+      }),
+    },
+  });
+}
+
+/** A legacy (non-driver-adapter) P2002 shape, still supported as a fallback. */
+function legacyUniqueClash(target: string[]) {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
     code: 'P2002',
     clientVersion: 'test',
@@ -181,9 +201,53 @@ describe('registerUser — two requests racing', () => {
     });
   });
 
+  it('still answers 409 by the column for a legacy (non-driver-adapter) P2002 shape', async () => {
+    mockPrisma.$transaction.mockRejectedValueOnce(legacyUniqueClash(['phone']));
+    await expect(registerUser(DECODED, BODY)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'An account with this phone number already exists.',
+    });
+  });
+
   it('rethrows any other failure when no row appeared', async () => {
     mockPrisma.$transaction.mockRejectedValueOnce(new Error('connection reset'));
     await expect(registerUser(DECODED, BODY)).rejects.toThrow('connection reset');
+  });
+
+  it('answers the same deletion conflict as the idempotent path when the winner row is soft-deleted', async () => {
+    mockPrisma.$transaction.mockImplementationOnce(async () => {
+      rowForUid = userRow({ deletedAt: new Date() });
+      throw uniqueClash(['firebase_uid']);
+    });
+    await expect(registerUser(DECODED, BODY)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'This account has been deleted.',
+    });
+  });
+
+  it('rethrows the original transaction error when the recovery lookup itself fails', async () => {
+    const lookupErr = new Error('connection lost');
+    const originalErr = uniqueClash(['phone']);
+    // findUnique is called three times before the transaction ever runs (the
+    // idempotency check, then the email and phone collision checks inside
+    // findIdentityOwners) and once more inside resolveFailedRegistration after
+    // the transaction fails — only that last call should reject.
+    mockPrisma.user.findUnique
+      .mockImplementationOnce(() => Promise.resolve(null))
+      .mockImplementationOnce(() => Promise.resolve(null))
+      .mockImplementationOnce(() => Promise.resolve(null))
+      .mockImplementationOnce(() => Promise.reject(lookupErr));
+    mockPrisma.$transaction.mockRejectedValueOnce(originalErr);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(registerUser(DECODED, BODY)).rejects.toBe(originalErr);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[auth] could not check for a concurrent registration',
+      expect.objectContaining({ uid: 'fb-1', err: lookupErr }),
+    );
+
+    warnSpy.mockRestore();
   });
 });
 
@@ -213,5 +277,22 @@ describe('registerUser — a retry re-syncs Firebase', () => {
     const unverified = { uid: 'fb-1', email: EMAIL, email_verified: false, phone_number: PHONE } as never;
 
     await expect(registerUser(unverified, BODY)).resolves.toMatchObject({ id: 55 });
+  });
+
+  it('never marks a placeholder-email Firebase account verified on the row’s real address', async () => {
+    rowForUid = userRow();
+    // A legacy account whose Firebase credential is still the phone-derived
+    // placeholder — the decoded token's own email must never be trusted as a
+    // stand-in for the row's proven one.
+    const placeholder = {
+      uid: 'fb-1',
+      email: '201004455667@phone.nannyapp.local',
+      email_verified: false,
+      phone_number: PHONE,
+    } as never;
+
+    await registerUser(placeholder, BODY);
+
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,6 @@ import type {
   User,
   Role as PrismaRole,
 } from '@prisma/client';
-import { Prisma } from '@prisma/client';
 import {
   Role,
   type Address as AddressDto,
@@ -22,6 +21,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
+import { uniqueClashFields } from '@backend/lib/prisma-errors';
 import { assertOwnStorageUrl } from '@backend/lib/storage-url';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
@@ -167,23 +167,43 @@ async function markFirebaseEmailVerified(uid: string): Promise<void> {
  * A registration that failed inside its transaction may have lost a race
  * rather than failed: a double tap, or a retry that overlapped the first
  * request. If a row for this uid exists now, the other request made it —
- * answer with it, as the idempotent path would have. Otherwise a unique clash
- * means someone else took the email or phone since the lookup above.
+ * answer with it, as the idempotent path would have (or, if that row was
+ * soft-deleted between requests, the same conflict the idempotent path
+ * throws). Otherwise a unique clash means someone else took the email or
+ * phone since the lookup above.
+ *
+ * The lookup itself can fail (a dropped connection, say) — that must not
+ * swallow the original transaction error, which is the one worth surfacing.
  */
 async function resolveFailedRegistration(
   decoded: DecodedIdToken,
   err: unknown,
 ): Promise<UserResponse> {
-  const winner = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
-  if (winner && !winner.deletedAt) {
+  let winner: User | null;
+  try {
+    winner = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
+  } catch (lookupErr) {
+    console.warn('[auth] could not check for a concurrent registration', {
+      uid: decoded.uid,
+      err: lookupErr,
+    });
+    throw err;
+  }
+
+  if (winner) {
+    if (winner.deletedAt) {
+      throw errors.conflict('This account has been deleted.');
+    }
     return toUserResponse(winner, await flatLocationOf(winner.id));
   }
-  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-    const target = JSON.stringify(err.meta?.['target'] ?? '');
-    if (target.includes('phone')) {
+
+  const fields = uniqueClashFields(err);
+  if (fields) {
+    const joined = fields.join(' ');
+    if (joined.includes('phone')) {
       throw errors.conflict('An account with this phone number already exists.');
     }
-    if (target.includes('email')) {
+    if (joined.includes('email')) {
       throw errors.conflict('An account with this email already exists.');
     }
     throw errors.conflict('An account with these details already exists.');
@@ -224,8 +244,16 @@ export async function registerUser(
       throw errors.conflict('This account has been deleted.');
     }
     // A retry after a lost response, or after the best-effort update at the
-    // end failed: the row says proven, so Firebase should too.
-    if (existing.isEmailVerified && decoded.email_verified !== true) {
+    // end failed: the row says proven, so Firebase should too. Also require
+    // the token's own email to match the row — a legacy account whose
+    // Firebase address is still a phone-derived placeholder (see
+    // moveFirebaseEmail) must never be marked verified on that placeholder.
+    const decodedEmail = decoded.email?.trim().toLowerCase();
+    if (
+      existing.isEmailVerified &&
+      decoded.email_verified !== true &&
+      decodedEmail === existing.email.trim().toLowerCase()
+    ) {
       await markFirebaseEmailVerified(decoded.uid);
     }
     return toUserResponse(existing, await flatLocationOf(existing.id));

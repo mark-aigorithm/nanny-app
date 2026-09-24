@@ -31,10 +31,10 @@ function isAdminRole(role: string | null): role is AdminRole {
 }
 
 /**
- * Requires `requireFreshAuth` (or `requireAuth`) to have run first. Loads the user by Firebase UID and
- * rejects with 403 unless they hold a console role (ADMIN, SUPERUSER or
- * OPERATOR). Attaches the account — including an operator's granted sections —
- * to `req.adminUser` for `requireSectionAccess`.
+ * Requires `requireFreshAuth` (or `requireAuth`) to have run first. Loads the
+ * user by Firebase UID and rejects with 403 unless they hold a console role
+ * (ADMIN, SUPERUSER or OPERATOR). Attaches the account — including an
+ * operator's granted sections — to `req.adminUser` for `requireSectionAccess`.
  */
 export async function requireAdmin(
   req: Request,
