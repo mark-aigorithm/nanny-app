@@ -10,13 +10,13 @@
 
 **Spec:** `Docs/superpowers/specs/2026-09-24-registration-hardening-design.md` (plan 4 row; "Design choices": deletion refusals, immediate deletion, Apple revocation, deleting accounts).
 
-## Open questions (owner) — answer before Task 1
+## Owner decisions (2026-09-24)
 
-| # | Question | Plan's default |
+| # | Question | Decision |
 |---|---|---|
-| Q1 | Require a **recent sign-in** (e.g. `auth_time` within 5 minutes) before deleting? The spec doesn't ask for it. It protects an unlocked, borrowed phone, but costs a re-auth screen for every provider. | **No.** A destructive confirm dialog only. If yes, it becomes its own task after Task 3. |
-| Q2 | A nanny on **Pending review / Upload ID** can't reach her profile screen, so she has no way to delete. Add "Delete account" there too? | **Yes.** Put it next to the existing Sign out on `PendingReviewScreen` and `UploadIdScreen` (Task 4). |
-| Q3 | What else is soft-deleted with the row? | The nanny profile (drops her out of search, which already filters `u.deleted_at`) and device tokens (no more pushes). Addresses, children, wallet/care points, messages and community posts stay, linked to the scrambled row. A PII purge is out of scope (spec). |
+| Q1 | Require a recent sign-in before deleting? | **No.** A destructive confirm dialog only. |
+| Q2 | "Delete account" on Pending review / Upload ID too (a nanny there can't reach her profile)? | **Yes** (Task 4). |
+| Q3 | What is soft-deleted with the row? | The nanny profile (drops her out of search) and device tokens (no more pushes). Everything else stays linked to the scrambled row; a PII purge is out of scope. |
 
 ## Global Constraints
 
@@ -196,7 +196,7 @@ Check `auth().revokeToken` is reachable through `@mobile/lib/firebase`'s `auth` 
 **Files:**
 - Modify: `apps/mobile/src/screens/parent/MotherProfileWalletScreen.tsx` (a list item under "Sign out", same `listItem` / `listItemDestructive` styles, `trash-outline` icon)
 - Modify: `apps/mobile/src/screens/nanny/NannyProfileEditScreen.tsx` (under the Sign out button, as a text-style destructive button, not a second filled button; use the nanny-app-mobile-design skill)
-- Modify (Q2 default): `apps/mobile/src/screens/auth/PendingReviewScreen.tsx`, `UploadIdScreen.tsx` (a small destructive text link under their Sign out)
+- Modify (Q2): `apps/mobile/src/screens/auth/PendingReviewScreen.tsx`, `UploadIdScreen.tsx` (a small destructive text link under their Sign out)
 - Test: the four screens' tests (create where missing, following `RoleSelectionScreen.test.tsx`)
 
 Each button: `confirmDialog({ title: 'Delete your account?', message: "This deletes your profile and signs you out. It can't be undone.", confirmLabel: 'Delete account', destructive: true, onConfirm: () => deleteAccount.mutate(undefined, { onSuccess }) })`.
@@ -246,8 +246,7 @@ Account (`accounts.mjs`, doc comment in the file's style): `ACCOUNTS.deletable =
   - buttons → Task 4;
   - C17 → Task 5.
 - Deviation from the spec wording: the row branch of `DELETE /auth/me` needs an explicit `confirm` body, so plan 3's best-effort discard calls can't delete a registered account.
-- Deviation, Q1: no recent-login gate unless the owner asks.
-- Q2 adds the pending screens.
+- Q1: no recent-login gate (owner). Q2: the pending screens get the button (owner).
 - Relies on plan 3:
   - re-attach ignores soft-deleted rows, and a uid with a soft-deleted row 404s (`cef9bb2`);
   - scrambling the uid means a deleted account's old uid matches no row at all, so a Firebase user left behind by a failed step 7 is a plain row-less leftover, and retrying `DELETE /auth/me` removes it.
