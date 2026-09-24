@@ -391,16 +391,61 @@ export async function registerUser(
 }
 
 /**
+ * A row whose Firebase user was deleted would lock its owner out forever: every
+ * new sign-in mints a fresh uid that no row points at. When the new token
+ * proves the row's phone (or, verified, its email) and the old uid is truly
+ * gone, move the row onto the new uid. Guarded on the old uid so two racing
+ * requests re-point it once. Any Firebase error other than user-not-found
+ * aborts (rethrown) — never re-point on an uncertain answer.
+ */
+async function reattachOrphanedRow(decoded: DecodedIdToken): Promise<User | null> {
+  const phone = decoded.phone_number ?? null;
+  const email = decoded.email_verified === true && decoded.email ? decoded.email.toLowerCase() : null;
+  if (!phone && !email) return null;
+
+  const candidates = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      role: { in: [Role.MOTHER, Role.NANNY] },
+      OR: [...(phone ? [{ phone }] : []), ...(email ? [{ email }] : [])],
+    },
+  });
+  if (candidates.length !== 1) return null;
+  const row = candidates[0]!;
+  if (row.firebaseUid === decoded.uid) return row;
+
+  try {
+    await firebaseAuth.getUser(row.firebaseUid);
+    return null; // the old account still exists — not an orphan
+  } catch (err) {
+    if ((err as { code?: unknown })?.code !== 'auth/user-not-found') throw err;
+  }
+
+  const moved = await prisma.user.updateMany({
+    where: { id: row.id, firebaseUid: row.firebaseUid, deletedAt: null },
+    data: { firebaseUid: decoded.uid },
+  });
+  console.warn('[auth] re-attached an orphaned row', {
+    userId: row.id,
+    fromUid: row.firebaseUid,
+    toUid: decoded.uid,
+    moved: moved.count,
+  });
+  return prisma.user.findFirst({ where: { firebaseUid: decoded.uid, deletedAt: null } });
+}
+
+/**
  * Returns the application User row for the currently-authenticated Firebase
  * user. Touches `lastLoginAt` so we have a recency signal for analytics.
  * Throws 404 if the Firebase user has no corresponding application row —
  * the mobile client uses this signal to redirect to /auth/register.
  */
 export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { firebaseUid: decoded.uid },
   });
-  if (!user || user.deletedAt) {
+  if (!user || user.deletedAt) user = await reattachOrphanedRow(decoded);
+  if (!user) {
     throw errors.notFound('User profile not found. Please complete registration.');
   }
 
@@ -416,8 +461,9 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
 
 /** The current user's row, or a 404 telling the client to finish registration. */
 async function requireUser(decoded: DecodedIdToken): Promise<User> {
-  const user = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
-  if (!user || user.deletedAt) {
+  let user = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
+  if (!user || user.deletedAt) user = await reattachOrphanedRow(decoded);
+  if (!user) {
     throw errors.notFound('User profile not found. Please complete registration.');
   }
   return user;
