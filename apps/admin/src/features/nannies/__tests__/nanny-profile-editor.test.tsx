@@ -138,4 +138,25 @@ describe('NannyProfileEditor', () => {
     await waitFor(() => expect(body).not.toBeNull());
     expect(body).toMatchObject({ avatarUrl: null });
   });
+
+  it('shows an age band from before the current set, so it can be removed', async () => {
+    let body: UpdateAdminNanny | null = null;
+    server.use(
+      http.patch('/api/admin/nannies/:id', async ({ request }) => {
+        body = (await request.json()) as UpdateAdminNanny;
+        return ok(NANNY);
+      }),
+    );
+    renderWithProviders(
+      <ToastProvider>
+        <NannyProfileEditor nanny={{ ...NANNY, ageRanges: ['1-3', '2-5'] }} certifications={[]} onDone={() => {}} />
+      </ToastProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '2-5 yrs (old)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ ageRanges: ['1-3'] });
+  });
 });

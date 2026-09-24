@@ -95,6 +95,11 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
     nanny.yearsOfExperience !== null ? String(nanny.yearsOfExperience) : '',
   );
   const [ageRanges, setAgeRanges] = useState<Set<string>>(() => new Set(nanny.ageRanges));
+  // Bands she holds from before the current set (e.g. '2-5'). Shown as chips
+  // too, so an admin can see and remove them; they can't be added back.
+  const [legacyAgeRanges] = useState(() =>
+    nanny.ageRanges.filter((range) => !(AGE_RANGES as readonly string[]).includes(range)),
+  );
   const [availabilityType, setAvailabilityType] = useState<AvailabilityTypeValue>(
     nanny.availabilityType,
   );
@@ -246,14 +251,16 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
 
       <div className="form-section-title">Age ranges</div>
       <div className="addon-list">
-        {AGE_RANGES.map((range) => (
+        {[...AGE_RANGES, ...legacyAgeRanges].map((range) => (
           <button
             key={range}
             type="button"
             className={ageRanges.has(range) ? 'addon-chip selected' : 'addon-chip'}
             onClick={() => toggleAgeRange(range)}
           >
-            <span className="addon-name">{range} yrs</span>
+            <span className="addon-name">
+              {range} yrs{legacyAgeRanges.includes(range) ? ' (old)' : ''}
+            </span>
           </button>
         ))}
       </div>
