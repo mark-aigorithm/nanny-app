@@ -1,8 +1,15 @@
 /**
  * A25 — registration refuses what it cannot trust, and answers a double tap
  * with one account. Each case runs the real route against the Auth emulator,
- * so revocation, uid-scoped upload paths and the unique indexes are the real
- * ones, not stand-ins.
+ * so uid-scoped upload paths and the unique indexes are the real ones, not
+ * stand-ins.
+ *
+ * The revoked-session case below proves /auth/register refuses a revoked
+ * token — it does NOT prove the route is wired to requireFreshAuth rather
+ * than requireAuth: the emulator checks revocation on every verifyIdToken
+ * call regardless of that argument, so either middleware would pass this
+ * case. That wiring is pinned instead by fresh-auth.routes.test.ts, which
+ * mocks Firebase Admin and asserts the exact call each route makes.
  */
 import request from 'supertest';
 

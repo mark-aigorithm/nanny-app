@@ -76,7 +76,11 @@ export async function signIn(email: string, password = PASSWORD): Promise<string
   return body.idToken;
 }
 
-const PROJECT_ID = process.env['FIREBASE_PROJECT_ID'] ?? 'demo-nannyapp';
+// Fixed, not read from the environment: this must match playwright.config.ts's
+// hardcoded emulator --project. A shell that happens to export the real
+// FIREBASE_PROJECT_ID (e.g. a live-auth session run earlier) must not redirect
+// this suite's admin-API calls at the live project.
+const PROJECT_ID = 'demo-nannyapp';
 
 /** The uid inside an emulator ID token (an unsigned JWT). */
 function uidOf(idToken: string): string {

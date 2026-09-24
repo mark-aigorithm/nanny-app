@@ -195,6 +195,24 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 
 ## Known Gotchas
 
+**Upload URLs are accepted only from the caller's own folder**
+`lib/storage-url.ts` refuses any `avatarUrl` / `idDocumentFrontUrl` / `idDocumentBackUrl` that
+isn't a download URL for `<folder>/<uid>/…` in our bucket — otherwise a client could pin its
+profile or KYC record to someone else's upload, or to any image on the web. In every real
+environment this checks host, protocol and bucket as well as the path. The one relaxation is
+path-only matching when `FIREBASE_STORAGE_EMULATOR_HOST` is set (test stacks only — `config.ts`
+refuses it outright in production): the mobile device lab's live-auth profile
+(`start:test:live-auth`) points Auth at the real Firebase project while Storage stays on the
+emulator, so its upload URLs come from `10.0.2.2:9199` and name the app's real bucket, which the
+backend's test config doesn't otherwise recognise.
+
+**`requireFreshAuth` wiring is pinned by a unit test, not integration**
+The Auth emulator checks revocation on every `verifyIdToken` call regardless of whether a route
+asked for it, so an integration test cannot tell `requireAuth` from `requireFreshAuth` apart —
+either would pass a "refuses a revoked session" case. Which routes are mounted behind which
+middleware is proven instead by `src/__tests__/fresh-auth.routes.test.ts`, which mocks Firebase
+Admin and asserts the exact `verifyIdToken` call each route makes.
+
 **Location lives on `addresses`, not `users`**
 `users.address / latitude / longitude` are gone: `add_addresses_table` backfilled them into each
 user's default `addresses` row and `drop_user_location_columns` removed them. Read a user's

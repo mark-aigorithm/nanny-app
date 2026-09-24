@@ -12,11 +12,15 @@ export type OwnStorageUrlRules = {
   folder: string;
   bucket: string;
   /**
-   * The Storage emulator serves uploads from its own host (10.0.2.2:9199 from
-   * an Android emulator) under whatever bucket name the app is built with, so
-   * only the object path can be checked there.
+   * Set only when a test stack is running a Storage emulator at this host
+   * (e.g. "10.0.2.2:9199" from an Android emulator). Its download URLs come
+   * from that host and name whatever bucket the app is built with, not our
+   * real bucket, so the bucket check is skipped for a URL from either that
+   * host or the real download host — the object path is still checked either
+   * way. `undefined` in every real environment, where both host and bucket
+   * must match exactly.
    */
-  emulator: boolean;
+  emulatorHost?: string;
 };
 
 /**
@@ -32,13 +36,27 @@ export function isOwnStorageUrl(url: string, rules: OwnStorageUrlRules): boolean
   } catch {
     return false;
   }
-  if (!rules.emulator && (parsed.protocol !== 'https:' || parsed.host !== DOWNLOAD_HOST)) return false;
+
+  const isLiveDownload = parsed.protocol === 'https:' && parsed.host === DOWNLOAD_HOST;
+  const isEmulatorHost = rules.emulatorHost !== undefined && parsed.host === rules.emulatorHost;
+
+  if (rules.emulatorHost !== undefined) {
+    // A configured emulator host accepts either its own host (any protocol —
+    // the emulator is plain http) or the real download host, since backend
+    // and admin-e2e fixtures build live-shaped URLs even when a test stack
+    // has an emulator host configured.
+    if (!isEmulatorHost && !isLiveDownload) return false;
+  } else if (!isLiveDownload) {
+    return false;
+  }
 
   // The object path stays percent-encoded in `pathname` (`avatars%2Fuid%2Ff.jpg`),
   // so it is one segment after `/o/`.
   const match = /^\/v0\/b\/([^/]+)\/o\/([^/]+)$/.exec(parsed.pathname);
   if (!match?.[1] || !match[2]) return false;
-  if (!rules.emulator && match[1] !== rules.bucket) return false;
+  // Bucket is checked only with no emulator host configured — an emulator URL
+  // (either host) carries whatever bucket name the build uses, not ours.
+  if (rules.emulatorHost === undefined && match[1] !== rules.bucket) return false;
 
   let objectPath: string;
   try {
@@ -60,9 +78,7 @@ export function assertOwnStorageUrl(url: string, uid: string, folder: StorageFol
     uid,
     folder,
     bucket: config.firebase.storageBucket,
-    // A `demo-` project id is emulator-only by Firebase's own rule, so this
-    // can never loosen the check against the live bucket.
-    emulator: config.firebase.projectId.startsWith('demo-'),
+    emulatorHost: config.firebase.storageEmulatorHost,
   });
   if (!own) throw errors.badRequest('Upload the photo again.');
 }

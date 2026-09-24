@@ -15,3 +15,38 @@
  * database lives only on the backend (see `platform-time.ts`).
  */
 export const PLATFORM_TIMEZONE = 'Africa/Cairo';
+
+/**
+ * `instant`'s calendar date in `PLATFORM_TIMEZONE`, as a `Date` whose *local*
+ * year/month/day are Cairo's — for code that reads `Date`'s local getters
+ * (`getFullYear`/`getMonth`/`getDate`) and needs Cairo's "today" rather than
+ * the caller's own, such as the registration age check: a UTC server crosses
+ * into Cairo's next day 2-3 hours before its own midnight (Cairo runs
+ * UTC+2/+3 with DST), and `new Date()` alone would refuse someone turning 18
+ * today for those hours.
+ *
+ * Uses `Intl.DateTimeFormat` rather than a timezone-database package (compare
+ * `platform-time.ts`, backend-only, which needs real DST arithmetic for
+ * booking times) — a calendar date needs no arithmetic, just formatting, and
+ * every JS engine this app ships on (Node; Hermes since it began bundling
+ * full ICU) resolves `Africa/Cairo` correctly.
+ */
+export function platformToday(instant: Date = new Date()): Date {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: PLATFORM_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(instant);
+    const part = (type: 'year' | 'month' | 'day'): number =>
+      Number(parts.find((p) => p.type === type)?.value);
+    const today = new Date(part('year'), part('month') - 1, part('day'));
+    if (!Number.isNaN(today.getTime())) return today;
+  } catch {
+    // An engine without time-zone support falls through to its own calendar
+    // date — at worst a few hours off at midnight, never a crash on the
+    // registration screen that calls this.
+  }
+  return new Date(instant.getFullYear(), instant.getMonth(), instant.getDate());
+}

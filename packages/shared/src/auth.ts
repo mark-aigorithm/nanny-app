@@ -7,6 +7,7 @@ import {
   WeeklyScheduleSchema,
   idTypeRequiresBack,
 } from './nanny';
+import { platformToday } from './platform';
 
 // ──────────────────────────────────────────────────────────────
 // Auth — shared Zod schemas
@@ -98,8 +99,12 @@ const INVALID_DOB_MESSAGE = 'Please enter a valid date of birth.';
  * Whole years between an ISO `YYYY-MM-DD` birth date and `today`'s calendar
  * date, turning over on the birthday itself. Null for anything that is not a
  * real date — `2001-02-30` included, which `new Date` would quietly roll over.
+ *
+ * Defaults `today` to Cairo's calendar date, not the caller's clock — see
+ * `platformToday` — so a server running in UTC doesn't refuse someone turning
+ * 18 today in the one market this app serves.
  */
-export function ageOn(dateOfBirth: string, today: Date = new Date()): number | null {
+export function ageOn(dateOfBirth: string, today: Date = platformToday()): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
   if (!match) return null;
   const year = Number(match[1]);
@@ -123,14 +128,14 @@ export function ageOn(dateOfBirth: string, today: Date = new Date()): number | n
  * upper bound. On 29 February it is 28 February, since the target year has no
  * leap day and `new Date` would roll forward into March (one day too young).
  */
-export function latestAllowedDob(today: Date = new Date()): Date {
+export function latestAllowedDob(today: Date = platformToday()): Date {
   const latest = new Date(today.getFullYear() - MIN_REGISTRATION_AGE, today.getMonth(), today.getDate());
   if (latest.getMonth() !== today.getMonth()) latest.setDate(0);
   return latest;
 }
 
 /** What is wrong with a birth date, in the words both the app and the API show — or null. */
-export function dateOfBirthError(dateOfBirth: string, today: Date = new Date()): string | null {
+export function dateOfBirthError(dateOfBirth: string, today: Date = platformToday()): string | null {
   const age = ageOn(dateOfBirth, today);
   if (age === null || age < 0 || age > MAX_REGISTRATION_AGE) return INVALID_DOB_MESSAGE;
   if (age < MIN_REGISTRATION_AGE) return UNDERAGE_MESSAGE;

@@ -19,6 +19,13 @@ const ConfigSchema = z.object({
   // Firebase Storage bucket that holds uploaded ID documents / photos. Used
   // server-side to delete rejected ID images. Defaults to the app's bucket.
   FIREBASE_STORAGE_BUCKET: z.string().min(1).default('nanny-now-d8518.firebasestorage.app'),
+  // Host of a *Storage* emulator (e.g. "10.0.2.2:9199" from an Android
+  // emulator), distinct from FIREBASE_AUTH_EMULATOR_HOST above. Set only by
+  // the test stack. When present, `lib/storage-url.ts` accepts an upload URL
+  // from this host on the object path alone, since an emulator build's
+  // download URLs don't carry the real bucket name. Refused below in
+  // production so that relaxation can never reach the live bucket.
+  FIREBASE_STORAGE_EMULATOR_HOST: z.string().optional(),
 
   // Paymob unified (intention) API — all optional; feature enabled only when complete.
   PAYMOB_SECRET_KEY: z.string().optional(),
@@ -78,6 +85,15 @@ if (!parsed.success) {
 }
 
 const raw = parsed.data;
+
+// The path-only upload-ownership relaxation (see storage-url.ts) must be
+// impossible in production, however this got set — a stray env var must not
+// quietly loosen the check against the live bucket.
+if (raw.NODE_ENV === 'production' && raw.FIREBASE_STORAGE_EMULATOR_HOST) {
+  throw new Error(
+    'FIREBASE_STORAGE_EMULATOR_HOST must not be set in production — it relaxes the upload-URL ownership check to path-only matching.',
+  );
+}
 
 function buildPaymobConfig():
   | { enabled: false }
@@ -182,6 +198,7 @@ export const config = {
     // into real newlines for the Firebase SDK.
     privateKey: raw.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     storageBucket: raw.FIREBASE_STORAGE_BUCKET,
+    storageEmulatorHost: raw.FIREBASE_STORAGE_EMULATOR_HOST,
     webApiKey: raw.FIREBASE_WEB_API_KEY ?? '',
   },
   paymob: buildPaymobConfig(),
