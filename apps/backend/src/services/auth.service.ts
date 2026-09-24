@@ -133,11 +133,25 @@ function assertFirebaseVerifiedEmail(decoded: DecodedIdToken, email: string): vo
 }
 
 /**
+ * The phone on a new account must be the one this Firebase account verified.
+ * `phone_number` only appears on the ID token after Firebase checked an SMS
+ * code for it — both wizards link the phone before calling /auth/register —
+ * so a caller cannot claim a number it never proved. Without this, any
+ * Firebase account (a Google-only one, say) could create a row holding
+ * someone else's not-yet-registered number, and `users.phone` is unique.
+ */
+function assertFirebaseVerifiedPhone(decoded: DecodedIdToken, phone: string): void {
+  if (!decoded.phone_number || decoded.phone_number !== phone) {
+    throw errors.badRequest('Please verify your phone number before finishing sign-up.');
+  }
+}
+
+/**
  * Creates the application User row for a freshly-created Firebase account.
- * The mobile client calls this immediately after `createUserWithEmailAndPassword`
- * + phone verification, passing the profile data collected by the registration
- * wizard. Idempotent: if a row with this `firebaseUid` already exists (e.g. the
- * client retried), returns the existing row instead of erroring.
+ * The mobile client calls this at the end of the registration wizard, once the
+ * verified phone is linked onto the Firebase account, passing the profile data
+ * the wizard collected. Idempotent: if a row with this `firebaseUid` already
+ * exists (e.g. the client retried), returns the existing row instead of erroring.
  */
 export async function registerUser(
   decoded: DecodedIdToken,
@@ -152,6 +166,10 @@ export async function registerUser(
     }
     return toUserResponse(existing, await flatLocationOf(existing.id));
   }
+
+  // Before the collision lookup, so an unverified number learns nothing about
+  // who holds it.
+  assertFirebaseVerifiedPhone(decoded, body.phone);
 
   // Collision check (different Firebase UID, same email or phone) — the same
   // lookup step 1 of the wizard ran, so this only fires if the value was taken
@@ -193,12 +211,11 @@ export async function registerUser(
         // Proven either way: the token above was spent for this address, or
         // Firebase's own token vouched for it.
         isEmailVerified: true,
-        // Phone is verified server-side via the Firebase token's phone_number
-        // claim. If the mobile client linked the phone before calling /register,
-        // the token contains it.
-        isPhoneVerified: !!decoded.phone_number,
+        // Proven: assertFirebaseVerifiedPhone matched it to the token's
+        // phone_number claim above.
+        isPhoneVerified: true,
         emailVerifiedAt: new Date(),
-        phoneVerifiedAt: decoded.phone_number ? new Date() : null,
+        phoneVerifiedAt: new Date(),
         termsAcceptedAt: new Date(),
         termsAcceptedVersion: body.termsAcceptedVersion,
         lastLoginAt: new Date(),

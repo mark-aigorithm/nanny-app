@@ -25,12 +25,21 @@ export const TEST_PASSWORD = 'test-password-123';
  * Creates a Firebase account in the emulator and returns its uid.
  * Mirrors what `/auth/register` relies on having already happened: the app's
  * own flow always has a Firebase user before a DB row exists.
+ *
+ * Pass `phoneNumber` for an account about to call `/auth/register`: the app
+ * links the verified phone before it registers, and the backend refuses any
+ * number the ID token's `phone_number` claim doesn't carry.
  */
 export async function createEmulatorUser(
   email: string,
   password: string = TEST_PASSWORD,
+  phoneNumber?: string,
 ): Promise<string> {
-  const user = await firebaseAuth.createUser({ email, password });
+  const user = await firebaseAuth.createUser({
+    email,
+    password,
+    ...(phoneNumber ? { phoneNumber } : {}),
+  });
   return user.uid;
 }
 
@@ -105,11 +114,25 @@ export async function exchangeCustomToken(customToken: string): Promise<string> 
  * Google ID token and creates the account on first use — exactly the state the
  * app is in after `signInWithCredential(GoogleAuthProvider.credential(...))`
  * for someone new: a Firebase user holding Google's address, and no row.
+ *
+ * Pass `phoneNumber` for the state step 3 of the social wizard leaves behind:
+ * the verified phone linked onto that Google account, and a fresh ID token
+ * carrying it (the app calls `getIdToken(true)` after linking).
  */
 export async function signInWithGoogleAs(
   email: string,
-  { emailVerified = true }: { emailVerified?: boolean } = {},
+  { emailVerified = true, phoneNumber }: { emailVerified?: boolean; phoneNumber?: string } = {},
 ): Promise<string> {
+  const idToken = await googleIdpSignIn(email, emailVerified);
+  if (!phoneNumber) return idToken;
+
+  const { uid } = await firebaseAuth.verifyIdToken(idToken);
+  await firebaseAuth.updateUser(uid, { phoneNumber });
+  // A new sign-in mints a token that carries the phone just linked.
+  return googleIdpSignIn(email, emailVerified);
+}
+
+async function googleIdpSignIn(email: string, emailVerified: boolean): Promise<string> {
   const claims = JSON.stringify({ sub: `google-${email}`, email, email_verified: emailVerified });
   const response = await fetch(`${IDENTITY_TOOLKIT}/accounts:signInWithIdp?key=${API_KEY}`, {
     method: 'POST',

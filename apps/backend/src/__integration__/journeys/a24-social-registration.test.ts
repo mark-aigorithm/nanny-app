@@ -41,7 +41,7 @@ describe('A24 — social registration', () => {
   it('registers a Google sign-up that brings no token, starting out verified', async () => {
     const email = uniqueEmail();
     const phone = uniquePhone();
-    const idToken = await signInWithGoogleAs(email);
+    const idToken = await signInWithGoogleAs(email, { phoneNumber: phone });
 
     const response = await request(app)
       .post('/auth/register')
@@ -50,6 +50,7 @@ describe('A24 — social registration', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.data.isEmailVerified).toBe(true);
+    expect(response.body.data.isPhoneVerified).toBe(true);
     const row = await prisma.user.findUniqueOrThrow({ where: { phone } });
     expect(row.email).toBe(email);
     expect(row.emailVerifiedAt).not.toBeNull();
@@ -57,7 +58,7 @@ describe('A24 — social registration', () => {
 
   it('refuses an address other than the one Google verified', async () => {
     const phone = uniquePhone();
-    const idToken = await signInWithGoogleAs(uniqueEmail());
+    const idToken = await signInWithGoogleAs(uniqueEmail(), { phoneNumber: phone });
 
     const response = await request(app)
       .post('/auth/register')
@@ -65,13 +66,14 @@ describe('A24 — social registration', () => {
       .send(registrationBody(uniqueEmail(), phone));
 
     expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/verify your email address/);
     expect(await prisma.user.count({ where: { phone } })).toBe(0);
   });
 
   it('refuses when the provider did not verify the address', async () => {
     const email = uniqueEmail();
     const phone = uniquePhone();
-    const idToken = await signInWithGoogleAs(email, { emailVerified: false });
+    const idToken = await signInWithGoogleAs(email, { emailVerified: false, phoneNumber: phone });
 
     const response = await request(app)
       .post('/auth/register')
@@ -79,6 +81,39 @@ describe('A24 — social registration', () => {
       .send(registrationBody(email, phone));
 
     expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/verify your email address/);
     expect(await prisma.user.count({ where: { phone } })).toBe(0);
+  });
+  it('refuses a Google-only account whose phone was never verified', async () => {
+    // The squatting case: no phone linked, so the token carries no phone_number,
+    // and nobody may claim a number — someone else's, say — without proving it.
+    const email = uniqueEmail();
+    const phone = uniquePhone();
+    const idToken = await signInWithGoogleAs(email);
+
+    const response = await request(app)
+      .post('/auth/register')
+      .set(...authHeader(idToken))
+      .send(registrationBody(email, phone));
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/verify your phone number/);
+    expect(await prisma.user.count({ where: { phone } })).toBe(0);
+  });
+
+  it('refuses a number other than the one linked to the account', async () => {
+    const email = uniqueEmail();
+    const linked = uniquePhone();
+    const idToken = await signInWithGoogleAs(email, { phoneNumber: linked });
+    const other = '+201099990123';
+
+    const response = await request(app)
+      .post('/auth/register')
+      .set(...authHeader(idToken))
+      .send(registrationBody(email, other));
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/verify your phone number/);
+    expect(await prisma.user.count({ where: { phone: other } })).toBe(0);
   });
 });

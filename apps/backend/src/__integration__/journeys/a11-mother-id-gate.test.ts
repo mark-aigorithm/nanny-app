@@ -29,7 +29,9 @@ const ID_BACK = 'https://storage.example.test/id-back.jpg';
  */
 async function registerMother() {
   const email = `gate-${process.pid}-${Date.now()}@test.local`;
-  await createEmulatorUser(email);
+  // The wizard links her verified phone before registering, so the token carries it.
+  const phone = `+2011${String(Date.now()).slice(-8)}`;
+  await createEmulatorUser(email, undefined, phone);
   const token = await signInAs(email);
   const emailVerificationToken = await proveEmail(email);
 
@@ -41,7 +43,7 @@ async function registerMother() {
       lastName: 'Tester',
       email,
       emailVerificationToken,
-      phone: `+2011${String(Date.now()).slice(-8)}`,
+      phone,
       dateOfBirth: '1992-04-01',
       role: 'MOTHER',
       termsAcceptedVersion: '1.0',

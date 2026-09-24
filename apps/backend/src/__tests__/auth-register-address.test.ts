@@ -39,7 +39,8 @@ const mockPrisma = prisma as unknown as {
   $transaction: jest.Mock;
 };
 
-const DECODED = { uid: 'fb-1', phone_number: '+201000000000' } as never;
+// The mother's own number: registration requires the phone Firebase verified.
+const DECODED = { uid: 'fb-1', phone_number: '+201004455667' } as never;
 
 const MOTHER_BODY: RegisterRequest = {
   firstName: 'Layla',

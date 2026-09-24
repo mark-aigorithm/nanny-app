@@ -40,6 +40,8 @@ const FREE_PHONE = '+201000000002';
 
 /** A fresh Firebase uid — no existing row for it, so registration proceeds to the collision checks. */
 const DECODED = { uid: 'fb-new', phone_number: FREE_PHONE } as never;
+/** She verified a number that already belongs to an account. */
+const DECODED_TAKEN_PHONE = { uid: 'fb-new', phone_number: TAKEN_PHONE } as never;
 
 const MOTHER_BODY: RegisterRequest = {
   firstName: 'Layla',
@@ -121,7 +123,8 @@ describe('registerUser still refuses what checkAvailability reports as taken', (
   });
 
   it('409s on a taken phone, with the same message step 1 shows', async () => {
-    const err = await registerUser(DECODED, { ...MOTHER_BODY, phone: TAKEN_PHONE }).catch(
+    // She verified the number — it simply belongs to an account already.
+    const err = await registerUser(DECODED_TAKEN_PHONE, { ...MOTHER_BODY, phone: TAKEN_PHONE }).catch(
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(AppError);
@@ -131,7 +134,7 @@ describe('registerUser still refuses what checkAvailability reports as taken', (
   });
 
   it('names the email first when both are taken', async () => {
-    const err = await registerUser(DECODED, {
+    const err = await registerUser(DECODED_TAKEN_PHONE, {
       ...MOTHER_BODY,
       email: TAKEN_EMAIL,
       phone: TAKEN_PHONE,

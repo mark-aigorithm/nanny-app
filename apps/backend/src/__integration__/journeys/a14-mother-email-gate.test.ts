@@ -46,7 +46,8 @@ function uniqueEmail(): string {
 async function registerMother(overrides: { email?: string; token?: string | null } = {}) {
   const phone = uniquePhone();
   const placeholder = placeholderEmail(phone);
-  await createEmulatorUser(placeholder);
+  // Her phone is linked (verified) before she registers, so the token carries it.
+  await createEmulatorUser(placeholder, undefined, phone);
   const idToken = await signInAs(placeholder);
 
   const email = overrides.email ?? uniqueEmail();

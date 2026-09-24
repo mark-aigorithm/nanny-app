@@ -29,7 +29,9 @@ const AVATAR = 'https://storage.example.test/nanny-avatar.jpg';
 async function registerNanny(lastName = 'Candidate') {
   const email = `nanny-reg-${process.pid}-${Date.now()}@test.local`;
   const emailVerificationToken = await proveEmail(email);
-  await createEmulatorUser(email);
+  // The wizard links her verified phone before registering, so the token carries it.
+  const phone = `+2012${String(Date.now()).slice(-8)}`;
+  await createEmulatorUser(email, undefined, phone);
   const token = await signInAs(email);
 
   const response = await request(app)
@@ -40,7 +42,7 @@ async function registerNanny(lastName = 'Candidate') {
       firstName: 'Newly',
       lastName,
       email,
-      phone: `+2012${String(Date.now()).slice(-8)}`,
+      phone,
       dateOfBirth: '1995-06-15',
       role: 'NANNY',
       termsAcceptedVersion: '1.0',

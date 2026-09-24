@@ -50,6 +50,9 @@ const mockConsumeToken = consumeVerificationToken as jest.Mock;
 const DECODED = { uid: 'fb-1', email_verified: true, phone_number: '+201000000000' } as never;
 /** A Firebase token for an address Firebase itself has not verified — the normal case. */
 const DECODED_UNVERIFIED = { uid: 'fb-1', phone_number: '+201000000000' } as never;
+/** The same two tokens for the mother's number — the phone must match the one Firebase verified. */
+const DECODED_MOTHER = { uid: 'fb-1', email_verified: true, phone_number: '+201004455667' } as never;
+const DECODED_MOTHER_UNVERIFIED = { uid: 'fb-1', phone_number: '+201004455667' } as never;
 
 /** Echo the created user row back so toUserResponse can serialise it. */
 function userRowFromData(data: Record<string, unknown>) {
@@ -189,7 +192,7 @@ describe('registerUser — nanny profile population', () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
-    const res = await registerUser(DECODED, MOTHER_BODY);
+    const res = await registerUser(DECODED_MOTHER, MOTHER_BODY);
 
     const userData = tx.user.create.mock.calls[0][0].data;
     expect(userData.avatarUrl).toBeNull();
@@ -227,7 +230,7 @@ describe('registerUser — email verification token', () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
-    await registerUser(DECODED_UNVERIFIED, MOTHER_BODY);
+    await registerUser(DECODED_MOTHER_UNVERIFIED, MOTHER_BODY);
 
     expect(mockConsumeToken).toHaveBeenCalledWith(MOTHER_BODY.email, 'b'.repeat(64), tx);
     const userData = tx.user.create.mock.calls[0][0].data;
@@ -294,7 +297,12 @@ describe('registerUser — Google/Apple sign-up without a token', () => {
   });
 
   it('refuses when the verified address is not the one being registered', async () => {
-    const decoded = { uid: 'fb-1', email: 'someone-else@example.com', email_verified: true } as never;
+    const decoded = {
+      uid: 'fb-1',
+      email: 'someone-else@example.com',
+      email_verified: true,
+      phone_number: '+201004455667',
+    } as never;
 
     await expect(registerUser(decoded, MOTHER_NO_TOKEN)).rejects.toThrow(
       'Please verify your email address before finishing sign-up.',
@@ -303,7 +311,7 @@ describe('registerUser — Google/Apple sign-up without a token', () => {
   });
 
   it('refuses when the token carries no email at all', async () => {
-    const decoded = { uid: 'fb-1', email_verified: true } as never;
+    const decoded = { uid: 'fb-1', email_verified: true, phone_number: '+201004455667' } as never;
 
     await expect(registerUser(decoded, MOTHER_NO_TOKEN)).rejects.toThrow(
       'Please verify your email address before finishing sign-up.',
@@ -317,5 +325,64 @@ describe('registerUser — Google/Apple sign-up without a token', () => {
     await registerUser(DECODED_GOOGLE, MOTHER_BODY);
 
     expect(mockConsumeToken).toHaveBeenCalledWith(MOTHER_BODY.email, 'b'.repeat(64), tx);
+  });
+});
+
+describe('registerUser — the phone must be the one Firebase verified', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+  });
+
+  it('records the phone as verified when the token carries this exact number', async () => {
+    const tx = makeTx();
+    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
+
+    const res = await registerUser(
+      { uid: 'fb-1', phone_number: MOTHER_BODY.phone } as never,
+      MOTHER_BODY,
+    );
+
+    const userData = tx.user.create.mock.calls[0][0].data;
+    expect(userData.phone).toBe(MOTHER_BODY.phone);
+    expect(userData.isPhoneVerified).toBe(true);
+    expect(userData.phoneVerifiedAt).toBeInstanceOf(Date);
+    expect(res.isPhoneVerified).toBe(true);
+  });
+
+  it('refuses a token with no verified phone — e.g. a Google-only account', async () => {
+    await expect(
+      registerUser({ uid: 'fb-1', email: 'layla@example.com', email_verified: true } as never, MOTHER_BODY),
+    ).rejects.toThrow('Please verify your phone number before finishing sign-up.');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockConsumeToken).not.toHaveBeenCalled();
+  });
+
+  it('refuses a number other than the one Firebase verified', async () => {
+    await expect(
+      registerUser({ uid: 'fb-1', phone_number: '+201111111111' } as never, MOTHER_BODY),
+    ).rejects.toThrow('Please verify your phone number before finishing sign-up.');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('checks the phone before the collision lookup, so an unverified number learns nothing', async () => {
+    await expect(
+      registerUser({ uid: 'fb-1', phone_number: '+201111111111' } as never, MOTHER_BODY),
+    ).rejects.toThrow('Please verify your phone number before finishing sign-up.');
+    // Only the idempotency lookup by firebaseUid ran — no email/phone owner lookups.
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { firebaseUid: 'fb-1' } });
+  });
+
+  it('still returns an existing row on a retry, before any phone check', async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      ...userRowFromData({ email: MOTHER_BODY.email, phone: MOTHER_BODY.phone, firstName: 'Layla', lastName: 'Mostafa' }),
+      deletedAt: null,
+    });
+
+    const res = await registerUser({ uid: 'fb-1' } as never, MOTHER_BODY);
+
+    expect(res.email).toBe(MOTHER_BODY.email);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });

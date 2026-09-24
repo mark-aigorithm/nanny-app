@@ -27,6 +27,8 @@ const mockPrisma = prisma as unknown as {
 };
 
 const DECODED = { uid: 'fb-1', email_verified: true, phone_number: '+201000000000' } as never;
+/** The mother's token: registration requires the phone Firebase verified. */
+const DECODED_MOTHER = { uid: 'fb-1', email_verified: true, phone_number: '+201004455667' } as never;
 
 /** Echo the created user row back so toUserResponse can serialise it. */
 function userRowFromData(data: Record<string, unknown>) {
@@ -137,7 +139,7 @@ describe('registerUser — ID verification defaults', () => {
     };
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
-    const res = await registerUser(DECODED, MOTHER_BODY);
+    const res = await registerUser(DECODED_MOTHER, MOTHER_BODY);
 
     const created = tx.user.create.mock.calls[0][0].data;
     expect(created.approvalStatus).toBe('PENDING_ID');
