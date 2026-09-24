@@ -1,5 +1,5 @@
 import { auth } from '@mobile/lib/firebase';
-import type { AuthCredential } from '@mobile/lib/firebase';
+import type { AuthCredential, FirebaseUser } from '@mobile/lib/firebase';
 import { getSocialCredential, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
@@ -68,6 +68,29 @@ export async function linkPendingCredential(): Promise<void> {
 }
 
 /**
+ * Deletes the throwaway social account. `delete()` needs a recent sign-in
+ * (about five minutes), and a collision found at step 3 comes after the whole
+ * wizard, so a `requires-recent-login` refusal is answered by re-proving the
+ * sign-in with the same Google/Apple credential and deleting once more.
+ * Resolves whether the account is gone; never throws.
+ */
+async function deleteThrowawayAccount(user: FirebaseUser, credential: AuthCredential): Promise<boolean> {
+  try {
+    await user.delete();
+    return true;
+  } catch (error) {
+    if ((error as { code?: unknown })?.code !== 'auth/requires-recent-login') return false;
+  }
+  try {
+    await user.reauthenticateWithCredential(credential);
+    await user.delete();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Collision B: a social sign-up ran into an account that already exists (its
  * phone or email is taken). Delete the Google/Apple-only account this sign-up
  * created — which frees the identity to be linked onto the real account —
@@ -75,39 +98,34 @@ export async function linkPendingCredential(): Promise<void> {
  * sign in, where `phoneHint` prefills the number they typed.
  *
  * Only ever called from inside the social wizard, which starts only after
- * `/auth/me` returned 404 — so the signed-in account has no row. Both halves
- * of that guard are checked here before deleting anything: the draft's own
- * `authProvider`/`socialCredential` prove a 404 actually happened during
- * *this* social sign-in (useSocialSignIn is the only place that sets them),
- * and the account's `providerData` proves it is still social-only. Either
- * one failing means this is not the throwaway account this flow created, so
- * it is signed out, never deleted.
+ * `/auth/me` returned 404 — so the signed-in account has no row. That is
+ * checked here before anything is deleted or parked: the signed-in uid must be
+ * the draft's `socialUid`, which useSocialSignIn records only when it sees
+ * that 404, alongside the `authProvider`/`socialCredential` it seeds. Anything
+ * else — nobody signed in, or someone other than the account this sign-up
+ * created — means the draft is stale (possibly another person's, on a shared
+ * device), so the account is signed out, nothing is parked, and the draft is
+ * dropped. On top of that, the account is deleted only while its
+ * `providerData` is still social-only; otherwise it is signed out instead.
  */
 export async function abandonSocialSignUpForLink(phoneHint: string | null): Promise<void> {
   const draft = useRegistrationDraftStore.getState();
-  const { authProvider, socialCredential } = draft;
+  const { authProvider, socialCredential, socialUid } = draft;
   const user = auth().currentUser;
-  const draftProvesSocialSignUp = authProvider !== 'phone' && socialCredential !== null;
 
-  if (user) {
-    const socialOnly =
-      draftProvesSocialSignUp &&
-      user.providerData.length > 0 &&
-      user.providerData.every((p) => p.providerId === 'google.com' || p.providerId === 'apple.com');
-    let deleted = false;
-    if (socialOnly) {
-      try {
-        await user.delete();
-        deleted = true;
-      } catch {
-        // Fall through to signing out.
-      }
-    }
-    if (!deleted) await auth().signOut().catch(() => undefined);
+  if (!user || authProvider === 'phone' || !socialCredential || !socialUid || user.uid !== socialUid) {
+    usePendingLinkStore.getState().clear();
+    if (user) await auth().signOut().catch(() => undefined);
+    draft.reset();
+    return;
   }
 
-  if (authProvider !== 'phone' && socialCredential) {
-    usePendingLinkStore.getState().set({ provider: authProvider, credential: socialCredential, phoneHint });
-  }
+  const socialOnly =
+    user.providerData.length > 0 &&
+    user.providerData.every((p) => p.providerId === 'google.com' || p.providerId === 'apple.com');
+  const deleted = socialOnly && (await deleteThrowawayAccount(user, socialCredential));
+  if (!deleted) await auth().signOut().catch(() => undefined);
+
+  usePendingLinkStore.getState().set({ provider: authProvider, credential: socialCredential, phoneHint });
   draft.reset();
 }

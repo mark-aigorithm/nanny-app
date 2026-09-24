@@ -137,6 +137,15 @@ export const styles = StyleSheet.create({
   socialSection: {
     gap: spacing.lg,
   },
+  // "Use a different sign-up method", in place of the social buttons.
+  differentMethodRow: {
+    alignItems: 'center',
+  },
+  differentMethodLink: {
+    ...typeScale.labelMd,
+    fontFamily: fontFamily.bold,
+    color: colors.primaryDark,
+  },
 
   // "Already have an account?" divider
   dividerRow: {

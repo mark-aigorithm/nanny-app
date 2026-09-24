@@ -35,6 +35,7 @@ import { api } from '@mobile/lib/api';
 import { auth } from '@mobile/lib/firebase';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 const mockDelete = api.delete as jest.Mock;
@@ -82,6 +83,7 @@ describe('useSignOut', () => {
     (GoogleSignin.signOut as jest.Mock).mockClear();
     useUserProfileStore.setState({ profile: null });
     usePendingLinkStore.getState().clear();
+    useRegistrationDraftStore.getState().reset();
   });
 
   afterEach(() => {
@@ -169,5 +171,38 @@ describe('useSignOut', () => {
 
     expect(GoogleSignin.signOut).toHaveBeenCalledTimes(1);
     expect(usePendingLinkStore.getState().pending).toBeNull();
+  });
+
+  it('drops an unfinished social sign-up, so it cannot follow the next person in', async () => {
+    withNativePush(false);
+    useRegistrationDraftStore.getState().patch({
+      authProvider: 'google',
+      socialCredential: { providerId: 'google.com', token: 't', secret: '' } as never,
+      socialUid: 'uid-social',
+      email: 'mona@gmail.com',
+    });
+    const { result } = renderSignOut();
+
+    await result.current.mutateAsync();
+
+    expect(useRegistrationDraftStore.getState()).toMatchObject({
+      authProvider: 'phone',
+      socialCredential: null,
+      socialUid: null,
+      email: '',
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('drops the draft even when the sign-out call itself fails', async () => {
+    withNativePush(false);
+    mockSignOut.mockRejectedValue({ code: 'auth/network-request-failed' });
+    useRegistrationDraftStore.getState().patch({ authProvider: 'apple', socialUid: 'uid-social' });
+    const { result } = renderSignOut();
+
+    await expect(result.current.mutateAsync()).rejects.toMatchObject({ field: 'form' });
+
+    expect(useRegistrationDraftStore.getState().authProvider).toBe('phone');
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockPush = jest.fn();
@@ -8,6 +8,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
+import { auth } from '@mobile/lib/firebase';
 import RoleSelectionScreen from '@mobile/screens/auth/RoleSelectionScreen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 
@@ -26,14 +27,18 @@ function halfTypedMotherDraft() {
 }
 
 // The screen now renders SocialAuthButtons, whose useSocialSignIn needs a
-// QueryClientProvider.
-function renderScreen() {
+// QueryClientProvider. Rendering also starts async work that sets state once
+// it lands — Ionicons' font load, SocialAuthButtons' Apple check — so let it
+// settle inside act() before the test goes on.
+async function renderScreen() {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  return render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
       <RoleSelectionScreen />
     </QueryClientProvider>,
   );
+  await act(async () => {});
+  return rendered;
 }
 
 beforeEach(() => {
@@ -42,9 +47,9 @@ beforeEach(() => {
 });
 
 describe('RoleSelectionScreen', () => {
-  it('throws a half-typed draft away when a different role is chosen', () => {
+  it('throws a half-typed draft away when a different role is chosen', async () => {
     halfTypedMotherDraft();
-    const { getByText } = renderScreen();
+    const { getByText } = await renderScreen();
 
     fireEvent.press(getByText("I'm a nanny"));
     fireEvent.press(getByText('Sign up as a nanny'));
@@ -64,9 +69,9 @@ describe('RoleSelectionScreen', () => {
     });
   });
 
-  it('starts every attempt from a clean draft, even for the same role', () => {
+  it('starts every attempt from a clean draft, even for the same role', async () => {
     halfTypedMotherDraft();
-    const { getByText } = renderScreen();
+    const { getByText } = await renderScreen();
 
     fireEvent.press(getByText("I'm a mother"));
     fireEvent.press(getByText('Sign up as a mother'));
@@ -77,21 +82,21 @@ describe('RoleSelectionScreen', () => {
     expect(draft.password).toBe('');
   });
 
-  it('does nothing until a role is picked', () => {
-    const { getByText } = renderScreen();
+  it('does nothing until a role is picked', async () => {
+    const { getByText } = await renderScreen();
     fireEvent.press(getByText('Continue'));
     expect(mockPush).not.toHaveBeenCalled();
     expect(useRegistrationDraftStore.getState().role).toBeNull();
   });
 
-  it('offers Google beside the role choice', () => {
-    const { getByText } = renderScreen();
+  it('offers Google beside the role choice', async () => {
+    const { getByText } = await renderScreen();
     expect(getByText('Continue with Google')).toBeTruthy();
   });
 
-  it('keeps a Google draft on Continue and hides the social buttons', () => {
+  it('keeps a Google draft on Continue and hides the social buttons', async () => {
     useRegistrationDraftStore.setState({ authProvider: 'google', email: 'mona@gmail.com', firstName: 'Mona' });
-    const { getByText, queryByText } = renderScreen();
+    const { getByText, queryByText } = await renderScreen();
 
     expect(
       getByText('Signed in with Google as mona@gmail.com. Tell us who you are to finish setting up.'),
@@ -108,5 +113,35 @@ describe('RoleSelectionScreen', () => {
       email: 'mona@gmail.com',
     });
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-1', params: { role: 'parent' } });
+  });
+
+  it('offers no way out of a social sign-up when there is none', async () => {
+    const { queryByText } = await renderScreen();
+    expect(queryByText('Use a different sign-up method')).toBeNull();
+  });
+
+  it('signs the Google account out and goes back to the phone sign-up, social buttons and all', async () => {
+    useRegistrationDraftStore.setState({
+      authProvider: 'google',
+      socialUid: 'uid-social',
+      email: 'mona@gmail.com',
+      firstName: 'Mona',
+    });
+    const { getByText, findByText, queryByText } = await renderScreen();
+
+    fireEvent.press(getByText('Use a different sign-up method'));
+
+    expect(await findByText('Continue with Google')).toBeTruthy();
+    expect(getByText('Tell us who you are so we can set up the right experience for you.')).toBeTruthy();
+    expect(queryByText('Use a different sign-up method')).toBeNull();
+    expect(auth().signOut).toHaveBeenCalledTimes(1);
+    expect(useRegistrationDraftStore.getState()).toMatchObject({
+      authProvider: 'phone',
+      socialUid: null,
+      email: '',
+      firstName: '',
+    });
+    // She stays here, now choosing a role for the phone sign-up.
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

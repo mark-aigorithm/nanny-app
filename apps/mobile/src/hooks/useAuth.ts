@@ -16,8 +16,10 @@ import type { FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/li
 import { api, getApiErrorMessage, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
+import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { signOutOfGoogle } from '@mobile/lib/socialAuth';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 /** Thrown whenever a phone number turns out to have no account behind it. */
@@ -51,7 +53,18 @@ async function discardPhoneOnlyAccount(user: FirebaseUser): Promise<void> {
   await auth().signOut().catch(() => undefined);
 }
 
-/** Signs in with the email/password credential. The secondary door. */
+/**
+ * Signs in with the email/password credential. The secondary door.
+ *
+ * Also completes a Google/Apple collision, if one brought her here — but only
+ * once `/auth/me` says the account has a row, as the SMS door requires. A
+ * password is not proof on its own: a phone wizard abandoned after its
+ * password step leaves a row-less account that signs in fine, and linking
+ * Google onto that would hand the identity to an account nothing recognizes.
+ * Any other answer drops the parked credential unlinked; the sign-in itself
+ * still resolves, and the root router signs a row-less account out, as it
+ * always has.
+ */
 export function useSignInWithEmail() {
   return useMutation<
     UserCredential,
@@ -59,11 +72,25 @@ export function useSignInWithEmail() {
     { email: string; password: string }
   >({
     mutationFn: async ({ email, password }) => {
+      let credential: UserCredential;
       try {
-        return await auth().signInWithEmailAndPassword(email.trim().toLowerCase(), password);
+        credential = await auth().signInWithEmailAndPassword(email.trim().toLowerCase(), password);
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }
+      // Whatever social sign-up was under way belonged to another session.
+      useRegistrationDraftStore.getState().reset();
+
+      let accountExists = false;
+      try {
+        await api.get('/auth/me');
+        accountExists = true;
+      } catch {
+        // No row, or no answer — either way, no proof.
+      }
+      if (accountExists) await linkPendingCredential();
+      else usePendingLinkStore.getState().clear();
+      return credential;
     },
   });
 }
@@ -110,6 +137,11 @@ export function useConfirmPhoneSignIn() {
           message: getApiErrorMessage(error, 'Could not sign you in. Please try again.'),
         } satisfies MappedAuthError;
       }
+
+      // Whatever social sign-up was under way belonged to another session.
+      // A parked collision credential lives in pendingLinkStore, not the
+      // draft, so the caller can still link it.
+      useRegistrationDraftStore.getState().reset();
     },
   });
 }
@@ -175,9 +207,11 @@ export function useSignOut() {
       // It never throws, so it cannot block or fail the sign-out itself.
       await unregisterPushToken();
       // A parked Google/Apple credential must never link onto whoever signs
-      // in next — cleared unconditionally, before the sign-out call, so it
-      // still holds even if that call throws.
+      // in next, and an unfinished social sign-up must never follow them in —
+      // both cleared unconditionally, before the sign-out call, so it still
+      // holds even if that call throws.
       usePendingLinkStore.getState().clear();
+      useRegistrationDraftStore.getState().reset();
       try {
         await auth().signOut();
       } catch (error) {
@@ -355,12 +389,21 @@ export function useSendPhoneLinkCode() {
  * so linking, failing and linking again would always be refused. A
  * `provider-already-linked` from that single link is therefore unexpected, and
  * is mapped like any other failure.
+ *
+ * `socialUid` is the draft's record of the account this social sign-up
+ * created. Anyone else signed in — say, a registered account that has signed
+ * in on this device since — is refused before anything is touched: the
+ * unlink above would otherwise strip that account's own phone.
  */
 export function useLinkPhoneToCurrentUser() {
-  return useMutation<void, MappedAuthError, { challenge: PhoneLinkChallenge; code: string; phone: string }>({
-    mutationFn: async ({ challenge, code, phone }) => {
+  return useMutation<
+    void,
+    MappedAuthError,
+    { challenge: PhoneLinkChallenge; code: string; phone: string; socialUid: string | null }
+  >({
+    mutationFn: async ({ challenge, code, phone, socialUid }) => {
       const user = auth().currentUser;
-      if (!user) {
+      if (!user || !socialUid || user.uid !== socialUid) {
         throw {
           field: 'form',
           message: 'Your session ended. Please continue with Google or Apple again.',

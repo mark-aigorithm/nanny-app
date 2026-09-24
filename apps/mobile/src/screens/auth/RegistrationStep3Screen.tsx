@@ -207,7 +207,12 @@ export default function RegistrationStep3Screen() {
           password: draft.password,
         });
       } else {
-        await linkPhone.mutateAsync({ challenge: challenge.link, code: otp, phone: phoneE164 });
+        await linkPhone.mutateAsync({
+          challenge: challenge.link,
+          code: otp,
+          phone: phoneE164,
+          socialUid: draft.socialUid,
+        });
       }
     } catch (error) {
       const err = error as MappedAuthError;

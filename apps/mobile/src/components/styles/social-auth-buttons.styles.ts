@@ -11,6 +11,12 @@ export const styles = StyleSheet.create({
     width: '100%',
     height: 56,
   },
+  // Stands in for Apple's button while a role is still to be picked.
+  hint: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
   error: {
     ...typeScale.bodySm,
     color: colors.error,

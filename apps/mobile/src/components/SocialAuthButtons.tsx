@@ -19,6 +19,7 @@ type SocialAuthButtonsProps = {
   context: 'sign-in' | 'sign-up';
   /** The role picked on "Create your account"; absent on sign-in. */
   role?: Role;
+  /** Set by "Create your account" until a role is picked. */
   disabled?: boolean;
 };
 
@@ -87,15 +88,20 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
         onPress={() => void start('google')}
         disabled={busy}
       />
-      {appleAvailable && (
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-          cornerRadius={borderRadius['2xl']}
-          style={styles.appleButton}
-          onPress={() => void start('apple')}
-        />
-      )}
+      {/* Apple's own button has no disabled look, so while disabled it would
+          seem tappable and do nothing — say what's missing instead. */}
+      {appleAvailable &&
+        (disabled ? (
+          <Text style={styles.hint}>Choose mother or nanny first to continue with Apple.</Text>
+        ) : (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={borderRadius['2xl']}
+            style={styles.appleButton}
+            onPress={() => void start('apple')}
+          />
+        ))}
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );

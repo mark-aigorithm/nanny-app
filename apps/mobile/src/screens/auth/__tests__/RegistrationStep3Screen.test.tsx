@@ -86,7 +86,7 @@ it('phone wizard: confirms, links the password, and registers with the email tok
 });
 
 it('Google wizard: links the phone onto the signed-in account and registers without a token', async () => {
-  seedMotherDraft({ authProvider: 'google' });
+  seedMotherDraft({ authProvider: 'google', socialUid: 'uid-social' });
   renderScreen();
   expect(mockSendLinkCode).toHaveBeenCalledWith({ phone: '+201234567891', forceResend: false }, expect.anything());
   expect(mockSendOtp).not.toHaveBeenCalled();
@@ -98,12 +98,14 @@ it('Google wizard: links the phone onto the signed-in account and registers with
     challenge: { verificationId: 'vid', autoVerified: false, code: null },
     code: '111111',
     phone: '+201234567891',
+    // So the hook can refuse any account but the one this sign-up created.
+    socialUid: 'uid-social',
   });
   expect(mockRegister.mock.calls[0][0]).not.toHaveProperty('emailVerificationToken');
 });
 
 it('Google wizard: a number that already has an account starts the collision flow', async () => {
-  seedMotherDraft({ authProvider: 'google' });
+  seedMotherDraft({ authProvider: 'google', socialUid: 'uid-social' });
   mockLinkPhone.mockRejectedValueOnce({
     field: 'phone',
     message: 'This phone number already has an account.',
@@ -119,7 +121,7 @@ it('Google wizard: a number that already has an account starts the collision flo
 });
 
 it('Google wizard: keeps Complete setup disabled while the collision hand-off runs', async () => {
-  seedMotherDraft({ authProvider: 'google' });
+  seedMotherDraft({ authProvider: 'google', socialUid: 'uid-social' });
   mockLinkPhone.mockRejectedValueOnce({
     field: 'phone',
     message: 'This phone number already has an account.',
@@ -155,7 +157,7 @@ describe('Google wizard on an Android instant verification', () => {
   });
 
   it('completes setup without a code to type', async () => {
-    seedMotherDraft({ authProvider: 'google' });
+    seedMotherDraft({ authProvider: 'google', socialUid: 'uid-social' });
     renderScreen();
 
     expect(screen.getByText('Your number was verified automatically.')).toBeTruthy();
@@ -165,11 +167,11 @@ describe('Google wizard on an Android instant verification', () => {
     fireEvent.press(screen.getByText('Complete setup'));
 
     await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
-    expect(mockLinkPhone).toHaveBeenCalledWith({ challenge: INSTANT, code: '', phone: '+201234567891' });
+    expect(mockLinkPhone).toHaveBeenCalledWith({ challenge: INSTANT, code: '', phone: '+201234567891', socialUid: 'uid-social' });
   });
 
   it('drops the spent verification after a failed link and points her at resend', async () => {
-    seedMotherDraft({ authProvider: 'google' });
+    seedMotherDraft({ authProvider: 'google', socialUid: 'uid-social' });
     mockLinkPhone.mockRejectedValueOnce({ field: 'form', message: 'Something went wrong. Please try again.' });
     renderScreen();
 

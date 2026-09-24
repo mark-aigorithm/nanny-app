@@ -24,6 +24,7 @@ jest.mock('@mobile/lib/firebase', () => ({
 }));
 
 import EmailSignInScreen from '../EmailSignInScreen';
+import { api } from '@mobile/lib/api';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 
 function renderScreen() {
@@ -112,5 +113,22 @@ it('connects a pending Google identity once signed in', async () => {
 
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   expect(mockLinkWithCredential).toHaveBeenCalledWith(credential);
+  expect(usePendingLinkStore.getState().pending).toBeNull();
+});
+
+it('does not connect a pending identity to a password account that has no row', async () => {
+  const credential = { providerId: 'google.com', token: 't', secret: '' };
+  usePendingLinkStore.getState().set({ provider: 'google', credential: credential as never, phoneHint: null });
+  mockSignInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  (api.get as jest.Mock).mockRejectedValueOnce({ isAxiosError: true, response: { status: 404, data: {} } });
+  renderScreen();
+
+  fireEvent.changeText(screen.getByTestId('emailSignIn.email'), 'mona@example.com');
+  fireEvent.changeText(screen.getByTestId('emailSignIn.password'), 'Password1');
+  fireEvent.press(screen.getByText('Sign in'));
+
+  // The root router signs a row-less account out, as it always has.
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  expect(mockLinkWithCredential).not.toHaveBeenCalled();
   expect(usePendingLinkStore.getState().pending).toBeNull();
 });

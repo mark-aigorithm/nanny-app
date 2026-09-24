@@ -15,6 +15,11 @@ export type RegistrationDraft = {
   // that a collision can move it into pendingLinkStore and link it onto the
   // existing account. In-memory only, like `password` below.
   socialCredential: AuthCredential | null;
+  // The Firebase uid that Google/Apple signed in as when `/auth/me` said 404:
+  // the account this social registration created. Collision B may delete
+  // only this account, and step 3 may link a phone onto no other. Set only by
+  // useSocialSignIn.
+  socialUid: string | null;
   // Step 1 — personal info
   firstName: string;
   lastName: string;
@@ -67,6 +72,7 @@ const INITIAL: RegistrationDraft = {
   role: null,
   authProvider: 'phone',
   socialCredential: null,
+  socialUid: null,
   firstName: '',
   lastName: '',
   phone: '',

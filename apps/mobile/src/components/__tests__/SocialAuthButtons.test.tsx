@@ -23,6 +23,21 @@ jest.mock('@mobile/lib/socialAuth', () => ({
   isAppleSignInAvailable: () => mockAppleAvailable(),
 }));
 
+// Apple's own button, as something a test can find and press. The global
+// stub renders nothing.
+jest.mock('expo-apple-authentication', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    AppleAuthenticationButtonType: { SIGN_IN: 0, CONTINUE: 1 },
+    AppleAuthenticationButtonStyle: { WHITE: 0, WHITE_OUTLINE: 1, BLACK: 2 },
+    AppleAuthenticationButton: ({ onPress }: { onPress: () => void }) =>
+      createElement(Text, { onPress }, 'Apple button'),
+  };
+});
+
+const APPLE_HINT = 'Choose mother or nanny first to continue with Apple.';
+
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 
 beforeEach(() => {
@@ -122,4 +137,34 @@ it('does not start while disabled', async () => {
 it('asks whether Apple is available', async () => {
   render(<SocialAuthButtons context="sign-in" />);
   await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
+});
+
+it("offers Apple's button when Apple is available", async () => {
+  mockAppleAvailable.mockResolvedValue(true);
+  mockOutcome = 'signed-in';
+  render(<SocialAuthButtons context="sign-in" />);
+
+  fireEvent.press(await screen.findByText('Apple button'));
+
+  expect(mockMutateAsync).toHaveBeenCalledWith({ provider: 'apple', role: undefined });
+  expect(screen.queryByText(APPLE_HINT)).toBeNull();
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+});
+
+// Apple's official button has no disabled look, so on "Create your account"
+// before a role is picked it looked tappable and did nothing.
+it('swaps the Apple button for a hint while disabled', async () => {
+  mockAppleAvailable.mockResolvedValue(true);
+  render(<SocialAuthButtons context="sign-up" disabled />);
+
+  expect(await screen.findByText(APPLE_HINT)).toBeTruthy();
+  expect(screen.queryByText('Apple button')).toBeNull();
+  // Google's button has a disabled look of its own, so it stays.
+  expect(screen.getByText('Continue with Google')).toBeTruthy();
+});
+
+it('shows no Apple hint where Apple is unavailable', async () => {
+  render(<SocialAuthButtons context="sign-up" disabled />);
+  await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
+  expect(screen.queryByText(APPLE_HINT)).toBeNull();
 });
