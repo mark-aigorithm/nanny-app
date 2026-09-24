@@ -13,6 +13,7 @@ jest.mock('@backend/db/prisma', () => ({
       count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }));
@@ -39,6 +40,7 @@ const m = prisma as unknown as {
     count: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    updateMany: jest.Mock;
   };
 };
 
@@ -77,6 +79,7 @@ beforeEach(() => {
   m.emailVerification.findFirst.mockResolvedValue(null);
   m.emailVerification.count.mockResolvedValue(0);
   m.emailVerification.update.mockImplementation(async () => ({ attempts: 1 }));
+  m.emailVerification.updateMany.mockResolvedValue({ count: 1 });
 });
 
 describe('sendEmailOtp', () => {
@@ -237,15 +240,22 @@ describe('consumeVerificationToken', () => {
   it('spends a live token', async () => {
     m.emailVerification.findFirst.mockResolvedValue(verifiedRow());
     await expect(consumeVerificationToken(EMAIL, TOKEN)).resolves.toBeUndefined();
-    expect(m.emailVerification.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { consumedAt: expect.any(Date) } }),
-    );
+    expect(m.emailVerification.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, consumedAt: null },
+      data: { consumedAt: expect.any(Date) },
+    });
+  });
+
+  it('refuses when a concurrent request spent the token first', async () => {
+    m.emailVerification.findFirst.mockResolvedValue(verifiedRow());
+    m.emailVerification.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(consumeVerificationToken(EMAIL, TOKEN)).rejects.toThrow('expired');
   });
 
   it('refuses a token already spent', async () => {
     m.emailVerification.findFirst.mockResolvedValue(verifiedRow({ consumedAt: new Date() }));
     await expect(consumeVerificationToken(EMAIL, TOKEN)).rejects.toThrow('expired');
-    expect(m.emailVerification.update).not.toHaveBeenCalled();
+    expect(m.emailVerification.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses a token issued for a different address', async () => {

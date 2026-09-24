@@ -289,8 +289,11 @@ export async function consumeVerificationToken(
     throw errors.badRequest(TOKEN_INVALID_MESSAGE);
   }
 
-  await client.emailVerification.update({
-    where: { id: row.id },
+  // Guarded on consumedAt so two concurrent requests can't both spend it:
+  // only the first write matches.
+  const spent = await client.emailVerification.updateMany({
+    where: { id: row.id, consumedAt: null },
     data: { consumedAt: new Date() },
   });
+  if (spent.count !== 1) throw errors.badRequest(TOKEN_INVALID_MESSAGE);
 }
