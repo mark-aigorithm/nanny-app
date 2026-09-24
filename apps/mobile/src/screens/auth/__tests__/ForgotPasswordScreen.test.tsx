@@ -220,3 +220,12 @@ it('drops an SMS-channel error when backing out to the channel choice', async ()
   expect(screen.getByText('Email me a reset link')).toBeTruthy();
   expect(screen.queryByText('Too many attempts. Try again in a few minutes.')).toBeNull();
 });
+
+it('falls back to the sign-in landing when there is nothing to go back to', () => {
+  mockCanGoBack.mockReturnValue(false);
+  renderScreen();
+
+  fireEvent.press(screen.getByLabelText('Back'));
+  expect(mockBack).not.toHaveBeenCalled();
+  expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+});

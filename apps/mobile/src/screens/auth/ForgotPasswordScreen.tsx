@@ -143,10 +143,12 @@ export default function ForgotPasswordScreen() {
       setFormError(null);
       return;
     }
+    // Opened with nothing underneath (a deep link): land on sign-in, the
+    // front door "Forgot password?" is reached from.
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(auth)/sign-in-email');
+      router.replace('/(auth)/sign-in');
     }
   }
 
