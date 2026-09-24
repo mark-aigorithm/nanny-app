@@ -376,3 +376,14 @@ it('phone wizard: a 409 from register is shown, not treated as a collision', asy
   await waitFor(() => expect(screen.getByText('An account with this email already exists.')).toBeTruthy());
   expect(mockAbandon).not.toHaveBeenCalled();
 });
+
+it('refuses a missing photo before the phone step, so the SMS code is not spent', async () => {
+  seedMotherDraft({ authProvider: 'phone', emailVerificationToken: 'tok', password: 'Passw0rd!', photoUri: null });
+  renderScreen();
+
+  completeSetup();
+
+  expect(await screen.findByText('Your profile photo is missing. Please go back and add it.')).toBeTruthy();
+  expect(mockConfirmPhone).not.toHaveBeenCalled();
+  expect(mockRegister).not.toHaveBeenCalled();
+});

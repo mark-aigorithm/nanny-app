@@ -261,6 +261,20 @@ export default function RegistrationStep3Screen() {
       return;
     }
 
+    // Every account brings the step-1 photo; a nanny also brings her ID (both
+    // sides for a national ID, front only for a passport). Checked before the
+    // phone step, which spends the SMS code, so a missing file can't cost her
+    // a code.
+    const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
+    if (apiRole === 'NANNY' && (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri))) {
+      setFormError('Your ID is missing. Please go back and upload it.');
+      return;
+    }
+    if (!draft.photoUri) {
+      setFormError('Your profile photo is missing. Please go back and add it.');
+      return;
+    }
+
     // 1. Put the verified phone on the Firebase account.
     // With the number already on the account there is no challenge, and the
     // hooks check that instead.
@@ -312,18 +326,7 @@ export default function RegistrationStep3Screen() {
 
     // 2. Upload the photos, now that the account is signed in
     // (uploadImageToFirebase files them under the uid) and before the profile
-    // is saved, so the URLs go out with the register request. Every account
-    // brings the step-1 photo; a nanny also brings her ID (both sides for a
-    // national ID, front only for a passport).
-    const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
-    if (apiRole === 'NANNY' && (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri))) {
-      setFormError('Your ID is missing. Please go back and upload it.');
-      return;
-    }
-    if (!draft.photoUri) {
-      setFormError('Your profile photo is missing. Please go back and add it.');
-      return;
-    }
+    // is saved, so the URLs go out with the register request.
     const photos = await uploadPhotos(draft.photoUri, apiRole === 'NANNY', needsBack);
     if (!photos) {
       setFormError(PHOTO_UPLOAD_FAILED_MESSAGE);
