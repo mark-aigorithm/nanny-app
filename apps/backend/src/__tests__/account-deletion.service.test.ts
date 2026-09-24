@@ -138,6 +138,8 @@ describe('deleteMe — refusals', () => {
     await expect(deleteMe(DECODED, CONFIRM)).rejects.toMatchObject({ statusCode: 409, message: BOOKINGS });
     expect(tx.booking.count).toHaveBeenCalledWith({
       where: {
+        // A soft-deleted booking is gone — it must not hold the account hostage.
+        deletedAt: null,
         status: { in: ['PENDING', 'APPROVED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS'] },
         OR: [{ motherId: 7 }],
       },

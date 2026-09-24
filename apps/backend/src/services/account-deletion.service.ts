@@ -88,6 +88,7 @@ export async function deleteMe(decoded: DecodedIdToken, body: DeleteMeRequest): 
   await prisma.$transaction(async (tx) => {
     const activeBookings = await tx.booking.count({
       where: {
+        deletedAt: null,
         status: { in: ACTIVE_BOOKING_STATUSES },
         OR: [{ motherId: row.id }, ...(nannyProfileId !== undefined ? [{ nannyProfileId }] : [])],
       },
