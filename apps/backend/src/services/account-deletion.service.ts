@@ -108,15 +108,17 @@ export async function deleteMe(decoded: DecodedIdToken, body: DeleteMeRequest): 
     });
   });
 
-  // After the commit. Any failure other than "already gone" surfaces as a 500
-  // so the client retries — and the retry lands in the no-row branch above.
-  await deleteFirebaseUser(decoded.uid);
-
-  // warn, so an Android deletion with Apple linked and no revoke shows up.
+  // Logged once the row is gone, before the Firebase step, so the record
+  // survives that step failing. warn, so an Android deletion with Apple
+  // linked and no revoke shows up.
   console.warn('[auth] account deleted', {
     userId: row.id,
     role: row.role,
     appleLinked,
     appleRevoked: body.appleRevoked === true,
   });
+
+  // After the commit. Any failure other than "already gone" surfaces as a 500
+  // so the client retries — and the retry lands in the no-row branch above.
+  await deleteFirebaseUser(decoded.uid);
 }
