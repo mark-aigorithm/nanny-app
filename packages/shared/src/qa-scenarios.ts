@@ -115,17 +115,18 @@ const TIER_A: QaScenario[] = [
     area: 'Auth',
     surface: 'Parent app',
     priority: 'P0',
-    title: 'Mother signs in with her phone number and password',
-    preconditions: ['A registered mother account with a known password'],
+    title: 'Mother signs in with her phone number and an SMS code',
+    preconditions: ['A registered mother account whose phone can receive SMS'],
     steps: [
-      'Open the app and tap "Sign in" on the welcome screen',
-      'Pick the country code, type the phone number and the password',
-      'Tap "Sign in"',
+      'Open the app and land on the sign-in screen.',
+      'Enter the phone and tap "Send code".',
+      'Enter the SMS code and tap "Sign in".',
+      'You land on home.',
     ],
     expected: [
       'The app lands on the parent Home screen',
       'Her first name appears in the greeting',
-      'A wrong password is refused with a readable message, not a raw Firebase error code',
+      'A wrong code is refused with a readable message, not a raw Firebase error code',
     ],
   },
   {
@@ -548,7 +549,7 @@ const TIER_B: QaScenario[] = [
     title: 'Mother registration — personal details, photo and email address',
     preconditions: ['A phone number and email address not already registered'],
     steps: [
-      'From the welcome screen tap "Get started" and choose Mother',
+      'On the sign-in screen (Welcome to NannyNow) tap "Sign up" and choose Mother',
       'Fill in the personal details, add a profile photo, enter a real email address',
       'Try to continue with no photo, and with a malformed email',
       'Continue',
@@ -1324,7 +1325,7 @@ const TIER_C: QaScenario[] = [
     surface: 'Parent app',
     priority: 'P1',
     title: 'Guest mode — browse without an account',
-    preconditions: ['Signed out, on the welcome screen'],
+    preconditions: ['Signed out, on the sign-in screen'],
     steps: ['Tap "Continue as guest"', 'Browse Home, the community feed, marketplace and event details'],
     expected: [
       'Home opens with a guest welcome card instead of a booking card',
@@ -1381,7 +1382,7 @@ const TIER_C: QaScenario[] = [
     preconditions: ['Signed in'],
     steps: ['Sign out from the account screen', 'Force-close the app and reopen it'],
     expected: [
-      'The app returns to the welcome screen',
+      'The app returns to the sign-in screen',
       'Reopening does NOT put her back into the account — the session was actually cleared',
       'No data from the previous account is visible after signing in as someone else',
     ],

@@ -270,7 +270,7 @@ than a sequence of them:
 | Subflow | What it does |
 |---|---|
 | `_launch.yaml` | Cold start with state cleared — five steps, all of them load-bearing (below) |
-| `_sign-in.yaml` | Signs in `${EMAIL}` / `${PASSWORD}` through the email door, from the welcome screen |
+| `_sign-in.yaml` | Signs in `${EMAIL}` / `${PASSWORD}` through the email door, from the sign-in screen |
 | `_book-to-review.yaml` | Home → the review step, with a booking that starts in ten minutes |
 | `_book-and-pay.yaml` | The above, plus the nanny accepting and a real checkout |
 | `_relaunch.yaml` | Reopens the app and waits for `${EXPECT}` |
