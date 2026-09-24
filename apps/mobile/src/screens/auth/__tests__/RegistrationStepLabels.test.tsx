@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -16,11 +17,15 @@ jest.mock('expo-router', () => ({
 jest.mock('@mobile/components/HomeLocationMapCard', () => () => null);
 jest.mock('@mobile/components/LocationSearchInput', () => () => null);
 jest.mock('@mobile/lib/googlePlaces', () => ({ reverseGeocode: jest.fn() }));
+// Step 1's native date picker and E2E image helper; neither affects the label.
+jest.mock('@react-native-community/datetimepicker', () => () => null);
+jest.mock('@mobile/lib/e2eImage', () => ({ e2ePlaceholderImageUri: jest.fn() }));
 jest.mock('@mobile/hooks/useNannies', () => ({
   useCertificationCatalog: () => ({ data: [] }),
   useSkillCatalog: () => ({ data: [] }),
 }));
 
+import RegistrationStep1Screen from '@mobile/screens/auth/RegistrationStep1Screen';
 import RegistrationStep2Screen from '@mobile/screens/auth/RegistrationStep2Screen';
 import RegistrationNannyLocationScreen from '@mobile/screens/auth/RegistrationNannyLocationScreen';
 import RegistrationNannyIdScreen from '@mobile/screens/auth/RegistrationNannyIdScreen';
@@ -39,6 +44,15 @@ function renderScreen(Screen: React.ComponentType) {
 beforeEach(() => {
   useRegistrationDraftStore.getState().reset();
 });
+
+/** The widths of the wizard's progress-bar fills (the 6px-high bars). */
+function progressFillWidths(): unknown[] {
+  return screen.UNSAFE_root
+    .findAll((node) => typeof node.type === 'string' && node.type === 'View')
+    .map((node) => StyleSheet.flatten(node.props.style) ?? {})
+    .filter((style) => style.height === 6 && typeof style.width === 'string')
+    .map((style) => style.width);
+}
 
 describe('mother', () => {
   beforeEach(() => {
@@ -75,6 +89,19 @@ describe('nanny', () => {
 
     renderScreen(RegistrationNannyDetailsScreen);
     expect(await screen.findByText('STEP 6 OF 6 — PROFESSIONAL DETAILS')).toBeTruthy();
+  });
+
+  it('Google/Apple wizard: personal info is step 1 of 5, and its bar fills a fifth', async () => {
+    useRegistrationDraftStore.setState({ authProvider: 'google' });
+    renderScreen(RegistrationStep1Screen);
+    expect(await screen.findByText('STEP 1 OF 5 — PERSONAL INFO')).toBeTruthy();
+    expect(progressFillWidths()).toEqual(['20%']);
+  });
+
+  it('phone wizard: personal info is step 1 of 6, and its bar fills a sixth', async () => {
+    renderScreen(RegistrationStep1Screen);
+    expect(await screen.findByText('STEP 1 OF 6 — PERSONAL INFO')).toBeTruthy();
+    expect(progressFillWidths()).toEqual(['16.6%']);
   });
 
   it('Google/Apple wizard: location, ID and details are steps 2, 3 and 4 of 5', async () => {

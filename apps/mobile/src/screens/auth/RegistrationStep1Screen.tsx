@@ -244,7 +244,7 @@ export default function RegistrationStep1Screen() {
             style={[
               styles.progressBarFill,
               isNanny && styles.progressBarFillNanny,
-              isSocial && !isNanny && styles.progressBarFillSocialMother,
+              isSocial && (isNanny ? styles.progressBarFillSocialNanny : styles.progressBarFillSocialMother),
             ]}
           />
         </View>

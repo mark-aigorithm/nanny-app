@@ -73,9 +73,13 @@ export const styles = StyleSheet.create({
   progressBarFillNanny: {
     width: '16.6%',
   },
-  // Social mother: three steps, so step 1 fills a third.
+  // Google/Apple sign-up skips the email-code and password steps: a mother
+  // has three steps (step 1 fills a third), a nanny five (a fifth).
   progressBarFillSocialMother: {
     width: '33.3%',
+  },
+  progressBarFillSocialNanny: {
+    width: '20%',
   },
   verifiedHint: {
     ...typeScale.bodySm,
