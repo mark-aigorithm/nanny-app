@@ -137,12 +137,12 @@ appId: com.nannyapp.mobile
     timeout: 30000
 
 - tapOn: 'Sign in with email'
-- assertVisible: 'Signed up with Google or Apple\? Use that button, or tap Forgot password and choose "Text me a code" to add a password\.'
+- assertVisible: 'Signed up with Google or Apple\? Go back and use that button, or tap Forgot password and choose "Text me a code instead" to add a password\.'
 - tapOn: 'Forgot password\?'
 - extendedWaitUntil:
     visible: 'Reset your password'
     timeout: 30000
-- assertVisible: 'Signed up with Google or Apple\? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in\.'
+- assertVisible: 'Signed up with Google or Apple\? Choose "Text me a code instead": it adds a password and keeps your Google or Apple sign-in\.'
 
 - tapOn: 'Text me a code instead'
 - tapOn:

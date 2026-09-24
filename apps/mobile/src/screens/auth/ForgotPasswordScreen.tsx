@@ -215,17 +215,27 @@ export default function ForgotPasswordScreen() {
                 your password.
               </Text>
             ) : channel === 'email' ? (
-              <Text style={styles.subtitle}>
-                Enter the email address on your account and we{'’'}ll send you a
-                link to reset your password.
-              </Text>
+              <>
+                <Text style={styles.subtitle}>
+                  Enter the email address on your account and we{'’'}ll send you a
+                  link to reset your password.
+                </Text>
+                {/* Firebase's email-link reset unlinks every federated provider
+                    (proven by A28), so a Google/Apple user needs to know this
+                    door isn't the one that keeps that connection. */}
+                {!emailSent && (
+                  <Text style={styles.socialHint}>
+                    Signed up with Google or Apple? This link disconnects it. Use "Text me a code instead".
+                  </Text>
+                )}
+              </>
             ) : (
               <>
                 <Text style={styles.subtitle}>
                   Choose how you{'’'}d like to reset your password.
                 </Text>
                 <Text style={styles.socialHint}>
-                  Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.
+                  Signed up with Google or Apple? Choose "Text me a code instead": it adds a password and keeps your Google or Apple sign-in.
                 </Text>
               </>
             )}

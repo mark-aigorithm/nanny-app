@@ -120,7 +120,7 @@ it('tells a Google or Apple user how to get a password', () => {
   renderScreen();
   expect(
     screen.getByText(
-      'Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.',
+      'Signed up with Google or Apple? Go back and use that button, or tap Forgot password and choose "Text me a code instead" to add a password.',
     ),
   ).toBeTruthy();
 });

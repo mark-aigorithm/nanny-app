@@ -88,7 +88,15 @@ it('mails a reset link and never claims the address exists', async () => {
 it('says a reset also creates a password for a Google or Apple account', () => {
   renderScreen();
   expect(
-    screen.getByText('Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.'),
+    screen.getByText('Signed up with Google or Apple? Choose "Text me a code instead": it adds a password and keeps your Google or Apple sign-in.'),
+  ).toBeTruthy();
+});
+
+it('warns that the email link disconnects Google or Apple, on the email channel', () => {
+  renderScreen();
+  fireEvent.press(screen.getByText('Email me a reset link'));
+  expect(
+    screen.getByText('Signed up with Google or Apple? This link disconnects it. Use "Text me a code instead".'),
   ).toBeTruthy();
 });
 

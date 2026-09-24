@@ -123,7 +123,7 @@ export default function EmailSignInScreen() {
                 creates one on that same account — the email link works too,
                 but it unlinks Google/Apple, so this steers her to SMS. */}
             <Text style={styles.socialHint}>
-              Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.
+              Signed up with Google or Apple? Go back and use that button, or tap Forgot password and choose "Text me a code instead" to add a password.
             </Text>
           </View>
 
