@@ -40,7 +40,8 @@ export default function Index() {
       : <Redirect href="/(auth)/sign-in" />;
   }
 
-  // Firebase user but profile fetch in flight — keep the splash up.
+  // Firebase user but profile fetch in flight — render a blank frame while
+  // `/auth/me` loads, rather than routing anywhere yet.
   if (meQuery.isFetching && !profile) return null;
 
   // Firebase user + backend profile — route by role.

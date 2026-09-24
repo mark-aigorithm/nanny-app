@@ -23,6 +23,10 @@ function uniqueEmail(): string {
   return `google-pw-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
 }
 
+function uniquePhone(): string {
+  return `+2011${String(Date.now()).slice(-8)}`;
+}
+
 async function providersOf(email: string): Promise<string[]> {
   const user = await firebaseAuth.getUserByEmail(email);
   return user.providerData.map((p) => p.providerId);
@@ -35,7 +39,7 @@ describe('A28 — a password for a Google account', () => {
     // anti-hijack rule), which is why the app steers Google/Apple users to
     // the SMS reset instead.
     const email = uniqueEmail();
-    const phone = `+2011${String(Date.now()).slice(-8)}`;
+    const phone = uniquePhone();
     const googleToken = await signInWithGoogleAs(email, { phoneNumber: phone });
     const { uid } = await firebaseAuth.verifyIdToken(googleToken);
 
@@ -48,9 +52,13 @@ describe('A28 — a password for a Google account', () => {
     expect((await firebaseAuth.verifyIdToken(passwordToken)).uid).toBe(uid);
   });
 
-  it('the SMS reset adds a password to a Google account with a phone', async () => {
+  it('the SMS reset keeps Google and the phone while adding a password', async () => {
+    // `updatePassword` is RNFB's mobile-side call after the SMS code
+    // confirms sign-in; it sends `accounts:update` with the new password
+    // on the *signed-in* account, so Google and the phone survive — unlike
+    // the email-link path above, which unlinks every federated provider.
     const email = uniqueEmail();
-    const phone = `+2011${String(Date.now()).slice(-8)}`;
+    const phone = uniquePhone();
     const googleToken = await signInWithGoogleAs(email, { phoneNumber: phone });
     const { uid } = await firebaseAuth.verifyIdToken(googleToken);
 

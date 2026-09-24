@@ -11,7 +11,10 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Welcome to NannyNow'
 - tapOn: 'Sign in with email'
 
-- assertVisible: 'Sign in with email'
+- extendedWaitUntil:
+    visible:
+      id: 'emailSignIn.email'
+    timeout: 30000
 - tapOn:
     id: 'emailSignIn.email'
 - inputText: ${EMAIL}
