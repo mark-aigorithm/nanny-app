@@ -84,9 +84,9 @@ describe('reclaimEmail', () => {
       Object.assign(new Error('Your email verification has expired.'), { statusCode: 400 }),
     );
 
-    await expect(reclaimEmail(DECODED, { email: EMAIL, emailVerificationToken: TOKEN })).rejects.toThrow(
-      'Your email verification has expired.',
-    );
+    await expect(reclaimEmail(DECODED, { email: EMAIL, emailVerificationToken: TOKEN })).rejects.toMatchObject({
+      statusCode: 400,
+    });
     expect(mockFindFirst).not.toHaveBeenCalled();
     expect(mockGetUserByEmail).not.toHaveBeenCalled();
     expect(mockDeleteUser).not.toHaveBeenCalled();

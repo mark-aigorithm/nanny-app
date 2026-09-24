@@ -59,7 +59,8 @@ export async function reclaimEmail(
   decoded: DecodedIdToken,
   body: ReclaimEmailRequest,
 ): Promise<void> {
-  const email = body.email.trim().toLowerCase();
+  // Already trimmed and lowercased by ReclaimEmailRequestSchema.
+  const { email } = body;
   // Read-only, and before any lookup below: a garbage or foreign token must
   // be refused up front, not after we've already decided who the holder is.
   await assertVerificationTokenIsValid(email, body.emailVerificationToken);
