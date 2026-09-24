@@ -47,7 +47,9 @@ sections the superuser granted, stored as a JSON map in `users.admin_permissions
 - **`src/lib/admin-permissions.ts` is the source of truth.** Every admin route declares what it
   requires in `ADMIN_ROUTE_PERMISSIONS`. The table is **deny-by-default** — a route with no entry is
   refused, so adding an endpoint without declaring its privilege makes it unreachable, not open.
-- Enforcement is mounted once: `adminRouter.use(requireAuth, requireAdmin, requireSectionAccess)`.
+- Enforcement is mounted once: `adminRouter.use(requireFreshAuth, requireAdmin, requireSectionAccess)`.
+  The admin console verifies revocation on every request — a token from a session that was signed
+  out, disabled, or deleted must not act, even if it hasn't expired yet.
   **Never add a per-route privilege check** — add a row to the table instead.
 - `hasSectionAccess` (in `@nanny-app/shared`) is the only place the rules are evaluated; the admin
   UI calls the same function, so the sidebar and the API can't disagree.

@@ -2,8 +2,10 @@ import type {
   User,
   Role as PrismaRole,
 } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   Role,
+  type Address as AddressDto,
   type AvailabilityResponse,
   type CheckAvailabilityRequest,
   type Child as ChildDto,
@@ -134,6 +136,62 @@ function assertFirebaseVerifiedEmail(decoded: DecodedIdToken, email: string): vo
 }
 
 /**
+ * The address our OTP proved must be the one this Firebase account signs in
+ * with. The phone wizard links an email/password credential for exactly that
+ * address before registering; if they differ (a retried wizard that linked
+ * another address, a client bug), the row would hold one email and Firebase
+ * another, and email sign-in and password reset would reach the wrong inbox.
+ */
+function assertTokenEmailMatchesAccount(decoded: DecodedIdToken, email: string): void {
+  const accountEmail = decoded.email?.trim().toLowerCase();
+  if (!accountEmail || accountEmail !== email.trim().toLowerCase()) {
+    throw errors.badRequest("The email you verified doesn't match this account. Please start again.");
+  }
+}
+
+/**
+ * Best-effort: keep Firebase's `emailVerified` in step with the row, whose
+ * address we proved. The row is already committed when this runs, so a
+ * Firebase hiccup must not turn a real registration into a 500;
+ * `migrate-firebase-emails.ts` catches anything left out of step.
+ */
+async function markFirebaseEmailVerified(uid: string): Promise<void> {
+  try {
+    await firebaseAuth.updateUser(uid, { emailVerified: true });
+  } catch (err) {
+    console.warn('[auth] failed to mark the Firebase account email-verified', { uid, err });
+  }
+}
+
+/**
+ * A registration that failed inside its transaction may have lost a race
+ * rather than failed: a double tap, or a retry that overlapped the first
+ * request. If a row for this uid exists now, the other request made it —
+ * answer with it, as the idempotent path would have. Otherwise a unique clash
+ * means someone else took the email or phone since the lookup above.
+ */
+async function resolveFailedRegistration(
+  decoded: DecodedIdToken,
+  err: unknown,
+): Promise<UserResponse> {
+  const winner = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
+  if (winner && !winner.deletedAt) {
+    return toUserResponse(winner, await flatLocationOf(winner.id));
+  }
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    const target = JSON.stringify(err.meta?.['target'] ?? '');
+    if (target.includes('phone')) {
+      throw errors.conflict('An account with this phone number already exists.');
+    }
+    if (target.includes('email')) {
+      throw errors.conflict('An account with this email already exists.');
+    }
+    throw errors.conflict('An account with these details already exists.');
+  }
+  throw err;
+}
+
+/**
  * The phone on a new account must be the one this Firebase account verified.
  * `phone_number` only appears on the ID token after Firebase checked an SMS
  * code for it — both wizards link the phone before calling /auth/register —
@@ -165,6 +223,11 @@ export async function registerUser(
     if (existing.deletedAt) {
       throw errors.conflict('This account has been deleted.');
     }
+    // A retry after a lost response, or after the best-effort update at the
+    // end failed: the row says proven, so Firebase should too.
+    if (existing.isEmailVerified && decoded.email_verified !== true) {
+      await markFirebaseEmailVerified(decoded.uid);
+    }
     return toUserResponse(existing, await flatLocationOf(existing.id));
   }
 
@@ -176,6 +239,18 @@ export async function registerUser(
   assertOwnStorageUrl(body.avatarUrl, decoded.uid, 'avatars');
   if (body.idDocumentFrontUrl) assertOwnStorageUrl(body.idDocumentFrontUrl, decoded.uid, 'nanny-ids');
   if (body.idDocumentBackUrl) assertOwnStorageUrl(body.idDocumentBackUrl, decoded.uid, 'nanny-ids');
+
+  // Phone sign-ups prove their address mid-wizard and arrive holding the token
+  // for it — which must be for the address this account signs in with. Google
+  // and Apple sign-ups arrive without one, because Firebase has already
+  // verified the provider's address — so check that instead. Either way, no
+  // account is created with an unproven address.
+  const emailVerificationToken = body.emailVerificationToken;
+  if (emailVerificationToken) {
+    assertTokenEmailMatchesAccount(decoded, body.email);
+  } else {
+    assertFirebaseVerifiedEmail(decoded, body.email);
+  }
 
   // Collision check (different Firebase UID, same email or phone) — the same
   // lookup step 1 of the wizard ran, so this only fires if the value was taken
@@ -189,113 +264,96 @@ export async function registerUser(
     throw errors.conflict('An account with this phone number already exists.');
   }
   const isNanny = body.role === Role.NANNY;
-  // Phone sign-ups prove their address mid-wizard and arrive holding the token
-  // for it. Google and Apple sign-ups arrive without one, because Firebase has
-  // already verified the provider's address — so check that instead. Either
-  // way, no account is created with an unproven address.
-  const emailVerificationToken = body.emailVerificationToken;
-  if (!emailVerificationToken) {
-    assertFirebaseVerifiedEmail(decoded, body.email);
-  }
-  const created = await prisma.$transaction(async (tx) => {
-    // Inside the transaction so the token isn't burned by a registration that
-    // then fails — either the user exists with a verified address, or the token
-    // is still spendable on a retry.
-    if (emailVerificationToken) {
-      await consumeVerificationToken(body.email, emailVerificationToken, tx);
-    }
+  let created: { user: User; home: AddressDto };
+  try {
+    created = await prisma.$transaction(async (tx) => {
+      // Inside the transaction so the token isn't burned by a registration that
+      // then fails — either the user exists with a verified address, or the token
+      // is still spendable on a retry.
+      if (emailVerificationToken) {
+        await consumeVerificationToken(body.email, emailVerificationToken, tx);
+      }
 
-    const user = await tx.user.create({
-      data: {
-        firebaseUid: decoded.uid,
-        email: body.email,
-        phone: body.phone,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        dateOfBirth: new Date(body.dateOfBirth),
-        role: body.role,
-        // Proven either way: the token above was spent for this address, or
-        // Firebase's own token vouched for it.
-        isEmailVerified: true,
-        // Proven: assertFirebaseVerifiedPhone matched it to the token's
-        // phone_number claim above.
-        isPhoneVerified: true,
-        emailVerifiedAt: new Date(),
-        phoneVerifiedAt: new Date(),
-        termsAcceptedAt: new Date(),
-        termsAcceptedVersion: body.termsAcceptedVersion,
-        lastLoginAt: new Date(),
-        // Approval state lives on the user row for both roles. A nanny uploads
-        // her ID at registration and starts PENDING_REVIEW, awaiting an admin's
-        // decision on her whole application; a mother uploads later, before
-        // booking, so she starts PENDING_ID and is prompted when she tries to
-        // book.
-        approvalStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
-        idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
-        idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
-        idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
-        // Both roles bring a photo from step 1 — the mother's is what a nanny
-        // sees on her booking request.
-        avatarUrl: body.avatarUrl,
-      },
-    });
-
-    // The wizard's location becomes the user's first address — her default,
-    // and for a nanny the only one she will ever have (support edits it from
-    // here on). Same transaction as the user row, so neither exists alone.
-    // The wizard captures one line and a pin; the structured parts stay null
-    // until the address is edited in-app.
-    const home = await createAddress(
-      user.id,
-      {
-        label: 'Home',
-        formattedAddress: body.address,
-        latitude: body.latitude,
-        longitude: body.longitude,
-        isDefault: true,
-      },
-      tx,
-    );
-
-    if (isNanny) {
-      const profile = await tx.nannyProfile.create({
+      const user = await tx.user.create({
         data: {
-          userId: user.id,
-          bio: body.bio ?? null,
-          yearsOfExperience: body.yearsOfExperience ?? null,
-          ageRanges: body.ageRanges ?? [],
-          schedule: body.schedule,
-          availabilityType: body.availabilityType,
+          firebaseUid: decoded.uid,
+          email: body.email,
+          phone: body.phone,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          dateOfBirth: new Date(body.dateOfBirth),
+          role: body.role,
+          // Proven either way: the token above was spent for this address, or
+          // Firebase's own token vouched for it.
+          isEmailVerified: true,
+          // Proven: assertFirebaseVerifiedPhone matched it to the token's
+          // phone_number claim above.
+          isPhoneVerified: true,
+          emailVerifiedAt: new Date(),
+          phoneVerifiedAt: new Date(),
+          termsAcceptedAt: new Date(),
+          termsAcceptedVersion: body.termsAcceptedVersion,
+          lastLoginAt: new Date(),
+          // Approval state lives on the user row for both roles. A nanny uploads
+          // her ID at registration and starts PENDING_REVIEW, awaiting an admin's
+          // decision on her whole application; a mother uploads later, before
+          // booking, so she starts PENDING_ID and is prompted when she tries to
+          // book.
+          approvalStatus: isNanny ? 'PENDING_REVIEW' : 'PENDING_ID',
+          idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
+          idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
+          idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
+          // Both roles bring a photo from step 1 — the mother's is what a nanny
+          // sees on her booking request.
+          avatarUrl: body.avatarUrl,
         },
       });
 
-      // Reconcile the catalog links the nanny selected during sign-up, inside
-      // the same transaction as the profile create so the whole registration
-      // is atomic.
-      await reconcileNannyCertifications(tx, profile.id, body.certificationIds ?? []);
-      await reconcileNannySkills(tx, profile.id, body.skillIds ?? []);
-    }
+      // The wizard's location becomes the user's first address — her default,
+      // and for a nanny the only one she will ever have (support edits it from
+      // here on). Same transaction as the user row, so neither exists alone.
+      // The wizard captures one line and a pin; the structured parts stay null
+      // until the address is edited in-app.
+      const home = await createAddress(
+        user.id,
+        {
+          label: 'Home',
+          formattedAddress: body.address,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          isDefault: true,
+        },
+        tx,
+      );
 
-    return { user, home };
-  });
+      if (isNanny) {
+        const profile = await tx.nannyProfile.create({
+          data: {
+            userId: user.id,
+            bio: body.bio ?? null,
+            yearsOfExperience: body.yearsOfExperience ?? null,
+            ageRanges: body.ageRanges ?? [],
+            schedule: body.schedule,
+            availabilityType: body.availabilityType,
+          },
+        });
+
+        // Reconcile the catalog links the nanny selected during sign-up, inside
+        // the same transaction as the profile create so the whole registration
+        // is atomic.
+        await reconcileNannyCertifications(tx, profile.id, body.certificationIds ?? []);
+        await reconcileNannySkills(tx, profile.id, body.skillIds ?? []);
+      }
+
+      return { user, home };
+    });
+  } catch (err) {
+    return resolveFailedRegistration(decoded, err);
+  }
 
   // Our own OTP proved the address inside the transaction above; keep
-  // Firebase's copy of that fact in step with ours (NOT, as an earlier
-  // comment here claimed, so reset mail isn't held back — Firebase mails a
-  // reset link to an unverified address too). Best-effort: the row above is
-  // already committed, so a Firebase hiccup here must not turn a real,
-  // successful registration into a 500 — and the idempotent retry path
-  // (the `existing` early-return above) never reaches this call again to
-  // reconcile it later. `migrate-firebase-emails.ts` catches anything left
-  // out of step.
-  try {
-    await firebaseAuth.updateUser(decoded.uid, { emailVerified: true });
-  } catch (err) {
-    console.warn('[auth] failed to mark the new Firebase account email-verified', {
-      uid: decoded.uid,
-      err,
-    });
-  }
+  // Firebase's copy of that fact in step with ours.
+  await markFirebaseEmailVerified(decoded.uid);
 
   return toUserResponse(created.user, {
     address: created.home.formattedAddress,

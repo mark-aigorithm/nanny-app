@@ -11,7 +11,7 @@ import {
   VerifyEmailOtpSchema,
 } from '@nanny-app/shared';
 
-import { optionalAuth, requireAuth } from '@backend/middleware/auth.middleware';
+import { optionalAuth, requireAuth, requireFreshAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
@@ -37,10 +37,11 @@ export const authRouter = Router();
  * Called once at the end of the mobile registration wizard, after the
  * Firebase account has been created and the phone number linked.
  * Idempotent — safe to retry.
+ * Fresh auth: a revoked or disabled session must not create an account.
  */
 authRouter.post(
   '/register',
-  requireAuth,
+  requireFreshAuth,
   validateBody(RegisterRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

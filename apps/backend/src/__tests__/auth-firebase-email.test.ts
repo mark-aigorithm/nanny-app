@@ -39,7 +39,9 @@ const mockCreateCustomToken = firebaseAuth.createCustomToken as unknown as jest.
 const mockConsume = consumeVerificationToken as unknown as jest.Mock;
 const mockAssertTokenValid = assertVerificationTokenIsValid as unknown as jest.Mock;
 
-const DECODED = { uid: 'fb-1', phone_number: '+201000000000' } as never;
+// The registerUser tests below send a body with an emailVerificationToken for
+// mona@example.com, which must match the account's own email.
+const DECODED = { uid: 'fb-1', email: 'mona@example.com', phone_number: '+201000000000' } as never;
 const HOUR_MS = 60 * 60 * 1000;
 
 function userRow(overrides: Record<string, unknown> = {}) {
@@ -368,7 +370,7 @@ describe('registerUser', () => {
 
     expect(result.email).toBe('201000000000@phone.nannyapp.local');
     expect(warnSpy).toHaveBeenCalledWith(
-      '[auth] failed to mark the new Firebase account email-verified',
+      '[auth] failed to mark the Firebase account email-verified',
       expect.objectContaining({ uid: 'fb-1', err: expect.any(Error) }),
     );
 

@@ -39,19 +39,19 @@ function uniqueEmail(): string {
 }
 
 /**
- * Registers a mother exactly as the app does: she signs in on the Firebase
- * account keyed to her phone placeholder, but proves a real address mid-wizard
- * and hands `/auth/register` the token for it. Sign-in stays phone-based;
- * `users.email` is the proven address from the first moment the row exists.
+ * Registers a mother exactly as the app does: she links an email/password
+ * credential for the address she proves mid-wizard, signs in on that address,
+ * and hands `/auth/register` the token for it — the account she signs in with
+ * is the account being proven, so `users.email` is the proven address from the
+ * first moment the row exists.
  */
 async function registerMother(overrides: { email?: string; token?: string | null } = {}) {
   const phone = uniquePhone();
-  const placeholder = placeholderEmail(phone);
-  // Her phone is linked (verified) before she registers, so the token carries it.
-  const uid = await createEmulatorUser(placeholder, undefined, phone);
-  const idToken = await signInAs(placeholder);
-
   const email = overrides.email ?? uniqueEmail();
+  // Her phone is linked (verified) before she registers, so the token carries it.
+  const uid = await createEmulatorUser(email, undefined, phone);
+  const idToken = await signInAs(email);
+
   const emailVerificationToken =
     overrides.token === undefined ? await proveEmail(email) : overrides.token;
 
@@ -73,7 +73,7 @@ async function registerMother(overrides: { email?: string; token?: string | null
       ...(emailVerificationToken ? { emailVerificationToken } : {}),
     });
 
-  return { response, token: idToken, email, placeholder, phone };
+  return { response, token: idToken, email, phone };
 }
 
 /** A mother as she exists on an account created before registration proved the address. */
@@ -100,13 +100,12 @@ async function attemptBooking(token: string) {
 }
 
 describe('A14 — the address is proven at registration', () => {
-  it('creates the account with the proven address, not the phone placeholder', async () => {
-    const { response, email, placeholder } = await registerMother();
+  it('creates the account with the proven address', async () => {
+    const { response, email } = await registerMother();
     expect(response.status).toBe(201);
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: response.body.data.id } });
     expect(row.email).toBe(email);
-    expect(row.email).not.toBe(placeholder);
     expect(row.isEmailVerified).toBe(true);
     expect(row.emailVerifiedAt).not.toBeNull();
   });
@@ -123,6 +122,36 @@ describe('A14 — the address is proven at registration', () => {
     const { response, phone } = await registerMother({ token: stolen });
 
     expect(response.status).toBe(400);
+    expect(await prisma.user.count({ where: { phone } })).toBe(0);
+  });
+
+  it('refuses a token when the account signs in with a different address', async () => {
+    const phone = uniquePhone();
+    const placeholder = placeholderEmail(phone);
+    const uid = await createEmulatorUser(placeholder, undefined, phone);
+    const idToken = await signInAs(placeholder);
+    const email = uniqueEmail();
+
+    const response = await request(app)
+      .post('/auth/register')
+      .set(...authHeader(idToken))
+      .send({
+        firstName: 'Gate',
+        lastName: 'Tester',
+        email,
+        emailVerificationToken: await proveEmail(email),
+        phone,
+        dateOfBirth: '1992-04-01',
+        role: 'MOTHER',
+        termsAcceptedVersion: 'v1.0',
+        latitude: 30.0444,
+        longitude: 31.2357,
+        address: '1 Test Street, Cairo',
+        avatarUrl: storageUrl('avatars', uid),
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("The email you verified doesn't match this account. Please start again.");
     expect(await prisma.user.count({ where: { phone } })).toBe(0);
   });
 

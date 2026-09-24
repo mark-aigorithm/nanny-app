@@ -45,7 +45,9 @@ const mockPrisma = prisma as unknown as {
 };
 
 // The mother's own number: registration requires the phone Firebase verified.
-const DECODED = { uid: 'fb-1', phone_number: '+201004455667' } as never;
+// MOTHER_BODY carries an emailVerificationToken, which must be for the
+// address this account signs in with.
+const DECODED = { uid: 'fb-1', email: 'layla@example.com', phone_number: '+201004455667' } as never;
 
 const MOTHER_BODY: RegisterRequest = {
   firstName: 'Layla',

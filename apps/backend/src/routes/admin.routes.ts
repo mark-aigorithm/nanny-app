@@ -65,7 +65,7 @@ import {
   requireSectionAccess,
   requireSuperuser,
 } from '@backend/middleware/admin.middleware';
-import { requireAuth } from '@backend/middleware/auth.middleware';
+import { requireFreshAuth } from '@backend/middleware/auth.middleware';
 import { validateBody, validateQuery } from '@backend/middleware/validate.middleware';
 import {
   approveBooking,
@@ -190,7 +190,7 @@ export const adminRouter = Router();
 // holds the privilege its route declares in `lib/admin-permissions.ts`. That
 // last check is deny-by-default, so a route added without a declared privilege
 // is unreachable rather than open.
-adminRouter.use(requireAuth, requireAdmin, requireSectionAccess);
+adminRouter.use(requireFreshAuth, requireAdmin, requireSectionAccess);
 
 // ── Current admin (role drives UI visibility) ─────────────────
 

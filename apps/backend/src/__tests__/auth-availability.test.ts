@@ -52,10 +52,18 @@ const TAKEN_PHONE = '+201000000001';
 const FREE_EMAIL = 'free@example.com';
 const FREE_PHONE = '+201000000002';
 
+// MOTHER_BODY (and its per-test overrides below) carries an
+// emailVerificationToken, which must be for the address the decoded token's
+// account signs in with — so each decoded fixture's email lines up with
+// whatever email that test registers.
 /** A fresh Firebase uid — no existing row for it, so registration proceeds to the collision checks. */
-const DECODED = { uid: 'fb-new', phone_number: FREE_PHONE } as never;
+const DECODED = { uid: 'fb-new', email: FREE_EMAIL, phone_number: FREE_PHONE } as never;
 /** She verified a number that already belongs to an account. */
-const DECODED_TAKEN_PHONE = { uid: 'fb-new', phone_number: TAKEN_PHONE } as never;
+const DECODED_TAKEN_PHONE = { uid: 'fb-new', email: FREE_EMAIL, phone_number: TAKEN_PHONE } as never;
+/** She verified an email that already belongs to an account. */
+const DECODED_TAKEN_EMAIL = { uid: 'fb-new', email: TAKEN_EMAIL, phone_number: FREE_PHONE } as never;
+/** Both the email and the phone being registered already belong to accounts. */
+const DECODED_BOTH_TAKEN = { uid: 'fb-new', email: TAKEN_EMAIL, phone_number: TAKEN_PHONE } as never;
 
 const MOTHER_BODY: RegisterRequest = {
   firstName: 'Layla',
@@ -131,7 +139,7 @@ describe('checkAvailability', () => {
 
 describe('registerUser still refuses what checkAvailability reports as taken', () => {
   it('409s on a taken email, with the same message step 1 shows', async () => {
-    const err = await registerUser(DECODED, { ...MOTHER_BODY, email: TAKEN_EMAIL }).catch(
+    const err = await registerUser(DECODED_TAKEN_EMAIL, { ...MOTHER_BODY, email: TAKEN_EMAIL }).catch(
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(AppError);
@@ -152,7 +160,7 @@ describe('registerUser still refuses what checkAvailability reports as taken', (
   });
 
   it('names the email first when both are taken', async () => {
-    const err = await registerUser(DECODED_TAKEN_PHONE, {
+    const err = await registerUser(DECODED_BOTH_TAKEN, {
       ...MOTHER_BODY,
       email: TAKEN_EMAIL,
       phone: TAKEN_PHONE,

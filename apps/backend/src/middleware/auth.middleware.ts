@@ -13,36 +13,73 @@ declare global {
   }
 }
 
+/** What the client is told when the session behind a genuine token is over. */
+const SESSION_ENDED = 'Your session has ended. Please sign in again.';
+
+/**
+ * Firebase codes meaning the token was real but its session is not: signed
+ * out everywhere (a password or email change revokes), disabled by support, or
+ * the account deleted. Only a revocation-checking verify raises them.
+ */
+const SESSION_ENDED_CODES = new Set([
+  'auth/id-token-revoked',
+  'auth/user-disabled',
+  'auth/user-not-found',
+]);
+
+function firebaseErrorCode(err: unknown): string | undefined {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
 /**
  * Verifies the `Authorization: Bearer <jwt>` header against Firebase Admin
  * SDK and attaches the decoded token to `req.firebaseUser`. Throws 401 on
  * any failure — the global error handler maps it to a JSON response.
+ *
+ * `checkRevoked` costs a Firebase round-trip per request, so it is reserved
+ * for the routes where a stale session must not act: creating an account, and
+ * the admin console.
  */
-export async function requireAuth(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
-      throw errors.unauthorized('Missing or malformed Authorization header');
-    }
-    const token = header.slice('Bearer '.length).trim();
-    if (!token) throw errors.unauthorized('Missing bearer token');
+function bearerAuth(checkRevoked: boolean) {
+  return async function authenticate(
+    req: Request,
+    _res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const header = req.headers.authorization;
+      if (!header || !header.startsWith('Bearer ')) {
+        throw errors.unauthorized('Missing or malformed Authorization header');
+      }
+      const token = header.slice('Bearer '.length).trim();
+      if (!token) throw errors.unauthorized('Missing bearer token');
 
-    const decoded = await firebaseAuth.verifyIdToken(token);
-    req.firebaseUser = decoded;
-    next();
-  } catch (err) {
-    // verifyIdToken throws on expired/invalid tokens
-    if (err instanceof Error && err.name !== 'AppError') {
-      next(errors.unauthorized('Invalid or expired token'));
-      return;
+      req.firebaseUser = checkRevoked
+        ? await firebaseAuth.verifyIdToken(token, true)
+        : await firebaseAuth.verifyIdToken(token);
+      next();
+    } catch (err) {
+      // verifyIdToken throws on expired/invalid/revoked tokens
+      if (err instanceof Error && err.name !== 'AppError') {
+        const code = firebaseErrorCode(err);
+        next(
+          errors.unauthorized(
+            code && SESSION_ENDED_CODES.has(code) ? SESSION_ENDED : 'Invalid or expired token',
+          ),
+        );
+        return;
+      }
+      next(err);
     }
-    next(err);
-  }
+  };
 }
+
+/** Any valid Firebase ID token. */
+export const requireAuth = bearerAuth(false);
+
+/** A valid Firebase ID token whose session has not been revoked or disabled since it was minted. */
+export const requireFreshAuth = bearerAuth(true);
 
 /**
  * Like `requireAuth`, but a request with no `Authorization` header continues

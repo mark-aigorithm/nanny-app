@@ -31,9 +31,21 @@ const mockPrisma = prisma as unknown as {
   $transaction: jest.Mock;
 };
 
-const DECODED = { uid: 'fb-1', email_verified: true, phone_number: '+201000000000' } as never;
+// NANNY_BODY carries an emailVerificationToken, which must be for the address
+// this account signs in with.
+const DECODED = {
+  uid: 'fb-1',
+  email: 'amira@example.com',
+  email_verified: true,
+  phone_number: '+201000000000',
+} as never;
 /** The mother's token: registration requires the phone Firebase verified. */
-const DECODED_MOTHER = { uid: 'fb-1', email_verified: true, phone_number: '+201004455667' } as never;
+const DECODED_MOTHER = {
+  uid: 'fb-1',
+  email: 'layla@example.com',
+  email_verified: true,
+  phone_number: '+201004455667',
+} as never;
 
 /** Echo the created user row back so toUserResponse can serialise it. */
 function userRowFromData(data: Record<string, unknown>) {

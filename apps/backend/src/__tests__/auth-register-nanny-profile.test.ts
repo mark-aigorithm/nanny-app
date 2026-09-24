@@ -52,12 +52,24 @@ const mockReconcileCertifications = reconcileNannyCertifications as jest.Mock;
 const mockReconcileSkills = reconcileNannySkills as jest.Mock;
 const mockConsumeToken = consumeVerificationToken as jest.Mock;
 
-const DECODED = { uid: 'fb-1', email_verified: true, phone_number: '+201000000000' } as never;
+// NANNY_BODY carries an emailVerificationToken, which must be for the address
+// this account signs in with.
+const DECODED = {
+  uid: 'fb-1',
+  email: 'amira@example.com',
+  email_verified: true,
+  phone_number: '+201000000000',
+} as never;
 /** A Firebase token for an address Firebase itself has not verified — the normal case. */
-const DECODED_UNVERIFIED = { uid: 'fb-1', phone_number: '+201000000000' } as never;
+const DECODED_UNVERIFIED = { uid: 'fb-1', email: 'amira@example.com', phone_number: '+201000000000' } as never;
 /** The same two tokens for the mother's number — the phone must match the one Firebase verified. */
-const DECODED_MOTHER = { uid: 'fb-1', email_verified: true, phone_number: '+201004455667' } as never;
-const DECODED_MOTHER_UNVERIFIED = { uid: 'fb-1', phone_number: '+201004455667' } as never;
+const DECODED_MOTHER = {
+  uid: 'fb-1',
+  email: 'layla@example.com',
+  email_verified: true,
+  phone_number: '+201004455667',
+} as never;
+const DECODED_MOTHER_UNVERIFIED = { uid: 'fb-1', email: 'layla@example.com', phone_number: '+201004455667' } as never;
 
 /** Echo the created user row back so toUserResponse can serialise it. */
 function userRowFromData(data: Record<string, unknown>) {
@@ -346,7 +358,7 @@ describe('registerUser — the phone must be the one Firebase verified', () => {
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
     const res = await registerUser(
-      { uid: 'fb-1', phone_number: MOTHER_BODY.phone } as never,
+      { uid: 'fb-1', email: MOTHER_BODY.email, phone_number: MOTHER_BODY.phone } as never,
       MOTHER_BODY,
     );
 
