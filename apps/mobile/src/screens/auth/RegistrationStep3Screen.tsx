@@ -16,6 +16,7 @@ import { OTP_LENGTH, RESEND_SECONDS, APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import OtpCodeInput from '@mobile/components/ui/otp-code-input';
 import ReferralCodeField from '@mobile/components/ReferralCodeField';
+import { auth } from '@mobile/lib/firebase';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import {
   useConfirmPhoneAndLink,
@@ -23,8 +24,10 @@ import {
   useRegisterProfile,
   useSendPhoneLinkCode,
   useSendPhoneOtp,
+  useSignOut,
   type PhoneLinkChallenge,
 } from '@mobile/hooks/useAuth';
+import { apiStatusOf } from '@mobile/lib/api';
 import type { MappedAuthError } from '@mobile/lib/authErrors';
 import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
 import { useRedeemReferralCode } from '@mobile/hooks/useReferrals';
@@ -66,8 +69,16 @@ export default function RegistrationStep3Screen() {
   const linkPhone = useLinkPhoneToCurrentUser();
   const registerProfile = useRegisterProfile();
   const redeemReferral = useRedeemReferralCode();
+  const signOut = useSignOut();
 
   const phoneE164 = toE164(draft.countryCode, draft.phone);
+  // A resumed sign-up whose account already holds this very number: there is
+  // nothing to verify, so no SMS is sent and there is no code to type. Only
+  // for the account this sign-up is finishing.
+  const phoneAlreadyVerified =
+    draft.accountPhone !== null &&
+    draft.accountPhone === phoneE164 &&
+    auth().currentUser?.uid === draft.signUpUid;
   // Show the user-friendly format from what they typed.
   const phoneDisplay = draft.phone
     ? `${draft.countryCode} ${draft.phone}`
@@ -88,6 +99,9 @@ export default function RegistrationStep3Screen() {
   // Complete setup stays disabled from then until the replace to sign-in, so
   // a second tap can't run against that account.
   const [isHandingOff, setIsHandingOff] = useState(false);
+  // The signed-in account is no longer the one this sign-up is finishing;
+  // the only way on is to sign out and start again.
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const sendCode = useCallback(
     (forceResend: boolean) => {
@@ -132,10 +146,10 @@ export default function RegistrationStep3Screen() {
   // in dev and a second send would invalidate the first code.
   const hasSentRef = useRef(false);
   useEffect(() => {
-    if (hasSentRef.current) return;
+    if (hasSentRef.current || phoneAlreadyVerified) return;
     hasSentRef.current = true;
     sendCode(false);
-  }, [sendCode]);
+  }, [sendCode, phoneAlreadyVerified]);
 
   // Resend cooldown.
   useEffect(() => {
@@ -148,12 +162,16 @@ export default function RegistrationStep3Screen() {
     router.back();
   }
 
+  function handleStartAgain() {
+    signOut.mutate(undefined, { onSettled: () => router.dismissTo('/(auth)/sign-in') });
+  }
+
   async function handleCompleteSetup() {
-    if (!challenge) {
+    if (!phoneAlreadyVerified && !challenge) {
       setFormError("We haven't sent your code yet. Tap resend to try again.");
       return;
     }
-    if (!instantlyVerified && otp.length !== OTP_LENGTH) {
+    if (!phoneAlreadyVerified && !instantlyVerified && otp.length !== OTP_LENGTH) {
       setFormError(`Enter the ${OTP_LENGTH}-digit code we sent you.`);
       return;
     }
@@ -192,24 +210,34 @@ export default function RegistrationStep3Screen() {
     }
 
     // 1. Put the verified phone on the Firebase account.
+    // With the number already on the account there is no challenge, and the
+    // hooks check that instead.
     try {
-      if (challenge.kind === 'sign-in') {
+      if (!isSocial) {
         await confirmPhone.mutateAsync({
-          confirmation: challenge.confirmation,
-          code: otp,
+          confirmation:
+            !phoneAlreadyVerified && challenge?.kind === 'sign-in' ? challenge.confirmation : null,
+          code: phoneAlreadyVerified ? '' : otp,
+          phone: phoneE164,
           email: profileEmail,
           password: draft.password,
+          emailVerificationToken,
         });
       } else {
         await linkPhone.mutateAsync({
-          challenge: challenge.link,
-          code: otp,
+          challenge: !phoneAlreadyVerified && challenge?.kind === 'link' ? challenge.link : null,
+          code: phoneAlreadyVerified ? '' : otp,
           phone: phoneE164,
           signUpUid: draft.signUpUid,
         });
       }
     } catch (error) {
       const err = error as MappedAuthError;
+      if (err.code === 'session-mismatch') {
+        setSessionEnded(true);
+        setFormError(err.message);
+        return;
+      }
       if (isSocial && err.code === 'auth/credential-already-in-use') {
         // Collision B: this number belongs to an account that already exists.
         setIsHandingOff(true);
@@ -300,6 +328,14 @@ export default function RegistrationStep3Screen() {
         }),
       });
     } catch (err) {
+      if (isSocial && apiStatusOf(err) === 409) {
+        // Collision B, found by the server: the email or phone belongs to an
+        // account that already exists.
+        setIsHandingOff(true);
+        await abandonSocialSignUpForLink(phoneE164);
+        router.dismissTo('/(auth)/sign-in');
+        return;
+      }
       setFormError(err instanceof Error ? err.message : 'Could not save your profile.');
       return;
     }
@@ -330,10 +366,10 @@ export default function RegistrationStep3Screen() {
     isUploadingPhotos ||
     registerProfile.isPending;
   const canSubmit =
-    challenge !== null &&
-    (instantlyVerified || otp.length === OTP_LENGTH) &&
+    (phoneAlreadyVerified || (challenge !== null && (instantlyVerified || otp.length === OTP_LENGTH))) &&
     termsAccepted &&
-    !isSubmitting;
+    !isSubmitting &&
+    !sessionEnded;
   const resendDisabled = secondsLeft > 0 || sendOtp.isPending || sendLinkCode.isPending;
 
   return (
@@ -371,7 +407,9 @@ export default function RegistrationStep3Screen() {
         <View style={styles.headlineGroup}>
           <Text style={styles.headline}>Verify your phone number</Text>
           <Text style={styles.subtitle}>
-            {instantlyVerified ? (
+            {phoneAlreadyVerified ? (
+              <Text style={styles.phoneHighlight}>{phoneDisplay}</Text>
+            ) : instantlyVerified ? (
               'Your number was verified automatically.'
             ) : (
               <>
@@ -384,32 +422,51 @@ export default function RegistrationStep3Screen() {
 
         {/* OTP input */}
         <View style={styles.otpSection}>
-          {!instantlyVerified && (
-            <OtpCodeInput
-              testID="registerStep3.code"
-              value={otp}
-              onChange={handleOtpChange}
-              disabled={isSubmitting}
-            />
-          )}
+          {phoneAlreadyVerified ? (
+            <View style={styles.verifiedRow}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              <Text style={styles.verifiedText}>Your number is already verified.</Text>
+            </View>
+          ) : (
+            <>
+              {!instantlyVerified && (
+                <OtpCodeInput
+                  testID="registerStep3.code"
+                  value={otp}
+                  onChange={handleOtpChange}
+                  disabled={isSubmitting}
+                />
+              )}
 
-          <View style={styles.resendRow}>
-            <Text style={styles.timerText}>
-              {sendOtp.isPending || sendLinkCode.isPending ? 'Sending code…' : "Didn't get a code?"}
-            </Text>
-            <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
-              <Text
-                style={[styles.resendLink, resendDisabled && styles.resendLinkDisabled]}
-              >
-                {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : 'Resend code'}
-              </Text>
-            </Pressable>
-          </View>
+              <View style={styles.resendRow}>
+                <Text style={styles.timerText}>
+                  {sendOtp.isPending || sendLinkCode.isPending ? 'Sending code…' : "Didn't get a code?"}
+                </Text>
+                <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
+                  <Text
+                    style={[styles.resendLink, resendDisabled && styles.resendLinkDisabled]}
+                  >
+                    {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : 'Resend code'}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
 
           {formError && (
             <View style={styles.formErrorBanner}>
               <Text style={styles.formErrorText}>{formError}</Text>
             </View>
+          )}
+
+          {sessionEnded && (
+            <Button
+              title="Start again"
+              variant="outline"
+              onPress={handleStartAgain}
+              loading={signOut.isPending}
+              disabled={signOut.isPending}
+            />
           )}
         </View>
 

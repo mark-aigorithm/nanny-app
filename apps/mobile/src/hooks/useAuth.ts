@@ -11,8 +11,8 @@ import type {
 } from '@nanny-app/shared';
 
 import { auth } from '@mobile/lib/firebase';
-import type { FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
-import { api, isNotFound, unwrap } from '@mobile/lib/api';
+import type { AuthCredential, FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
+import { api, apiStatusOf, isNotFound, unwrap } from '@mobile/lib/api';
 import { COULD_NOT_CONNECT, mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { clearLocalSession } from '@mobile/lib/session';
@@ -83,9 +83,31 @@ async function checkAccount(user: FirebaseUser): Promise<AccountCheck> {
   }
 }
 
+/**
+ * A code was checked but Firebase left no session behind — a hiccup, so trying
+ * again (the code is re-checked) is the way on.
+ */
 const SESSION_LOST_ERROR: MappedAuthError = {
   field: 'form',
   message: 'Your code was verified but the session was lost. Please try again.',
+};
+
+/**
+ * The account signed in is not the one this sign-up is finishing (or nobody
+ * is): the sign-up can't go on from here, so the only way on is to start
+ * again. Step 3 branches on the code and offers "Start again".
+ */
+export const SESSION_MISMATCH_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'Your session ended. Please start again.',
+  code: 'session-mismatch',
+};
+
+/** The email belongs to an account the server won't give up. */
+export const EMAIL_TAKEN_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'An account with this email already exists. Sign in instead.',
+  code: 'auth/email-already-in-use',
 };
 
 /**
@@ -279,6 +301,34 @@ export function useSendPhoneOtp() {
 }
 
 /**
+ * Links the email/password credential onto `user`. A password provider
+ * already on this uid is swapped for the new one.
+ *
+ * It used to be a safe no-op, because the credential was derived from the
+ * phone — any two link attempts for the same number were identical. Now that
+ * it's the user's own chosen email and password, that's no longer true: a
+ * wizard abandoned after this step and restarted with a different email or
+ * password confirms into the same uid, where the link call is a no-op that
+ * would otherwise silently leave Firebase on the abandoned attempt's
+ * email/password while the DB row gets the new one. `updateEmail` can't fix
+ * this up afterward — it's blocked under email-enumeration protection — so
+ * unlink the stale credential and link the new one in its place.
+ *
+ * Rejects with the raw Firebase error; the caller maps it.
+ */
+async function linkEmailPassword(user: FirebaseUser, credential: AuthCredential): Promise<void> {
+  try {
+    await user.linkWithCredential(credential);
+  } catch (error) {
+    if ((error as { code?: unknown })?.code !== 'auth/provider-already-linked') throw error;
+    await user.unlink('password');
+    await user.linkWithCredential(credential);
+  }
+}
+
+const EMAIL_IN_USE_CODES = new Set(['auth/email-already-in-use', 'auth/credential-already-in-use']);
+
+/**
  * Finishes the auth half of registration: checks the SMS code, then attaches
  * the email/password credential to the user Firebase just signed in.
  *
@@ -293,57 +343,72 @@ export function useSendPhoneOtp() {
  * password-reset mail can reach her) and, via `POST /auth/register`,
  * `users.email` — one proven address, not a placeholder plus a real one.
  *
- * Idempotent: a retry after a failure further down the wizard re-confirms into
- * the same uid, where the password provider is already attached.
+ * Survives retries and resumes:
+ * - A retry after a failure further down the wizard re-uses a spent code;
+ *   `confirmCode` accepts that when the app is already signed in as `phone`.
+ * - `confirmation: null` is a resumed sign-up whose account already holds
+ *   `phone` — nothing to confirm. Any other signed-in account (or none) is
+ *   `SESSION_MISMATCH_ERROR`.
+ * - An empty `password` means create-password was skipped because the
+ *   account already has a password for this email; the link is skipped too.
+ * - An email another unfinished account is squatting (`email-already-in-use`
+ *   / `credential-already-in-use`) is reclaimed with `emailVerificationToken`,
+ *   then linked once more. A refused reclaim, or no token to reclaim with, is
+ *   `EMAIL_TAKEN_ERROR`.
  */
 export function useConfirmPhoneAndLink() {
   return useMutation<
     void,
     MappedAuthError,
-    { confirmation: PhoneConfirmation; code: string; email: string; password: string }
+    {
+      confirmation: PhoneConfirmation | null;
+      code: string;
+      phone: string;
+      email: string;
+      password: string;
+      emailVerificationToken: string | null;
+    }
   >({
-    mutationFn: async ({ confirmation, code, email, password }) => {
-      try {
-        await confirmation.confirm(code);
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
+    mutationFn: async ({ confirmation, code, phone, email, password, emailVerificationToken }) => {
+      let user: FirebaseUser;
+      if (confirmation) {
+        user = await confirmCode(confirmation, code, phone);
+      } else {
+        const current = auth().currentUser;
+        if (!current || current.phoneNumber !== phone) throw SESSION_MISMATCH_ERROR;
+        user = current;
       }
 
-      const user = auth().currentUser;
-      if (!user) {
-        // confirm() resolved without leaving a session — nothing to link onto.
-        throw {
-          field: 'form',
-          message: 'Your phone was verified but the session was lost. Please try again.',
-        } satisfies MappedAuthError;
-      }
-
-      const credential = auth.EmailAuthProvider.credential(email.trim().toLowerCase(), password);
-
-      try {
-        await user.linkWithCredential(credential);
-      } catch (error) {
-        // A password provider already on *this* uid used to be a safe no-op,
-        // because the credential was derived from the phone — any two link
-        // attempts for the same number were identical. Now that it's the
-        // user's own chosen email and password, that's no longer true: a
-        // wizard abandoned after this step and restarted with a different
-        // email or password confirms into the same uid, where the link call
-        // is a no-op that would otherwise silently leave Firebase on the
-        // abandoned attempt's email/password while the DB row gets the new
-        // one. `updateEmail` can't fix this up afterward — it's blocked
-        // under email-enumeration protection — so unlink the stale
-        // credential and link the new one in its place. The "already in
-        // use" codes mean a different account owns that address, which the
-        // user has to resolve — let those surface, same as before.
-        if ((error as { code?: string })?.code !== 'auth/provider-already-linked') {
-          throw mapFirebaseAuthError(error);
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!password) {
+        const hasSamePassword = user.providerData.some(
+          (p) => p.providerId === 'password' && p.email?.toLowerCase() === normalizedEmail,
+        );
+        if (!hasSamePassword) {
+          throw { field: 'form', message: 'Please go back and create a password.' } satisfies MappedAuthError;
         }
+      } else {
+        const credential = auth.EmailAuthProvider.credential(normalizedEmail, password);
         try {
-          await user.unlink('password');
-          await user.linkWithCredential(credential);
-        } catch (relinkError) {
-          throw mapFirebaseAuthError(relinkError);
+          await linkEmailPassword(user, credential);
+        } catch (error) {
+          const errorCode = (error as { code?: unknown })?.code;
+          if (typeof errorCode !== 'string' || !EMAIL_IN_USE_CODES.has(errorCode)) {
+            throw mapFirebaseAuthError(error);
+          }
+          if (!emailVerificationToken) throw EMAIL_TAKEN_ERROR;
+          try {
+            await api.post('/auth/reclaim-email', { email: normalizedEmail, emailVerificationToken });
+          } catch (reclaimError) {
+            throw apiStatusOf(reclaimError) === 409
+              ? EMAIL_TAKEN_ERROR
+              : ({ field: 'form', message: COULD_NOT_CONNECT } satisfies MappedAuthError);
+          }
+          try {
+            await linkEmailPassword(user, credential);
+          } catch (relinkError) {
+            throw mapFirebaseAuthError(relinkError);
+          }
         }
       }
 
@@ -422,29 +487,32 @@ export function useSendPhoneLinkCode() {
  * `provider-already-linked` from that single link is therefore unexpected, and
  * is mapped like any other failure.
  *
+ * `challenge: null` is a resumed sign-up whose account already holds `phone`:
+ * nothing is linked. If it doesn't hold it, `SESSION_MISMATCH_ERROR`.
+ *
  * `signUpUid` is the draft's record of the account this sign-up
  * created. Anyone else signed in — say, a registered account that has signed
- * in on this device since — is refused before anything is touched: the
- * unlink above would otherwise strip that account's own phone.
+ * in on this device since — is refused (`SESSION_MISMATCH_ERROR`) before
+ * anything is touched: the unlink above would otherwise strip that account's
+ * own phone.
  */
 export function useLinkPhoneToCurrentUser() {
   return useMutation<
     void,
     MappedAuthError,
-    { challenge: PhoneLinkChallenge; code: string; phone: string; signUpUid: string | null }
+    { challenge: PhoneLinkChallenge | null; code: string; phone: string; signUpUid: string | null }
   >({
     mutationFn: async ({ challenge, code, phone, signUpUid }) => {
       const user = auth().currentUser;
-      if (!user || !signUpUid || user.uid !== signUpUid) {
-        throw {
-          field: 'form',
-          message: 'Your session ended. Please continue with Google or Apple again.',
-        } satisfies MappedAuthError;
-      }
+      if (!user || !signUpUid || user.uid !== signUpUid) throw SESSION_MISMATCH_ERROR;
+
+      // No challenge: a resumed sign-up whose account already holds the
+      // number, so no SMS was sent. Anything else means the account moved on.
+      if (!challenge && user.phoneNumber !== phone) throw SESSION_MISMATCH_ERROR;
 
       // A retry after a later step failed: the number is already on the
       // account, and re-linking would spend a credential for nothing.
-      if (user.phoneNumber !== phone) {
+      if (challenge && user.phoneNumber !== phone) {
         try {
           if (user.phoneNumber) await user.unlink('phone');
           const credential =

@@ -12,6 +12,8 @@ const mockCredential = jest.fn((email: string, password: string) => ({ email, pa
 // `mockCurrentUser` rather than `currentUser`.
 let mockCurrentUser: {
   email: string | null;
+  phoneNumber: string | null;
+  providerData: { providerId: string; email?: string | null }[];
   linkWithCredential: jest.Mock;
   unlink: jest.Mock;
   getIdToken: jest.Mock;
@@ -42,7 +44,14 @@ jest.mock('@mobile/lib/firebase', () => {
   return { auth: authFn };
 });
 
-import { useConfirmPhoneAndLink } from '@mobile/hooks/useAuth';
+const mockApiPost = jest.fn();
+jest.mock('@mobile/lib/api', () => {
+  const actual = jest.requireActual('@mobile/lib/api');
+  return { ...actual, api: { post: (...args: unknown[]) => mockApiPost(...args) } };
+});
+
+import { ApiRequestError } from '@mobile/lib/api';
+import { EMAIL_TAKEN_ERROR, useConfirmPhoneAndLink } from '@mobile/hooks/useAuth';
 
 let currentUnmount: (() => void) | null = null;
 
@@ -59,12 +68,17 @@ function renderConfirmPhoneAndLink() {
 }
 
 const CONFIRMATION = { confirm: mockConfirm } as never;
+const PHONE = '+201234567891';
+/** The fields every call below shares. */
+const BASE = { confirmation: CONFIRMATION, code: '111111', phone: PHONE, emailVerificationToken: null };
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockConfirm.mockResolvedValue(undefined);
   mockCurrentUser = {
     email: 'old@example.com',
+    phoneNumber: PHONE,
+    providerData: [{ providerId: 'phone' }],
     linkWithCredential: mockLinkWithCredential,
     unlink: mockUnlink,
     getIdToken: jest.fn().mockResolvedValue('fresh-token'),
@@ -81,8 +95,7 @@ it('links the credential straight away when nothing is linked yet', async () => 
   const { result } = renderConfirmPhoneAndLink();
 
   await result.current.mutateAsync({
-    confirmation: CONFIRMATION,
-    code: '111111',
+    ...BASE,
     email: 'Mona@Example.com',
     password: 'Password1',
   });
@@ -118,8 +131,7 @@ it('unlinks and relinks with the new credential when a password provider is alre
   const { result } = renderConfirmPhoneAndLink();
 
   await result.current.mutateAsync({
-    confirmation: CONFIRMATION,
-    code: '111111',
+    ...BASE,
     email: 'new@example.com',
     password: 'NewPassword1',
   });
@@ -130,7 +142,7 @@ it('unlinks and relinks with the new credential when a password provider is alre
   expect(order).toEqual(['link-1', 'unlink', 'link-2']);
 });
 
-it('maps a relink failure through mapFirebaseAuthError instead of silently succeeding', async () => {
+it('reports a taken email from the relink instead of silently succeeding', async () => {
   mockLinkWithCredential
     .mockImplementationOnce(async () => {
       throw { code: 'auth/provider-already-linked' };
@@ -144,15 +156,11 @@ it('maps a relink failure through mapFirebaseAuthError instead of silently succe
 
   await expect(
     result.current.mutateAsync({
-      confirmation: CONFIRMATION,
-      code: '111111',
+      ...BASE,
       email: 'taken@example.com',
       password: 'NewPassword1',
     }),
-  ).rejects.toEqual({
-    field: 'email',
-    message: 'An account with this email already exists.',
-  });
+  ).rejects.toEqual(EMAIL_TAKEN_ERROR);
 
   expect(mockUnlink).toHaveBeenCalledWith('password');
 });
@@ -167,8 +175,7 @@ it('surfaces an unlink failure through mapFirebaseAuthError', async () => {
 
   await expect(
     result.current.mutateAsync({
-      confirmation: CONFIRMATION,
-      code: '111111',
+      ...BASE,
       email: 'new@example.com',
       password: 'NewPassword1',
     }),
@@ -181,20 +188,19 @@ it('surfaces an unlink failure through mapFirebaseAuthError', async () => {
 });
 
 it('still maps a genuine link failure that is not the already-linked code', async () => {
-  mockLinkWithCredential.mockRejectedValue({ code: 'auth/email-already-in-use' });
+  mockLinkWithCredential.mockRejectedValue({ code: 'auth/weak-password' });
 
   const { result } = renderConfirmPhoneAndLink();
 
   await expect(
     result.current.mutateAsync({
-      confirmation: CONFIRMATION,
-      code: '111111',
+      ...BASE,
       email: 'taken@example.com',
       password: 'NewPassword1',
     }),
   ).rejects.toEqual({
-    field: 'email',
-    message: 'An account with this email already exists.',
+    field: 'password',
+    message: 'Password is too weak. Use at least 8 characters.',
   });
 
   expect(mockUnlink).not.toHaveBeenCalled();
@@ -205,8 +211,7 @@ it('refreshes the ID token after linking, so /auth/register sees the linked emai
   const { result } = renderConfirmPhoneAndLink();
 
   await result.current.mutateAsync({
-    confirmation: CONFIRMATION,
-    code: '111111',
+    ...BASE,
     email: 'mona@example.com',
     password: 'Password1',
   });
@@ -214,3 +219,148 @@ it('refreshes the ID token after linking, so /auth/register sees the linked emai
   expect(mockCurrentUser?.getIdToken).toHaveBeenCalledWith(true);
 });
 
+
+describe('a retry or a resumed sign-up', () => {
+  it('accepts a spent code when the app is already signed in as that number', async () => {
+    // A retry after a later step failed: the code was spent by the first try.
+    mockConfirm.mockRejectedValue({ code: 'auth/session-expired' });
+    mockLinkWithCredential.mockResolvedValue(undefined);
+    const { result } = renderConfirmPhoneAndLink();
+
+    await result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1' });
+
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the code when the account already holds the number (confirmation: null)', async () => {
+    mockLinkWithCredential.mockResolvedValue(undefined);
+    const { result } = renderConfirmPhoneAndLink();
+
+    await result.current.mutateAsync({ ...BASE, confirmation: null, code: '', email: 'mona@example.com', password: 'Password1' });
+
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
+    expect(mockCurrentUser?.getIdToken).toHaveBeenCalledWith(true);
+  });
+
+  it('refuses confirmation: null when the signed-in account does not hold that number', async () => {
+    mockCurrentUser!.phoneNumber = '+201111111111';
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, confirmation: null, code: '', email: 'mona@example.com', password: 'Password1' }),
+    ).rejects.toMatchObject({ field: 'form', code: 'session-mismatch' });
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
+  });
+
+  it('refuses confirmation: null when nobody is signed in', async () => {
+    mockCurrentUser = null;
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, confirmation: null, code: '', email: 'mona@example.com', password: 'Password1' }),
+    ).rejects.toMatchObject({ code: 'session-mismatch' });
+  });
+
+  it('skips the link when the same-email password is already on the account and none was typed', async () => {
+    // A resumed sign-up whose create-password step was skipped.
+    mockCurrentUser!.providerData = [{ providerId: 'phone' }, { providerId: 'password', email: 'Mona@Example.com' }];
+    const { result } = renderConfirmPhoneAndLink();
+
+    await result.current.mutateAsync({ ...BASE, confirmation: null, code: '', email: 'mona@example.com', password: '' });
+
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
+    expect(mockUnlink).not.toHaveBeenCalled();
+    expect(mockCurrentUser?.getIdToken).toHaveBeenCalledWith(true);
+  });
+
+  it('asks for a password when none was typed and the account has none for that email', async () => {
+    mockCurrentUser!.providerData = [{ providerId: 'phone' }, { providerId: 'password', email: 'other@example.com' }];
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: '' }),
+    ).rejects.toEqual({ field: 'form', message: 'Please go back and create a password.' });
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
+  });
+});
+
+describe('an email held by another unfinished account', () => {
+  it('reclaims the proven email and links once more', async () => {
+    mockLinkWithCredential
+      .mockRejectedValueOnce({ code: 'auth/email-already-in-use' })
+      .mockResolvedValueOnce(undefined);
+    mockApiPost.mockResolvedValue({ status: 204 });
+    const { result } = renderConfirmPhoneAndLink();
+
+    await result.current.mutateAsync({ ...BASE, email: 'Mona@Example.com', password: 'Password1', emailVerificationToken: 'tok' });
+
+    expect(mockApiPost).toHaveBeenCalledWith('/auth/reclaim-email', { email: 'mona@example.com', emailVerificationToken: 'tok' });
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(2);
+    expect(mockApiPost.mock.invocationCallOrder[0]).toBeLessThan(
+      mockLinkWithCredential.mock.invocationCallOrder[1] as number,
+    );
+    expect(mockCurrentUser?.getIdToken).toHaveBeenCalledWith(true);
+  });
+
+  it('treats credential-already-in-use the same way', async () => {
+    mockLinkWithCredential
+      .mockRejectedValueOnce({ code: 'auth/credential-already-in-use' })
+      .mockResolvedValueOnce(undefined);
+    mockApiPost.mockResolvedValue({ status: 204 });
+    const { result } = renderConfirmPhoneAndLink();
+
+    await result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1', emailVerificationToken: 'tok' });
+
+    expect(mockApiPost).toHaveBeenCalledTimes(1);
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(2);
+  });
+
+  it('says the email is taken when the server refuses the reclaim (409)', async () => {
+    mockLinkWithCredential.mockRejectedValue({ code: 'auth/email-already-in-use' });
+    mockApiPost.mockRejectedValue(new ApiRequestError('taken', 409));
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1', emailVerificationToken: 'tok' }),
+    ).rejects.toEqual(EMAIL_TAKEN_ERROR);
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
+    expect(EMAIL_TAKEN_ERROR).toEqual({
+      field: 'form',
+      message: 'An account with this email already exists. Sign in instead.',
+      code: 'auth/email-already-in-use',
+    });
+  });
+
+  it("says it couldn't connect when the reclaim fails any other way", async () => {
+    mockLinkWithCredential.mockRejectedValue({ code: 'auth/email-already-in-use' });
+    mockApiPost.mockRejectedValue(new ApiRequestError('offline', null));
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1', emailVerificationToken: 'tok' }),
+    ).rejects.toEqual({ field: 'form', message: "Couldn't connect. Check your connection and try again." });
+  });
+
+  it('says the email is taken, without asking the server, when there is no proof of the email', async () => {
+    mockLinkWithCredential.mockRejectedValue({ code: 'auth/email-already-in-use' });
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1' }),
+    ).rejects.toEqual(EMAIL_TAKEN_ERROR);
+    expect(mockApiPost).not.toHaveBeenCalled();
+  });
+
+  it('maps a failure of the second link', async () => {
+    mockLinkWithCredential
+      .mockRejectedValueOnce({ code: 'auth/email-already-in-use' })
+      .mockRejectedValueOnce({ code: 'auth/network-request-failed' });
+    mockApiPost.mockResolvedValue({ status: 204 });
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1', emailVerificationToken: 'tok' }),
+    ).rejects.toEqual({ field: 'form', message: 'Network error. Check your connection and try again.' });
+  });
+});

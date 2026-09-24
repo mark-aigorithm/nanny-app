@@ -16,7 +16,9 @@ const mockSendLinkCode = jest.fn((_v: unknown, o: Opts<unknown>) =>
 const mockConfirmPhone = jest.fn().mockResolvedValue(undefined);
 const mockLinkPhone = jest.fn().mockResolvedValue(undefined);
 const mockRegister = jest.fn().mockResolvedValue({ id: 1 });
+const mockSignOut = jest.fn((_v: unknown, o?: { onSettled?: () => void }) => o?.onSettled?.());
 jest.mock('@mobile/hooks/useAuth', () => ({
+  useSignOut: () => ({ mutate: mockSignOut, isPending: false }),
   useSendPhoneOtp: () => ({ mutate: mockSendOtp, isPending: false }),
   useSendPhoneLinkCode: () => ({ mutate: mockSendLinkCode, isPending: false }),
   useConfirmPhoneAndLink: () => ({ mutateAsync: mockConfirmPhone, isPending: false }),
@@ -36,6 +38,16 @@ jest.mock('@mobile/lib/pendingLink', () => ({
   abandonSocialSignUpForLink: (...args: unknown[]) => mockAbandon(...args),
 }));
 
+let mockCurrentUser: { uid: string } | null = null;
+jest.mock('@mobile/lib/firebase', () => ({
+  auth: () => ({
+    get currentUser() {
+      return mockCurrentUser;
+    },
+  }),
+}));
+
+import { ApiRequestError } from '@mobile/lib/api';
 import RegistrationStep3Screen from '@mobile/screens/auth/RegistrationStep3Screen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 
@@ -73,6 +85,7 @@ function completeSetup() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCurrentUser = { uid: 'uid-social' };
   useRegistrationDraftStore.getState().reset();
   mockUpload.mockImplementation(async (_uri: string, folder: string) => `https://storage.test/${folder}/uid/photo.jpg`);
 });
@@ -86,7 +99,14 @@ it('phone wizard: confirms, links the password, and registers with the email tok
 
   await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
   expect(mockConfirmPhone).toHaveBeenCalledWith(
-    expect.objectContaining({ code: '111111', email: 'mona@gmail.com', password: 'Passw0rd!' }),
+    expect.objectContaining({
+      code: '111111',
+      email: 'mona@gmail.com',
+      password: 'Passw0rd!',
+      phone: '+201234567891',
+      // So a taken email can be reclaimed with the proof from step 2.
+      emailVerificationToken: 'tok',
+    }),
   );
   expect(mockRegister.mock.calls[0][0]).toMatchObject({ emailVerificationToken: 'tok', phone: '+201234567891' });
   expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(auth)/notification-permission', params: { role: 'parent' } });
@@ -222,4 +242,137 @@ it('says the photos failed to upload, and registers nothing, when an upload thro
     ).toBeTruthy(),
   );
   expect(mockRegister).not.toHaveBeenCalled();
+});
+
+describe('a resumed sign-up whose account already holds the number', () => {
+  const LOCKED = "Your number is already verified.";
+
+  it('phone wizard: sends no code and completes setup with confirmation: null', async () => {
+    seedMotherDraft({
+      authProvider: 'phone',
+      emailVerificationToken: 'tok',
+      password: '',
+      accountPhone: '+201234567891',
+      signUpUid: 'uid-social',
+      isResume: true,
+    });
+    renderScreen();
+
+    expect(mockSendOtp).not.toHaveBeenCalled();
+    expect(screen.getByText(LOCKED)).toBeTruthy();
+    expect(screen.queryByTestId('registerStep3.code')).toBeNull();
+    expect(screen.queryByText('Resend code')).toBeNull();
+
+    fireEvent.press(screen.getByText('I agree to Terms of Service and Privacy Policy'));
+    fireEvent.press(screen.getByText('Complete setup'));
+
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+    expect(mockConfirmPhone).toHaveBeenCalledWith({
+      confirmation: null,
+      code: '',
+      phone: '+201234567891',
+      email: 'mona@gmail.com',
+      password: '',
+      emailVerificationToken: 'tok',
+    });
+  });
+
+  it('Google wizard: sends no code and completes setup with challenge: null', async () => {
+    seedMotherDraft({ authProvider: 'google', accountPhone: '+201234567891', signUpUid: 'uid-social', isResume: true });
+    renderScreen();
+
+    expect(mockSendLinkCode).not.toHaveBeenCalled();
+    expect(screen.getByText(LOCKED)).toBeTruthy();
+
+    fireEvent.press(screen.getByText('I agree to Terms of Service and Privacy Policy'));
+    fireEvent.press(screen.getByText('Complete setup'));
+
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+    expect(mockLinkPhone).toHaveBeenCalledWith({ challenge: null, code: '', phone: '+201234567891', signUpUid: 'uid-social' });
+  });
+
+  it('sends a code as usual when the number was changed from the one on the account', () => {
+    seedMotherDraft({ authProvider: 'google', accountPhone: '+201111111111', signUpUid: 'uid-social', isResume: true });
+    renderScreen();
+
+    expect(mockSendLinkCode).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(LOCKED)).toBeNull();
+    expect(screen.getByTestId('registerStep3.code')).toBeTruthy();
+  });
+
+  it('sends a code as usual when someone else is signed in', () => {
+    mockCurrentUser = { uid: 'uid-someone-else' };
+    seedMotherDraft({ authProvider: 'google', accountPhone: '+201234567891', signUpUid: 'uid-social', isResume: true });
+    renderScreen();
+
+    expect(mockSendLinkCode).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(LOCKED)).toBeNull();
+  });
+});
+
+describe('a session that no longer matches the sign-up', () => {
+  const MISMATCH = { field: 'form', message: 'Your session ended. Please start again.', code: 'session-mismatch' };
+
+  it('says so, offers Start again, and signs out back to sign-in', async () => {
+    seedMotherDraft({ authProvider: 'google', signUpUid: 'uid-social' });
+    mockLinkPhone.mockRejectedValueOnce(MISMATCH);
+    renderScreen();
+
+    completeSetup();
+
+    await waitFor(() => expect(screen.getByText(MISMATCH.message)).toBeTruthy());
+    expect(mockAbandon).not.toHaveBeenCalled();
+    expect(mockRegister).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText('Start again'));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in');
+  });
+
+  it('is handled before the instant-verification fallback', async () => {
+    mockSendLinkCode.mockImplementationOnce((_v: unknown, o: Opts<unknown>) =>
+      o.onSuccess?.({ verificationId: null, autoVerified: true, code: null }),
+    );
+    seedMotherDraft({ authProvider: 'google', signUpUid: 'uid-social' });
+    mockLinkPhone.mockRejectedValueOnce(MISMATCH);
+    renderScreen();
+
+    fireEvent.press(screen.getByText('I agree to Terms of Service and Privacy Policy'));
+    fireEvent.press(screen.getByText('Complete setup'));
+
+    await waitFor(() => expect(screen.getByText(MISMATCH.message)).toBeTruthy());
+    expect(screen.getByText('Start again')).toBeTruthy();
+  });
+
+  it('phone wizard: offers Start again too', async () => {
+    seedMotherDraft({ authProvider: 'phone', emailVerificationToken: 'tok', password: 'Passw0rd!' });
+    mockConfirmPhone.mockRejectedValueOnce(MISMATCH);
+    renderScreen();
+
+    completeSetup();
+
+    await waitFor(() => expect(screen.getByText('Start again')).toBeTruthy());
+  });
+});
+
+it('Google wizard: a 409 from register (email or phone taken) starts the collision flow', async () => {
+  seedMotherDraft({ authProvider: 'google', signUpUid: 'uid-social' });
+  mockRegister.mockRejectedValueOnce(new ApiRequestError('An account with this email already exists.', 409));
+  renderScreen();
+
+  completeSetup();
+
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in'));
+  expect(mockAbandon).toHaveBeenCalledWith('+201234567891');
+});
+
+it('phone wizard: a 409 from register is shown, not treated as a collision', async () => {
+  seedMotherDraft({ authProvider: 'phone', emailVerificationToken: 'tok', password: 'Passw0rd!' });
+  mockRegister.mockRejectedValueOnce(new ApiRequestError('An account with this email already exists.', 409));
+  renderScreen();
+
+  completeSetup();
+
+  await waitFor(() => expect(screen.getByText('An account with this email already exists.')).toBeTruthy());
+  expect(mockAbandon).not.toHaveBeenCalled();
 });

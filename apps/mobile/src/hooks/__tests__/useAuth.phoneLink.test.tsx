@@ -217,8 +217,35 @@ describe('useLinkPhoneToCurrentUser', () => {
 
   const SESSION_ENDED = {
     field: 'form',
-    message: 'Your session ended. Please continue with Google or Apple again.',
+    message: 'Your session ended. Please start again.',
+    code: 'session-mismatch',
   };
+
+  it('skips the link when the account already holds the number (challenge: null)', async () => {
+    mockCurrentUser!.phoneNumber = '+201234567891';
+    const { result } = wrap(() => useLinkPhoneToCurrentUser());
+
+    await result.current.mutateAsync({ challenge: null, code: '', phone: '+201234567891', signUpUid: 'uid-social' });
+
+    expect(mockPhoneCredential).not.toHaveBeenCalled();
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
+    expect(mockUnlink).not.toHaveBeenCalled();
+    expect(mockGetIdToken).toHaveBeenCalledWith(true);
+    await settled(result);
+  });
+
+  it('refuses challenge: null when the account does not hold that number', async () => {
+    mockCurrentUser!.phoneNumber = '+201111111111';
+    const { result } = wrap(() => useLinkPhoneToCurrentUser());
+
+    await expect(
+      result.current.mutateAsync({ challenge: null, code: '', phone: '+201234567891', signUpUid: 'uid-social' }),
+    ).rejects.toEqual(SESSION_ENDED);
+    expect(mockUnlink).not.toHaveBeenCalled();
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
+    expect(mockGetIdToken).not.toHaveBeenCalled();
+    await settled(result);
+  });
 
   it('refuses to touch an account the wizard did not create', async () => {
     // A registered account (say, signed in by SMS on this device since) holds

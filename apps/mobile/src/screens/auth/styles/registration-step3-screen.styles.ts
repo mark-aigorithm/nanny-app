@@ -132,6 +132,17 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
+  // A resumed sign-up whose account already holds the number
+  verifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  verifiedText: {
+    ...typeScale.bodyMd,
+    color: colors.successText,
+  },
+
   // Form-level error banner
   formErrorBanner: {
     backgroundColor: colors.errorLight,

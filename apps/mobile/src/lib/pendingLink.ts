@@ -1,9 +1,11 @@
+import { api } from '@mobile/lib/api';
 import { auth } from '@mobile/lib/firebase';
 import type { AuthCredential, FirebaseUser } from '@mobile/lib/firebase';
 import { getSocialCredential, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
+import type { SocialProvider } from '@mobile/types';
 
 /**
  * Link failures caused by the reused credential itself being refused — a
@@ -67,20 +69,8 @@ export async function linkPendingCredential(): Promise<void> {
   }
 }
 
-/**
- * Deletes the throwaway social account. `delete()` needs a recent sign-in
- * (about five minutes), and a collision found at step 3 comes after the whole
- * wizard, so a `requires-recent-login` refusal is answered by re-proving the
- * sign-in with the same Google/Apple credential and deleting once more.
- * Resolves whether the account is gone; never throws.
- */
-async function deleteThrowawayAccount(user: FirebaseUser, credential: AuthCredential): Promise<boolean> {
-  try {
-    await user.delete();
-    return true;
-  } catch (error) {
-    if ((error as { code?: unknown })?.code !== 'auth/requires-recent-login') return false;
-  }
+/** Re-proves the sign-in with `credential` and deletes once more. Never throws. */
+async function reauthenticateAndDelete(user: FirebaseUser, credential: AuthCredential): Promise<boolean> {
   try {
     await user.reauthenticateWithCredential(credential);
     await user.delete();
@@ -91,41 +81,98 @@ async function deleteThrowawayAccount(user: FirebaseUser, credential: AuthCreden
 }
 
 /**
- * Collision B: a social sign-up ran into an account that already exists (its
- * phone or email is taken). Delete the Google/Apple-only account this sign-up
- * created — which frees the identity to be linked onto the real account —
- * park the credential, and reset the draft. The caller then sends the user to
- * sign in, where `phoneHint` prefills the number they typed.
+ * Deletes the account this sign-up created and says which Google/Apple
+ * credential to park for the link at sign-in (`null`: none to park).
  *
- * Only ever called from inside the social wizard, which starts only after
- * `/auth/me` returned 404 — so the signed-in account has no row. That is
- * checked here before anything is deleted or parked: the signed-in uid must be
- * the draft's `signUpUid`, which is recorded (by seedDraftFromAccount) only after
- * a 404 for that account, alongside the `authProvider`/`socialCredential`. Anything
- * else — nobody signed in, or someone other than the account this sign-up
- * created — means the draft is stale (possibly another person's, on a shared
- * device), so the account is signed out, nothing is parked, and the draft is
- * dropped. On top of that, the account is deleted only while its
- * `providerData` is still social-only; otherwise it is signed out instead.
+ * `delete()` needs a recent sign-in (about five minutes), and a collision found
+ * at step 3 comes after the whole wizard, so a `requires-recent-login` refusal
+ * is answered, in order, by:
+ *
+ * 1. `DELETE /auth/me` — the server deletes the Firebase account itself
+ *    (refusing unless no row points at it), then the app signs out locally.
+ * 2. Re-proving the sign-in with the sign-up's own credential and deleting.
+ * 3. Re-proving it with a fresh credential from the provider's sheet — the
+ *    only way for a resumed sign-up, which has no credential — and deleting.
+ *    The fresh one is parked only when it re-proved this very account; one
+ *    for a different identity (another Google account picked in the sheet)
+ *    proves nothing here.
+ *
+ * Any other `delete()` failure, or all of the above failing, leaves the
+ * account in place: it is signed out, and the credential is parked anyway —
+ * the link at sign-in then fails harmlessly (the identity is still in use) and
+ * says so.
+ */
+async function deleteSignUpAccount(
+  user: FirebaseUser,
+  provider: SocialProvider,
+  credential: AuthCredential | null,
+): Promise<AuthCredential | null> {
+  try {
+    await user.delete();
+    return credential;
+  } catch (error) {
+    if ((error as { code?: unknown })?.code !== 'auth/requires-recent-login') {
+      await auth().signOut().catch(() => undefined);
+      return credential;
+    }
+  }
+
+  try {
+    await api.delete('/auth/me');
+    await auth().signOut().catch(() => undefined);
+    return credential;
+  } catch {
+    // Try re-proving the sign-in instead.
+  }
+
+  if (credential && (await reauthenticateAndDelete(user, credential))) return credential;
+
+  try {
+    const fresh = await getSocialCredential(provider);
+    if (fresh && (await reauthenticateAndDelete(user, fresh.credential))) return fresh.credential;
+  } catch {
+    // Cancelled or failed — fall through to signing out.
+  }
+
+  await auth().signOut().catch(() => undefined);
+  return credential;
+}
+
+/**
+ * Collision B: a social sign-up ran into an account that already exists (its
+ * phone or email is taken). Delete the account this sign-up created — which
+ * frees the Google/Apple identity to be linked onto the real account — park
+ * the credential, and reset the draft. The caller then sends the user to sign
+ * in, where `phoneHint` prefills the number they typed.
+ *
+ * The account is deleted only when it is this sign-up's own: the signed-in uid
+ * must be the draft's `signUpUid`, which seedDraftFromAccount records only
+ * after `/auth/me` returned 404 for that account (a fresh Google/Apple sign-up
+ * or a resumed leftover), and the server re-checks that no row points at it
+ * before its own delete. What the account holds besides Google/Apple — say, a
+ * phone an earlier attempt linked — doesn't matter. Anything else — nobody
+ * signed in, or someone other than the account this sign-up created — means
+ * the draft is stale (possibly another person's, on a shared device), so the
+ * account is signed out, nothing is parked, and the draft is dropped.
+ *
+ * A resumed sign-up has no `socialCredential`; a credential is parked only if
+ * one exists by the end (see deleteSignUpAccount), so with none the user just
+ * signs in and can connect Google/Apple later.
  */
 export async function abandonSocialSignUpForLink(phoneHint: string | null): Promise<void> {
   const draft = useRegistrationDraftStore.getState();
   const { authProvider, socialCredential, signUpUid } = draft;
   const user = auth().currentUser;
 
-  if (!user || authProvider === 'phone' || !socialCredential || !signUpUid || user.uid !== signUpUid) {
+  if (!user || authProvider === 'phone' || !signUpUid || user.uid !== signUpUid) {
     usePendingLinkStore.getState().clear();
     if (user) await auth().signOut().catch(() => undefined);
     draft.reset();
     return;
   }
 
-  const socialOnly =
-    user.providerData.length > 0 &&
-    user.providerData.every((p) => p.providerId === 'google.com' || p.providerId === 'apple.com');
-  const deleted = socialOnly && (await deleteThrowawayAccount(user, socialCredential));
-  if (!deleted) await auth().signOut().catch(() => undefined);
-
-  usePendingLinkStore.getState().set({ provider: authProvider, credential: socialCredential, phoneHint });
+  const credential = await deleteSignUpAccount(user, authProvider, socialCredential);
+  if (credential) usePendingLinkStore.getState().set({ provider: authProvider, credential, phoneHint });
+  else usePendingLinkStore.getState().clear();
   draft.reset();
 }

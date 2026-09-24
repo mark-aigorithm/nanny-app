@@ -25,6 +25,11 @@ jest.mock('@mobile/lib/socialAuth', () => ({
   SOCIAL_PROVIDER_LABEL: { google: 'Google', apple: 'Apple' },
 }));
 
+const mockApiDelete = jest.fn();
+jest.mock('@mobile/lib/api', () => ({
+  api: { delete: (...args: unknown[]) => mockApiDelete(...args) },
+}));
+
 const mockNoticeDialog = jest.fn();
 jest.mock('@mobile/store/confirmDialogStore', () => ({
   noticeDialog: (...args: unknown[]) => mockNoticeDialog(...args),
@@ -142,10 +147,13 @@ describe('linkPendingCredential', () => {
 
 describe('abandonSocialSignUpForLink', () => {
   /** What useSocialSignIn leaves after /auth/me said 404 for uid-social. */
-  function seedSocialDraft(signUpUid: string | null = 'uid-social') {
+  function seedSocialDraft(
+    signUpUid: string | null = 'uid-social',
+    socialCredential: unknown = GOOGLE_CREDENTIAL,
+  ) {
     useRegistrationDraftStore.setState({
       authProvider: 'google',
-      socialCredential: GOOGLE_CREDENTIAL as never,
+      socialCredential: socialCredential as never,
       signUpUid,
       email: 'mona@gmail.com',
       firstName: 'Mona',
@@ -161,6 +169,8 @@ describe('abandonSocialSignUpForLink', () => {
     });
   }
 
+  const RECENT_LOGIN = { code: 'auth/requires-recent-login' };
+
   it('deletes the Google-only account, parks the credential, and resets the draft', async () => {
     seedSocialDraft();
     mockCurrentUser = userWith(['google.com']);
@@ -169,6 +179,7 @@ describe('abandonSocialSignUpForLink', () => {
     await abandonSocialSignUpForLink('+201234567891');
 
     expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockApiDelete).not.toHaveBeenCalled();
     expect(mockReauthenticate).not.toHaveBeenCalled();
     expect(usePendingLinkStore.getState().pending).toEqual({
       provider: 'google',
@@ -178,87 +189,165 @@ describe('abandonSocialSignUpForLink', () => {
     expectDraftReset();
   });
 
-  it('re-proves the sign-in with the social credential when Firebase wants a recent login, then deletes', async () => {
+  it('deletes an account this sign-up owns even when it holds more than Google (a phone)', async () => {
+    // signUpUid proves the account is this sign-up's own, and the server
+    // re-checks it has no row — so a phone linked by an earlier attempt no
+    // longer turns the delete into a sign-out.
+    seedSocialDraft();
+    mockCurrentUser = userWith(['google.com', 'phone']);
+    mockDelete.mockResolvedValue(undefined);
+
+    await abandonSocialSignUpForLink(null);
+
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(usePendingLinkStore.getState().pending?.credential).toBe(GOOGLE_CREDENTIAL);
+  });
+
+  it('asks the server to delete the account when Firebase wants a recent login, then signs out locally', async () => {
     // A step-3 collision comes after the whole wizard, well past Firebase's
     // few-minute window for delete().
     seedSocialDraft();
     mockCurrentUser = userWith(['google.com']);
-    mockDelete.mockRejectedValueOnce({ code: 'auth/requires-recent-login' }).mockResolvedValueOnce(undefined);
+    mockDelete.mockRejectedValue(RECENT_LOGIN);
+    mockApiDelete.mockResolvedValue({ status: 204 });
+
+    await abandonSocialSignUpForLink('+201234567891');
+
+    expect(mockApiDelete).toHaveBeenCalledWith('/auth/me');
+    expect(mockReauthenticate).not.toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(usePendingLinkStore.getState().pending).toEqual({
+      provider: 'google',
+      credential: GOOGLE_CREDENTIAL,
+      phoneHint: '+201234567891',
+    });
+    expectDraftReset();
+  });
+
+  it('re-proves the sign-in with the social credential when the server delete fails, then deletes', async () => {
+    seedSocialDraft();
+    mockCurrentUser = userWith(['google.com']);
+    mockDelete.mockRejectedValueOnce(RECENT_LOGIN).mockResolvedValueOnce(undefined);
+    mockApiDelete.mockRejectedValue(new Error('offline'));
     mockReauthenticate.mockResolvedValue(undefined);
 
     await abandonSocialSignUpForLink('+201234567891');
 
     expect(mockReauthenticate).toHaveBeenCalledWith(GOOGLE_CREDENTIAL);
     expect(mockDelete).toHaveBeenCalledTimes(2);
-    expect(mockReauthenticate.mock.invocationCallOrder[0]).toBeLessThan(
-      mockDelete.mock.invocationCallOrder[1] as number,
+    expect(mockApiDelete.mock.invocationCallOrder[0]).toBeLessThan(
+      mockReauthenticate.mock.invocationCallOrder[0] as number,
     );
+    expect(mockGetSocialCredential).not.toHaveBeenCalled();
     expect(mockSignOut).not.toHaveBeenCalled();
-    expect(usePendingLinkStore.getState().pending).toEqual({
-      provider: 'google',
-      credential: GOOGLE_CREDENTIAL,
-      phoneHint: '+201234567891',
-    });
+    expect(usePendingLinkStore.getState().pending?.credential).toBe(GOOGLE_CREDENTIAL);
     expectDraftReset();
   });
 
-  it('falls back to signing out when the re-authentication is refused', async () => {
+  it('asks the provider for a fresh credential when the parked one is refused, and parks the fresh one', async () => {
     seedSocialDraft();
     mockCurrentUser = userWith(['google.com']);
-    mockDelete.mockRejectedValue({ code: 'auth/requires-recent-login' });
+    mockDelete.mockRejectedValueOnce(RECENT_LOGIN).mockResolvedValueOnce(undefined);
+    mockApiDelete.mockRejectedValue(new Error('offline'));
+    mockReauthenticate
+      .mockRejectedValueOnce({ code: 'auth/invalid-credential' })
+      .mockResolvedValueOnce(undefined);
+    mockGetSocialCredential.mockResolvedValue({ provider: 'google', credential: FRESH_CREDENTIAL, profile: {} });
+
+    await abandonSocialSignUpForLink(null);
+
+    expect(mockGetSocialCredential).toHaveBeenCalledWith('google');
+    expect(mockReauthenticate).toHaveBeenLastCalledWith(FRESH_CREDENTIAL);
+    expect(mockDelete).toHaveBeenCalledTimes(2);
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(usePendingLinkStore.getState().pending?.credential).toBe(FRESH_CREDENTIAL);
+  });
+
+  it('falls back to signing out, still parking the credential, when nothing deletes the account', async () => {
+    seedSocialDraft();
+    mockCurrentUser = userWith(['google.com']);
+    mockDelete.mockRejectedValue(RECENT_LOGIN);
+    mockApiDelete.mockRejectedValue(new Error('offline'));
     mockReauthenticate.mockRejectedValue({ code: 'auth/invalid-credential' });
+    mockGetSocialCredential.mockResolvedValue(null);
 
     await abandonSocialSignUpForLink(null);
 
     expect(mockDelete).toHaveBeenCalledTimes(1);
     expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(usePendingLinkStore.getState().pending?.provider).toBe('google');
+    expect(usePendingLinkStore.getState().pending?.credential).toBe(GOOGLE_CREDENTIAL);
+    expectDraftReset();
   });
 
-  it('retries the delete only once after re-authenticating', async () => {
-    seedSocialDraft();
-    mockCurrentUser = userWith(['google.com']);
-    mockDelete.mockRejectedValue({ code: 'auth/requires-recent-login' });
-    mockReauthenticate.mockResolvedValue(undefined);
-
-    await abandonSocialSignUpForLink(null);
-
-    expect(mockReauthenticate).toHaveBeenCalledTimes(1);
-    expect(mockDelete).toHaveBeenCalledTimes(2);
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not re-authenticate for a delete that failed for any other reason', async () => {
+  it('does not re-authenticate or call the server for a delete that failed for any other reason', async () => {
     seedSocialDraft();
     mockCurrentUser = userWith(['apple.com']);
     mockDelete.mockRejectedValue(new Error('network'));
 
     await abandonSocialSignUpForLink(null);
 
+    expect(mockApiDelete).not.toHaveBeenCalled();
     expect(mockReauthenticate).not.toHaveBeenCalled();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(usePendingLinkStore.getState().pending?.provider).toBe('google');
   });
 
-  it('only signs out when the account holds anything besides Google/Apple', async () => {
-    seedSocialDraft();
-    mockCurrentUser = userWith(['google.com', 'phone']);
+  it('deletes a resumed sign-up with no credential, and parks nothing', async () => {
+    // The root gate resumed a Google leftover: signUpUid is set, but the
+    // credential that created it is long gone.
+    seedSocialDraft('uid-social', null);
+    mockCurrentUser = userWith(['google.com']);
+    mockDelete.mockResolvedValue(undefined);
+
+    await abandonSocialSignUpForLink('+201234567891');
+
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(usePendingLinkStore.getState().pending).toBeNull();
+    expectDraftReset();
+  });
+
+  it('asks the provider for a credential to re-prove a resumed sign-up, and parks it', async () => {
+    seedSocialDraft('uid-social', null);
+    mockCurrentUser = userWith(['google.com']);
+    mockDelete.mockRejectedValueOnce(RECENT_LOGIN).mockResolvedValueOnce(undefined);
+    mockApiDelete.mockRejectedValue(new Error('offline'));
+    mockReauthenticate.mockResolvedValue(undefined);
+    mockGetSocialCredential.mockResolvedValue({ provider: 'google', credential: FRESH_CREDENTIAL, profile: {} });
 
     await abandonSocialSignUpForLink(null);
 
-    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockReauthenticate).toHaveBeenCalledTimes(1);
+    expect(mockReauthenticate).toHaveBeenCalledWith(FRESH_CREDENTIAL);
+    expect(mockDelete).toHaveBeenCalledTimes(2);
+    expect(usePendingLinkStore.getState().pending?.credential).toBe(FRESH_CREDENTIAL);
+  });
+
+  it('parks nothing for a resumed sign-up that could not be deleted and got no fresh credential', async () => {
+    seedSocialDraft('uid-social', null);
+    mockCurrentUser = userWith(['google.com']);
+    mockDelete.mockRejectedValue(RECENT_LOGIN);
+    mockApiDelete.mockRejectedValue(new Error('offline'));
+    mockGetSocialCredential.mockResolvedValue(null);
+
+    await abandonSocialSignUpForLink(null);
+
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(usePendingLinkStore.getState().pending).toBeNull();
+    expectDraftReset();
   });
 
   it('signs out, rather than deletes, a Google-only account when the draft never saw a 404', async () => {
-    // The draft is at its default ('phone', no socialCredential) — reset() in
+    // The draft is at its default ('phone', no signUpUid) — reset() in
     // beforeEach already leaves it there — so nothing here proves this
-    // Google-only account is the throwaway a social sign-up just created.
+    // Google-only account is the one a social sign-up just created.
     mockCurrentUser = userWith(['google.com']);
 
     await abandonSocialSignUpForLink(null);
 
     expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockApiDelete).not.toHaveBeenCalled();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(usePendingLinkStore.getState().pending).toBeNull();
   });
@@ -272,6 +361,7 @@ describe('abandonSocialSignUpForLink', () => {
     await abandonSocialSignUpForLink('+201234567891');
 
     expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockApiDelete).not.toHaveBeenCalled();
     expect(mockReauthenticate).not.toHaveBeenCalled();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(usePendingLinkStore.getState().pending).toBeNull();
