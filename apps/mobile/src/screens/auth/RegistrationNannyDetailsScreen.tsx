@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { AvailabilityType } from '@nanny-app/shared';
-import type { AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
+import type { AgeRange, AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';
 import { APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
@@ -72,7 +72,8 @@ function uiScheduleToApi(schedule: Record<number, DaySchedule>): WeeklySchedule 
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const AGE_RANGE_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
+// TODO(plan 2 task 4): replace with the shared AGE_RANGES list.
+const AGE_RANGE_OPTIONS: readonly AgeRange[] = ['0-1', '1-3', '3-5', '5+'];
 
 const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityTypeValue }[] = [
   { label: 'Full-time', value: AvailabilityType.FULL_TIME },
@@ -112,7 +113,7 @@ export default function RegistrationNannyDetailsScreen() {
     router.back();
   }
 
-  function toggleAgeRange(range: string) {
+  function toggleAgeRange(range: AgeRange) {
     const next = draft.ageRanges.includes(range)
       ? draft.ageRanges.filter((r) => r !== range)
       : [...draft.ageRanges, range];

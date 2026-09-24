@@ -1,4 +1,4 @@
-import { Role } from '@nanny-app/shared';
+import { CURRENT_TERMS_VERSION, Role, type RegisterRequest } from '@nanny-app/shared';
 
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
@@ -20,6 +20,7 @@ jest.mock('@backend/services/email-verification.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import { registerUser, submitId } from '@backend/services/auth.service';
+import { storageUrl } from '../../test/storage-url';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; update: jest.Mock };
@@ -54,33 +55,37 @@ function userRowFromData(data: Record<string, unknown>) {
   };
 }
 
-const NANNY_BODY = {
+const NANNY_BODY: RegisterRequest = {
   firstName: 'Amira',
   lastName: 'Hassan',
   email: 'amira@example.com',
   phone: '+201000000000',
   dateOfBirth: '1998-05-10',
   role: Role.NANNY,
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: CURRENT_TERMS_VERSION,
+  address: 'Cairo',
   latitude: 30.05,
   longitude: 31.23,
   idDocumentType: 'NATIONAL_ID' as const,
-  idDocumentFrontUrl: 'https://s/o/nanny-ids%2Ffb-1%2Ffront.jpg',
-  idDocumentBackUrl: 'https://s/o/nanny-ids%2Ffb-1%2Fback.jpg',
+  idDocumentFrontUrl: storageUrl('nanny-ids', 'fb-1', 'front.jpg'),
+  idDocumentBackUrl: storageUrl('nanny-ids', 'fb-1', 'back.jpg'),
+  avatarUrl: storageUrl('avatars', 'fb-1'),
   emailVerificationToken: 'a'.repeat(64),
 };
 
-const MOTHER_BODY = {
+const MOTHER_BODY: RegisterRequest = {
   firstName: 'Layla',
   lastName: 'Mostafa',
   email: 'layla@example.com',
   phone: '+201004455667',
   dateOfBirth: '1990-01-01',
   role: Role.MOTHER,
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: CURRENT_TERMS_VERSION,
+  address: 'Cairo',
   latitude: 30.05,
   longitude: 31.23,
   emailVerificationToken: 'b'.repeat(64),
+  avatarUrl: storageUrl('avatars', 'fb-1', 'mother-avatar.jpg'),
 };
 
 describe('registerUser — ID verification defaults', () => {
@@ -170,7 +175,7 @@ describe('submitId', () => {
 
     const res = await submitId(DECODED, {
       idDocumentType: 'PASSPORT',
-      idDocumentFrontUrl: 'https://s/o/nanny-ids%2Ffb-1%2Ffront.jpg',
+      idDocumentFrontUrl: storageUrl('nanny-ids', 'fb-1', 'front.jpg'),
     });
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(

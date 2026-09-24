@@ -27,7 +27,10 @@ jest.mock('@mobile/hooks/useReferrals', () => ({
   useRedeemReferralCode: () => ({ mutateAsync: jest.fn() }),
 }));
 jest.mock('@mobile/components/ReferralCodeField', () => () => null);
-jest.mock('@mobile/lib/storage', () => ({ uploadImageToFirebase: jest.fn() }));
+const mockUpload = jest.fn();
+jest.mock('@mobile/lib/storage', () => ({
+  uploadImageToFirebase: (...args: unknown[]) => mockUpload(...args),
+}));
 const mockAbandon = jest.fn().mockResolvedValue(undefined);
 jest.mock('@mobile/lib/pendingLink', () => ({
   abandonSocialSignUpForLink: (...args: unknown[]) => mockAbandon(...args),
@@ -47,6 +50,8 @@ function seedMotherDraft(extra: Record<string, unknown>) {
     dob: '05/10/1990',
     latitude: 30.04,
     longitude: 31.23,
+    photoUri: 'file:///photo.jpg',
+    address: '1 Test Street, Cairo',
     ...extra,
   });
 }
@@ -69,6 +74,7 @@ function completeSetup() {
 beforeEach(() => {
   jest.clearAllMocks();
   useRegistrationDraftStore.getState().reset();
+  mockUpload.mockImplementation(async (_uri: string, folder: string) => `https://storage.test/${folder}/uid/photo.jpg`);
 });
 
 it('phone wizard: confirms, links the password, and registers with the email token', async () => {
@@ -186,4 +192,34 @@ describe('Google wizard on an Android instant verification', () => {
     fireEvent.press(screen.getByText('Resend code'));
     expect(mockSendLinkCode).toHaveBeenLastCalledWith({ phone: '+201234567891', forceResend: true }, expect.anything());
   });
+});
+
+it('uploads a mother’s photo and registers it, with the current terms version', async () => {
+  seedMotherDraft({ authProvider: 'phone', emailVerificationToken: 'tok', password: 'Passw0rd!' });
+  renderScreen();
+
+  completeSetup();
+
+  await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+  expect(mockUpload).toHaveBeenCalledWith('file:///photo.jpg', 'avatars');
+  expect(mockRegister.mock.calls[0][0]).toMatchObject({
+    avatarUrl: 'https://storage.test/avatars/uid/photo.jpg',
+    address: '1 Test Street, Cairo',
+    termsAcceptedVersion: 'v1.0',
+  });
+});
+
+it('says the photos failed to upload, and registers nothing, when an upload throws', async () => {
+  seedMotherDraft({ authProvider: 'phone', emailVerificationToken: 'tok', password: 'Passw0rd!' });
+  mockUpload.mockRejectedValueOnce(new Error('storage/retry-limit-exceeded'));
+  renderScreen();
+
+  completeSetup();
+
+  await waitFor(() =>
+    expect(
+      screen.getByText("Couldn't upload your photos. Check your connection and try again."),
+    ).toBeTruthy(),
+  );
+  expect(mockRegister).not.toHaveBeenCalled();
 });

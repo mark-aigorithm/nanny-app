@@ -164,7 +164,7 @@ export async function makeNanny(
       bio: 'Factory-created nanny.',
       yearsOfExperience: 3,
       // Required, and has no schema default — omitting it fails at the DB.
-      ageRanges: ['0-1', '2-5'],
+      ageRanges: ['0-1', '1-3'],
       availabilityType: 'FULL_TIME',
       ...overrides.profile,
     },

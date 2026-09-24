@@ -167,7 +167,7 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
       bio: 'Seeded for the mobile E2E lab.',
       yearsOfExperience: 3,
       // Required and has no schema default — omitting it fails at the DB.
-      ageRanges: ['0-1', '2-5'],
+      ageRanges: ['0-1', '1-3'],
       availabilityType: 'FULL_TIME' as const,
     };
 

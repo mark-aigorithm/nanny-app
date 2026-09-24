@@ -127,6 +127,15 @@ export const AvailabilityTypeSchema = z.enum(['FULL_TIME', 'PART_TIME', 'OCCASIO
 export const AvailabilityType = AvailabilityTypeSchema.enum;
 export type AvailabilityType = z.infer<typeof AvailabilityTypeSchema>;
 
+/**
+ * The age bands a nanny says she cares for — the chips the registration wizard
+ * and the console's profile editor offer. Registration accepts only these, so
+ * a typo can never become a band no filter knows about.
+ */
+export const AGE_RANGES = ['0-1', '1-3', '3-5', '5+'] as const;
+export const AgeRangeSchema = z.enum(AGE_RANGES);
+export type AgeRange = z.infer<typeof AgeRangeSchema>;
+
 /** Shape returned by GET /nanny/profile. */
 export const NannyProfileResponseSchema = z.object({
   firstName: z.string(),

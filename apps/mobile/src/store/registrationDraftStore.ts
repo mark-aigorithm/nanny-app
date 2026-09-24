@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AvailabilityType, IdDocumentType, WeeklySchedule } from '@nanny-app/shared';
+import type { AgeRange, AvailabilityType, IdDocumentType, WeeklySchedule } from '@nanny-app/shared';
 import type { AuthCredential } from '@mobile/lib/firebase';
 import type { AuthProvider, Role } from '@mobile/types';
 
@@ -54,7 +54,7 @@ export type RegistrationDraft = {
   // parsed into the API shape only when building the register request.
   bio: string;
   yearsOfExperience: string;
-  ageRanges: string[];
+  ageRanges: AgeRange[];
   availabilityType: AvailabilityType | null;
   schedule: WeeklySchedule | null;
   certificationIds: number[];

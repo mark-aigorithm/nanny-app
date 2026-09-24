@@ -210,7 +210,8 @@ authRouter.put(
 
 /**
  * PATCH /auth/me
- * Updates profile fields for the current user (name, phone, avatar URL).
+ * Updates profile fields for the current user (name, avatar URL). Phone is
+ * not patchable — it is proven by SMS.
  */
 authRouter.patch(
   '/me',

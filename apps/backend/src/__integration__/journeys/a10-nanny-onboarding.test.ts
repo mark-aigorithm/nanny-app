@@ -16,9 +16,7 @@ import { makeMother, makeSuperuser } from '../../../test/factories';
 import { approveNannyProfile } from '../../../test/journeys/admin';
 import { createBookingViaApi } from '../../../test/journeys/booking';
 import { proveEmail } from '../../../test/journeys/email-verification';
-
-const ID_FRONT = 'https://storage.example.test/nanny-id-front.jpg';
-const AVATAR = 'https://storage.example.test/nanny-avatar.jpg';
+import { storageUrl } from '../../../test/storage-url';
 
 /**
  * Registers a nanny through the real route, ID and profile included. A nanny
@@ -31,7 +29,7 @@ async function registerNanny(lastName = 'Candidate') {
   const emailVerificationToken = await proveEmail(email);
   // The wizard links her verified phone before registering, so the token carries it.
   const phone = `+2012${String(Date.now()).slice(-8)}`;
-  await createEmulatorUser(email, undefined, phone);
+  const uid = await createEmulatorUser(email, undefined, phone);
   const token = await signInAs(email);
 
   const response = await request(app)
@@ -45,18 +43,18 @@ async function registerNanny(lastName = 'Candidate') {
       phone,
       dateOfBirth: '1995-06-15',
       role: 'NANNY',
-      termsAcceptedVersion: '1.0',
+      termsAcceptedVersion: 'v1.0',
       latitude: 30.0444,
       longitude: 31.2357,
       address: '3 Test Street, Cairo',
       // A passport needs only the front image.
       idDocumentType: 'PASSPORT',
-      idDocumentFrontUrl: ID_FRONT,
-      avatarUrl: AVATAR,
+      idDocumentFrontUrl: storageUrl('nanny-ids', uid, 'front.jpg'),
+      avatarUrl: storageUrl('avatars', uid),
       bio: 'Five years with toddlers, first-aid trained.',
       yearsOfExperience: 5,
       availabilityType: 'FULL_TIME',
-      ageRanges: ['0-1', '2-5'],
+      ageRanges: ['0-1', '1-3'],
       schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
     });
 

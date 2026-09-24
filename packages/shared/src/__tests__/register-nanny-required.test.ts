@@ -16,7 +16,7 @@ const NANNY = {
   phone: '+201000000000',
   dateOfBirth: '1995-06-15',
   role: 'NANNY',
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: 'v1.0',
   address: '2 Test Street, Cairo',
   latitude: 30.0444,
   longitude: 31.2357,
@@ -63,8 +63,8 @@ describe('RegisterRequestSchema — what a nanny must provide', () => {
     ).toBe('Please mark at least one day you can work.');
   });
 
-  it('asks none of this of a mother', () => {
-    const { idDocumentType, idDocumentFrontUrl, avatarUrl, bio, yearsOfExperience, ageRanges, availabilityType, schedule, address, ...mother } = NANNY;
+  it('asks none of the nanny profile of a mother', () => {
+    const { idDocumentType, idDocumentFrontUrl, bio, yearsOfExperience, ageRanges, availabilityType, schedule, ...mother } = NANNY;
     expect(firstMessage({ ...mother, role: 'MOTHER' })).toBeNull();
   });
 });

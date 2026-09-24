@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  AgeRangeSchema,
   AvailabilityTypeSchema,
   IdDocumentTypeSchema,
   WeeklyScheduleSchema,
@@ -85,6 +86,70 @@ export const AvailabilityResponseSchema = z.object({
 });
 export type AvailabilityResponse = z.infer<typeof AvailabilityResponseSchema>;
 
+/** Nobody under this age may hold an account — mother or nanny. */
+export const MIN_REGISTRATION_AGE = 18;
+/** Past this, a birth date is a typo (a wrong century), not a person. */
+export const MAX_REGISTRATION_AGE = 100;
+
+const UNDERAGE_MESSAGE = `You must be at least ${MIN_REGISTRATION_AGE} to use NannyNow.`;
+const INVALID_DOB_MESSAGE = 'Please enter a valid date of birth.';
+
+/**
+ * Whole years between an ISO `YYYY-MM-DD` birth date and `today`'s calendar
+ * date, turning over on the birthday itself. Null for anything that is not a
+ * real date — `2001-02-30` included, which `new Date` would quietly roll over.
+ */
+export function ageOn(dateOfBirth: string, today: Date = new Date()): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  const todayMonth = today.getMonth() + 1;
+  const hadBirthday = todayMonth > month || (todayMonth === month && today.getDate() >= day);
+  return today.getFullYear() - year - (hadBirthday ? 0 : 1);
+}
+
+/**
+ * The latest birth date that is MIN_REGISTRATION_AGE today — the date picker's
+ * upper bound. On 29 February it is 28 February, since the target year has no
+ * leap day and `new Date` would roll forward into March (one day too young).
+ */
+export function latestAllowedDob(today: Date = new Date()): Date {
+  const latest = new Date(today.getFullYear() - MIN_REGISTRATION_AGE, today.getMonth(), today.getDate());
+  if (latest.getMonth() !== today.getMonth()) latest.setDate(0);
+  return latest;
+}
+
+/** What is wrong with a birth date, in the words both the app and the API show — or null. */
+export function dateOfBirthError(dateOfBirth: string, today: Date = new Date()): string | null {
+  const age = ageOn(dateOfBirth, today);
+  if (age === null || age < 0 || age > MAX_REGISTRATION_AGE) return INVALID_DOB_MESSAGE;
+  if (age < MIN_REGISTRATION_AGE) return UNDERAGE_MESSAGE;
+  return null;
+}
+
+/** A birth date as registration accepts it: a real `YYYY-MM-DD`, 18 to 100 years ago. */
+export const DateOfBirthSchema = z.string().superRefine((value, ctx) => {
+  const message = dateOfBirthError(value);
+  if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+});
+
+/**
+ * The terms version the app shows today. Registration accepts only this, so
+ * an account can't claim to have agreed to terms nobody showed it. Bump it
+ * together with the app when the terms change.
+ */
+export const CURRENT_TERMS_VERSION = 'v1.0';
+
 /** Body for POST /auth/register — fields not in Firebase. */
 export const RegisterRequestSchema = z
   .object({
@@ -105,10 +170,18 @@ export const RegisterRequestSchema = z
       .min(1, 'Please verify your email address before finishing sign-up.')
       .optional(),
     phone: PhoneE164Schema,
-    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD'),
+    dateOfBirth: DateOfBirthSchema,
     role: RoleSchema,
-    termsAcceptedVersion: z.string().min(1),
-    address: z.string().trim().max(200).optional(),
+    termsAcceptedVersion: z.literal(CURRENT_TERMS_VERSION, {
+      errorMap: () => ({ message: 'Please accept the latest terms to continue.' }),
+    }),
+    // Required for both roles: the address book's first row is built from it,
+    // and a pin with no street line leaves a nanny unable to find the door.
+    address: z
+      .string({ required_error: 'Please enter your street address.' })
+      .trim()
+      .min(1, 'Please enter your street address.')
+      .max(200),
     // Home coordinates from the registration map picker — required so
     // proximity search / distance sorting work for every account.
     latitude: z.number().min(-90).max(90),
@@ -120,13 +193,13 @@ export const RegisterRequestSchema = z
     idDocumentType: IdDocumentTypeSchema.optional(),
     idDocumentFrontUrl: z.string().url().optional(),
     idDocumentBackUrl: z.string().url().optional(),
-    // Nanny profile fields captured at registration. Mothers omit these; the
-    // refines below make everything but certifications and skills mandatory
-    // for nannies — registration is the only time she enters her profile.
-    avatarUrl: z.string().url().optional(),
+    // The step-1 photo, uploaded at the end of the wizard — required for both
+    // roles: a nanny's is on her public profile, a mother's is what the nanny
+    // sees on a booking request.
+    avatarUrl: z.string({ required_error: 'Please add a profile photo.' }).url(),
     bio: z.string().trim().max(600).optional(),
     yearsOfExperience: z.number().int().min(0).max(60).optional(),
-    ageRanges: z.array(z.string()).optional(),
+    ageRanges: z.array(AgeRangeSchema).optional(),
     availabilityType: AvailabilityTypeSchema.optional(),
     schedule: WeeklyScheduleSchema.optional(),
     certificationIds: z.array(z.number().int().positive()).optional(),
@@ -146,16 +219,12 @@ export const RegisterRequestSchema = z
   .refine(
     (v) =>
       v.role !== 'NANNY' ||
-      (!!v.avatarUrl && !!v.bio && v.yearsOfExperience !== undefined && !!v.availabilityType),
+      (!!v.bio && v.yearsOfExperience !== undefined && !!v.availabilityType),
     {
-      message: 'Nannies must provide a photo, bio, years of experience, and availability.',
+      message: 'Nannies must provide a bio, years of experience, and availability.',
       path: ['bio'],
     },
   )
-  .refine((v) => v.role !== 'NANNY' || !!v.address, {
-    message: 'Please enter your street address.',
-    path: ['address'],
-  })
   .refine((v) => v.role !== 'NANNY' || (v.ageRanges?.length ?? 0) > 0, {
     message: 'Please pick at least one age range you care for.',
     path: ['ageRanges'],
@@ -265,12 +334,8 @@ export type SetVerifiedEmailResponse = z.infer<typeof SetVerifiedEmailResponseSc
 export const UpdateProfileRequestSchema = z.object({
   firstName: z.string().trim().min(1).max(80).optional(),
   lastName: z.string().trim().min(1).max(80).optional(),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+\d{7,15}$/, 'phone must be E.164, e.g. +15551234567')
-    .nullable()
-    .optional(),
+  // No phone: a number is proven by SMS, and PATCH can't prove anything.
+  // Changing it becomes its own verified flow later.
   avatarUrl: z.string().url().nullable().optional(),
   // No address or coordinates here: location is an address-book entry now
   // (see address.ts) and is edited through /addresses, so the display line

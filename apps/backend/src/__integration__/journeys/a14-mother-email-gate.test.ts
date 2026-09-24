@@ -23,6 +23,7 @@ import { makeMother } from '../../../test/factories';
 import { defaultAddressId, wallClockTomorrow } from '../../../test/journeys/booking';
 import { proveEmail, verifyMyEmail } from '../../../test/journeys/email-verification';
 import { waitForOtp } from '../../../test/mailpit';
+import { storageUrl } from '../../../test/storage-url';
 
 /** The address the mobile app synthesises for a phone-only sign-up. */
 function placeholderEmail(phone: string): string {
@@ -47,7 +48,7 @@ async function registerMother(overrides: { email?: string; token?: string | null
   const phone = uniquePhone();
   const placeholder = placeholderEmail(phone);
   // Her phone is linked (verified) before she registers, so the token carries it.
-  await createEmulatorUser(placeholder, undefined, phone);
+  const uid = await createEmulatorUser(placeholder, undefined, phone);
   const idToken = await signInAs(placeholder);
 
   const email = overrides.email ?? uniqueEmail();
@@ -64,10 +65,11 @@ async function registerMother(overrides: { email?: string; token?: string | null
       phone,
       dateOfBirth: '1992-04-01',
       role: 'MOTHER',
-      termsAcceptedVersion: '1.0',
+      termsAcceptedVersion: 'v1.0',
       latitude: 30.0444,
       longitude: 31.2357,
       address: '1 Test Street, Cairo',
+      avatarUrl: storageUrl('avatars', uid),
       ...(emailVerificationToken ? { emailVerificationToken } : {}),
     });
 

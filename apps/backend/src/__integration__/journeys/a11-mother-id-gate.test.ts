@@ -17,9 +17,7 @@ import { makeSuperuser } from '../../../test/factories';
 import { approveMotherId } from '../../../test/journeys/admin';
 import { defaultAddressId, wallClockTomorrow } from '../../../test/journeys/booking';
 import { proveEmail } from '../../../test/journeys/email-verification';
-
-const ID_FRONT = 'https://storage.example.test/id-front.jpg';
-const ID_BACK = 'https://storage.example.test/id-back.jpg';
+import { storageUrl } from '../../../test/storage-url';
 
 /**
  * Registers a brand-new mother through the real route, as the app does —
@@ -31,7 +29,7 @@ async function registerMother() {
   const email = `gate-${process.pid}-${Date.now()}@test.local`;
   // The wizard links her verified phone before registering, so the token carries it.
   const phone = `+2011${String(Date.now()).slice(-8)}`;
-  await createEmulatorUser(email, undefined, phone);
+  const uid = await createEmulatorUser(email, undefined, phone);
   const token = await signInAs(email);
   const emailVerificationToken = await proveEmail(email);
 
@@ -46,15 +44,16 @@ async function registerMother() {
       phone,
       dateOfBirth: '1992-04-01',
       role: 'MOTHER',
-      termsAcceptedVersion: '1.0',
+      termsAcceptedVersion: 'v1.0',
       latitude: 30.0444,
       longitude: 31.2357,
       address: '1 Test Street, Cairo',
+      avatarUrl: storageUrl('avatars', uid),
     });
 
   expect(response.status).toBe(201);
 
-  return { token, id: response.body.data.id as number, email };
+  return { token, id: response.body.data.id as number, email, uid };
 }
 
 async function attemptBooking(token: string) {
@@ -97,8 +96,8 @@ describe('A11 — mother ID verification gates booking', () => {
       .set(...authHeader(mother.token))
       .send({
         idDocumentType: 'NATIONAL_ID',
-        idDocumentFrontUrl: ID_FRONT,
-        idDocumentBackUrl: ID_BACK,
+        idDocumentFrontUrl: storageUrl('nanny-ids', mother.uid, 'front.jpg'),
+        idDocumentBackUrl: storageUrl('nanny-ids', mother.uid, 'back.jpg'),
       });
     expect(submitted.status).toBe(200);
 
@@ -118,8 +117,8 @@ describe('A11 — mother ID verification gates booking', () => {
       .set(...authHeader(mother.token))
       .send({
         idDocumentType: 'NATIONAL_ID',
-        idDocumentFrontUrl: ID_FRONT,
-        idDocumentBackUrl: ID_BACK,
+        idDocumentFrontUrl: storageUrl('nanny-ids', mother.uid, 'front.jpg'),
+        idDocumentBackUrl: storageUrl('nanny-ids', mother.uid, 'back.jpg'),
       })
       .expect(200);
 
@@ -149,7 +148,7 @@ describe('A11 — mother ID verification gates booking', () => {
     await request(app)
       .post('/auth/id')
       .set(...authHeader(mother.token))
-      .send({ idDocumentType: 'PASSPORT', idDocumentFrontUrl: ID_FRONT })
+      .send({ idDocumentType: 'PASSPORT', idDocumentFrontUrl: storageUrl('nanny-ids', mother.uid, 'front.jpg') })
       .expect(200);
 
     const rejected = await request(app)
@@ -173,7 +172,7 @@ describe('A11 — mother ID verification gates booking', () => {
     await request(app)
       .post('/auth/id')
       .set(...authHeader(mother.token))
-      .send({ idDocumentType: 'PASSPORT', idDocumentFrontUrl: ID_FRONT })
+      .send({ idDocumentType: 'PASSPORT', idDocumentFrontUrl: storageUrl('nanny-ids', mother.uid, 'front.jpg') })
       .expect(200);
 
     await request(app)
@@ -186,7 +185,7 @@ describe('A11 — mother ID verification gates booking', () => {
     await request(app)
       .post('/auth/id')
       .set(...authHeader(mother.token))
-      .send({ idDocumentType: 'PASSPORT', idDocumentFrontUrl: ID_FRONT })
+      .send({ idDocumentType: 'PASSPORT', idDocumentFrontUrl: storageUrl('nanny-ids', mother.uid, 'front.jpg') })
       .expect(200);
 
     await approveMotherId(admin.token, mother.id);

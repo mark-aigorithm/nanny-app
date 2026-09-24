@@ -228,7 +228,9 @@ export async function registerUser(
         idDocumentType: isNanny ? (body.idDocumentType ?? null) : null,
         idDocumentFrontUrl: isNanny ? (body.idDocumentFrontUrl ?? null) : null,
         idDocumentBackUrl: isNanny ? (body.idDocumentBackUrl ?? null) : null,
-        avatarUrl: isNanny ? (body.avatarUrl ?? null) : null,
+        // Both roles bring a photo from step 1 — the mother's is what a nanny
+        // sees on her booking request.
+        avatarUrl: body.avatarUrl,
       },
     });
 
@@ -241,7 +243,7 @@ export async function registerUser(
       user.id,
       {
         label: 'Home',
-        formattedAddress: body.address ?? '',
+        formattedAddress: body.address,
         latitude: body.latitude,
         longitude: body.longitude,
         isDefault: true,
@@ -365,25 +367,11 @@ export async function updateProfile(
     throw errors.notFound('User profile not found. Please complete registration.');
   }
 
-  if (body.phone) {
-    const phoneOwner = await prisma.user.findFirst({
-      where: {
-        phone: body.phone,
-        id: { not: user.id },
-        deletedAt: null,
-      },
-    });
-    if (phoneOwner) {
-      throw errors.conflict('An account with this phone number already exists.');
-    }
-  }
-
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
       ...(body.firstName !== undefined && { firstName: body.firstName }),
       ...(body.lastName !== undefined && { lastName: body.lastName }),
-      ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
       // No location here — it is an address-book entry now, edited through
       // /addresses so the display line and the pin can never drift apart.

@@ -24,6 +24,7 @@ import {
   consumeVerificationToken,
 } from '@backend/services/email-verification.service';
 import { registerUser, setVerifiedEmail } from '@backend/services/auth.service';
+import { storageUrl } from '../../test/storage-url';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
@@ -321,10 +322,11 @@ describe('registerUser', () => {
       phone: '+201000000000',
       dateOfBirth: '1994-01-01',
       role: Role.MOTHER,
-      termsAcceptedVersion: '1.0',
+      termsAcceptedVersion: 'v1.0',
       latitude: 30.05,
       longitude: 31.23,
       address: 'Cairo',
+      avatarUrl: storageUrl('avatars', 'fb-1'),
       emailVerificationToken: 'tok-1',
     } as never);
 
@@ -352,10 +354,11 @@ describe('registerUser', () => {
       phone: '+201000000000',
       dateOfBirth: '1994-01-01',
       role: Role.MOTHER,
-      termsAcceptedVersion: '1.0',
+      termsAcceptedVersion: 'v1.0',
       latitude: 30.05,
       longitude: 31.23,
       address: 'Cairo',
+      avatarUrl: storageUrl('avatars', 'fb-1'),
       emailVerificationToken: 'tok-1',
     } as never);
 

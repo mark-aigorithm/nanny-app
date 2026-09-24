@@ -32,6 +32,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { getMe, registerUser, updateProfile } from '@backend/services/auth.service';
+import { storageUrl } from '../../test/storage-url';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock; update: jest.Mock };
@@ -49,11 +50,12 @@ const MOTHER_BODY: RegisterRequest = {
   phone: '+201004455667',
   dateOfBirth: '1990-01-01',
   role: Role.MOTHER,
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: 'v1.0',
   address: '14 Garden Street, Maadi',
   latitude: 29.9602,
   longitude: 31.2569,
   emailVerificationToken: 'b'.repeat(64),
+  avatarUrl: storageUrl('avatars', 'fb-1'),
 };
 
 function userRow(overrides: Record<string, unknown> = {}) {

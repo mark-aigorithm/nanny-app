@@ -20,6 +20,7 @@ import { app } from '@backend/app';
 import { authHeader } from '../../../test/auth';
 import { makeAdmin, makeMother, makeNanny, makeSkill } from '../../../test/factories';
 import { createBookingViaApi } from '../../../test/journeys/booking';
+import { storageUrl } from '../../../test/storage-url';
 
 async function me(token: string) {
   const response = await request(app).get('/auth/me').set(...authHeader(token));
@@ -31,6 +32,7 @@ describe('A20 — a mother edits her account', () => {
   it('changes her name, photo and address, and the console sees the same record', async () => {
     const mother = await makeMother();
     const admin = await makeAdmin();
+    const avatarUrl = storageUrl('avatars', mother.firebaseUid, 'nadia.jpg');
 
     const response = await request(app)
       .patch('/auth/me')
@@ -38,7 +40,7 @@ describe('A20 — a mother edits her account', () => {
       .send({
         firstName: 'Nadia',
         lastName: 'Hassan',
-        avatarUrl: 'https://storage.example.test/nadia.jpg',
+        avatarUrl,
       });
     expect(response.status).toBe(200);
 
@@ -54,7 +56,7 @@ describe('A20 — a mother edits her account', () => {
     expect(await me(mother.token)).toMatchObject({
       firstName: 'Nadia',
       lastName: 'Hassan',
-      avatarUrl: 'https://storage.example.test/nadia.jpg',
+      avatarUrl,
       address: '14 Garden Street, Maadi',
       latitude: 29.9602,
     });

@@ -12,7 +12,8 @@ import request from 'supertest';
 import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
 
-import { authHeader, signInWithGoogleAs } from '../../../test/auth';
+import { authHeader, signInWithGoogleAs, uidOf } from '../../../test/auth';
+import { storageUrl } from '../../../test/storage-url';
 
 function uniquePhone(): string {
   return `+2011${String(Date.now()).slice(-8)}`;
@@ -22,10 +23,7 @@ function uniqueEmail(): string {
   return `google-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
 }
 
-const ID_FRONT = 'https://storage.example.test/nanny-id-front.jpg';
-const AVATAR = 'https://storage.example.test/nanny-avatar.jpg';
-
-function registrationBody(email: string, phone: string) {
+function registrationBody(email: string, phone: string, uid: string) {
   return {
     firstName: 'Salma',
     lastName: 'Google',
@@ -33,10 +31,11 @@ function registrationBody(email: string, phone: string) {
     phone,
     dateOfBirth: '1993-02-03',
     role: 'MOTHER',
-    termsAcceptedVersion: '1.0',
+    termsAcceptedVersion: 'v1.0',
     latitude: 30.0444,
     longitude: 31.2357,
     address: '1 Test Street, Cairo',
+    avatarUrl: storageUrl('avatars', uid),
   };
 }
 
@@ -49,7 +48,7 @@ describe('A24 — social registration', () => {
     const response = await request(app)
       .post('/auth/register')
       .set(...authHeader(idToken))
-      .send(registrationBody(email, phone));
+      .send(registrationBody(email, phone, uidOf(idToken)));
 
     expect(response.status).toBe(201);
     expect(response.body.data.isEmailVerified).toBe(true);
@@ -66,7 +65,7 @@ describe('A24 — social registration', () => {
     const response = await request(app)
       .post('/auth/register')
       .set(...authHeader(idToken))
-      .send(registrationBody(uniqueEmail(), phone));
+      .send(registrationBody(uniqueEmail(), phone, uidOf(idToken)));
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/verify your email address/);
@@ -81,7 +80,7 @@ describe('A24 — social registration', () => {
     const response = await request(app)
       .post('/auth/register')
       .set(...authHeader(idToken))
-      .send(registrationBody(email, phone));
+      .send(registrationBody(email, phone, uidOf(idToken)));
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/verify your email address/);
@@ -97,7 +96,7 @@ describe('A24 — social registration', () => {
     const response = await request(app)
       .post('/auth/register')
       .set(...authHeader(idToken))
-      .send(registrationBody(email, phone));
+      .send(registrationBody(email, phone, uidOf(idToken)));
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/verify your phone number/);
@@ -113,7 +112,7 @@ describe('A24 — social registration', () => {
     const response = await request(app)
       .post('/auth/register')
       .set(...authHeader(idToken))
-      .send(registrationBody(email, other));
+      .send(registrationBody(email, other, uidOf(idToken)));
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/verify your phone number/);
@@ -129,15 +128,15 @@ describe('A24 — social registration', () => {
       .post('/auth/register')
       .set(...authHeader(idToken))
       .send({
-        ...registrationBody(email, phone),
+        ...registrationBody(email, phone, uidOf(idToken)),
         role: 'NANNY',
         idDocumentType: 'PASSPORT',
-        idDocumentFrontUrl: ID_FRONT,
-        avatarUrl: AVATAR,
+        idDocumentFrontUrl: storageUrl('nanny-ids', uidOf(idToken), 'front.jpg'),
+        avatarUrl: storageUrl('avatars', uidOf(idToken)),
         bio: 'Five years with toddlers, first-aid trained.',
         yearsOfExperience: 5,
         availabilityType: 'FULL_TIME',
-        ageRanges: ['0-1', '2-5'],
+        ageRanges: ['0-1', '1-3'],
         schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
       });
 

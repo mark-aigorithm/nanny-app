@@ -38,6 +38,7 @@ import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
 import { consumeVerificationToken } from '@backend/services/email-verification.service';
 import { registerUser } from '@backend/services/auth.service';
+import { storageUrl } from '../../test/storage-url';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock };
@@ -85,17 +86,17 @@ const NANNY_BODY: RegisterRequest = {
   phone: '+201000000000',
   dateOfBirth: '1998-05-10',
   role: Role.NANNY,
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: 'v1.0',
   address: 'Cairo',
   latitude: 30.05,
   longitude: 31.23,
   idDocumentType: 'NATIONAL_ID',
-  idDocumentFrontUrl: 'https://s/o/nanny-ids%2Ffb-1%2Ffront.jpg',
-  idDocumentBackUrl: 'https://s/o/nanny-ids%2Ffb-1%2Fback.jpg',
-  avatarUrl: 'https://s/o/nanny-ids%2Ffb-1%2Favatar.jpg',
+  idDocumentFrontUrl: storageUrl('nanny-ids', 'fb-1', 'front.jpg'),
+  idDocumentBackUrl: storageUrl('nanny-ids', 'fb-1', 'back.jpg'),
+  avatarUrl: storageUrl('avatars', 'fb-1'),
   bio: 'Loves kids',
   yearsOfExperience: 5,
-  ageRanges: ['0-1', '2-4'],
+  ageRanges: ['0-1', '1-3'],
   availabilityType: 'FULL_TIME',
   schedule: { '1': { available: true, startTime: '09:00', endTime: '17:00' } },
   certificationIds: [1],
@@ -111,11 +112,13 @@ const MOTHER_BODY: RegisterRequest = {
   phone: '+201004455667',
   dateOfBirth: '1990-01-01',
   role: Role.MOTHER,
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: 'v1.0',
+  address: 'Cairo',
   latitude: 30.05,
   longitude: 31.23,
   // A mother proves her address mid-wizard too, on the step after her details.
   emailVerificationToken: 'b'.repeat(64),
+  avatarUrl: storageUrl('avatars', 'fb-1', 'mother-avatar.jpg'),
 };
 
 function makeTx() {
@@ -162,7 +165,7 @@ describe('registerUser — nanny profile population', () => {
         userId: 55,
         bio: 'Loves kids',
         yearsOfExperience: 5,
-        ageRanges: ['0-1', '2-4'],
+        ageRanges: ['0-1', '1-3'],
         schedule: NANNY_BODY.schedule,
         availabilityType: 'FULL_TIME',
       },
@@ -188,18 +191,18 @@ describe('registerUser — nanny profile population', () => {
     expect(mockReconcileSkills).toHaveBeenCalledWith(tx, 99, []);
   });
 
-  it('does not create a nanny profile or reconcile anything for a mother', async () => {
+  it('saves the mother’s photo too, but creates no nanny profile or reconciliation', async () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
 
     const res = await registerUser(DECODED_MOTHER, MOTHER_BODY);
 
     const userData = tx.user.create.mock.calls[0][0].data;
-    expect(userData.avatarUrl).toBeNull();
+    expect(userData.avatarUrl).toBe(MOTHER_BODY.avatarUrl);
     expect(tx.nannyProfile.create).not.toHaveBeenCalled();
     expect(mockReconcileCertifications).not.toHaveBeenCalled();
     expect(mockReconcileSkills).not.toHaveBeenCalled();
-    expect(res.avatarUrl).toBeNull();
+    expect(res.avatarUrl).toBe(MOTHER_BODY.avatarUrl);
   });
 });
 

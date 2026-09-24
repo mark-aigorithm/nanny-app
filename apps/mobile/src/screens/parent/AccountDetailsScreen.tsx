@@ -30,7 +30,6 @@ export default function AccountDetailsScreen() {
   const [firstName, setFirstName] = useState(profile?.firstName ?? '');
   const [lastName, setLastName] = useState(profile?.lastName ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
-  const [phone, setPhone] = useState(profile?.phone ?? '');
   const [photoUri, setPhotoUri] = useState<string | null>(profile?.avatarUrl ?? null);
 
   useEffect(() => {
@@ -38,7 +37,6 @@ export default function AccountDetailsScreen() {
     setFirstName(profile.firstName);
     setLastName(profile.lastName);
     setEmail(profile.email);
-    setPhone(profile.phone ?? '');
     setPhotoUri(profile.avatarUrl);
   }, [profile]);
 
@@ -48,7 +46,6 @@ export default function AccountDetailsScreen() {
     setFirstName(profile?.firstName ?? '');
     setLastName(profile?.lastName ?? '');
     setEmail(profile?.email ?? '');
-    setPhone(profile?.phone ?? '');
     setPhotoUri(profile?.avatarUrl ?? null);
   };
 
@@ -101,18 +98,9 @@ export default function AccountDetailsScreen() {
         }
       }
 
-      const trimmedPhone = phone.trim();
-      const phoneUpdate =
-        trimmedPhone !== (profile?.phone ?? '')
-          ? trimmedPhone
-            ? trimmedPhone
-            : null
-          : undefined;
-
       await updateProfile.mutateAsync({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        ...(phoneUpdate !== undefined && { phone: phoneUpdate }),
         ...(avatarUrl !== undefined && { avatarUrl }),
       });
 
@@ -190,7 +178,13 @@ export default function AccountDetailsScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Phone</Text>
-            <TextInput style={[styles.input, !isEditing && styles.inputDisabled]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={isEditing} />
+            {/* Read-only: a number is changed only by verifying the new one by SMS. */}
+            <TextInput
+              style={[styles.input, styles.inputDisabled]}
+              value={profile?.phone ?? ''}
+              editable={false}
+              keyboardType="phone-pad"
+            />
           </View>
 
           {/* Addresses are an address book of their own (one is the default the

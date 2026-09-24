@@ -27,6 +27,7 @@ import { Role, type RegisterRequest } from '@nanny-app/shared';
 import { prisma } from '@backend/db/prisma';
 import { AppError } from '@backend/lib/errors';
 import { checkAvailability, registerUser } from '@backend/services/auth.service';
+import { storageUrl } from '../../test/storage-url';
 
 const mockPrisma = prisma as unknown as {
   user: { findUnique: jest.Mock };
@@ -50,10 +51,12 @@ const MOTHER_BODY: RegisterRequest = {
   phone: FREE_PHONE,
   dateOfBirth: '1990-01-01',
   role: Role.MOTHER,
-  termsAcceptedVersion: '1.0',
+  termsAcceptedVersion: 'v1.0',
+  address: '1 Test Street, Cairo',
   latitude: 30.05,
   longitude: 31.23,
   emailVerificationToken: 'b'.repeat(64),
+  avatarUrl: storageUrl('avatars', 'fb-1'),
 };
 
 /**

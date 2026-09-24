@@ -78,6 +78,23 @@ export function authHeader(token: string): ['Authorization', string] {
 }
 
 /**
+ * The Firebase uid inside an ID token. The emulator's tokens are unsigned
+ * JWTs, so the payload reads directly — used where a helper hands back only a
+ * token but a fixture needs the uid (an upload path, say).
+ */
+export function uidOf(idToken: string): string {
+  const payload = idToken.split('.')[1];
+  if (!payload) throw new Error('Not a JWT');
+  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+    user_id?: string;
+    sub?: string;
+  };
+  const uid = claims.user_id ?? claims.sub;
+  if (!uid) throw new Error('ID token carries no uid');
+  return uid;
+}
+
+/**
  * Exchanges a Firebase custom token — the kind `firebaseAuth.createCustomToken`
  * mints — for a real ID token, the same way the mobile client's
  * `signInWithCustomToken` does. `POST /auth/email` now returns one of these

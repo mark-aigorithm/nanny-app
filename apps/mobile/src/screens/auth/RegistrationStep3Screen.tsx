@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { CURRENT_TERMS_VERSION } from '@nanny-app/shared';
 import { idTypeRequiresBack } from '@shared/nanny';
 import { colors } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS, APP_NAME } from '@mobile/constants';
@@ -32,14 +33,14 @@ import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { toE164 } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step3-screen.styles';
 
-// Bumping this version triggers a re-acceptance flow when terms change.
-const TERMS_VERSION = 'v1.0';
-
 // An Android instant verification can be linked only once (see
 // useLinkPhoneToCurrentUser), so after a failed link the only way on is a
 // fresh SMS.
 const INSTANT_VERIFICATION_SPENT_MESSAGE =
   "We couldn't confirm your number. Tap Resend code to get a code by SMS.";
+
+const PHOTO_UPLOAD_FAILED_MESSAGE =
+  "Couldn't upload your photos. Check your connection and try again.";
 
 /** Convert 'mm/dd/yyyy' to 'YYYY-MM-DD'. Returns empty string on bad input. */
 function dobToIso(dob: string): string {
@@ -87,9 +88,10 @@ export default function RegistrationStep3Screen() {
   const [referralCode, setReferralCode] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  // The nanny's ID images upload between account creation and profile save;
-  // that gap isn't covered by either mutation's pending flag, so track it here.
-  const [isUploadingId, setIsUploadingId] = useState(false);
+  // The step-1 photo (and a nanny's ID images) upload between account creation
+  // and profile save; that gap isn't covered by either mutation's pending
+  // flag, so track it here.
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   // Collision B deletes or signs out the account this screen is working on.
   // Complete setup stays disabled from then until the replace to sign-in, so
   // a second tap can't run against that account.
@@ -238,38 +240,38 @@ export default function RegistrationStep3Screen() {
 
     patch({ termsAcceptedAt: Date.now() });
 
-    // 2. Nannies must supply their ID (both sides for a national ID, front
-    // only for a passport). Uploaded now that the account is signed in
-    // (uploadImageToFirebase needs the uid) and before the profile is saved,
-    // so the URLs go out with the register request. The profile photo
-    // uploads alongside it for the same reason.
+    // 2. Upload the photos, now that the account is signed in
+    // (uploadImageToFirebase files them under the uid) and before the profile
+    // is saved, so the URLs go out with the register request. Every account
+    // brings the step-1 photo; a nanny also brings her ID (both sides for a
+    // national ID, front only for a passport).
     let idDocumentFrontUrl: string | undefined;
     let idDocumentBackUrl: string | undefined;
-    let avatarUrl: string | undefined;
     const idDocumentType = draft.idDocumentType ?? undefined;
-    if (apiRole === 'NANNY') {
-      const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
-      if (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri)) {
-        setFormError('Your ID is missing. Please go back and upload it.');
-        return;
-      }
-      if (!draft.photoUri) {
-        setFormError('Your profile photo is missing. Please go back and add it.');
-        return;
-      }
-      try {
-        setIsUploadingId(true);
+    const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
+    if (apiRole === 'NANNY' && (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri))) {
+      setFormError('Your ID is missing. Please go back and upload it.');
+      return;
+    }
+    if (!draft.photoUri) {
+      setFormError('Your profile photo is missing. Please go back and add it.');
+      return;
+    }
+    let avatarUrl: string;
+    try {
+      setIsUploadingPhotos(true);
+      if (apiRole === 'NANNY' && draft.idFrontUri) {
         idDocumentFrontUrl = await uploadImageToFirebase(draft.idFrontUri, 'nanny-ids');
         if (needsBack && draft.idBackUri) {
           idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
         }
-        avatarUrl = await uploadImageToFirebase(draft.photoUri, 'avatars');
-      } catch (err) {
-        setFormError(err instanceof Error ? err.message : 'Could not upload your ID. Please try again.');
-        return;
-      } finally {
-        setIsUploadingId(false);
       }
+      avatarUrl = await uploadImageToFirebase(draft.photoUri, 'avatars');
+    } catch {
+      setFormError(PHOTO_UPLOAD_FAILED_MESSAGE);
+      return;
+    } finally {
+      setIsUploadingPhotos(false);
     }
 
     // 3. Create the application account. Idempotent on the backend, so
@@ -285,15 +287,15 @@ export default function RegistrationStep3Screen() {
         phone: phoneE164,
         dateOfBirth: dobIso,
         role: apiRole,
-        termsAcceptedVersion: TERMS_VERSION,
-        address: draft.address || undefined,
+        termsAcceptedVersion: CURRENT_TERMS_VERSION,
+        address: draft.address,
         latitude,
         longitude,
         idDocumentType,
         idDocumentFrontUrl,
         idDocumentBackUrl,
+        avatarUrl,
         ...(apiRole === 'NANNY' && {
-          avatarUrl,
           bio: draft.bio,
           yearsOfExperience: draft.yearsOfExperience
             ? parseInt(draft.yearsOfExperience, 10)
@@ -333,7 +335,7 @@ export default function RegistrationStep3Screen() {
     confirmPhone.isPending ||
     linkPhone.isPending ||
     isHandingOff ||
-    isUploadingId ||
+    isUploadingPhotos ||
     registerProfile.isPending;
   const canSubmit =
     challenge !== null &&
@@ -447,8 +449,8 @@ export default function RegistrationStep3Screen() {
           title={
             confirmPhone.isPending || linkPhone.isPending
               ? 'Verifying…'
-              : isUploadingId
-                ? 'Uploading ID…'
+              : isUploadingPhotos
+                ? 'Uploading photos…'
                 : registerProfile.isPending
                   ? 'Saving…'
                   : 'Complete setup'

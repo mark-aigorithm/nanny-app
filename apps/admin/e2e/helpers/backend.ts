@@ -23,9 +23,6 @@ const API_KEY = 'fake-api-key';
 /** Matches the password global-setup provisions the console roles with. */
 const PASSWORD = 'test-password-123';
 
-const ID_FRONT = 'https://storage.example.test/e2e-id-front.jpg';
-const AVATAR = 'https://storage.example.test/e2e-avatar.jpg';
-
 /**
  * Unique per call, and stable within one. Specs locate their own table row by
  * surname, so it has to be unrecognisable from any other spec's.
@@ -77,6 +74,42 @@ export async function signIn(email: string, password = PASSWORD): Promise<string
     );
   }
   return body.idToken;
+}
+
+const PROJECT_ID = process.env['FIREBASE_PROJECT_ID'] ?? 'demo-nannyapp';
+
+/** The uid inside an emulator ID token (an unsigned JWT). */
+function uidOf(idToken: string): string {
+  const payload = idToken.split('.')[1];
+  const claims = payload
+    ? (JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { user_id?: string })
+    : {};
+  if (!claims.user_id) throw new Error('ID token carries no uid');
+  return claims.user_id;
+}
+
+/** A download URL in the only shape /auth/register accepts: this user's own upload folder. */
+function storageUrl(folder: 'avatars' | 'nanny-ids', uid: string, file: string): string {
+  const objectPath = encodeURIComponent(`${folder}/${uid}/${file}`);
+  return `https://firebasestorage.googleapis.com/v0/b/${PROJECT_ID}.appspot.com/o/${objectPath}?alt=media&token=e2e`;
+}
+
+/**
+ * Puts a verified phone on the account, as both app wizards do before
+ * /auth/register (which refuses a number the token's `phone_number` claim does
+ * not carry), and returns a fresh ID token carrying it. `Bearer owner` is the
+ * emulator's admin credential; this is the endpoint the Admin SDK uses.
+ */
+async function linkPhone(email: string, idToken: string, phoneNumber: string): Promise<string> {
+  const response = await fetch(`${IDENTITY_TOOLKIT}/projects/${PROJECT_ID}/accounts:update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ localId: uidOf(idToken), phoneNumber }),
+  });
+  if (!response.ok) {
+    throw new Error(`Emulator phone link failed for ${email}: ${response.status} ${await response.text()}`);
+  }
+  return signIn(email);
 }
 
 // ── HTTP ──────────────────────────────────────────────────────────
@@ -214,7 +247,9 @@ export type SeededMother = {
  */
 export async function seedMother(): Promise<SeededMother> {
   const { email, surname } = unique('mother');
-  const token = await signUp(email);
+  const phone = uniquePhone();
+  const token = await linkPhone(email, await signUp(email), phone);
+  const uid = uidOf(token);
   const emailVerificationToken = await proveEmail(email);
 
   const user = (await call('POST', '/auth/register', token, {
@@ -222,18 +257,19 @@ export async function seedMother(): Promise<SeededMother> {
     lastName: surname,
     email,
     emailVerificationToken,
-    phone: uniquePhone(),
+    phone,
     dateOfBirth: '1992-04-01',
     role: 'MOTHER',
-    termsAcceptedVersion: '1.0',
+    termsAcceptedVersion: 'v1.0',
     latitude: 30.0444,
     longitude: 31.2357,
     address: '1 Test Street, Cairo',
+    avatarUrl: storageUrl('avatars', uid, 'e2e-avatar.jpg'),
   })) as { id: number };
 
   await call('POST', '/auth/id', token, {
     idDocumentType: 'PASSPORT',
-    idDocumentFrontUrl: ID_FRONT,
+    idDocumentFrontUrl: storageUrl('nanny-ids', uid, 'e2e-id-front.jpg'),
   });
 
   return { token, id: user.id, email, surname, displayName: `E2E ${surname}` };
@@ -248,7 +284,9 @@ export type SeededNanny = SeededMother & { nannyProfileId: number };
  */
 export async function seedPendingNanny(): Promise<SeededMother> {
   const { email, surname } = unique('nanny');
-  const token = await signUp(email);
+  const phone = uniquePhone();
+  const token = await linkPhone(email, await signUp(email), phone);
+  const uid = uidOf(token);
   const emailVerificationToken = await proveEmail(email);
 
   const user = (await call('POST', '/auth/register', token, {
@@ -256,20 +294,20 @@ export async function seedPendingNanny(): Promise<SeededMother> {
     lastName: surname,
     email,
     emailVerificationToken,
-    phone: uniquePhone(),
+    phone,
     dateOfBirth: '1995-06-15',
     role: 'NANNY',
-    termsAcceptedVersion: '1.0',
+    termsAcceptedVersion: 'v1.0',
     latitude: 30.0444,
     longitude: 31.2357,
     address: '2 Test Street, Cairo',
     idDocumentType: 'PASSPORT',
-    idDocumentFrontUrl: ID_FRONT,
-    avatarUrl: AVATAR,
+    idDocumentFrontUrl: storageUrl('nanny-ids', uid, 'e2e-id-front.jpg'),
+    avatarUrl: storageUrl('avatars', uid, 'e2e-avatar.jpg'),
     bio: 'Seeded for the admin E2E suite.',
     yearsOfExperience: 5,
     availabilityType: 'FULL_TIME',
-    ageRanges: ['0-1', '2-5'],
+    ageRanges: ['0-1', '1-3'],
     schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
   })) as { id: number };
 
@@ -279,7 +317,9 @@ export async function seedPendingNanny(): Promise<SeededMother> {
 /** A registered, admin-approved nanny — the only kind that can claim a booking. */
 export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny> {
   const { email, surname } = unique('nanny');
-  const token = await signUp(email);
+  const phone = uniquePhone();
+  const token = await linkPhone(email, await signUp(email), phone);
+  const uid = uidOf(token);
   const emailVerificationToken = await proveEmail(email);
 
   const user = (await call('POST', '/auth/register', token, {
@@ -287,20 +327,20 @@ export async function seedApprovedNanny(adminToken: string): Promise<SeededNanny
     lastName: surname,
     email,
     emailVerificationToken,
-    phone: uniquePhone(),
+    phone,
     dateOfBirth: '1995-06-15',
     role: 'NANNY',
-    termsAcceptedVersion: '1.0',
+    termsAcceptedVersion: 'v1.0',
     latitude: 30.0444,
     longitude: 31.2357,
     address: '2 Test Street, Cairo',
     idDocumentType: 'PASSPORT',
-    idDocumentFrontUrl: ID_FRONT,
-    avatarUrl: AVATAR,
+    idDocumentFrontUrl: storageUrl('nanny-ids', uid, 'e2e-id-front.jpg'),
+    avatarUrl: storageUrl('avatars', uid, 'e2e-avatar.jpg'),
     bio: 'Seeded for the admin E2E suite.',
     yearsOfExperience: 5,
     availabilityType: 'FULL_TIME',
-    ageRanges: ['0-1', '2-5'],
+    ageRanges: ['0-1', '1-3'],
     schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
   })) as { id: number };
 

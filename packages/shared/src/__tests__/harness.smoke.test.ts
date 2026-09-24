@@ -13,20 +13,18 @@ describe('shared schema harness', () => {
   it('parses a valid payload', () => {
     const result = UpdateProfileRequestSchema.safeParse({
       firstName: 'Nadia',
-      phone: '+201234567890',
-      latitude: 30.0444,
-      longitude: 31.2357,
+      avatarUrl: 'https://example.test/nadia.jpg',
     });
 
     expect(result.success).toBe(true);
   });
 
   it('rejects an invalid field and reports its path', () => {
-    const result = UpdateProfileRequestSchema.safeParse({ phone: '01234567890' });
+    const result = UpdateProfileRequestSchema.safeParse({ avatarUrl: 'not-a-url' });
 
     expect(result.success).toBe(false);
     // The issue path is what the backend's validate middleware surfaces to the
     // client, so it is part of the contract, not an implementation detail.
-    expect(result.error?.issues[0]?.path).toEqual(['phone']);
+    expect(result.error?.issues[0]?.path).toEqual(['avatarUrl']);
   });
 });
