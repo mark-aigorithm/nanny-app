@@ -206,3 +206,17 @@ it('sends an unfinished sign-up to finish setting up, leaving its password alone
     message: "Your sign-up isn't finished yet. Pick up where you left off.",
   });
 });
+
+it('drops an SMS-channel error when backing out to the channel choice', async () => {
+  mockSignInWithPhoneNumber.mockRejectedValueOnce({ code: 'auth/too-many-requests' });
+  renderScreen();
+
+  fireEvent.press(screen.getByText('Text me a code instead'));
+  fireEvent.changeText(screen.getByTestId('forgotPassword.phone'), '1234567895');
+  fireEvent.press(screen.getByText('Send code'));
+  expect(await screen.findByText('Too many attempts. Try again in a few minutes.')).toBeTruthy();
+
+  fireEvent.press(screen.getByLabelText('Back'));
+  expect(screen.getByText('Email me a reset link')).toBeTruthy();
+  expect(screen.queryByText('Too many attempts. Try again in a few minutes.')).toBeNull();
+});

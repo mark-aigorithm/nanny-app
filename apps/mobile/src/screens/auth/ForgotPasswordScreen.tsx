@@ -136,6 +136,11 @@ export default function ForgotPasswordScreen() {
       // again starts fresh rather than re-showing the sent card.
       setEmailSent(false);
       setEmailError(null);
+      // And the SMS channel's errors, which would otherwise hang on the
+      // channel choice (the form banner) or greet her on the phone field when
+      // she picks SMS again.
+      setPhoneError(null);
+      setFormError(null);
       return;
     }
     if (router.canGoBack()) {
@@ -200,7 +205,13 @@ export default function ForgotPasswordScreen() {
 
         {/* Header */}
         <View style={styles.headerBar}>
-          <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
+          <Pressable
+            style={styles.backButton}
+            onPress={handleBack}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
