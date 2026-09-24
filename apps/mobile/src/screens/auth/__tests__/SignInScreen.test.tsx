@@ -44,6 +44,8 @@ jest.mock('@mobile/lib/api', () => ({
   api: { get: (...args: unknown[]) => mockGet(...args) },
   unwrap: async (p: Promise<{ data: { data: unknown } }>) => (await p).data.data,
   getApiErrorMessage: () => 'Something went wrong. Please try again.',
+  apiStatusOf: (e: unknown) => (e as { response?: { status?: number } })?.response?.status ?? null,
+  isNotFound: (e: unknown) => (e as { response?: { status?: number } })?.response?.status === 404,
 }));
 
 import SignInScreen from '../SignInScreen';
@@ -140,9 +142,9 @@ it('signs out if delete fails when no profile exists', async () => {
   expect(mockReplace).not.toHaveBeenCalled();
 });
 
-it('signs out rather than deleting when the stray account also holds a Google identity', async () => {
+it('resumes an unfinished sign-up that also holds a Google identity, deleting nothing', async () => {
   // A Google sign-up whose /auth/register failed after its phone was linked:
-  // deleting would take the Google identity with it.
+  // the SMS proved it is hers, so the root gate resumes it.
   mockCurrentUser = {
     delete: mockDelete,
     email: 'mona@gmail.com',
@@ -153,7 +155,6 @@ it('signs out rather than deleting when the stray account also holds a Google id
     isAxiosError: true,
     response: { status: 404, data: { error: 'User profile not found. Please complete registration.' } },
   });
-  mockSignOut.mockResolvedValueOnce(undefined);
 
   renderScreen();
 
@@ -164,11 +165,27 @@ it('signs out rather than deleting when the stray account also holds a Google id
   fireEvent.changeText(screen.getByTestId('signIn.code'), '444444');
   fireEvent.press(screen.getByText('Sign in'));
 
-  await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   expect(mockDelete).not.toHaveBeenCalled();
-  expect(
-    screen.getByText("We couldn't find an account for that number. Sign up first."),
-  ).toBeTruthy();
+  expect(mockSignOut).not.toHaveBeenCalled();
+});
+
+it("says it couldn't connect when /auth/me fails for another reason", async () => {
+  mockGet.mockRejectedValue({ isAxiosError: true, response: { status: 500, data: {} } });
+  mockSignOut.mockResolvedValue(undefined);
+
+  renderScreen();
+
+  fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567895');
+  fireEvent.press(screen.getByText('Send code'));
+  await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
+
+  fireEvent.changeText(screen.getByTestId('signIn.code'), '555555');
+  fireEvent.press(screen.getByText('Sign in'));
+
+  expect(await screen.findByText("Couldn't connect. Check your connection and try again.")).toBeTruthy();
+  expect(mockSignOut).toHaveBeenCalledTimes(1);
+  expect(mockReplace).not.toHaveBeenCalled();
 });
 
 const PENDING_GOOGLE = {

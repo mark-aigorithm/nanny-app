@@ -45,7 +45,17 @@ jest.mock('@mobile/lib/firebase', () => ({
   ),
 }));
 
+const mockGet = jest.fn();
+jest.mock('@mobile/lib/api', () => ({
+  api: { get: (...args: unknown[]) => mockGet(...args) },
+  apiStatusOf: (e: unknown) => (e as { response?: { status?: number } })?.response?.status ?? null,
+  isNotFound: (e: unknown) => (e as { response?: { status?: number } })?.response?.status === 404,
+}));
+
+const NOT_FOUND = { isAxiosError: true, response: { status: 404, data: {} } };
+
 import ForgotPasswordScreen from '../ForgotPasswordScreen';
+import { useConfirmDialogStore } from '@mobile/store/confirmDialogStore';
 
 function renderScreen() {
   const queryClient = new QueryClient({
@@ -70,6 +80,8 @@ beforeEach(() => {
   mockSignInWithPhoneNumber.mockResolvedValue({ confirm: mockConfirm });
   mockConfirm.mockResolvedValue(undefined);
   mockUpdatePassword.mockResolvedValue(undefined);
+  mockGet.mockResolvedValue({ data: { data: { id: 1 }, error: null } });
+  useConfirmDialogStore.setState({ dialog: null });
 });
 
 it('mails a reset link and never claims the address exists', async () => {
@@ -105,6 +117,7 @@ it('refuses to write a password onto an SMS-minted account with no email on file
   // number has no account, so Firebase just minted a fresh phone-only user.
   mockCurrentUser = { email: null, updatePassword: mockUpdatePassword, delete: mockDelete, providerData: [{ providerId: 'phone' }] };
   mockDelete.mockResolvedValue(undefined);
+  mockGet.mockRejectedValue(NOT_FOUND);
 
   renderScreen();
 
@@ -130,6 +143,7 @@ it('signs out if the orphan-account delete itself fails', async () => {
   mockCurrentUser = { email: null, updatePassword: mockUpdatePassword, delete: mockDelete, providerData: [{ providerId: 'phone' }] };
   mockDelete.mockRejectedValueOnce(new Error('Network error'));
   mockSignOut.mockResolvedValueOnce(undefined);
+  mockGet.mockRejectedValue(NOT_FOUND);
 
   renderScreen();
 
@@ -149,4 +163,46 @@ it('signs out if the orphan-account delete itself fails', async () => {
     screen.getByText("We couldn't find an account for that number. Sign up first."),
   ).toBeTruthy();
   expect(mockReplace).not.toHaveBeenCalled();
+});
+
+async function resetBySms(phone: string, code: string) {
+  fireEvent.press(screen.getByText('Text me a code instead'));
+  fireEvent.changeText(screen.getByTestId('forgotPassword.phone'), phone);
+  fireEvent.press(screen.getByText('Send code'));
+  await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
+
+  fireEvent.changeText(screen.getByTestId('forgotPassword.code'), code);
+  fireEvent.changeText(screen.getByPlaceholderText('Enter a new password'), 'Password1');
+  fireEvent.changeText(screen.getByPlaceholderText('Re-enter your password'), 'Password1');
+  fireEvent.press(screen.getByText('Reset password'));
+}
+
+it('updates the password and goes through the root gate for an account with a row', async () => {
+  renderScreen();
+  await resetBySms('1234567893', '333333');
+
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  expect(mockUpdatePassword).toHaveBeenCalledWith('Password1');
+  expect(useConfirmDialogStore.getState().dialog).toBeNull();
+});
+
+it('sends an unfinished sign-up to finish setting up, leaving its password alone', async () => {
+  mockCurrentUser = {
+    email: 'mona@example.com',
+    updatePassword: mockUpdatePassword,
+    delete: mockDelete,
+    providerData: [{ providerId: 'phone' }, { providerId: 'password' }],
+  };
+  mockGet.mockRejectedValue(NOT_FOUND);
+
+  renderScreen();
+  await resetBySms('1234567894', '444444');
+
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  expect(mockUpdatePassword).not.toHaveBeenCalled();
+  expect(mockDelete).not.toHaveBeenCalled();
+  expect(useConfirmDialogStore.getState().dialog).toMatchObject({
+    title: 'Finish setting up your account first.',
+    message: "Your sign-up isn't finished yet. Pick up where you left off.",
+  });
 });

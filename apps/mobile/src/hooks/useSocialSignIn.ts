@@ -1,7 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
 
-import { api, getApiErrorMessage } from '@mobile/lib/api';
+import { api, getApiErrorMessage, isNotFound } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { auth } from '@mobile/lib/firebase';
 import { seedDraftFromAccount } from '@mobile/lib/resumeSignUp';
@@ -85,7 +84,7 @@ export function useSocialSignIn() {
         useRegistrationDraftStore.getState().reset();
         return 'signed-in';
       } catch (error) {
-        if (!(axios.isAxiosError(error) && error.response?.status === 404)) {
+        if (!isNotFound(error)) {
           await signOutAndForget();
           throw {
             field: 'form',

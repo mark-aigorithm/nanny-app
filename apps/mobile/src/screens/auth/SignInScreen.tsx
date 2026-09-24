@@ -86,10 +86,12 @@ export default function SignInScreen() {
       return;
     }
     confirmSignIn.mutate(
-      { confirmation, code },
+      { confirmation, code, phone: phoneE164 },
       {
+        // Signed in or an unfinished sign-up — either way the SMS proved the
+        // account is hers, so a Google/Apple collision that brought her here
+        // links onto it. The root gate then routes, resuming a leftover.
         onSuccess: async () => {
-          // Completes a Google/Apple collision, if one brought her here.
           await linkPendingCredential();
           router.replace('/');
         },

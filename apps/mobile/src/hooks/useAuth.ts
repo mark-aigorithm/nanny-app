@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
 import type {
   AvailabilityResponse,
   CheckAvailabilityRequest,
@@ -13,11 +12,10 @@ import type {
 
 import { auth } from '@mobile/lib/firebase';
 import type { FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
-import { api, getApiErrorMessage, unwrap } from '@mobile/lib/api';
-import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
+import { api, isNotFound, unwrap } from '@mobile/lib/api';
+import { COULD_NOT_CONNECT, mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { clearLocalSession } from '@mobile/lib/session';
-import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
@@ -52,17 +50,75 @@ async function discardPhoneOnlyAccount(user: FirebaseUser): Promise<void> {
   await auth().signOut().catch(() => undefined);
 }
 
+type AccountCheck = 'exists' | 'unfinished' | 'phone-only-new';
+
+/**
+ * Asks `/auth/me` about the account just signed in.
+ *
+ * - `exists`: it has a row.
+ * - `unfinished`: no row, but it holds more than a phone (a password, Google,
+ *   Apple) — a sign-up that stalled before its row was written. The root gate
+ *   resumes it.
+ * - `phone-only-new`: no row and nothing but a phone — the account Firebase
+ *   mints when a code is confirmed for a number it has never seen.
+ *
+ * Any other answer (offline, 5xx) proves nothing either way, so sign out and
+ * say so rather than guess. The draft is reset; a parked collision credential
+ * is kept, so the next attempt can still link it.
+ */
+async function checkAccount(user: FirebaseUser): Promise<AccountCheck> {
+  try {
+    await api.get('/auth/me');
+    return 'exists';
+  } catch (error) {
+    if (isNotFound(error)) {
+      const phoneOnly =
+        user.providerData.length > 0 &&
+        user.providerData.every((provider) => provider.providerId === 'phone');
+      return phoneOnly ? 'phone-only-new' : 'unfinished';
+    }
+    useRegistrationDraftStore.getState().reset();
+    await auth().signOut().catch(() => undefined);
+    throw { field: 'form', message: COULD_NOT_CONNECT } satisfies MappedAuthError;
+  }
+}
+
+const SESSION_LOST_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'Your code was verified but the session was lost. Please try again.',
+};
+
+/**
+ * Checks an SMS code and hands back the account it signed in as.
+ *
+ * On Android, Firebase can read the SMS and sign in by itself before the code
+ * is submitted; the code is then spent, and `confirm` rejects. If the app is
+ * already signed in as that very number, that sign-in is the one we wanted.
+ */
+async function confirmCode(
+  confirmation: PhoneConfirmation,
+  code: string,
+  phone: string,
+): Promise<FirebaseUser> {
+  try {
+    await confirmation.confirm(code);
+  } catch (error) {
+    if (auth().currentUser?.phoneNumber !== phone) throw mapFirebaseAuthError(error);
+  }
+  const user = auth().currentUser;
+  if (!user) throw SESSION_LOST_ERROR;
+  return user;
+}
+
 /**
  * Signs in with the email/password credential. The secondary door.
  *
- * Also completes a Google/Apple collision, if one brought her here — but only
- * once `/auth/me` says the account has a row, as the SMS door requires. A
- * password is not proof on its own: a phone wizard abandoned after its
- * password step leaves a row-less account that signs in fine, and linking
- * Google onto that would hand the identity to an account nothing recognizes.
- * Any other answer drops the parked credential unlinked; the sign-in itself
- * still resolves, and the root router signs a row-less account out, as it
- * always has.
+ * Also completes a Google/Apple collision, if one brought her here — once
+ * `/auth/me` answers. A row (`exists`) is the plain case. No row
+ * (`unfinished`) is a sign-up that stalled after its password step: the
+ * password has just proved it is hers, and the root gate resumes it, so the
+ * parked credential links onto it too. Any other answer signs out with
+ * `COULD_NOT_CONNECT` and keeps the parked credential for another try.
  */
 export function useSignInWithEmail() {
   return useMutation<
@@ -80,67 +136,48 @@ export function useSignInWithEmail() {
       // Whatever social sign-up was under way belonged to another session.
       useRegistrationDraftStore.getState().reset();
 
-      let accountExists = false;
-      try {
-        await api.get('/auth/me');
-        accountExists = true;
-      } catch {
-        // No row, or no answer — either way, no proof.
-      }
-      if (accountExists) await linkPendingCredential();
-      else usePendingLinkStore.getState().clear();
+      // `phone-only-new` cannot happen here — the account has a password — so
+      // every outcome that returns is `exists` or `unfinished`.
+      await checkAccount(credential.user);
+      await linkPendingCredential();
       return credential;
     },
   });
 }
 
 /**
- * Finishes the default door: check the SMS code, then make sure the number
- * actually belongs to an account.
+ * Finishes the default door: check the SMS code, then ask what the number
+ * belongs to.
  *
  * Confirming a code *is* a sign-in, so Firebase mints a phone-only account for
  * a number it has never seen — invisible to the email door and unusable by
- * "reset password", which is how an account once looked deleted while its row
- * survived. A 404 from /auth/me is that case: delete what we just created and
- * say so, rather than leaving a stray uid squatting on the number.
+ * "reset password". That one is deleted, and she is told to sign up. A number
+ * on an account that holds more (a password, Google, Apple) but has no row is
+ * an unfinished sign-up: `'needs-setup'`, which the root gate resumes.
+ *
+ * `phone` is the E.164 number the code was sent to.
  */
 export function useConfirmPhoneSignIn() {
-  return useMutation<void, MappedAuthError, { confirmation: PhoneConfirmation; code: string }>({
-    mutationFn: async ({ confirmation, code }) => {
-      try {
-        await confirmation.confirm(code);
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
+  return useMutation<
+    'signed-in' | 'needs-setup',
+    MappedAuthError,
+    { confirmation: PhoneConfirmation; code: string; phone: string }
+  >({
+    mutationFn: async ({ confirmation, code, phone }) => {
+      const user = await confirmCode(confirmation, code, phone);
+
+      const account = await checkAccount(user);
+      if (account === 'phone-only-new') {
+        await discardPhoneOnlyAccount(user);
+        throw NO_ACCOUNT_FOR_PHONE_ERROR;
       }
 
-      const user = auth().currentUser;
-      if (!user) {
-        throw {
-          field: 'form',
-          message: 'Your code was verified but the session was lost. Please try again.',
-        } satisfies MappedAuthError;
-      }
-
-      try {
-        await api.get('/auth/me');
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          // Best-effort cleanup. If the delete itself fails we must still not
-          // leave her signed in as an account the backend does not know — sign
-          // out instead, and let registration re-confirm into the same uid.
-          await discardPhoneOnlyAccount(user);
-          throw NO_ACCOUNT_FOR_PHONE_ERROR;
-        }
-        throw {
-          field: 'form',
-          message: getApiErrorMessage(error, 'Could not sign you in. Please try again.'),
-        } satisfies MappedAuthError;
-      }
-
-      // Whatever social sign-up was under way belonged to another session.
+      // Whatever social sign-up was under way belonged to another session —
+      // for a leftover, the root gate seeds a fresh draft from the account.
       // A parked collision credential lives in pendingLinkStore, not the
       // draft, so the caller can still link it.
       useRegistrationDraftStore.getState().reset();
+      return account === 'exists' ? 'signed-in' : 'needs-setup';
     },
   });
 }
@@ -153,36 +190,25 @@ export function useConfirmPhoneSignIn() {
  * code is itself a fresh sign-in, `updatePassword` never trips
  * `auth/requires-recent-login`.
  *
- * Confirming a code *is* a sign-in, though, so a number with no account gets
- * the same treatment as `useConfirmPhoneSignIn`'s 404: Firebase mints a fresh
- * phone-only user (no email) rather than landing on a real one. Writing a
- * password onto that user would "succeed" against a credential nothing can
- * sign in with, so it is discarded instead, guarded on `user.email` alone —
- * no backend round trip needed, since a phone-only account never has one.
+ * Confirming a code *is* a sign-in, though, so the account is checked first,
+ * as `useConfirmPhoneSignIn` does. A phone-only account Firebase just minted
+ * is discarded. An unfinished sign-up (`'needs-setup'`) is left alone — its
+ * password is the one she chose moments ago in the wizard, and the root gate
+ * resumes it. An account with a row but no email on file has no password to
+ * reset and gets the same treatment as the phone-only one.
  */
 export function useConfirmPhoneAndResetPassword() {
   return useMutation<
-    void,
+    'password-updated' | 'needs-setup',
     MappedAuthError,
-    { confirmation: PhoneConfirmation; code: string; newPassword: string }
+    { confirmation: PhoneConfirmation; code: string; phone: string; newPassword: string }
   >({
-    mutationFn: async ({ confirmation, code, newPassword }) => {
-      try {
-        await confirmation.confirm(code);
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
-      }
+    mutationFn: async ({ confirmation, code, phone, newPassword }) => {
+      const user = await confirmCode(confirmation, code, phone);
 
-      const user = auth().currentUser;
-      if (!user) {
-        // confirm() resolved without leaving a session — nothing to update.
-        throw {
-          field: 'form',
-          message: 'Your code was verified but the session was lost. Please try again.',
-        } satisfies MappedAuthError;
-      }
-
-      if (!user.email) {
+      const account = await checkAccount(user);
+      if (account === 'unfinished') return 'needs-setup';
+      if (account === 'phone-only-new' || !user.email) {
         await discardPhoneOnlyAccount(user);
         throw NO_ACCOUNT_FOR_PHONE_ERROR;
       }
@@ -192,6 +218,7 @@ export function useConfirmPhoneAndResetPassword() {
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }
+      return 'password-updated';
     },
   });
 }

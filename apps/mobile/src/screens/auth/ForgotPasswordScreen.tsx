@@ -23,6 +23,7 @@ import {
 } from '@mobile/hooks/useAuth';
 import { validatePhone, toE164, validateEmail } from '@mobile/lib/validation';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { styles } from './styles/forgot-password-screen.styles';
 
 // Reset opens on a channel choice: Firebase can mail its own reset link now
@@ -156,11 +157,21 @@ export default function ForgotPasswordScreen() {
       return;
     }
     resetPassword.mutate(
-      { confirmation, code: otp, newPassword: password },
+      { confirmation, code: otp, phone: phoneE164, newPassword: password },
       {
-        // The code confirm signed them in and the password is updated — send
-        // them through the root gate, which routes by profile + role.
-        onSuccess: () => router.replace('/'),
+        // The code confirm signed them in — send them through the root gate,
+        // which routes by profile + role. An unfinished sign-up keeps the
+        // password it was given in the wizard; the gate resumes it, so say
+        // why no password was changed.
+        onSuccess: (outcome) => {
+          if (outcome === 'needs-setup') {
+            noticeDialog({
+              title: 'Finish setting up your account first.',
+              message: "Your sign-up isn't finished yet. Pick up where you left off.",
+            });
+          }
+          router.replace('/');
+        },
         onError: (err) => {
           // A number with no account behind it (the orphan guard) sends her
           // back to the phone field, not the code box — same handling as

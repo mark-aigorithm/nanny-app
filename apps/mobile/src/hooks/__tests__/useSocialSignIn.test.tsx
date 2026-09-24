@@ -35,6 +35,8 @@ const mockGet = jest.fn();
 jest.mock('@mobile/lib/api', () => ({
   api: { get: (...args: unknown[]) => mockGet(...args) },
   getApiErrorMessage: (_e: unknown, fallback: string) => fallback,
+  apiStatusOf: (e: unknown) => (e as { response?: { status?: number } })?.response?.status ?? null,
+  isNotFound: (e: unknown) => (e as { response?: { status?: number } })?.response?.status === 404,
 }));
 
 import { useSocialSignIn } from '@mobile/hooks/useSocialSignIn';

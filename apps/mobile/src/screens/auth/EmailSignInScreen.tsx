@@ -45,7 +45,8 @@ export default function EmailSignInScreen() {
       { email, password },
       {
         // The hook has already connected a pending Google/Apple identity, if
-        // one brought her here and the account proved real.
+        // one brought her here. The root gate routes from here — resuming
+        // the sign-up if the account has no row yet.
         onSuccess: () => router.replace('/'),
         onError: (err) => {
           if (err.field === 'password') setPasswordError(err.message);
