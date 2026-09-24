@@ -221,11 +221,17 @@ issuer, not a mock.
 ## Deployment
 
 ### Backend
-1. **Merge to `main`** triggers `deploy-backend.yml`
-2. Docker image built and pushed to ECR
-3. AWS CodePipeline picks up the new image and deploys to ECS Fargate
-4. Prisma migrations run as a one-off ECS task before traffic is switched
-5. ECS uses rolling deployment (no downtime)
+**Today the backend runs on Vercel**, not ECS. The ECS Fargate pipeline described in this file
+(architecture diagram, stack table) is the planned target; `deploy-backend.yml` is still a TODO stub.
+- Vercel deploys from Git. `api/index.js` is the serverless function; it loads the esbuild bundle
+  of `src/vercel.ts` (`dist/vercel-bundle.cjs`), and `vercel.json` rewrites every route to it and
+  ships `dist/templates/**` with it.
+- `src/vercel.ts` exports the Express app without listening, and does **not** start the Paymob
+  reconciliation scheduler (intervals don't survive serverless invocations).
+- The mobile app's default `API_BASE_URL` (`app.config.ts`) points at this Vercel deployment. The
+  admin console is a separate Vercel project (`apps/admin/vercel.json`).
+- Nothing in the repo applies Prisma migrations on deploy — `pnpm db:migrate` has to be run against
+  the target database. Check how that is done before shipping a schema change.
 
 ### Infrastructure
 1. **Changes to `/infra`** on a PR trigger `cdk diff` — output posted as PR comment
@@ -240,8 +246,9 @@ issuer, not a mock.
 | Env | Branch | Backend URL | DB |
 |---|---|---|---|
 | development | local | `localhost:3000` | Local Docker |
-| staging | `develop` | `api.staging.nannyapp.com` | RDS dev instance |
-| production | `main` | `api.nannyapp.com` | RDS prod instance |
+| production (current) | Vercel Git deploy | `backend-beige-nine-55.vercel.app` | see the Vercel project's `DATABASE_URL` |
+| staging (planned) | `develop` | `api.staging.nannyapp.com` | RDS dev instance |
+| production (planned) | `main` | `api.nannyapp.com` | RDS prod instance |
 
 ---
 

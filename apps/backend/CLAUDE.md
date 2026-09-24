@@ -83,7 +83,7 @@ sections the superuser granted, stored as a JSON map in `users.admin_permissions
 |---|---|---|---|
 | `DATABASE_URL` | yes | Secrets Manager | PostgreSQL connection string |
 
-**Production rule:** All secrets come from AWS Secrets Manager, injected as env vars by ECS task definition. `.env` files are for local dev only and must never be committed.
+**Production rule:** secrets live in the host's environment, never in the repo. Today that is the Vercel project's environment variables (see root CLAUDE.md → Deployment); the planned ECS setup injects them from AWS Secrets Manager via the task definition. `.env` files are for local dev only and must never be committed.
 
 ---
 
