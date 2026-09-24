@@ -444,8 +444,10 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
   let user = await prisma.user.findUnique({
     where: { firebaseUid: decoded.uid },
   });
-  if (!user || user.deletedAt) user = await reattachOrphanedRow(decoded);
-  if (!user) {
+  // Only a uid with no row at all is re-attached: firebaseUid is unique, so a
+  // soft-deleted row still holds the uid (and a deleted account stays deleted).
+  if (!user) user = await reattachOrphanedRow(decoded);
+  if (!user || user.deletedAt) {
     throw errors.notFound('User profile not found. Please complete registration.');
   }
 
@@ -462,8 +464,10 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
 /** The current user's row, or a 404 telling the client to finish registration. */
 async function requireUser(decoded: DecodedIdToken): Promise<User> {
   let user = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
-  if (!user || user.deletedAt) user = await reattachOrphanedRow(decoded);
-  if (!user) {
+  // Only a uid with no row at all is re-attached: firebaseUid is unique, so a
+  // soft-deleted row still holds the uid (and a deleted account stays deleted).
+  if (!user) user = await reattachOrphanedRow(decoded);
+  if (!user || user.deletedAt) {
     throw errors.notFound('User profile not found. Please complete registration.');
   }
   return user;

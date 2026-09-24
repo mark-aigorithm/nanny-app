@@ -119,6 +119,15 @@ describe('getMe — re-attaching an orphaned row', () => {
     expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 
+  it('404s without re-pointing anything when the uid\'s own row is soft-deleted (firebaseUid is unique)', async () => {
+    const decoded = { uid: 'fb-new', phone_number: '+201000000000' } as never;
+    mockFindUnique.mockResolvedValue(userRow({ firebaseUid: 'fb-new', deletedAt: new Date() }));
+
+    await expect(getMe(decoded)).rejects.toMatchObject({ statusCode: 404, message: NOT_FOUND_MESSAGE });
+    expect(mockFindMany).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
   it('never considers ADMIN rows — the findMany call filters role to MOTHER/NANNY', async () => {
     const decoded = { uid: 'fb-new', phone_number: '+201000000000' } as never;
     mockFindMany.mockResolvedValue([]);
