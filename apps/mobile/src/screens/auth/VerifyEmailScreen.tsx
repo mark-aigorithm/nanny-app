@@ -131,7 +131,7 @@ export default function VerifyEmailScreen() {
             variant="outline"
             onPress={() =>
               signOut.mutate(undefined, {
-                onSuccess: () => router.replace('/(auth)/splash'),
+                onSuccess: () => router.replace('/(auth)/sign-in'),
               })
             }
             loading={signOut.isPending}

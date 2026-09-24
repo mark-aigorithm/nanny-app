@@ -3,8 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, back: jest.fn(), push: jest.fn() }),
+  useRouter: () => ({ replace: mockReplace, back: jest.fn(), push: jest.fn(), dismissTo: mockDismissTo }),
 }));
 
 type Opts<T> = { onSuccess?: (v: T) => void; onError?: (e: { message: string }) => void };
@@ -115,7 +116,7 @@ it('Google wizard: a number that already has an account starts the collision flo
 
   completeSetup();
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in'));
   expect(mockAbandon).toHaveBeenCalledWith('+201234567891');
   expect(mockRegister).not.toHaveBeenCalled();
 });
@@ -144,7 +145,7 @@ it('Google wizard: keeps Complete setup disabled while the collision hand-off ru
   expect(mockLinkPhone).toHaveBeenCalledTimes(1);
 
   finishHandOff();
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in'));
   expect(mockAbandon).toHaveBeenCalledTimes(1);
 });
 

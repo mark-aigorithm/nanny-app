@@ -3,8 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, push: mockPush }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush, dismissTo: mockDismissTo }),
 }));
 
 let mockOutcome: string | { error: { field: string; message: string } } = 'signed-in';
@@ -105,7 +106,7 @@ it('sends a collision on sign-up to the sign-in screen', async () => {
   mockOutcome = 'needs-link';
   render(<SocialAuthButtons context="sign-up" role="parent" />);
   fireEvent.press(screen.getByText('Continue with Google'));
-  await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/(auth)/sign-in'));
+  await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in'));
   await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
 });
 
@@ -116,6 +117,7 @@ it('stays put on a collision from the sign-in screen, where the banner appears',
   await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
   expect(mockPush).not.toHaveBeenCalled();
   expect(mockReplace).not.toHaveBeenCalled();
+  expect(mockDismissTo).not.toHaveBeenCalled();
   await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
 });
 

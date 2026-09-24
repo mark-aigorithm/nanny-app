@@ -32,12 +32,12 @@ export default function Index() {
     }
   }, [user, profile, meQuery.isError, meQuery.isFetching, signOut.isPending, signOut]);
 
-  // No Firebase user — guests browse the read-only parent experience,
-  // everyone else goes to the auth flow.
+  // No Firebase user: guests browse the read-only parent experience,
+  // everyone else lands on sign-in.
   if (!user) {
     return isGuest
       ? <Redirect href="/(parent)/home" />
-      : <Redirect href="/(auth)/splash" />;
+      : <Redirect href="/(auth)/sign-in" />;
   }
 
   // Firebase user but profile fetch in flight — keep the splash up.

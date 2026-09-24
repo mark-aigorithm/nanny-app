@@ -3,8 +3,9 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockPush = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), dismissTo: mockDismissTo }),
   useLocalSearchParams: () => ({}),
 }));
 
@@ -143,5 +144,12 @@ describe('RoleSelectionScreen', () => {
     });
     // She stays here, now choosing a role for the phone sign-up.
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('goes back to sign-in rather than stacking a second copy', async () => {
+    const { getByText } = await renderScreen();
+    fireEvent.press(getByText('Sign in'));
+    expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in');
+    expect(mockPush).not.toHaveBeenCalledWith('/(auth)/sign-in');
   });
 });

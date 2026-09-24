@@ -71,7 +71,7 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
         else router.push('/(auth)/role-selection');
         break;
       case 'needs-link':
-        if (context === 'sign-up') router.push('/(auth)/sign-in');
+        if (context === 'sign-up') router.dismissTo('/(auth)/sign-in');
         break;
       case 'cancelled':
         break;

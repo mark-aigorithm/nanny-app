@@ -228,7 +228,7 @@ export default function NannyProfileEditScreen() {
           onPress={() =>
             signOut.mutate(undefined, {
               onSuccess: () => {
-                router.replace('/(auth)/splash');
+                router.replace('/(auth)/sign-in');
               },
             })
           }

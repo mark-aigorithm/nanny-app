@@ -6,8 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // image picker and safe-area insets come from the global jest.setup.js.
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: mockReplace }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: mockReplace, dismissTo: mockDismissTo }),
   useLocalSearchParams: () => ({ role: 'parent' }),
 }));
 
@@ -214,7 +215,7 @@ describe('RegistrationStep1Screen — Google/Apple sign-up', () => {
 
     fireEvent.press(getByText('Continue'));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+    await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in'));
     expect(mockAbandon).toHaveBeenCalledWith('+201234567893');
     expect(queryByText(PHONE_TAKEN)).toBeNull();
   });
@@ -239,7 +240,7 @@ describe('RegistrationStep1Screen — Google/Apple sign-up', () => {
     expect(mockPost).toHaveBeenCalledTimes(1);
 
     finishHandOff();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+    await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(auth)/sign-in'));
     expect(mockAbandon).toHaveBeenCalledTimes(1);
   });
 });

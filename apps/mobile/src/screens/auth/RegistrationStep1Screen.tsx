@@ -196,7 +196,7 @@ export default function RegistrationStep1Screen() {
       // the number they typed — the credential is linked once they do.
       setIsHandingOff(true);
       await abandonSocialSignUpForLink(toE164(draft.countryCode, draft.phone));
-      router.replace('/(auth)/sign-in');
+      router.dismissTo('/(auth)/sign-in');
       return;
     }
     setEmailError(availability.emailTaken ? EMAIL_TAKEN_MESSAGE : null);

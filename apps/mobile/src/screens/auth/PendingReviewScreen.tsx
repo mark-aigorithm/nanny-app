@@ -67,7 +67,7 @@ export default function PendingReviewScreen() {
           onPress={() =>
             signOut.mutate(undefined, {
               onSuccess: () => {
-                router.replace('/(auth)/splash');
+                router.replace('/(auth)/sign-in');
               },
             })
           }

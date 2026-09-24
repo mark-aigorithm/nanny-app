@@ -220,7 +220,7 @@ export default function RegistrationStep3Screen() {
         // Collision B: this number belongs to an account that already exists.
         setIsHandingOff(true);
         await abandonSocialSignUpForLink(phoneE164);
-        router.replace('/(auth)/sign-in');
+        router.dismissTo('/(auth)/sign-in');
         return;
       }
       if (instantlyVerified) {

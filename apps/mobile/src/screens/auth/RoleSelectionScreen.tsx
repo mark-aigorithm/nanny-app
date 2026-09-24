@@ -43,7 +43,8 @@ export default function RoleSelectionScreen() {
   }
 
   function handleSignIn() {
-    router.push('/(auth)/sign-in');
+    // Sign-in is the front door, so it is already underneath — go back to it.
+    router.dismissTo('/(auth)/sign-in');
   }
 
   const continueTitle =
