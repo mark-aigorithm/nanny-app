@@ -20,14 +20,14 @@ const CREDENTIAL = { providerId: 'google.com', token: 't', secret: '' };
 
 function seedEverything() {
   usePendingLinkStore.getState().set({ provider: 'google', credential: CREDENTIAL as never, phoneHint: null });
-  useRegistrationDraftStore.getState().patch({ authProvider: 'google', socialUid: 'uid-1', email: 'a@b.co' });
+  useRegistrationDraftStore.getState().patch({ authProvider: 'google', signUpUid: 'uid-1', email: 'a@b.co' });
   useUserProfileStore.setState({ profile: { id: 1, role: 'MOTHER' } as never });
   queryClient.setQueryData(['auth', 'me', 'uid-1'], { id: 1 });
 }
 
 function expectEverythingCleared() {
   expect(usePendingLinkStore.getState().pending).toBeNull();
-  expect(useRegistrationDraftStore.getState()).toMatchObject({ authProvider: 'phone', socialUid: null, email: '' });
+  expect(useRegistrationDraftStore.getState()).toMatchObject({ authProvider: 'phone', signUpUid: null, email: '' });
   expect(useUserProfileStore.getState().profile).toBeNull();
   expect(queryClient.getQueryData(['auth', 'me', 'uid-1'])).toBeUndefined();
 }
@@ -62,17 +62,17 @@ describe('clearLocalSession', () => {
 
   it('clears the parked link and the draft before the sign-out call', async () => {
     seedEverything();
-    let seenAtSignOut: { pending: unknown; socialUid: string | null } | null = null;
+    let seenAtSignOut: { pending: unknown; signUpUid: string | null } | null = null;
     mockSignOut.mockImplementation(async () => {
       seenAtSignOut = {
         pending: usePendingLinkStore.getState().pending,
-        socialUid: useRegistrationDraftStore.getState().socialUid,
+        signUpUid: useRegistrationDraftStore.getState().signUpUid,
       };
     });
 
     await clearLocalSession();
 
-    expect(seenAtSignOut).toEqual({ pending: null, socialUid: null });
+    expect(seenAtSignOut).toEqual({ pending: null, signUpUid: null });
   });
 
   it('still clears everything and forgets Google when the sign-out throws, then rethrows', async () => {

@@ -100,8 +100,8 @@ async function deleteThrowawayAccount(user: FirebaseUser, credential: AuthCreden
  * Only ever called from inside the social wizard, which starts only after
  * `/auth/me` returned 404 — so the signed-in account has no row. That is
  * checked here before anything is deleted or parked: the signed-in uid must be
- * the draft's `socialUid`, which useSocialSignIn records only when it sees
- * that 404, alongside the `authProvider`/`socialCredential` it seeds. Anything
+ * the draft's `signUpUid`, which is recorded (by seedDraftFromAccount) only after
+ * a 404 for that account, alongside the `authProvider`/`socialCredential`. Anything
  * else — nobody signed in, or someone other than the account this sign-up
  * created — means the draft is stale (possibly another person's, on a shared
  * device), so the account is signed out, nothing is parked, and the draft is
@@ -110,10 +110,10 @@ async function deleteThrowawayAccount(user: FirebaseUser, credential: AuthCreden
  */
 export async function abandonSocialSignUpForLink(phoneHint: string | null): Promise<void> {
   const draft = useRegistrationDraftStore.getState();
-  const { authProvider, socialCredential, socialUid } = draft;
+  const { authProvider, socialCredential, signUpUid } = draft;
   const user = auth().currentUser;
 
-  if (!user || authProvider === 'phone' || !socialCredential || !socialUid || user.uid !== socialUid) {
+  if (!user || authProvider === 'phone' || !socialCredential || !signUpUid || user.uid !== signUpUid) {
     usePendingLinkStore.getState().clear();
     if (user) await auth().signOut().catch(() => undefined);
     draft.reset();

@@ -25,14 +25,20 @@ export default function RoleSelectionScreen() {
   // Arrived from "Continue with Google/Apple" on sign-in as a new person: she
   // is already signed in with that provider and her draft holds what it gave.
   const authProvider = useRegistrationDraftStore((s) => s.authProvider);
-  const socialEmail = useRegistrationDraftStore((s) => s.email);
+  const draftEmail = useRegistrationDraftStore((s) => s.email);
+  // Or arrived from the app root with an account that has no row yet — a
+  // sign-up that stopped part-way; the draft was seeded from that account.
+  const isResume = useRegistrationDraftStore((s) => s.isResume);
+  const countryCode = useRegistrationDraftStore((s) => s.countryCode);
+  const phone = useRegistrationDraftStore((s) => s.phone);
   const isSocial = authProvider !== 'phone';
+  const isAccountBacked = isSocial || isResume;
   const discardUnfinishedAccount = useDiscardUnfinishedAccount();
 
   function handleContinue() {
     if (!selectedRole) return;
-    if (isSocial) {
-      // Keep what Google/Apple supplied; only the role is new.
+    if (isAccountBacked) {
+      // Keep what the signed-in account supplied; only the role is new.
       patchDraft({ role: selectedRole });
     } else {
       // Start a fresh draft for this registration attempt and seed the role.
@@ -65,11 +71,15 @@ export default function RoleSelectionScreen() {
       {/* Main content */}
       <View style={styles.content}>
         <View style={styles.headingGroup}>
-          <Text style={styles.headline}>Create your account</Text>
+          <Text style={styles.headline}>
+            {isResume ? 'Finish setting up your account' : 'Create your account'}
+          </Text>
           <Text style={styles.subtitle}>
-            {isSocial
-              ? `Signed in with ${SOCIAL_PROVIDER_LABEL[authProvider]} as ${socialEmail}. Tell us who you are to finish setting up.`
-              : 'Tell us who you are so we can set up the right experience for you.'}
+            {isResume
+              ? `Signed in as ${draftEmail || `${countryCode} ${phone}`}. Tell us who you are to finish setting up.`
+              : isSocial
+                ? `Signed in with ${SOCIAL_PROVIDER_LABEL[authProvider]} as ${draftEmail}. Tell us who you are to finish setting up.`
+                : 'Tell us who you are so we can set up the right experience for you.'}
           </Text>
         </View>
 
@@ -108,9 +118,10 @@ export default function RoleSelectionScreen() {
           style={styles.continueButton}
         />
 
-        {isSocial ? (
+        {isAccountBacked ? (
           // A way back to the phone sign-up (and the other provider) for
-          // someone who met "new person" here but meant another method.
+          // someone signed in to an account without a row who meant another
+          // method. The server deletes the account only if no row points at it.
           <Pressable
             style={styles.differentMethodRow}
             onPress={() => discardUnfinishedAccount.mutate()}

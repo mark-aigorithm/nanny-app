@@ -125,7 +125,7 @@ describe('RoleSelectionScreen', () => {
   it('discards the unfinished Google account and goes back to the phone sign-up, social buttons and all', async () => {
     useRegistrationDraftStore.setState({
       authProvider: 'google',
-      socialUid: 'uid-social',
+      signUpUid: 'uid-social',
       email: 'mona@gmail.com',
       firstName: 'Mona',
     });
@@ -141,12 +141,72 @@ describe('RoleSelectionScreen', () => {
     expect(auth().signOut).toHaveBeenCalledTimes(1);
     expect(useRegistrationDraftStore.getState()).toMatchObject({
       authProvider: 'phone',
-      socialUid: null,
+      signUpUid: null,
       email: '',
       firstName: '',
     });
     // She stays here, now choosing a role for the phone sign-up.
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('finishes setting up a resumed phone account, keeping its seed', async () => {
+    useRegistrationDraftStore.setState({
+      isResume: true,
+      signUpUid: 'uid-leftover',
+      authProvider: 'phone',
+      countryCode: '+20',
+      phone: '1001234567',
+      accountPhone: '+201001234567',
+      email: '',
+    });
+    const { getByText, queryByText } = await renderScreen();
+
+    expect(getByText('Finish setting up your account')).toBeTruthy();
+    expect(queryByText('Create your account')).toBeNull();
+    expect(getByText('Signed in as +20 1001234567. Tell us who you are to finish setting up.')).toBeTruthy();
+    // Account-backed: no second sign-in method on offer, but a way out.
+    expect(queryByText('Continue with Google')).toBeNull();
+    expect(getByText('Use a different sign-up method')).toBeTruthy();
+
+    fireEvent.press(getByText("I'm a nanny"));
+    fireEvent.press(getByText('Sign up as a nanny'));
+
+    expect(useRegistrationDraftStore.getState()).toMatchObject({
+      role: 'nanny',
+      isResume: true,
+      signUpUid: 'uid-leftover',
+      phone: '1001234567',
+      accountPhone: '+201001234567',
+    });
+  });
+
+  it('names a resumed account by its email when it has one', async () => {
+    useRegistrationDraftStore.setState({
+      isResume: true,
+      signUpUid: 'uid-leftover',
+      authProvider: 'google',
+      email: 'mona@gmail.com',
+    });
+    const { getByText } = await renderScreen();
+
+    expect(getByText('Finish setting up your account')).toBeTruthy();
+    expect(getByText('Signed in as mona@gmail.com. Tell us who you are to finish setting up.')).toBeTruthy();
+  });
+
+  it('discards a resumed account and falls back to the phone sign-up', async () => {
+    useRegistrationDraftStore.setState({
+      isResume: true,
+      signUpUid: 'uid-leftover',
+      authProvider: 'phone',
+      phone: '1001234567',
+    });
+    const { getByText, findByText } = await renderScreen();
+
+    fireEvent.press(getByText('Use a different sign-up method'));
+
+    expect(await findByText('Create your account')).toBeTruthy();
+    expect(api.delete).toHaveBeenCalledWith('/auth/me');
+    expect(useRegistrationDraftStore.getState()).toMatchObject({ isResume: false, signUpUid: null, phone: '' });
   });
 
   it('goes back to sign-in rather than stacking a second copy', async () => {

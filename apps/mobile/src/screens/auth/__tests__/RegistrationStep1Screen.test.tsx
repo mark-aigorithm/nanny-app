@@ -245,6 +245,25 @@ describe('RegistrationStep1Screen — Google/Apple sign-up', () => {
   });
 });
 
+describe('RegistrationStep1Screen — resumed account with a phone', () => {
+  it('locks the phone already verified on the account and says so', () => {
+    useRegistrationDraftStore.setState({ accountPhone: '+201234567893', isResume: true });
+    const { getByDisplayValue, getByText } = renderScreen();
+
+    expect(getByDisplayValue('1234567893').props.editable).toBe(false);
+    expect(getByText('Already verified on your account')).toBeTruthy();
+    // The email is still hers to enter and verify.
+    expect(getByDisplayValue('Mark3Essam@gmail.com').props.editable).toBe(true);
+  });
+
+  it('leaves the phone editable when the account has none', () => {
+    const { getByDisplayValue, queryByText } = renderScreen();
+
+    expect(getByDisplayValue('1234567893').props.editable).toBe(true);
+    expect(queryByText('Already verified on your account')).toBeNull();
+  });
+});
+
 describe('RegistrationStep1Screen — date of birth', () => {
   it('refuses someone under 18 before asking the API anything', async () => {
     const now = new Date();

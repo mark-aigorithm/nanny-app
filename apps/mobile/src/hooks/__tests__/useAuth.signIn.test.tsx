@@ -56,7 +56,7 @@ function seedStaleSocialDraft() {
   useRegistrationDraftStore.getState().patch({
     authProvider: 'google',
     socialCredential: CREDENTIAL as never,
-    socialUid: 'uid-social',
+    signUpUid: 'uid-social',
     email: 'someone@gmail.com',
   });
 }
@@ -138,7 +138,7 @@ describe('useSignInWithEmail', () => {
 
     await result.current.mutateAsync({ email: 'mona@example.com', password: 'Password1' });
 
-    expect(useRegistrationDraftStore.getState()).toMatchObject({ authProvider: 'phone', socialUid: null });
+    expect(useRegistrationDraftStore.getState()).toMatchObject({ authProvider: 'phone', signUpUid: null });
     await settled(result);
   });
 
@@ -171,7 +171,7 @@ describe('useConfirmPhoneSignIn', () => {
     expect(useRegistrationDraftStore.getState()).toMatchObject({
       authProvider: 'phone',
       socialCredential: null,
-      socialUid: null,
+      signUpUid: null,
     });
     // Collision A/B link from pendingLinkStore, which the reset leaves alone.
     expect(usePendingLinkStore.getState().pending?.credential).toEqual(CREDENTIAL);

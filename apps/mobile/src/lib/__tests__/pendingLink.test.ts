@@ -142,11 +142,11 @@ describe('linkPendingCredential', () => {
 
 describe('abandonSocialSignUpForLink', () => {
   /** What useSocialSignIn leaves after /auth/me said 404 for uid-social. */
-  function seedSocialDraft(socialUid: string | null = 'uid-social') {
+  function seedSocialDraft(signUpUid: string | null = 'uid-social') {
     useRegistrationDraftStore.setState({
       authProvider: 'google',
       socialCredential: GOOGLE_CREDENTIAL as never,
-      socialUid,
+      signUpUid,
       email: 'mona@gmail.com',
       firstName: 'Mona',
     });
@@ -156,7 +156,7 @@ describe('abandonSocialSignUpForLink', () => {
     expect(useRegistrationDraftStore.getState()).toMatchObject({
       authProvider: 'phone',
       socialCredential: null,
-      socialUid: null,
+      signUpUid: null,
       email: '',
     });
   }

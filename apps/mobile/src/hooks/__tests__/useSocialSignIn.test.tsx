@@ -8,6 +8,9 @@ let mockCurrentUser: {
   uid: string;
   email: string | null;
   emailVerified: boolean;
+  phoneNumber: string | null;
+  displayName: string | null;
+  providerData: { providerId: string; email?: string; phoneNumber?: string }[];
   delete: jest.Mock;
 } | null = null;
 jest.mock('@mobile/lib/firebase', () => ({
@@ -48,7 +51,16 @@ const NOT_FOUND = { isAxiosError: true, response: { status: 404, data: {} } };
 const SERVER_ERROR = { isAxiosError: true, response: { status: 500, data: {} } };
 
 function newUser(overrides: Partial<NonNullable<typeof mockCurrentUser>> = {}) {
-  return { uid: 'uid-new', email: 'salma@gmail.com', emailVerified: true, delete: jest.fn(), ...overrides };
+  return {
+    uid: 'uid-new',
+    email: 'salma@gmail.com',
+    emailVerified: true,
+    phoneNumber: null,
+    displayName: 'Salma Ali',
+    providerData: [{ providerId: 'google.com', email: 'salma@gmail.com' }],
+    delete: jest.fn(),
+    ...overrides,
+  };
 }
 
 /** A social sign-up someone started earlier and never finished. */
@@ -56,7 +68,7 @@ function seedStaleSocialDraft() {
   useRegistrationDraftStore.getState().patch({
     authProvider: 'apple',
     socialCredential: { providerId: 'apple.com', token: 'old', secret: 'n' } as never,
-    socialUid: 'uid-old',
+    signUpUid: 'uid-old',
     email: 'old@privaterelay.appleid.com',
     firstName: 'Old',
   });
@@ -66,7 +78,7 @@ function expectDraftCleared() {
   expect(useRegistrationDraftStore.getState()).toMatchObject({
     authProvider: 'phone',
     socialCredential: null,
-    socialUid: null,
+    signUpUid: null,
     email: '',
     firstName: '',
   });
@@ -133,7 +145,7 @@ it('keeps a brand-new account and seeds the social draft', async () => {
     socialCredential: CREDENTIAL,
     // Which Firebase account this sign-up owns: the only one collision B may
     // delete, and the only one step 3 may link a phone onto.
-    socialUid: 'uid-new',
+    signUpUid: 'uid-new',
     firstName: 'Salma',
     lastName: 'Ali',
     email: 'salma@gmail.com',
@@ -141,6 +153,29 @@ it('keeps a brand-new account and seeds the social draft', async () => {
   expect(mockCurrentUser?.delete).not.toHaveBeenCalled();
   // Only a collision may park a credential for linking.
   expect(usePendingLinkStore.getState().pending).toBeNull();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+});
+
+it('carries a phone already linked to the Google account into the draft', async () => {
+  mockGet.mockRejectedValue(NOT_FOUND);
+  mockCurrentUser = newUser({
+    phoneNumber: '+201001234567',
+    providerData: [
+      { providerId: 'google.com', email: 'salma@gmail.com' },
+      { providerId: 'phone', phoneNumber: '+201001234567' },
+    ],
+  });
+  const { result } = renderSocialSignIn();
+
+  await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('new-user');
+
+  expect(useRegistrationDraftStore.getState()).toMatchObject({
+    isResume: false,
+    signUpUid: 'uid-new',
+    authProvider: 'google',
+    phone: '1001234567',
+    accountPhone: '+201001234567',
+  });
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 

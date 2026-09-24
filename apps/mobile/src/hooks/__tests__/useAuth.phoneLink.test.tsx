@@ -114,7 +114,7 @@ describe('useLinkPhoneToCurrentUser', () => {
   it('links the phone onto the signed-in account and refreshes the token', async () => {
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
-    await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' });
+    await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' });
 
     expect(mockPhoneCredential).toHaveBeenCalledWith('vid', '111111');
     expect(mockLinkWithCredential).toHaveBeenCalledWith({ verificationId: 'vid', code: '111111' });
@@ -129,7 +129,7 @@ describe('useLinkPhoneToCurrentUser', () => {
       challenge: { verificationId: null, autoVerified: true, code: null },
       code: '',
       phone: '+201234567891',
-      socialUid: 'uid-social',
+      signUpUid: 'uid-social',
     });
 
     expect(mockPhoneCredential).toHaveBeenCalledWith(null);
@@ -143,7 +143,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await expect(
-      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' }),
+      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' }),
     ).rejects.toMatchObject({ field: 'phone', code: 'auth/credential-already-in-use' });
     await settled(result);
   });
@@ -152,7 +152,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     mockCurrentUser!.phoneNumber = '+201234567891';
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
-    await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' });
+    await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' });
 
     expect(mockPhoneCredential).not.toHaveBeenCalled();
     expect(mockLinkWithCredential).not.toHaveBeenCalled();
@@ -172,7 +172,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     });
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
-    await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' });
+    await result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' });
 
     expect(mockUnlink).toHaveBeenCalledWith('phone');
     expect(order).toEqual(['unlink', 'link']);
@@ -184,7 +184,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await expect(
-      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' }),
+      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' }),
     ).rejects.toEqual({ field: 'form', message: 'Something went wrong. Please try again.' });
     expect(mockUnlink).not.toHaveBeenCalled();
     expect(mockGetIdToken).not.toHaveBeenCalled();
@@ -206,9 +206,9 @@ describe('useLinkPhoneToCurrentUser', () => {
     const INSTANT = { verificationId: null, autoVerified: true, code: null };
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
-    await result.current.mutateAsync({ challenge: INSTANT, code: '', phone: '+201234567891', socialUid: 'uid-social' });
+    await result.current.mutateAsync({ challenge: INSTANT, code: '', phone: '+201234567891', signUpUid: 'uid-social' });
     // Register (or an ID upload) failed further down; she taps Complete setup again.
-    await result.current.mutateAsync({ challenge: INSTANT, code: '', phone: '+201234567891', socialUid: 'uid-social' });
+    await result.current.mutateAsync({ challenge: INSTANT, code: '', phone: '+201234567891', signUpUid: 'uid-social' });
 
     expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
     expect(mockGetIdToken).toHaveBeenCalledTimes(2);
@@ -228,7 +228,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await expect(
-      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' }),
+      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' }),
     ).rejects.toEqual(SESSION_ENDED);
     expect(mockUnlink).not.toHaveBeenCalled();
     expect(mockLinkWithCredential).not.toHaveBeenCalled();
@@ -240,7 +240,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await expect(
-      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: null }),
+      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: null }),
     ).rejects.toEqual(SESSION_ENDED);
     expect(mockLinkWithCredential).not.toHaveBeenCalled();
     await settled(result);
@@ -251,7 +251,7 @@ describe('useLinkPhoneToCurrentUser', () => {
     const { result } = wrap(() => useLinkPhoneToCurrentUser());
 
     await expect(
-      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', socialUid: 'uid-social' }),
+      result.current.mutateAsync({ challenge: CHALLENGE, code: '111111', phone: '+201234567891', signUpUid: 'uid-social' }),
     ).rejects.toEqual(SESSION_ENDED);
     await settled(result);
   });

@@ -205,7 +205,7 @@ export default function RegistrationStep3Screen() {
           challenge: challenge.link,
           code: otp,
           phone: phoneE164,
-          socialUid: draft.socialUid,
+          signUpUid: draft.signUpUid,
         });
       }
     } catch (error) {

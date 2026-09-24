@@ -178,7 +178,7 @@ describe('useSignOut', () => {
     useRegistrationDraftStore.getState().patch({
       authProvider: 'google',
       socialCredential: { providerId: 'google.com', token: 't', secret: '' } as never,
-      socialUid: 'uid-social',
+      signUpUid: 'uid-social',
       email: 'mona@gmail.com',
     });
     const { result } = renderSignOut();
@@ -188,7 +188,7 @@ describe('useSignOut', () => {
     expect(useRegistrationDraftStore.getState()).toMatchObject({
       authProvider: 'phone',
       socialCredential: null,
-      socialUid: null,
+      signUpUid: null,
       email: '',
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -197,7 +197,7 @@ describe('useSignOut', () => {
   it('drops the draft even when the sign-out call itself fails', async () => {
     withNativePush(false);
     mockSignOut.mockRejectedValue({ code: 'auth/network-request-failed' });
-    useRegistrationDraftStore.getState().patch({ authProvider: 'apple', socialUid: 'uid-social' });
+    useRegistrationDraftStore.getState().patch({ authProvider: 'apple', signUpUid: 'uid-social' });
     const { result } = renderSignOut();
 
     await expect(result.current.mutateAsync()).rejects.toMatchObject({ field: 'form' });

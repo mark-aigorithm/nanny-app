@@ -395,7 +395,7 @@ export function useSendPhoneLinkCode() {
  * `provider-already-linked` from that single link is therefore unexpected, and
  * is mapped like any other failure.
  *
- * `socialUid` is the draft's record of the account this social sign-up
+ * `signUpUid` is the draft's record of the account this sign-up
  * created. Anyone else signed in — say, a registered account that has signed
  * in on this device since — is refused before anything is touched: the
  * unlink above would otherwise strip that account's own phone.
@@ -404,11 +404,11 @@ export function useLinkPhoneToCurrentUser() {
   return useMutation<
     void,
     MappedAuthError,
-    { challenge: PhoneLinkChallenge; code: string; phone: string; socialUid: string | null }
+    { challenge: PhoneLinkChallenge; code: string; phone: string; signUpUid: string | null }
   >({
-    mutationFn: async ({ challenge, code, phone, socialUid }) => {
+    mutationFn: async ({ challenge, code, phone, signUpUid }) => {
       const user = auth().currentUser;
-      if (!user || !socialUid || user.uid !== socialUid) {
+      if (!user || !signUpUid || user.uid !== signUpUid) {
         throw {
           field: 'form',
           message: 'Your session ended. Please continue with Google or Apple again.',

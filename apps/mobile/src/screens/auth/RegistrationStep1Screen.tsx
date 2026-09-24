@@ -350,9 +350,17 @@ export default function RegistrationStep1Screen() {
                   placeholderTextColor={colors.textPlaceholder}
                   keyboardType="phone-pad"
                   autoCorrect={false}
+                  // A resumed account that already carries a phone keeps it:
+                  // step 3 skips the SMS for exactly that number.
+                  editable={!draft.accountPhone}
                 />
               </View>
               {phoneError && <Text style={styles.fieldErrorText}>{phoneError}</Text>}
+              {draft.accountPhone && !phoneError && (
+                <Text style={[styles.verifiedHint, styles.verifiedHintInGroup]}>
+                  Already verified on your account
+                </Text>
+              )}
             </View>
 
             {/* Date of birth */}

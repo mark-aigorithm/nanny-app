@@ -15,11 +15,20 @@ export type RegistrationDraft = {
   // that a collision can move it into pendingLinkStore and link it onto the
   // existing account. In-memory only, like `password` below.
   socialCredential: AuthCredential | null;
-  // The Firebase uid that Google/Apple signed in as when `/auth/me` said 404:
-  // the account this social registration created. Collision B may delete
-  // only this account, and step 3 may link a phone onto no other. Set only by
-  // useSocialSignIn.
-  socialUid: string | null;
+  // The Firebase uid this sign-up is finishing: the account Google/Apple
+  // signed in as when `/auth/me` said 404, or the leftover account the root
+  // gate found with no row. Collision B may delete only this account, and
+  // step 3 may link a phone onto no other. Set only by seedDraftFromAccount.
+  signUpUid: string | null;
+  // True when the root gate found a signed-in account with no row and started
+  // this draft from it ("Finish setting up your account").
+  isResume: boolean;
+  // The E.164 phone already on the Firebase account, if any. Step 1 locks the
+  // phone to it and step 3 skips the SMS for it.
+  accountPhone: string | null;
+  // The (lowercased) email of a `password` provider already on the account.
+  // When the verified email matches it, the create-password step is skipped.
+  passwordEmail: string | null;
   // Step 1 — personal info
   firstName: string;
   lastName: string;
@@ -72,7 +81,10 @@ const INITIAL: RegistrationDraft = {
   role: null,
   authProvider: 'phone',
   socialCredential: null,
-  socialUid: null,
+  signUpUid: null,
+  isResume: false,
+  accountPhone: null,
+  passwordEmail: null,
   firstName: '',
   lastName: '',
   phone: '',

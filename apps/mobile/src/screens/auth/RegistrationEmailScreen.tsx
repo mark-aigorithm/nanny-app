@@ -95,6 +95,16 @@ export default function RegistrationEmailScreen() {
     try {
       const { verificationToken } = await verifyOtp.mutateAsync({ email, code });
       patch({ emailVerificationToken: verificationToken });
+      // A resumed account that already has a password for this very address
+      // keeps it — skip create-password to where it would have gone.
+      const { passwordEmail } = useRegistrationDraftStore.getState();
+      if (passwordEmail && passwordEmail === email.trim().toLowerCase()) {
+        router.push({
+          pathname: isNanny ? '/(auth)/register-nanny-location' : '/(auth)/register-step-2',
+          params: { role },
+        });
+        return;
+      }
       router.push({ pathname: '/(auth)/register-create-password', params: { role } });
     } catch (err) {
       setFormError(getApiErrorMessage(err, 'Could not check that code. Please try again.'));

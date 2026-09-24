@@ -4,6 +4,7 @@ import axios from 'axios';
 import { api, getApiErrorMessage } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { auth } from '@mobile/lib/firebase';
+import { seedDraftFromAccount } from '@mobile/lib/resumeSignUp';
 import { getSocialCredential, signOutOfGoogle, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -98,27 +99,33 @@ export function useSocialSignIn() {
       // fallback: Apple shares the address on the first authorization only,
       // but Firebase keeps it on the account either way.
       const user = auth().currentUser;
-      const email = user?.email ?? result.profile.email ?? null;
+      if (!user) {
+        // signInWithCredential resolved, so this is only a sign-out racing it.
+        await signOutAndForget();
+        throw { field: 'form', message: 'Could not sign you in. Please try again.' } satisfies MappedAuthError;
+      }
+      const email = user.email ?? result.profile.email ?? null;
       if (!email) {
         await signOutAndForget();
         throw NO_EMAIL_ERROR;
       }
       // Registration without our own email code rests on Firebase having
       // verified the address. Say so now, not at the wizard's last step.
-      if (user?.emailVerified === false) {
+      if (!user.emailVerified) {
         await signOutAndForget();
         throw unverifiedEmailError(provider);
       }
 
-      const draft = useRegistrationDraftStore.getState();
-      draft.reset();
-      draft.patch({
+      // The account itself seeds the draft (its uid, and a phone already
+      // linked to it), then what this sign-in adds goes on top.
+      seedDraftFromAccount(user, { isResume: false });
+      const seeded = useRegistrationDraftStore.getState();
+      seeded.patch({
         role: role ?? null,
         authProvider: provider,
         socialCredential: result.credential,
-        socialUid: user?.uid ?? null,
-        firstName: result.profile.firstName,
-        lastName: result.profile.lastName,
+        firstName: result.profile.firstName || seeded.firstName,
+        lastName: result.profile.lastName || seeded.lastName,
         email: email.trim().toLowerCase(),
       });
       return 'new-user';

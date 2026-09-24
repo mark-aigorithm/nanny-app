@@ -82,6 +82,10 @@ export const styles = StyleSheet.create({
     color: colors.successText,
     marginTop: -spacing.sm,
   },
+  // Inside a fieldGroup, whose own gap already spaces it like a field error.
+  verifiedHintInGroup: {
+    marginTop: 0,
+  },
 
   // Scroll
   scroll: {
