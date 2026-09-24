@@ -200,7 +200,7 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 isn't a download URL for `<folder>/<uid>/…` in our bucket — otherwise a client could pin its
 profile or KYC record to someone else's upload, or to any image on the web. In every real
 environment this checks host, protocol and bucket as well as the path. The one relaxation is
-path-only matching when `FIREBASE_STORAGE_EMULATOR_HOST` is set (test stacks only — `config.ts`
+path-only matching when `UPLOAD_URL_EMULATOR_HOST` is set (test stacks only — `config.ts`
 refuses it outright in production): the mobile device lab's live-auth profile
 (`start:test:live-auth`) points Auth at the real Firebase project while Storage stays on the
 emulator, so its upload URLs come from `10.0.2.2:9199` and name the app's real bucket, which the

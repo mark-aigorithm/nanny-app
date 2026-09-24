@@ -25,7 +25,10 @@ const ConfigSchema = z.object({
   // from this host on the object path alone, since an emulator build's
   // download URLs don't carry the real bucket name. Refused below in
   // production so that relaxation can never reach the live bucket.
-  FIREBASE_STORAGE_EMULATOR_HOST: z.string().optional(),
+  // Deliberately NOT named FIREBASE_STORAGE_EMULATOR_HOST: firebase-admin reads
+  // that one and would send the backend's own Storage calls (deleting a
+  // rejected ID) to the device-side host, where they hang.
+  UPLOAD_URL_EMULATOR_HOST: z.string().optional(),
 
   // Paymob unified (intention) API — all optional; feature enabled only when complete.
   PAYMOB_SECRET_KEY: z.string().optional(),
@@ -89,9 +92,9 @@ const raw = parsed.data;
 // The path-only upload-ownership relaxation (see storage-url.ts) must be
 // impossible in production, however this got set — a stray env var must not
 // quietly loosen the check against the live bucket.
-if (raw.NODE_ENV === 'production' && raw.FIREBASE_STORAGE_EMULATOR_HOST) {
+if (raw.NODE_ENV === 'production' && raw.UPLOAD_URL_EMULATOR_HOST) {
   throw new Error(
-    'FIREBASE_STORAGE_EMULATOR_HOST must not be set in production — it relaxes the upload-URL ownership check to path-only matching.',
+    'UPLOAD_URL_EMULATOR_HOST must not be set in production — it relaxes the upload-URL ownership check to path-only matching.',
   );
 }
 
@@ -198,7 +201,7 @@ export const config = {
     // into real newlines for the Firebase SDK.
     privateKey: raw.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     storageBucket: raw.FIREBASE_STORAGE_BUCKET,
-    storageEmulatorHost: raw.FIREBASE_STORAGE_EMULATOR_HOST,
+    storageEmulatorHost: raw.UPLOAD_URL_EMULATOR_HOST,
     webApiKey: raw.FIREBASE_WEB_API_KEY ?? '',
   },
   paymob: buildPaymobConfig(),
