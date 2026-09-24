@@ -19,6 +19,7 @@ import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import type { AvailabilityResponse } from '@nanny-app/shared';
+import { latestAllowedDob } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
@@ -28,7 +29,7 @@ import { useCheckAvailability } from '@mobile/hooks/useAuth';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
-import { validateEmail, validatePhone, toE164 } from '@mobile/lib/validation';
+import { validateEmail, validatePhone, validateDob, toE164 } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step1-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
@@ -47,7 +48,6 @@ function parseDob(str: string): Date {
   return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
 }
 
-const MAX_DOB = new Date();
 const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 
 // The backend's own wording, so the two surfaces read the same.
@@ -87,6 +87,10 @@ export default function RegistrationStep1Screen() {
   const [showPhotoError, setShowPhotoError] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(() => parseDob(draft.dob));
+  // The picker offers no date that would make them under 18 — the same rule
+  // the API holds registration to. Computed per render so a screen left open
+  // past midnight doesn't keep yesterday's bound.
+  const maxDob = latestAllowedDob();
 
   function handleBack() {
     router.back();
@@ -169,8 +173,9 @@ export default function RegistrationStep1Screen() {
       setFormError(emailErr);
       return;
     }
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(draft.dob)) {
-      setFormError('Please select your date of birth.');
+    const dobError = validateDob(draft.dob);
+    if (dobError) {
+      setFormError(dobError);
       return;
     }
 
@@ -385,7 +390,7 @@ export default function RegistrationStep1Screen() {
             value={tempDate}
             mode="date"
             display="default"
-            maximumDate={MAX_DOB}
+            maximumDate={maxDob}
             minimumDate={MIN_DOB}
             onChange={handleAndroidDateChange}
           />
@@ -417,7 +422,7 @@ export default function RegistrationStep1Screen() {
                   value={tempDate}
                   mode="date"
                   display="spinner"
-                  maximumDate={MAX_DOB}
+                  maximumDate={maxDob}
                   minimumDate={MIN_DOB}
                   onChange={handleIosDateChange}
                   themeVariant="light"

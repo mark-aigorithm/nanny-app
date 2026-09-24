@@ -30,7 +30,7 @@ import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
 import { useRedeemReferralCode } from '@mobile/hooks/useReferrals';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
-import { toE164 } from '@mobile/lib/validation';
+import { dobToIso, toE164 } from '@mobile/lib/validation';
 import { styles } from './styles/registration-step3-screen.styles';
 
 // An Android instant verification can be linked only once (see
@@ -41,14 +41,6 @@ const INSTANT_VERIFICATION_SPENT_MESSAGE =
 
 const PHOTO_UPLOAD_FAILED_MESSAGE =
   "Couldn't upload your photos. Check your connection and try again.";
-
-/** Convert 'mm/dd/yyyy' to 'YYYY-MM-DD'. Returns empty string on bad input. */
-function dobToIso(dob: string): string {
-  const m = dob.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return '';
-  const [, mm, dd, yyyy] = m;
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 /**
  * What the code on this screen is checked against. The phone wizard signs in

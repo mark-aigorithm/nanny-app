@@ -119,6 +119,13 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
 
+  // Street address error — mirrors HomeLocationMapCard's own mapError, so a
+  // required-field message reads the same whichever side of the pin it's about.
+  addressErrorText: {
+    ...typeScale.labelMd,
+    color: colors.error,
+  },
+
   // Short input (neighbourhood)
   inputShort: {
     height: 44,

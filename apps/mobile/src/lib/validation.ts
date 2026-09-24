@@ -1,6 +1,8 @@
 // Mirrors the requirements checklist in CreatePasswordScreen: ≥8 chars,
 // at least one uppercase letter, at least one digit.
 
+import { dateOfBirthError } from '@nanny-app/shared';
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateEmail(email: string): string | null {
@@ -45,4 +47,22 @@ export function fromE164(countryCode: string, e164: string | null): string {
   if (!e164) return '';
   const cc = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
   return e164.startsWith(cc) ? e164.slice(cc.length) : '';
+}
+
+/** The date picker's 'mm/dd/yyyy' as the API's 'YYYY-MM-DD'. Empty string on bad input. */
+export function dobToIso(dob: string): string {
+  const m = dob.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return '';
+  const [, mm, dd, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Step 1's birth-date check — the shared rule the API enforces (18 to 100, a
+ * real date), so the wizard refuses on the screen where the date can still be
+ * changed, not three steps later.
+ */
+export function validateDob(dob: string, today: Date = new Date()): string | null {
+  if (!dob) return 'Please select your date of birth.';
+  return dateOfBirthError(dobToIso(dob), today);
 }

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type ChangeEvent } from 'react';
 
-import { AvailabilityType, UpdateAdminNannySchema } from '@nanny-app/shared';
+import { AGE_RANGES, AvailabilityType, UpdateAdminNannySchema } from '@nanny-app/shared';
 import type {
   AdminNannyDetail,
   AvailabilityType as AvailabilityTypeValue,
@@ -30,11 +30,6 @@ type NannyProfileEditorProps = {
   certifications: Certification[];
   onDone: () => void;
 };
-
-// Registration-time age bands — mirrors AGE_RANGE_OPTIONS in
-// RegistrationNannyDetailsScreen (apps/mobile), the only other writer of this
-// free-text field, so admin edits stay on the same vocabulary.
-const AGE_RANGE_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
 
 const AVAILABILITY_OPTIONS: SelectOption<AvailabilityTypeValue>[] = [
   { value: AvailabilityType.FULL_TIME, label: 'Full-time' },
@@ -251,7 +246,7 @@ export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfi
 
       <div className="form-section-title">Age ranges</div>
       <div className="addon-list">
-        {AGE_RANGE_OPTIONS.map((range) => (
+        {AGE_RANGES.map((range) => (
           <button
             key={range}
             type="button"

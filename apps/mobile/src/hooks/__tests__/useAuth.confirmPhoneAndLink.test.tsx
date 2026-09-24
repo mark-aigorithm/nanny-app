@@ -14,6 +14,7 @@ let mockCurrentUser: {
   email: string | null;
   linkWithCredential: jest.Mock;
   unlink: jest.Mock;
+  getIdToken: jest.Mock;
 } | null = null;
 
 // `jest.mock`'s factory runs eagerly, as soon as this module is first
@@ -62,7 +63,12 @@ const CONFIRMATION = { confirm: mockConfirm } as never;
 beforeEach(() => {
   jest.clearAllMocks();
   mockConfirm.mockResolvedValue(undefined);
-  mockCurrentUser = { email: 'old@example.com', linkWithCredential: mockLinkWithCredential, unlink: mockUnlink };
+  mockCurrentUser = {
+    email: 'old@example.com',
+    linkWithCredential: mockLinkWithCredential,
+    unlink: mockUnlink,
+    getIdToken: jest.fn().mockResolvedValue('fresh-token'),
+  };
 });
 
 afterEach(() => {
@@ -192,5 +198,19 @@ it('still maps a genuine link failure that is not the already-linked code', asyn
   });
 
   expect(mockUnlink).not.toHaveBeenCalled();
+});
+
+it('refreshes the ID token after linking, so /auth/register sees the linked email', async () => {
+  mockLinkWithCredential.mockResolvedValue(undefined);
+  const { result } = renderConfirmPhoneAndLink();
+
+  await result.current.mutateAsync({
+    confirmation: CONFIRMATION,
+    code: '111111',
+    email: 'mona@example.com',
+    password: 'Password1',
+  });
+
+  expect(mockCurrentUser?.getIdToken).toHaveBeenCalledWith(true);
 });
 

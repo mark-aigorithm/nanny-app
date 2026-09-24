@@ -319,6 +319,11 @@ export function useConfirmPhoneAndLink() {
           throw mapFirebaseAuthError(relinkError);
         }
       }
+
+      // /auth/register comes next and checks that the token's email is the
+      // address just verified; force the refresh so it can't carry the claims
+      // from before the link.
+      await user.getIdToken(true);
     },
   });
 }

@@ -109,6 +109,11 @@ appId: com.nannyapp.mobile
 # is the lat/long Continue requires. Same point as C2.
 - tapOn:
     point: '50%,44%'
+# The street line is required for every account — type it, as A10 does. After
+# the map tap, so a reverse-geocoded line can't overwrite it afterwards.
+- tapOn: 'Street address'
+- inputText: '1 Test Street, Cairo'
+- hideKeyboard
 - tapOn: 'Background checked'
 - tapOn: 'Continue'
 

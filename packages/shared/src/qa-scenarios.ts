@@ -552,11 +552,13 @@ const TIER_B: QaScenario[] = [
       'On the sign-in screen (Welcome to NannyNow) tap "Sign up" and choose Mother',
       'Fill in the personal details, add a profile photo, enter a real email address',
       'Try to continue with no photo, and with a malformed email',
+      'Open the date of birth picker and try to pick a date less than 18 years ago',
       'Continue',
     ],
     expected: [
       'Continue stays disabled until a photo has been chosen',
       'A malformed email is rejected with a clear message',
+      'The picker offers no date that would make her under 18',
       'The step counter reads "step 1 of 5"',
     ],
   },
@@ -613,6 +615,7 @@ const TIER_B: QaScenario[] = [
       'Address search returns suggestions and picking one moves the map',
       'The confirmed location is the one saved',
       'Children entered here appear later in the booking flow and on Account details',
+      'Continue with the pin set but the street line empty asks for a street address',
     ],
   },
   {
@@ -632,6 +635,7 @@ const TIER_B: QaScenario[] = [
       'A wrong code is refused',
       'The account is created and the app moves on to the notification permission screen, then Home',
       'Signing out and back in with that phone and password works',
+      'The photo from step 1 shows on Account details',
     ],
   },
   {
@@ -1317,6 +1321,7 @@ const TIER_C: QaScenario[] = [
       'Every change persists after leaving and returning',
       'The changes show on her record in the admin console',
       'A newly added child is selectable in the booking flow',
+      'The phone number is shown but cannot be edited',
     ],
   },
   {

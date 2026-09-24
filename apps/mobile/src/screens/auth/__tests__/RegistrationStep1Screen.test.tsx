@@ -244,3 +244,18 @@ describe('RegistrationStep1Screen — Google/Apple sign-up', () => {
     expect(mockAbandon).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('RegistrationStep1Screen — date of birth', () => {
+  it('refuses someone under 18 before asking the API anything', async () => {
+    const now = new Date();
+    const seventeen = `01/01/${now.getFullYear() - 17}`;
+    useRegistrationDraftStore.setState({ dob: seventeen });
+    const { getByText } = renderScreen();
+
+    fireEvent.press(getByText('Continue'));
+
+    await waitFor(() => expect(getByText('You must be at least 18 to use NannyNow.')).toBeTruthy());
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
