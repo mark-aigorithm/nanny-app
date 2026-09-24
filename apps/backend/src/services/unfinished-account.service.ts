@@ -59,8 +59,11 @@ export async function reclaimEmail(
   if (holder.disabled) throw errors.conflict(EMAIL_TAKEN);
   if (await hasAnyRow(holder.uid)) throw errors.conflict(EMAIL_TAKEN);
 
+  // Any row, soft-deleted included: users.email is unique across both, so a
+  // removed row holding the address would still refuse /auth/register — and
+  // the holder must not be deleted for a registration that can't happen.
   const rowOwner = await prisma.user.findFirst({
-    where: { email, deletedAt: null },
+    where: { email },
     select: { id: true },
   });
   if (rowOwner) throw errors.conflict(EMAIL_TAKEN);

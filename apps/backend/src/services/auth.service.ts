@@ -506,12 +506,7 @@ export async function updateProfile(
   decoded: DecodedIdToken,
   body: UpdateProfileRequest,
 ): Promise<UserResponse> {
-  const user = await prisma.user.findUnique({
-    where: { firebaseUid: decoded.uid },
-  });
-  if (!user || user.deletedAt) {
-    throw errors.notFound(PROFILE_NOT_FOUND);
-  }
+  const user = await requireUser(decoded);
 
   if (body.avatarUrl) assertOwnStorageUrl(body.avatarUrl, decoded.uid, 'avatars');
 
@@ -679,12 +674,7 @@ export async function submitId(
   decoded: DecodedIdToken,
   body: SubmitIdRequest,
 ): Promise<UserResponse> {
-  const user = await prisma.user.findUnique({
-    where: { firebaseUid: decoded.uid },
-  });
-  if (!user || user.deletedAt) {
-    throw errors.notFound(PROFILE_NOT_FOUND);
-  }
+  const user = await requireUser(decoded);
 
   assertOwnStorageUrl(body.idDocumentFrontUrl, decoded.uid, 'nanny-ids');
   if (body.idDocumentBackUrl) assertOwnStorageUrl(body.idDocumentBackUrl, decoded.uid, 'nanny-ids');

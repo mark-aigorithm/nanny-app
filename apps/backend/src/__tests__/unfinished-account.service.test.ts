@@ -101,12 +101,12 @@ describe('reclaimEmail', () => {
     expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 
-  it('refuses when a live row already holds the email under a different uid', async () => {
+  it('refuses when a row (live or soft-deleted) already holds the email under a different uid', async () => {
     mockGetUserByEmail.mockResolvedValueOnce({ uid: 'fb-holder', disabled: false });
     mockFindFirst
       .mockResolvedValueOnce(null) // caller has no row
       .mockResolvedValueOnce(null) // holder has no row
-      .mockResolvedValueOnce({ id: 3 }); // a live row holds the email
+      .mockResolvedValueOnce({ id: 3 }); // a row holds the email
 
     await expect(reclaimEmail(DECODED, { email: EMAIL, emailVerificationToken: TOKEN })).rejects.toMatchObject({
       statusCode: 409,
@@ -115,12 +115,21 @@ describe('reclaimEmail', () => {
     expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 
+  it('looks for the email among soft-deleted rows too — users.email is unique across both', async () => {
+    mockGetUserByEmail.mockResolvedValueOnce({ uid: 'fb-holder', disabled: false });
+    mockFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    await reclaimEmail(DECODED, { email: EMAIL, emailVerificationToken: TOKEN });
+
+    expect(mockFindFirst).toHaveBeenLastCalledWith({ where: { email: EMAIL }, select: { id: true } });
+  });
+
   it('deletes the holder once on the happy path', async () => {
     mockGetUserByEmail.mockResolvedValueOnce({ uid: 'fb-holder', disabled: false });
     mockFindFirst
       .mockResolvedValueOnce(null) // caller has no row
       .mockResolvedValueOnce(null) // holder has no row
-      .mockResolvedValueOnce(null); // no live row holds the email
+      .mockResolvedValueOnce(null); // no row holds the email
 
     await reclaimEmail(DECODED, { email: EMAIL, emailVerificationToken: TOKEN });
 
