@@ -76,4 +76,14 @@ describe('route wiring — which routes ask Firebase to check revocation', () =>
     await request(buildApp()).get('/admin/nannies').set('Authorization', 'Bearer tok');
     expect(mockVerifyIdToken).toHaveBeenCalledWith('tok', true);
   });
+
+  it('DELETE /auth/me is on requireFreshAuth', async () => {
+    await request(buildApp()).delete('/auth/me').set('Authorization', 'Bearer tok');
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('tok', true);
+  });
+
+  it('POST /auth/reclaim-email is on requireFreshAuth', async () => {
+    await request(buildApp()).post('/auth/reclaim-email').set('Authorization', 'Bearer tok').send({});
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('tok', true);
+  });
 });

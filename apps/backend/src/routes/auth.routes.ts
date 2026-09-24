@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 
 import {
   CheckAvailabilitySchema,
+  ReclaimEmailRequestSchema,
   RegisterRequestSchema,
   SaveChildrenSchema,
   SendEmailOtpSchema,
@@ -29,6 +30,10 @@ import {
   sendEmailOtp,
   verifyEmailOtp,
 } from '@backend/services/email-verification.service';
+import {
+  discardUnfinishedAccount,
+  reclaimEmail,
+} from '@backend/services/unfinished-account.service';
 
 export const authRouter = Router();
 
@@ -223,6 +228,47 @@ authRouter.patch(
       if (!req.firebaseUser) throw errors.unauthorized();
       const user = await updateProfile(req.firebaseUser, req.body);
       res.json(ok(user));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * DELETE /auth/me
+ * Discards the caller's own Firebase account, but only while it is still
+ * unfinished — the wizard was abandoned before /auth/register ever ran, so no
+ * `users` row exists. A row already existing means there is real account
+ * state behind this uid, so it is refused (409) rather than silently
+ * deleting a real account through the wrong endpoint. Fresh auth: a revoked
+ * or disabled session must not delete an identity.
+ */
+authRouter.delete('/me', requireFreshAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.firebaseUser) throw errors.unauthorized();
+    await discardUnfinishedAccount(req.firebaseUser);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /auth/reclaim-email
+ * Lets an unfinished (row-less) sign-up take over an email address that
+ * another unfinished sign-up is squatting, once the caller has proven she
+ * owns it via /auth/email/verify. Fresh auth: a revoked or disabled session
+ * must not delete another Firebase identity.
+ */
+authRouter.post(
+  '/reclaim-email',
+  requireFreshAuth,
+  validateBody(ReclaimEmailRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      await reclaimEmail(req.firebaseUser, req.body);
+      res.status(204).end();
     } catch (err) {
       next(err);
     }

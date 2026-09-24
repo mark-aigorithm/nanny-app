@@ -60,6 +60,17 @@ export const SetVerifiedEmailSchema = z.object({
 export type SetVerifiedEmailRequest = z.infer<typeof SetVerifiedEmailSchema>;
 
 /**
+ * Body for POST /auth/reclaim-email — an unfinished (row-less) account proves
+ * it now owns an address that another unfinished account is still squatting,
+ * so it can take over that account's Firebase identity before registering.
+ */
+export const ReclaimEmailRequestSchema = z.object({
+  email: EmailSchema,
+  emailVerificationToken: z.string().min(1),
+});
+export type ReclaimEmailRequest = z.infer<typeof ReclaimEmailRequestSchema>;
+
+/**
  * A phone number as the auth surface stores and compares it: E.164, nothing
  * else. `users.phone` is unique on exactly this string, so every body that
  * carries a phone must normalise to it or a lookup will miss.
