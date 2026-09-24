@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, push: mockPush }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush, dismissTo: mockDismissTo }),
 }));
 
 const mockConfirm = jest.fn();
@@ -241,7 +242,7 @@ describe('the front door', () => {
     renderScreen();
     fireEvent.press(screen.getByText('Continue as guest'));
     expect(useGuestStore.getState().isGuest).toBe(true);
-    expect(mockReplace).toHaveBeenCalledWith('/(parent)/home');
+    expect(mockDismissTo).toHaveBeenCalledWith('/(parent)/home');
   });
 
   it('hides the guest link while a Google connection is waiting to be linked', () => {
@@ -267,5 +268,19 @@ describe('the front door', () => {
       usePendingLinkStore.getState().set(PENDING_GOOGLE);
     });
     expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
+  });
+
+  it('lets her fix a mistyped number from the code phase', async () => {
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
+    fireEvent.press(screen.getByText('Send code'));
+    await waitFor(() => expect(screen.getByTestId('signIn.code')).toBeTruthy());
+
+    fireEvent.press(screen.getByText('Use a different number'));
+
+    expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
+    expect(screen.getByText('Send code')).toBeTruthy();
+    expect(screen.getByText('Continue as guest')).toBeTruthy();
+    expect(screen.getByText('Sign up')).toBeTruthy();
   });
 });

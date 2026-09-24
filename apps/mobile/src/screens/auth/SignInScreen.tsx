@@ -22,15 +22,15 @@ export default function SignInScreen() {
   const clearPending = usePendingLinkStore((s) => s.clear);
   const [countryCode] = useState('+20');
   // A collision during a Google/Apple sign-up brings the number typed there.
-  const [phone, setPhone] = useState(() => fromE164('+20', pending?.phoneHint ?? null));
+  const [phone, setPhone] = useState(() => fromE164(countryCode, pending?.phoneHint ?? null));
 
   // Sign-in now sits under the sign-up screen, so a collision found there
   // comes back to this screen already mounted — the initializer above has
   // run. Carry the number she typed across when the connection is parked.
   const phoneHint = pending?.phoneHint ?? null;
   useEffect(() => {
-    if (phoneHint) setPhone(fromE164('+20', phoneHint));
-  }, [phoneHint]);
+    if (phoneHint) setPhone(fromE164(countryCode, phoneHint));
+  }, [phoneHint, countryCode]);
 
   const [code, setCode] = useState('');
   const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
@@ -107,6 +107,16 @@ export default function SignInScreen() {
         },
       },
     );
+  }
+
+  // Sign-in is the stack root now, so there is no back gesture out of the
+  // code phase — this is what returns her to the phone field, with the
+  // number she typed still there, so a mistyped digit doesn't trap her.
+  function useDifferentNumber() {
+    setConfirmation(null);
+    setCode('');
+    setFormError(null);
+    setSecondsLeft(RESEND_SECONDS);
   }
 
   const resendDisabled = secondsLeft > 0 || sendOtp.isPending;
@@ -195,6 +205,22 @@ export default function SignInScreen() {
                   </Text>
                 </Pressable>
               </View>
+
+              {/* Sign-in is the stack root, so there is no back button to
+                  escape a mistyped number — this link is the only way out
+                  of the code phase and back to the phone field. */}
+              <Pressable
+                style={styles.useDifferentNumberRow}
+                onPress={useDifferentNumber}
+                disabled={confirmSignIn.isPending}
+                hitSlop={8}
+              >
+                <Text
+                  style={[styles.resendLink, confirmSignIn.isPending && styles.resendLinkDisabled]}
+                >
+                  Use a different number
+                </Text>
+              </Pressable>
             </View>
           )}
 
@@ -259,7 +285,11 @@ export default function SignInScreen() {
                   style={styles.guestRow}
                   onPress={() => {
                     useGuestStore.getState().enterGuestMode();
-                    router.replace('/(parent)/home');
+                    // A guest who reached sign-in from RegisterPromptModal
+                    // (pushed from `(parent)`) pops back to it instead of
+                    // stacking a second `(parent)`; on a cold start dismissTo
+                    // behaves like replace, since there's nothing to dismiss.
+                    router.dismissTo('/(parent)/home');
                   }}
                   hitSlop={8}
                 >

@@ -175,6 +175,12 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
+  // "Use a different number" — the only way out of the code phase, since
+  // sign-in is the stack root and there is no back button to fall back on.
+  useDifferentNumberRow: {
+    alignItems: 'center',
+  },
+
   // Form-level error banner
   formErrorBanner: {
     backgroundColor: colors.errorLight,
