@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { View, Text, StatusBar } from 'react-native';
+import { View, Text, StatusBar, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { ApprovalStatus } from '@shared/auth';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors } from '@mobile/theme';
 import { Button, IconCircle } from '@mobile/components/ui';
@@ -19,6 +20,7 @@ import { styles } from './styles/pending-review-screen.styles';
 export default function PendingReviewScreen() {
   const meQuery = useMe();
   const signOut = useSignOut();
+  const { confirmDeleteAccount, isDeleting } = useConfirmDeleteAccount();
   const profile = useUserProfileStore((s) => s.profile);
 
   const router = useRouter();
@@ -72,7 +74,16 @@ export default function PendingReviewScreen() {
             })
           }
           loading={signOut.isPending}
+          disabled={isDeleting}
         />
+        <Pressable
+          style={styles.deleteLink}
+          onPress={confirmDeleteAccount}
+          disabled={isDeleting || signOut.isPending}
+          accessibilityRole="button"
+        >
+          <Text style={styles.deleteLinkText}>{isDeleting ? 'Deleting…' : 'Delete account'}</Text>
+        </Pressable>
       </View>
     </View>
   );

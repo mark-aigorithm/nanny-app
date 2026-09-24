@@ -60,4 +60,13 @@ export const styles = StyleSheet.create({
     borderTopColor: colors.taupe,
     gap: spacing.sm,
   },
+  deleteLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  deleteLinkText: {
+    ...typeScale.labelMd,
+    color: colors.errorDark,
+  },
 });

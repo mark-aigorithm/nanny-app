@@ -19,6 +19,7 @@ import NannyTabHeader from '@mobile/components/NannyTabHeader';
 import { styles } from './styles/nanny-profile-edit-screen.styles';
 import { useNannyProfile } from '@mobile/hooks/useNannyProfile';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { AvailabilityType } from '@nanny-app/shared';
 import type { AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
 
@@ -67,6 +68,7 @@ export default function NannyProfileEditScreen() {
   const router = useRouter();
   const { data: nannyProfile, isLoading } = useNannyProfile();
   const signOut = useSignOut();
+  const { confirmDeleteAccount, isDeleting } = useConfirmDeleteAccount();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -232,7 +234,7 @@ export default function NannyProfileEditScreen() {
               },
             })
           }
-          disabled={signOut.isPending}
+          disabled={signOut.isPending || isDeleting}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="log-out-outline" size={18} color={colors.error} />
@@ -240,6 +242,16 @@ export default function NannyProfileEditScreen() {
               {signOut.isPending ? 'Signing out…' : 'Sign out'}
             </Text>
           </View>
+        </Pressable>
+
+        {/* Delete account — a quiet text action, not a second filled button */}
+        <Pressable
+          style={styles.deleteAccountButton}
+          onPress={confirmDeleteAccount}
+          disabled={isDeleting || signOut.isPending}
+          accessibilityRole="button"
+        >
+          <Text style={styles.deleteAccountText}>{isDeleting ? 'Deleting…' : 'Delete account'}</Text>
         </Pressable>
       </ScrollView>
 

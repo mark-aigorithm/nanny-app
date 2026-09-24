@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StatusBar } from 'react-native';
+import { View, Text, ScrollView, StatusBar, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { ApprovalStatus } from '@shared/auth';
@@ -9,6 +9,7 @@ import { Button } from '@mobile/components/ui';
 import IdCaptureFields from '@mobile/components/IdCaptureFields';
 import { useIdSubmit } from '@mobile/hooks/useIdSubmit';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { pickImageFromLibrary } from '@mobile/lib/pickImage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { styles } from './styles/upload-id-screen.styles';
@@ -23,6 +24,7 @@ export default function UploadIdScreen() {
   const router = useRouter();
   const profile = useUserProfileStore((s) => s.profile);
   const signOut = useSignOut();
+  const { confirmDeleteAccount, isDeleting } = useConfirmDeleteAccount();
 
   const [idType, setIdType] = useState<IdDocumentType | null>(null);
   const [frontUri, setFrontUri] = useState<string | null>(null);
@@ -97,7 +99,16 @@ export default function UploadIdScreen() {
             })
           }
           loading={signOut.isPending}
+          disabled={isDeleting}
         />
+        <Pressable
+          style={styles.deleteLink}
+          onPress={confirmDeleteAccount}
+          disabled={isDeleting || signOut.isPending}
+          accessibilityRole="button"
+        >
+          <Text style={styles.deleteLinkText}>{isDeleting ? 'Deleting…' : 'Delete account'}</Text>
+        </Pressable>
       </View>
     </View>
   );

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import BottomNav from '@mobile/components/BottomNav';
 import { Avatar, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
+import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -29,6 +30,7 @@ export default function MotherProfileWalletScreen() {
   const router = useRouter();
   const profile = useUserProfileStore((s) => s.profile);
   const signOut = useSignOut();
+  const { confirmDeleteAccount, isDeleting } = useConfirmDeleteAccount();
   const { isGuest } = useGuestGate();
   const { data: unreadData } = useUnreadMessageCount(!isGuest);
   const hasUnread = (unreadData?.unreadCount ?? 0) > 0;
@@ -180,7 +182,7 @@ export default function MotherProfileWalletScreen() {
         <View style={styles.listSection}>
           <Pressable
             style={styles.listItem}
-            disabled={signOut.isPending}
+            disabled={signOut.isPending || isDeleting}
             onPress={() =>
               signOut.mutate(undefined, {
                 onSuccess: () => router.replace('/'),
@@ -190,6 +192,16 @@ export default function MotherProfileWalletScreen() {
             <Ionicons name="log-out-outline" size={22} color={colors.errorDark} />
             <Text style={[styles.listItemLabel, styles.listItemDestructive]}>
               {signOut.isPending ? 'Signing out…' : 'Sign out'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.listItem}
+            disabled={isDeleting || signOut.isPending}
+            onPress={confirmDeleteAccount}
+          >
+            <Ionicons name="trash-outline" size={22} color={colors.errorDark} />
+            <Text style={[styles.listItemLabel, styles.listItemDestructive]}>
+              {isDeleting ? 'Deleting…' : 'Delete account'}
             </Text>
           </Pressable>
         </View>

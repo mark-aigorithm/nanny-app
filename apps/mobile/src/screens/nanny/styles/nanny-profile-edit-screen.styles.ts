@@ -178,4 +178,13 @@ export const styles = StyleSheet.create({
   viewHoursOff: {
     color: colors.textMuted,
   },
+  deleteAccountButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  deleteAccountText: {
+    ...typeScale.labelMd,
+    color: colors.errorDark,
+  },
 });

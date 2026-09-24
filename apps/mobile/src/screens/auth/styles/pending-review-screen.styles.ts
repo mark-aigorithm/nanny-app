@@ -32,4 +32,13 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
     gap: spacing.md,
   },
+  deleteLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  deleteLinkText: {
+    ...typeScale.labelMd,
+    color: colors.errorDark,
+  },
 });
