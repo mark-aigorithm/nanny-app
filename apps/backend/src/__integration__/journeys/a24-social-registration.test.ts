@@ -22,6 +22,9 @@ function uniqueEmail(): string {
   return `google-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
 }
 
+const ID_FRONT = 'https://storage.example.test/nanny-id-front.jpg';
+const AVATAR = 'https://storage.example.test/nanny-avatar.jpg';
+
 function registrationBody(email: string, phone: string) {
   return {
     firstName: 'Salma',
@@ -115,5 +118,33 @@ describe('A24 — social registration', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/verify your phone number/);
     expect(await prisma.user.count({ where: { phone: other } })).toBe(0);
+  });
+
+  it('registers a Google sign-up as a nanny, pending review, with no token', async () => {
+    const email = uniqueEmail();
+    const phone = uniquePhone();
+    const idToken = await signInWithGoogleAs(email, { phoneNumber: phone });
+
+    const response = await request(app)
+      .post('/auth/register')
+      .set(...authHeader(idToken))
+      .send({
+        ...registrationBody(email, phone),
+        role: 'NANNY',
+        idDocumentType: 'PASSPORT',
+        idDocumentFrontUrl: ID_FRONT,
+        avatarUrl: AVATAR,
+        bio: 'Five years with toddlers, first-aid trained.',
+        yearsOfExperience: 5,
+        availabilityType: 'FULL_TIME',
+        ageRanges: ['0-1', '2-5'],
+        schedule: { '1': { available: true, startTime: '08:00', endTime: '18:00' } },
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.role).toBe('NANNY');
+    expect(response.body.data.isEmailVerified).toBe(true);
+    expect(response.body.data.isPhoneVerified).toBe(true);
+    expect(response.body.data.approvalStatus).toBe('PENDING_REVIEW');
   });
 });

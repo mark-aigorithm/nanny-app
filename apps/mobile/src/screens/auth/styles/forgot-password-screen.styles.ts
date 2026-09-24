@@ -59,6 +59,10 @@ export const styles = StyleSheet.create({
     ...typeScale.bodyLg,
     color: colors.textSecondary,
   },
+  socialHint: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+  },
   phoneHighlight: {
     fontFamily: fontFamily.bold,
     color: colors.textPrimary,

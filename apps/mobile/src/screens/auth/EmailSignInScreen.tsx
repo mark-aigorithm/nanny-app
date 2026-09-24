@@ -12,7 +12,8 @@ import { styles } from './styles/email-sign-in-screen.styles';
 /**
  * The secondary door. Firebase keys a password by email, so this is the only
  * place the address is a credential rather than a contact detail — and the
- * only place "Forgot password?" makes sense.
+ * only place "Forgot password?" makes sense. It's also where a Google/Apple
+ * user is told how to get a password of her own.
  */
 export default function EmailSignInScreen() {
   const router = useRouter();
@@ -117,6 +118,13 @@ export default function EmailSignInScreen() {
                 <Text style={styles.forgotLink}>Forgot password?</Text>
               </Pressable>
             </View>
+
+            {/* A Google/Apple sign-up has no password until the SMS reset
+                creates one on that same account — the email link works too,
+                but it unlinks Google/Apple, so this steers her to SMS. */}
+            <Text style={styles.socialHint}>
+              Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.
+            </Text>
           </View>
 
           {formError && (

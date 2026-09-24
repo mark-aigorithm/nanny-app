@@ -116,6 +116,15 @@ it('connects a pending Google identity once signed in', async () => {
   expect(usePendingLinkStore.getState().pending).toBeNull();
 });
 
+it('tells a Google or Apple user how to get a password', () => {
+  renderScreen();
+  expect(
+    screen.getByText(
+      'Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.',
+    ),
+  ).toBeTruthy();
+});
+
 it('does not connect a pending identity to a password account that has no row', async () => {
   const credential = { providerId: 'google.com', token: 't', secret: '' };
   usePendingLinkStore.getState().set({ provider: 'google', credential: credential as never, phoneHint: null });

@@ -85,6 +85,13 @@ it('mails a reset link and never claims the address exists', async () => {
   ).toBeTruthy();
 });
 
+it('says a reset also creates a password for a Google or Apple account', () => {
+  renderScreen();
+  expect(
+    screen.getByText('Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.'),
+  ).toBeTruthy();
+});
+
 it('refuses to write a password onto an SMS-minted account with no email on file', async () => {
   // `confirm()` leaves a currentUser with no email — the "orphan" case: the
   // number has no account, so Firebase just minted a fresh phone-only user.

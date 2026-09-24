@@ -69,6 +69,10 @@ export const styles = StyleSheet.create({
     ...typeScale.labelMd,
     color: colors.primary,
   },
+  socialHint: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+  },
 
   // Form-level error banner
   formErrorBanner: {

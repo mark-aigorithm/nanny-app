@@ -220,9 +220,14 @@ export default function ForgotPasswordScreen() {
                 link to reset your password.
               </Text>
             ) : (
-              <Text style={styles.subtitle}>
-                Choose how you{'’'}d like to reset your password.
-              </Text>
+              <>
+                <Text style={styles.subtitle}>
+                  Choose how you{'’'}d like to reset your password.
+                </Text>
+                <Text style={styles.socialHint}>
+                  Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.
+                </Text>
+              </>
             )}
           </View>
 

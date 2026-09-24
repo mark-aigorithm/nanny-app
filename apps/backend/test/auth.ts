@@ -132,6 +132,52 @@ export async function signInWithGoogleAs(
   return googleIdpSignIn(email, emailVerified);
 }
 
+/**
+ * What Forgot password → "Email me a reset link" does, end to end: Firebase
+ * mails an out-of-band code, the user opens it and picks a password. The
+ * emulator mails nothing and lists the codes it issued instead.
+ */
+export async function resetPasswordByEmailLink(email: string, newPassword: string): Promise<void> {
+  const send = await fetch(`${IDENTITY_TOOLKIT}/accounts:sendOobCode?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestType: 'PASSWORD_RESET', email }),
+  });
+  if (!send.ok) throw new Error(`sendOobCode failed for ${email}: ${send.status}`);
+
+  const listed = await fetch(`http://${EMULATOR_HOST}/emulator/v1/projects/${PROJECT_ID}/oobCodes`);
+  const { oobCodes } = (await listed.json()) as {
+    oobCodes: { email: string; requestType: string; oobCode: string }[];
+  };
+  // Last one wins: the emulator appends, and only the newest code is live.
+  const code = [...oobCodes]
+    .reverse()
+    .find((c) => c.email === email && c.requestType === 'PASSWORD_RESET');
+  if (!code) throw new Error(`No password-reset code issued for ${email}`);
+
+  const reset = await fetch(`${IDENTITY_TOOLKIT}/accounts:resetPassword?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oobCode: code.oobCode, newPassword }),
+  });
+  if (!reset.ok) throw new Error(`resetPassword failed for ${email}: ${reset.status}`);
+}
+
+/**
+ * What Forgot password → "Text me a code instead" does once the code has
+ * signed her in: RNFB's `updatePassword` is exactly this `accounts:update`.
+ */
+export async function setPasswordWithIdToken(idToken: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${IDENTITY_TOOLKIT}/accounts:update?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, password: newPassword, returnSecureToken: true }),
+  });
+  if (!response.ok) {
+    throw new Error(`accounts:update failed: ${response.status} ${await response.text()}`);
+  }
+}
+
 async function googleIdpSignIn(email: string, emailVerified: boolean): Promise<string> {
   const claims = JSON.stringify({ sub: `google-${email}`, email, email_verified: emailVerified });
   const response = await fetch(`${IDENTITY_TOOLKIT}/accounts:signInWithIdp?key=${API_KEY}`, {
