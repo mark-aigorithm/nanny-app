@@ -12,6 +12,10 @@ import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore'
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { ApprovalStatus, Role } from '@shared/auth';
 
+/**
+ * What `app/index.tsx` renders: nothing yet (`wait`), a `Redirect`, or
+ * `CouldNotConnectScreen` with its Retry and Sign out.
+ */
 export type RootGate =
   | { kind: 'wait' }
   | { kind: 'redirect'; href: Href }

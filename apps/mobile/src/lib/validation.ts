@@ -1,6 +1,3 @@
-// Mirrors the requirements checklist in CreatePasswordScreen: ≥8 chars,
-// at least one uppercase letter, at least one digit.
-
 import { dateOfBirthError } from '@nanny-app/shared';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

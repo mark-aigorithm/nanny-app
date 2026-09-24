@@ -6,7 +6,7 @@ import * as Crypto from 'expo-crypto';
 
 import { auth } from '@mobile/lib/firebase';
 import type { AuthCredential } from '@mobile/lib/firebase';
-import { isMappedAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
+import { authErrorCode, isMappedAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { requestE2eGoogleEmail } from '@mobile/store/e2eGooglePickerStore';
 import type { SocialProvider } from '@mobile/types';
 
@@ -22,12 +22,18 @@ import type { SocialProvider } from '@mobile/types';
  * Android never shows or calls it.
  */
 
+/**
+ * What a provider's sheet hands back: the Firebase credential, plus the name
+ * and email it shared (a fallback for seeding the wizard — the account's own
+ * email wins).
+ */
 export type SocialCredentialResult = {
   provider: SocialProvider;
   credential: AuthCredential;
   profile: { firstName: string; lastName: string; email: string | null };
 };
 
+/** The provider's name as the UI writes it ("Continue with Google"). */
 export const SOCIAL_PROVIDER_LABEL: Record<SocialProvider, string> = {
   google: 'Google',
   apple: 'Apple',
@@ -74,6 +80,10 @@ async function getE2eGoogleCredential(): Promise<SocialCredentialResult | null> 
   };
 }
 
+/**
+ * Shows Google's account sheet (or the E2E picker, under the Auth emulator).
+ * `null` when the user closes it; a `MappedAuthError` on any other failure.
+ */
 export async function getGoogleCredential(): Promise<SocialCredentialResult | null> {
   if (isAuthEmulator()) return getE2eGoogleCredential();
   configureGoogle();
@@ -107,6 +117,8 @@ export async function getGoogleCredential(): Promise<SocialCredentialResult | nu
 }
 
 /**
+ * Shows Apple's sheet (iOS only). `null` when the user closes it.
+ *
  * Apple binds its identity token to a nonce: Apple gets the SHA-256 of a random
  * value, and Firebase gets the raw value to check against it.
  */
@@ -134,7 +146,7 @@ export async function getAppleCredential(): Promise<SocialCredentialResult | nul
     };
   } catch (error) {
     if (isMappedAuthError(error)) throw error;
-    if ((error as { code?: unknown })?.code === 'ERR_REQUEST_CANCELED') return null;
+    if (authErrorCode(error) === 'ERR_REQUEST_CANCELED') return null;
     throw APPLE_FAILED;
   }
 }
@@ -152,15 +164,17 @@ export async function getAppleAuthorizationCode(): Promise<string | null> {
     return result.authorizationCode;
   } catch (error) {
     if (isMappedAuthError(error)) throw error;
-    if ((error as { code?: unknown })?.code === 'ERR_REQUEST_CANCELED') return null;
+    if (authErrorCode(error) === 'ERR_REQUEST_CANCELED') return null;
     throw APPLE_FAILED;
   }
 }
 
+/** `getGoogleCredential` or `getAppleCredential`, by provider. */
 export function getSocialCredential(provider: SocialProvider): Promise<SocialCredentialResult | null> {
   return provider === 'google' ? getGoogleCredential() : getAppleCredential();
 }
 
+/** Whether to offer "Continue with Apple": iOS only, and only where the device supports it. */
 export async function isAppleSignInAvailable(): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
   try {

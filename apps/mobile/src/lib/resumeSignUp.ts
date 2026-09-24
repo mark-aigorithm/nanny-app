@@ -1,11 +1,12 @@
 import type { FirebaseUser } from '@mobile/lib/firebase';
 import { fromE164 } from '@mobile/lib/validation';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import type { AuthProvider } from '@mobile/types';
+import type { AuthProvider, SocialProvider } from '@mobile/types';
 
 const COUNTRY_CODE = '+20';
 
-function socialProviderOf(user: FirebaseUser): AuthProvider | null {
+/** The Google/Apple identity on the account, if any. */
+function socialProviderOf(user: FirebaseUser): SocialProvider | null {
   const ids = user.providerData.map((p) => p.providerId);
   if (ids.includes('google.com')) return 'google';
   if (ids.includes('apple.com')) return 'apple';

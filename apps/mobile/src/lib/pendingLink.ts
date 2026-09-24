@@ -1,4 +1,5 @@
 import { api } from '@mobile/lib/api';
+import { authErrorCode } from '@mobile/lib/authErrors';
 import { auth } from '@mobile/lib/firebase';
 import type { AuthCredential, FirebaseUser } from '@mobile/lib/firebase';
 import { getSocialCredential, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
@@ -45,8 +46,7 @@ export async function linkPendingCredential(): Promise<void> {
       await user.linkWithCredential(credential);
       return null;
     } catch (error) {
-      const code = (error as { code?: unknown })?.code;
-      return typeof code === 'string' ? code : 'unknown';
+      return authErrorCode(error) ?? 'unknown';
     }
   };
 
@@ -111,7 +111,7 @@ async function deleteSignUpAccount(
     await user.delete();
     return credential;
   } catch (error) {
-    if ((error as { code?: unknown })?.code !== 'auth/requires-recent-login') {
+    if (authErrorCode(error) !== 'auth/requires-recent-login') {
       await auth().signOut().catch(() => undefined);
       return credential;
     }

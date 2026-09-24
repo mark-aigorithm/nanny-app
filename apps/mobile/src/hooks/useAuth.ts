@@ -1,3 +1,21 @@
+/**
+ * Every Firebase-auth mutation the app runs, as React Query hooks.
+ *
+ * Sections, in order:
+ * - Shared errors and helpers — `checkAccount` (what `/auth/me` says about the
+ *   account just signed in) and `confirmCode` (checks an SMS code), used by
+ *   every door that confirms a code.
+ * - Sign-in doors — email/password, and SMS.
+ * - Password reset — by SMS, or Firebase's own reset mail.
+ * - Leaving — sign out, discard an unfinished sign-up, delete the account.
+ * - Registration, phone wizard — confirm the code, link the email/password.
+ * - Registration, Google/Apple wizard — link a phone onto the signed-in account.
+ * - Registration, backend — availability check and `POST /auth/register`.
+ * - Email verification — our own OTP, for both the wizard and the mother's gate.
+ *
+ * Google/Apple sign-in itself is `useSocialSignIn`; the collision hand-off is
+ * `lib/pendingLink`.
+ */
 import { Platform } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import type {
@@ -14,12 +32,19 @@ import type {
 import { auth } from '@mobile/lib/firebase';
 import type { AuthCredential, FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
 import { api, apiStatusOf, getApiErrorMessage, isNotFound, unwrap } from '@mobile/lib/api';
-import { COULD_NOT_CONNECT, mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
+import {
+  authErrorCode,
+  COULD_NOT_CONNECT,
+  mapFirebaseAuthError,
+  type MappedAuthError,
+} from '@mobile/lib/authErrors';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { clearLocalSession } from '@mobile/lib/session';
 import { getAppleAuthorizationCode } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
+
+// ── Shared errors ────────────────────────────────────────────────────────────
 
 /** Thrown whenever a phone number turns out to have no account behind it. */
 const NO_ACCOUNT_FOR_PHONE_ERROR: MappedAuthError = {
@@ -28,26 +53,79 @@ const NO_ACCOUNT_FOR_PHONE_ERROR: MappedAuthError = {
 };
 
 /**
- * Discards the account Firebase just minted for a number that turned out to
- * have no application account behind it — but only when a phone number is all
- * it holds. Anything more (a password, Google, Apple) is a real sign-up that
- * stalled before its row was written; deleting it would take the user's
- * Google or Apple identity with it, so sign out instead and let them resume.
- * Best-effort: if the delete itself fails we must still not leave the app
- * signed in as an account nothing recognizes, so fall back to signing out — a
- * retry re-confirms into the same uid either way.
+ * The backend could not be reached, or answered with something that proves
+ * nothing either way (5xx, timeout). Never a reason to guess about the account.
+ */
+const COULD_NOT_CONNECT_ERROR: MappedAuthError = { field: 'form', message: COULD_NOT_CONNECT };
+
+/**
+ * A code was checked but Firebase left no session behind — a hiccup, so trying
+ * again (the code is re-checked) is the way on.
+ */
+const SESSION_LOST_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'Your code was verified but the session was lost. Please try again.',
+};
+
+/**
+ * The account signed in is not the one this sign-up is finishing (or nobody
+ * is): the sign-up can't go on from here, so the only way on is to start
+ * again. Step 3 branches on `code: 'session-mismatch'` and offers "Start again".
+ */
+const SESSION_MISMATCH_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'Your session ended. Please start again.',
+  code: 'session-mismatch',
+};
+
+/** The email belongs to an account the server won't give up. */
+export const EMAIL_TAKEN_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'An account with this email already exists. Sign in instead.',
+  code: 'auth/email-already-in-use',
+};
+
+/**
+ * The phone belongs to another account. Step 3 of the Google/Apple wizard
+ * branches on the code to start collision B.
+ */
+const PHONE_TAKEN_ERROR: MappedAuthError = {
+  field: 'phone',
+  message: 'This phone number already has an account.',
+  code: 'auth/credential-already-in-use',
+};
+
+/** Revoking the Apple ID failed, so the account is kept (Apple's rule). */
+const APPLE_REVOKE_FAILED_ERROR: MappedAuthError = {
+  field: 'form',
+  message: "We couldn't disconnect your Apple ID. Please try again.",
+};
+
+// ── Shared helpers ───────────────────────────────────────────────────────────
+
+/** True when a phone number is the only sign-in method on the account. */
+function isPhoneOnly(user: FirebaseUser): boolean {
+  return (
+    user.providerData.length > 0 &&
+    user.providerData.every((provider) => provider.providerId === 'phone')
+  );
+}
+
+/**
+ * Discards the phone-only account Firebase just minted for a number with no
+ * application account behind it (`checkAccount`'s `phone-only-new`). Only ever
+ * called for that case: anything holding more (a password, Google, Apple) is a
+ * real sign-up that stalled, and deleting it would take the user's Google or
+ * Apple identity with it. Best-effort: if the delete itself fails we must still
+ * not leave the app signed in as an account nothing recognizes, so fall back to
+ * signing out — a retry re-confirms into the same uid either way.
  */
 async function discardPhoneOnlyAccount(user: FirebaseUser): Promise<void> {
-  const phoneOnly =
-    user.providerData.length > 0 &&
-    user.providerData.every((provider) => provider.providerId === 'phone');
-  if (phoneOnly) {
-    try {
-      await user.delete();
-      return;
-    } catch {
-      // Fall through to signing out.
-    }
+  try {
+    await user.delete();
+    return;
+  } catch {
+    // Fall through to signing out.
   }
   await auth().signOut().catch(() => undefined);
 }
@@ -65,52 +143,20 @@ type AccountCheck = 'exists' | 'unfinished' | 'phone-only-new';
  *   mints when a code is confirmed for a number it has never seen.
  *
  * Any other answer (offline, 5xx) proves nothing either way, so sign out and
- * say so rather than guess. The draft is reset; a parked collision credential
- * is kept, so the next attempt can still link it.
+ * throw `COULD_NOT_CONNECT` rather than guess. The draft is reset; a parked
+ * collision credential is kept, so the next attempt can still link it.
  */
 async function checkAccount(user: FirebaseUser): Promise<AccountCheck> {
   try {
     await api.get('/auth/me');
     return 'exists';
   } catch (error) {
-    if (isNotFound(error)) {
-      const phoneOnly =
-        user.providerData.length > 0 &&
-        user.providerData.every((provider) => provider.providerId === 'phone');
-      return phoneOnly ? 'phone-only-new' : 'unfinished';
-    }
+    if (isNotFound(error)) return isPhoneOnly(user) ? 'phone-only-new' : 'unfinished';
     useRegistrationDraftStore.getState().reset();
     await auth().signOut().catch(() => undefined);
-    throw { field: 'form', message: COULD_NOT_CONNECT } satisfies MappedAuthError;
+    throw COULD_NOT_CONNECT_ERROR;
   }
 }
-
-/**
- * A code was checked but Firebase left no session behind — a hiccup, so trying
- * again (the code is re-checked) is the way on.
- */
-const SESSION_LOST_ERROR: MappedAuthError = {
-  field: 'form',
-  message: 'Your code was verified but the session was lost. Please try again.',
-};
-
-/**
- * The account signed in is not the one this sign-up is finishing (or nobody
- * is): the sign-up can't go on from here, so the only way on is to start
- * again. Step 3 branches on the code and offers "Start again".
- */
-export const SESSION_MISMATCH_ERROR: MappedAuthError = {
-  field: 'form',
-  message: 'Your session ended. Please start again.',
-  code: 'session-mismatch',
-};
-
-/** The email belongs to an account the server won't give up. */
-export const EMAIL_TAKEN_ERROR: MappedAuthError = {
-  field: 'form',
-  message: 'An account with this email already exists. Sign in instead.',
-  code: 'auth/email-already-in-use',
-};
 
 /**
  * Checks an SMS code and hands back the account it signed in as.
@@ -118,6 +164,7 @@ export const EMAIL_TAKEN_ERROR: MappedAuthError = {
  * On Android, Firebase can read the SMS and sign in by itself before the code
  * is submitted; the code is then spent, and `confirm` rejects. If the app is
  * already signed in as that very number, that sign-in is the one we wanted.
+ * The same holds for a retry that re-uses a code already spent.
  */
 async function confirmCode(
   confirmation: PhoneConfirmation,
@@ -134,8 +181,11 @@ async function confirmCode(
   return user;
 }
 
+// ── Sign-in doors ────────────────────────────────────────────────────────────
+
 /**
- * Signs in with the email/password credential. The secondary door.
+ * Signs in with the email/password credential. The secondary door
+ * (`EmailSignInScreen`).
  *
  * Also completes a Google/Apple collision, if one brought her here — once
  * `/auth/me` answers. A row (`exists`) is the plain case. No row
@@ -170,14 +220,40 @@ export function useSignInWithEmail() {
 }
 
 /**
- * Finishes the default door: check the SMS code, then ask what the number
- * belongs to.
+ * Sends an SMS code that signs in as the number — the sign-in door, the SMS
+ * password reset and the phone wizard's step 3 — and hands back the handle the
+ * code is checked against. `forceResend` marks a user-tapped resend rather
+ * than the first send. (The Google/Apple wizard links a phone instead:
+ * `useSendPhoneLinkCode`.)
+ */
+export function useSendPhoneOtp() {
+  return useMutation<
+    PhoneConfirmation,
+    MappedAuthError,
+    { phone: string; forceResend?: boolean }
+  >({
+    mutationFn: async ({ phone, forceResend }) => {
+      try {
+        return await auth().signInWithPhoneNumber(phone, forceResend);
+      } catch (error) {
+        throw mapFirebaseAuthError(error);
+      }
+    },
+  });
+}
+
+/**
+ * Finishes the default door (`SignInScreen`): check the SMS code, then ask what
+ * the number belongs to.
  *
  * Confirming a code *is* a sign-in, so Firebase mints a phone-only account for
  * a number it has never seen — invisible to the email door and unusable by
  * "reset password". That one is deleted, and she is told to sign up. A number
  * on an account that holds more (a password, Google, Apple) but has no row is
  * an unfinished sign-up: `'needs-setup'`, which the root gate resumes.
+ *
+ * A parked collision credential is left for the caller to link — unlike
+ * `useSignInWithEmail`, which links it itself.
  *
  * `phone` is the E.164 number the code was sent to.
  */
@@ -206,13 +282,15 @@ export function useConfirmPhoneSignIn() {
   });
 }
 
+// ── Password reset ───────────────────────────────────────────────────────────
+
 /**
- * Resets the password for a phone-only account. Phone is the sign-in identity,
- * so recovery is by SMS rather than email: confirming the code signs the user
- * in as the phone uid, then `updatePassword` sets a new password on the linked
- * email/password credential that `SignInScreen` checks. Because confirming the
- * code is itself a fresh sign-in, `updatePassword` never trips
- * `auth/requires-recent-login`.
+ * Resets the password by SMS ("Text me a code instead"). Confirming the code
+ * signs the user in as the phone uid, then `updatePassword` sets a new
+ * password on the account's email — adding a `password` provider if it had
+ * none (a Google/Apple account), and keeping Google/Apple either way, which
+ * the reset mail does not. Because confirming the code is itself a fresh
+ * sign-in, `updatePassword` never trips `auth/requires-recent-login`.
  *
  * Confirming a code *is* a sign-in, though, so the account is checked first,
  * as `useConfirmPhoneSignIn` does. A phone-only account Firebase just minted
@@ -255,6 +333,27 @@ export function useConfirmPhoneAndResetPassword() {
 }
 
 /**
+ * Asks Firebase to mail its own reset link to `email`.
+ *
+ * Email-enumeration protection means an unknown address resolves exactly like
+ * a known one, so the screen must never report delivery — the copy says "if an
+ * account exists". `auth/invalid-email` is the one real error left.
+ */
+export function useSendPasswordResetEmail() {
+  return useMutation<void, MappedAuthError, string>({
+    mutationFn: async (email) => {
+      try {
+        await auth().sendPasswordResetEmail(email.trim().toLowerCase());
+      } catch (error) {
+        throw mapFirebaseAuthError(error);
+      }
+    },
+  });
+}
+
+// ── Leaving: sign out, discard, delete ───────────────────────────────────────
+
+/**
  * Signs out. Everything local goes through `clearLocalSession`, so this and
  * every other exit leave the same things behind.
  */
@@ -289,18 +388,14 @@ export function useDiscardUnfinishedAccount() {
   });
 }
 
-/** Revoking the Apple ID failed, so the account is kept (Apple's rule). */
-const APPLE_REVOKE_FAILED_ERROR: MappedAuthError = {
-  field: 'form',
-  message: "We couldn't disconnect your Apple ID. Please try again.",
-};
-
 /**
  * Deletes the signed-in account. On iOS an Apple sign-in is revoked first
  * (Apple's rule for account deletion). Android has no way to revoke, so it
  * deletes anyway and the server logs it. The server does the deleting and
- * refuses (409) while a booking is active. Signing out afterwards can't fail
- * the deletion: the account is already gone.
+ * refuses (409) while a booking is active, or (403) for staff; those refusals
+ * are shown as the server worded them. Signing out afterwards can't fail the
+ * deletion: the account is already gone. `'cancelled'`: the Apple sheet was
+ * closed, and nothing was touched. Screens use it via `useConfirmDeleteAccount`.
  */
 export function useDeleteAccount() {
   return useMutation<'deleted' | 'cancelled', MappedAuthError, void>({
@@ -334,39 +429,19 @@ export function useDeleteAccount() {
   });
 }
 
-/**
- * Sends the registration SMS and hands back the handle the code is checked
- * against. `forceResend` marks a user-tapped resend rather than the first send.
- */
-export function useSendPhoneOtp() {
-  return useMutation<
-    PhoneConfirmation,
-    MappedAuthError,
-    { phone: string; forceResend?: boolean }
-  >({
-    mutationFn: async ({ phone, forceResend }) => {
-      try {
-        return await auth().signInWithPhoneNumber(phone, forceResend);
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
-      }
-    },
-  });
-}
+// ── Registration: phone wizard ───────────────────────────────────────────────
 
 /**
  * Links the email/password credential onto `user`. A password provider
  * already on this uid is swapped for the new one.
  *
- * It used to be a safe no-op, because the credential was derived from the
- * phone — any two link attempts for the same number were identical. Now that
- * it's the user's own chosen email and password, that's no longer true: a
- * wizard abandoned after this step and restarted with a different email or
- * password confirms into the same uid, where the link call is a no-op that
- * would otherwise silently leave Firebase on the abandoned attempt's
- * email/password while the DB row gets the new one. `updateEmail` can't fix
- * this up afterward — it's blocked under email-enumeration protection — so
- * unlink the stale credential and link the new one in its place.
+ * A wizard abandoned after this step and restarted with a different email or
+ * password confirms into the same uid, where a plain link is refused with
+ * `provider-already-linked` — which would silently leave Firebase on the
+ * abandoned attempt's email/password while the DB row gets the new one.
+ * `updateEmail` can't fix this up afterward — it's blocked under
+ * email-enumeration protection — so unlink the stale credential and link the
+ * new one in its place.
  *
  * Rejects with the raw Firebase error; the caller maps it.
  */
@@ -374,12 +449,13 @@ async function linkEmailPassword(user: FirebaseUser, credential: AuthCredential)
   try {
     await user.linkWithCredential(credential);
   } catch (error) {
-    if ((error as { code?: unknown })?.code !== 'auth/provider-already-linked') throw error;
+    if (authErrorCode(error) !== 'auth/provider-already-linked') throw error;
     await user.unlink('password');
     await user.linkWithCredential(credential);
   }
 }
 
+/** Firebase's two ways of saying another account already holds the email. */
 const EMAIL_IN_USE_CODES = new Set(['auth/email-already-in-use', 'auth/credential-already-in-use']);
 
 /**
@@ -388,7 +464,7 @@ const EMAIL_IN_USE_CODES = new Set(['auth/email-already-in-use', 'auth/credentia
  *
  * Confirming the code *is* a sign-in — it leaves the app authenticated as a
  * phone-only user with no password. Linking gives that same uid the
- * email/password credential `SignInScreen` expects, so the verified phone
+ * email/password credential `EmailSignInScreen` checks, so the verified phone
  * becomes an additional factor on one account rather than a second account.
  *
  * The address passed here is the real one, already proved by our own email
@@ -446,17 +522,13 @@ export function useConfirmPhoneAndLink() {
         try {
           await linkEmailPassword(user, credential);
         } catch (error) {
-          const errorCode = (error as { code?: unknown })?.code;
-          if (typeof errorCode !== 'string' || !EMAIL_IN_USE_CODES.has(errorCode)) {
-            throw mapFirebaseAuthError(error);
-          }
+          const errorCode = authErrorCode(error);
+          if (!errorCode || !EMAIL_IN_USE_CODES.has(errorCode)) throw mapFirebaseAuthError(error);
           if (!emailVerificationToken) throw EMAIL_TAKEN_ERROR;
           try {
             await api.post('/auth/reclaim-email', { email: normalizedEmail, emailVerificationToken });
           } catch (reclaimError) {
-            throw apiStatusOf(reclaimError) === 409
-              ? EMAIL_TAKEN_ERROR
-              : ({ field: 'form', message: COULD_NOT_CONNECT } satisfies MappedAuthError);
+            throw apiStatusOf(reclaimError) === 409 ? EMAIL_TAKEN_ERROR : COULD_NOT_CONNECT_ERROR;
           }
           try {
             await linkEmailPassword(user, credential);
@@ -474,6 +546,8 @@ export function useConfirmPhoneAndLink() {
   });
 }
 
+// ── Registration: Google/Apple wizard's phone step ───────────────────────────
+
 /**
  * A code sent to link a phone onto the account that is already signed in —
  * the Google/Apple wizard's step 3. On Android, Firebase can read the SMS
@@ -485,12 +559,6 @@ export type PhoneLinkChallenge = {
   verificationId: string | null;
   autoVerified: boolean;
   code: string | null;
-};
-
-const PHONE_TAKEN_ERROR: MappedAuthError = {
-  field: 'phone',
-  message: 'This phone number already has an account.',
-  code: 'auth/credential-already-in-use',
 };
 
 /**
@@ -530,7 +598,8 @@ export function useSendPhoneLinkCode() {
  * `/auth/register` sees `phone_number` and marks the phone verified.
  *
  * A number that already belongs to another account rejects with
- * `code: 'auth/credential-already-in-use'` — the caller's cue for collision B.
+ * `PHONE_TAKEN_ERROR` (`code: 'auth/credential-already-in-use'`) — the
+ * caller's cue for collision B.
  *
  * Idempotent across retries, decided from the account *before* the credential
  * is touched: the same number already linked is done; a different one left by
@@ -564,8 +633,9 @@ export function useLinkPhoneToCurrentUser() {
       // number, so no SMS was sent. Anything else means the account moved on.
       if (!challenge && user.phoneNumber !== phone) throw SESSION_MISMATCH_ERROR;
 
-      // A retry after a later step failed: the number is already on the
-      // account, and re-linking would spend a credential for nothing.
+      // Link only when the number isn't on the account yet. A retry after a
+      // later step failed finds it already there, and re-linking would spend
+      // a credential for nothing.
       if (challenge && user.phoneNumber !== phone) {
         try {
           if (user.phoneNumber) await user.unlink('phone');
@@ -575,7 +645,7 @@ export function useLinkPhoneToCurrentUser() {
               : auth.PhoneAuthProvider.credential(challenge.verificationId, challenge.code ?? code);
           await user.linkWithCredential(credential);
         } catch (error) {
-          throw (error as { code?: unknown })?.code === 'auth/credential-already-in-use'
+          throw authErrorCode(error) === 'auth/credential-already-in-use'
             ? PHONE_TAKEN_ERROR
             : mapFirebaseAuthError(error);
         }
@@ -583,6 +653,20 @@ export function useLinkPhoneToCurrentUser() {
 
       await user.getIdToken(true);
     },
+  });
+}
+
+// ── Registration: backend ────────────────────────────────────────────────────
+
+/**
+ * Asks whether an email and phone already belong to an account. Step 1 of the
+ * wizard calls this on Continue so a collision is shown under the field, not
+ * on the code screen after it or at the very end of the wizard. Signed-out,
+ * like the OTP send: the caller has no account yet.
+ */
+export function useCheckAvailability() {
+  return useMutation<AvailabilityResponse, Error, CheckAvailabilityRequest>({
+    mutationFn: async (body) => unwrap(api.post('/auth/availability', body)),
   });
 }
 
@@ -600,17 +684,7 @@ export function useRegisterProfile() {
   });
 }
 
-/**
- * Asks whether an email and phone already belong to an account. Step 1 of the
- * wizard calls this on Continue so a collision is shown under the field, not
- * on the code screen after it or at the very end of the wizard. Signed-out,
- * like the OTP send: the caller has no account yet.
- */
-export function useCheckAvailability() {
-  return useMutation<AvailabilityResponse, Error, CheckAvailabilityRequest>({
-    mutationFn: async (body) => unwrap(api.post('/auth/availability', body)),
-  });
-}
+// ── Email verification (our own OTP) ─────────────────────────────────────────
 
 /**
  * Mails a one-time code to an address. Used by both entry points — the nanny
@@ -654,23 +728,3 @@ export function useSetVerifiedEmail() {
     onSuccess: ({ customToken, ...profile }) => setProfile(profile),
   });
 }
-
-/**
- * Asks Firebase to mail its own reset link to `email`.
- *
- * Email-enumeration protection means an unknown address resolves exactly like
- * a known one, so the screen must never report delivery — the copy says "if an
- * account exists". `auth/invalid-email` is the one real error left.
- */
-export function useSendPasswordResetEmail() {
-  return useMutation<void, MappedAuthError, string>({
-    mutationFn: async (email) => {
-      try {
-        await auth().sendPasswordResetEmail(email.trim().toLowerCase());
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
-      }
-    },
-  });
-}
-

@@ -9,11 +9,11 @@ import Constants from 'expo-constants';
 // (Play Integrity on Android, an APNs silent push on iOS) — so real phone
 // numbers receive a real SMS, unlike the old Firebase JS SDK shim.
 //
-// This module exposes exactly the `auth()` surface the rest of the app already
-// consumes (currentUser, signInWithEmailAndPassword, signInWithPhoneNumber,
-// onAuthStateChanged, linkWithCredential, confirm, EmailAuthProvider.credential),
-// so useAuth, api.ts and authStore need no changes. Requires a native build —
-// not available in Expo Go, which the app already needs a dev-client for.
+// This module is the app's only door to Firebase Auth: it re-exports RNFB's
+// `auth` (with its provider helpers — EmailAuthProvider, PhoneAuthProvider,
+// GoogleAuthProvider, AppleAuthProvider) and the handful of types callers name.
+// Requires a native build — not available in Expo Go, which the app already
+// needs a dev-client for.
 //
 // The Firebase JS SDK is gone from the app entirely. It lingered here to keep a
 // second, parallel Firebase app initialized for lib/storage.ts, which was the

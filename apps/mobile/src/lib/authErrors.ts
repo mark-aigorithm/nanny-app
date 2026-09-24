@@ -7,13 +7,18 @@ export type MappedAuthError = {
   field: AuthErrorField;
   message: string;
   /**
-   * The Firebase code, set only where a caller branches on it (e.g.
-   * `auth/credential-already-in-use` starting the collision flow). The copy in
+   * A machine-readable code, set only where a caller branches on it — a
+   * Firebase code (e.g. `auth/credential-already-in-use` starting the
+   * collision flow) or one of our own (`session-mismatch`). The copy in
    * `message` stays the thing screens show.
    */
   code?: string;
 };
 
+/**
+ * True for an error already mapped to copy — so a `catch` that maps everything
+ * else can rethrow one of ours untouched.
+ */
 export function isMappedAuthError(value: unknown): value is MappedAuthError {
   return (
     typeof value === 'object' &&
@@ -34,6 +39,15 @@ function isFirebaseError(error: unknown): error is FirebaseErrorShape {
   );
 }
 
+/**
+ * The `code` on a raw Firebase (or native SDK) error, for callers that branch
+ * on a specific one before mapping it. `undefined` when there is none.
+ */
+export function authErrorCode(error: unknown): string | undefined {
+  return isFirebaseError(error) ? error.code : undefined;
+}
+
+/** Turns a raw Firebase auth error into copy a screen can show, and the field it belongs under. */
 export function mapFirebaseAuthError(error: unknown): MappedAuthError {
   if (!isFirebaseError(error)) {
     const msg =

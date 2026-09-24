@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { api, getApiErrorMessage, isNotFound } from '@mobile/lib/api';
-import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
+import { authErrorCode, mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { auth } from '@mobile/lib/firebase';
 import { seedDraftFromAccount } from '@mobile/lib/resumeSignUp';
 import { getSocialCredential, signOutOfGoogle, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
@@ -71,7 +71,7 @@ export function useSocialSignIn() {
       try {
         await auth().signInWithCredential(result.credential);
       } catch (error) {
-        if ((error as { code?: unknown })?.code === 'auth/account-exists-with-different-credential') {
+        if (authErrorCode(error) === 'auth/account-exists-with-different-credential') {
           usePendingLinkStore.getState().set({ provider, credential: result.credential, phoneHint: null });
           useRegistrationDraftStore.getState().reset();
           return 'needs-link';
