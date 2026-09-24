@@ -68,7 +68,10 @@ export default function RegistrationStep2Screen() {
     setLocationError(null);
     patch(coords);
     void reverseGeocode(coords).then((address) => {
-      if (address) patch({ address });
+      if (address) {
+        patch({ address });
+        setAddressError(null);
+      }
     });
   }
 
