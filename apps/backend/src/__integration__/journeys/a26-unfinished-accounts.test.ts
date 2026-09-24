@@ -51,7 +51,7 @@ describe('A26 — DELETE /auth/me discards an unfinished account', () => {
     await expect(firebaseAuth.getUser(uid)).rejects.toMatchObject({ code: 'auth/user-not-found' });
   });
 
-  it('refuses a registered mother, leaving her Firebase account intact', async () => {
+  it('refuses a registered mother calling with no body, leaving her Firebase account intact', async () => {
     const mother = await makeMother();
 
     const response = await request(app).delete('/auth/me').set(...authHeader(mother.token));

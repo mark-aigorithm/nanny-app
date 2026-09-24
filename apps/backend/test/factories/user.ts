@@ -55,8 +55,13 @@ function uniquePhone(seq: number): string {
  * tests that place a user somewhere, and the factory writes them to the
  * user's default `addresses` row, which is where every reader looks. Pass
  * `latitude: null, longitude: null` for a user with no address at all.
+ *
+ * `email` may be pinned (the factory then uses it for the emulator account
+ * and the row alike, so the two stay in step) — for a test proving an address
+ * can be registered again, e.g. after an account deletion freed it.
  */
 type UserOverrides = Partial<Omit<Prisma.UserCreateInput, 'firebaseUid' | 'email' | 'role'>> & {
+  email?: string;
   address?: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -73,10 +78,9 @@ async function createUser(
   // after the other has moved it, or they collide on the unique phone column.
   sequence += 1;
   const seq = sequence;
-  const email = uniqueEmail(prefix, seq);
+  const { email: pinnedEmail, address, latitude, longitude, ...userOverrides } = overrides;
+  const email = pinnedEmail ?? uniqueEmail(prefix, seq);
   const firebaseUid = await createEmulatorUser(email);
-
-  const { address, latitude, longitude, ...userOverrides } = overrides;
 
   const user = await prisma.user.create({
     data: {
