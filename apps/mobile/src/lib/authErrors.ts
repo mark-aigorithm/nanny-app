@@ -49,10 +49,10 @@ export function authErrorCode(error: unknown): string | undefined {
 
 /** Turns a raw Firebase auth error into copy a screen can show, and the field it belongs under. */
 export function mapFirebaseAuthError(error: unknown): MappedAuthError {
+  // Not a Firebase error (a native crash, a network layer failure): its
+  // message is for developers, never for her.
   if (!isFirebaseError(error)) {
-    const msg =
-      error instanceof Error ? error.message : String(error);
-    return { field: 'form', message: `Unexpected error: ${msg}` };
+    return { field: 'form', message: 'Something went wrong. Please try again.' };
   }
 
   switch (error.code) {

@@ -195,7 +195,9 @@ describe('useDeleteAccount', () => {
     mockCurrentUser = null;
     const { result } = renderDelete();
 
-    expect(await run(result)).toMatchObject({ error: { field: 'form' } });
+    expect(await run(result)).toMatchObject({
+      error: { field: 'form', message: 'Your session ended. Please sign in again.' },
+    });
 
     expect(mockDelete).not.toHaveBeenCalled();
   });

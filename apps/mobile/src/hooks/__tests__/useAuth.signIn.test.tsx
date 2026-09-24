@@ -328,7 +328,10 @@ describe('useConfirmPhoneAndResetPassword', () => {
     phoneOnlyUser();
     const { result } = wrap(() => useConfirmPhoneAndResetPassword());
 
-    await expect(result.current.mutateAsync(vars)).rejects.toEqual({ field: 'phone', message: NO_ACCOUNT });
+    await expect(result.current.mutateAsync(vars)).rejects.toEqual({
+      field: 'form',
+      message: "This account can't have a password yet. Sign in with your phone number instead.",
+    });
     expect(mockCurrentUser?.delete).not.toHaveBeenCalled();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockCurrentUser?.updatePassword).not.toHaveBeenCalled();

@@ -58,6 +58,22 @@ const NO_ACCOUNT_FOR_PHONE_ERROR: MappedAuthError = {
  */
 const COULD_NOT_CONNECT_ERROR: MappedAuthError = { field: 'form', message: COULD_NOT_CONNECT };
 
+/** An action that needs a signed-in account found none — nothing to retry. */
+const SIGNED_OUT_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'Your session ended. Please sign in again.',
+};
+
+/**
+ * A registered account whose Firebase side has no email (a row the server
+ * re-attached to a phone-only Firebase account): a password needs an email
+ * to live on, so SMS sign-in is her way in.
+ */
+const NO_PASSWORD_ON_ACCOUNT_ERROR: MappedAuthError = {
+  field: 'form',
+  message: "This account can't have a password yet. Sign in with your phone number instead.",
+};
+
 /**
  * A code was checked but Firebase left no session behind — a hiccup, so trying
  * again (the code is re-checked) is the way on.
@@ -319,7 +335,7 @@ export function useConfirmPhoneAndResetPassword() {
         // re-attached to a fresh phone-only Firebase account. Never delete it:
         // that would orphan the row again.
         await auth().signOut().catch(() => undefined);
-        throw NO_ACCOUNT_FOR_PHONE_ERROR;
+        throw NO_PASSWORD_ON_ACCOUNT_ERROR;
       }
 
       try {
@@ -401,7 +417,7 @@ export function useDeleteAccount() {
   return useMutation<'deleted' | 'cancelled', MappedAuthError, void>({
     mutationFn: async () => {
       const user = auth().currentUser;
-      if (!user) throw SESSION_LOST_ERROR;
+      if (!user) throw SIGNED_OUT_ERROR;
       const appleLinked = user.providerData.some((p) => p.providerId === 'apple.com');
       let appleRevoked = false;
       if (appleLinked && Platform.OS === 'ios') {
