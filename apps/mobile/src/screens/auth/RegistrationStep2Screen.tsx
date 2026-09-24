@@ -35,6 +35,7 @@ export default function RegistrationStep2Screen() {
   const isSocial = draft.authProvider !== 'phone';
 
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   const pinCoords =
     draft.latitude !== null && draft.longitude !== null
@@ -53,10 +54,11 @@ export default function RegistrationStep2Screen() {
     // The street line is required for every account — it becomes the first
     // address-book entry, and a pin alone doesn't tell a nanny which door.
     if (!draft.address.trim()) {
-      setLocationError('Please enter your street address.');
+      setAddressError('Please enter your street address.');
       return;
     }
     setLocationError(null);
+    setAddressError(null);
     router.push({ pathname: '/(auth)/register-step-3', params: { role } });
   }
 
@@ -123,17 +125,21 @@ export default function RegistrationStep2Screen() {
             {/* Street address with map-search autocomplete */}
             <LocationSearchInput
               value={draft.address}
-              onChangeText={(val) => patch({ address: val })}
+              onChangeText={(val) => {
+                setAddressError(null);
+                patch({ address: val });
+              }}
               onSelectPlace={(coords, address) => {
                 setLocationError(null);
+                setAddressError(null);
                 patch({ ...coords, address });
               }}
               placeholder="Street address"
             />
-            {/* HomeLocationMapCard below already shows locationError next to
-                the map, but that error is about the street line just as often
-                as the pin — repeat it here so it's visible either way. */}
-            {locationError && <Text style={styles.addressErrorText}>{locationError}</Text>}
+            {/* The pin error renders next to the map via HomeLocationMapCard's
+                errorText below; the street-address error is specific to this
+                field, so it renders only here. */}
+            {addressError && <Text style={styles.addressErrorText}>{addressError}</Text>}
 
             {/* Neighbourhood */}
             <TextInput

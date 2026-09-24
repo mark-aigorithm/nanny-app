@@ -7,8 +7,13 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ role: 'parent' }),
 }));
 // The map and the places search are native/network surfaces; Continue's guard
-// only reads the draft.
-jest.mock('@mobile/components/HomeLocationMapCard', () => () => null);
+// only reads the draft. The map mock renders its errorText prop as text so a
+// duplicate-rendered error (also shown under the address input) is caught.
+jest.mock('@mobile/components/HomeLocationMapCard', () => {
+  const { Text } = require('react-native');
+  return ({ errorText }: { errorText?: string | null }) =>
+    errorText ? <Text>{errorText}</Text> : null;
+});
 jest.mock('@mobile/components/LocationSearchInput', () => () => null);
 jest.mock('@mobile/lib/googlePlaces', () => ({ reverseGeocode: jest.fn().mockResolvedValue(null) }));
 
@@ -27,7 +32,7 @@ it('asks for a street address when the pin is set but the line is empty', () => 
 
   fireEvent.press(screen.getByText('Continue'));
 
-  expect(screen.getByText('Please enter your street address.')).toBeTruthy();
+  expect(screen.getAllByText('Please enter your street address.')).toHaveLength(1);
   expect(mockPush).not.toHaveBeenCalled();
 });
 
@@ -38,4 +43,14 @@ it('moves on with a pin and a street address', () => {
   fireEvent.press(screen.getByText('Continue'));
 
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-3', params: { role: 'parent' } });
+});
+
+it('asks for a home location when the pin is missing', () => {
+  useRegistrationDraftStore.setState({ latitude: null, longitude: null, address: '1 Test Street, Cairo' });
+  render(<RegistrationStep2Screen />);
+
+  fireEvent.press(screen.getByText('Continue'));
+
+  expect(screen.getAllByText('Please set your home location on the map.')).toHaveLength(1);
+  expect(mockPush).not.toHaveBeenCalled();
 });
