@@ -274,7 +274,7 @@ export function quietDeviceChrome(adb, device) {
  * package name like "E2E Starter" arrives as two arguments and the second is
  * read as a flow path. Values here are ours and never contain quotes.
  */
-export function quoteArg(value) {
+function quoteArg(value) {
   return value.includes(' ') ? `"${value}"` : value;
 }
 

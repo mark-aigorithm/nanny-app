@@ -14,7 +14,7 @@
  */
 
 /** The country code the sign-in screen is fixed to. */
-export const COUNTRY_CODE = '+20';
+const COUNTRY_CODE = '+20';
 
 /** Shared by every seeded account; Firebase requires at least six characters. */
 export const PASSWORD = 'E2ePassw0rd!';
@@ -63,22 +63,19 @@ export const ACCOUNTS = {
 };
 
 /**
- * The account a full-registration flow (Phase 3 of the coverage-expansion spec)
- * creates from scratch. Deliberately NOT in ACCOUNTS — the flow registers it, so
- * the seeder must **wipe** it (delete the Firebase user and free the unique
- * phone) before each run rather than upsert it, or the second run collides on
- * `users.phone`. Wiring the runner passthrough + the seeder wipe is Phase 2c.
- * See Docs/testing/2026-09-04-e2e-coverage-expansion-design.md.
+ * The mother the full-registration flow (C2, with C7 riding on it) creates from
+ * scratch, with the lab's PASSWORD. Deliberately NOT in ACCOUNTS — the flow
+ * registers it, so run.mjs has the seeder **wipe** it (delete the Firebase user
+ * and free the unique phone) before each run rather than upsert it, or the
+ * second run collides on `users.phone`.
  */
 export const REGISTRATION = {
   phone: '+201100000005',
   // Registration proves a real address for both roles, so a mother types this
   // one on step 1 and confirms the code mailed to it on step 2 — same as the
   // nanny below. It is fixed here so the email-otp advance step can find the
-  // message; `users.email` ends up holding it, not the phone placeholder.
+  // message; it becomes both `users.email` and her Firebase credential.
   email: 'e2e-mother-reg@nannyapp.test',
-  password: PASSWORD,
-  role: 'MOTHER',
   firstName: 'Rana',
 };
 
@@ -90,13 +87,11 @@ export const REGISTRATION = {
 export const REGISTRATION_NANNY = {
   phone: '+201100000006',
   email: 'e2e-nanny-reg@nannyapp.test',
-  password: PASSWORD,
-  role: 'NANNY',
   firstName: 'Rasha',
 };
 
 /**
- * The Google sign-up C11 drives through the E2E Google picker (lib/socialAuth):
+ * The mother C11 signs up with Google through the E2E Google picker (lib/socialAuth):
  * the picker hands the Auth emulator an unsigned Google identity for `email`,
  * so no real Google account is involved. Throwaway like REGISTRATION — the
  * seeder wipes it, by email and phone, before each run.
@@ -104,7 +99,6 @@ export const REGISTRATION_NANNY = {
 export const SOCIAL_REGISTRATION = {
   phone: '+201100000007',
   email: 'e2e-google-reg@nannyapp.test',
-  role: 'MOTHER',
 };
 
 /**

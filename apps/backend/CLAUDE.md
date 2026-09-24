@@ -200,11 +200,24 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 isn't a download URL for `<folder>/<uid>/…` in our bucket — otherwise a client could pin its
 profile or KYC record to someone else's upload, or to any image on the web. In every real
 environment this checks host, protocol and bucket as well as the path. The one relaxation is
-path-only matching when `UPLOAD_URL_EMULATOR_HOST` is set (test stacks only — `config.ts`
-refuses it outright in production): the mobile device lab's live-auth profile
-(`start:test:live-auth`) points Auth at the real Firebase project while Storage stays on the
-emulator, so its upload URLs come from `10.0.2.2:9199` and name the app's real bucket, which the
-backend's test config doesn't otherwise recognise.
+path-only matching when `UPLOAD_URL_EMULATOR_HOST` is set (`.env.test` sets it; `config.ts`
+refuses it outright in production): the mobile device lab keeps the app's Storage on the emulator
+in both its suites (even `start:test:live-auth`, which points Auth at the real project), so its
+upload URLs come from `10.0.2.2:9199` and name the app's real bucket, which the backend's test
+config doesn't otherwise recognise.
+
+**A Firebase account without a `users` row is an unfinished sign-up, not garbage**
+Registration creates the Firebase account first and the row last, so a row-less uid is someone
+mid-wizard. `/auth/me` 404s for it and the app resumes the wizard; nothing deletes it on sight
+(the one exception is client-side: an SMS sign-in that mints a phone-only account for an unknown
+number discards it).
+`DELETE /auth/me` has two modes: **no body** discards the caller's own row-less account (409 if a
+row exists — it can never delete a real account); **`{ confirm: 'delete-my-account' }`** deletes a
+mother/nanny account — row soft-deleted with email/phone/uid scrambled (`scrambleIdentity`) so all
+three can register again, then the Firebase user deleted; staff 403, active bookings 409.
+`POST /auth/reclaim-email` deletes another *row-less* account squatting an address the caller has
+just proven. The reverse case — a live row whose Firebase user is gone — is re-attached to the new
+uid by `reattachOrphanedRow` in `auth.service.ts`, never onto a soft-deleted row.
 
 **`requireFreshAuth` wiring is pinned by a unit test, not integration**
 The Auth emulator checks revocation on every `verifyIdToken` call regardless of whether a route

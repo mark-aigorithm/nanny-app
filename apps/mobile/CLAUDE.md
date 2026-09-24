@@ -35,6 +35,14 @@ src/
   the email-door button, Forgot password, Sign up and Continue as guest all live there; the
   "Get Started" splash screen is gone. A screen returning to it (a cancelled registration, a
   finished social collision hand-off) uses `router.dismissTo('/(auth)/sign-in')`, not `push`/`replace`.
+- The root gate (`app/index.tsx` → `hooks/useRootGate.ts`) **never signs anyone out**. A signed-in
+  account with no row (`/auth/me` 404) is an unfinished sign-up: the draft is seeded from it
+  (`lib/resumeSignUp.ts`) and role selection opens as "Finish setting up your account". Any other
+  `/auth/me` error shows `CouldNotConnectScreen` (Retry / Sign out).
+- Every user-facing exit (sign out, discard a sign-up, "Start again", delete account) goes through
+  `clearLocalSession` (`lib/session.ts`) — push token, parked credential, draft, Google session,
+  profile and query cache — so a new exit should too. Deleting: `useDiscardUnfinishedAccount` (bodiless `DELETE /auth/me`, row-less
+  accounts only) vs `useDeleteAccount` (the real deletion, behind `useConfirmDeleteAccount`).
 
 ---
 

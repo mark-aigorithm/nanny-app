@@ -143,19 +143,11 @@ function seedLab() {
         // — otherwise the second run collides on the unique phone. Two mothers
         // (C2/C7, C11), one nanny (A10), and C12's Google identity.
         E2E_MOBILE_WIPE: JSON.stringify([
-          { phone: REGISTRATION.phone, role: REGISTRATION.role, email: REGISTRATION.email },
-          {
-            phone: REGISTRATION_NANNY.phone,
-            role: REGISTRATION_NANNY.role,
-            email: REGISTRATION_NANNY.email,
-          },
+          { phone: REGISTRATION.phone, email: REGISTRATION.email },
+          { phone: REGISTRATION_NANNY.phone, email: REGISTRATION_NANNY.email },
           // C11 signs up with Google from scratch; C12's throwaway Google
           // account has no phone, only the address.
-          {
-            phone: SOCIAL_REGISTRATION.phone,
-            role: SOCIAL_REGISTRATION.role,
-            email: SOCIAL_REGISTRATION.email,
-          },
+          { phone: SOCIAL_REGISTRATION.phone, email: SOCIAL_REGISTRATION.email },
           { email: SOCIAL_COLLISION.email },
         ]),
         E2E_LAB_FIXTURES: JSON.stringify({
@@ -192,13 +184,12 @@ function flowsToRun(requested) {
 function runFlow(maestro, flow) {
   console.log(`\n[e2e] ── ${flow} ─────────────────────────────`);
 
-  // The phones are what a flow types; the emails and URLs are what
-  // scripts/advance.js needs to drive the other side of a journey over HTTP.
+  // The emails are what a flow signs in with (_sign-in.yaml) and what
+  // scripts/advance.js signs in as to drive the other side of a journey over
+  // HTTP; the phones are what a flow types into a phone field.
   const params = {
+    // C12 types the seeded mother's number to collide with her account.
     MOTHER_PHONE: localDigits(ACCOUNTS.mother.phone),
-    NANNY_PHONE: localDigits(ACCOUNTS.nanny.phone),
-    GATED_MOTHER_PHONE: localDigits(ACCOUNTS.gatedMother.phone),
-    PENDING_NANNY_PHONE: localDigits(ACCOUNTS.pendingNanny.phone),
     // The full E.164, for the phone-otp advance step: the emulator keys every
     // verification code it issues by the number the app dialled, and that is
     // the country code plus the digits, not the digits a person types.

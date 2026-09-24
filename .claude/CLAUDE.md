@@ -267,6 +267,6 @@ issuer, not a mock.
 | REST API (no GraphQL) | If mobile queries become complex with many joins, consider GraphQL |
 | Firestore for live location | Adds a second DB to manage; could replace with WebSockets on the backend |
 | ECS Fargate (always-on) | If traffic is very spiky, Lambda + API Gateway might be cheaper |
-| Email/password auth | May need to add phone number auth for markets where email adoption is low |
+| Phone-first auth (SMS by default; email + password, Google, Apple beside it) | Every sign-in sends a real SMS; if cost bites, lean harder on the email door |
 | Single AWS region | If launching internationally, multi-region RDS and CloudFront geo-restriction needed |
 | FCM topics for push | Topics are broadcast; for per-user push, store FCM tokens in DB |

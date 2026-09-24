@@ -1,7 +1,11 @@
 # Sign in with Google and Apple
 
 **Date:** 2026-09-23
-**Status:** Implemented on `feat/social-auth`, pending rollout
+**Status:** Implemented on `feat/social-auth`, pending rollout. Parts are **superseded** by
+[Registration hardening](2026-09-24-registration-hardening-design.md) — each is marked below. In
+short: sign-in (headed "Welcome to NannyNow", not "Welcome back") is the landing screen; the root
+gate resumes a row-less account instead of signing it out; `socialUid` is now `signUpUid`; and
+"only collision B may delete" no longer holds.
 **Builds on:** [Phone-first auth with Firebase-owned password reset](2026-09-23-phone-first-auth-firebase-reset-design.md)
 
 ---
@@ -149,6 +153,10 @@ registered through the phone-first wizard hold a verified email.
   fine. The sign-in itself still resolves and the root router signs a
   row-less account out, as before. `EmailSignInScreen` just navigates.
   Final-review fix.
+  - **Superseded:** a row-less account behind the password is now an
+    unfinished sign-up the password has just proved, so the parked credential
+    links onto it as well, and the root gate resumes it (`checkAccount` in
+    `useAuth.ts`). Only a non-404 error drops to "Couldn't connect".
 - **`discardPhoneOnlyAccount`** (`useAuth.ts`), used by `useConfirmPhoneSignIn`
   and `useConfirmPhoneAndResetPassword`:
   - Deletes the Firebase user **only when `providerData` is exactly
@@ -160,6 +168,10 @@ registered through the phone-first wizard hold a verified email.
   user who abandons the wizard is signed out on next launch and taps Google
   again to resume, as with the phone wizard; Firebase reuses the leftover
   Google-only uid.
+  - **Superseded:** the root gate (`useRootGate`) now resumes a row-less
+    account — it seeds the draft from the account and opens role selection as
+    "Finish setting up your account" — and shows "Couldn't connect" with Retry
+    on any other `/auth/me` error. It never signs out on its own.
 
 ## The social sign-up wizard
 
@@ -172,7 +184,9 @@ registered through the phone-first wizard hold a verified email.
   the account this sign-up created. Collision B deletes, and parks a
   credential for, only that account; step 3 links a phone onto no other.
   Added in the final review, after a stale draft was shown to be able to
-  park its credential for whoever signed in next.
+  park its credential for whoever signed in next. **Superseded:** renamed
+  `signUpUid` and set only by `seedDraftFromAccount`, which also records it
+  for a resumed leftover (see `isResume`).
 
 **Role selection (`RoleSelectionScreen`) in social mode** hides the social
 buttons (the user is already signed in with one) and shows a text link, **"Use
@@ -183,6 +197,12 @@ phone mode with the social buttons showing. The throwaway account is left
 row-less, like an abandoned wizard; continuing with the same identity later
 reuses it. Final-review fix for a dead end: someone who met "new person" via
 Google and wanted to sign up by phone was otherwise stuck in social mode.
+
+> **Superseded:** the link is now `useDiscardUnfinishedAccount`, shown for a
+> resumed sign-up as well as a social one. It **does** delete: a bodiless
+> `DELETE /auth/me`, which the server honours only while no `users` row points
+> at the uid (409 otherwise), then `clearLocalSession`. Leaving never fails — a
+> refused or failed delete just signs out.
 
 **Route order:**
 
@@ -310,6 +330,11 @@ re-confirms into the leftover uid and relinks its password — unverified for
 this case), but nothing in this flow points there. Recorded in the final
 review as a follow-up.
 
+> **Superseded — closed by registration recovery:** both doors now treat a
+> row-less account with more than a phone as an unfinished sign-up. The SMS or
+> password sign-in succeeds, the parked credential links onto it, and the root
+> gate resumes the wizard.
+
 ### Collision B — during social sign-up
 
 Triggers: step 1 availability reports the phone or email taken, or step 3 gets
@@ -339,6 +364,14 @@ Triggers: step 1 availability reports the phone or email taken, or step 3 gets
      before it, a step-3 collision almost always fell back to signing out.
    - Deleting frees the Google/Apple identity. Otherwise the later link fails
      with `credential-already-in-use` ("Couldn't connect Google").
+   - **Superseded** (`abandonSocialSignUpForLink` in `lib/pendingLink.ts`):
+     the guard is now only "this sign-up's own account" (`signUpUid`, draft not
+     `phone`). The "still social-only" half is gone — the account is deleted
+     whatever it holds, e.g. a phone an earlier attempt linked. On
+     `requires-recent-login` the app first asks the server (bodiless
+     `DELETE /auth/me`, refused if a row exists), then re-authenticates with
+     the draft's credential, then with a fresh one from the provider sheet (the
+     only option for a resumed sign-up, which has no credential).
 2. Move the draft's `socialCredential` into `pendingLinkStore`, with
    `phoneHint` set to the number from step 1, and reset the draft.
 3. Go to `/(auth)/sign-in` with the banner and the phone field prefilled from
@@ -429,10 +462,12 @@ Status as of 2026-09-23 (owner confirmed): tasks 1–3 **done**; task 4 open.
     non-404 `/auth/me` error signs out; the Firebase account's email wins over
     the profile's; an unverified email is refused up front.
   - `useLeaveSocialSignUp`: signs out, never deletes, resets the draft.
+    (Superseded by `useDiscardUnfinishedAccount`, above.)
   - Collision B's delete guard: social-only providers delete; any other
     provider signs out; a uid other than `socialUid`, no user, or no
     `socialUid` signs out and parks nothing; `requires-recent-login`
     re-authenticates with the social credential and deletes once more.
+    (Superseded: any providers delete now — see collision B.)
   - Step 3 refuses an account other than `socialUid`.
   - The draft is reset by `useSignOut` and by SMS and email sign-in; the email
     door links only after `/auth/me` 200.
@@ -524,5 +559,7 @@ sheets that Maestro cannot drive, and Apple needs iOS. Before rollout:
   requires calling `auth().revokeToken(authorizationCode)` when an Apple-linked
   account is deleted. There is **no in-app account deletion yet** (AUTH-14 is
   not built), so it belongs with that feature, which must include it.
+  **Superseded:** built with account deletion — `useDeleteAccount` revokes on
+  iOS before `DELETE /auth/me`; see the registration-hardening spec.
 - A "Connected accounts" settings screen (link or unlink providers).
 - Apple on Android, and any other provider.

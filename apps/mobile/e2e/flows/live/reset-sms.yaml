@@ -55,8 +55,9 @@ appId: com.nannyapp.mobile
 
 # The proof: sign out, then in again with the new password.
 - tapOn: 'Account'
-# The last row of the account screen, and the floating tab bar sits over the
-# bottom of it — centred so the tap cannot land on the bar.
+# Near the bottom of the account screen (only Delete account is below it), and
+# the floating tab bar sits over the bottom — centred so the tap cannot land on
+# the bar.
 - scrollUntilVisible:
     element:
       text: 'Sign out'

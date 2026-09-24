@@ -1,6 +1,7 @@
 # Registration hardening, and sign-in as the front door
 
-**Status:** Approved 2026-09-24. Delivered as four stacked plans (below).
+**Status:** Approved 2026-09-24. Delivered as four stacked plans (below); all four have landed.
+Still to write: the E2E flows C13–C15 (plan 3) and C17 (plan 4) — no such flow files exist yet.
 **Builds on:** [Google and Apple sign-in](2026-09-23-social-auth-google-apple-design.md) and [Phone-first auth](2026-09-23-phone-first-auth-firebase-reset-design.md).
 
 ## Why
@@ -40,6 +41,8 @@ Two read-only audits (mobile journeys; backend and test coverage) found about 25
 ## Design choices (approved with the plan)
 
 - **Deletion refusals:** deletion is refused while a booking is active (409 "Finish or cancel your upcoming bookings before deleting your account."). Staff get 403.
+- **One endpoint, two meanings:** `DELETE /auth/me` with no body only discards an unfinished sign-up — it deletes the Firebase user when no `users` row points at the uid, and answers 409 when one does. Only `{ confirm: 'delete-my-account' }` deletes a real account. A row already soft-deleted is refused (409) either way.
+- **Where the button is:** "Delete account" on the mother's account screen, the nanny's profile editor, and the upload-ID and pending-review screens (`useConfirmDeleteAccount`).
 - **Immediate deletion:**
   - Soft-delete the row, and scramble its email, phone and uid so they can be reused.
   - Set `deletionRequestedAt`.
@@ -49,7 +52,9 @@ Two read-only audits (mobile journeys; backend and test coverage) found about 25
 - **Phone changes:** phone is removed from `PATCH /auth/me` (changing a number is a later feature).
 - **`checkRevoked`** stays off `/auth/email`. Its lost-response recovery relies on revoked tokens still passing.
 - **Draft storage:** the registration draft stays in memory. Resume covers the Firebase side after the app is killed.
-- **Deleting accounts:** the server deletes only accounts it confirms have no row. So "Use a different sign-up method" deletes the account that sign-up created, and collision B deletes whichever providers are linked. This replaces the social-auth spec's rule that only collision B may delete.
+- **Deleting accounts:** the server deletes only accounts it confirms have no row. So "Use a different sign-up method" deletes the account that sign-up created, and collision B deletes whichever providers are linked. This replaces the social-auth spec's rule that only collision B may delete. (Collision B still deletes client-side first — guarded on the draft's `signUpUid` — and asks the server only when Firebase wants a recent sign-in.)
+- **Reclaiming an email:** `POST /auth/reclaim-email` lets a row-less sign-up that has just proven an address (our OTP token) delete another row-less, enabled Firebase account holding it. A disabled holder, one with any row, or an address a live row holds gets 409.
+- **Orphaned rows:** `/auth/me` (and the other `auth.service` reads of the caller's row) re-attaches a live mother/nanny row to a new uid when the token proves its phone or verified email, exactly one row matches, and its old Firebase user is gone.
 
 ## The four plans
 

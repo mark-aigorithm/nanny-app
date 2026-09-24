@@ -337,7 +337,7 @@ each proves the screen is wired.
 | # | Flow | Driver |
 |---|---|---|
 | C1 | Sign in, sign out, forgot password, create password — moved to the live-Firebase auth suite | `UI:mobile` |
-| C2 | Role selection branching (mother vs nanny paths diverge) — **covered** by `c02-role-selection.yaml` | `UI:mobile` |
+| C2 | Role selection branching (mother vs nanny paths diverge) — **covered** by `c02-mother-registration.yaml` | `UI:mobile` |
 | C3 | Notification permission gate → push token registered on login, cleared on logout — **not covered**, see below | `UI:mobile` |
 | C4 | Nanny day: dashboard → requests → booking detail → care log authoring — **covered** by `c04-nanny-day.yaml` | `UI:mobile` |
 | C5 | Community: create post, like, comment, create event, RSVP, capacity limit — **covered** by `c05-community.yaml` | `UI:mobile` |
@@ -368,7 +368,7 @@ The known gap this flow used to pin — the reset screen asking for an address n
 is closed: registration now links the user's own email as the Firebase credential, and there is no
 phone-derived placeholder left in the app.
 
-### C2. Role selection branching · `UI:mobile` — **covered** by `c02-role-selection.yaml`
+### C2. Role selection branching · `UI:mobile` — **covered** by `c02-mother-registration.yaml`
 The screen's whole job is a fork, and the fork is visible on the very next screen: a mother signs
 up in four steps and a nanny in five, because a nanny has details, a working area and an ID to hand
 over. The flow asserts the button taking the name of the choice, the step count on each path, and —
@@ -389,13 +389,10 @@ happened from one that silently failed. Push itself *does* work in the lab — t
 real FCM tokens, which is how the second half below was confirmed — so this becomes drivable the day
 a read route exists for the console.
 
-**Removal is not implemented.** `DELETE /devices/push-token` exists on the backend
-(`device.routes.ts`) and **nothing in the mobile app ever calls it**. `useSignOut` clears the
-profile store and the React Query cache and signs out of Firebase; the token stays. Confirmed
-against the test database: the lab mother has 56 live `device_tokens` rows and zero removed,
-despite C1 signing her out on every run. On a shared device the next person keeps receiving the
-previous user's booking and message pushes. Spun off as its own task; the flow is worth writing
-once it is fixed, because the fix is what there would be to assert.
+**Removal is just as silent.** Every exit goes through `clearLocalSession` (`lib/session.ts`),
+which calls `DELETE /devices/push-token` (`unregisterPushToken`) with the old user's JWT before
+`auth().signOut()` — and shows nothing for it. It is pinned by `useAuth.signOut.test.tsx` instead.
+(It once did nothing at all: the lab mother had piled up 56 live `device_tokens` rows.)
 
 The permission gate is a third casualty of the photo picker: `NotificationPermissionScreen` is
 pushed from the end of registration and has no other entrance.

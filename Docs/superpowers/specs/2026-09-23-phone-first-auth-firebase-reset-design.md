@@ -1,7 +1,9 @@
 # Phone-first auth with Firebase-owned password reset
 
 **Date:** 2026-09-23
-**Status:** Implemented on `feat/phone-first-auth`, pending rollout
+**Status:** Implemented on `feat/phone-first-auth`, pending rollout. The screens and the orphan
+guard below are partly **superseded** by
+[Registration hardening](2026-09-24-registration-hardening-design.md) — marked where they are.
 
 ---
 
@@ -77,6 +79,9 @@ converges without anyone being locked out.
 `signInWithPhoneNumber` → OTP pane → signed in → `router.replace('/')`. Below
 it, *Sign in with email and password instead* → **`EmailSignInScreen`** (new,
 `/(auth)/sign-in-email`): email, password, "Forgot password?".
+**Superseded:** `SignInScreen` is now the app's landing screen; its email
+button reads "Sign in with email", and "Forgot password?" is on it too, so
+`ForgotPasswordScreen` is reached from either screen.
 
 **`ForgotPasswordScreen`** — reached from the email door, so it opens on a
 channel choice:
@@ -171,6 +176,16 @@ paths therefore check, in the screen that owns them:
 The root gate's orphan handling stays **sign-out only**: a wizard interrupted
 mid-flight has a Firebase account with no DB row yet, and deleting it on the
 next launch would destroy work in progress.
+
+> **Superseded:** both SMS paths delete only an account holding nothing but a
+> phone (`discardPhoneOnlyAccount`). A row-less account with more (a password,
+> Google, Apple) is an unfinished sign-up: SMS sign-in lets it through and SMS
+> reset returns `needs-setup` without touching the password. The root gate
+> no longer signs out at all — a 404 resumes the wizard ("Finish setting up
+> your account"), any other error shows "Couldn't connect" with Retry. And
+> `/auth/me` now re-attaches an orphaned row (its Firebase user deleted, as in
+> the 2026-09-21 incident) to the new uid when the token proves its phone or
+> verified email.
 
 **Session revocation.** Changing an account's Firebase email — a Firebase
 console edit, or `setVerifiedEmail`'s own swap for a legacy account — is a

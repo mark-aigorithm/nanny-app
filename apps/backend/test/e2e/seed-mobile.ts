@@ -42,6 +42,12 @@ type AccountSpec = {
   approvalStatus?: 'PENDING_ID' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 };
 
+/**
+ * A throwaway account a flow registers itself (`E2E_MOBILE_WIPE`). `phone` is
+ * absent only for an identity that never reaches a row (C12's Google account).
+ */
+type WipeSpec = { phone?: string; email: string };
+
 /** The console account the lab approves with; a superuser, so nothing is out of reach. */
 type AdminSpec = { email: string; password: string };
 
@@ -297,7 +303,7 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
  * `deleted_at`). The Firebase user is removed so phone sign-in mints a fresh
  * uid and the number/email are free there too.
  */
-async function wipeAccount(spec: { phone?: string; role?: string; email: string }): Promise<void> {
+async function wipeAccount(spec: WipeSpec): Promise<void> {
   const email = spec.email;
 
   // Look the DB row up by phone, not email: a run that crashed before the
@@ -435,7 +441,7 @@ async function main(): Promise<void> {
   // run cannot trip the seeding that follows.
   const rawWipe = process.env['E2E_MOBILE_WIPE'];
   if (rawWipe) {
-    const toWipe = JSON.parse(rawWipe) as { phone?: string; role?: string; email: string }[];
+    const toWipe = JSON.parse(rawWipe) as WipeSpec[];
     for (const spec of toWipe) await wipeAccount(spec);
   }
 

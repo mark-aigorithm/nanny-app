@@ -257,7 +257,7 @@ harness), only the Firebase console can remove it.
 | `accounts.mjs` | Who the lab signs in as — shared by the runner and the seeder |
 | `fixtures.mjs` | What it spends: promo codes, a package, Care Points, platform settings |
 | `run.mjs` | Prerequisite checks → seed → `maestro test`, per flow |
-| `live.mjs` | The live-Firebase auth suite: begin → register → flows → purge (below) |
+| `live.mjs` | The live-Firebase auth suite: begin → register → flows → purge (above) |
 | `flows/live/*.yaml` | Its five flows, plus `_register-managed.yaml`; never run by `run.mjs` |
 | `lab.mjs` | What both runners share: Maestro, Metro, device prep, one `maestro test` |
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
@@ -292,6 +292,14 @@ each account's real address. The doors themselves are covered live — see
 [Live-Firebase auth suite](#live-firebase-auth-suite). Where a flow types a phone
 number it types only the local digits — the country code is a separate, fixed
 control.
+
+**The root gate never signs out.** A signed-in account with no row resumes the
+wizard ("Finish setting up your account"), and any other `/auth/me` failure
+shows **"Couldn't connect"** with Retry. So a flow stuck on "Couldn't connect"
+after signing in is the backend (down, or a 5xx in its log), not the app — and a
+flow that leaves a row-less Firebase account behind (a crashed sign-up) does not
+fail the next one, because `_launch.yaml` clears the session and the seeder
+wipes the throwaway accounts.
 
 **Selectors.** Flows prefer visible text; `testID`s exist only where text is
 ambiguous or absent (icon buttons, repeated labels, list cards), following
