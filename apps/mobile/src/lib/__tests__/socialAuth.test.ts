@@ -29,6 +29,7 @@ jest.mock('@mobile/lib/firebase', () => {
 });
 
 import {
+  getAppleAuthorizationCode,
   getAppleCredential,
   getGoogleCredential,
   isAppleSignInAvailable,
@@ -145,6 +146,39 @@ describe('getAppleCredential', () => {
     mockAppleSignIn.mockRejectedValue({ code: 'ERR_REQUEST_CANCELED' });
 
     await expect(getAppleCredential()).resolves.toBeNull();
+  });
+});
+
+describe('getAppleAuthorizationCode', () => {
+  it('asks Apple for no scopes and hands back the authorization code', async () => {
+    mockAppleSignIn.mockResolvedValue({ authorizationCode: 'apple-auth-code', identityToken: 'apple-id-token' });
+
+    await expect(getAppleAuthorizationCode()).resolves.toBe('apple-auth-code');
+    expect(mockAppleSignIn).toHaveBeenCalledWith({ requestedScopes: [] });
+  });
+
+  it('returns null when the user cancels', async () => {
+    mockAppleSignIn.mockRejectedValue({ code: 'ERR_REQUEST_CANCELED' });
+
+    await expect(getAppleAuthorizationCode()).resolves.toBeNull();
+  });
+
+  it('fails with generic copy when Apple returns no code', async () => {
+    mockAppleSignIn.mockResolvedValue({ authorizationCode: null, identityToken: 'apple-id-token' });
+
+    await expect(getAppleAuthorizationCode()).rejects.toEqual({
+      field: 'form',
+      message: 'Apple sign-in failed. Please try again.',
+    });
+  });
+
+  it('fails with generic copy on any other error', async () => {
+    mockAppleSignIn.mockRejectedValue({ code: 'ERR_REQUEST_FAILED' });
+
+    await expect(getAppleAuthorizationCode()).rejects.toEqual({
+      field: 'form',
+      message: 'Apple sign-in failed. Please try again.',
+    });
   });
 });
 

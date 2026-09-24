@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import type {
   AvailabilityResponse,
@@ -12,10 +13,11 @@ import type {
 
 import { auth } from '@mobile/lib/firebase';
 import type { AuthCredential, FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
-import { api, apiStatusOf, isNotFound, unwrap } from '@mobile/lib/api';
+import { api, apiStatusOf, getApiErrorMessage, isNotFound, unwrap } from '@mobile/lib/api';
 import { COULD_NOT_CONNECT, mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { clearLocalSession } from '@mobile/lib/session';
+import { getAppleAuthorizationCode } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
@@ -276,6 +278,51 @@ export function useDiscardUnfinishedAccount() {
         // Best-effort — see above.
       }
       await clearLocalSession().catch(() => undefined);
+    },
+  });
+}
+
+/** Revoking the Apple ID failed, so the account is kept (Apple's rule). */
+const APPLE_REVOKE_FAILED_ERROR: MappedAuthError = {
+  field: 'form',
+  message: "We couldn't disconnect your Apple ID. Please try again.",
+};
+
+/**
+ * Deletes the signed-in account. On iOS an Apple sign-in is revoked first
+ * (Apple's rule for account deletion). Android has no way to revoke, so it
+ * deletes anyway and the server logs it. The server does the deleting and
+ * refuses (409) while a booking is active. Signing out afterwards can't fail
+ * the deletion: the account is already gone.
+ */
+export function useDeleteAccount() {
+  return useMutation<'deleted' | 'cancelled', MappedAuthError, void>({
+    mutationFn: async () => {
+      const user = auth().currentUser;
+      if (!user) throw SESSION_LOST_ERROR;
+      const appleLinked = user.providerData.some((p) => p.providerId === 'apple.com');
+      let appleRevoked = false;
+      if (appleLinked && Platform.OS === 'ios') {
+        const code = await getAppleAuthorizationCode();
+        if (!code) return 'cancelled';
+        try {
+          await auth().revokeToken(code);
+        } catch {
+          throw APPLE_REVOKE_FAILED_ERROR;
+        }
+        appleRevoked = true;
+      }
+      try {
+        await api.delete('/auth/me', { data: { confirm: 'delete-my-account', appleRevoked } });
+      } catch (err) {
+        const status = apiStatusOf(err);
+        throw {
+          field: 'form',
+          message: status === 409 || status === 403 ? getApiErrorMessage(err) : COULD_NOT_CONNECT,
+        } satisfies MappedAuthError;
+      }
+      await clearLocalSession().catch(() => undefined);
+      return 'deleted';
     },
   });
 }

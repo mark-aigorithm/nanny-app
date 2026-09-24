@@ -139,6 +139,24 @@ export async function getAppleCredential(): Promise<SocialCredentialResult | nul
   }
 }
 
+/**
+ * A fresh Apple authorization code for the signed-in Apple ID — what
+ * `auth().revokeToken` needs to disconnect the app from it before the account
+ * is deleted (Apple's rule). No scopes: only the code is wanted. `null` when
+ * the user closes the sheet.
+ */
+export async function getAppleAuthorizationCode(): Promise<string | null> {
+  try {
+    const result = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+    if (!result.authorizationCode) throw APPLE_FAILED;
+    return result.authorizationCode;
+  } catch (error) {
+    if (isMappedAuthError(error)) throw error;
+    if ((error as { code?: unknown })?.code === 'ERR_REQUEST_CANCELED') return null;
+    throw APPLE_FAILED;
+  }
+}
+
 export function getSocialCredential(provider: SocialProvider): Promise<SocialCredentialResult | null> {
   return provider === 'google' ? getGoogleCredential() : getAppleCredential();
 }
