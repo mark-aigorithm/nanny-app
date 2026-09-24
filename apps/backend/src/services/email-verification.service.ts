@@ -15,8 +15,8 @@ import { hashOtp, randomOtpCode, randomVerificationToken } from '@backend/lib/ot
  * Two phases, because the address is proven before the account that will carry
  * it necessarily exists: `verifyEmailOtp` swaps a correct code for a one-time
  * token, and `consumeVerificationToken` spends that token — from
- * `registerUser` (nanny sign-up) or `setVerifiedEmail` (the mother's
- * pre-booking gate). The token is what binds "this address was proven" to
+ * `registerUser` (a phone sign-up) or `setVerifiedEmail` (a legacy account's
+ * placeholder address). `reclaimEmail` checks one without spending it. The token is what binds "this address was proven" to
  * "this user row" across the unauthenticated boundary.
  *
  * Unlike email.service.ts, sends here are NOT best-effort. The user is staring
@@ -34,7 +34,7 @@ import { hashOtp, randomOtpCode, randomVerificationToken } from '@backend/lib/ot
 
 /** How long a code stays enterable. */
 const CODE_TTL_MINUTES = 10;
-/** How long the token issued on success stays spendable. Longer than the code: the nanny still has several wizard steps to finish. */
+/** How long the token issued on success stays spendable. Longer than the code: a sign-up still has several wizard steps to finish. */
 const TOKEN_TTL_MINUTES = 15;
 /** Maximum sends to one address per hour. */
 const MAX_SENDS_PER_HOUR = 5;
@@ -89,10 +89,10 @@ async function assertWithinSendLimits(email: string): Promise<void> {
 export interface SendEmailOtpInput {
   email: string;
   /**
-   * The signed-in caller, when there is one. A nanny verifies mid-registration
-   * with no account yet, so this is null for her; a mother at the booking gate
-   * is signed in, and identifying her is what lets "already taken" ignore her
-   * own row when she re-verifies an address she already holds.
+   * The signed-in caller, when there is one. A sign-up verifies mid-wizard
+   * with no `users` row yet, so no caller resolves for her; for a registered
+   * user, identifying her is what lets "already taken" ignore her own row
+   * when she re-verifies an address she already holds.
    */
   decoded?: DecodedIdToken | null;
 }
@@ -245,11 +245,11 @@ function isTokenSpendable(
  * `email`, without spending it.
  *
  * Exists so a caller that is about to perform an irreversible side effect
- * gated on "this token is real" — `setVerifiedEmail`'s Firebase email swap —
- * can refuse a garbage or foreign token *before* that side effect runs,
+ * gated on "this token is real" — `setVerifiedEmail`'s Firebase email swap,
+ * `reclaimEmail`'s deletion of the squatting account — can refuse a garbage or foreign token *before* that side effect runs,
  * rather than running it first and discovering the token was never valid
- * only when `consumeVerificationToken` is reached afterward. Spending still
- * happens there, unchanged; this only front-loads the same check.
+ * only when `consumeVerificationToken` is reached afterward. Spending, where
+ * there is one, still happens there; this only front-loads the same check.
  */
 export async function assertVerificationTokenIsValid(
   rawEmail: string,

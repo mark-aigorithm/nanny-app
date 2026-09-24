@@ -10,9 +10,6 @@ jest.mock('@backend/db/prisma', () => ({
 jest.mock('@backend/lib/firebase', () => ({
   firebaseAuth: { deleteUser: jest.fn(), getUser: jest.fn() },
 }));
-jest.mock('@backend/lib/config', () => ({
-  config: { firebase: { projectId: 'demo-nannyapp', storageBucket: 'demo-nannyapp.appspot.com' } },
-}));
 
 import { prisma } from '@backend/db/prisma';
 import { firebaseAuth } from '@backend/lib/firebase';

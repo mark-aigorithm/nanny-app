@@ -42,8 +42,9 @@ export type VerifyEmailOtpRequest = z.infer<typeof VerifyEmailOtpSchema>;
 
 /**
  * Result of a successful code check. The token is the proof carried across the
- * unauthenticated boundary: a nanny spends it on POST /auth/register, a mother
- * on POST /auth/email. Single-use and short-lived.
+ * unauthenticated boundary: a phone sign-up spends it on POST /auth/register,
+ * a legacy placeholder account on POST /auth/email, and POST /auth/reclaim-email
+ * checks it. Single-use and short-lived.
  */
 export const VerifyEmailOtpResponseSchema = z.object({
   verificationToken: z.string(),

@@ -11,9 +11,6 @@ jest.mock('@backend/db/prisma', () => ({
 jest.mock('@backend/lib/firebase', () => ({
   firebaseAuth: { deleteUser: jest.fn(), getUserByEmail: jest.fn() },
 }));
-jest.mock('@backend/lib/config', () => ({
-  config: { firebase: { projectId: 'demo-nannyapp', storageBucket: 'demo-nannyapp.appspot.com' } },
-}));
 jest.mock('@backend/services/email-verification.service', () => ({
   assertVerificationTokenIsValid: jest.fn().mockResolvedValue(undefined),
 }));

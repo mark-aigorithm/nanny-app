@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
 import { errors } from '@backend/lib/errors';
+import { firebaseErrorCode } from '@backend/lib/firebase-errors';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -26,11 +27,6 @@ const SESSION_ENDED_CODES = new Set([
   'auth/user-disabled',
   'auth/user-not-found',
 ]);
-
-function firebaseErrorCode(err: unknown): string | undefined {
-  const code = (err as { code?: unknown } | null)?.code;
-  return typeof code === 'string' ? code : undefined;
-}
 
 /**
  * Verifies the `Authorization: Bearer <jwt>` header against Firebase Admin

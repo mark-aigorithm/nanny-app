@@ -6,6 +6,7 @@ import type { DeleteMeRequest } from '@nanny-app/shared';
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
+import { isUserNotFound } from '@backend/lib/firebase-errors';
 
 /**
  * DELETE /auth/me — a mother or nanny deleting her own account (an App Store
@@ -33,10 +34,6 @@ const ACTIVE_BOOKING_STATUSES: BookingStatus[] = [
 
 const SELF_DELETABLE_ROLES: ReadonlySet<Role> = new Set([Role.MOTHER, Role.NANNY]);
 
-export function isUserNotFound(err: unknown): boolean {
-  return (err as { code?: unknown } | null)?.code === 'auth/user-not-found';
-}
-
 /** Deletes a Firebase user; one that is already gone counts as success. */
 async function deleteFirebaseUser(uid: string): Promise<void> {
   try {
@@ -60,6 +57,11 @@ export function scrambleIdentity(userId: number): { email: string; phone: null; 
   };
 }
 
+/**
+ * Deletes the caller's account, or discards her unfinished sign-up. Only a
+ * body carrying the explicit `confirm` deletes a real row; staff and anyone
+ * with an active booking are refused before anything is written.
+ */
 export async function deleteMe(decoded: DecodedIdToken, body: DeleteMeRequest): Promise<void> {
   // No deletedAt filter: a soft-deleted row must be found so it is refused.
   const row = await prisma.user.findFirst({

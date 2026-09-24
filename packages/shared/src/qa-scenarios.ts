@@ -118,10 +118,9 @@ const TIER_A: QaScenario[] = [
     title: 'Mother signs in with her phone number and an SMS code',
     preconditions: ['A registered mother account whose phone can receive SMS'],
     steps: [
-      'Open the app and land on the sign-in screen.',
-      'Enter the phone and tap "Send code".',
-      'Enter the SMS code and tap "Sign in".',
-      'You land on home.',
+      'Open the app — it lands on the sign-in screen',
+      'Pick the country code, type the phone number and tap "Send code"',
+      'Enter the SMS code and tap "Sign in"',
     ],
     expected: [
       'The app lands on the parent Home screen',

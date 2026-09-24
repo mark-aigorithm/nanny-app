@@ -2,6 +2,7 @@ import { prisma } from '@backend/db/prisma';
 import { config } from '@backend/lib/config';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
+import { isUserNotFound } from '@backend/lib/firebase-errors';
 
 /**
  * The live-Firebase E2E harness.
@@ -122,10 +123,6 @@ function assertCreatedDuringRun(creationTime: string, context: string): void {
  */
 export function __resetRunStateForTests(): void {
   runBeganAtMs = null;
-}
-
-function isUserNotFound(err: unknown): boolean {
-  return (err as { code?: string } | null)?.code === 'auth/user-not-found';
 }
 
 /**

@@ -21,6 +21,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
+import { firebaseErrorCode, isUserNotFound } from '@backend/lib/firebase-errors';
 import { uniqueClashFields } from '@backend/lib/prisma-errors';
 import { assertOwnStorageUrl } from '@backend/lib/storage-url';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
@@ -31,6 +32,13 @@ import {
 } from '@backend/services/email-verification.service';
 import { createAddress, getDefaultAddress } from './address.service';
 import { listChildren, saveChildren } from './child.service';
+
+// The copy the app shows for each refusal — one string per outcome, so the
+// several paths that reach the same outcome can't word it differently.
+const PROFILE_NOT_FOUND = 'User profile not found. Please complete registration.';
+const ACCOUNT_DELETED = 'This account has been deleted.';
+const EMAIL_TAKEN = 'An account with this email already exists.';
+const PHONE_TAKEN = 'An account with this phone number already exists.';
 
 /**
  * Project a Prisma role onto the API role enum. The shared schema exposes
@@ -98,8 +106,8 @@ function toUserResponse(user: User, location: FlatLocation): UserResponse {
  *
  * Deliberately no `deletedAt` filter: `users.email` and `users.phone` are
  * unique columns, so a soft-deleted row still holding the value would make the
- * insert fail, and this must report what the insert will do. (Rows freed for
- * re-registration have those columns mangled — see test/e2e/seed-mobile.ts.)
+ * insert fail, and this must report what the insert will do. (A self-deleted
+ * account frees them — see `scrambleIdentity` in account-deletion.service.ts.)
  */
 async function findIdentityOwners(email: string, phone: string): Promise<AvailabilityResponse> {
   const [emailOwner, phoneOwner] = await Promise.all([
@@ -192,7 +200,7 @@ async function resolveFailedRegistration(
 
   if (winner) {
     if (winner.deletedAt) {
-      throw errors.conflict('This account has been deleted.');
+      throw errors.conflict(ACCOUNT_DELETED);
     }
     return toUserResponse(winner, await flatLocationOf(winner.id));
   }
@@ -201,10 +209,10 @@ async function resolveFailedRegistration(
   if (fields) {
     const joined = fields.join(' ');
     if (joined.includes('phone')) {
-      throw errors.conflict('An account with this phone number already exists.');
+      throw errors.conflict(PHONE_TAKEN);
     }
     if (joined.includes('email')) {
-      throw errors.conflict('An account with this email already exists.');
+      throw errors.conflict(EMAIL_TAKEN);
     }
     throw errors.conflict('An account with these details already exists.');
   }
@@ -241,7 +249,7 @@ export async function registerUser(
   });
   if (existing) {
     if (existing.deletedAt) {
-      throw errors.conflict('This account has been deleted.');
+      throw errors.conflict(ACCOUNT_DELETED);
     }
     // A retry after a lost response, or after the best-effort update at the
     // end failed: the row says proven, so Firebase should too. Also require
@@ -286,10 +294,10 @@ export async function registerUser(
   // blow up.
   const { emailTaken, phoneTaken } = await findIdentityOwners(body.email, body.phone);
   if (emailTaken) {
-    throw errors.conflict('An account with this email already exists.');
+    throw errors.conflict(EMAIL_TAKEN);
   }
   if (phoneTaken) {
-    throw errors.conflict('An account with this phone number already exists.');
+    throw errors.conflict(PHONE_TAKEN);
   }
   const isNanny = body.role === Role.NANNY;
   let created: { user: User; home: AddressDto };
@@ -379,8 +387,9 @@ export async function registerUser(
     return resolveFailedRegistration(decoded, err);
   }
 
-  // Our own OTP proved the address inside the transaction above; keep
-  // Firebase's copy of that fact in step with ours.
+  // The row now says the address is proven (by our OTP, or by Firebase's own
+  // claim for a Google/Apple sign-up); keep Firebase's copy of that in step.
+  // For the latter this is a no-op write.
   await markFirebaseEmailVerified(decoded.uid);
 
   return toUserResponse(created.user, {
@@ -410,15 +419,15 @@ async function reattachOrphanedRow(decoded: DecodedIdToken): Promise<User | null
       OR: [...(phone ? [{ phone }] : []), ...(email ? [{ email }] : [])],
     },
   });
-  if (candidates.length !== 1) return null;
-  const row = candidates[0]!;
+  const [row] = candidates;
+  if (!row || candidates.length !== 1) return null;
   if (row.firebaseUid === decoded.uid) return row;
 
   try {
     await firebaseAuth.getUser(row.firebaseUid);
     return null; // the old account still exists — not an orphan
   } catch (err) {
-    if ((err as { code?: unknown })?.code !== 'auth/user-not-found') throw err;
+    if (!isUserNotFound(err)) throw err;
   }
 
   const moved = await prisma.user.updateMany({
@@ -435,42 +444,37 @@ async function reattachOrphanedRow(decoded: DecodedIdToken): Promise<User | null
 }
 
 /**
- * Returns the application User row for the currently-authenticated Firebase
- * user. Touches `lastLoginAt` so we have a recency signal for analytics.
- * Throws 404 if the Firebase user has no corresponding application row —
- * the mobile client uses this signal to redirect to /auth/register.
+ * The current user's row, or a 404 telling the client to finish registration.
+ * A row orphaned by a deleted Firebase user is re-attached on the way (see
+ * `reattachOrphanedRow`).
  */
-export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
-  let user = await prisma.user.findUnique({
-    where: { firebaseUid: decoded.uid },
-  });
-  // Only a uid with no row at all is re-attached: firebaseUid is unique, so a
-  // soft-deleted row still holds the uid (and a deleted account stays deleted).
-  if (!user) user = await reattachOrphanedRow(decoded);
-  if (!user || user.deletedAt) {
-    throw errors.notFound('User profile not found. Please complete registration.');
-  }
-
-  // Soft-update lastLoginAt without blocking the response. Errors here are
-  // non-fatal — log and continue.
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  });
-
-  return toUserResponse(updated, await flatLocationOf(updated.id));
-}
-
-/** The current user's row, or a 404 telling the client to finish registration. */
 async function requireUser(decoded: DecodedIdToken): Promise<User> {
   let user = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
   // Only a uid with no row at all is re-attached: firebaseUid is unique, so a
   // soft-deleted row still holds the uid (and a deleted account stays deleted).
   if (!user) user = await reattachOrphanedRow(decoded);
   if (!user || user.deletedAt) {
-    throw errors.notFound('User profile not found. Please complete registration.');
+    throw errors.notFound(PROFILE_NOT_FOUND);
   }
   return user;
+}
+
+/**
+ * Returns the application User row for the currently-authenticated Firebase
+ * user. Touches `lastLoginAt` so we have a recency signal for analytics.
+ * Throws 404 if the Firebase user has no corresponding application row —
+ * the mobile client uses this signal to resume the registration wizard.
+ */
+export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
+  const user = await requireUser(decoded);
+
+  // Awaited, so a failure here fails the request like any other DB error.
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+
+  return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
 /** The mother's saved children, used to prefill the booking sheet. */
@@ -506,7 +510,7 @@ export async function updateProfile(
     where: { firebaseUid: decoded.uid },
   });
   if (!user || user.deletedAt) {
-    throw errors.notFound('User profile not found. Please complete registration.');
+    throw errors.notFound(PROFILE_NOT_FOUND);
   }
 
   if (body.avatarUrl) assertOwnStorageUrl(body.avatarUrl, decoded.uid, 'avatars');
@@ -538,9 +542,8 @@ async function moveFirebaseEmail(uid: string, email: string): Promise<void> {
   try {
     await firebaseAuth.updateUser(uid, { email, emailVerified: true });
   } catch (err) {
-    const code = (err as { code?: string }).code;
-    if (code === 'auth/email-already-exists') {
-      throw errors.conflict('An account with this email already exists.');
+    if (firebaseErrorCode(err) === 'auth/email-already-exists') {
+      throw errors.conflict(EMAIL_TAKEN);
     }
     throw err;
   }
@@ -582,8 +585,9 @@ const SESSION_RECOVERY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
  *
  * Idempotent on the address: if she already holds it and it is already
  * verified, the row is returned unchanged rather than failing on a token that
- * a retried request already consumed. That matters because the client updates
- * Firebase before calling this, so a network blip here is retried.
+ * a retried request already consumed — a request whose response was lost has
+ * already moved the Firebase email and spent the token, so its retry lands
+ * here.
  *
  * The response's `customToken` is present exactly when this call may have
  * revoked the caller's own session: moving the account's Firebase email is a
@@ -630,7 +634,7 @@ export async function setVerifiedEmail(
     select: { id: true },
   });
   if (emailOwner) {
-    throw errors.conflict('An account with this email already exists.');
+    throw errors.conflict(EMAIL_TAKEN);
   }
 
   // Read-only, and BEFORE any mutation: a garbage or foreign token must be
@@ -679,7 +683,7 @@ export async function submitId(
     where: { firebaseUid: decoded.uid },
   });
   if (!user || user.deletedAt) {
-    throw errors.notFound('User profile not found. Please complete registration.');
+    throw errors.notFound(PROFILE_NOT_FOUND);
   }
 
   assertOwnStorageUrl(body.idDocumentFrontUrl, decoded.uid, 'nanny-ids');

@@ -3,7 +3,7 @@ import type { ReclaimEmailRequest } from '@nanny-app/shared';
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
-import { isUserNotFound } from '@backend/services/account-deletion.service';
+import { isUserNotFound } from '@backend/lib/firebase-errors';
 import { assertVerificationTokenIsValid } from '@backend/services/email-verification.service';
 
 /**

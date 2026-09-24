@@ -83,9 +83,9 @@ authRouter.post(
 
 /**
  * POST /auth/email/otp
- * Mails a one-time code to the address given. Auth is optional because a nanny
- * verifies her address mid-registration, before the Firebase account she will
- * sign in with exists. When a token *is* present the caller is identified, so
+ * Mails a one-time code to the address given. Auth is optional because a phone
+ * sign-up verifies its address mid-registration, before it has a `users` row
+ * (and, on some paths, before its Firebase account exists). When a token *is* present the caller is identified, so
  * "this address is already taken" can correctly ignore their own row — which
  * is what lets someone re-verify an address they already hold. Abuse control
  * is per-address, inside the service.
@@ -108,7 +108,8 @@ authRouter.post(
  * POST /auth/email/verify
  * Swaps a correct code for a short-lived, single-use token. Public for the
  * same reason as the send above. The token is then spent by POST /auth/register
- * (nanny) or POST /auth/email (mother) — nothing is marked verified here.
+ * (a phone sign-up) or POST /auth/email (a legacy account), and checked by
+ * POST /auth/reclaim-email — nothing is marked verified here.
  */
 authRouter.post(
   '/email/verify',
@@ -125,8 +126,10 @@ authRouter.post(
 /**
  * POST /auth/email
  * Attaches a proven address to the signed-in user, spending the token from
- * /auth/email/verify. This is how a mother — who registered with a
- * phone-derived placeholder — gets a real, verified email before booking.
+ * /auth/email/verify. This is how an account created with a phone-derived
+ * placeholder gets a real, verified email; the app gates it at launch.
+ * Plain `requireAuth`: its lost-response recovery relies on a revoked token
+ * still passing (see SESSION_RECOVERY_WINDOW_MS in auth.service.ts).
  */
 authRouter.post(
   '/email',
