@@ -12,6 +12,10 @@ jest.mock('@backend/lib/firebase', () => ({
   firebaseAuth: { updateUser: jest.fn() },
 }));
 
+jest.mock('@backend/lib/config', () => ({
+  config: { firebase: { projectId: 'demo-nannyapp', storageBucket: 'demo-nannyapp.appspot.com' } },
+}));
+
 // Registration spends an email verification token for both roles; the token
 // path itself is covered by auth-register-nanny-profile.test.ts.
 jest.mock('@backend/services/email-verification.service', () => ({
@@ -189,5 +193,12 @@ describe('submitId', () => {
       }),
     );
     expect(res.approvalStatus).toBe('PENDING_REVIEW');
+  });
+
+  it('refuses an ID image outside her own upload folder', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1', deletedAt: null });
+    await expect(
+      submitId(DECODED, { idDocumentType: 'PASSPORT', idDocumentFrontUrl: storageUrl('nanny-ids', 'someone-else', 'f.jpg') }),
+    ).rejects.toThrow('Upload the photo again.');
   });
 });

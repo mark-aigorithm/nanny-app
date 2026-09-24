@@ -120,6 +120,16 @@ describe('A20 — a mother edits her account', () => {
     expect(response.status).toBe(400);
     expect((await me(mother.token)).firstName).toBe('Test');
   });
+
+  it('refuses a photo that is not one of her own uploads', async () => {
+    const mother = await makeMother();
+    const response = await request(app)
+      .patch('/auth/me')
+      .set(...authHeader(mother.token))
+      .send({ avatarUrl: 'https://storage.example.test/somebody.jpg' });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Upload the photo again.');
+  });
 });
 
 describe('A20 — an operator edits a nanny', () => {

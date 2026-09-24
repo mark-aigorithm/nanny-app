@@ -17,6 +17,10 @@ jest.mock('@backend/lib/firebase', () => ({
   firebaseAuth: { updateUser: jest.fn() },
 }));
 
+jest.mock('@backend/lib/config', () => ({
+  config: { firebase: { projectId: 'demo-nannyapp', storageBucket: 'demo-nannyapp.appspot.com' } },
+}));
+
 jest.mock('@backend/services/certification.service', () => ({
   reconcileNannyCertifications: jest.fn().mockResolvedValue(undefined),
 }));

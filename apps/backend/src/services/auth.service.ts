@@ -20,6 +20,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
+import { assertOwnStorageUrl } from '@backend/lib/storage-url';
 import { reconcileNannySkills } from '@backend/services/admin-nanny.service';
 import { reconcileNannyCertifications } from '@backend/services/certification.service';
 import {
@@ -170,6 +171,11 @@ export async function registerUser(
   // Before the collision lookup, so an unverified number learns nothing about
   // who holds it.
   assertFirebaseVerifiedPhone(decoded, body.phone);
+
+  // Before anything is written: the photos must be this account's own uploads.
+  assertOwnStorageUrl(body.avatarUrl, decoded.uid, 'avatars');
+  if (body.idDocumentFrontUrl) assertOwnStorageUrl(body.idDocumentFrontUrl, decoded.uid, 'nanny-ids');
+  if (body.idDocumentBackUrl) assertOwnStorageUrl(body.idDocumentBackUrl, decoded.uid, 'nanny-ids');
 
   // Collision check (different Firebase UID, same email or phone) — the same
   // lookup step 1 of the wizard ran, so this only fires if the value was taken
@@ -367,6 +373,8 @@ export async function updateProfile(
     throw errors.notFound('User profile not found. Please complete registration.');
   }
 
+  if (body.avatarUrl) assertOwnStorageUrl(body.avatarUrl, decoded.uid, 'avatars');
+
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -534,6 +542,9 @@ export async function submitId(
   if (!user || user.deletedAt) {
     throw errors.notFound('User profile not found. Please complete registration.');
   }
+
+  assertOwnStorageUrl(body.idDocumentFrontUrl, decoded.uid, 'nanny-ids');
+  if (body.idDocumentBackUrl) assertOwnStorageUrl(body.idDocumentBackUrl, decoded.uid, 'nanny-ids');
 
   const updated = await prisma.user.update({
     where: { id: user.id },

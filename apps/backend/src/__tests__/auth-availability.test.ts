@@ -10,6 +10,19 @@ jest.mock('@backend/db/prisma', () => ({
   },
 }));
 
+jest.mock('@backend/lib/config', () => ({
+  config: { firebase: { projectId: 'demo-nannyapp', storageBucket: 'demo-nannyapp.appspot.com' } },
+}));
+
+// Without this, the real lib/firebase.ts (imported transitively via
+// auth.service) would run its module-level admin.initializeApp() against the
+// mocked config above, which has no clientEmail/privateKey — the same
+// hermeticity gap the other four config-mocked test files close by already
+// mocking this module.
+jest.mock('@backend/lib/firebase', () => ({
+  firebaseAuth: { updateUser: jest.fn() },
+}));
+
 jest.mock('@backend/services/certification.service', () => ({
   reconcileNannyCertifications: jest.fn().mockResolvedValue(undefined),
 }));
@@ -56,7 +69,9 @@ const MOTHER_BODY: RegisterRequest = {
   latitude: 30.05,
   longitude: 31.23,
   emailVerificationToken: 'b'.repeat(64),
-  avatarUrl: storageUrl('avatars', 'fb-1'),
+  // Every DECODED token in this file carries uid 'fb-new' (a fresh account,
+  // pre-collision-check) — the upload must be that account's own.
+  avatarUrl: storageUrl('avatars', 'fb-new'),
 };
 
 /**

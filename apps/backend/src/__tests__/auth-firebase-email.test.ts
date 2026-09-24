@@ -12,6 +12,10 @@ jest.mock('@backend/lib/firebase', () => ({
   firebaseAuth: { updateUser: jest.fn(), createCustomToken: jest.fn() },
 }));
 
+jest.mock('@backend/lib/config', () => ({
+  config: { firebase: { projectId: 'demo-nannyapp', storageBucket: 'demo-nannyapp.appspot.com' } },
+}));
+
 jest.mock('@backend/services/email-verification.service', () => ({
   consumeVerificationToken: jest.fn().mockResolvedValue(undefined),
   assertVerificationTokenIsValid: jest.fn().mockResolvedValue(undefined),
