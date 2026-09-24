@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import type { Role } from '@mobile/types';
 import { Button, Divider } from '@mobile/components/ui';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
-import { useLeaveSocialSignUp } from '@mobile/hooks/useSocialSignIn';
+import { useDiscardUnfinishedAccount } from '@mobile/hooks/useAuth';
 import { colors } from '@mobile/theme';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -27,7 +27,7 @@ export default function RoleSelectionScreen() {
   const authProvider = useRegistrationDraftStore((s) => s.authProvider);
   const socialEmail = useRegistrationDraftStore((s) => s.email);
   const isSocial = authProvider !== 'phone';
-  const leaveSocialSignUp = useLeaveSocialSignUp();
+  const discardUnfinishedAccount = useDiscardUnfinishedAccount();
 
   function handleContinue() {
     if (!selectedRole) return;
@@ -113,8 +113,8 @@ export default function RoleSelectionScreen() {
           // someone who met "new person" here but meant another method.
           <Pressable
             style={styles.differentMethodRow}
-            onPress={() => leaveSocialSignUp.mutate()}
-            disabled={leaveSocialSignUp.isPending}
+            onPress={() => discardUnfinishedAccount.mutate()}
+            disabled={discardUnfinishedAccount.isPending}
             hitSlop={8}
           >
             <Text style={styles.differentMethodLink}>Use a different sign-up method</Text>

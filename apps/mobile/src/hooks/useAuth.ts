@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import type {
   AvailabilityResponse,
@@ -15,9 +15,8 @@ import { auth } from '@mobile/lib/firebase';
 import type { FirebaseUser, PhoneConfirmation, UserCredential } from '@mobile/lib/firebase';
 import { api, getApiErrorMessage, unwrap } from '@mobile/lib/api';
 import { mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
-import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
-import { signOutOfGoogle } from '@mobile/lib/socialAuth';
+import { clearLocalSession } from '@mobile/lib/session';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -197,36 +196,37 @@ export function useConfirmPhoneAndResetPassword() {
   });
 }
 
+/**
+ * Signs out. Everything local goes through `clearLocalSession`, so this and
+ * every other exit leave the same things behind.
+ */
 export function useSignOut() {
-  const queryClient = useQueryClient();
-  const clearProfile = useUserProfileStore((s) => s.clear);
   return useMutation<void, MappedAuthError, void>({
     mutationFn: async () => {
-      // Release this device's push token first — the axios interceptor signs
-      // the DELETE with the current user's JWT, which is gone after signOut().
-      // It never throws, so it cannot block or fail the sign-out itself.
-      await unregisterPushToken();
-      // A parked Google/Apple credential must never link onto whoever signs
-      // in next, and an unfinished social sign-up must never follow them in —
-      // both cleared unconditionally, before the sign-out call, so it still
-      // holds even if that call throws.
-      usePendingLinkStore.getState().clear();
-      useRegistrationDraftStore.getState().reset();
       try {
-        await auth().signOut();
+        await clearLocalSession();
       } catch (error) {
         throw mapFirebaseAuthError(error);
       }
-      // Forgetting the Google account on the device makes the next tap show
-      // the account picker again.
-      await signOutOfGoogle();
     },
-    onSuccess: () => {
-      // Wipe any cached server data (profile, /me, etc.) so the next user
-      // doesn't see the previous user's data. The auth listener handles the
-      // Firebase user clear automatically.
-      clearProfile();
-      queryClient.clear();
+  });
+}
+
+/**
+ * "Use a different sign-up method" / leaving an unfinished sign-up. Asks the
+ * server to delete the account (it refuses unless no row points at it), then
+ * signs out locally whatever happened — leaving must never fail, and a
+ * leftover the server kept is resumed next time instead.
+ */
+export function useDiscardUnfinishedAccount() {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      try {
+        await api.delete('/auth/me');
+      } catch {
+        // Best-effort — see above.
+      }
+      await clearLocalSession().catch(() => undefined);
     },
   });
 }

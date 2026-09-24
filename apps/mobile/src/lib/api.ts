@@ -45,6 +45,34 @@ function isTechnicalErrorMessage(message: string): boolean {
   );
 }
 
+/**
+ * What `unwrap`/`unwrapPaginated` throw: the user-facing message plus the HTTP
+ * status it came with, so callers branch on the status instead of the copy.
+ * `status` is null when no response arrived (offline, timeout) and when a 2xx
+ * response carried an error envelope.
+ */
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null,
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
+/** The HTTP status behind an API failure, whether raw axios or unwrapped. */
+export function apiStatusOf(err: unknown): number | null {
+  if (err instanceof ApiRequestError) return err.status;
+  if (axios.isAxiosError(err)) return err.response?.status ?? null;
+  return null;
+}
+
+/** True for a 404 — e.g. `/auth/me` for an account with no row. */
+export function isNotFound(err: unknown): boolean {
+  return apiStatusOf(err) === 404;
+}
+
 type ApiErrorOptions = {
   fallback?: string;
 };
@@ -107,19 +135,22 @@ export function getApiErrorMessage(
 
 /**
  * Unwraps the backend's `{ data, error }` envelope. On success, returns
- * `data`; on error, throws an `Error` with the server's message so React
- * Query / try-catch sees it as a normal failure.
+ * `data`; on error, throws an `ApiRequestError` with the server's message and
+ * the HTTP status, so React Query / try-catch sees it as a normal failure.
  */
 export async function unwrap<T>(promise: Promise<{ data: { data: T | null; error: string | null } }>): Promise<T> {
   try {
     const res = await promise;
     if (res.data.error || res.data.data === null) {
       const msg = res.data.error ?? 'Something went wrong. Please try again.';
-      throw new Error(isTechnicalErrorMessage(msg) ? 'Something went wrong. Please try again.' : msg);
+      throw new ApiRequestError(
+        isTechnicalErrorMessage(msg) ? 'Something went wrong. Please try again.' : msg,
+        null,
+      );
     }
     return res.data.data;
   } catch (err) {
-    throw new Error(getApiErrorMessage(err));
+    throw new ApiRequestError(getApiErrorMessage(err), apiStatusOf(err));
   }
 }
 
@@ -138,11 +169,11 @@ export async function unwrapPaginated<T, M>(
   try {
     const res = await promise;
     if ('error' in res.data && res.data.error) {
-      throw new Error(res.data.error);
+      throw new ApiRequestError(res.data.error, null);
     }
     const body = res.data as PaginatedResponse<T, M>;
     return { items: body.data, meta: body.meta };
   } catch (err) {
-    throw new Error(getApiErrorMessage(err));
+    throw new ApiRequestError(getApiErrorMessage(err), apiStatusOf(err));
   }
 }

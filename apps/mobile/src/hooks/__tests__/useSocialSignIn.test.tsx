@@ -34,7 +34,7 @@ jest.mock('@mobile/lib/api', () => ({
   getApiErrorMessage: (_e: unknown, fallback: string) => fallback,
 }));
 
-import { useLeaveSocialSignUp, useSocialSignIn } from '@mobile/hooks/useSocialSignIn';
+import { useSocialSignIn } from '@mobile/hooks/useSocialSignIn';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 
@@ -282,6 +282,31 @@ it('refuses a new account whose email Firebase has not verified, up front, and s
   await waitFor(() => expect(result.current.isError).toBe(true));
 });
 
+it('forgets the Google account on the device when it refuses a sign-in, so the next tap offers the picker', async () => {
+  mockCurrentUser = newUser({ emailVerified: false });
+  mockGet.mockRejectedValue(NOT_FOUND);
+  const { result } = renderSocialSignIn();
+
+  await expect(result.current.mutateAsync({ provider: 'google' })).rejects.toMatchObject({ field: 'form' });
+
+  expect(mockSignOutOfGoogle).toHaveBeenCalledTimes(1);
+  expect(mockSignOutOfGoogle.mock.invocationCallOrder[0]).toBeGreaterThan(
+    mockSignOut.mock.invocationCallOrder[0] as number,
+  );
+  await waitFor(() => expect(result.current.isError).toBe(true));
+});
+
+it('forgets the Google account even when the Firebase sign-out fails', async () => {
+  mockGet.mockRejectedValue(SERVER_ERROR);
+  mockSignOut.mockRejectedValue(new Error('native'));
+  const { result } = renderSocialSignIn();
+
+  await expect(result.current.mutateAsync({ provider: 'google' })).rejects.toMatchObject({ field: 'form' });
+
+  expect(mockSignOutOfGoogle).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(result.current.isError).toBe(true));
+});
+
 it('does not hold an existing account to the verified-email rule', async () => {
   // Only a sign-up needs the proof; an account that already has a row is in.
   mockCurrentUser = newUser({ emailVerified: false });
@@ -290,42 +315,4 @@ it('does not hold an existing account to the verified-email rule', async () => {
   await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('signed-in');
   expect(mockSignOut).not.toHaveBeenCalled();
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
-});
-
-describe('useLeaveSocialSignUp', () => {
-  function renderLeave() {
-    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-    const Wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-    const rendered = renderHook(() => useLeaveSocialSignUp(), { wrapper: Wrapper });
-    currentUnmount = rendered.unmount;
-    return rendered;
-  }
-
-  it('signs the unfinished social account out, never deletes it, and drops the social draft', async () => {
-    seedStaleSocialDraft();
-    const { result } = renderLeave();
-
-    await result.current.mutateAsync();
-
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(mockCurrentUser?.delete).not.toHaveBeenCalled();
-    expect(mockSignOutOfGoogle).toHaveBeenCalledTimes(1);
-    expectDraftCleared();
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-  });
-
-  it('drops the draft and any parked link even when the sign-out fails', async () => {
-    seedStaleSocialDraft();
-    usePendingLinkStore.getState().set({ provider: 'google', credential: CREDENTIAL as never, phoneHint: null });
-    mockSignOut.mockRejectedValue(new Error('native'));
-    const { result } = renderLeave();
-
-    await result.current.mutateAsync();
-
-    expectDraftCleared();
-    expect(usePendingLinkStore.getState().pending).toBeNull();
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-  });
 });

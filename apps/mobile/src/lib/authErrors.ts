@@ -1,3 +1,6 @@
+/** Shown when the backend could not be reached or answered with neither 200 nor 404. */
+export const COULD_NOT_CONNECT = "Couldn't connect. Check your connection and try again.";
+
 export type AuthErrorField = 'email' | 'password' | 'phone' | 'form';
 
 export type MappedAuthError = {

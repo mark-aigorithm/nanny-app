@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SubmitIdRequest, UpdateProfileRequest, UserResponse } from '@nanny-app/shared';
 
-import { api, unwrap } from '@mobile/lib/api';
+import { api, isNotFound, unwrap } from '@mobile/lib/api';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
@@ -24,10 +24,7 @@ export function useMe() {
     enabled: !!firebaseUser,
     queryFn: async () => unwrap(api.get('/auth/me')),
     // 404 from /auth/me is a real signal (not registered) — don't retry
-    retry: (failureCount, err) => {
-      if (err instanceof Error && err.message.toLowerCase().includes('not found')) return false;
-      return failureCount < 2;
-    },
+    retry: (failureCount, err) => !isNotFound(err) && failureCount < 2,
   });
 
   // If a *different* Firebase account signs in (logout → login as another

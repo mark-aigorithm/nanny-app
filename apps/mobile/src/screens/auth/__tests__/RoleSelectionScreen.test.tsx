@@ -9,6 +9,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
+import { api } from '@mobile/lib/api';
 import { auth } from '@mobile/lib/firebase';
 import RoleSelectionScreen from '@mobile/screens/auth/RoleSelectionScreen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -121,7 +122,7 @@ describe('RoleSelectionScreen', () => {
     expect(queryByText('Use a different sign-up method')).toBeNull();
   });
 
-  it('signs the Google account out and goes back to the phone sign-up, social buttons and all', async () => {
+  it('discards the unfinished Google account and goes back to the phone sign-up, social buttons and all', async () => {
     useRegistrationDraftStore.setState({
       authProvider: 'google',
       socialUid: 'uid-social',
@@ -135,6 +136,8 @@ describe('RoleSelectionScreen', () => {
     expect(await findByText('Continue with Google')).toBeTruthy();
     expect(getByText('Tell us who you are so we can set up the right experience for you.')).toBeTruthy();
     expect(queryByText('Use a different sign-up method')).toBeNull();
+    // The server deletes it only if no row points at it; either way she is signed out.
+    expect(api.delete).toHaveBeenCalledWith('/auth/me');
     expect(auth().signOut).toHaveBeenCalledTimes(1);
     expect(useRegistrationDraftStore.getState()).toMatchObject({
       authProvider: 'phone',

@@ -33,7 +33,8 @@ function unverifiedEmailError(provider: SocialProvider): MappedAuthError {
 
 /**
  * Leaves the Google/Apple account this attempt signed in to, so a refused
- * sign-in never strands her signed in on an auth screen. Best-effort: the
+ * sign-in never strands her signed in on an auth screen, and forgets it on the
+ * device so the next tap offers the account picker again. Best-effort: the
  * refusal must never fail on this. Signing out also ends any social draft
  * (its account is gone), so the draft goes too.
  */
@@ -44,6 +45,7 @@ async function signOutAndForget(): Promise<void> {
   } catch {
     // Best-effort — see above.
   }
+  await signOutOfGoogle();
 }
 
 /**
@@ -120,33 +122,6 @@ export function useSocialSignIn() {
         email: email.trim().toLowerCase(),
       });
       return 'new-user';
-    },
-  });
-}
-
-/**
- * "Use a different sign-up method" on "Create your account" in its signed-in
- * mode. Signs out of the Google/Apple account the social sign-up created and
- * drops its draft, which puts the screen back in its phone mode.
- *
- * Never deletes: only collision B, which proves the account is this sign-up's
- * own, may do that. The account is left row-less, as an abandoned wizard
- * leaves it; continuing with the same Google/Apple identity later reuses it.
- */
-export function useLeaveSocialSignUp() {
-  return useMutation<void, Error, void>({
-    mutationFn: async () => {
-      // Nothing may be parked across a sign-out.
-      usePendingLinkStore.getState().clear();
-      try {
-        await auth().signOut();
-      } catch {
-        // Best-effort: leaving must not fail on this. The phone wizard signs
-        // in with the phone at its last step, replacing this session anyway.
-      }
-      // So picking Google again offers the account picker, not the same account.
-      await signOutOfGoogle();
-      useRegistrationDraftStore.getState().reset();
     },
   });
 }
