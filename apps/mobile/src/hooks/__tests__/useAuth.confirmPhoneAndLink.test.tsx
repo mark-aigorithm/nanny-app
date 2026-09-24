@@ -34,6 +34,7 @@ jest.mock('@mobile/lib/firebase', () => {
     get currentUser() {
       return mockCurrentUser;
     },
+    signOut: mockSignOut,
   });
   Object.defineProperty(authFn, 'EmailAuthProvider', {
     enumerable: true,
@@ -44,10 +45,18 @@ jest.mock('@mobile/lib/firebase', () => {
   return { auth: authFn };
 });
 
+const mockSignOut = jest.fn().mockResolvedValue(undefined);
 const mockApiPost = jest.fn();
+const mockApiGet = jest.fn();
 jest.mock('@mobile/lib/api', () => {
   const actual = jest.requireActual('@mobile/lib/api');
-  return { ...actual, api: { post: (...args: unknown[]) => mockApiPost(...args) } };
+  return {
+    ...actual,
+    api: {
+      post: (...args: unknown[]) => mockApiPost(...args),
+      get: (...args: unknown[]) => mockApiGet(...args),
+    },
+  };
 });
 
 import { ApiRequestError } from '@mobile/lib/api';
@@ -75,6 +84,9 @@ const BASE = { confirmation: CONFIRMATION, code: '111111', phone: PHONE, emailVe
 beforeEach(() => {
   jest.clearAllMocks();
   mockConfirm.mockResolvedValue(undefined);
+  // No row for the uid — the abandoned-wizard case the unlink/relink is for.
+  mockApiGet.mockRejectedValue(new ApiRequestError('User profile not found.', 404));
+  mockSignOut.mockResolvedValue(undefined);
   mockCurrentUser = {
     email: 'old@example.com',
     phoneNumber: PHONE,
@@ -362,5 +374,39 @@ describe('an email held by another unfinished account', () => {
     await expect(
       result.current.mutateAsync({ ...BASE, email: 'mona@example.com', password: 'Password1', emailVerificationToken: 'tok' }),
     ).rejects.toEqual({ field: 'form', message: 'Network error. Check your connection and try again.' });
+  });
+});
+
+describe('a password already on the uid', () => {
+  beforeEach(() => {
+    mockLinkWithCredential.mockImplementationOnce(async () => {
+      throw { code: 'auth/provider-already-linked' };
+    });
+  });
+
+  it('is never replaced when the uid is a registered account', async () => {
+    mockApiGet.mockResolvedValueOnce({ data: { data: {}, error: null } });
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'new@example.com', password: 'NewPassword1' }),
+    ).rejects.toEqual({
+      field: 'form',
+      message: 'This number already has an account. Sign in instead.',
+      code: 'account-exists',
+    });
+    expect(mockUnlink).not.toHaveBeenCalled();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("says it couldn't connect, and touches nothing, when the row check fails", async () => {
+    mockApiGet.mockRejectedValueOnce(new ApiRequestError('boom', 500));
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, email: 'new@example.com', password: 'NewPassword1' }),
+    ).rejects.toEqual({ field: 'form', message: "Couldn't connect. Check your connection and try again." });
+    expect(mockUnlink).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 });

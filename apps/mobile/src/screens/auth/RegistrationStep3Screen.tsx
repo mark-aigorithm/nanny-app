@@ -299,7 +299,9 @@ export default function RegistrationStep3Screen() {
       }
     } catch (error) {
       const err = error as MappedAuthError;
-      if (err.code === 'session-mismatch') {
+      // Both end this attempt: the session is gone, or the number is an
+      // existing account's (signed out already). "Start again" goes to sign-in.
+      if (err.code === 'session-mismatch' || err.code === 'account-exists') {
         setSessionEnded(true);
         setFormError(err.message);
         return;

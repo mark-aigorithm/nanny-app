@@ -387,3 +387,19 @@ it('refuses a missing photo before the phone step, so the SMS code is not spent'
   expect(mockConfirmPhone).not.toHaveBeenCalled();
   expect(mockRegister).not.toHaveBeenCalled();
 });
+
+it('ends the attempt with "Start again" when the number turns out to be an existing account', async () => {
+  seedMotherDraft({ authProvider: 'phone', emailVerificationToken: 'tok', password: 'Passw0rd!' });
+  mockConfirmPhone.mockRejectedValueOnce({
+    field: 'form',
+    message: 'This number already has an account. Sign in instead.',
+    code: 'account-exists',
+  });
+  renderScreen();
+
+  completeSetup();
+
+  expect(await screen.findByText('This number already has an account. Sign in instead.')).toBeTruthy();
+  expect(screen.getByText('Start again')).toBeTruthy();
+  expect(mockRegister).not.toHaveBeenCalled();
+});

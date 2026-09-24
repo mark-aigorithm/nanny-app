@@ -35,6 +35,7 @@ import { api, apiStatusOf, getApiErrorMessage, isNotFound, unwrap } from '@mobil
 import {
   authErrorCode,
   COULD_NOT_CONNECT,
+  isMappedAuthError,
   mapFirebaseAuthError,
   type MappedAuthError,
 } from '@mobile/lib/authErrors';
@@ -448,8 +449,23 @@ export function useDeleteAccount() {
 // ── Registration: phone wizard ───────────────────────────────────────────────
 
 /**
+ * The phone wizard confirmed into a uid that already has a registered row —
+ * the number is an existing account's, which step 1's availability check
+ * normally stops. Its password must never be swapped for the wizard's, so she
+ * is signed out and sent to sign in. `account-exists` gives her Step 3's
+ * "Start again".
+ */
+const PHONE_HAS_ACCOUNT_ERROR: MappedAuthError = {
+  field: 'form',
+  message: 'This number already has an account. Sign in instead.',
+  code: 'account-exists',
+};
+
+/**
  * Links the email/password credential onto `user`. A password provider
- * already on this uid is swapped for the new one.
+ * already on this uid is swapped for the new one — but only while the uid has
+ * no row (a wizard abandoned after this step); a registered account's password
+ * is never replaced (`PHONE_HAS_ACCOUNT_ERROR`).
  *
  * A wizard abandoned after this step and restarted with a different email or
  * password confirms into the same uid, where a plain link is refused with
@@ -459,15 +475,35 @@ export function useDeleteAccount() {
  * email-enumeration protection — so unlink the stale credential and link the
  * new one in its place.
  *
- * Rejects with the raw Firebase error; the caller maps it.
+ * Rejects with the raw Firebase error, which the caller maps, or with a
+ * ready `MappedAuthError` from the row check.
  */
 async function linkEmailPassword(user: FirebaseUser, credential: AuthCredential): Promise<void> {
   try {
     await user.linkWithCredential(credential);
   } catch (error) {
     if (authErrorCode(error) !== 'auth/provider-already-linked') throw error;
+    if (await hasRegisteredRow()) {
+      await auth().signOut().catch(() => undefined);
+      throw PHONE_HAS_ACCOUNT_ERROR;
+    }
     await user.unlink('password');
     await user.linkWithCredential(credential);
+  }
+}
+
+/**
+ * Whether `/auth/me` finds a row for the signed-in account. Unlike
+ * `checkAccount` it signs nobody out and keeps the draft on a failed request —
+ * the wizard just shows "Couldn't connect" and can be retried.
+ */
+async function hasRegisteredRow(): Promise<boolean> {
+  try {
+    await api.get('/auth/me');
+    return true;
+  } catch (error) {
+    if (isNotFound(error)) return false;
+    throw COULD_NOT_CONNECT_ERROR;
   }
 }
 
@@ -538,6 +574,7 @@ export function useConfirmPhoneAndLink() {
         try {
           await linkEmailPassword(user, credential);
         } catch (error) {
+          if (isMappedAuthError(error)) throw error;
           const errorCode = authErrorCode(error);
           if (!errorCode || !EMAIL_IN_USE_CODES.has(errorCode)) throw mapFirebaseAuthError(error);
           if (!emailVerificationToken) throw EMAIL_TAKEN_ERROR;
@@ -549,7 +586,7 @@ export function useConfirmPhoneAndLink() {
           try {
             await linkEmailPassword(user, credential);
           } catch (relinkError) {
-            throw mapFirebaseAuthError(relinkError);
+            throw isMappedAuthError(relinkError) ? relinkError : mapFirebaseAuthError(relinkError);
           }
         }
       }

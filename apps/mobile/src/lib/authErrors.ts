@@ -9,7 +9,7 @@ export type MappedAuthError = {
   /**
    * A machine-readable code, set only where a caller branches on it — a
    * Firebase code (e.g. `auth/credential-already-in-use` starting the
-   * collision flow) or one of our own (`session-mismatch`). The copy in
+   * collision flow) or one of our own (`session-mismatch`, `account-exists`). The copy in
    * `message` stays the thing screens show.
    */
   code?: string;
