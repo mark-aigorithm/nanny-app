@@ -17,6 +17,17 @@ import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/role-selection-screen.styles';
 
+/**
+ * The sign-up screen, pushed from sign-in's "Sign up": pick mother or nanny,
+ * then start the phone wizard or continue with Google/Apple for that role.
+ *
+ * It also opens already signed in, account-backed: after "Continue with
+ * Google/Apple" on sign-in found no account, or from the root gate resuming a
+ * sign-up that stopped part-way (resume mode, which retitles the screen). The
+ * draft already holds what that account supplied, so the social buttons give
+ * way to "Use a different sign-up method", which discards the row-less
+ * account.
+ */
 export default function RoleSelectionScreen() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const router = useRouter();
@@ -37,14 +48,10 @@ export default function RoleSelectionScreen() {
 
   function handleContinue() {
     if (!selectedRole) return;
-    if (isAccountBacked) {
-      // Keep what the signed-in account supplied; only the role is new.
-      patchDraft({ role: selectedRole });
-    } else {
-      // Start a fresh draft for this registration attempt and seed the role.
-      resetDraft();
-      patchDraft({ role: selectedRole });
-    }
+    // An account-backed draft keeps what the signed-in account supplied and
+    // only gains the role; otherwise this attempt starts from a fresh draft.
+    if (!isAccountBacked) resetDraft();
+    patchDraft({ role: selectedRole });
     router.push({ pathname: '/(auth)/register-step-1', params: { role: selectedRole } });
   }
 
@@ -88,7 +95,6 @@ export default function RoleSelectionScreen() {
             label="I'm a mother"
             description="I want to find trusted nannies for my children"
             icon="heart-outline"
-            role="parent"
             selected={selectedRole === 'parent'}
             onPress={() => setSelectedRole('parent')}
           />
@@ -96,7 +102,6 @@ export default function RoleSelectionScreen() {
             label="I'm a nanny"
             description="I want to offer childcare and earn on my schedule"
             icon="briefcase-outline"
-            role="nanny"
             selected={selectedRole === 'nanny'}
             onPress={() => setSelectedRole('nanny')}
           />
@@ -164,7 +169,6 @@ type RoleCardProps = {
   label: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
-  role: Role;
   selected: boolean;
   onPress: () => void;
 };

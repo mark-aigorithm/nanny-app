@@ -54,6 +54,21 @@ type PhoneChallenge =
   | { kind: 'sign-in'; confirmation: PhoneConfirmation }
   | { kind: 'link'; link: PhoneLinkChallenge };
 
+/**
+ * The last step of every wizard: verify the phone, accept the terms, then put
+ * the phone on the Firebase account, upload the photos and create the row.
+ * Complete setup is a safe retry after any failure.
+ *
+ * Non-obvious states:
+ * - A resumed account that already holds this number sends no SMS and shows
+ *   "Your number is already verified." instead of the code boxes.
+ * - Android can verify the number instantly (no code to type); that
+ *   verification can be spent only once, so a failed link asks for an SMS.
+ * - Collision B (a Google/Apple sign-up whose phone, or the server's 409,
+ *   shows an existing account) drops the new account and goes to sign-in.
+ * - Session mismatch: the signed-in account is no longer the one this
+ *   sign-up is finishing, so the only way on is "Start again".
+ */
 export default function RegistrationStep3Screen() {
   const router = useRouter();
 
@@ -162,6 +177,43 @@ export default function RegistrationStep3Screen() {
     router.back();
   }
 
+  // Collision B: the email or phone belongs to an account that already
+  // exists. Drop the account this sign-up created, keep its credential, and
+  // send her to sign in with the number she typed.
+  async function handOffToSignIn() {
+    setIsHandingOff(true);
+    await abandonSocialSignUpForLink(phoneE164);
+    router.dismissTo('/(auth)/sign-in');
+  }
+
+  /**
+   * Upload the step-1 photo and, for a nanny, her ID images. Resolves null if
+   * any upload fails.
+   */
+  async function uploadPhotos(
+    photoUri: string,
+    isNannyAccount: boolean,
+    needsBack: boolean,
+  ): Promise<{ avatarUrl: string; idDocumentFrontUrl?: string; idDocumentBackUrl?: string } | null> {
+    setIsUploadingPhotos(true);
+    try {
+      let idDocumentFrontUrl: string | undefined;
+      let idDocumentBackUrl: string | undefined;
+      if (isNannyAccount && draft.idFrontUri) {
+        idDocumentFrontUrl = await uploadImageToFirebase(draft.idFrontUri, 'nanny-ids');
+        if (needsBack && draft.idBackUri) {
+          idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
+        }
+      }
+      const avatarUrl = await uploadImageToFirebase(photoUri, 'avatars');
+      return { avatarUrl, idDocumentFrontUrl, idDocumentBackUrl };
+    } catch {
+      return null;
+    } finally {
+      setIsUploadingPhotos(false);
+    }
+  }
+
   function handleStartAgain() {
     signOut.mutate(undefined, { onSettled: () => router.dismissTo('/(auth)/sign-in') });
   }
@@ -240,9 +292,7 @@ export default function RegistrationStep3Screen() {
       }
       if (isSocial && err.code === 'auth/credential-already-in-use') {
         // Collision B: this number belongs to an account that already exists.
-        setIsHandingOff(true);
-        await abandonSocialSignUpForLink(phoneE164);
-        router.dismissTo('/(auth)/sign-in');
+        await handOffToSignIn();
         return;
       }
       if (instantlyVerified) {
@@ -265,9 +315,6 @@ export default function RegistrationStep3Screen() {
     // is saved, so the URLs go out with the register request. Every account
     // brings the step-1 photo; a nanny also brings her ID (both sides for a
     // national ID, front only for a passport).
-    let idDocumentFrontUrl: string | undefined;
-    let idDocumentBackUrl: string | undefined;
-    const idDocumentType = draft.idDocumentType ?? undefined;
     const needsBack = draft.idDocumentType != null && idTypeRequiresBack(draft.idDocumentType);
     if (apiRole === 'NANNY' && (!draft.idDocumentType || !draft.idFrontUri || (needsBack && !draft.idBackUri))) {
       setFormError('Your ID is missing. Please go back and upload it.');
@@ -277,22 +324,12 @@ export default function RegistrationStep3Screen() {
       setFormError('Your profile photo is missing. Please go back and add it.');
       return;
     }
-    let avatarUrl: string;
-    try {
-      setIsUploadingPhotos(true);
-      if (apiRole === 'NANNY' && draft.idFrontUri) {
-        idDocumentFrontUrl = await uploadImageToFirebase(draft.idFrontUri, 'nanny-ids');
-        if (needsBack && draft.idBackUri) {
-          idDocumentBackUrl = await uploadImageToFirebase(draft.idBackUri, 'nanny-ids');
-        }
-      }
-      avatarUrl = await uploadImageToFirebase(draft.photoUri, 'avatars');
-    } catch {
+    const photos = await uploadPhotos(draft.photoUri, apiRole === 'NANNY', needsBack);
+    if (!photos) {
       setFormError(PHOTO_UPLOAD_FAILED_MESSAGE);
       return;
-    } finally {
-      setIsUploadingPhotos(false);
     }
+    const { avatarUrl, idDocumentFrontUrl, idDocumentBackUrl } = photos;
 
     // 3. Create the application account. Idempotent on the backend, so
     // tapping Complete setup again after a failure is a safe retry.
@@ -311,7 +348,7 @@ export default function RegistrationStep3Screen() {
         address: draft.address,
         latitude,
         longitude,
-        idDocumentType,
+        idDocumentType: draft.idDocumentType ?? undefined,
         idDocumentFrontUrl,
         idDocumentBackUrl,
         avatarUrl,
@@ -329,11 +366,8 @@ export default function RegistrationStep3Screen() {
       });
     } catch (err) {
       if (isSocial && apiStatusOf(err) === 409) {
-        // Collision B, found by the server: the email or phone belongs to an
-        // account that already exists.
-        setIsHandingOff(true);
-        await abandonSocialSignUpForLink(phoneE164);
-        router.dismissTo('/(auth)/sign-in');
+        // Collision B, found by the server.
+        await handOffToSignIn();
         return;
       }
       setFormError(err instanceof Error ? err.message : 'Could not save your profile.');

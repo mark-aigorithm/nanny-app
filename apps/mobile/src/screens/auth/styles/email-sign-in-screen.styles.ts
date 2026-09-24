@@ -59,10 +59,10 @@ export const styles = StyleSheet.create({
     gap: spacing.xl,
   },
 
-  // Row under the password field — a spacer plus the "Forgot password?" link.
+  // "Forgot password?", right-aligned under the password field.
   passwordMeta: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
   },
   forgotLink: {

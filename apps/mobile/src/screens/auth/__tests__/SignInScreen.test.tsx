@@ -16,9 +16,7 @@ const mockSignOut = jest.fn();
 const mockLinkWithCredential = jest.fn();
 // babel-plugin-jest-hoist only allows a jest.mock() factory to close over
 // variables whose name starts with "mock" — hence `mockCurrentUser` rather
-// than `currentUser`, which the brief's literal test code used and which
-// fails at collection time with "module factory ... not allowed to
-// reference any out-of-scope variables".
+// than `currentUser`.
 let mockCurrentUser: {
   delete: jest.Mock;
   email: string | null;

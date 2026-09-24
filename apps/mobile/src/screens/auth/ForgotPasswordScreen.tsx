@@ -14,8 +14,7 @@ import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, TextInputField } from '@mobile/components/ui';
-import OtpCodeInput from '@mobile/components/ui/otp-code-input';
+import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import {
   useSendPhoneOtp,
   useConfirmPhoneAndResetPassword,
@@ -26,11 +25,20 @@ import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { styles } from './styles/forgot-password-screen.styles';
 
-// Reset opens on a channel choice: Firebase can mail its own reset link now
-// that it holds a real address, or — for anyone who can't reach the inbox —
-// text a code, verify it (which signs the user in), then set a new password
-// on the account. The SMS path has two phases, gated on whether Firebase has
-// handed back a confirmation for the SMS yet.
+/**
+ * Password reset, reached from sign-in and the email door. It opens on a
+ * channel choice: Firebase can mail its own reset link now that it holds a
+ * real address, or — for anyone who can't reach the inbox — text a code,
+ * verify it (which signs the user in), then set a new password on the
+ * account. The SMS path has two phases, gated on whether Firebase has handed
+ * back a confirmation for the SMS yet; Back steps out of each layer in turn.
+ *
+ * The SMS reset is also how a Google/Apple user gets a password: it adds one
+ * and keeps the provider, where the email link unlinks it (A28) — hence the
+ * hints on the choice and the email channel. A number with no account sends
+ * her back to the phone field; an unfinished sign-up keeps the password its
+ * wizard set, and the root gate resumes it.
+ */
 export default function ForgotPasswordScreen() {
   const router = useRouter();
 

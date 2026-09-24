@@ -16,6 +16,17 @@ import { useGuestStore } from '@mobile/store/guestStore';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { styles } from './styles/sign-in-screen.styles';
 
+/**
+ * The signed-out landing and front door. The phone door signs in by SMS code;
+ * Google/Apple, the email door, Forgot password, Sign up and "Continue as
+ * guest" sit under it.
+ *
+ * Two phases, gated on whether Firebase has handed back a confirmation for the
+ * SMS: the phone field, then the code (which hides everything below the CTA).
+ * A Google/Apple collision parks a credential in `pendingLinkStore`; while one
+ * is waiting, a banner says so, the number typed during that sign-up is
+ * prefilled, guest browsing is hidden, and the next sign-in links it.
+ */
 export default function SignInScreen() {
   const router = useRouter();
   const pending = usePendingLinkStore((s) => s.pending);
@@ -24,9 +35,9 @@ export default function SignInScreen() {
   // A collision during a Google/Apple sign-up brings the number typed there.
   const [phone, setPhone] = useState(() => fromE164(countryCode, pending?.phoneHint ?? null));
 
-  // Sign-in now sits under the sign-up screen, so a collision found there
-  // comes back to this screen already mounted — the initializer above has
-  // run. Carry the number she typed across when the connection is parked.
+  // Sign-up is pushed on top of this screen, so a collision found there comes
+  // back to it already mounted — the initializer above has run. Carry the
+  // number she typed across when the connection is parked.
   const phoneHint = pending?.phoneHint ?? null;
   useEffect(() => {
     if (phoneHint) setPhone(fromE164(countryCode, phoneHint));
@@ -119,6 +130,15 @@ export default function SignInScreen() {
     setCode('');
     setFormError(null);
     setSecondsLeft(RESEND_SECONDS);
+  }
+
+  function continueAsGuest() {
+    useGuestStore.getState().enterGuestMode();
+    // A guest who reached sign-in from RegisterPromptModal (pushed from
+    // `(parent)`) pops back to it instead of stacking a second `(parent)`; on
+    // a cold start dismissTo behaves like replace, since there's nothing to
+    // dismiss.
+    router.dismissTo('/(parent)/home');
   }
 
   const resendDisabled = secondsLeft > 0 || sendOtp.isPending;
@@ -283,18 +303,7 @@ export default function SignInScreen() {
               {/* A pending connection means she has an account to finish signing
                   in to — browsing as a guest would quietly drop it. */}
               {!pending && (
-                <Pressable
-                  style={styles.guestRow}
-                  onPress={() => {
-                    useGuestStore.getState().enterGuestMode();
-                    // A guest who reached sign-in from RegisterPromptModal
-                    // (pushed from `(parent)`) pops back to it instead of
-                    // stacking a second `(parent)`; on a cold start dismissTo
-                    // behaves like replace, since there's nothing to dismiss.
-                    router.dismissTo('/(parent)/home');
-                  }}
-                  hitSlop={8}
-                >
+                <Pressable style={styles.guestRow} onPress={continueAsGuest} hitSlop={8}>
                   <Text style={styles.guestLink}>Continue as guest</Text>
                 </Pressable>
               )}

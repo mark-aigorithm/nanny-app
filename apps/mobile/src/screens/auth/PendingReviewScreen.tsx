@@ -16,6 +16,7 @@ import { styles } from './styles/pending-review-screen.styles';
  * until an admin approves them — approval flips /auth/me's approvalStatus
  * and "Check status" lets them through. A rejection instead routes to the
  * forced re-upload screen (the images were cleared), so it isn't handled here.
+ * Sign out and Delete account are the only other ways off it.
  */
 export default function PendingReviewScreen() {
   const meQuery = useMe();

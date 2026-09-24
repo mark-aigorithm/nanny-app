@@ -7,7 +7,6 @@ import {
   spacing,
   screenPadding,
   STATUS_BAR_HEIGHT,
-  borderRadius,
 } from '@mobile/theme';
 
 const HEADER_CONTENT_HEIGHT = 56;
@@ -115,94 +114,6 @@ export const styles = StyleSheet.create({
   sectionSubtitle: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
-  },
-
-  // Upload cards group
-  uploadGroup: {
-    gap: spacing.md,
-  },
-
-  // A single upload card (empty state)
-  uploadCard: {
-    borderWidth: 1.5,
-    borderColor: colors.warmBorder,
-    borderStyle: 'dashed',
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    minHeight: 160,
-  },
-  uploadCardFilled: {
-    borderStyle: 'solid',
-    borderColor: colors.primary,
-    padding: 0,
-    overflow: 'hidden',
-  },
-  uploadIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadTitle: {
-    ...typeScale.bodyMd,
-    fontFamily: fontFamily.bold,
-    color: colors.textPrimary,
-  },
-  uploadHint: {
-    ...typeScale.labelMd,
-    color: colors.textTertiary,
-  },
-
-  // Filled preview
-  previewImage: {
-    width: '100%',
-    height: 200,
-  },
-  previewOverlay: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.overlay,
-    borderRadius: borderRadius.full,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-  },
-  previewOverlayText: {
-    ...typeScale.labelMd,
-    color: colors.white,
-    fontFamily: fontFamily.bold,
-  },
-  previewBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.full,
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-  },
-  previewBadgeText: {
-    ...typeScale.labelMd,
-    color: colors.successText,
-    fontFamily: fontFamily.bold,
-  },
-
-  errorText: {
-    ...typeScale.bodySm,
-    color: colors.error,
   },
 
   // Footer

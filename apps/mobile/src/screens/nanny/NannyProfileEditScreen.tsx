@@ -226,7 +226,7 @@ export default function NannyProfileEditScreen() {
 
         {/* Sign out */}
         <Pressable
-          style={[styles.saveButton, { backgroundColor: colors.taupe, marginTop: 0 }, signOut.isPending && { opacity: 0.6 }]}
+          style={[styles.saveButton, styles.signOutButton, signOut.isPending && styles.signOutButtonPending]}
           onPress={() =>
             signOut.mutate(undefined, {
               onSuccess: () => {
@@ -236,9 +236,9 @@ export default function NannyProfileEditScreen() {
           }
           disabled={signOut.isPending || isDeleting}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={styles.signOutRow}>
             <Ionicons name="log-out-outline" size={18} color={colors.error} />
-            <Text style={[styles.saveButtonText, { color: colors.error }]}>
+            <Text style={[styles.saveButtonText, styles.signOutText]}>
               {signOut.isPending ? 'Signing out…' : 'Sign out'}
             </Text>
           </View>

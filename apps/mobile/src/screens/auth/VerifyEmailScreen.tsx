@@ -19,7 +19,9 @@ import { styles } from './styles/verify-email-screen.styles';
  * `UploadIdScreen` for the other thing an old account can be missing.
  *
  * Two panes, same as the wizard's step 2: the address, then the code we mail
- * it. Sign-in is unaffected — it stays the phone number.
+ * it. Proving it moves the account's Firebase email, which can revoke this
+ * session; when a new one can't be established she is signed out and sent to
+ * sign-in (see `useVerifiedEmailSubmit`).
  */
 export default function VerifyEmailScreen() {
   const router = useRouter();

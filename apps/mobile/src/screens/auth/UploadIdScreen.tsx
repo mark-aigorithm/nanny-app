@@ -18,7 +18,8 @@ import { styles } from './styles/upload-id-screen.styles';
  * Forced ID (re)upload for a nanny whose identity isn't on file — status
  * PENDING_ID (never uploaded) or REJECTED (admin cleared her images). The root
  * router sends her here instead of the app; she can only proceed by submitting
- * a new ID (→ PENDING_REVIEW) or signing out. Non-dismissable by design.
+ * a new ID (→ PENDING_REVIEW), signing out, or deleting her account.
+ * Non-dismissable by design.
  */
 export default function UploadIdScreen() {
   const router = useRouter();

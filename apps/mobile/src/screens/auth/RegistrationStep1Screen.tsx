@@ -54,6 +54,17 @@ const MIN_DOB = new Date(new Date().getFullYear() - 100, 0, 1);
 const EMAIL_TAKEN_MESSAGE = 'An account with this email already exists.';
 const PHONE_TAKEN_MESSAGE = 'An account with this phone number already exists.';
 
+/**
+ * Step 1 of every wizard: photo, name, email, phone and date of birth, checked
+ * against /auth/availability before moving on.
+ *
+ * A Google/Apple sign-up has its email fixed ("Verified by …") and skips the
+ * email-code and password steps, so it counts fewer steps; if its email or
+ * phone already has an account, that is collision B — the new account is
+ * dropped and she is sent to sign in with the number she typed. A resumed
+ * account that already carries a phone shows it locked ("Already verified on
+ * your account"), and step 3 then skips the SMS for it.
+ */
 export default function RegistrationStep1Screen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
@@ -323,7 +334,7 @@ export default function RegistrationStep1Screen() {
               textContentType="emailAddress"
               editable={!isSocial}
             />
-            {isSocial && draft.authProvider !== 'phone' && (
+            {draft.authProvider !== 'phone' && (
               <Text style={styles.verifiedHint}>
                 {`Verified by ${SOCIAL_PROVIDER_LABEL[draft.authProvider]}`}
               </Text>

@@ -178,6 +178,23 @@ export const styles = StyleSheet.create({
   viewHoursOff: {
     color: colors.textMuted,
   },
+  // Sign out — the save button's shape in a quiet taupe, with red text.
+  signOutButton: {
+    backgroundColor: colors.taupe,
+    marginTop: 0,
+  },
+  signOutButtonPending: {
+    opacity: 0.6,
+  },
+  signOutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  signOutText: {
+    color: colors.error,
+  },
+  // Delete account — a quiet text action under Sign out.
   deleteAccountButton: {
     alignSelf: 'center',
     paddingVertical: spacing.md,

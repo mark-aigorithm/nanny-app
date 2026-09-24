@@ -21,7 +21,8 @@ import { getApiErrorMessage } from '@mobile/lib/api';
 import { styles } from './styles/registration-email-screen.styles';
 
 /**
- * Step 2 of both wizards: prove the address entered on step 1 belongs to
+ * Step 2 of both phone wizards (a Google/Apple sign-up skips it — the provider
+ * proved the address): prove the address entered on step 1 belongs to
  * whoever is signing up.
  *
  * The code is sent as soon as the screen opens, so the common path is "read
@@ -34,6 +35,9 @@ import { styles } from './styles/registration-email-screen.styles';
  * created carrying an address nobody can read. "Already taken" is not this
  * screen's job any more — step 1 asks /auth/availability before pushing here,
  * so the 409 the send can still return only fires on a race.
+ *
+ * A resumed account whose Firebase password is already on this very address
+ * keeps it: a correct code skips create-password.
  */
 export default function RegistrationEmailScreen() {
   const router = useRouter();

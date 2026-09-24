@@ -14,6 +14,9 @@ import { styles } from './styles/email-sign-in-screen.styles';
  * place the address is a credential rather than a contact detail — and the
  * only place "Forgot password?" makes sense. It's also where a Google/Apple
  * user is told how to get a password of her own.
+ *
+ * Signing in to an account with no row yet (a sign-up that stopped part-way)
+ * isn't an error: the root gate resumes that sign-up.
  */
 export default function EmailSignInScreen() {
   const router = useRouter();
@@ -114,7 +117,6 @@ export default function EmailSignInScreen() {
               error={passwordError}
             />
             <View style={styles.passwordMeta}>
-              <View />
               <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8}>
                 <Text style={styles.forgotLink}>Forgot password?</Text>
               </Pressable>
