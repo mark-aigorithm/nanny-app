@@ -10,13 +10,8 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: ../_launch.yaml
 
-- tapOn: 'Get Started'
-- assertVisible: 'Create your account'
-- tapOn: 'Sign in'
-- assertVisible: 'Welcome back'
-- tapOn: 'Sign in with email and password instead'
-- assertVisible: 'Sign in with email'
-# `?` escaped: a text selector is a full-match regex.
+- assertVisible: 'Welcome to NannyNow'
+# Reset now sits on the front door itself.
 - tapOn: 'Forgot password\?'
 - extendedWaitUntil:
     visible: 'Reset your password'

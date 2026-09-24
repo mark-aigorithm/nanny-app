@@ -434,9 +434,13 @@ them order-independent.
 **C11** signs a mother up with Google from "Create your account" — the social
 wizard's three steps, the phone linked onto the Google account, no email-code or
 password screen — then signs out and back in with the same Google identity.
+Its C16 tail then proves she can get a password: sign out again, reset by SMS
+using the phone she linked, set a password on that same account, and sign back
+in through the email door with it.
 **C12** is collision B: a new Google identity types the seeded mother's number
-on step 1, is sent to "Welcome back" with the number prefilled and a banner,
-signs in by SMS, and only then has Google linked onto her account.
+on step 1, is sent to the sign-in screen (Welcome to NannyNow) with the number
+prefilled and a banner, signs in by SMS, and only then has Google linked onto
+her account.
 
 **The E2E Google picker is the one seam.** Google's own account sheet needs a
 real Google account signed in on the device, and the lab's emulator has none

@@ -31,6 +31,10 @@ src/
 - Connectivity: `src/lib/network.ts` is the only importer of `expo-network`. `OfflineGate` (mounted
   once in `app/_layout.tsx`) covers the app with `screens/OfflineScreen` while the device is offline;
   `bindOnlineManager` keeps React Query's pause/resume in step. Never read `expo-network` elsewhere.
+- The signed-out landing is `/(auth)/sign-in` (`SignInScreen`) — the phone door, Google/Apple,
+  the email-door button, Forgot password, Sign up and Continue as guest all live there; the
+  "Get Started" splash screen is gone. A screen returning to it (a cancelled registration, a
+  finished social collision hand-off) uses `router.dismissTo('/(auth)/sign-in')`, not `push`/`replace`.
 
 ---
 

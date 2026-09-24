@@ -8,13 +8,13 @@
 # wizard (no email-code or password step), the phone linked onto the Google
 # account, and POST /auth/register with no email token.
 #
-# The second half signs out and comes back through "Welcome back" with the
+# The second half signs out and comes back through sign-in with the
 # same Google identity: a 200 from /auth/me, straight home.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
 
-- tapOn: 'Get Started'
+- tapOn: 'Sign up'
 - extendedWaitUntil:
     visible: 'Create your account'
     timeout: 30000
@@ -102,17 +102,9 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn: 'Sign out'
 - extendedWaitUntil:
-    visible: 'Care you can trust'
+    visible: 'Welcome to NannyNow'
     timeout: 30000
 
-- tapOn: 'Get Started'
-- extendedWaitUntil:
-    visible: 'Create your account'
-    timeout: 30000
-- tapOn: 'Sign in'
-- extendedWaitUntil:
-    visible: 'Welcome back'
-    timeout: 30000
 - tapOn: 'Continue with Google'
 - extendedWaitUntil:
     visible: 'Choose a test Google account'
@@ -123,6 +115,86 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Use this Google account'
 
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── C16: a Google sign-up gets a password ──────────────────────────────────
+# Nothing in the Google wizard asks for a password, so the email door says
+# how to get one: Forgot password. The SMS reset signs her in with the phone
+# she linked at step 3 and sets a password on that same account — proven by
+# signing out and coming back through the email door with it.
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element:
+      text: 'Sign out'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Welcome to NannyNow'
+    timeout: 30000
+
+- tapOn: 'Sign in with email'
+- assertVisible: 'Signed up with Google or Apple\? Use that button, or tap Forgot password and choose "Text me a code" to add a password\.'
+- tapOn: 'Forgot password\?'
+- extendedWaitUntil:
+    visible: 'Reset your password'
+    timeout: 30000
+- assertVisible: 'Signed up with Google or Apple\? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in\.'
+
+- tapOn: 'Text me a code instead'
+- tapOn:
+    id: 'forgotPassword.phone'
+- inputText: ${SOCIAL_REGISTRATION_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+- extendedWaitUntil:
+    visible: 'New password'
+    timeout: 60000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${SOCIAL_REGISTRATION_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'forgotPassword.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'Enter a new password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Re-enter your password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Reset password'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Reset password'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element:
+      text: 'Sign out'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Welcome to NannyNow'
+    timeout: 30000
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      EMAIL: ${SOCIAL_REGISTRATION_EMAIL}
+      PASSWORD: ${PASSWORD}
 - extendedWaitUntil:
     visible: 'Book care'
     timeout: 60000

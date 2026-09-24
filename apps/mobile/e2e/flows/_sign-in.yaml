@@ -1,20 +1,15 @@
 # Signs in the account whose email is ${EMAIL}.
 #
 # Not a test — the leading underscore keeps run.mjs from treating it as one.
-# Expects `_launch.yaml` to have run: it starts from the welcome screen.
+# Expects `_launch.yaml` to have run: it starts on the sign-in screen.
 #
 # Flows sign in as *setup*; the doors themselves are covered by the live-Firebase
 # suite (e2e/flows/live). The email door is used here because it needs no code:
 # the SMS door would have to read a verification code on every single flow.
 appId: com.nannyapp.mobile
 ---
-- tapOn: 'Get Started'
-
-- assertVisible: 'Create your account'
-- tapOn: 'Sign in'
-
-- assertVisible: 'Welcome back'
-- tapOn: 'Sign in with email and password instead'
+- assertVisible: 'Welcome to NannyNow'
+- tapOn: 'Sign in with email'
 
 - assertVisible: 'Sign in with email'
 - tapOn:

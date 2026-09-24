@@ -8,10 +8,7 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: ../_launch.yaml
 
-- tapOn: 'Get Started'
-- assertVisible: 'Create your account'
-- tapOn: 'Sign in'
-- assertVisible: 'Welcome back'
+- assertVisible: 'Welcome to NannyNow'
 
 - tapOn:
     id: 'signIn.phone'

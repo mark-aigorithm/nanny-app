@@ -58,5 +58,5 @@ appId: com.nannyapp.mobile
 - back
 
 - extendedWaitUntil:
-    visible: 'Care you can trust'
+    visible: 'Welcome to NannyNow'
     timeout: 30000

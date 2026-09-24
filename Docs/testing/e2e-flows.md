@@ -522,16 +522,23 @@ production path — `signInWithCredential`, the `/auth/me` 404 that marks a new 
 wizard (no email-code or password step, step 1 of 3 with the email prefilled read-only), the phone
 linked onto the Google account, and `POST /auth/register` with no email token.
 
-The second half signs out and comes back through "Welcome back" with the same Google identity: a
-200 from `/auth/me`, straight home. That is the existing-account door exercised without a
-seeder-linked identity — the account the first half created is what makes it real.
+The second half signs out and comes back through the sign-in screen (Welcome to NannyNow) with the
+same Google identity: a 200 from `/auth/me`, straight home. That is the existing-account door
+exercised without a seeder-linked identity — the account the first half created is what makes it
+real.
+
+Its C16 tail then proves a Google sign-up can get a password: nothing in the Google wizard asks for
+one, so after signing out again she goes through the email door, which points her at Forgot
+password; the SMS reset signs her in with the phone she linked at step 3 and sets a password on
+that same account, proven by signing out once more and signing back in through the email door with
+it.
 
 ### C12. Collision B: Google onto an existing phone · `UI:mobile` — **covered** by `c12-google-collision.yaml`
 A new Google identity starts the social wizard and types the seeded mother's phone. Step 1's
 availability check finds the number taken, so the app deletes the throwaway Google account it just
-made, keeps the credential, and sends her to "Welcome back" with the number prefilled and a banner
-explaining why. Signing in by SMS proves she owns the account; only then is the Google identity
-linked onto it.
+made, keeps the credential, and sends her to the sign-in screen (Welcome to NannyNow) with the
+number prefilled and a banner explaining why. Signing in by SMS proves she owns the account; only
+then is the Google identity linked onto it.
 
 The last step asks the emulator directly, because "linked" is exactly what a screen cannot show —
 it asserts `google.com` is present among the account's providers. The seeder unlinks `google.com`

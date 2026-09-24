@@ -7,10 +7,9 @@
 #
 # Signs in through the shared _sign-in.yaml subflow (email + password) — the
 # same door every real flow uses now that phone sign-in no longer takes a
-# password (see _sign-in.yaml). That subflow owns the Get Started → role
-# picker → Welcome back → email-door navigation itself, so this no longer
-# captures screenshots of those intermediate screens, only what comes before
-# and after sign-in.
+# password (see _sign-in.yaml). That subflow owns the sign-in screen →
+# email-door navigation itself, so this no longer captures screenshots of
+# those intermediate screens, only what comes before and after sign-in.
 #
 # Run it through scripts/capture-branding.sh, which passes ${OUT}.
 appId: com.nannyapp.mobile

@@ -4,7 +4,7 @@
 # A new Google identity starts the social wizard and types the seeded mother's
 # phone. Step 1's availability check finds the number taken, so the app deletes
 # the throwaway Google account it just made, keeps the credential, and sends
-# her to "Welcome back" with the number prefilled and a banner explaining why.
+# her to sign-in with the number prefilled and a banner explaining why.
 # Signing in by SMS proves she owns the account; only then is the Google
 # identity linked onto it. The last step asks the emulator directly, because
 # "linked" is exactly what a screen cannot show.
@@ -12,7 +12,7 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
 
-- tapOn: 'Get Started'
+- tapOn: 'Sign up'
 - extendedWaitUntil:
     visible: 'Create your account'
     timeout: 30000
