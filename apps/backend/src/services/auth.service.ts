@@ -622,8 +622,11 @@ export async function setVerifiedEmail(
     return { ...profile, customToken };
   }
 
+  // No deletedAt filter, for the reason findIdentityOwners gives: the column is
+  // unique across soft-deleted rows too, and this must refuse before the
+  // Firebase swap and the token spend below, not fail on the row update after.
   const emailOwner = await prisma.user.findFirst({
-    where: { email: body.email, id: { not: user.id }, deletedAt: null },
+    where: { email: body.email, id: { not: user.id } },
     select: { id: true },
   });
   if (emailOwner) {

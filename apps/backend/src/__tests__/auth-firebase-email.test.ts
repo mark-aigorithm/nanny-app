@@ -128,6 +128,24 @@ describe('setVerifiedEmail', () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
+  it('treats a soft-deleted row still holding the address as taken, before any side effect', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(userRow());
+    // users.email is unique across soft-deleted rows too (an admin-removed
+    // account keeps its address), so the row update would fail on it — after
+    // the Firebase swap and the token spend had already happened.
+    mockPrisma.user.findFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) =>
+      'deletedAt' in where ? null : { id: 99 },
+    );
+
+    await expect(
+      setVerifiedEmail(DECODED, { email: 'held@example.com', verificationToken: 'tok-1' }),
+    ).rejects.toMatchObject({ statusCode: 409, message: 'An account with this email already exists.' });
+
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
   it('leaves the token unspent when Firebase refuses the address', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(userRow());
     mockPrisma.user.findFirst.mockResolvedValue(null);
