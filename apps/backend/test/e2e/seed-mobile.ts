@@ -51,6 +51,16 @@ type WipeSpec = { phone?: string; email: string };
 /** The console account the lab approves with; a superuser, so nothing is out of reach. */
 type AdminSpec = { email: string; password: string };
 
+/**
+ * A Firebase account with no `users` row at all — the exact shape of a
+ * phone-first sign-up that stopped after Firebase created the account (she
+ * set a password and it carries her phone) but before `/auth/register` ever
+ * ran. `useRootGate` resumes this into "Finish setting up your account"
+ * rather than routing her anywhere else. See `apps/mobile/e2e/accounts.mjs`'s
+ * `LEFTOVER`.
+ */
+type LeftoverSpec = { phone: string; email: string; password: string };
+
 type PromoSpec = {
   code: string;
   discountType: 'FLAT' | 'PERCENTAGE';
@@ -354,6 +364,29 @@ async function wipeAccount(spec: WipeSpec): Promise<void> {
   console.log(`[seed-mobile] wipe      ${spec.phone ?? '(no phone)'}  (${email})`);
 }
 
+/**
+ * Creates a fresh Firebase-only account with no `users` row — run right after
+ * `wipeAccount` frees the same phone/email/uid, so this is a new uid every
+ * run rather than a stale one from the last.
+ *
+ * `emailVerified: false` matters: a real phone-first sign-up proves its
+ * address with our own email OTP later in the wizard, not with Firebase, so a
+ * resumed leftover must start unverified the same way. No `displayName` is
+ * set — a leftover never reached the step that would have supplied one, and
+ * the flow types her name in fresh.
+ */
+async function seedLeftover(spec: LeftoverSpec): Promise<void> {
+  const created = await firebaseAuth.createUser({
+    email: spec.email,
+    password: spec.password,
+    phoneNumber: spec.phone,
+    emailVerified: false,
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] leftover  ${spec.phone}  (${spec.email})  uid=${created.uid}`);
+}
+
 /** Upserts the codes A4 spends, resetting the counters a previous run moved. */
 async function seedPromoCodes(specs: PromoSpec[]): Promise<void> {
   for (const spec of specs) {
@@ -443,6 +476,15 @@ async function main(): Promise<void> {
   if (rawWipe) {
     const toWipe = JSON.parse(rawWipe) as WipeSpec[];
     for (const spec of toWipe) await wipeAccount(spec);
+  }
+
+  // Right after the wipe, so a leftover from a run that actually finished
+  // registration (leaving a real row behind) is cleared before it is
+  // recreated as a Firebase-only account.
+  const rawLeftovers = process.env['E2E_MOBILE_LEFTOVERS'];
+  if (rawLeftovers) {
+    const leftovers = JSON.parse(rawLeftovers) as LeftoverSpec[];
+    for (const spec of leftovers) await seedLeftover(spec);
   }
 
   await configurePlatform(fixtures.platformSettings);

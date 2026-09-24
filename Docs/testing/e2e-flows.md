@@ -349,6 +349,9 @@ each proves the screen is wired.
 | C10 | Failure states: backend unreachable, token expired mid-session, no results — **covered** by `c10-failure-states.yaml` | `UI:mobile` |
 | C11 | Google sign-up for a mother through the E2E Google picker, then sign out and sign in with Google again — **covered** by `c11-google-sign-up.yaml` | `UI:mobile` |
 | C12 | Collision B: a Google sign-up that finds the seeded mother's phone taken, signs in by SMS, and links Google — asserted via the emulator — **covered** by `c12-google-collision.yaml` | `UI:mobile` |
+| C13 | Nanny Google sign-up: C11's picker and locked Step 1, then A10's nanny fork (location, ID, professional details) to the vetting gate — **covered** by `c13-nanny-google-sign-up.yaml` | `UI:mobile` |
+| C14 | Collision A: a Google sign-*in* refused for an email with a password account, proved through "Sign in with email" instead of SMS, then linked — asserted via the emulator — **covered** by `c14-google-collision-email-door.yaml` | `UI:mobile` |
+| C15 | Leftover resume: a Firebase account with no row is resumed at role selection instead of dead-ending, with the phone and password it already proves locked in — **covered** by `c15-leftover-resume.yaml` | `UI:mobile` |
 
 **The photo picker no longer bounds C2 and C7.** Step 1 of registration still disables
 `Continue` until `draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker
@@ -543,6 +546,42 @@ The last step asks the emulator directly, because "linked" is exactly what a scr
 it asserts `google.com` is present among the account's providers. The seeder unlinks `google.com`
 from seeded accounts on every run, so a second run starts clean; this flow, like the others, runs
 twice per the lab rule.
+
+### C13. Nanny Google sign-up · `UI:mobile` — **covered** by `c13-nanny-google-sign-up.yaml`
+C11's nanny counterpart: the same E2E picker and the same locked/verified Step 1 (name and email
+from Google, a photo, phone and DOB to fill in), but from there it follows the fork A10 proved for
+the phone wizard rather than C11's — nanny location on the map, a passport upload through the
+placeholder picker, and professional details (bio, experience, availability, an age range) — before
+the same final step links the phone onto the Google account. She registers `PENDING_REVIEW`, so
+Complete setup lands her on the vetting gate rather than a dashboard, same as A10.
+
+### C14. Collision A: Google onto an existing email · `UI:mobile` — **covered** by `c14-google-collision-email-door.yaml`
+The other half of the collision surface C12 opened: this one fires at the sign-in screen itself,
+before any wizard runs. "Continue with Google" with the seeded mother's own address makes Firebase
+refuse the credential (`auth/account-exists-with-different-credential`) because that email already
+has a password account — `useSocialSignIn` parks the credential and the same "You already have an
+account…" banner C12 uses appears. Where C12 proves ownership by SMS, this flow uses "Sign in with
+email" instead: `useSignInWithEmail` calls the same `linkPendingCredential()` on success that the
+SMS door does, so the email door completes the link exactly as well.
+
+The last step is C12's own `emulator-providers` check, reused verbatim — `hasGoogle == 'true'` is
+the only place "linked" can be observed. Nothing needs wiping for this collision beyond what
+`ensureFirebaseUser` already does for every seeded account (see C12): the mother's `google.com`
+provider is stripped every run before either flow can find it still attached.
+
+### C15. Leftover resume · `UI:mobile` — **covered** by `c15-leftover-resume.yaml`
+A "leftover" is a Firebase account with a password and a linked phone but **no `users` row at
+all** — the shape of a sign-up that stopped right after Firebase created the account, before
+`/auth/register` ever ran. Signing in by SMS succeeds at Firebase; `/auth/me` 404s; and the root
+gate seeds a registration draft from the account instead of starting over or signing her out — role
+selection opens reading "Finish setting up your account", not "Create your account".
+
+What the account already proves is locked into the wizard: Step 1 shows her phone disabled with
+"Already verified on your account" (no SMS needed at the final step either), and because a password
+is already registered under the very email she re-types on Step 1, the create-password screen is
+skipped once she confirms that address again with our own email OTP. The final step shows "Your
+number is already verified." with no code box at all. Nothing here duplicates `/auth/register`
+against a live row — this is the same account throughout, finishing the one sign-up it started.
 
 ---
 

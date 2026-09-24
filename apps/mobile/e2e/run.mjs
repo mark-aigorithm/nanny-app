@@ -23,10 +23,13 @@ import { fileURLToPath } from 'node:url';
 import {
   ACCOUNTS,
   ADMIN,
+  EMAIL_DOOR_COLLISION,
+  LEFTOVER,
   PASSWORD,
   REGISTRATION,
   REGISTRATION_NANNY,
   SOCIAL_COLLISION,
+  SOCIAL_NANNY_REGISTRATION,
   SOCIAL_REGISTRATION,
   localDigits,
 } from './accounts.mjs';
@@ -141,7 +144,9 @@ function seedLab() {
         // The registration flows sign these accounts up from scratch, so the
         // seeder wipes them (Firebase user + DB row) rather than upserting them
         // — otherwise the second run collides on the unique phone. Two mothers
-        // (C2/C7, C11), one nanny (A10), and C12's Google identity.
+        // (C2/C7, C11), one nanny (A10), C12's Google identity, C13's nanny
+        // Google sign-up, and C15's leftover (wiped clean before it is re-seeded
+        // as a Firebase-only account below).
         E2E_MOBILE_WIPE: JSON.stringify([
           { phone: REGISTRATION.phone, email: REGISTRATION.email },
           { phone: REGISTRATION_NANNY.phone, email: REGISTRATION_NANNY.email },
@@ -149,6 +154,21 @@ function seedLab() {
           // account has no phone, only the address.
           { phone: SOCIAL_REGISTRATION.phone, email: SOCIAL_REGISTRATION.email },
           { email: SOCIAL_COLLISION.email },
+          // C13 signs up with Google as a nanny, from scratch.
+          {
+            phone: SOCIAL_NANNY_REGISTRATION.phone,
+            role: SOCIAL_NANNY_REGISTRATION.role,
+            email: SOCIAL_NANNY_REGISTRATION.email,
+          },
+          // C15's leftover: freed here, then re-created as a Firebase-only
+          // account (no row) by E2E_MOBILE_LEFTOVERS below.
+          { phone: LEFTOVER.phone, email: LEFTOVER.email },
+        ]),
+        // Firebase-only accounts with no `users` row — the "sign-up stopped
+        // mid-way" state C15 resumes. Processed right after the wipe above, so
+        // each run gets a fresh uid under the same phone/email.
+        E2E_MOBILE_LEFTOVERS: JSON.stringify([
+          { phone: LEFTOVER.phone, email: LEFTOVER.email, password: LEFTOVER.password },
         ]),
         E2E_LAB_FIXTURES: JSON.stringify({
           platformSettings: PLATFORM_SETTINGS,
@@ -216,6 +236,20 @@ function runFlow(maestro, flow) {
     // Collision B (C12): a new Google identity that types the seeded mother's
     // number, so it must end up linked onto her account.
     SOCIAL_COLLISION_EMAIL: SOCIAL_COLLISION.email,
+    // Google sign-up as a nanny (C13): same shape as C11, but she carries on
+    // through the ID and professional-details steps a nanny alone sees.
+    SOCIAL_NANNY_REGISTRATION_EMAIL: SOCIAL_NANNY_REGISTRATION.email,
+    SOCIAL_NANNY_REGISTRATION_PHONE: localDigits(SOCIAL_NANNY_REGISTRATION.phone),
+    SOCIAL_NANNY_REGISTRATION_PHONE_E164: SOCIAL_NANNY_REGISTRATION.phone,
+    // Collision A (C14): a Google *sign-in* with an email that already has a
+    // password account — the seeded mother's own address.
+    EMAIL_DOOR_COLLISION_EMAIL: EMAIL_DOOR_COLLISION.email,
+    // The leftover (C15): a Firebase account with no row, resumed from the
+    // phone door.
+    LEFTOVER_PHONE: localDigits(LEFTOVER.phone),
+    LEFTOVER_PHONE_E164: LEFTOVER.phone,
+    LEFTOVER_EMAIL: LEFTOVER.email,
+    LEFTOVER_FIRST_NAME: LEFTOVER.firstName,
     MAILPIT_URL,
     MOTHER_EMAIL: ACCOUNTS.mother.email,
     NANNY_EMAIL: ACCOUNTS.nanny.email,

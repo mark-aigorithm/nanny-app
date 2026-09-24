@@ -112,6 +112,50 @@ export const SOCIAL_COLLISION = {
 };
 
 /**
+ * The Google sign-up C13 drives for a nanny — same throwaway contract as
+ * SOCIAL_REGISTRATION, wiped by phone + email before each run, but signing up
+ * as NANNY so the wizard's ID and professional-details steps come along too.
+ */
+export const SOCIAL_NANNY_REGISTRATION = {
+  phone: '+201100000008',
+  email: 'e2e-google-nanny@nannyapp.test',
+  role: 'NANNY',
+};
+
+/**
+ * C14's collision: a Google sign-*in* (not sign-up) with the email of an
+ * account that already has a password — the "email door" collision, as
+ * opposed to C12's phone-typed collision inside the wizard. Not a separate
+ * seeded identity: it is simply the seeded mother's own address, since what
+ * makes the collision fire is Firebase finding her existing password
+ * credential under that email. `ensureFirebaseUser` (seed-mobile.ts) already
+ * strips any `google.com` provider off every seeded account on each run — the
+ * same cleanup C12 depends on to reach its own collision — so there is
+ * nothing extra to wipe here.
+ */
+export const EMAIL_DOOR_COLLISION = {
+  email: ACCOUNTS.mother.email,
+};
+
+/**
+ * C15's "leftover": a Firebase account with no `users` row at all — a
+ * phone-first sign-up that stopped after Firebase created the account (and
+ * she set a password and it linked her phone) but before `/auth/register`
+ * ever ran. The seeder wipes her by phone + email, then creates a *fresh*
+ * Firebase user under `E2E_MOBILE_LEFTOVERS` with the phone and password
+ * already on it and `emailVerified: false` — the exact shape `useRootGate`
+ * resumes into "Finish setting up your account" rather than routing her
+ * anywhere else. `firstName` is not written to Firebase (a leftover has no
+ * `displayName`); it is only what the flow types into Step 1's name field.
+ */
+export const LEFTOVER = {
+  phone: '+201100000009',
+  email: 'e2e-leftover@nannyapp.test',
+  password: PASSWORD,
+  firstName: 'Lina',
+};
+
+/**
  * The console account the lab approves with.
  *
  * A superuser rather than a scoped operator: what these flows care about is the

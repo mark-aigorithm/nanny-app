@@ -1,0 +1,122 @@
+# C15 — a leftover resumes instead of dead-ending.
+#
+# The seeded LEFTOVER account is a Firebase user with a password and a linked
+# phone but no `users` row at all — the shape of a phone-first sign-up that
+# stopped right after Firebase created the account, before `/auth/register`
+# ever ran. Signing in by SMS (the plain phone door) succeeds at Firebase,
+# `/auth/me` 404s, and the root gate seeds a draft from the account instead of
+# starting fresh or signing her out: role selection opens in "Finish setting
+# up your account" mode, Step 1 shows her phone locked with "Already verified
+# on your account", and — because the account's password is already registered
+# under the very email she is asked to re-type — the create-password screen is
+# skipped once she proves that address again. Step 3 shows no code box at all:
+# the phone is already hers.
+#
+# Nothing here is a throwaway in the C2/A10 sense (this flow never lets
+# /auth/register run against the seeded phone/email — it is the same account
+# throughout), but the account still can't be upserted like a normal seeded
+# one: it must exist in Firebase with no row. The seeder wipes it, then
+# recreates it as a Firebase-only user, before every run.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+# ── Sign in by SMS, as any returning phone number would ────────────────────
+- tapOn:
+    id: 'signIn.phone'
+- inputText: ${LEFTOVER_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+- extendedWaitUntil:
+    visible: "Didn't get a code?"
+    timeout: 60000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${LEFTOVER_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'signIn.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'Sign in'
+
+# ── Resumed, not dead-ended: role selection knows she has an account ───────
+- extendedWaitUntil:
+    visible: 'Finish setting up your account'
+    timeout: 30000
+- assertVisible: 'Signed in as ${LEFTOVER_EMAIL}. Tell us who you are to finish setting up.'
+- tapOn: "I'm a mother"
+- tapOn: 'Sign up as a mother'
+
+# ── Step 1 of 5 — the phone is already hers, the email already on file ─────
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 5.*'
+    timeout: 30000
+- assertVisible: ${LEFTOVER_EMAIL}
+- assertVisible: 'Already verified on your account'
+
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+
+- tapOn: 'Enter your first name'
+- inputText: ${LEFTOVER_FIRST_NAME}
+- hideKeyboard
+- tapOn: 'Enter your last name'
+- inputText: 'Lab'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+# ── Step 2 of 5 — re-prove the address (our OTP, read from Mailpit) ────────
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: email-otp
+      EMAIL_OTP_ADDRESS: ${LEFTOVER_EMAIL}
+- assertTrue: ${output.emailOtp != null}
+- tapOn:
+    id: 'registerEmail.code.boxes'
+- inputText: ${output.emailOtp}
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── The account already has a password for this address: create-password is
+#    skipped straight to location ──────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Where are you based?'
+    timeout: 30000
+- tapOn:
+    point: '50%,44%'
+- tapOn: 'Street address'
+- inputText: '1 Test Street, Cairo'
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── Final step — the phone is already verified, so there is no code box ────
+- extendedWaitUntil:
+    visible: 'Verify your phone number'
+    timeout: 30000
+- assertVisible: 'Your number is already verified.'
+- tapOn: 'I agree to.*'
+- tapOn: 'Complete setup'
+
+- extendedWaitUntil:
+    visible: 'Stay in the loop'
+    timeout: 60000
+- tapOn: 'Not now'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000

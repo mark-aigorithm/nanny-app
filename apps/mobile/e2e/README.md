@@ -437,7 +437,7 @@ fails again with nothing left to trigger another. Wrap the recovery in `- retry:
 `runFlow: _launch.yaml`, which clears the app's own storage — that is what keeps
 them order-independent.
 
-## Google sign-in (C11, C12)
+## Google sign-in (C11–C14)
 
 **C11** signs a mother up with Google from "Create your account" — the social
 wizard's three steps, the phone linked onto the Google account, no email-code or
@@ -449,6 +449,18 @@ in through the email door with it.
 on step 1, is sent to the sign-in screen (Welcome to NannyNow) with the number
 prefilled and a banner, signs in by SMS, and only then has Google linked onto
 her account.
+**C13** is C11's nanny side: the same picker and locked/verified Step 1, then
+the fork A10 proved for the phone wizard — nanny location, an ID upload, and
+professional details — before the same final phone-link step, landing on the
+vetting gate (PENDING_REVIEW) rather than a dashboard.
+**C14** is collision A — the "email door", as opposed to C12's collision inside
+the wizard: "Continue with Google" on the sign-in screen itself, with an
+address that already has a password account, makes Firebase refuse the
+credential (`auth/account-exists-with-different-credential`) before any wizard
+runs. The same banner as C12 appears, but this flow proves ownership through
+"Sign in with email" instead of an SMS code — `useSignInWithEmail` calls
+`linkPendingCredential()` on success exactly the way `useConfirmPhoneSignIn`
+does, so either door completes the link.
 
 **The E2E Google picker is the one seam.** Google's own account sheet needs a
 real Google account signed in on the device, and the lab's emulator has none
@@ -474,16 +486,43 @@ seeder deletes any Google-only Firebase account a crashed run left under that
 address (an email-only `E2E_MOBILE_WIPE` entry), and `ensureFirebaseUser` unlinks
 `google.com` from every seeded account — C12 links it onto the mother, and left
 there it would sign straight into her account on the next run instead of
-reaching the collision.
+reaching the collision. `SOCIAL_NANNY_REGISTRATION` (`+201100000008`,
+`e2e-google-nanny@…`) is C13's throwaway nanny, wiped the same way.
+`EMAIL_DOOR_COLLISION` is not a separate identity at all — it is
+`ACCOUNTS.mother.email` — because what C14 needs is exactly the `google.com`
+unlink `ensureFirebaseUser` already does for every seeded account; there is
+nothing extra to wipe.
 
-**`emulator-providers`** is the advance step C12 ends on. "Google is now linked"
-is exactly what no screen shows, so it asks the emulator directly
+**`emulator-providers`** is the advance step C12 and C14 both end on. "Google is
+now linked" is exactly what no screen shows, so it asks the emulator directly
 (`accounts:lookup` with the `Bearer owner` admin token) for the account behind
 `OTP_PHONE`, and leaves `output.providers` (comma-joined provider ids) and
 `output.hasGoogle` (`'true'` / `'false'`).
 
 **Apple has no device coverage.** Sign in with Apple is iOS-only and this lab is
 Android-only; it is on the manual test matrix in the social sign-in spec.
+
+## Leftover resume (C15)
+
+A "leftover" is a Firebase account with no `users` row at all — a sign-up that
+stopped after Firebase created the account (she set a password, and it carries
+a linked phone) but before `/auth/register` ever wrote the row. `useRootGate`
+resumes this instead of starting fresh or signing her out: it seeds a
+registration draft straight from the account (`seedDraftFromAccount`) and
+opens role selection in "Finish setting up your account" mode. Locked-in
+fields follow from what the account already proves — the phone (Step 1 shows
+it disabled with "Already verified on your account", Step 3 skips the SMS
+entirely) and, once she re-types the email a password is already registered
+under, the create-password screen (`RegistrationEmailScreen` compares
+`passwordEmail` against what she typed and skips ahead when they match).
+
+**`LEFTOVER`** (`+201100000009`, `e2e-leftover@…`) is seeded differently from
+every throwaway account above: `wipeAccount` frees it first (same as any
+registration throwaway), then `E2E_MOBILE_LEFTOVERS` has the seeder create a
+*fresh* Firebase user under that phone/email/password with `emailVerified:
+false` and no `users` row — processed right after the wipe, so it is a new uid
+every run. Nothing about this is idempotent the way `seedAccount` is, which is
+why it is its own env var rather than another `E2E_MOBILE_WIPE` entry.
 
 **A new native module needs a rebuild before any flow can run.** Metro only
 delivers JS; the Google Sign-In module and the new `google-services.json` are

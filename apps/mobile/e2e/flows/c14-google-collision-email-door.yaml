@@ -1,0 +1,64 @@
+# C14 — collision A: a Google *sign-in* that turns out to belong to an
+# existing password account — the "email door", as opposed to C12's collision
+# inside the sign-up wizard (typing a taken phone on Step 1).
+#
+# The seeded mother already has a password account under her own address.
+# Tapping "Continue with Google" on the sign-in screen and picking that same
+# address makes Firebase itself refuse the credential
+# (auth/account-exists-with-different-credential) before any wizard runs —
+# useSocialSignIn parks the credential and returns 'needs-link', which the
+# sign-in screen surfaces as a banner. Proving ownership by *any* door links
+# it: this flow uses "Sign in with email" rather than C12's SMS code, because
+# useSignInWithEmail calls linkPendingCredential() on success exactly the way
+# useConfirmPhoneSignIn does. The last step asks the emulator directly, because
+# "linked" is exactly what a screen cannot show.
+#
+# Nothing here needs wiping: `ensureFirebaseUser` (seed-mobile.ts) strips any
+# `google.com` provider off every seeded account on every run — the same
+# cleanup C12 relies on to reach its own collision — so the mother never
+# carries a leftover Google link into this run.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- tapOn: 'Continue with Google'
+- extendedWaitUntil:
+    visible: 'Choose a test Google account'
+    timeout: 30000
+- tapOn:
+    id: 'e2eGooglePicker.email'
+- inputText: ${EMAIL_DOOR_COLLISION_EMAIL}
+- hideKeyboard
+- tapOn: 'Use this Google account'
+
+# ── Refused, with the reason ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'You already have an account. Sign in with your phone once to connect Google.'
+    timeout: 60000
+
+# ── Prove ownership through the email door instead ──────────────────────────
+- tapOn: 'Sign in with email'
+- extendedWaitUntil:
+    visible: 'Sign in with email'
+    timeout: 30000
+- tapOn:
+    id: 'emailSignIn.email'
+- inputText: ${MOTHER_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: 'emailSignIn.password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Sign in'
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── The proof: Google now hangs off her account ────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: emulator-providers
+      OTP_PHONE: ${MOTHER_PHONE_E164}
+- assertTrue: ${output.hasGoogle == 'true'}
