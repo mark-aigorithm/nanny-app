@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 
 import {
   CheckAvailabilitySchema,
+  DeleteMeRequestSchema,
   ReclaimEmailRequestSchema,
   RegisterRequestSchema,
   SaveChildrenSchema,
@@ -30,10 +31,8 @@ import {
   sendEmailOtp,
   verifyEmailOtp,
 } from '@backend/services/email-verification.service';
-import {
-  discardUnfinishedAccount,
-  reclaimEmail,
-} from '@backend/services/unfinished-account.service';
+import { deleteMe } from '@backend/services/account-deletion.service';
+import { reclaimEmail } from '@backend/services/unfinished-account.service';
 
 export const authRouter = Router();
 
@@ -236,22 +235,27 @@ authRouter.patch(
 
 /**
  * DELETE /auth/me
- * Discards the caller's own Firebase account, but only while it is still
- * unfinished — the wizard was abandoned before /auth/register ever ran, so no
- * `users` row exists. A row already existing means there is real account
- * state behind this uid, so it is refused (409) rather than silently
- * deleting a real account through the wrong endpoint. Fresh auth: a revoked
- * or disabled session must not delete an identity.
+ * With no body: discards the caller's own Firebase account while it is still
+ * unfinished (no `users` row); a row existing is refused (409). With
+ * `{ confirm: 'delete-my-account' }`: deletes a MOTHER/NANNY account — the
+ * row is soft-deleted with its identity scrambled, then the Firebase user is
+ * deleted. Staff are refused (403), active bookings block it (409). Fresh
+ * auth: a revoked or disabled session must not delete an identity.
  */
-authRouter.delete('/me', requireFreshAuth, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    if (!req.firebaseUser) throw errors.unauthorized();
-    await discardUnfinishedAccount(req.firebaseUser);
-    res.status(204).end();
-  } catch (err) {
-    next(err);
-  }
-});
+authRouter.delete(
+  '/me',
+  requireFreshAuth,
+  validateBody(DeleteMeRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      await deleteMe(req.firebaseUser, req.body);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 /**
  * POST /auth/reclaim-email

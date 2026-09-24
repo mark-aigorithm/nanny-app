@@ -1,7 +1,9 @@
 /**
- * discardUnfinishedAccount and reclaimEmail — the two ways a row-less
- * (unfinished) sign-up can be cleaned up so its owner isn't blocked by a
- * Firebase identity holding an email or phone they can no longer prove.
+ * reclaimEmail — how a row-less (unfinished) sign-up takes over an email
+ * another unfinished sign-up is squatting, so its owner isn't blocked by a
+ * Firebase identity holding an address they can no longer prove. (Discarding
+ * the caller's own unfinished account is covered in
+ * account-deletion.service.test.ts.)
  */
 jest.mock('@backend/db/prisma', () => ({
   prisma: { user: { findFirst: jest.fn() } },
@@ -18,10 +20,7 @@ jest.mock('@backend/services/email-verification.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import { firebaseAuth } from '@backend/lib/firebase';
-import {
-  discardUnfinishedAccount,
-  reclaimEmail,
-} from '@backend/services/unfinished-account.service';
+import { reclaimEmail } from '@backend/services/unfinished-account.service';
 import { assertVerificationTokenIsValid } from '@backend/services/email-verification.service';
 
 const mockFindFirst = prisma.user.findFirst as jest.Mock;
@@ -42,40 +41,6 @@ beforeEach(() => {
   mockFindFirst.mockResolvedValue(null);
   mockDeleteUser.mockResolvedValue(undefined);
   mockAssertToken.mockResolvedValue(undefined);
-});
-
-describe('discardUnfinishedAccount', () => {
-  it('refuses when a row (any deletedAt) exists for this uid', async () => {
-    mockFindFirst.mockResolvedValueOnce({ id: 1 });
-
-    await expect(discardUnfinishedAccount(DECODED)).rejects.toMatchObject({
-      statusCode: 409,
-      message: "This account can't be removed here.",
-    });
-    expect(mockDeleteUser).not.toHaveBeenCalled();
-  });
-
-  it('deletes the Firebase account when no row exists', async () => {
-    mockFindFirst.mockResolvedValueOnce(null);
-
-    await discardUnfinishedAccount(DECODED);
-
-    expect(mockDeleteUser).toHaveBeenCalledWith('fb-caller');
-  });
-
-  it('treats auth/user-not-found as success', async () => {
-    mockFindFirst.mockResolvedValueOnce(null);
-    mockDeleteUser.mockRejectedValueOnce(userNotFound());
-
-    await expect(discardUnfinishedAccount(DECODED)).resolves.toBeUndefined();
-  });
-
-  it('rethrows any other Firebase error', async () => {
-    mockFindFirst.mockResolvedValueOnce(null);
-    mockDeleteUser.mockRejectedValueOnce(new Error('firebase down'));
-
-    await expect(discardUnfinishedAccount(DECODED)).rejects.toThrow('firebase down');
-  });
 });
 
 describe('reclaimEmail', () => {

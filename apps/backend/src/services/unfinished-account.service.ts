@@ -3,6 +3,7 @@ import type { ReclaimEmailRequest } from '@nanny-app/shared';
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { firebaseAuth, type DecodedIdToken } from '@backend/lib/firebase';
+import { isUserNotFound } from '@backend/services/account-deletion.service';
 import { assertVerificationTokenIsValid } from '@backend/services/email-verification.service';
 
 /**
@@ -11,37 +12,17 @@ import { assertVerificationTokenIsValid } from '@backend/services/email-verifica
  * `/auth/register` ran. Left alone, it permanently squats the email/phone it
  * signed up with — nobody else can register with them, and its own owner has
  * no route back in without a fresh phone/email verification.
+ *
+ * Discarding the caller's own unfinished account is the no-row branch of
+ * `deleteMe` in account-deletion.service.ts.
  */
 
 const EMAIL_TAKEN = 'An account with this email already exists. Sign in instead.';
-
-function isUserNotFound(err: unknown): boolean {
-  return (err as { code?: unknown } | null)?.code === 'auth/user-not-found';
-}
 
 /** Any row — live or soft-deleted — means the uid is not an unfinished sign-up. */
 async function hasAnyRow(firebaseUid: string): Promise<boolean> {
   const row = await prisma.user.findFirst({ where: { firebaseUid }, select: { id: true } });
   return row !== null;
-}
-
-/**
- * Discards the caller's own Firebase account, but only while it is still
- * unfinished (no `users` row of any kind points at it). Lets someone who
- * abandoned the wizard start over with a fresh sign-up instead of being
- * stuck on a half-created identity. A row already existing means there is
- * real account state behind this uid — plan 4 replaces that branch with
- * real (soft-)deletion; for now it is simply refused.
- */
-export async function discardUnfinishedAccount(decoded: DecodedIdToken): Promise<void> {
-  if (await hasAnyRow(decoded.uid)) {
-    throw errors.conflict("This account can't be removed here.");
-  }
-  try {
-    await firebaseAuth.deleteUser(decoded.uid);
-  } catch (err) {
-    if (!isUserNotFound(err)) throw err;
-  }
 }
 
 /**

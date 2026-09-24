@@ -71,6 +71,23 @@ export const ReclaimEmailRequestSchema = z.object({
 export type ReclaimEmailRequest = z.infer<typeof ReclaimEmailRequestSchema>;
 
 /**
+ * Body for DELETE /auth/me. With no body it only discards an unfinished
+ * (row-less) sign-up; deleting a real account needs the explicit `confirm`
+ * literal, so a stale or racing discard can never delete one. `appleRevoked`
+ * is audit-only: whether the client revoked an Apple sign-in first. A missing
+ * body (Express 5 leaves `req.body` undefined on a bodiless DELETE) parses
+ * to `{}`.
+ */
+export const DeleteMeRequestSchema = z.preprocess(
+  (body) => body ?? {},
+  z.object({
+    confirm: z.literal('delete-my-account').optional(),
+    appleRevoked: z.boolean().optional(),
+  }),
+);
+export type DeleteMeRequest = z.infer<typeof DeleteMeRequestSchema>;
+
+/**
  * A phone number as the auth surface stores and compares it: E.164, nothing
  * else. `users.phone` is unique on exactly this string, so every body that
  * carries a phone must normalise to it or a lookup will miss.
