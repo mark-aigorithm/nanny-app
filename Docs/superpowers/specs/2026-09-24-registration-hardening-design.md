@@ -31,7 +31,7 @@ Two read-only audits (mobile journeys; backend and test coverage) found about 25
 |---|---|
 | Splash / guest | The "Get Started" splash is removed; sign-in is the landing screen, with a small "Continue as guest" link. |
 | Sign-up screen | `RoleSelectionScreen` stays as the sign-up screen and keeps its Google/Apple buttons. |
-| A Google/Apple user wants a password | The email screen shows a hint. Forgot password (email link or SMS) creates the password. No wizard step. |
+| A Google/Apple user wants a password | The email screen shows a hint pointing to Forgot password → "Text me a code", which adds a password and keeps Google/Apple. No wizard step. (Revised 2026-09-24 after A28 showed the email-link reset unlinks Google/Apple.) |
 | Account deletion | Included: `DELETE /auth/me` plus a "Delete account" button. |
 | Leftover accounts | **Resume + reclaim**, with no background job. Signing in to a leftover resumes sign-up. Proving the email (our OTP) reclaims a leftover holding it. |
 | Minimum age | 18 for both roles, enforced in the shared schema and the date picker. |
@@ -90,9 +90,11 @@ During the code phase, items 5–9 are hidden and only the code UI shows.
 - Step 1's and Step 3's collision-B exits.
 
 **Password guidance:**
-- The email screen shows: "Signed up with Google or Apple? Use that button, or tap Forgot password to create a password."
-- Forgot password's channel choice adds: "Signed up with Google or Apple? This also creates a password for your account."
-- Emulator-proven (integration A28): a password reset on a Google-only account, and `accounts:update {password}` (what RNFB `updatePassword` sends) on a Google+phone account, each add the `password` provider, and `signInWithPassword` then works.
+- The email screen shows: "Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password."
+- Forgot password's channel choice adds: "Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in."
+- Emulator-proven (integration A28):
+  - `accounts:update {password}` on a Google+phone account (what RNFB `updatePassword` sends after the SMS reset) adds `password` and keeps `google.com` and `phone`.
+  - The email-link reset (`accounts:resetPassword`) adds `password` but **unlinks every federated provider** (Firebase's anti-hijack rule; the emulator does it deliberately in `resetPassword`). The phone and uid survive. That is why the hints steer Google/Apple users to the SMS reset. The email link stays available; after it, "Continue with Google" relinks automatically for Gmail, or through collision A otherwise.
 
 **E2E:**
 - Flows start at "Welcome to NannyNow". Sign-up goes via "Sign up"; sign-in via "Sign in with email".

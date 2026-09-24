@@ -27,8 +27,8 @@
   - Divider label: `New to NannyNow?`, built as `` `New to ${APP_NAME}?` ``.
   - Sign-up button: `Sign up`.
   - Guest link: `Continue as guest`.
-  - Email-screen hint: `Signed up with Google or Apple? Use that button, or tap Forgot password to create a password.`
-  - Forgot-password hint: `Signed up with Google or Apple? This also creates a password for your account.`
+  - Email-screen hint: `Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.`
+  - Forgot-password hint: `Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.`
 - **Back-navigation:** use `router.dismissTo('/(auth)/sign-in')` wherever the plan says so. `RegisterPromptModal` and `VerifyEmailScreen:53` stay unchanged.
 - **Tests and environment:**
   - Backend integration tests run only against the local test stack (`pnpm test:env`). Never load `apps/backend/.env`; it points at live production.
@@ -374,7 +374,7 @@ it('tells a Google or Apple user how to get a password', () => {
   renderScreen();
   expect(
     screen.getByText(
-      'Signed up with Google or Apple? Use that button, or tap Forgot password to create a password.',
+      'Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.',
     ),
   ).toBeTruthy();
 });
@@ -386,7 +386,7 @@ In `ForgotPasswordScreen.test.tsx`, likewise reusing the existing helper:
 it('says a reset also creates a password for a Google or Apple account', () => {
   renderScreen();
   expect(
-    screen.getByText('Signed up with Google or Apple? This also creates a password for your account.'),
+    screen.getByText('Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.'),
   ).toBeTruthy();
 });
 ```
@@ -406,7 +406,7 @@ Expected: the two new tests FAIL.
             {/* A Google/Apple sign-up has no password until a reset creates
                 one — Firebase adds the password to that same account. */}
             <Text style={styles.socialHint}>
-              Signed up with Google or Apple? Use that button, or tap Forgot password to create a password.
+              Signed up with Google or Apple? Use that button, or tap Forgot password and choose "Text me a code" to add a password.
             </Text>
 ```
 
@@ -432,7 +432,7 @@ If `typeScale.bodySm` doesn't exist, use the smallest body style the file alread
                   Choose how you{'’'}d like to reset your password.
                 </Text>
                 <Text style={styles.socialHint}>
-                  Signed up with Google or Apple? This also creates a password for your account.
+                  Signed up with Google or Apple? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in.
                 </Text>
               </>
             )}
@@ -556,6 +556,13 @@ describe('A28 — a password for a Google account', () => {
   });
 });
 ```
+
+**Revised after the first run (owner decision, 2026-09-24):** the emulator's `accounts:resetPassword` deliberately unlinks every federated provider, so the email-link case does not keep `google.com`. Rewrite that case as "the email reset link adds a password but disconnects Google": use a Google account **with a phone**, and assert:
+- the uid is unchanged;
+- the providers contain `password` and `phone` but not `google.com`;
+- `signInAs(email, NEW_PASSWORD)` returns the same uid.
+
+The SMS case stays as written. The mobile hints steer Google/Apple users to "Text me a code".
 
 This test documents Firebase's behaviour. If the emulator **doesn't** add `password` in either case, **stop**: report BLOCKED with the emulator's actual response. The spec's password guidance depends on it, and the controller must take it to the owner.
 
@@ -689,12 +696,12 @@ Also, in every `live/*` flow, change a post-sign-out wait on `'Care you can trus
     timeout: 30000
 
 - tapOn: 'Sign in with email'
-- assertVisible: 'Signed up with Google or Apple\? Use that button, or tap Forgot password to create a password\.'
+- assertVisible: 'Signed up with Google or Apple\? Use that button, or tap Forgot password and choose "Text me a code" to add a password\.'
 - tapOn: 'Forgot password\?'
 - extendedWaitUntil:
     visible: 'Reset your password'
     timeout: 30000
-- assertVisible: 'Signed up with Google or Apple\? This also creates a password for your account\.'
+- assertVisible: 'Signed up with Google or Apple\? Choose "Text me a code" — it adds a password and keeps your Google or Apple sign-in\.'
 
 - tapOn: 'Text me a code instead'
 - tapOn:
