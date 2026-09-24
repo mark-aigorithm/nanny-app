@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -45,10 +46,19 @@ beforeEach(() => {
   useRegistrationDraftStore.getState().reset();
 });
 
+/** The rendered tree, as far as these tests look at it. */
+interface TreeNode {
+  type: unknown;
+  props: { style?: StyleProp<ViewStyle> };
+}
+
 /** The widths of the wizard's progress-bar fills (the 6px-high bars). */
-function progressFillWidths(): unknown[] {
-  return screen.UNSAFE_root
-    .findAll((node) => typeof node.type === 'string' && node.type === 'View')
+function progressFillWidths(): ViewStyle['width'][] {
+  const root = screen.UNSAFE_root as unknown as {
+    findAll: (predicate: (node: TreeNode) => boolean) => TreeNode[];
+  };
+  return root
+    .findAll((node) => node.type === 'View')
     .map((node) => StyleSheet.flatten(node.props.style) ?? {})
     .filter((style) => style.height === 6 && typeof style.width === 'string')
     .map((style) => style.width);
