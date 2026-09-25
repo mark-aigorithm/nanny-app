@@ -16,7 +16,7 @@ import { colors } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
 import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import {
-  useSendPhoneOtp,
+  useSendSignInCode,
   useConfirmPhoneAndResetPassword,
   useSendPasswordResetEmail,
 } from '@mobile/hooks/useAuth';
@@ -64,7 +64,7 @@ export default function ForgotPasswordScreen() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const sendOtp = useSendPhoneOtp();
+  const sendOtp = useSendSignInCode();
   const resetPassword = useConfirmPhoneAndResetPassword();
 
   const phoneE164 = toE164(countryCode, phone);

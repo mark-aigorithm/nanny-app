@@ -140,7 +140,7 @@ the password credential registration links, and Firebase's own reset mail.
 |---|---|
 | `sign-in-sms` | The default door: number + code lands on Home |
 | `sign-in-email` | The secondary door: registration linked the real address as the password credential |
-| `sign-in-sms-no-account` | The orphan guard: a code for an unregistered number is refused, and the harness confirms no Firebase account was left squatting on it |
+| `sign-in-sms-no-account` | An unregistered number is refused before any SMS is sent (`/auth/phone-account`), and the harness confirms no Firebase account was minted for it |
 | `reset-email` | The app asks Firebase to mail a link; the harness spends a reset code the way the hosted page would; signing in with the new password proves it changed |
 | `reset-sms` | Code + new password in the app, then sign out and back in with that password |
 
@@ -150,7 +150,7 @@ Firebase console: their codes are fixed and no SMS is sent.
 | Number | Code | Role |
 |---|---|---|
 | `+201234567891` | `111111` | The managed account (`markbotros0+e2e1@gmail.com`): registered through the app at the start of every run, purged at the end |
-| `+201234567892` | `222222` | Never registered: drives the orphan guard |
+| `+201234567892` | `222222` | Never registered: refused before a code is sent (the code only matters if the check fails open) |
 
 The backend harness (`apps/backend/src/services/e2e-auth.service.ts`) refuses
 every other number before it makes a single Firebase call, and has deliberately
@@ -542,11 +542,10 @@ the Google-collision cleanup) can never trip it. The backend scrambles the
 row's email, phone and Firebase uid (`scrambleIdentity`,
 `account-deletion.service.ts`) and hard-deletes the Firebase user; the app
 clears its local session and shows a one-button "Account deleted" notice on
-top of the sign-in screen it lands back on. C17 then signs in by SMS with the
-same number to prove it is free: Firebase mints a fresh phone-only account for
-the code check, `/auth/me` finds no row, and that throwaway is itself
-discarded client-side — the same "We couldn't find an account for that
-number" refusal an unregistered number gets.
+top of the sign-in screen it lands back on. C17 then tries SMS sign-in with the
+same number to prove it is free: `/auth/phone-account` finds neither a row nor
+a Firebase user, so the door refuses it before any code is sent — the same
+"We couldn't find an account for that number" an unregistered number gets.
 
 **Both dialogs are `ConfirmDialogHost`, a `Modal`** — so, like the developer
 menu in `_launch.yaml`, each hides everything behind it from Android's

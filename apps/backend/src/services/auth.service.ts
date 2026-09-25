@@ -7,6 +7,7 @@ import {
   type Address as AddressDto,
   type AvailabilityResponse,
   type CheckAvailabilityRequest,
+  type PhoneAccountCheckResponse,
   type Child as ChildDto,
   type RegisterRequest,
   type Role as ApiRole,
@@ -126,6 +127,32 @@ export async function checkAvailability(
   body: CheckAvailabilityRequest,
 ): Promise<AvailabilityResponse> {
   return findIdentityOwners(body.email, body.phone);
+}
+
+/**
+ * Whether an SMS sign-in (or SMS reset) with this number can lead anywhere,
+ * asked before the SMS is paid for. True when:
+ * - a `users` row holds the phone — the same lookup as `findIdentityOwners`,
+ *   so a deleted account (its phone scrambled to null) doesn't count, and an
+ *   orphaned row (its Firebase user gone) does: `reattachOrphanedRow` moves it
+ *   onto the new uid once she signs in; or
+ * - a Firebase user holds it with any provider besides `phone` — a sign-up
+ *   that stopped before `/auth/register`, which the app resumes.
+ * A phone-only Firebase user with no row is the stray the SMS door itself
+ * mints and discards, so it doesn't count. Any Firebase failure other than
+ * user-not-found is rethrown: an unknown answer is never "no account".
+ */
+export async function phoneHasAccount(phone: string): Promise<PhoneAccountCheckResponse> {
+  if (await prisma.user.findUnique({ where: { phone }, select: { id: true } })) {
+    return { hasAccount: true };
+  }
+  try {
+    const holder = await firebaseAuth.getUserByPhoneNumber(phone);
+    return { hasAccount: holder.providerData.some((p) => p.providerId !== 'phone') };
+  } catch (err) {
+    if (isUserNotFound(err)) return { hasAccount: false };
+    throw err;
+  }
 }
 
 /**

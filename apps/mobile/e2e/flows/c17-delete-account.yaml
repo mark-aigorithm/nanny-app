@@ -58,27 +58,15 @@ appId: com.nannyapp.mobile
     visible: 'Welcome to NannyNow'
     timeout: 30000
 
-# ── Same number now finds no account: the phone-only Firebase user Firebase
-#    mints while checking the code is discarded, and the number is free ────
+# ── Same number now finds no account, before any SMS: /auth/phone-account
+#    sees no row (the phone was scrambled away) and no Firebase user (deleted),
+#    so the sign-in door says so without sending a code ──────────────────────
 - tapOn:
     id: 'signIn.phone'
 - inputText: ${DELETABLE_PHONE}
 - hideKeyboard
 - tapOn: 'Send code'
 - extendedWaitUntil:
-    visible: "Didn't get a code?"
-    timeout: 60000
-- runScript:
-    file: ../scripts/advance.js
-    env:
-      ADVANCE: phone-otp
-      OTP_PHONE: ${DELETABLE_PHONE_E164}
-- assertTrue: ${output.otp != null}
-- tapOn:
-    id: 'signIn.code.boxes'
-- inputText: ${output.otp}
-- hideKeyboard
-- tapOn: 'Sign in'
-- extendedWaitUntil:
     visible: "We couldn't find an account for that number. Sign up first."
     timeout: 30000
+- assertNotVisible: "Didn't get a code\\?"

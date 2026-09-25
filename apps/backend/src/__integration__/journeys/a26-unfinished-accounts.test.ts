@@ -146,3 +146,34 @@ describe('A26 — POST /auth/reclaim-email hands over a proven address', () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe('A26 — POST /auth/phone-account answers before an SMS is sent', () => {
+  async function ask(phone: string): Promise<boolean> {
+    const response = await request(app).post('/auth/phone-account').send({ phone });
+    expect(response.status).toBe(200);
+    return response.body.data.hasAccount as boolean;
+  }
+
+  it('is true for a registered mother', async () => {
+    const mother = await makeMother();
+    const row = await prisma.user.findUniqueOrThrow({ where: { id: mother.id }, select: { phone: true } });
+
+    expect(row.phone).not.toBeNull();
+    expect(await ask(row.phone ?? '')).toBe(true);
+  });
+
+  it('is true for an unfinished sign-up with a password and the number — it is resumed', async () => {
+    const phone = uniquePhone();
+    await createEmulatorUser(uniqueEmail('a26-phone-leftover'), undefined, phone);
+
+    expect(await ask(phone)).toBe(true);
+  });
+
+  it('is false for a phone-only Firebase user with no row, and for a number nobody holds', async () => {
+    const strayPhone = uniquePhone();
+    await firebaseAuth.createUser({ phoneNumber: strayPhone });
+
+    expect(await ask(strayPhone)).toBe(false);
+    expect(await ask('+201799999999')).toBe(false);
+  });
+});

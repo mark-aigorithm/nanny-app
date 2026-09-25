@@ -99,6 +99,23 @@ Integration tests most likely to need attention:
 7. **Sync `main`** into `feat/sign-in-landing` (merge, don't rebase), re-run steps 2–3, then all device flows ×2 including c02, c11–c15 and c17.
 8. Open the **one** combined PR for plans 1–4.
 
+## 4b. Added after the local run (2026-09-25): no SMS for a number with no account
+
+Built on top of the local session's `4c3750a..369e188` (C13–C15, the plan-3 review fixes, C17).
+
+- `POST /auth/phone-account` (`phoneHasAccount` in `auth.service.ts`) is public and has no rate
+  limit, like `/auth/availability`. It returns `hasAccount` true for a number a row holds (which
+  includes an orphaned row), or for one a Firebase user holds with a non-phone provider (a leftover
+  to resume).
+- `useSendSignInCode` (SMS sign-in and SMS reset) asks it before sending. With no account, it
+  shows the no-account message and sends no SMS; a parked Google/Apple credential gets the
+  "Continue with Google" variant. A failed check fails open. Resends skip the check.
+- **Changed device flows, re-run locally:** `c17` (its last leg no longer enters a code),
+  `live/sign-in-sms-no-account` (same; still needs approval). Re-check `c12 c14 c15` and `smoke c02`
+  too.
+- **New integration cases:** A26 `POST /auth/phone-account` (a registered mother, a leftover, a
+  stray, and an unknown number). Written, not run.
+
 ## 5. Open decisions (owner)
 
 - **Live suite:** should `apps/mobile/e2e/flows/live` (real Firebase and SMS with console test numbers) run before the combined PR? It hasn't been run, and **must not be run without explicit approval.**

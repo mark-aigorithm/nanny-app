@@ -116,6 +116,18 @@ export const AvailabilityResponseSchema = z.object({
 });
 export type AvailabilityResponse = z.infer<typeof AvailabilityResponseSchema>;
 
+/**
+ * Body for POST /auth/phone-account — the SMS sign-in and SMS reset doors ask
+ * it before sending a code, so a number with no account is told so without
+ * paying for an SMS.
+ */
+export const PhoneAccountCheckSchema = z.object({ phone: PhoneE164Schema });
+export type PhoneAccountCheckRequest = z.infer<typeof PhoneAccountCheckSchema>;
+
+/** Whether signing in with this number can lead anywhere — see `phoneHasAccount`. */
+export const PhoneAccountCheckResponseSchema = z.object({ hasAccount: z.boolean() });
+export type PhoneAccountCheckResponse = z.infer<typeof PhoneAccountCheckResponseSchema>;
+
 /** Nobody under this age may hold an account — mother or nanny. */
 export const MIN_REGISTRATION_AGE = 18;
 /** Past this, a birth date is a typo (a wrong century), not a person. */

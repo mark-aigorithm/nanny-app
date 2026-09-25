@@ -7,7 +7,7 @@ import { colors } from '@mobile/theme';
 import { APP_NAME, OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
 import { Button, Divider, OtpCodeInput } from '@mobile/components/ui';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
-import { useSendPhoneOtp, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
+import { useSendSignInCode, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { validatePhone, toE164, fromE164 } from '@mobile/lib/validation';
@@ -49,7 +49,7 @@ export default function SignInScreen() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const sendOtp = useSendPhoneOtp();
+  const sendOtp = useSendSignInCode();
   const confirmSignIn = useConfirmPhoneSignIn();
 
   const phoneE164 = toE164(countryCode, phone);

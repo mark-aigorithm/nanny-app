@@ -80,10 +80,13 @@ const LIVE = {
     newerPassword: 'E2eNewerPassw0rd!',
     firstName: 'Mona',
   },
-  /** Deliberately never registered: drives the orphan guard. */
+  /**
+   * Deliberately never registered: the sign-in door must refuse it before
+   * sending a code. Still a console test number (code 222222), so a check
+   * that fails open never sends a real SMS.
+   */
   absent: {
     phone: '+201234567892',
-    code: '222222',
   },
 };
 
@@ -120,7 +123,6 @@ const PARAMS = {
   MANAGED_FIRST_NAME: LIVE.managed.firstName,
   ABSENT_PHONE: localDigits(LIVE.absent.phone),
   ABSENT_PHONE_E164: LIVE.absent.phone,
-  ABSENT_CODE: LIVE.absent.code,
   BACKEND_URL,
   MAILPIT_URL,
 };
