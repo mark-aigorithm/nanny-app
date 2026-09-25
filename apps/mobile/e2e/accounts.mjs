@@ -89,8 +89,8 @@ export const ACCOUNTS = {
 export const REGISTRATION = {
   phone: '+201100000005',
   // Registration proves a real address for both roles, so a mother types this
-  // one on step 1 and confirms the code mailed to it on step 2 — same as the
-  // nanny below. It is fixed here so the email-otp advance step can find the
+  // one on "About you" and confirms the code mailed to it on "Secure your
+  // account" — same as the nanny below. It is fixed here so the email-otp advance step can find the
   // message; it becomes both `users.email` and her Firebase credential.
   email: 'e2e-mother-reg@nannyapp.test',
   firstName: 'Rana',
@@ -163,7 +163,7 @@ export const EMAIL_DOOR_COLLISION = {
  * already on it and `emailVerified: false` — the exact shape `useRootGate`
  * resumes into "Finish setting up your account" rather than routing her
  * anywhere else. `firstName` is not written to Firebase (a leftover has no
- * `displayName`); it is only what the flow types into Step 1's name field.
+ * `displayName`); it is only what the flow types into "About you"'s name field.
  */
 export const LEFTOVER = {
   phone: '+201100000009',

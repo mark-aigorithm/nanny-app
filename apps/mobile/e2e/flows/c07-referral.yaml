@@ -3,8 +3,8 @@
 # ── Scope ──────────────────────────────────────────────────────────────────
 # The catalogue describes this as "generate code → new user applies it at
 # registration → /referral/validate". The middle step — typing the code into
-# the signup field — is driven by C2 on its final step, since C2 already walks
-# the whole mother wizard (the E2E photo placeholder opened step 1's gate).
+# the signup field — is driven by C2 on its Finish step, since C2 already walks
+# the whole mother wizard (the E2E photo placeholder opens "About you"'s gate).
 #
 # Here the invitee's side is asserted at the endpoint the field calls.
 # `/referral/validate` is optional-auth for exactly this case — it runs before a

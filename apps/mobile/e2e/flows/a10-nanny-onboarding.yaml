@@ -3,12 +3,13 @@
 # The old A10 started from a seeded nanny because the registration path ends at
 # an ID upload that opened the Android photo picker — system UI a device flow
 # could not drive. The E2E photo affordance (lib/pickImage → lib/e2eImage)
-# removes that wall, so this now drives her whole six-step wizard:
+# removes that wall, so this now drives her whole seven-step wizard:
 #
-#   role → step 1 (placeholder photo, real email, name, phone, DOB) → email
-#   verification (our own OTP, read from Mailpit) → password → location (the
-#   map, on the device geo fix) → ID upload (a passport, front only, the
-#   placeholder) → professional details → phone OTP + terms → Complete.
+#   role → 1 your number (phone OTP) → 2 about you (placeholder photo, name,
+#   real email, DOB) → 3 secure your account (our email OTP, read from
+#   Mailpit, then the password) → 4 home location (the map, on the device geo
+#   fix) → 5 professional details → 6 ID (a passport, front only, the
+#   placeholder, uploaded on Continue) → 7 finish (terms) → Complete.
 #
 # Unlike a mother she starts PENDING_REVIEW, so Complete lands her on the vetting
 # gate rather than a dashboard — which is the whole point of A10, and what the
@@ -28,13 +29,36 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Sign up as a nanny'
 - tapOn: 'Sign up as a nanny'
 
-# ── Step 1 of 6 — personal info ────────────────────────────────────────────
+# ── Step 1 of 7 — your number ──────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 6.*'
+    visible: 'STEP 1 OF 7 — YOUR NUMBER'
     timeout: 30000
-- assertNotVisible: 'A profile photo is required'
+- tapOn: '100 000 0000'
+- inputText: ${REGISTRATION_NANNY_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${REGISTRATION_NANNY_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'registerPhone.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'Verify'
+
+# ── Step 2 of 7 — about you ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 7 — ABOUT YOU'
+    timeout: 30000
+- assertNotVisible: 'A profile photo is required.'
 - tapOn: 'Continue'
-- assertVisible: 'A profile photo is required'
+- assertVisible: 'A profile photo is required.'
 - tapOn: 'Add photo'
 - extendedWaitUntil:
     visible: 'Change photo'
@@ -48,12 +72,9 @@ appId: com.nannyapp.mobile
 - tapOn: 'Enter your last name'
 - inputText: 'Lab'
 - hideKeyboard
-# A nanny gives a real address here — she verifies it on the very next screen.
+# A real address — she verifies it on the next screen.
 - tapOn: 'you@example.com'
 - inputText: ${REGISTRATION_NANNY_EMAIL}
-- hideKeyboard
-- tapOn: '100 000 0000'
-- inputText: ${REGISTRATION_NANNY_PHONE}
 - hideKeyboard
 - scrollUntilVisible:
     element:
@@ -64,7 +85,10 @@ appId: com.nannyapp.mobile
 - tapOn: 'OK'
 - tapOn: 'Continue'
 
-# ── Step 2 of 6 — verify her email (our OTP, read from Mailpit) ─────────────
+# ── Step 3 of 7 — secure your account (email OTP, then the password) ───────
+- extendedWaitUntil:
+    visible: 'STEP 3 OF 7 — SECURE YOUR ACCOUNT'
+    timeout: 60000
 - extendedWaitUntil:
     visible: 'Resend in.*'
     timeout: 30000
@@ -75,14 +99,11 @@ appId: com.nannyapp.mobile
       EMAIL_OTP_ADDRESS: ${REGISTRATION_NANNY_EMAIL}
 - assertTrue: ${output.emailOtp != null}
 - tapOn:
-    id: 'registerEmail.code.boxes'
+    id: 'registerAccount.code.boxes'
 - inputText: ${output.emailOtp}
 - hideKeyboard
-- tapOn: 'Continue'
-
-# ── Step 3 of 6 — password ─────────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Create a secure password'
+    visible: 'Enter a password'
     timeout: 30000
 - tapOn: 'Enter a password'
 - inputText: ${PASSWORD}
@@ -92,12 +113,12 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Continue'
 
-# ── Step 4 of 6 — location ─────────────────────────────────────────────────
+# ── Step 4 of 7 — home location ────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'STEP 4 OF 6.*'
+    visible: 'STEP 4 OF 7 — HOME LOCATION'
     timeout: 30000
 # The lab has no Maps key, so the pin's reverse-geocode never fills the
-# address — she types it, as the wizard now requires.
+# address — she types it, as the wizard requires.
 - tapOn: 'Street address'
 - inputText: '2 Test Street, Cairo'
 - hideKeyboard
@@ -106,23 +127,12 @@ appId: com.nannyapp.mobile
     point: '50%,44%'
 - tapOn: 'Continue'
 
-# ── Step 5 of 6 — ID upload (a passport: front only) ───────────────────────
+# ── Step 5 of 7 — professional details ─────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Upload your ID'
+    visible: 'STEP 5 OF 7 — PROFESSIONAL DETAILS'
     timeout: 30000
-- tapOn: 'Passport'
-# The picker is short-circuited to a bundled placeholder; the card flips to its
-# filled state ("Change") once the image is set.
-- tapOn: 'Passport photo page'
-- extendedWaitUntil:
-    visible: 'Change'
-    timeout: 30000
-- tapOn: 'Continue'
-
-# ── Step 6 of 6 — professional details ─────────────────────────────────────
-- extendedWaitUntil:
-    visible: 'Tell families about yourself'
-    timeout: 30000
+# Continue is off, and says why, until every required answer is in.
+- assertVisible: 'Still needed: .*'
 - tapOn: 'Share your experience, approach to childcare, and what makes you a great nanny…'
 - inputText: 'E2E lab nanny — five years with toddlers and school-age children.'
 - hideKeyboard
@@ -131,28 +141,29 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Full-time'
 - tapOn: '1-3'
+- assertNotVisible: 'Still needed: .*'
 - tapOn: 'Continue'
 
-# ── Final step — verify phone, terms (no referral for a nanny) ─────────────
+# ── Step 6 of 7 — ID upload (a passport: front only) ───────────────────────
 - extendedWaitUntil:
-    visible: 'Verify your phone number'
+    visible: 'STEP 6 OF 7 — VERIFY YOUR IDENTITY'
     timeout: 30000
+- tapOn: 'Passport'
+# The picker is short-circuited to a bundled placeholder; the card flips to its
+# filled state ("Change") once the image is set.
+- tapOn: 'Passport photo page'
 - extendedWaitUntil:
-    visible: 'Resend in.*'
+    visible: 'Change'
     timeout: 30000
-- runScript:
-    file: ../scripts/advance.js
-    env:
-      ADVANCE: phone-otp
-      OTP_PHONE: ${REGISTRATION_NANNY_PHONE_E164}
-- assertTrue: ${output.otp != null}
-- tapOn:
-    id: 'registerStep3.code.boxes'
-- inputText: ${output.otp}
-- hideKeyboard
-- tapOn: 'I agree to.*'
-# Complete uploads the placeholder ID + avatar to the Storage emulator, then
-# registers her — so reaching the next screen proves those uploads landed.
+# Continue uploads the placeholder to the Storage emulator — reaching Finish
+# proves it landed.
+- tapOn: 'Continue'
+
+# ── Step 7 of 7 — finish (no referral for a nanny) ─────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 7 OF 7 — FINISH'
+    timeout: 60000
+- tapOn: 'I agree to the Terms of Service and Privacy Policy'
 - tapOn: 'Complete setup'
 
 # ── Waiting for vetting ────────────────────────────────────────────────────

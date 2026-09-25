@@ -47,9 +47,21 @@ export const styles = StyleSheet.create({
     ...typeScale.bodyMd,
     color: colors.textSecondary,
   },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: -spacing.md,
+  },
   termsLink: {
+    ...typeScale.labelMd,
     fontFamily: fontFamily.semiBold,
     color: colors.primaryDark,
     textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    ...typeScale.labelMd,
+    color: colors.textMuted,
   },
 });

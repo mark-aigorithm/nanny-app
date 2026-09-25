@@ -101,7 +101,7 @@ function seedNanny(extra: Record<string, unknown> = {}) {
 }
 
 async function completeSetup() {
-  fireEvent.press(screen.getByText(/^I agree to the/));
+  fireEvent.press(screen.getByText('I agree to the Terms of Service and Privacy Policy'));
   await act(async () => {
     fireEvent.press(screen.getByText('Complete setup'));
   });
@@ -132,7 +132,7 @@ it('keeps Complete setup off until the terms are accepted', async () => {
   expect(mockRegister).not.toHaveBeenCalled();
 });
 
-it('opens the Terms of Service and the Privacy Policy', () => {
+it('opens the Terms of Service and the Privacy Policy, without ticking the box', async () => {
   seedMother();
   render(<RegistrationFinishScreen />);
 
@@ -140,6 +140,11 @@ it('opens the Terms of Service and the Privacy Policy', () => {
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/legal/[key]', params: { key: 'terms' } });
   fireEvent.press(screen.getByText('Privacy Policy'));
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/legal/[key]', params: { key: 'privacy' } });
+
+  await act(async () => {
+    fireEvent.press(screen.getByText('Complete setup'));
+  });
+  expect(mockRegister).not.toHaveBeenCalled();
 });
 
 it('registers with what the draft holds — no upload when the photo already went up', async () => {

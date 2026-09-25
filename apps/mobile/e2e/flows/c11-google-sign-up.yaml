@@ -5,8 +5,9 @@
 # (lib/socialAuth): the address typed there becomes an unsigned Google
 # identity the emulator accepts. Everything after that is the production path
 # — signInWithCredential, the /auth/me 404 that marks a new person, the social
-# wizard (no email-code or password step), the phone linked onto the Google
-# account, and POST /auth/register with no email token.
+# wizard (4 steps: no "Secure your account"), the phone linked onto the
+# Google account on its first step, and POST /auth/register with no email
+# token.
 #
 # The second half signs out and comes back through sign-in with the
 # same Google identity: a 200 from /auth/me, straight home.
@@ -32,47 +33,14 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Use this Google account'
 
-# ── Step 1 of 3 — Google supplied the name and a verified, fixed email ─────
+# ── Step 1 of 4 — the phone, linked onto the Google account ───────────────
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 3.*'
+    visible: 'STEP 1 OF 4 — YOUR NUMBER'
     timeout: 60000
-- assertVisible: ${SOCIAL_REGISTRATION_EMAIL}
-- assertVisible: 'Verified by Google'
-
-- tapOn: 'Add photo'
-- extendedWaitUntil:
-    visible: 'Change photo'
-    timeout: 30000
-
 - tapOn: '100 000 0000'
 - inputText: ${SOCIAL_REGISTRATION_PHONE}
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      text: 'Select your date of birth'
-    direction: DOWN
-    timeout: 20000
-- tapOn: 'Select your date of birth'
-- tapOn: 'OK'
-- tapOn: 'Continue'
-
-# No email-code screen, no password screen: straight to location.
-- extendedWaitUntil:
-    visible: 'Where are you based?'
-    timeout: 30000
-- tapOn:
-    point: '50%,44%'
-# The street line is required for every account — type it, as A10 does. After
-# the map tap, so a reverse-geocoded line can't overwrite it afterwards.
-- tapOn: 'Street address'
-- inputText: '1 Test Street, Cairo'
-- hideKeyboard
-- tapOn: 'Continue'
-
-# ── Final step — the phone is linked onto the Google account ───────────────
-- extendedWaitUntil:
-    visible: 'Verify your phone number'
-    timeout: 30000
+- tapOn: 'Send code'
 - extendedWaitUntil:
     visible: 'Resend in.*'
     timeout: 30000
@@ -83,10 +51,49 @@ appId: com.nannyapp.mobile
       OTP_PHONE: ${SOCIAL_REGISTRATION_PHONE_E164}
 - assertTrue: ${output.otp != null}
 - tapOn:
-    id: 'registerStep3.code.boxes'
+    id: 'registerPhone.code.boxes'
 - inputText: ${output.otp}
 - hideKeyboard
-- tapOn: 'I agree to.*'
+- tapOn: 'Verify'
+
+# ── Step 2 of 4 — Google supplied the name and a verified, fixed email ─────
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 4 — ABOUT YOU'
+    timeout: 60000
+- assertVisible: ${SOCIAL_REGISTRATION_EMAIL}
+- assertVisible: 'Verified by Google'
+
+- tapOn: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+# ── Step 3 of 4 — no email code, no password: straight to location ─────────
+- extendedWaitUntil:
+    visible: 'STEP 3 OF 4 — LOCATION & PREFERENCES'
+    timeout: 60000
+- tapOn:
+    point: '50%,44%'
+# The street line is required for every account — type it, as A10 does. After
+# the map tap, so a reverse-geocoded line can't overwrite it afterwards.
+- tapOn: 'Street address'
+- inputText: '1 Test Street, Cairo'
+- hideKeyboard
+- tapOn: 'Continue'
+
+# ── Step 4 of 4 — finish ───────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 4 OF 4 — FINISH'
+    timeout: 30000
+- tapOn: 'I agree to the Terms of Service and Privacy Policy'
 - tapOn: 'Complete setup'
 
 - extendedWaitUntil:
@@ -127,7 +134,7 @@ appId: com.nannyapp.mobile
 # ── C16: a Google sign-up gets a password ──────────────────────────────────
 # Nothing in the Google wizard asks for a password, so the email door says
 # how to get one: Forgot password. The SMS reset signs her in with the phone
-# she linked at step 3 and sets a password on that same account — proven by
+# she linked on "Your number" and sets a password on that same account — proven by
 # signing out and coming back through the email door with it.
 - tapOn: 'Account'
 - scrollUntilVisible:

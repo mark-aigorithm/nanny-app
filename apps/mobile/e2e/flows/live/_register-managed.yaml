@@ -5,9 +5,9 @@
 # leading underscore keeps it out of the suite.
 #
 # The app rather than the Admin SDK, because this is the live proof that
-# registration links the real address: the final step confirms the phone code —
-# a real Firebase sign-in that mints the account — then links the
-# email/password credential onto that same uid. live-assert-account checks
+# registration links the real address: "Your number" confirms the phone code —
+# a real Firebase sign-in that mints the account — and "Secure your account"
+# then links the email/password credential onto that same uid. live-assert-account checks
 # exactly that from Firebase's side, which the home screen cannot.
 #
 # Adapted from ../c02-mother-registration.yaml — the same wizard, steps and
@@ -33,10 +33,30 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Sign up as a mother'
 - tapOn: 'Sign up as a mother'
 
-# ── Step 1 of 5 — personal info ────────────────────────────────────────────
+# ── Step 1 of 5 — your number ──────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 5.*'
+    visible: 'STEP 1 OF 5 — YOUR NUMBER'
     timeout: 30000
+- tapOn: '100 000 0000'
+- inputText: ${MANAGED_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+# A live Firebase send: the code boxes appear only once it has resolved, so
+# they are the signal it went.
+- extendedWaitUntil:
+    visible:
+      id: 'registerPhone.code.boxes'
+    timeout: 60000
+- tapOn:
+    id: 'registerPhone.code.boxes'
+- inputText: ${MANAGED_CODE}
+- hideKeyboard
+- tapOn: 'Verify'
+
+# ── Step 2 of 5 — about you ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 5 — ABOUT YOU'
+    timeout: 60000
 
 # Under E2E the picker returns a bundled placeholder (lib/e2eImage keys off the
 # Storage-emulator host, which e2e:metro:live keeps), so no system UI opens.
@@ -53,17 +73,14 @@ appId: com.nannyapp.mobile
 - tapOn: 'Enter your last name'
 - inputText: 'Lab'
 - hideKeyboard
-# The real address: proved on the next screen, then linked as her Firebase
-# password credential on the final one.
+# The real address: proved on the next screen and linked there as her
+# Firebase password credential.
 - tapOn: 'you@example.com'
 - inputText: ${MANAGED_EMAIL}
 - hideKeyboard
-- tapOn: '100 000 0000'
-- inputText: ${MANAGED_PHONE}
-- hideKeyboard
 
 # The native date dialog defaults to 25 years ago — a valid adult DOB — so OK
-# is all it needs. The email field pushed it below the fold.
+# is all it needs.
 - scrollUntilVisible:
     element:
       text: 'Select your date of birth'
@@ -73,7 +90,10 @@ appId: com.nannyapp.mobile
 - tapOn: 'OK'
 - tapOn: 'Continue'
 
-# ── Step 2 of 5 — verify her email (our OTP, read from Mailpit) ────────────
+# ── Step 3 of 5 — secure your account (email OTP from Mailpit, password) ───
+- extendedWaitUntil:
+    visible: 'STEP 3 OF 5 — SECURE YOUR ACCOUNT'
+    timeout: 60000
 - extendedWaitUntil:
     visible: 'Resend in.*'
     timeout: 30000
@@ -84,14 +104,11 @@ appId: com.nannyapp.mobile
       EMAIL_OTP_ADDRESS: ${MANAGED_EMAIL}
 - assertTrue: ${output.emailOtp != null}
 - tapOn:
-    id: 'registerEmail.code.boxes'
+    id: 'registerAccount.code.boxes'
 - inputText: ${output.emailOtp}
 - hideKeyboard
-- tapOn: 'Continue'
-
-# ── Step 3 of 5 — set password ─────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Create a secure password'
+    visible: 'Enter a password'
     timeout: 30000
 - tapOn: 'Enter a password'
 - inputText: ${MANAGED_PASSWORD}
@@ -103,7 +120,7 @@ appId: com.nannyapp.mobile
 
 # ── Step 4 of 5 — location & preferences ───────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Where are you based\?'
+    visible: 'STEP 4 OF 5 — LOCATION & PREFERENCES'
     timeout: 30000
 # Tapping the map (centred on the device's Cairo geo fix) sets the pin, which
 # is the lat/long Continue requires. Same point as C2.
@@ -117,27 +134,11 @@ appId: com.nannyapp.mobile
 - tapOn: 'Background checked'
 - tapOn: 'Continue'
 
-# ── Final step — verify phone, terms ───────────────────────────────────────
+# ── Step 5 of 5 — finish ───────────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Verify your phone number'
+    visible: 'STEP 5 OF 5 — FINISH'
     timeout: 30000
-# The code is sent on arrival, and here that is a live Firebase call. C2 knows
-# it landed because phone-otp finds the code the emulator issued; nothing reads
-# a code back here, and the "Resend in" countdown starts when the screen mounts,
-# not when the send resolves. So wait for the send's own pending label to
-# clear: until it has, "Complete setup" stays disabled and a tap on it is
-# silently dropped.
-- extendedWaitUntil:
-    notVisible: 'Sending code.*'
-    timeout: 60000
-- assertVisible: "Didn't get a code\\?"
-- tapOn:
-    id: 'registerStep3.code.boxes'
-- inputText: ${MANAGED_CODE}
-- hideKeyboard
-
-# One text node — the links are nested <Text>s Android flattens into it.
-- tapOn: 'I agree to.*'
+- tapOn: 'I agree to the Terms of Service and Privacy Policy'
 - tapOn: 'Complete setup'
 
 - extendedWaitUntil:

@@ -264,7 +264,6 @@ export default function RegistrationFinishScreen() {
         {/* Referral code — mothers only; Care Points have no nanny outlet yet. */}
         {isMother && <ReferralCodeField value={referralCode} onChange={setReferralCode} />}
 
-        {/* The card toggles the box; the two links open their documents. */}
         <Pressable
           style={styles.termsCard}
           onPress={() => setTermsAccepted((prev) => !prev)}
@@ -274,17 +273,19 @@ export default function RegistrationFinishScreen() {
           <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
             {termsAccepted && <Ionicons name="checkmark" size={14} color={colors.white} />}
           </View>
-          <Text style={styles.termsText}>
-            {'I agree to the '}
-            <Text style={styles.termsLink} onPress={() => openLegal('terms')} accessibilityRole="link">
-              Terms of Service
-            </Text>
-            {' and '}
-            <Text style={styles.termsLink} onPress={() => openLegal('privacy')} accessibilityRole="link">
-              Privacy Policy
-            </Text>
-          </Text>
+          <Text style={styles.termsText}>I agree to the Terms of Service and Privacy Policy</Text>
         </Pressable>
+        {/* Links of their own, beside the card rather than inside its line, so
+            neither a thumb nor a flow toggles the box by opening a document. */}
+        <View style={styles.legalLinks}>
+          <Pressable onPress={() => openLegal('terms')} accessibilityRole="link" hitSlop={8}>
+            <Text style={styles.termsLink}>Terms of Service</Text>
+          </Pressable>
+          <Text style={styles.legalSeparator}>·</Text>
+          <Pressable onPress={() => openLegal('privacy')} accessibilityRole="link" hitSlop={8}>
+            <Text style={styles.termsLink}>Privacy Policy</Text>
+          </Pressable>
+        </View>
 
         {formError && (
           <View style={styles.formErrorBanner}>

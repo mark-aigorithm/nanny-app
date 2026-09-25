@@ -216,8 +216,8 @@ function runFlow(maestro, flow) {
     MOTHER_PHONE_E164: ACCOUNTS.mother.phone,
     // The throwaway account a registration flow signs up as — the digits it
     // types, the E.164 the phone-otp step reads, and the real address she
-    // types on step 1, proves on step 2, and links as her Firebase sign-in
-    // credential.
+    // types on "About you", then proves and links as her Firebase sign-in
+    // credential on "Secure your account".
     REGISTRATION_PHONE: localDigits(REGISTRATION.phone),
     REGISTRATION_PHONE_E164: REGISTRATION.phone,
     REGISTRATION_EMAIL: REGISTRATION.email,

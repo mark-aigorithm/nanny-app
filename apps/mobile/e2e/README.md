@@ -440,18 +440,19 @@ them order-independent.
 ## Google sign-in (C11–C14)
 
 **C11** signs a mother up with Google from "Create your account" — the social
-wizard's three steps, the phone linked onto the Google account, no email-code or
-password screen — then signs out and back in with the same Google identity.
+wizard's four steps, the phone linked onto the Google account on "Your number",
+no "Secure your account" — then signs out and back in with the same Google
+identity.
 Its C16 tail then proves she can get a password: sign out again, reset by SMS
 using the phone she linked, set a password on that same account, and sign back
 in through the email door with it.
 **C12** is collision B: a new Google identity types the seeded mother's number
-on step 1, is sent to the sign-in screen (Welcome to NannyNow) with the number
-prefilled and a banner, signs in by SMS, and only then has Google linked onto
-her account.
-**C13** is C11's nanny side: the same picker and locked/verified Step 1, then
-the fork A10 proved for the phone wizard — nanny location, an ID upload, and
-professional details — before the same final phone-link step, landing on the
+on "Your number", and — before any SMS — is sent to the sign-in screen (Welcome
+to NannyNow) with the number prefilled and a banner, signs in by SMS, and only
+then has Google linked onto her account.
+**C13** is C11's nanny side (six steps): the same picker, phone link and
+locked/verified email, then the fork A10 proved for the phone wizard — home
+location, professional details and an ID upload — before Finish, landing on the
 vetting gate (PENDING_REVIEW) rather than a dashboard.
 **C14** is collision A — the "email door", as opposed to C12's collision inside
 the wizard: "Continue with Google" on the sign-in screen itself, with an
@@ -509,12 +510,12 @@ stopped after Firebase created the account (she set a password, and it carries
 a linked phone) but before `/auth/register` ever wrote the row. `useRootGate`
 resumes this instead of starting fresh or signing her out: it seeds a
 registration draft straight from the account (`seedDraftFromAccount`) and
-opens role selection in "Finish setting up your account" mode. Locked-in
-fields follow from what the account already proves — the phone (Step 1 shows
-it disabled with "Already verified on your account", Step 3 skips the SMS
-entirely) and, once she re-types the email a password is already registered
-under, the create-password screen (`RegistrationEmailScreen` compares
-`passwordEmail` against what she typed and skips ahead when they match).
+opens role selection in "Finish setting up your account" mode. What the
+account already proves is skipped — the phone (it was on the account when the
+draft was seeded, so `lib/registrationSteps` leaves out "Your number" and the
+wizard counts four steps) and, once she proves the email a password is already
+registered under, the password ("Secure your account" compares `passwordEmail`
+with the verified address and shows "Your password is already set.").
 
 **`LEFTOVER`** (`+201100000009`, `e2e-leftover@…`) is seeded differently from
 every throwaway account above: `wipeAccount` frees it first (same as any
@@ -620,15 +621,16 @@ because its subject is the gate lifting *after* sign-up, not the wizard; what
 registration itself decides is covered over HTTP in
 `a11-mother-id-gate.test.ts`.
 
-It is not only the ID upload. **Step 1 disables `Continue` until `draft.photoUri`
-is set**, for a mother as well as a nanny, so *every* signup opens the picker on
-the very first screen. That wall is gone: under E2E the picker is
+It is not only the ID upload. **"About you" refuses `Continue` until
+`draft.photoUri` is set**, for a mother as well as a nanny, so *every* signup
+opens the picker early on. That wall is gone: under E2E the picker is
 short-circuited to a bundled placeholder (`lib/e2eImage`), and the accounts both
 registration flows create are wiped by the seeder rather than upserted, so a run
 does not mint an account per run. C2 and A10 now drive their whole wizards —
-five steps for a mother, six for a nanny, including the email OTP each proves
-mid-wizard against a code read out of Mailpit — and C7 rides on C2's step 5
-rather than asserting `/referrals/validate` on its own.
+five steps for a mother, seven for a nanny, phone first, including the email
+OTP each proves on "Secure your account" against a code read out of Mailpit —
+and C7 rides on C2's Finish step rather than asserting `/referrals/validate` on
+its own.
 
 **Anything about push tokens (C3).** No route exposes a user's device tokens,
 so a flow cannot see whether registration happened — the app posts to

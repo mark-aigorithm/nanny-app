@@ -171,14 +171,15 @@ returns 401 and leaves the booking APPROVED. Partly covered already by
 `paymob-fake.smoke.test.ts`.
 
 ### A10. Nanny onboarding and approval · `UI:both`
-Role selection → nanny details → location → ID upload → `PendingReviewScreen`. Admin approves her
+Role selection → your number → about you → secure your account → home location → professional
+details → ID upload → finish → `PendingReviewScreen` (seven steps, phone first). Admin approves her
 from the Nannies tab → her detail page (profile and ID decided together) → **the nanny enters the
 broadcast pool**, which is the assertion that matters: a new request created afterwards is pushed
 to her and appears in `NannyRequestsScreen`, where she can claim it. (There is no parent-facing
 nanny search to become "discoverable" in.) Reject path shows the reason in-app.
 
 ### A11. Mother ID verification gates booking · `UI:mobile`
-Registration steps 1–3 → `UploadIdScreen` → `PENDING_REVIEW`. **Assert:** booking is refused while
+The mother's registration wizard → `UploadIdScreen` → `PENDING_REVIEW`. **Assert:** booking is refused while
 `approvalStatus` is `PENDING_ID` or `REJECTED`
 ([booking.service.ts:894](../../apps/backend/src/services/booking.service.ts:894)), and permitted
 the moment an admin approves.
@@ -354,11 +355,10 @@ each proves the screen is wired.
 | C15 | Leftover resume: a Firebase account with no row is resumed at role selection instead of dead-ending, with the phone and password it already proves locked in — **covered** by `c15-leftover-resume.yaml` | `UI:mobile` |
 | C17 | Delete account: the Account tab's confirm dialog, the deletion notice on the sign-in screen, then the number signing in as unregistered — **covered** by `c17-delete-account.yaml` | `UI:mobile` |
 
-**The photo picker no longer bounds C2 and C7.** Step 1 of registration still disables
-`Continue` until `draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker
-returns a bundled placeholder, and the seeder wipes the registering account before each run. C2
-therefore drives a mother's whole wizard to her home screen, and the invitee's half of C7 rides on
-C2's final step.
+**The photo picker no longer bounds C2 and C7.** "About you" still refuses `Continue` until
+`draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker returns a bundled
+placeholder, and the seeder wipes the registering account before each run. C2 therefore drives a
+mother's whole wizard to her home screen, and the invitee's half of C7 rides on C2's Finish step.
 
 ### C1. Session lifecycle · `UI:mobile` — moved to the live-Firebase suite
 Previously `c01-session-lifecycle.yaml`, which drove sign in, sign out, forgot password and create
@@ -374,15 +374,20 @@ phone-derived placeholder left in the app.
 
 ### C2. Role selection branching · `UI:mobile` — **covered** by `c02-mother-registration.yaml`
 The screen's whole job is a fork, and the fork is visible on the very next screen: a mother signs
-up in four steps and a nanny in five, because a nanny has details, a working area and an ID to hand
-over. The flow asserts the button taking the name of the choice, the step count on each path, and —
+up in five steps and a nanny in seven, because a nanny has professional details and an ID to hand
+over. Every step's "STEP n OF m" comes from one helper (`lib/registrationSteps`), and the flow
+asserts the full label on each screen, so a miscount fails it. The flow asserts the button taking the name of the choice, the step count on each path, and —
 the one that is easy to leave untested — that switching choices **throws the half-typed draft
 away**. The draft is a persisted store, so a stale one is exactly how the wrong role's answers
 reach the backend.
 
-It then drives the mother's path to the end — email OTP from Mailpit, password, location, phone OTP,
-the referral field (C7) and terms — and lands on her home screen, which proves the whole chain
-(`POST /auth/register` included) landed.
+It then drives the mother's path to the end — phone OTP first ("Your number"), "About you" (every
+missing field flagged at once, then the photo), the email OTP from Mailpit and the password on one
+screen ("Secure your account"), location, and Finish: the referral field (C7), the Terms of Service
+link (the admin-managed text, the placeholder in a fresh stack) and the terms — and lands on her home
+screen, which proves the whole chain (`POST /auth/register` included) landed. That Back from the
+notification prompt can't re-enter the wizard is pinned in `RegistrationFinishScreen.test.tsx`
+(`dismissAll` before the replace), not here: Back on that screen would leave the app.
 
 ### C3. Push token on login and logout · `UI:mobile` — **not covered**
 Both halves are blocked, for different reasons, and the second one is a finding rather than a
@@ -459,7 +464,7 @@ the point values in the copy — which come from the reward config, so the asser
 console change stops reaching the screen.
 
 The invitee's side is asserted twice. Through the UI, C2 types the mother's code into the signup
-field on its final step and waits for it to validate. At the endpoint, this flow calls
+field on its Finish step and waits for it to validate. At the endpoint, this flow calls
 `/referrals/validate` — optional-auth precisely because it runs mid-signup before a Firebase account
 exists — **with no token at all** and asks it both questions, a real code and a junk one.
 
@@ -522,8 +527,9 @@ Google's own sheet needs a real Google account on the device, so under the Auth 
 with Google" opens the E2E-only picker instead (`lib/socialAuth`, `E2eGooglePickerHost`): the
 address typed there becomes a Google identity the emulator accepts. Everything after that is the
 production path — `signInWithCredential`, the `/auth/me` 404 that marks a new person, the social
-wizard (no email-code or password step, step 1 of 3 with the email prefilled read-only), the phone
-linked onto the Google account, and `POST /auth/register` with no email token.
+wizard (four steps, no "Secure your account": the phone linked onto the Google account on step 1,
+then "About you" with the email prefilled read-only), and `POST /auth/register` with no email
+token.
 
 The second half signs out and comes back through the sign-in screen (Welcome to NannyNow) with the
 same Google identity: a 200 from `/auth/me`, straight home. That is the existing-account door
@@ -532,14 +538,14 @@ real.
 
 Its C16 tail then proves a Google sign-up can get a password: nothing in the Google wizard asks for
 one, so after signing out again she goes through the email door, which points her at Forgot
-password; the SMS reset signs her in with the phone she linked at step 3 and sets a password on
+password; the SMS reset signs her in with the phone she linked on "Your number" and sets a password on
 that same account, proven by signing out once more and signing back in through the email door with
 it.
 
 ### C12. Collision B: Google onto an existing phone · `UI:mobile` — **covered** by `c12-google-collision.yaml`
-A new Google identity starts the social wizard and types the seeded mother's phone. Step 1's
-availability check finds the number taken, so the app deletes the throwaway Google account it just
-made, keeps the credential, and sends her to the sign-in screen (Welcome to NannyNow) with the
+A new Google identity starts the social wizard and types the seeded mother's phone on "Your
+number". The availability check finds the number taken **before any SMS is sent** (the flow asserts
+no code box appears), so the app deletes the throwaway Google account it just made, keeps the credential, and sends her to the sign-in screen (Welcome to NannyNow) with the
 number prefilled and a banner explaining why. Signing in by SMS proves she owns the account; only
 then is the Google identity linked onto it.
 
@@ -549,11 +555,11 @@ from seeded accounts on every run, so a second run starts clean; this flow, like
 twice per the lab rule.
 
 ### C13. Nanny Google sign-up · `UI:mobile` — **covered** by `c13-nanny-google-sign-up.yaml`
-C11's nanny counterpart: the same E2E picker and the same locked/verified Step 1 (name and email
-from Google, a photo, phone and DOB to fill in), but from there it follows the fork A10 proved for
-the phone wizard rather than C11's — nanny location on the map, a passport upload through the
-placeholder picker, and professional details (bio, experience, availability, an age range) — before
-the same final step links the phone onto the Google account. She registers `PENDING_REVIEW`, so
+C11's nanny counterpart (six steps): the same E2E picker, the phone linked onto the Google account
+first, and the same locked/verified "About you" (name and email from Google, a photo and DOB to fill
+in), but from there it follows the fork A10 proved for the phone wizard rather than C11's — home
+location on the map, professional details (bio, experience, availability, an age range), and a
+passport upload through the placeholder picker — before Finish. She registers `PENDING_REVIEW`, so
 Complete setup lands her on the vetting gate rather than a dashboard, same as A10.
 
 ### C14. Collision A: Google onto an existing email · `UI:mobile` — **covered** by `c14-google-collision-email-door.yaml`
@@ -577,11 +583,11 @@ all** — the shape of a sign-up that stopped right after Firebase created the a
 gate seeds a registration draft from the account instead of starting over or signing her out — role
 selection opens reading "Finish setting up your account", not "Create your account".
 
-What the account already proves is locked into the wizard: Step 1 shows her phone disabled with
-"Already verified on your account" (no SMS needed at the final step either), and because a password
-is already registered under the very email she re-types on Step 1, the create-password screen is
-skipped once she confirms that address again with our own email OTP. The final step shows "Your
-number is already verified." with no code box at all. Nothing here duplicates `/auth/register`
+What the account already proves is skipped: the phone was on the account when the draft was
+seeded, so "Your number" is left out and the wizard counts four steps ("STEP 1 OF 4 — ABOUT YOU");
+and because a password is already registered under the very email on file, "Secure your account"
+shows "Your password is already set." once she confirms that address again with our own email OTP.
+Finish reads "Signed in as" her number. Nothing here duplicates `/auth/register`
 against a live row — this is the same account throughout, finishing the one sign-up it started.
 
 ### C17. Delete account · `UI:mobile` — **covered** by `c17-delete-account.yaml`

@@ -6,11 +6,11 @@
 # ever ran. Signing in by SMS (the plain phone door) succeeds at Firebase,
 # `/auth/me` 404s, and the root gate seeds a draft from the account instead of
 # starting fresh or signing her out: role selection opens in "Finish setting
-# up your account" mode, Step 1 shows her phone locked with "Already verified
-# on your account", and — because the account's password is already registered
-# under the very email she is asked to re-type — the create-password screen is
-# skipped once she proves that address again. Step 3 shows no code box at all:
-# the phone is already hers.
+# up your account" mode. The phone is already on the account, so the wizard
+# skips "Your number" and counts four steps. Because the account's password
+# is already registered under the very email on file, "Secure your account"
+# keeps it ("Your password is already set.") once she proves that address
+# again.
 #
 # Nothing here is a throwaway in the C2/A10 sense (this flow never lets
 # /auth/register run against the seeded phone/email — it is the same account
@@ -50,12 +50,11 @@ appId: com.nannyapp.mobile
 - tapOn: "I'm a mother"
 - tapOn: 'Sign up as a mother'
 
-# ── Step 1 of 5 — the phone is already hers, the email already on file ─────
+# ── Step 1 of 4 — about you; no "Your number", the phone is already hers ──
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 5.*'
+    visible: 'STEP 1 OF 4 — ABOUT YOU'
     timeout: 30000
 - assertVisible: ${LEFTOVER_EMAIL}
-- assertVisible: 'Already verified on your account'
 
 - tapOn: 'Add photo'
 - extendedWaitUntil:
@@ -77,7 +76,10 @@ appId: com.nannyapp.mobile
 - tapOn: 'OK'
 - tapOn: 'Continue'
 
-# ── Step 2 of 5 — re-prove the address (our OTP, read from Mailpit) ────────
+# ── Step 2 of 4 — re-prove the address; the password is kept ───────────────
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 4 — SECURE YOUR ACCOUNT'
+    timeout: 60000
 - extendedWaitUntil:
     visible: 'Resend in.*'
     timeout: 30000
@@ -88,15 +90,18 @@ appId: com.nannyapp.mobile
       EMAIL_OTP_ADDRESS: ${LEFTOVER_EMAIL}
 - assertTrue: ${output.emailOtp != null}
 - tapOn:
-    id: 'registerEmail.code.boxes'
+    id: 'registerAccount.code.boxes'
 - inputText: ${output.emailOtp}
 - hideKeyboard
+- extendedWaitUntil:
+    visible: 'Your password is already set.'
+    timeout: 30000
+- assertNotVisible: 'Enter a password'
 - tapOn: 'Continue'
 
-# ── The account already has a password for this address: create-password is
-#    skipped straight to location ──────────────────────────────────────────
+# ── Step 3 of 4 — location ─────────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Where are you based?'
+    visible: 'STEP 3 OF 4 — LOCATION & PREFERENCES'
     timeout: 30000
 - tapOn:
     point: '50%,44%'
@@ -105,12 +110,12 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Continue'
 
-# ── Final step — the phone is already verified, so there is no code box ────
+# ── Step 4 of 4 — finish, signed in as the number already on the account ──
 - extendedWaitUntil:
-    visible: 'Verify your phone number'
+    visible: 'STEP 4 OF 4 — FINISH'
     timeout: 30000
-- assertVisible: 'Your number is already verified.'
-- tapOn: 'I agree to.*'
+- assertVisible: 'Signed in as ${LEFTOVER_PHONE_E164}'
+- tapOn: 'I agree to the Terms of Service and Privacy Policy'
 - tapOn: 'Complete setup'
 
 - extendedWaitUntil:
