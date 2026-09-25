@@ -60,6 +60,23 @@ export const ACCOUNTS = {
     firstName: 'Noha',
     approvalStatus: 'PENDING_REVIEW',
   },
+  /**
+   * The account C17 deletes. Seeded fresh every run like every other entry
+   * above — unlike a registration throwaway (`REGISTRATION`, `LEFTOVER`, …),
+   * this one does not need `E2E_MOBILE_WIPE`: deleting it scrambles its email,
+   * phone and Firebase uid (`scrambleIdentity`, account-deletion.service.ts)
+   * and hard-deletes the Firebase user, so the previous run's row is already
+   * invisible to `seedAccount`'s upsert-by-email and its phone is already
+   * free. A run that never reaches deletion just leaves an ordinary MOTHER
+   * row behind, which the upsert finds and resets like any other account.
+   */
+  deletable: {
+    phone: '+201100000010',
+    email: 'e2e-delete-me@nannyapp.test',
+    password: PASSWORD,
+    role: 'MOTHER',
+    firstName: 'Dina',
+  },
 };
 
 /**

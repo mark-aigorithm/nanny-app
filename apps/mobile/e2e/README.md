@@ -531,6 +531,38 @@ from `apps/mobile` (never `--clean` over local native changes), then
 `node e2e/build.mjs`. A stale APK fails the flow at the first call into the
 missing module.
 
+## Delete account (C17)
+
+The Account tab's "Delete account" (`MotherProfileWalletScreen`, behind
+`useConfirmDeleteAccount`) raises the app's themed confirm dialog
+("Delete your account?" / "Delete account"), then `useDeleteAccount` sends
+`DELETE /auth/me` with `{ confirm: 'delete-my-account' }` — the explicit body
+real deletion requires; the two bodiless callers (`useDiscardUnfinishedAccount`,
+the Google-collision cleanup) can never trip it. The backend scrambles the
+row's email, phone and Firebase uid (`scrambleIdentity`,
+`account-deletion.service.ts`) and hard-deletes the Firebase user; the app
+clears its local session and shows a one-button "Account deleted" notice on
+top of the sign-in screen it lands back on. C17 then signs in by SMS with the
+same number to prove it is free: Firebase mints a fresh phone-only account for
+the code check, `/auth/me` finds no row, and that throwaway is itself
+discarded client-side — the same "We couldn't find an account for that
+number" refusal an unregistered number gets.
+
+**Both dialogs are `ConfirmDialogHost`, a `Modal`** — so, like the developer
+menu in `_launch.yaml`, each hides everything behind it from Android's
+accessibility tree. A flow must wait for one, act on it, and let it dismiss
+*before* asserting on the screen underneath; asserting both at once fails on
+whichever is currently covered, however plainly it shows in a screenshot.
+
+**`ACCOUNTS.deletable`** (`+201100000010`, `e2e-delete-me@…`) needs none of
+`REGISTRATION`/`LEFTOVER`'s special handling. A registration throwaway has to
+be wiped because it leaves its *real* phone and email on the row it created;
+deletion already scrambles both away and removes the Firebase user outright,
+so the next run's `seedAccount` upsert-by-email simply finds nothing under
+`e2e-delete-me@…` and creates a fresh row — exactly like every account in
+`ACCOUNTS`. A run that fails before reaching deletion just leaves an ordinary
+MOTHER row behind, which the same upsert finds and resets.
+
 ## Why launching takes five steps
 
 `_launch.yaml` looks over-engineered until each step has cost you an afternoon.

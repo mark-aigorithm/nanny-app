@@ -42,7 +42,9 @@ src/
 - Every user-facing exit (sign out, discard a sign-up, "Start again", delete account) goes through
   `clearLocalSession` (`lib/session.ts`) — push token, parked credential, draft, Google session,
   profile and query cache — so a new exit should too. Deleting: `useDiscardUnfinishedAccount` (bodiless `DELETE /auth/me`, row-less
-  accounts only) vs `useDeleteAccount` (the real deletion, behind `useConfirmDeleteAccount`).
+  accounts only) vs `useDeleteAccount` (the real deletion, behind `useConfirmDeleteAccount`), which
+  sends the explicit `{ confirm: 'delete-my-account' }` body only a real deletion carries. Device
+  coverage: `e2e/flows/c17-delete-account.yaml`.
 
 ---
 

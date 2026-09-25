@@ -1,7 +1,7 @@
 # Registration hardening, and sign-in as the front door
 
 **Status:** Approved 2026-09-24. Delivered as four stacked plans (below); all four have landed.
-Still to write: the E2E flows C13–C15 (plan 3) and C17 (plan 4) — no such flow files exist yet.
+Device flows: C13–C15 (plan 3) and C17 (plan 4) are in `apps/mobile/e2e/flows`.
 **Builds on:** [Google and Apple sign-in](2026-09-23-social-auth-google-apple-design.md) and [Phone-first auth](2026-09-23-phone-first-auth-firebase-reset-design.md).
 
 ## Why
@@ -63,7 +63,7 @@ Two read-only audits (mobile journeys; backend and test coverage) found about 25
 | 1 | `feat/sign-in-landing` | Sign-in landing screen, splash removal, `dismissTo` back-navigation, password hint and Forgot-password copy, emulator proof that a reset gives a Google account a password, nanny Google sign-up integration case, E2E flow updates, and C11's password tail. |
 | 2 | `feat/registration-validation` | Shared schema (DOB 18+, age-range enum, terms literal, non-empty address, `avatarUrl` required for both roles, phone off PATCH). Backend `requireFreshAuth` on `/register` and admin routes, OTP-email match, P2002 race, `emailVerified` re-sync, own-bucket URL check, mother avatar saved. Step 1 DOB picker and Step 3 photo upload for both roles. |
 | 3 | `feat/registration-recovery` | Re-attach an orphaned row, `/auth/reclaim-email`, `ApiRequestError.status`, `clearLocalSession`, resume flow and root gate, door fixes (SMS / email / SMS reset), collision fixes (fresh credential), Step 3 retry/session-mismatch/409 fixes, and E2E C13–C15. |
-| 4 | `feat/account-deletion` | `scrambleIdentity`, `DELETE /auth/me`, mobile `useDeleteAccount` with Apple revocation, buttons on the profile screens, and E2E C17. |
+| 4 | `feat/account-deletion` | `scrambleIdentity`, `DELETE /auth/me`, mobile `useDeleteAccount` with Apple revocation, buttons on the profile screens, and E2E C17. **Delivered**, including C17 (`c17-delete-account.yaml`). |
 
 Each plan is written against the code the previous plan left, just before it runs.
 

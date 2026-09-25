@@ -352,6 +352,7 @@ each proves the screen is wired.
 | C13 | Nanny Google sign-up: C11's picker and locked Step 1, then A10's nanny fork (location, ID, professional details) to the vetting gate — **covered** by `c13-nanny-google-sign-up.yaml` | `UI:mobile` |
 | C14 | Collision A: a Google sign-*in* refused for an email with a password account, proved through "Sign in with email" instead of SMS, then linked — asserted via the emulator — **covered** by `c14-google-collision-email-door.yaml` | `UI:mobile` |
 | C15 | Leftover resume: a Firebase account with no row is resumed at role selection instead of dead-ending, with the phone and password it already proves locked in — **covered** by `c15-leftover-resume.yaml` | `UI:mobile` |
+| C17 | Delete account: the Account tab's confirm dialog, the deletion notice on the sign-in screen, then the number signing in as unregistered — **covered** by `c17-delete-account.yaml` | `UI:mobile` |
 
 **The photo picker no longer bounds C2 and C7.** Step 1 of registration still disables
 `Continue` until `draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker
@@ -582,6 +583,16 @@ is already registered under the very email she re-types on Step 1, the create-pa
 skipped once she confirms that address again with our own email OTP. The final step shows "Your
 number is already verified." with no code box at all. Nothing here duplicates `/auth/register`
 against a live row — this is the same account throughout, finishing the one sign-up it started.
+
+### C17. Delete account · `UI:mobile` — **covered** by `c17-delete-account.yaml`
+The Account tab's "Delete account" raises a themed confirm dialog ("Delete your account?" /
+"Delete account"), then sends the real deletion — `DELETE /auth/me` with an explicit confirm body,
+which the row's soft-delete requires so a bodiless discard call can never reach it. The backend
+scrambles the row's email, phone and Firebase uid and hard-deletes the Firebase user; the app clears
+its session and shows a one-button "Account deleted" notice over the sign-in screen it lands back
+on. The flow then signs in by SMS with the same number to prove it is free again: Firebase mints a
+throwaway phone-only account for the code check, finds no row behind it, discards it, and shows the
+same "We couldn't find an account for that number" refusal an unregistered number gets.
 
 ---
 

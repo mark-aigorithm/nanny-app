@@ -255,6 +255,12 @@ function runFlow(maestro, flow) {
     NANNY_EMAIL: ACCOUNTS.nanny.email,
     GATED_MOTHER_EMAIL: ACCOUNTS.gatedMother.email,
     PENDING_NANNY_EMAIL: ACCOUNTS.pendingNanny.email,
+    // C17 deletes this account, then proves its number is free again by
+    // signing in with SMS: the digits it types, and the E.164 the phone-otp
+    // advance step reads the code back by.
+    DELETABLE_EMAIL: ACCOUNTS.deletable.email,
+    DELETABLE_PHONE: localDigits(ACCOUNTS.deletable.phone),
+    DELETABLE_PHONE_E164: ACCOUNTS.deletable.phone,
     ADMIN_EMAIL: ADMIN.email,
     ADMIN_PASSWORD: ADMIN.password,
     PASSWORD,

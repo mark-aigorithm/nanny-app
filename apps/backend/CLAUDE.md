@@ -219,6 +219,16 @@ three can register again, then the Firebase user deleted; staff 403, active book
 just proven. The reverse case — a live row whose Firebase user is gone — is re-attached to the new
 uid by `reattachOrphanedRow` in `auth.service.ts`, never onto a soft-deleted row.
 
+**A deleted row is scrambled — look it up by id, never by email/phone**
+`scrambleIdentity` overwrites `email`, `phone` and `firebaseUid` with generated, one-off values the
+moment a real deletion runs, before the row is soft-deleted. Its original email/phone are gone from
+that row for good — a lookup by either finds nothing (or, worse, whatever new account later reuses
+them), never the deleted one. Debugging or auditing a deletion has to key off the numeric `id`
+captured before the delete (or logged by it — see the `console.warn` in `deleteMe`), the same way
+the mobile E2E lab's seeder relies on the scramble to free `ACCOUNTS.deletable`'s email/phone for
+the next run's upsert without any explicit wipe (`apps/mobile/e2e/README.md`, "Delete account
+(C17)").
+
 **`requireFreshAuth` wiring is pinned by a unit test, not integration**
 The Auth emulator checks revocation on every `verifyIdToken` call regardless of whether a route
 asked for it, so an integration test cannot tell `requireAuth` from `requireFreshAuth` apart —
