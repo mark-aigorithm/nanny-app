@@ -5,28 +5,28 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  StatusBar,
   KeyboardAvoidingView,
   Platform,
   Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { AGE_RANGES, AvailabilityType } from '@nanny-app/shared';
 import type { AgeRange, AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';
-import { APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
+import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import { useCertificationCatalog, useSkillCatalog } from '@mobile/hooks/useNannies';
+import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-details-screen.styles';
 
 // Nanny-only step: collects the professional-profile fields that become part
-// of the (read-only, admin-editable) public profile once approved. Inserted
-// between register-nanny-id and register-step-3. Mirrors the field set +
-// working-hours pattern in NannyProfileEditScreen (which edits the same data
+// of the (read-only, admin-editable) public profile once approved. Comes after
+// her home location and before her ID. Mirrors the field set + working-hours
+// pattern in NannyProfileEditScreen (which edits the same data
 // post-approval), but binds straight to the in-memory registration draft
 // instead of the live-profile mutation.
 
@@ -62,6 +62,11 @@ function apiScheduleToUi(schedule: WeeklySchedule | null | undefined): Record<nu
   return result;
 }
 
+/** "HH:mm" compares correctly as a string. */
+function endsAfterStart(slot: DaySchedule): boolean {
+  return slot.endTime > slot.startTime;
+}
+
 function uiScheduleToApi(schedule: Record<number, DaySchedule>): WeeklySchedule {
   const result: WeeklySchedule = {};
   for (const [day, slot] of Object.entries(schedule)) {
@@ -80,13 +85,10 @@ const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityTypeValue }[] = 
 
 export default function RegistrationNannyDetailsScreen() {
   const router = useRouter();
-  const { role } = useLocalSearchParams<{ role?: string }>();
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
-  // A Google/Apple sign-up skips the email-code and password steps, so it
-  // counts fewer of them.
-  const isSocial = draft.authProvider !== 'phone';
+  const step = stepInfo('details', draft);
 
   const { data: certCatalog } = useCertificationCatalog();
   const { data: skillCatalog } = useSkillCatalog();
@@ -105,10 +107,6 @@ export default function RegistrationNannyDetailsScreen() {
     patch({ schedule: uiScheduleToApi(schedule) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schedule]);
-
-  function handleBack() {
-    router.back();
-  }
 
   function toggleAgeRange(range: AgeRange) {
     const next = draft.ageRanges.includes(range)
@@ -175,12 +173,17 @@ export default function RegistrationNannyDetailsScreen() {
   const yearsNum = Number(yearsTrimmed);
   const isYearsValid = yearsTrimmed !== '' && Number.isFinite(yearsNum) && yearsNum >= 0;
   const hasWorkingDay = DAY_ORDER.some((d) => schedule[d]?.available);
-  const canContinue =
-    draft.bio.trim().length > 0 &&
-    isYearsValid &&
-    draft.availabilityType !== null &&
-    draft.ageRanges.length > 0 &&
-    hasWorkingDay;
+  const badHoursDays = DAY_ORDER.filter((d) => schedule[d]?.available && !endsAfterStart(schedule[d]!));
+  // What's still missing, in screen order — shown above the disabled
+  // Continue so she isn't left guessing.
+  const missing: string[] = [];
+  if (!draft.bio.trim()) missing.push('a bio');
+  if (!isYearsValid) missing.push('your years of experience');
+  if (draft.availabilityType === null) missing.push('your availability');
+  if (draft.ageRanges.length === 0) missing.push('an age range');
+  if (!hasWorkingDay) missing.push('a working day');
+  if (badHoursDays.length > 0) missing.push('working hours that end after they start');
+  const canContinue = missing.length === 0;
 
   function handleContinue() {
     if (!draft.bio.trim()) {
@@ -203,8 +206,13 @@ export default function RegistrationNannyDetailsScreen() {
       setFormError('Please mark at least one day you can work.');
       return;
     }
+    if (badHoursDays.length > 0) {
+      setFormError('Each working day has to end after it starts.');
+      return;
+    }
     setFormError(null);
-    router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+    const next = nextStep('details', draft);
+    if (next) router.push(next);
   }
 
   const certificationOptions = certCatalog ?? [];
@@ -216,45 +224,24 @@ export default function RegistrationNannyDetailsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+        <RegistrationHeader step={step} />
 
-        {/* Fixed header bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerLeft}>
-            <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
-              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.brandText}>{APP_NAME}</Text>
-          </View>
-          <View style={styles.miniProgressTrack}>
-            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
-          </View>
-        </View>
-
-        {/* Full-width progress bar */}
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
-        </View>
-
-        {/* Scrollable body */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Step label */}
-          <Text style={styles.stepLabel}>
-            {isSocial ? 'STEP 4 OF 5' : 'STEP 6 OF 6'} — PROFESSIONAL DETAILS
-          </Text>
+          <Text style={styles.stepLabel}>{step.label}</Text>
 
-          {/* Section title */}
-          <Text style={styles.sectionTitle}>Tell families about yourself</Text>
-          <Text style={styles.sectionSubtitle}>
-            This becomes part of your public profile once your account is
-            approved. You won&apos;t be able to edit it yourself afterward, so
-            take your time.
-          </Text>
+          <View style={styles.headlineGroup}>
+            <Text style={styles.headline}>Tell families about yourself</Text>
+            <Text style={styles.subtitle}>
+              This becomes part of your public profile once your account is
+              approved. You won&apos;t be able to edit it yourself afterward, so
+              take your time.
+            </Text>
+          </View>
 
           {/* Bio */}
           <View style={styles.fieldGroup}>
@@ -412,6 +399,11 @@ export default function RegistrationNannyDetailsScreen() {
                         thumbColor={colors.white}
                       />
                     </View>
+                    {slot.available && !endsAfterStart(slot) && (
+                      <Text style={styles.dayErrorText}>
+                        {`${DAY_NAMES[day]} has to end after it starts.`}
+                      </Text>
+                    )}
                     {index < DAY_ORDER.length - 1 && <View style={styles.dayDivider} />}
                   </View>
                 );
@@ -426,8 +418,10 @@ export default function RegistrationNannyDetailsScreen() {
           {formError && <Text style={styles.errorText}>{formError}</Text>}
         </ScrollView>
 
-        {/* Fixed footer */}
         <View style={styles.footer}>
+          {!canContinue && (
+            <Text style={styles.footerHint}>{`Still needed: ${missing.join(', ')}.`}</Text>
+          )}
           <Button title="Continue" onPress={handleContinue} disabled={!canContinue} />
         </View>
 

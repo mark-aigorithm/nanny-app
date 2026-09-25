@@ -55,9 +55,9 @@ export function dobToIso(dob: string): string {
 }
 
 /**
- * Step 1's birth-date check — the shared rule the API enforces (18 to 100, a
- * real date), so the wizard refuses on the screen where the date can still be
- * changed, not three steps later.
+ * "About you"'s birth-date check — the shared rule the API enforces (18 to
+ * 100, a real date), so the wizard refuses on the screen where the date can
+ * still be changed, not steps later.
  */
 export function validateDob(dob: string, today: Date = new Date()): string | null {
   if (!dob) return 'Please select your date of birth.';

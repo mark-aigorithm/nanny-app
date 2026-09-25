@@ -136,6 +136,24 @@ describe('checkAvailability', () => {
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { email: FREE_EMAIL } });
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { phone: FREE_PHONE } });
   });
+
+  describe('with the phone alone (the "Your number" screen)', () => {
+    it('skips the email lookup and reports the email free', async () => {
+      await expect(checkAvailability({ phone: FREE_PHONE })).resolves.toEqual({
+        emailTaken: false,
+        phoneTaken: false,
+      });
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { phone: FREE_PHONE } });
+    });
+
+    it('still reports a taken phone', async () => {
+      await expect(checkAvailability({ phone: TAKEN_PHONE })).resolves.toEqual({
+        emailTaken: false,
+        phoneTaken: true,
+      });
+    });
+  });
 });
 
 describe('phoneHasAccount', () => {

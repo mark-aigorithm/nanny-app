@@ -106,6 +106,22 @@ it('seeds a leftover account once and opens role selection instead of signing it
   expect(mockSignOutMutate).not.toHaveBeenCalled();
 });
 
+it('resumes a phone-only account with no row — "Your number" was done, then the app was killed', () => {
+  const phoneOnly = {
+    uid: 'uid-phone-only',
+    phoneNumber: '+201001234567',
+    providerData: [{ providerId: 'phone' }],
+  } as unknown as FirebaseUser;
+  useAuthStore.setState({ user: phoneOnly });
+  mockMeQuery = meQuery({ isError: true, error: new ApiRequestError('Not found', 404) });
+
+  const { result } = renderHook(() => useRootGate());
+
+  expect(result.current).toEqual({ kind: 'redirect', href: '/(auth)/role-selection' });
+  expect(mockSeed).toHaveBeenCalledWith(phoneOnly);
+  expect(mockSignOutMutate).not.toHaveBeenCalled();
+});
+
 it('keeps the draft of a wizard already under way for this account', () => {
   useRegistrationDraftStore.getState().patch({ signUpUid: 'uid-leftover', address: '1 Nile St' });
   mockMeQuery = meQuery({ isError: true, error: new ApiRequestError('Not found', 404) });

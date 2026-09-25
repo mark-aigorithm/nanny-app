@@ -8,8 +8,10 @@
  * - Sign-in doors — email/password, and SMS.
  * - Password reset — by SMS, or Firebase's own reset mail.
  * - Leaving — sign out, discard an unfinished sign-up, delete the account.
- * - Registration, phone wizard — confirm the code, link the email/password.
- * - Registration, Google/Apple wizard — link a phone onto the signed-in account.
+ * - Registration, phone wizard — confirm the code on "Your number", link the
+ *   email/password on "Secure your account".
+ * - Registration, Google/Apple wizard — link a phone onto the signed-in account
+ *   (also any resumed sign-up that is already signed in).
  * - Registration, backend — availability check and `POST /auth/register`.
  * - Email verification — our own OTP, for both the wizard and the mother's gate.
  *
@@ -117,7 +119,8 @@ const SESSION_LOST_ERROR: MappedAuthError = {
 /**
  * The account signed in is not the one this sign-up is finishing (or nobody
  * is): the sign-up can't go on from here, so the only way on is to start
- * again. Step 3 branches on `code: 'session-mismatch'` and offers "Start again".
+ * again. The wizard branches on `code: 'session-mismatch'` and offers "Start
+ * again".
  */
 const SESSION_MISMATCH_ERROR: MappedAuthError = {
   field: 'form',
@@ -133,8 +136,8 @@ export const EMAIL_TAKEN_ERROR: MappedAuthError = {
 };
 
 /**
- * The phone belongs to another account. Step 3 of the Google/Apple wizard
- * branches on the code to start collision B.
+ * The phone belongs to another account. "Your number" in the Google/Apple
+ * wizard branches on the code to start collision B.
  */
 const PHONE_TAKEN_ERROR: MappedAuthError = {
   field: 'phone',
@@ -271,10 +274,11 @@ export function useSignInWithEmail() {
 }
 
 /**
- * Sends an SMS code that signs in as the number — the phone wizard's step 3
- * directly, and the sign-in and SMS-reset doors through `useSendSignInCode` —
- * and hands back the handle the code is checked against. `forceResend` marks a user-tapped resend rather
- * than the first send. (The Google/Apple wizard links a phone instead:
+ * Sends an SMS code that signs in as the number — the phone wizard's "Your
+ * number" directly, and the sign-in and SMS-reset doors through
+ * `useSendSignInCode` — and hands back the handle the code is checked
+ * against. `forceResend` marks a user-tapped resend rather than the first
+ * send. (A sign-up that is already signed in links a phone instead:
  * `useSendPhoneLinkCode`.)
  */
 export function useSendPhoneOtp() {
@@ -519,31 +523,78 @@ export function useDeleteAccount() {
 // ── Registration: phone wizard ───────────────────────────────────────────────
 
 /**
- * The phone wizard confirmed into a uid that already has a registered row —
- * the number is an existing account's, which step 1's availability check
- * normally stops. Its password must never be swapped for the wizard's, so she
- * is signed out and sent to sign in. `account-exists` gives her Step 3's
- * "Start again".
+ * The number (or the account the wizard signed in as) already has a
+ * registered row — which the availability check on "Your number" normally
+ * stops first. That account's sign-in methods must never be touched by a new
+ * sign-up, so she is signed out and sent to sign in. `account-exists` gives
+ * the screen its "Sign in" way on.
  */
-const PHONE_HAS_ACCOUNT_ERROR: MappedAuthError = {
+export const PHONE_HAS_ACCOUNT_ERROR: MappedAuthError = {
   field: 'form',
   message: 'This number already has an account. Sign in instead.',
   code: 'account-exists',
 };
 
 /**
+ * What confirming the code on "Your number" found:
+ * - `fresh`: a phone-only account with no row — the new sign-up. The draft
+ *   now records it (`signUpUid`, `accountPhone`; uploads made under another
+ *   account are dropped), and the wizard goes on.
+ * - `leftover`: no row, but the account holds more than a phone (a password,
+ *   Google, Apple) — a sign-up that stalled. The root gate resumes it.
+ */
+export type RegistrationPhoneOutcome = 'fresh' | 'leftover';
+
+/**
+ * Checks the SMS code on "Your number" (the phone wizard), which signs in as
+ * that number, then asks `/auth/me` what the account is.
+ *
+ * A row (200) means the number is an existing account's: signed out and
+ * `PHONE_HAS_ACCOUNT_ERROR`. Any answer other than 200 or 404 proves nothing,
+ * so it throws `COULD_NOT_CONNECT` and stays signed in — Continue again
+ * re-checks (`confirmCode` accepts the spent code while signed in as `phone`).
+ */
+export function useConfirmRegistrationPhone() {
+  return useMutation<
+    RegistrationPhoneOutcome,
+    MappedAuthError,
+    { confirmation: PhoneConfirmation; code: string; phone: string }
+  >({
+    mutationFn: async ({ confirmation, code, phone }) => {
+      const user = await confirmCode(confirmation, code, phone);
+      if (await hasRegisteredRow()) {
+        await auth().signOut().catch(() => undefined);
+        throw PHONE_HAS_ACCOUNT_ERROR;
+      }
+      if (!isPhoneOnly(user)) return 'leftover';
+      const draft = useRegistrationDraftStore.getState();
+      draft.patch({
+        signUpUid: user.uid,
+        accountPhone: phone,
+        // Back and "Change number" signs in as a different account: uploads
+        // are filed under the old uid, which /auth/register refuses.
+        ...(draft.signUpUid !== user.uid && {
+          avatarUpload: null,
+          idFrontUpload: null,
+          idBackUpload: null,
+        }),
+      });
+      return 'fresh';
+    },
+  });
+}
+
+/**
  * Links the email/password credential onto `user`. A password provider
  * already on this uid is swapped for the new one — but only while the uid has
- * no row (a wizard abandoned after this step); a registered account's password
- * is never replaced (`PHONE_HAS_ACCOUNT_ERROR`).
+ * no row (a wizard abandoned after this step, or Back and a new password); a
+ * registered account's password is never replaced (`PHONE_HAS_ACCOUNT_ERROR`).
  *
- * A wizard abandoned after this step and restarted with a different email or
- * password confirms into the same uid, where a plain link is refused with
- * `provider-already-linked` — which would silently leave Firebase on the
- * abandoned attempt's email/password while the DB row gets the new one.
- * `updateEmail` can't fix this up afterward — it's blocked under
- * email-enumeration protection — so unlink the stale credential and link the
- * new one in its place.
+ * A plain link onto a uid that already has a password is refused with
+ * `provider-already-linked`, which would silently leave Firebase on the old
+ * email/password while the DB row gets the new one. `updateEmail` can't fix
+ * this up afterward — it's blocked under email-enumeration protection — so
+ * unlink the stale credential and link the new one in its place.
  *
  * Rejects with the raw Firebase error, which the caller maps, or with a
  * ready `MappedAuthError` from the row check.
@@ -581,59 +632,37 @@ async function hasRegisteredRow(): Promise<boolean> {
 const EMAIL_IN_USE_CODES = new Set(['auth/email-already-in-use', 'auth/credential-already-in-use']);
 
 /**
- * Finishes the auth half of registration: checks the SMS code, then attaches
- * the email/password credential to the user Firebase just signed in.
+ * "Secure your account" (phone wizard): gives the account "Your number"
+ * signed in as an email/password credential, so the verified phone and the
+ * password are two ways into one account rather than two accounts.
  *
- * Confirming the code *is* a sign-in — it leaves the app authenticated as a
- * phone-only user with no password. Linking gives that same uid the
- * email/password credential `EmailSignInScreen` checks, so the verified phone
- * becomes an additional factor on one account rather than a second account.
+ * The address is the real one, already proved by our own email OTP on the
+ * same screen. It becomes both this credential (so `EmailSignInScreen` has
+ * something to check, and Firebase's own reset mail can reach her) and, via
+ * `POST /auth/register`, `users.email`.
  *
- * The address passed here is the real one, already proved by our own email
- * OTP on step 2 of the wizard. It becomes both this credential (so
- * `EmailSignInScreen` has something to check, and so Firebase's own
- * password-reset mail can reach her) and, via `POST /auth/register`,
- * `users.email` — one proven address, not a placeholder plus a real one.
- *
- * Survives retries and resumes:
- * - A retry after a failure further down the wizard re-uses a spent code;
- *   `confirmCode` accepts that when the app is already signed in as `phone`.
- * - `confirmation: null` is a resumed sign-up whose account already holds
- *   `phone` — nothing to confirm. Any other signed-in account (or none), or
- *   one that isn't `signUpUid` (mirroring `useLinkPhoneToCurrentUser`), is
- *   `SESSION_MISMATCH_ERROR`.
- * - An empty `password` means create-password was skipped because the
- *   account already has a password for this email; the link is skipped too.
+ * - Anyone but `signUpUid` signed in (or nobody) is `SESSION_MISMATCH_ERROR`,
+ *   before anything is touched.
+ * - An empty `password` means the account already has a password for this
+ *   email (a resume): nothing is linked, but it must really be there.
  * - An email another unfinished account is squatting (`email-already-in-use`
  *   / `credential-already-in-use`) is reclaimed with `emailVerificationToken`,
  *   then linked once more. A refused reclaim, or no token to reclaim with, is
  *   `EMAIL_TAKEN_ERROR`.
+ *
+ * Ends by refreshing the ID token: `/auth/register` checks that the token's
+ * email is the address just verified, so it can't carry the claims from
+ * before the link.
  */
-export function useConfirmPhoneAndLink() {
+export function useLinkEmailPassword() {
   return useMutation<
     void,
     MappedAuthError,
-    {
-      confirmation: PhoneConfirmation | null;
-      code: string;
-      phone: string;
-      email: string;
-      password: string;
-      emailVerificationToken: string | null;
-      signUpUid: string | null;
-    }
+    { email: string; password: string; emailVerificationToken: string | null; signUpUid: string | null }
   >({
-    mutationFn: async ({ confirmation, code, phone, email, password, emailVerificationToken, signUpUid }) => {
-      let user: FirebaseUser;
-      if (confirmation) {
-        user = await confirmCode(confirmation, code, phone);
-      } else {
-        const current = auth().currentUser;
-        if (!current || current.phoneNumber !== phone || current.uid !== signUpUid) {
-          throw SESSION_MISMATCH_ERROR;
-        }
-        user = current;
-      }
+    mutationFn: async ({ email, password, emailVerificationToken, signUpUid }) => {
+      const user = auth().currentUser;
+      if (!user || !signUpUid || user.uid !== signUpUid) throw SESSION_MISMATCH_ERROR;
 
       const normalizedEmail = email.trim().toLowerCase();
       if (!password) {
@@ -641,7 +670,7 @@ export function useConfirmPhoneAndLink() {
           (p) => p.providerId === 'password' && p.email?.toLowerCase() === normalizedEmail,
         );
         if (!hasSamePassword) {
-          throw { field: 'form', message: 'Please go back and create a password.' } satisfies MappedAuthError;
+          throw { field: 'form', message: 'Please create a password.' } satisfies MappedAuthError;
         }
       } else {
         const credential = auth.EmailAuthProvider.credential(normalizedEmail, password);
@@ -665,9 +694,6 @@ export function useConfirmPhoneAndLink() {
         }
       }
 
-      // /auth/register comes next and checks that the token's email is the
-      // address just verified; force the refresh so it can't carry the claims
-      // from before the link.
       await user.getIdToken(true);
     },
   });
@@ -677,7 +703,7 @@ export function useConfirmPhoneAndLink() {
 
 /**
  * A code sent to link a phone onto the account that is already signed in —
- * the Google/Apple wizard's step 3. On Android, Firebase can read the SMS
+ * "Your number" in the Google/Apple wizard, or in a resumed sign-up. On Android, Firebase can read the SMS
  * itself (`autoVerified` with the `code` filled in) or skip it entirely on an
  * instant verification (`autoVerified` with no code), in which case the
  * native side holds the credential.
@@ -786,10 +812,9 @@ export function useLinkPhoneToCurrentUser() {
 // ── Registration: backend ────────────────────────────────────────────────────
 
 /**
- * Asks whether an email and phone already belong to an account. Step 1 of the
- * wizard calls this on Continue so a collision is shown under the field, not
- * on the code screen after it or at the very end of the wizard. Signed-out,
- * like the OTP send: the caller has no account yet.
+ * Asks whether a phone (and, once it's known, an email) already belongs to an
+ * account. "Your number" asks with the phone before any SMS is sent; "About
+ * you" asks with both before moving on. Needs no account, like the OTP send.
  */
 export function useCheckAvailability() {
   return useMutation<AvailabilityResponse, Error, CheckAvailabilityRequest>({
@@ -799,9 +824,8 @@ export function useCheckAvailability() {
 
 /**
  * Calls the backend `POST /auth/register` to create the application User
- * row for the freshly-signed-up Firebase user. Run after the phone link
- * succeeds, when `auth().currentUser` is fully populated. The endpoint is
- * idempotent — safe to retry on transient failures.
+ * row for the signed-up Firebase user — the wizard's Finish step. The
+ * endpoint is idempotent — safe to retry on transient failures.
  */
 export function useRegisterProfile() {
   const setProfile = useUserProfileStore((s) => s.setProfile);

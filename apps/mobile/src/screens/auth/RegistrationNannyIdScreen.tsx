@@ -1,73 +1,90 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { IdDocumentType, idTypeRequiresBack } from '@shared/nanny';
-import { colors } from '@mobile/theme';
-import { APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import IdCaptureFields from '@mobile/components/IdCaptureFields';
+import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import { pickImageFromLibrary } from '@mobile/lib/pickImage';
-import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
+import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
+import { uploadImageToFirebase } from '@mobile/lib/storage';
+import { uploadFor, useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-id-screen.styles';
 
-// Nanny-only step: capture the government ID so an admin can verify identity
-// (KYC) before approving the profile. The images are only local URIs here —
-// they're uploaded to Firebase Storage at final submit (RegistrationStep3Screen),
-// once the Firebase account exists.
+const ID_UPLOAD_FAILED_MESSAGE =
+  "Couldn't upload your ID. Check your connection and try again.";
+
+/**
+ * Nanny-only, the step before Finish: capture the government ID so an admin
+ * can verify identity (KYC) before approving the profile. She is signed in
+ * ("Your number" did that), so Continue uploads the images here — only the
+ * sides that changed since the last upload — and Finish sends their URLs.
+ */
 export default function RegistrationNannyIdScreen() {
   const router = useRouter();
-  const { role } = useLocalSearchParams<{ role?: string }>();
-
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
-  // A Google/Apple sign-up skips the email-code and password steps, so it
-  // counts fewer of them.
-  const isSocial = draft.authProvider !== 'phone';
+  const step = stepInfo('id', draft);
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  function handleBack() {
-    router.back();
+  function clearErrors() {
+    setFormError(null);
+    setUploadError(null);
   }
 
   function handleChangeType(idDocumentType: IdDocumentType) {
     patch({ idDocumentType });
-    if (formError) setFormError(null);
+    clearErrors();
   }
 
   async function handlePickId(side: 'front' | 'back') {
     const uri = await pickImageFromLibrary();
     if (uri) {
       patch(side === 'front' ? { idFrontUri: uri } : { idBackUri: uri });
-      if (formError) setFormError(null);
+      clearErrors();
     }
   }
 
-  function handleContinue() {
-    if (!draft.idDocumentType) {
+  async function handleContinue() {
+    clearErrors();
+    const { idDocumentType, idFrontUri, idBackUri } = draft;
+    if (!idDocumentType) {
       setFormError('Please choose your ID type.');
       return;
     }
-    if (!draft.idFrontUri) {
+    if (!idFrontUri) {
       setFormError('Please upload the front of your ID.');
       return;
     }
-    if (idTypeRequiresBack(draft.idDocumentType) && !draft.idBackUri) {
+    const needsBack = idTypeRequiresBack(idDocumentType);
+    if (needsBack && !idBackUri) {
       setFormError('Please upload the back of your ID.');
       return;
     }
-    setFormError(null);
-    router.push({ pathname: '/(auth)/register-nanny-details', params: { role } });
+
+    setIsUploading(true);
+    try {
+      if (!uploadFor(draft.idFrontUpload, idFrontUri)) {
+        const url = await uploadImageToFirebase(idFrontUri, 'nanny-ids');
+        patch({ idFrontUpload: { uri: idFrontUri, url } });
+      }
+      if (needsBack && idBackUri && !uploadFor(draft.idBackUpload, idBackUri)) {
+        const url = await uploadImageToFirebase(idBackUri, 'nanny-ids');
+        patch({ idBackUpload: { uri: idBackUri, url } });
+      }
+    } catch {
+      setUploadError(ID_UPLOAD_FAILED_MESSAGE);
+      return;
+    } finally {
+      setIsUploading(false);
+    }
+
+    const next = nextStep('id', useRegistrationDraftStore.getState());
+    if (next) router.push(next);
   }
 
   return (
@@ -76,44 +93,23 @@ export default function RegistrationNannyIdScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+        <RegistrationHeader step={step} />
 
-        {/* Fixed header bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerLeft}>
-            <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
-              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.brandText}>{APP_NAME}</Text>
-          </View>
-          <View style={styles.miniProgressTrack}>
-            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
-          </View>
-        </View>
-
-        {/* Full-width progress bar */}
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
-        </View>
-
-        {/* Scrollable body */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Step label */}
-          <Text style={styles.stepLabel}>
-            {isSocial ? 'STEP 3 OF 5 — VERIFY YOUR IDENTITY' : 'VERIFY YOUR IDENTITY'}
-          </Text>
+          <Text style={styles.stepLabel}>{step.label}</Text>
 
-          {/* Section title */}
-          <Text style={styles.sectionTitle}>Upload your ID</Text>
-          <Text style={styles.sectionSubtitle}>
-            Families trust verified nannies. Choose your ID type and upload a clear
-            photo of your government ID. Only our review team can see it.
-          </Text>
+          <View style={styles.headlineGroup}>
+            <Text style={styles.headline}>Upload your ID</Text>
+            <Text style={styles.subtitle}>
+              Families trust verified nannies. Choose your ID type and upload a clear
+              photo of your government ID. Only our review team can see it.
+            </Text>
+          </View>
 
           <IdCaptureFields
             idType={draft.idDocumentType}
@@ -124,11 +120,20 @@ export default function RegistrationNannyIdScreen() {
             onPickBack={() => handlePickId('back')}
             error={formError}
           />
+
+          {uploadError && (
+            <View style={styles.formErrorBanner}>
+              <Text style={styles.formErrorText}>{uploadError}</Text>
+            </View>
+          )}
         </ScrollView>
 
-        {/* Fixed footer */}
         <View style={styles.footer}>
-          <Button title="Continue" onPress={handleContinue} />
+          <Button
+            title={isUploading ? 'Uploading…' : 'Continue'}
+            onPress={() => void handleContinue()}
+            disabled={isUploading}
+          />
         </View>
       </View>
     </KeyboardAvoidingView>

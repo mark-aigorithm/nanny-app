@@ -1,124 +1,18 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   colors,
   fontFamily,
   typeScale,
   spacing,
-  screenPadding,
-  STATUS_BAR_HEIGHT,
   borderRadius,
   shadows,
 } from '@mobile/theme';
-
-const HEADER_CONTENT_HEIGHT = 56;
+import { wizardBase } from './registration-wizard.styles';
 
 export const styles = StyleSheet.create({
-  keyboardAvoid: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  ...wizardBase,
 
-  // Header bar
-  headerBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: STATUS_BAR_HEIGHT,
-    paddingHorizontal: spacing.lg,
-    height: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT,
-    backgroundColor: colors.background,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandText: {
-    ...typeScale.headingMd,
-    color: colors.primary,
-    letterSpacing: -0.5,
-  },
-
-  // Mini progress (right side of header)
-  miniProgressTrack: {
-    width: 96,
-    height: 6,
-    backgroundColor: colors.taupe,
-    borderRadius: 3,
-  },
-  miniProgressFill: {
-    width: '100%',
-    height: 6,
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-
-  // Full-width progress bar below header
-  progressBarTrack: {
-    position: 'absolute',
-    top: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    height: 6,
-    backgroundColor: colors.taupe,
-  },
-  progressBarFill: {
-    width: '100%',
-    height: 6,
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-  // Google/Apple sign-up: step 4 of 5, for both bars.
-  progressFillSocial: {
-    width: '80%',
-  },
-
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: STATUS_BAR_HEIGHT + HEADER_CONTENT_HEIGHT + 6 + screenPadding,
-    paddingHorizontal: screenPadding,
-    paddingBottom: 120,
-    gap: screenPadding,
-  },
-
-  // Step label
-  stepLabel: {
-    ...typeScale.labelMd,
-    color: colors.textTertiary,
-  },
-
-  // Section title (big headline)
-  sectionTitle: {
-    fontFamily: fontFamily.extraBold,
-    fontSize: 24,
-    color: colors.textPrimary,
-    letterSpacing: -0.3,
-  },
-  sectionSubtitle: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-  },
-
-  // Form sections
   sectionBlock: {
     gap: spacing.md,
   },
@@ -275,12 +169,18 @@ export const styles = StyleSheet.create({
   },
 
   // Footer
-  footer: {
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 36 : screenPadding,
-    backgroundColor: colors.background,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.taupe,
+
+  // One working day whose end isn't after its start.
+  dayErrorText: {
+    ...typeScale.bodySm,
+    color: colors.error,
+    paddingBottom: spacing.sm,
+  },
+  // What's still missing, while Continue is disabled.
+  footerHint: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
 });

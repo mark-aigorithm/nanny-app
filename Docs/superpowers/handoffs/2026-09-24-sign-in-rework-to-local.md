@@ -116,6 +116,92 @@ Built on top of the local session's `4c3750a..369e188` (C13–C15, the plan-3 re
 - **New integration cases:** A26 `POST /auth/phone-account` (a registered mother, a leftover, a
   stray, and an unknown number). Written, not run.
 
+## 4c. Registration UX rework (2026-09-25) — branch `feat/registration-ux`
+
+A **separate PR, stacked on the sign-in rework**: cut from `feat/sign-in-landing` at `a1765c9`, so
+it goes in after plans 1–4. Once the rework merges, rebase it onto `main`. Plan:
+`/root/.claude/plans/a-small-fix-i-fancy-journal.md` (cloud-only; the summary below is what counts).
+
+```bash
+git fetch origin && git checkout feat/registration-ux && pnpm install
+```
+
+**What changed**
+- **Phone first.** The steps are Your number → About you → Secure your account (email code and
+  password on one screen; phone sign-ups only) → location → (nanny: professional details → ID) →
+  Finish. Mother 5, nanny 7, Google/Apple 4/6, and a resume skips "Your number" when the account
+  already held a number.
+- **The steps are defined in one place:** `lib/registrationSteps.ts` sets the order, the labels,
+  the progress bar and the next route. `RegistrationHeader` is the shared header.
+- **Your number** checks `POST /auth/availability { phone }` (email is now optional there) before
+  any SMS. A taken number offers Sign in (phone wizard) or is collision B (Google/Apple). The code
+  signs her in (`useConfirmRegistrationPhone`), so later steps upload their own photos.
+- **Other changes:**
+  - per-field errors on About you;
+  - the password is kept on Back;
+  - preferences start empty;
+  - the nanny address error sits under its field;
+  - nanny hours must end after they start, and a disabled Continue says what's missing;
+  - the ID uploads on its own step;
+  - Finish shows who she's signed in as, notices a referral that fails, and dismisses the wizard;
+  - Google on the sign-up screen for an existing account says so before signing her in.
+- **Legal documents:** `GET /legal/:key` (public), and `GET /admin/legal-documents` plus
+  `PUT /admin/legal-documents/:key` (settings VIEW/MANAGE), in the `app_settings` row
+  `legal_documents`. The admin card is on Settings; the app screen is `/(auth)/legal/[key]`.
+- **Routes renamed:** `register-step-1` → `register-about`, `register-step-2` →
+  `register-location`, `register-step-3` → `register-finish`, and `register-email` +
+  `register-create-password` → `register-account`. `register-phone` is new.
+
+**Verified in the cloud**
+
+| Check | Result |
+|---|---|
+| Mobile jest | 591/591 (was 501) · tsc ✅ |
+| Shared vitest | 87/87 (was 78) |
+| Admin vitest | 49/49 (was 44) · typecheck incl. e2e ✅ |
+| Backend unit | 859 tests pass with dummy env vars. 15 booking suites can't load with a fake key (same class as §3). **Re-run locally.** |
+| Backend tsc (both configs) | ✅ |
+
+No test case was dropped silently: each commit message lists what moved, was rewritten or was
+deleted with its behaviour. Screens were checked visually in the web preview ("Your number",
+"Secure your account").
+
+**Local checklist**
+1. Backend integration: **A30** (`a30-legal-documents.test.ts`, new, never run), **A10** (new
+   phone-only availability case), then A24–A26 (the register path).
+2. Admin E2E: **B9** (`b09-legal-documents.spec.ts`, new, never run), plus the rest.
+3. Device flows, all rewritten and never run: `node apps/mobile/e2e/run.mjs c02 a10 c11 c12 c13 c15`
+   **twice**, then `c17 smoke`. Watch for:
+   - c02 opens Terms of Service and expects the placeholder (`.*will be published here soon.*`),
+     then uses `back`.
+   - c12 asserts no code box appears before the collision banner.
+   - c15 expects `STEP 1 OF 4 — ABOUT YOU` and "Your password is already set."
+   - Every flow asserts the full `STEP n OF m — TITLE` label.
+4. `live/_register-managed.yaml` was edited, not run. It still needs explicit approval.
+5. Follow-up, not in this PR: bump `CURRENT_TERMS_VERSION` when an operator edits the terms, so
+   acceptance can be tied to a version.
+
+**Local run (2026-09-25, targeted — not the full suite)**
+
+| Command | Result |
+|---|---|
+| `jest --selectProjects integration --maxWorkers=1 --runTestsByPath a30-legal-documents a10-nanny-onboarding` | ✅ 2 suites, 14/14 |
+| `playwright test b09-legal-documents b07-support-faq` (backend `start:test` on :3001) | ✅ 8/8 (chromium + webkit) |
+| `run.mjs c02 a10 c11 c12 c13 c15` — run 1 | ❌ 3/6 — c02, a10, c15 failed waiting for the password step (see fix) |
+| `run.mjs c02 a10 c15` after the fix | ✅ 3/3 |
+| `run.mjs c02 a10 c11 c12 c13 c15` — run 2 | ✅ 6/6 |
+| mobile `npx jest` + `npx tsc --noEmit` after the fix | ✅ 591/591 · tsc clean |
+
+- **Fix `f1d8bd4`:** c02, a10 and c15 typed the email code, then ran `hideKeyboard`, and were
+  found back on "About you". The sixth digit starts the check, which disables and then replaces
+  the code input, so the keyboard is already closed. On Android, Maestro's `hideKeyboard` with no
+  keyboard up is a Back press, which popped "Secure your account". The flows no longer hide the
+  keyboard there. No app code changed.
+- **Data, not code:** B9 leaves saved Terms in the test DB's `app_settings` row
+  `legal_documents`, and the mobile seeder doesn't reset it, so c02's placeholder assertion would
+  fail after B9. Before the device runs the row was deleted from `nannyapp_test`. Run B9 after the
+  device flows, or clear that row, until the seeder resets it.
+
 ## 5. Open decisions (owner)
 
 - **Live suite:** should `apps/mobile/e2e/flows/live` (real Firebase and SMS with console test numbers) run before the combined PR? It hasn't been run, and **must not be run without explicit approval.**

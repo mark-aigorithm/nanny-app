@@ -106,8 +106,8 @@ async function signOutKeepingParkedCredential(): Promise<void> {
  * Any other failure (offline, 5xx — never a 409, which is a definitive
  * answer) falls back to deleting directly, exactly as before this reordering.
  * `delete()` needs a recent sign-in (about five minutes), and a collision
- * found at step 3 comes after the whole wizard, so a `requires-recent-login`
- * refusal is answered, in order, by:
+ * found at Finish (a 409 from register) comes after the whole wizard, so a
+ * `requires-recent-login` refusal is answered, in order, by:
  *
  * 2. `user.delete()` itself.
  * 3. Re-proving the sign-in with the sign-up's own credential and deleting.

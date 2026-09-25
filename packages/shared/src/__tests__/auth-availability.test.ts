@@ -16,6 +16,15 @@ describe('CheckAvailabilitySchema', () => {
     expect(parsed).toEqual({ email: 'sarah@example.com', phone: '+201001234567' });
   });
 
+  it('takes the phone alone — the "Your number" screen asks before the email is known', () => {
+    expect(CheckAvailabilitySchema.parse({ phone: '+201001234567' })).toEqual({ phone: '+201001234567' });
+  });
+
+  it('still needs the phone', () => {
+    expect(CheckAvailabilitySchema.safeParse({}).success).toBe(false);
+    expect(CheckAvailabilitySchema.safeParse({ email: 'sarah@example.com' }).success).toBe(false);
+  });
+
   it('refuses a phone that is not E.164', () => {
     const result = CheckAvailabilitySchema.safeParse({
       email: 'sarah@example.com',

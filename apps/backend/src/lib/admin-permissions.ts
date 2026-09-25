@@ -172,6 +172,8 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PUT', pattern: '/support-contact', requires: section('settings', 'MANAGE') },
   { method: 'GET', pattern: '/support-faq', requires: section('settings', 'VIEW') },
   { method: 'PUT', pattern: '/support-faq', requires: section('settings', 'MANAGE') },
+  { method: 'GET', pattern: '/legal-documents', requires: section('settings', 'VIEW') },
+  { method: 'PUT', pattern: '/legal-documents/:key', requires: section('settings', 'MANAGE') },
 
   // ── Pricing ─────────────────────────────────────────────────
   { method: 'GET', pattern: '/duration-rules', requires: section('pricing', 'VIEW') },

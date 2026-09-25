@@ -534,6 +534,32 @@ export async function setSupportFaqAsAdmin(adminToken: string, faq: AppFaq): Pro
   await call('PUT', '/admin/support-faq', adminToken, faq);
 }
 
+export type AppLegalDocument = {
+  key: 'terms' | 'privacy';
+  title: string;
+  body: string;
+  updatedAt: string | null;
+};
+
+/** A legal document as the app reads it: signed out, so no token. */
+export async function getAppLegalDocument(key: 'terms' | 'privacy'): Promise<AppLegalDocument> {
+  const response = await fetch(`${API_BASE_URL}/legal/${key}`);
+  const payload = (await response.json()) as { data?: AppLegalDocument; error?: string };
+  if (!response.ok || !payload.data) {
+    throw new Error(`GET /legal/${key} → ${response.status} ${payload.error ?? ''}`);
+  }
+  return payload.data;
+}
+
+/** Restores a legal document over HTTP — for a spec's cleanup, never its assertion. */
+export async function setLegalDocumentAsAdmin(
+  adminToken: string,
+  key: 'terms' | 'privacy',
+  doc: { title: string; body: string },
+): Promise<void> {
+  await call('PUT', `/admin/legal-documents/${key}`, adminToken, doc);
+}
+
 /** The booking rules the app's date picker is built from. */
 export async function getAppBookingOptions(token: string): Promise<AppBookingOptions> {
   return (await call('GET', '/bookings/options', token)) as AppBookingOptions;

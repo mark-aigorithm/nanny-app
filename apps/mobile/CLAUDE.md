@@ -42,7 +42,16 @@ src/
 - The SMS sign-in and SMS-reset doors send through `useSendSignInCode`, which asks
   `POST /auth/phone-account` first so a number with no account is refused **before** an SMS is paid
   for. A failed check fails open (the code is sent; the after-confirm `checkAccount` still guards).
-  Registration Step 3 keeps plain `useSendPhoneOtp`.
+  Registration's "Your number" checks `POST /auth/availability` with the phone alone instead (a
+  row-less stray isn't "taken"), then sends with plain `useSendPhoneOtp`.
+- The registration wizard proves the phone **first**: Your number → About you → Secure your account
+  (email code + password, one screen; phone sign-ups only) → location → (nanny: professional details
+  → ID) → Finish. `lib/registrationSteps.ts` is the one source for that order, each screen's
+  "STEP n OF m" label and progress bar (`RegistrationHeader`), and where Continue goes — never
+  hardcode a count or a next route in a screen. Confirming the code signs in as the number, so every
+  later step runs signed in and uploads its photos itself (`draft.*Upload`, re-uploaded only when
+  the image changes); Finish only registers. Finish dismisses the wizard before the notification
+  prompt. Terms/Privacy open `/(auth)/legal/[key]`, whose text operators edit in the console.
 - Every user-facing exit (sign out, discard a sign-up, "Start again", delete account) goes through
   `clearLocalSession` (`lib/session.ts`) — push token, parked credential, draft, Google session,
   profile and query cache — so a new exit should too. Deleting: `useDiscardUnfinishedAccount` (bodiless `DELETE /auth/me`, row-less

@@ -55,6 +55,8 @@ import {
   UpdateSkillSchema,
   UpdateSupportContactSchema,
   SupportFaqSchema,
+  LegalDocumentKeySchema,
+  UpdateLegalDocumentSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -183,6 +185,10 @@ import {
   updateSupportContact,
 } from '@backend/services/support-contact.service';
 import { getSupportFaq, updateSupportFaq } from '@backend/services/support-faq.service';
+import {
+  getLegalDocuments,
+  updateLegalDocument,
+} from '@backend/services/legal-document.service';
 
 export const adminRouter = Router();
 
@@ -1018,6 +1024,30 @@ adminRouter.put('/support-faq', validateBody(SupportFaqSchema), async (req, res,
     next(err);
   }
 });
+
+// ── Legal documents (Terms of Service, Privacy Policy) ─────────
+
+adminRouter.get('/legal-documents', async (_req, res, next) => {
+  try {
+    res.json(ok(await getLegalDocuments()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.put(
+  '/legal-documents/:key',
+  validateBody(UpdateLegalDocumentSchema),
+  async (req, res, next) => {
+    try {
+      const key = LegalDocumentKeySchema.safeParse(req.params.key);
+      if (!key.success) throw errors.notFound('No such document.');
+      res.json(ok(await updateLegalDocument(key.data, req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── Duration multiplier rules ──────────────────────────────────
 

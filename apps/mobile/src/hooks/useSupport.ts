@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SupportContact, SupportFaq } from '@nanny-app/shared';
+import type { LegalDocument, LegalDocumentKey, SupportContact, SupportFaq } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
 
@@ -25,6 +25,18 @@ export function useSupportFaq() {
   return useQuery({
     queryKey: [SUPPORT_KEY, 'faq'],
     queryFn: () => unwrap<SupportFaq>(api.get('/support/faq')),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * The Terms of Service or Privacy Policy, as the operators wrote them. Public:
+ * the registration wizard opens these before the user has an account.
+ */
+export function useLegalDocument(key: LegalDocumentKey) {
+  return useQuery({
+    queryKey: [SUPPORT_KEY, 'legal', key],
+    queryFn: () => unwrap<LegalDocument>(api.get(`/legal/${key}`)),
     staleTime: 5 * 60_000,
   });
 }

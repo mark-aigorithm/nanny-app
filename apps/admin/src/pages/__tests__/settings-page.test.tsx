@@ -4,7 +4,13 @@
  * toggle reads back from the config, flips the live preview, and saves as a
  * real boolean — not as "false" the string, and not silently dropped.
  */
-import type { AdminUser, PlatformConfig, SupportContact, SupportFaq } from '@nanny-app/shared';
+import type {
+  AdminUser,
+  LegalDocuments,
+  PlatformConfig,
+  SupportContact,
+  SupportFaq,
+} from '@nanny-app/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -61,6 +67,11 @@ const FAQ: SupportFaq = {
   ],
 };
 
+const LEGAL: LegalDocuments = {
+  terms: { key: 'terms', title: 'Terms of Service', body: 'Soon.', updatedAt: null },
+  privacy: { key: 'privacy', title: 'Privacy Policy', body: 'Soon.', updatedAt: null },
+};
+
 function backend(
   config: PlatformConfig,
   onSave: (body: unknown) => void = () => {},
@@ -75,6 +86,7 @@ function backend(
       onSaveFaq(body);
       return ok(body);
     }),
+    http.get('/api/admin/legal-documents', () => ok(LEGAL)),
     http.get('/api/admin/config', () => ok(config)),
     http.put('/api/admin/config', async ({ request }) => {
       const body = (await request.json()) as Partial<PlatformConfig>;

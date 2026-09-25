@@ -18,8 +18,11 @@ function socialProviderOf(user: FirebaseUser): SocialProvider | null {
  * whose sign-up stopped after Firebase created the account but before
  * /auth/register wrote the row. What the account already proves is carried
  * and locked: a Google/Apple-verified email (the social wizard), the phone on
- * the account (Step 1 locks it, Step 3 skips the SMS), and an existing
- * password for the same email (the create-password step is skipped).
+ * the account (the wizard skips "Your number" — `phoneOnAccountAtStart`), and
+ * an existing password for the same email ("Secure your account" keeps it).
+ *
+ * A phone-only account with no row is resumed too: "Your number" signs in
+ * before anything else, so an app killed after it relaunches here.
  *
  * `isResume` (default true) is what the root gate sets; useSocialSignIn seeds
  * a brand-new social sign-up with `isResume: false`.
@@ -44,6 +47,7 @@ export function seedDraftFromAccount(user: FirebaseUser, options: { isResume?: b
     countryCode: COUNTRY_CODE,
     phone: fromE164(COUNTRY_CODE, accountPhone),
     accountPhone,
+    phoneOnAccountAtStart: accountPhone !== null,
     passwordEmail,
   });
 }

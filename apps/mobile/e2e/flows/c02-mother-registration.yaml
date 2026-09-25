@@ -1,27 +1,26 @@
 # C2 — a mother signs up from scratch, all the way to her home screen.
 #
-# The old C2 could only prove the fork (a mother's five steps vs a nanny's six)
-# because step 1's Continue refuses to advance without a profile photo, and the
-# photo meant driving the Android picker. Two bits of Phase-2/2c infra remove
-# that wall, so this now drives the whole wizard:
+# The wizard proves her phone first, so every later step runs signed in:
 #
+#   1/5 Your number            — /auth/availability, then the SMS (emulator)
+#   2/5 About you              — photo, names, email, DOB; the photo uploads here
+#   3/5 Secure your account    — our email OTP (read out of Mailpit), then the
+#                                password, linked onto the phone account
+#   4/5 Location & preferences — the map pin and the street line
+#   5/5 Finish                 — referral (C7), the Terms link, Complete setup
+#
+# What makes it drivable:
 #   - the photo picker is short-circuited to a bundled placeholder under E2E
-#     (lib/e2eImage), so step 1's gate opens without touching system UI;
+#     (lib/e2eImage), so the photo gate opens without touching system UI;
 #   - the location step needs coordinates: run.mjs gives the device a Cairo geo
 #     fix, the map card centres on it, and tapping the map sets the pin;
 #   - the account is created from scratch, so the seeder WIPES it (Firebase user
 #     + DB row + dependents) before every run rather than upserting it, or the
 #     second run collides on its unique phone (Phase 2c).
 #
-# The referral field on the final step is C7 through the UI: the existing
-# mother's code is typed in and validated live. Reaching the home screen at the
-# end is the proof the whole chain landed — email verify, phone verify,
-# email/password link, POST /auth/register, and the referral redeem.
-#
-# Step 2 proves her address against our own email OTP, read out of Mailpit —
-# the same mid-wizard step A10 drives for a nanny. It is what puts a real
-# address on `users.email`, and that same address becomes her Firebase
-# sign-in credential — there is no phone-derived placeholder any more.
+# Reaching the home screen at the end is the proof the whole chain landed —
+# phone verify, email verify, email/password link, POST /auth/register and
+# the referral redeem.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
@@ -39,44 +38,65 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Sign up as a mother'
 - tapOn: 'Sign up as a mother'
 
-# ── Step 1 of 5 — personal info ────────────────────────────────────────────
+# ── Step 1 of 5 — your number ──────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 5.*'
+    visible: 'STEP 1 OF 5 — YOUR NUMBER'
+    timeout: 30000
+- tapOn: '100 000 0000'
+- inputText: ${REGISTRATION_PHONE}
+- hideKeyboard
+- tapOn: 'Send code'
+# The resend timer appearing is the signal the code went, so the emulator has
+# one to hand back before we read it.
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${REGISTRATION_PHONE_E164}
+- assertTrue: ${output.otp != null}
+- tapOn:
+    id: 'registerPhone.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: 'Verify'
+
+# ── Step 2 of 5 — about you ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 5 — ABOUT YOU'
     timeout: 30000
 
-# The photo gate, asserted both ways: the hint is deferred to the first Continue
-# attempt, then a photo clears it. Under E2E the picker returns a bundled
-# placeholder, so "Add photo" becomes "Change photo" without any system UI.
-- assertNotVisible: 'A profile photo is required'
+# Every missing field says so under itself on the first Continue; a photo then
+# clears its own. Under E2E the picker returns a bundled placeholder, so "Add
+# photo" becomes "Change photo" without any system UI.
+- assertNotVisible: 'A profile photo is required.'
 - tapOn: 'Continue'
-- assertVisible: 'A profile photo is required'
+- assertVisible: 'A profile photo is required.'
+- assertVisible: 'Please enter your first name.'
 - tapOn: 'Add photo'
 - extendedWaitUntil:
     visible: 'Change photo'
     timeout: 30000
+- assertNotVisible: 'A profile photo is required.'
 
 # hideKeyboard between each field: the keyboard covers the lower half, and a
-# tap on a field behind it lands on a key instead — the phone digits end up
-# appended to the last name and the phone stays empty.
+# tap on a field behind it lands on a key instead.
 - tapOn: 'Enter your first name'
 - inputText: ${REGISTRATION_FIRST_NAME}
 - hideKeyboard
 - tapOn: 'Enter your last name'
 - inputText: 'Lab'
 - hideKeyboard
-# A real address, verified on the very next screen — this is what lands in
+# A real address, verified on the next screen — this is what lands in
 # `users.email` and becomes her Firebase sign-in credential.
 - tapOn: 'you@example.com'
 - inputText: ${REGISTRATION_EMAIL}
 - hideKeyboard
-- tapOn: '100 000 0000'
-- inputText: ${REGISTRATION_PHONE}
-- hideKeyboard
 
 # Date of birth opens the native Android date dialog. Its default is 25 years
-# ago — a valid adult DOB — so accepting it with OK is all this needs. The
-# email field pushed the picker below the fold, so scroll to it first (A10 has
-# always needed this; a mother's step 1 now carries the same field).
+# ago — a valid adult DOB — so accepting it with OK is all this needs.
 - scrollUntilVisible:
     element:
       text: 'Select your date of birth'
@@ -84,9 +104,13 @@ appId: com.nannyapp.mobile
     timeout: 20000
 - tapOn: 'Select your date of birth'
 - tapOn: 'OK'
+# Continue also uploads the photo, now that she is signed in.
 - tapOn: 'Continue'
 
-# ── Step 2 of 5 — verify her email (our OTP, read from Mailpit) ────────────
+# ── Step 3 of 5 — secure your account (email OTP, then the password) ───────
+- extendedWaitUntil:
+    visible: 'STEP 3 OF 5 — SECURE YOUR ACCOUNT'
+    timeout: 60000
 # The code is sent as the screen opens; the resend timer appearing is the signal
 # it went, so there is a message in the inbox before the advance step reads it.
 - extendedWaitUntil:
@@ -99,14 +123,15 @@ appId: com.nannyapp.mobile
       EMAIL_OTP_ADDRESS: ${REGISTRATION_EMAIL}
 - assertTrue: ${output.emailOtp != null}
 - tapOn:
-    id: 'registerEmail.code.boxes'
+    id: 'registerAccount.code.boxes'
 - inputText: ${output.emailOtp}
-- hideKeyboard
-- tapOn: 'Continue'
-
-# ── Step 3 of 5 — set password ─────────────────────────────────────────────
+# No hideKeyboard here: the sixth digit starts the check, which disables and
+# then replaces the code input, closing the keyboard itself. On Android
+# Maestro's hideKeyboard with no keyboard up is a Back press, which pops
+# this step back to About you.
+# Six digits check themselves; the password fields appear once they pass.
 - extendedWaitUntil:
-    visible: 'Create a secure password'
+    visible: 'Enter a password'
     timeout: 30000
 - tapOn: 'Enter a password'
 - inputText: ${PASSWORD}
@@ -118,7 +143,7 @@ appId: com.nannyapp.mobile
 
 # ── Step 4 of 5 — location & preferences ───────────────────────────────────
 - extendedWaitUntil:
-    visible: 'Where are you based?'
+    visible: 'STEP 4 OF 5 — LOCATION & PREFERENCES'
     timeout: 30000
 # This lab's build has a Maps key, so the map renders (centred on the device's
 # Cairo geo fix). Tapping the map fires its onPress with that point's
@@ -126,34 +151,21 @@ appId: com.nannyapp.mobile
 # requires — no reliance on the async GPS read landing in time.
 - tapOn:
     point: '50%,44%'
-# The street line is required for every account — type it, as A10 does. After
-# the map tap, so a reverse-geocoded line can't overwrite it afterwards.
+# The street line is required for every account. After the map tap, so a
+# reverse-geocoded line can't overwrite it afterwards.
 - tapOn: 'Street address'
 - inputText: '1 Test Street, Cairo'
 - hideKeyboard
-# A preference, for coverage — optional, so it does not gate Continue.
+# A preference, for coverage — optional (nothing is pre-ticked), so it does
+# not gate Continue.
 - tapOn: 'Background checked'
 - tapOn: 'Continue'
 
-# ── Final step — verify phone, referral (C7), terms ────────────────────────
+# ── Step 5 of 5 — finish: referral (C7), terms ─────────────────────────────
 - extendedWaitUntil:
-    visible: 'Verify your phone number'
+    visible: 'STEP 5 OF 5 — FINISH'
     timeout: 30000
-# The code is sent automatically on arrival; the resend timer appearing is the
-# signal it went, so the emulator has a code to hand back before we read it.
-- extendedWaitUntil:
-    visible: 'Resend in.*'
-    timeout: 30000
-- runScript:
-    file: ../scripts/advance.js
-    env:
-      ADVANCE: phone-otp
-      OTP_PHONE: ${REGISTRATION_PHONE_E164}
-- assertTrue: ${output.otp != null}
-- tapOn:
-    id: 'registerStep3.code.boxes'
-- inputText: ${output.otp}
-- hideKeyboard
+- assertVisible: 'Signed in as ${REGISTRATION_PHONE_E164}'
 
 # ── C7: the referral field, validated live ─────────────────────────────────
 # The existing mother's own code (read over HTTP); the field calls the
@@ -173,10 +185,19 @@ appId: com.nannyapp.mobile
     visible: 'Invited by Mona .*'
     timeout: 30000
 
-# Accept the terms and finish. The label is one text node — "Terms of Service"
-# is a nested <Text> Android flattens into it — so match the whole line; the tap
-# toggles the card either way.
-- tapOn: 'I agree to.*'
+# The Terms open from the admin-managed text (the placeholder, in a fresh
+# stack), from their own link under the terms card.
+- tapOn: 'Terms of Service'
+- extendedWaitUntil:
+    visible: '.*will be published here soon.*'
+    timeout: 30000
+- back
+- extendedWaitUntil:
+    visible: 'STEP 5 OF 5 — FINISH'
+    timeout: 30000
+
+# Accept the terms; the whole card toggles the box.
+- tapOn: 'I agree to the Terms of Service and Privacy Policy'
 - tapOn: 'Complete setup'
 
 # The notification-permission screen stands between the last step and home.

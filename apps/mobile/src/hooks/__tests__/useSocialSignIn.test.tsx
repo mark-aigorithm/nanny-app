@@ -145,7 +145,7 @@ it('keeps a brand-new account and seeds the social draft', async () => {
     authProvider: 'google',
     socialCredential: CREDENTIAL,
     // Which Firebase account this sign-up owns: the only one collision B may
-    // delete, and the only one step 3 may link a phone onto.
+    // delete, and the only one "Your number" may link a phone onto.
     signUpUid: 'uid-new',
     firstName: 'Salma',
     lastName: 'Ali',

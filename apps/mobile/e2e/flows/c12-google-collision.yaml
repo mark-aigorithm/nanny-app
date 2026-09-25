@@ -2,9 +2,10 @@
 # account.
 #
 # A new Google identity starts the social wizard and types the seeded mother's
-# phone. Step 1's availability check finds the number taken, so the app deletes
-# the throwaway Google account it just made, keeps the credential, and sends
-# her to sign-in with the number prefilled and a banner explaining why.
+# phone on "Your number". The availability check finds the number taken before
+# any SMS is sent, so the app deletes the throwaway Google account it just
+# made, keeps the credential, and sends her to sign-in with the number
+# prefilled and a banner explaining why.
 # Signing in by SMS proves she owns the account; only then is the Google
 # identity linked onto it. The last step asks the emulator directly, because
 # "linked" is exactly what a screen cannot show.
@@ -28,24 +29,16 @@ appId: com.nannyapp.mobile
 - tapOn: 'Use this Google account'
 
 - extendedWaitUntil:
-    visible: 'STEP 1 OF 3.*'
+    visible: 'STEP 1 OF 4 — YOUR NUMBER'
     timeout: 60000
-- tapOn: 'Add photo'
-- extendedWaitUntil:
-    visible: 'Change photo'
-    timeout: 30000
 # The seeded mother's number — already an account.
 - tapOn: '100 000 0000'
 - inputText: ${MOTHER_PHONE}
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      text: 'Select your date of birth'
-    direction: DOWN
-    timeout: 20000
-- tapOn: 'Select your date of birth'
-- tapOn: 'OK'
-- tapOn: 'Continue'
+- tapOn: 'Send code'
+# No code screen on the way: the collision is found before the SMS.
+- assertNotVisible:
+    id: 'registerPhone.code.boxes'
 
 # ── Sent to sign in, with the reason and the number already there ──────────
 - extendedWaitUntil:

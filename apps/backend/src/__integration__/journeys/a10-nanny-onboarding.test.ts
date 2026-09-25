@@ -93,7 +93,7 @@ describe('A10 — nanny onboarding and approval', () => {
     expect(names.join(' ')).not.toContain(nanny.lastName);
   });
 
-  it('tells step 1 of the wizard when a phone or email is already taken', async () => {
+  it('tells the wizard when a phone or email is already taken', async () => {
     const takenPhone = '+201099990001';
     const mother = await makeMother({ phone: takenPhone });
 
@@ -117,6 +117,14 @@ describe('A10 — nanny onboarding and approval', () => {
       .send({ email: `free-${process.pid}-${Date.now()}@test.local`, phone: '+201099990003' });
     expect(free.status).toBe(200);
     expect(free.body.data).toEqual({ emailTaken: false, phoneTaken: false });
+
+    // The phone alone, as "Your number" asks before any SMS is sent.
+    const phoneOnlyTaken = await request(app).post('/auth/availability').send({ phone: takenPhone });
+    expect(phoneOnlyTaken.status).toBe(200);
+    expect(phoneOnlyTaken.body.data).toEqual({ emailTaken: false, phoneTaken: true });
+    const phoneOnlyFree = await request(app).post('/auth/availability').send({ phone: '+201099990004' });
+    expect(phoneOnlyFree.status).toBe(200);
+    expect(phoneOnlyFree.body.data).toEqual({ emailTaken: false, phoneTaken: false });
 
     // A local-format phone is a 400, not a silent "free".
     const malformed = await request(app)

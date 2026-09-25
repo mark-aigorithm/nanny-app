@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 /**
  * End-to-end affordance for the registration image steps.
  *
- * Step 1 disables Continue until `draft.photoUri` is set, and the nanny ID
+ * "About you" refuses Continue until `draft.photoUri` is set, and the nanny ID
  * screens require an upload — both open the Android photo picker + crop screen,
  * which is system UI that changes between OS versions and is the most fragile
  * thing a flow could touch. Under E2E (the Storage-emulator host is set), skip

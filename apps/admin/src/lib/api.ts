@@ -60,6 +60,10 @@ import type {
   Skill,
   SupportContact,
   SupportFaq,
+  LegalDocument,
+  LegalDocumentKey,
+  LegalDocuments,
+  UpdateLegalDocumentInput,
   UpdateAdminMotherInput,
   UpdateAdminNanny,
   UpdateAdminUserInput,
@@ -321,6 +325,21 @@ export async function fetchSupportFaq(): Promise<SupportFaq> {
 /** Replaces the whole list — the editor always saves everything it shows. */
 export async function updateSupportFaq(input: SupportFaq): Promise<SupportFaq> {
   const res = await apiClient.put<ApiEnvelope<SupportFaq>>('/admin/support-faq', input);
+  return res.data.data;
+}
+
+/** Both legal documents; an unsaved one is a placeholder with a null `updatedAt`. */
+export async function fetchLegalDocuments(): Promise<LegalDocuments> {
+  const res = await apiClient.get<ApiEnvelope<LegalDocuments>>('/admin/legal-documents');
+  return res.data.data;
+}
+
+/** Saves one document; the other is left as it was. */
+export async function updateLegalDocument(
+  key: LegalDocumentKey,
+  input: UpdateLegalDocumentInput,
+): Promise<LegalDocument> {
+  const res = await apiClient.put<ApiEnvelope<LegalDocument>>(`/admin/legal-documents/${key}`, input);
   return res.data.data;
 }
 

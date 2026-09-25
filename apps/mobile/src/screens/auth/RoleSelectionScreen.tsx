@@ -13,6 +13,7 @@ import { Button, Divider } from '@mobile/components/ui';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useDiscardUnfinishedAccount } from '@mobile/hooks/useAuth';
 import { colors } from '@mobile/theme';
+import { firstStep } from '@mobile/lib/registrationSteps';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/role-selection-screen.styles';
@@ -52,7 +53,7 @@ export default function RoleSelectionScreen() {
     // only gains the role; otherwise this attempt starts from a fresh draft.
     if (!isAccountBacked) resetDraft();
     patchDraft({ role: selectedRole });
-    router.push({ pathname: '/(auth)/register-step-1', params: { role: selectedRole } });
+    router.push(firstStep(useRegistrationDraftStore.getState()));
   }
 
   function handleSignIn() {
