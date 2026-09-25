@@ -29,7 +29,7 @@ export type {
   CreatePostUiType,
 } from './community';
 
-export type { Attendee, EventData, CreateEventData } from './events';
+export type { CreateEventData } from './events';
 
 export type { ProductItem, ProductDetail } from './marketplace';
 
