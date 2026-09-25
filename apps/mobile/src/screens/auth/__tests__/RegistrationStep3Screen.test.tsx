@@ -274,6 +274,7 @@ describe('a resumed sign-up whose account already holds the number', () => {
       email: 'mona@gmail.com',
       password: '',
       emailVerificationToken: 'tok',
+      signUpUid: 'uid-social',
     });
   });
 

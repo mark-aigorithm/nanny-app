@@ -262,6 +262,16 @@ describe('RegistrationStep1Screen — resumed account with a phone', () => {
     expect(getByDisplayValue('1234567893').props.editable).toBe(true);
     expect(queryByText('Already verified on your account')).toBeNull();
   });
+
+  it('leaves the phone editable when the account phone could not be rendered into the field', () => {
+    // A non-+20 account phone makes `fromE164` return '' — locking an empty
+    // field would leave no way to type a number at all.
+    useRegistrationDraftStore.setState({ accountPhone: '+15551234567', phone: '', isResume: true });
+    const { getByPlaceholderText, queryByText } = renderScreen();
+
+    expect(getByPlaceholderText('100 000 0000').props.editable).toBe(true);
+    expect(queryByText('Already verified on your account')).toBeNull();
+  });
 });
 
 describe('RegistrationStep1Screen — date of birth', () => {

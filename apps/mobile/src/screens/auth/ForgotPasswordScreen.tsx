@@ -22,6 +22,7 @@ import {
 } from '@mobile/hooks/useAuth';
 import { validatePhone, toE164, validateEmail } from '@mobile/lib/validation';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
+import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { styles } from './styles/forgot-password-screen.styles';
 
@@ -178,7 +179,10 @@ export default function ForgotPasswordScreen() {
         // which routes by profile + role. An unfinished sign-up keeps the
         // password it was given in the wizard; the gate resumes it, so say
         // why no password was changed.
-        onSuccess: (outcome) => {
+        onSuccess: async (outcome) => {
+          // The SMS just proved the account, same as the sign-in door — a
+          // parked Google/Apple credential from a collision links now too.
+          await linkPendingCredential();
           if (outcome === 'needs-setup') {
             noticeDialog({
               title: 'Finish setting up your account first.',

@@ -41,9 +41,11 @@ import {
 } from '@mobile/lib/authErrors';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { clearLocalSession } from '@mobile/lib/session';
-import { getAppleAuthorizationCode } from '@mobile/lib/socialAuth';
+import { getAppleAuthorizationCode, signOutOfGoogle, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
+import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
+import type { SocialProvider } from '@mobile/types';
 
 // ── Shared errors ────────────────────────────────────────────────────────────
 
@@ -52,6 +54,20 @@ const NO_ACCOUNT_FOR_PHONE_ERROR: MappedAuthError = {
   field: 'phone',
   message: "We couldn't find an account for that number. Sign up first.",
 };
+
+/**
+ * The SMS door discarded a phone-only account, but a Google/Apple credential
+ * was parked for this very attempt (collision B sent her here on a phoneHint
+ * that turned out to belong to nobody). "Sign up first" would just point her
+ * back at the same dead end, so this offers the credential that is actually
+ * waiting instead.
+ */
+function noAccountForPhoneWithParkedCredential(provider: SocialProvider): MappedAuthError {
+  return {
+    field: 'phone',
+    message: `We couldn't find an account for that number. Continue with ${SOCIAL_PROVIDER_LABEL[provider]} to sign up with it.`,
+  };
+}
 
 /**
  * The backend could not be reached, or answered with something that proves
@@ -171,6 +187,10 @@ async function checkAccount(user: FirebaseUser): Promise<AccountCheck> {
     if (isNotFound(error)) return isPhoneOnly(user) ? 'phone-only-new' : 'unfinished';
     useRegistrationDraftStore.getState().reset();
     await auth().signOut().catch(() => undefined);
+    // A parked credential must survive this — only the Google session itself
+    // (so the next "Continue with Google" shows the account picker, not
+    // whoever she just failed to check) needs forgetting here.
+    await signOutOfGoogle();
     throw COULD_NOT_CONNECT_ERROR;
   }
 }
@@ -286,6 +306,15 @@ export function useConfirmPhoneSignIn() {
       const account = await checkAccount(user);
       if (account === 'phone-only-new') {
         await discardPhoneOnlyAccount(user);
+        // Collision B parked a Google/Apple credential and sent her here on a
+        // phoneHint that turned out to belong to nobody — the credential is
+        // still real, so offer it instead of a dead-end "sign up first",
+        // which would just send her right back to the same banner.
+        const pending = usePendingLinkStore.getState().pending;
+        if (pending) {
+          usePendingLinkStore.getState().clear();
+          throw noAccountForPhoneWithParkedCredential(pending.provider);
+        }
         throw NO_ACCOUNT_FOR_PHONE_ERROR;
       }
 
@@ -529,7 +558,8 @@ const EMAIL_IN_USE_CODES = new Set(['auth/email-already-in-use', 'auth/credentia
  * - A retry after a failure further down the wizard re-uses a spent code;
  *   `confirmCode` accepts that when the app is already signed in as `phone`.
  * - `confirmation: null` is a resumed sign-up whose account already holds
- *   `phone` — nothing to confirm. Any other signed-in account (or none) is
+ *   `phone` — nothing to confirm. Any other signed-in account (or none), or
+ *   one that isn't `signUpUid` (mirroring `useLinkPhoneToCurrentUser`), is
  *   `SESSION_MISMATCH_ERROR`.
  * - An empty `password` means create-password was skipped because the
  *   account already has a password for this email; the link is skipped too.
@@ -549,15 +579,18 @@ export function useConfirmPhoneAndLink() {
       email: string;
       password: string;
       emailVerificationToken: string | null;
+      signUpUid: string | null;
     }
   >({
-    mutationFn: async ({ confirmation, code, phone, email, password, emailVerificationToken }) => {
+    mutationFn: async ({ confirmation, code, phone, email, password, emailVerificationToken, signUpUid }) => {
       let user: FirebaseUser;
       if (confirmation) {
         user = await confirmCode(confirmation, code, phone);
       } else {
         const current = auth().currentUser;
-        if (!current || current.phoneNumber !== phone) throw SESSION_MISMATCH_ERROR;
+        if (!current || current.phoneNumber !== phone || current.uid !== signUpUid) {
+          throw SESSION_MISMATCH_ERROR;
+        }
         user = current;
       }
 

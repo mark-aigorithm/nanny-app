@@ -362,12 +362,15 @@ export default function RegistrationStep1Screen() {
                   keyboardType="phone-pad"
                   autoCorrect={false}
                   // A resumed account that already carries a phone keeps it:
-                  // step 3 skips the SMS for exactly that number.
-                  editable={!draft.accountPhone}
+                  // step 3 skips the SMS for exactly that number. But only
+                  // when it actually rendered into this field — a non-+20
+                  // account phone makes `fromE164` return '', and locking an
+                  // empty field would leave no way to type a number at all.
+                  editable={!draft.accountPhone || !draft.phone}
                 />
               </View>
               {phoneError && <Text style={styles.fieldErrorText}>{phoneError}</Text>}
-              {draft.accountPhone && !phoneError && (
+              {draft.accountPhone && draft.phone && !phoneError && (
                 <Text style={[styles.verifiedHint, styles.verifiedHintInGroup]}>
                   Already verified on your account
                 </Text>

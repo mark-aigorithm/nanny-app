@@ -49,23 +49,34 @@ it('goes on to create a password after the code', async () => {
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-create-password', params: { role: 'parent' } });
 });
 
-it('skips create-password when the resumed account already has a password for this email', async () => {
-  useRegistrationDraftStore.setState({ passwordEmail: 'mona@example.com' });
+it('skips create-password when the resumed account already has a password and phone for this email', async () => {
+  useRegistrationDraftStore.setState({ passwordEmail: 'mona@example.com', accountPhone: '+201234567890' });
   await renderAndVerify();
 
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-2', params: { role: 'parent' } });
 });
 
-it('sends a nanny with an existing password straight to her location', async () => {
+it('sends a nanny with an existing password and phone straight to her location', async () => {
   mockRole = 'nanny';
-  useRegistrationDraftStore.setState({ passwordEmail: 'mona@example.com' });
+  useRegistrationDraftStore.setState({ passwordEmail: 'mona@example.com', accountPhone: '+201234567890' });
   await renderAndVerify();
 
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-nanny-location', params: { role: 'nanny' } });
 });
 
 it('still asks for a password when the existing one belongs to a different email', async () => {
-  useRegistrationDraftStore.setState({ passwordEmail: 'someone.else@example.com' });
+  useRegistrationDraftStore.setState({ passwordEmail: 'someone.else@example.com', accountPhone: '+201234567890' });
+  await renderAndVerify();
+
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-create-password', params: { role: 'parent' } });
+});
+
+it('still asks for a password when the matching password has no phone on the account', async () => {
+  // A leftover with a password but no phone would otherwise confirm the SMS
+  // step into a different uid (the phone door signs in fresh) and dead-end on
+  // "Please go back and create a password", with Back only skipping the step
+  // again — so the skip requires a phone on the account too.
+  useRegistrationDraftStore.setState({ passwordEmail: 'mona@example.com' });
   await renderAndVerify();
 
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-create-password', params: { role: 'parent' } });

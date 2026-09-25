@@ -1,8 +1,8 @@
-import { api } from '@mobile/lib/api';
+import { api, apiStatusOf } from '@mobile/lib/api';
 import { authErrorCode } from '@mobile/lib/authErrors';
 import { auth } from '@mobile/lib/firebase';
 import type { AuthCredential, FirebaseUser } from '@mobile/lib/firebase';
-import { getSocialCredential, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
+import { getSocialCredential, signOutOfGoogle, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -81,17 +81,37 @@ async function reauthenticateAndDelete(user: FirebaseUser, credential: AuthCrede
 }
 
 /**
+ * Signs out locally without touching a parked credential — every exit in this
+ * module needs this exact pair, so Google's own session doesn't outlive the
+ * app's local sign-out and quietly resurface on the next "Continue with
+ * Google" (showing her already-picked account instead of the chooser).
+ */
+async function signOutKeepingParkedCredential(): Promise<void> {
+  await auth().signOut().catch(() => undefined);
+  await signOutOfGoogle();
+}
+
+/**
  * Deletes the account this sign-up created and says which Google/Apple
  * credential to park for the link at sign-in (`null`: none to park).
  *
- * `delete()` needs a recent sign-in (about five minutes), and a collision found
- * at step 3 comes after the whole wizard, so a `requires-recent-login` refusal
- * is answered, in order, by:
+ * The server is asked first — it alone knows whether a `users` row already
+ * points at this uid, which `user.delete()` cannot check on its own:
  *
- * 1. `DELETE /auth/me` — the server deletes the Firebase account itself
- *    (refusing unless no row points at it), then the app signs out locally.
- * 2. Re-proving the sign-in with the sign-up's own credential and deleting.
- * 3. Re-proving it with a fresh credential from the provider's sheet — the
+ * 1. `DELETE /auth/me` — 204 means the server deleted the Firebase account
+ *    itself: sign out locally and park the credential. 409 means a row
+ *    already points at this uid, so there is nothing here to free up: sign
+ *    out locally and park nothing.
+ *
+ * Any other failure (offline, 5xx — never a 409, which is a definitive
+ * answer) falls back to deleting directly, exactly as before this reordering.
+ * `delete()` needs a recent sign-in (about five minutes), and a collision
+ * found at step 3 comes after the whole wizard, so a `requires-recent-login`
+ * refusal is answered, in order, by:
+ *
+ * 2. `user.delete()` itself.
+ * 3. Re-proving the sign-in with the sign-up's own credential and deleting.
+ * 4. Re-proving it with a fresh credential from the provider's sheet — the
  *    only way for a resumed sign-up, which has no credential — and deleting.
  *    The fresh one is parked only when it re-proved this very account; one
  *    for a different identity (another Google account picked in the sheet)
@@ -108,21 +128,25 @@ async function deleteSignUpAccount(
   credential: AuthCredential | null,
 ): Promise<AuthCredential | null> {
   try {
+    await api.delete('/auth/me');
+    await signOutKeepingParkedCredential();
+    return credential;
+  } catch (error) {
+    if (apiStatusOf(error) === 409) {
+      await signOutKeepingParkedCredential();
+      return null;
+    }
+    // Any other failure — fall back to deleting directly.
+  }
+
+  try {
     await user.delete();
     return credential;
   } catch (error) {
     if (authErrorCode(error) !== 'auth/requires-recent-login') {
-      await auth().signOut().catch(() => undefined);
+      await signOutKeepingParkedCredential();
       return credential;
     }
-  }
-
-  try {
-    await api.delete('/auth/me');
-    await auth().signOut().catch(() => undefined);
-    return credential;
-  } catch {
-    // Try re-proving the sign-in instead.
   }
 
   if (credential && (await reauthenticateAndDelete(user, credential))) return credential;
@@ -134,7 +158,7 @@ async function deleteSignUpAccount(
     // Cancelled or failed — fall through to signing out.
   }
 
-  await auth().signOut().catch(() => undefined);
+  await signOutKeepingParkedCredential();
   return credential;
 }
 
@@ -166,7 +190,7 @@ export async function abandonSocialSignUpForLink(phoneHint: string | null): Prom
 
   if (!user || authProvider === 'phone' || !signUpUid || user.uid !== signUpUid) {
     usePendingLinkStore.getState().clear();
-    if (user) await auth().signOut().catch(() => undefined);
+    if (user) await signOutKeepingParkedCredential();
     draft.reset();
     return;
   }

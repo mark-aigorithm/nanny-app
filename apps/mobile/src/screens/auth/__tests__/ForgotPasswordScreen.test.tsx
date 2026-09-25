@@ -54,6 +54,11 @@ jest.mock('@mobile/lib/api', () => ({
 
 const NOT_FOUND = { isAxiosError: true, response: { status: 404, data: {} } };
 
+const mockLinkPendingCredential = jest.fn().mockResolvedValue(undefined);
+jest.mock('@mobile/lib/pendingLink', () => ({
+  linkPendingCredential: (...args: unknown[]) => mockLinkPendingCredential(...args),
+}));
+
 import ForgotPasswordScreen from '../ForgotPasswordScreen';
 import { useConfirmDialogStore } from '@mobile/store/confirmDialogStore';
 
@@ -184,6 +189,9 @@ it('updates the password and goes through the root gate for an account with a ro
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   expect(mockUpdatePassword).toHaveBeenCalledWith('Password1');
   expect(useConfirmDialogStore.getState().dialog).toBeNull();
+  // The SMS just proved the account, same as the sign-in door — a parked
+  // Google/Apple credential from a collision links now too.
+  expect(mockLinkPendingCredential).toHaveBeenCalledTimes(1);
 });
 
 it('sends an unfinished sign-up to finish setting up, leaving its password alone', async () => {
@@ -205,6 +213,7 @@ it('sends an unfinished sign-up to finish setting up, leaving its password alone
     title: 'Finish setting up your account first.',
     message: "Your sign-up isn't finished yet. Pick up where you left off.",
   });
+  expect(mockLinkPendingCredential).toHaveBeenCalledTimes(1);
 });
 
 it('drops an SMS-channel error when backing out to the channel choice', async () => {

@@ -100,9 +100,13 @@ export default function RegistrationEmailScreen() {
       const { verificationToken } = await verifyOtp.mutateAsync({ email, code });
       patch({ emailVerificationToken: verificationToken });
       // A resumed account that already has a password for this very address
-      // keeps it — skip create-password to where it would have gone.
-      const { passwordEmail } = useRegistrationDraftStore.getState();
-      if (passwordEmail && passwordEmail === email.trim().toLowerCase()) {
+      // keeps it — skip create-password to where it would have gone. Only
+      // when it also holds a phone: a leftover with a password but no phone
+      // would otherwise confirm the SMS step into a *different* uid (the
+      // phone door signs in fresh) and dead-end on "Please go back and create
+      // a password", with Back only skipping the step again.
+      const { passwordEmail, accountPhone } = useRegistrationDraftStore.getState();
+      if (passwordEmail && passwordEmail === email.trim().toLowerCase() && accountPhone) {
         router.push({
           pathname: isNanny ? '/(auth)/register-nanny-location' : '/(auth)/register-step-2',
           params: { role },

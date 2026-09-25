@@ -11,6 +11,7 @@ const mockCredential = jest.fn((email: string, password: string) => ({ email, pa
 // variables whose name starts with "mock" (see SignInScreen.test.tsx) — hence
 // `mockCurrentUser` rather than `currentUser`.
 let mockCurrentUser: {
+  uid: string;
   email: string | null;
   phoneNumber: string | null;
   providerData: { providerId: string; email?: string | null }[];
@@ -79,7 +80,13 @@ function renderConfirmPhoneAndLink() {
 const CONFIRMATION = { confirm: mockConfirm } as never;
 const PHONE = '+201234567891';
 /** The fields every call below shares. */
-const BASE = { confirmation: CONFIRMATION, code: '111111', phone: PHONE, emailVerificationToken: null };
+const BASE = {
+  confirmation: CONFIRMATION,
+  code: '111111',
+  phone: PHONE,
+  emailVerificationToken: null,
+  signUpUid: 'uid-social',
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -88,6 +95,7 @@ beforeEach(() => {
   mockApiGet.mockRejectedValue(new ApiRequestError('User profile not found.', 404));
   mockSignOut.mockResolvedValue(undefined);
   mockCurrentUser = {
+    uid: 'uid-social',
     email: 'old@example.com',
     phoneNumber: PHONE,
     providerData: [{ providerId: 'phone' }],
@@ -272,6 +280,19 @@ describe('a retry or a resumed sign-up', () => {
     await expect(
       result.current.mutateAsync({ ...BASE, confirmation: null, code: '', email: 'mona@example.com', password: 'Password1' }),
     ).rejects.toMatchObject({ code: 'session-mismatch' });
+  });
+
+  it('refuses confirmation: null when the signed-in account is not the one this sign-up created', async () => {
+    // Mirrors useLinkPhoneToCurrentUser's signUpUid guard: the phone matches,
+    // but this uid is not the sign-up's own (say, a registered account signed
+    // in by SMS on this device since) — nothing here should be touched.
+    mockCurrentUser!.uid = 'uid-someone-else';
+    const { result } = renderConfirmPhoneAndLink();
+
+    await expect(
+      result.current.mutateAsync({ ...BASE, confirmation: null, code: '', email: 'mona@example.com', password: 'Password1' }),
+    ).rejects.toMatchObject({ field: 'form', code: 'session-mismatch' });
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
   });
 
   it('skips the link when the same-email password is already on the account and none was typed', async () => {

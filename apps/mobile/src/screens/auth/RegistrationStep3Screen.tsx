@@ -288,6 +288,7 @@ export default function RegistrationStep3Screen() {
           email: profileEmail,
           password: draft.password,
           emailVerificationToken,
+          signUpUid: draft.signUpUid,
         });
       } else {
         await linkPhone.mutateAsync({

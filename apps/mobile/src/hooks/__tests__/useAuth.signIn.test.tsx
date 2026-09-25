@@ -41,6 +41,12 @@ jest.mock('@mobile/lib/pendingLink', () => ({
   linkPendingCredential: (...args: unknown[]) => mockLinkPendingCredential(...args),
 }));
 
+const mockSignOutOfGoogle = jest.fn().mockResolvedValue(undefined);
+jest.mock('@mobile/lib/socialAuth', () => ({
+  signOutOfGoogle: (...args: unknown[]) => mockSignOutOfGoogle(...args),
+  SOCIAL_PROVIDER_LABEL: { google: 'Google', apple: 'Apple' },
+}));
+
 import {
   useConfirmPhoneAndResetPassword,
   useConfirmPhoneSignIn,
@@ -165,6 +171,7 @@ describe('useSignInWithEmail', () => {
 
     expect(mockLinkPendingCredential).not.toHaveBeenCalled();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOutOfGoogle).toHaveBeenCalledTimes(1);
     expect(usePendingLinkStore.getState().pending?.credential).toEqual(CREDENTIAL);
     await settled(result);
   });
@@ -237,6 +244,26 @@ describe('useConfirmPhoneSignIn', () => {
     await settled(result);
   });
 
+  it('offers the parked credential instead of a dead end when collision B sent her to an orphan number', async () => {
+    // Collision B parked a Google credential and sent her here on a phoneHint
+    // that turns out to belong to nobody: "sign up first" would just bounce
+    // her back to the same banner, so the parked identity is offered instead.
+    phoneOnlyUser();
+    parkCredential();
+    mockGet.mockRejectedValue(NOT_FOUND);
+    const { result } = wrap(() => useConfirmPhoneSignIn());
+
+    await expect(
+      result.current.mutateAsync({ confirmation: confirmation as never, code: '111111', phone: PHONE }),
+    ).rejects.toEqual({
+      field: 'phone',
+      message: "We couldn't find an account for that number. Continue with Google to sign up with it.",
+    });
+    expect(mockCurrentUser?.delete).toHaveBeenCalledTimes(1);
+    expect(usePendingLinkStore.getState().pending).toBeNull();
+    await settled(result);
+  });
+
   it("resolves 'needs-setup' for a phone+password leftover and deletes nothing", async () => {
     mockGet.mockRejectedValue(NOT_FOUND);
     const { result } = wrap(() => useConfirmPhoneSignIn());
@@ -259,6 +286,7 @@ describe('useConfirmPhoneSignIn', () => {
       result.current.mutateAsync({ confirmation: confirmation as never, code: '111111', phone: PHONE }),
     ).rejects.toEqual({ field: 'form', message: COULD_NOT_CONNECT });
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOutOfGoogle).toHaveBeenCalledTimes(1);
     expect(useRegistrationDraftStore.getState()).toMatchObject({ authProvider: 'phone', signUpUid: null });
     expect(usePendingLinkStore.getState().pending?.credential).toEqual(CREDENTIAL);
     expect(mockCurrentUser?.delete).not.toHaveBeenCalled();
