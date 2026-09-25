@@ -83,3 +83,11 @@ This renames "NannyApp" in the shared layout and in the receipt and verification
 - Opening the app from the link (Universal / App Links: needs a domain, `associatedDomains` +
   `intentFilters`, and a new binary).
 - Backend-sent reset via `generatePasswordResetLink`.
+
+## Addendum — password policy (2026-09-25)
+
+Firebase's hosted reset page applies only the project's password policy, and the project had none
+(Firebase's default: 6 characters). The app requires 8+ characters, an uppercase letter and a
+number. `src/lib/password-policy.ts` sets that policy (`ENFORCE`, `forceUpgradeOnSignin: false`), and
+the sync script — renamed `pnpm firebase:sync-auth-config` since it now pushes both — applies it
+through the Admin SDK's `projectConfigManager().updateProjectConfig`.

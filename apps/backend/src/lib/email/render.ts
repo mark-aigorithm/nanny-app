@@ -117,7 +117,7 @@ export function renderEmail<T extends EmailTemplate>(
  * and these sends never reach our log. Firebase fills `%LINK%` / `%EMAIL%`
  * itself; they are written literally in the body files and pass through
  * Handlebars untouched. Pushed to the project by
- * prisma/sync-firebase-email-templates.ts.
+ * prisma/sync-firebase-auth-config.ts.
  */
 export type FirebaseEmailTemplate = 'PASSWORD_RESET';
 

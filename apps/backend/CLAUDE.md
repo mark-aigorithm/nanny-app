@@ -200,7 +200,10 @@ The app's "Forgot password" calls Firebase's `sendPasswordResetEmail`, so Fireba
 it — not our SMTP, and nothing lands in `email_logs`. Its HTML is ours
 (`src/lib/email/templates/password-reset.html`, rendered by `renderFirebaseTemplate`), but
 Firebase takes no template per request: a change reaches users only after
-`pnpm email:sync-firebase --apply` pushes it to the project. The Auth emulator ignores templates.
+`pnpm firebase:sync-auth-config --apply` pushes it to the project. The Auth emulator ignores templates.
+The same script pushes `src/lib/password-policy.ts` — Firebase's hosted reset page knows nothing of
+the app's password rules, so the project policy is what holds it to them. Change the policy and the
+app's password screens together.
 
 **Upload URLs are accepted only from the caller's own folder**
 `lib/storage-url.ts` refuses any `avatarUrl` / `idDocumentFrontUrl` / `idDocumentBackUrl` that
