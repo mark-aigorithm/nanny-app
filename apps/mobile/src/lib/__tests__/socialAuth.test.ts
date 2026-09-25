@@ -108,6 +108,20 @@ describe('getGoogleCredential', () => {
     expect(result?.profile).toEqual({ firstName: 'E2E', lastName: 'Google', email: 'mona@test.local' });
   });
 
+  it('mints an unverified-email identity for an "unverified:" address, same sub as the verified one', async () => {
+    mockExtra = { firebaseAuthEmulatorHost: '10.0.2.2:9099' };
+
+    const pending = getGoogleCredential();
+    await Promise.resolve();
+    useE2eGooglePickerStore.getState().settle('unverified:Mona@Test.local');
+    const result = await pending;
+
+    expect(mockGoogleCredential).toHaveBeenCalledWith(
+      JSON.stringify({ sub: 'e2e-mona@test.local', email: 'mona@test.local', email_verified: false, name: 'E2E Google' }),
+    );
+    expect(result?.profile.email).toBe('mona@test.local');
+  });
+
   it('returns null when the E2E picker is cancelled', async () => {
     mockExtra = { firebaseAuthEmulatorHost: '10.0.2.2:9099' };
 

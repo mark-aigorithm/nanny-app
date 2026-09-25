@@ -67,12 +67,22 @@ function configureGoogle(): void {
  * asks for an address instead, and the emulator accepts an unsigned claim set
  * in place of a Google ID token. The `sub` is derived from the address, so the
  * same address is the same Google identity on every run.
+ *
+ * An address typed as `unverified:<address>` claims an email Google has not
+ * verified. The emulator merges any verified Google email into the account that
+ * already holds it, so this is the only way it raises
+ * `account-exists-with-different-credential` — the collision production raises
+ * for Google domains Firebase does not trust (C14).
  */
+const E2E_UNVERIFIED_PREFIX = 'unverified:';
+
 async function getE2eGoogleCredential(): Promise<SocialCredentialResult | null> {
   const typed = await requestE2eGoogleEmail();
   if (!typed) return null;
-  const email = typed.trim().toLowerCase();
-  const claims = { sub: `e2e-${email}`, email, email_verified: true, name: 'E2E Google' };
+  const raw = typed.trim().toLowerCase();
+  const emailVerified = !raw.startsWith(E2E_UNVERIFIED_PREFIX);
+  const email = emailVerified ? raw : raw.slice(E2E_UNVERIFIED_PREFIX.length);
+  const claims = { sub: `e2e-${email}`, email, email_verified: emailVerified, name: 'E2E Google' };
   return {
     provider: 'google',
     credential: auth.GoogleAuthProvider.credential(JSON.stringify(claims)),

@@ -31,8 +31,13 @@ appId: com.nannyapp.mobile
 
 # ── Account tab → Delete account → confirm ──────────────────────────────────
 - tapOn: 'Account'
-- extendedWaitUntil:
-    visible: 'Delete account'
+# The row sits at the foot of the list, behind the floating tab bar until
+# scrolled — tapping it in place hits the bar instead.
+- scrollUntilVisible:
+    element:
+      text: 'Delete account'
+    direction: DOWN
+    centerElement: true
     timeout: 30000
 - tapOn: 'Delete account'
 

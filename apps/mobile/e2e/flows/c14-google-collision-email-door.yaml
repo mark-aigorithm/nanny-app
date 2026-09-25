@@ -5,7 +5,11 @@
 # The seeded mother already has a password account under her own address.
 # Tapping "Continue with Google" on the sign-in screen and picking that same
 # address makes Firebase itself refuse the credential
-# (auth/account-exists-with-different-credential) before any wizard runs —
+# (auth/account-exists-with-different-credential) before any wizard runs. The
+# address is typed with the picker's `unverified:` prefix (lib/socialAuth.ts):
+# the emulator merges a *verified* Google email into the account holding it, so
+# only an unverified one reaches the refusal — the case production hits for
+# Google domains Firebase does not trust. Then
 # useSocialSignIn parks the credential and returns 'needs-link', which the
 # sign-in screen surfaces as a banner. Proving ownership by *any* door links
 # it: this flow uses "Sign in with email" rather than C12's SMS code, because
@@ -27,7 +31,7 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn:
     id: 'e2eGooglePicker.email'
-- inputText: ${EMAIL_DOOR_COLLISION_EMAIL}
+- inputText: unverified:${EMAIL_DOOR_COLLISION_EMAIL}
 - hideKeyboard
 - tapOn: 'Use this Google account'
 

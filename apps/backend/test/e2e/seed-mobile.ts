@@ -99,7 +99,13 @@ async function ensureFirebaseUser(
   password: string,
   phoneNumber?: string,
 ): Promise<string> {
-  const fields = phoneNumber ? { password, phoneNumber } : { password };
+  // emailVerified mirrors production: /auth/register marks a registered
+  // account's Firebase email verified. Left unverified, a Google sign-in for
+  // the same address takes the account over instead of raising the
+  // collision C14 tests.
+  const fields = phoneNumber
+    ? { password, phoneNumber, emailVerified: true }
+    : { password, emailVerified: true };
   try {
     const existing = await firebaseAuth.getUserByEmail(email);
     // Reset the password (and re-link the phone): a half-provisioned account
