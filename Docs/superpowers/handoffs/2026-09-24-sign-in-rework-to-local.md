@@ -181,6 +181,27 @@ deleted with its behaviour. Screens were checked visually in the web preview ("Y
 5. Follow-up, not in this PR: bump `CURRENT_TERMS_VERSION` when an operator edits the terms, so
    acceptance can be tied to a version.
 
+**Local run (2026-09-25, targeted — not the full suite)**
+
+| Command | Result |
+|---|---|
+| `jest --selectProjects integration --maxWorkers=1 --runTestsByPath a30-legal-documents a10-nanny-onboarding` | ✅ 2 suites, 14/14 |
+| `playwright test b09-legal-documents b07-support-faq` (backend `start:test` on :3001) | ✅ 8/8 (chromium + webkit) |
+| `run.mjs c02 a10 c11 c12 c13 c15` — run 1 | ❌ 3/6 — c02, a10, c15 failed waiting for the password step (see fix) |
+| `run.mjs c02 a10 c15` after the fix | ✅ 3/3 |
+| `run.mjs c02 a10 c11 c12 c13 c15` — run 2 | ✅ 6/6 |
+| mobile `npx jest` + `npx tsc --noEmit` after the fix | ✅ 591/591 · tsc clean |
+
+- **Fix `f1d8bd4`:** c02, a10 and c15 typed the email code, then ran `hideKeyboard`, and were
+  found back on "About you". The sixth digit starts the check, which disables and then replaces
+  the code input, so the keyboard is already closed. On Android, Maestro's `hideKeyboard` with no
+  keyboard up is a Back press, which popped "Secure your account". The flows no longer hide the
+  keyboard there. No app code changed.
+- **Data, not code:** B9 leaves saved Terms in the test DB's `app_settings` row
+  `legal_documents`, and the mobile seeder doesn't reset it, so c02's placeholder assertion would
+  fail after B9. Before the device runs the row was deleted from `nannyapp_test`. Run B9 after the
+  device flows, or clear that row, until the seeder resets it.
+
 ## 5. Open decisions (owner)
 
 - **Live suite:** should `apps/mobile/e2e/flows/live` (real Firebase and SMS with console test numbers) run before the combined PR? It hasn't been run, and **must not be run without explicit approval.**
