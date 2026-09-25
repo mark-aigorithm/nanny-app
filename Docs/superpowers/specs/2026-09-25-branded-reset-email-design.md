@@ -52,12 +52,12 @@ This renames "NannyApp" in the shared layout and in the receipt and verification
   (print what it replaces), then
   `PATCH https://identitytoolkit.googleapis.com/admin/v2/projects/{projectId}/config?updateMask=notification.sendEmail.resetPasswordTemplate`.
   A non-2xx response throws with the API's error message.
-- `scripts/sync-firebase-email-templates.ts`, run as
-  `pnpm --filter=@nanny-app/backend email:sync-firebase`: gets an access token from the backend's
-  service-account credential (`admin.credential.cert(...).getAccessToken()`), targets
-  `config.firebase.projectId` (the live project when run with `backend/.env`), and prints it
-  before writing. `--dry-run` writes the rendered HTML to `dist/firebase-templates/` for a
-  browser preview and calls nothing.
+- `prisma/sync-firebase-email-templates.ts` (beside the existing `migrate-firebase-emails.ts`),
+  run as `pnpm --filter=@nanny-app/backend email:sync-firebase`: gets an access token from the
+  backend's service-account credential, targets `config.firebase.projectId` (the live project
+  when run with `backend/.env`) and prints it. Like `migrate-firebase-emails`, it is a dry run
+  unless `--apply` is passed: it always writes the rendered HTML to `dist/firebase-templates/`
+  for a browser preview and reads the live template, and patches only with `--apply`.
 - Refuses to run when `FIREBASE_AUTH_EMULATOR_HOST` is set — the emulator ignores templates, and
   the flag means the credentials aren't real.
 
@@ -71,8 +71,8 @@ This renames "NannyApp" in the shared layout and in the receipt and verification
 
 ### Rollout
 
-1. Merge; run `email:sync-firebase --dry-run`, eyeball the HTML.
-2. Run `email:sync-firebase` against the live project; trigger "Forgot password" and check the
+1. Merge; run `email:sync-firebase`, eyeball the preview HTML.
+2. Run `email:sync-firebase --apply` against the live project; trigger "Forgot password" and check the
    received email in Gmail (web + mobile).
 
 ## Out of scope (postponed)
