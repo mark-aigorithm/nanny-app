@@ -52,5 +52,7 @@ export type PaymobIntentionCreateBody = {
   special_reference: string;
   notification_url: string;
   redirection_url?: string;
+  /** Seconds until the checkout link stops accepting payment (Paymob default: 36 days). */
+  expiration?: number;
   extras?: Record<string, string>;
 };

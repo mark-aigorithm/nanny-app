@@ -9,6 +9,7 @@ import { requireAuth } from '@backend/middleware/auth.middleware';
 import { validateBody } from '@backend/middleware/validate.middleware';
 import { getMyPackageHours } from '@backend/services/package-hours.service';
 import {
+  cancelPackageCheckout,
   createPaymobIntentionForPackagePurchase,
   syncPaymobPaymentForPackagePurchase,
 } from '@backend/services/package-payment.service';
@@ -54,6 +55,24 @@ packageRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const purchaseId = routeIdParam(req.params.id);
       res.json(ok(await syncPaymobPaymentForPackagePurchase(req.firebaseUser, purchaseId)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * The parent left the checkout without paying. Closes it — unless Paymob shows
+ * the payment went through or is still processing — so it stops blocking a new
+ * purchase. Registered before `/:id/purchase` for the same reason as `/sync`.
+ */
+packageRouter.post(
+  '/purchases/:id/cancel',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const purchaseId = routeIdParam(req.params.id);
+      res.json(ok(await cancelPackageCheckout(req.firebaseUser, purchaseId)));
     } catch (err) {
       next(err);
     }

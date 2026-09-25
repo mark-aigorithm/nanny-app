@@ -11,6 +11,22 @@ export const PAYMOB_RECONCILE_OFFSETS_MS = [30_000, 60_000, 120_000, 180_000, 30
  */
 export const PAYMOB_INTENTION_TTL_MS = 90 * 60_000;
 
+/**
+ * How long a package checkout stays payable. Sent to Paymob as the intention's
+ * `expiration` (in seconds; left unset, Paymob keeps the link payable for 36
+ * days), so the hosted page stops taking money when our window closes. Within
+ * it, buying the same package again resumes the checkout and a different
+ * package is refused.
+ */
+export const PACKAGE_CHECKOUT_TTL_MS = 15 * 60_000;
+
+/**
+ * The window in which a package checkout counts as open. A little longer than
+ * {@link PACKAGE_CHECKOUT_TTL_MS} because Paymob starts its clock when the
+ * intention is created, a moment after our payment row is.
+ */
+export const PACKAGE_CHECKOUT_OPEN_MS = PACKAGE_CHECKOUT_TTL_MS + 60_000;
+
 export const PAYMOB_WEBHOOK_PATH = '/webhooks/paymob';
 
 /** Browser/WebView return URL after Paymob checkout (must be HTTPS/HTTP, not app scheme). */

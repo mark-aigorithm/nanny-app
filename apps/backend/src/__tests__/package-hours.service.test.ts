@@ -16,6 +16,7 @@ jest.mock('@backend/db/prisma', () => ({
 }));
 
 import { prisma } from '@backend/db/prisma';
+import { PACKAGE_CHECKOUT_OPEN_MS } from '@backend/lib/paymob/constants';
 import {
   creditPurchaseHours,
   expirePackagesForUser,
@@ -533,6 +534,7 @@ describe('getMyPackageHours', () => {
       buckets: [
         {
           id: 1,
+          packageId: 3,
           packageName: 'Starter Pack',
           hoursPurchased: 10,
           hoursRemaining: 6,
@@ -543,6 +545,36 @@ describe('getMyPackageHours', () => {
         },
       ],
     });
+  });
+
+  it('lists a PENDING_PAYMENT purchase only while its checkout is live or it has been paid', async () => {
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.packagePurchase.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    const before = Date.now();
+    await getMyPackageHours('uid-7');
+
+    const where = m.packagePurchase.findMany.mock.calls[1]![0].where;
+    expect(where).toMatchObject({
+      userId: 7,
+      deletedAt: null,
+      OR: [
+        { status: 'ACTIVE' },
+        {
+          status: 'PENDING_PAYMENT',
+          payments: {
+            some: {
+              deletedAt: null,
+              OR: [{ status: 'CAPTURED' }, { status: 'PENDING', createdAt: { gt: expect.any(Date) } }],
+            },
+          },
+        },
+      ],
+    });
+    // A closed checkout drops out of the list once its intention can no longer be resumed.
+    const cutoff = where.OR[1].payments.some.OR[1].createdAt.gt.getTime();
+    expect(cutoff).toBeGreaterThanOrEqual(before - PACKAGE_CHECKOUT_OPEN_MS);
+    expect(cutoff).toBeLessThanOrEqual(Date.now() - PACKAGE_CHECKOUT_OPEN_MS);
   });
 
   it('throws notFound (404) when there is no user for that firebaseUid', async () => {

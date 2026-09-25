@@ -3,11 +3,12 @@ jest.mock('@backend/db/prisma', () => ({
     package: { findMany: jest.fn(), findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
     packagePurchase: { create: jest.fn(), findFirst: jest.fn() },
+    payment: { updateMany: jest.fn() },
   },
 }));
 
 import { prisma } from '@backend/db/prisma';
-import { PAYMOB_INTENTION_TTL_MS } from '@backend/lib/paymob/constants';
+import { PACKAGE_CHECKOUT_OPEN_MS } from '@backend/lib/paymob/constants';
 import {
   createPackagePurchase,
   listActivePackages,
@@ -17,6 +18,7 @@ const m = prisma as unknown as {
   package: { findMany: jest.Mock; findFirst: jest.Mock };
   user: { findUnique: jest.Mock };
   packagePurchase: { create: jest.Mock; findFirst: jest.Mock };
+  payment: { updateMany: jest.Mock };
 };
 
 function catalogRow(overrides: Record<string, unknown> = {}) {
@@ -134,7 +136,7 @@ describe('createPackagePurchase', () => {
     });
   });
 
-  it('queries the guard for a PENDING_PAYMENT purchase created within the Paymob intention TTL', async () => {
+  it('queries the guard for a PENDING_PAYMENT purchase whose PENDING payment is inside the open-checkout window', async () => {
     m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards();
     m.package.findFirst.mockResolvedValue(catalogRow());
@@ -153,8 +155,7 @@ describe('createPackagePurchase', () => {
               userId: number;
               status: string;
               deletedAt: null;
-              createdAt: { gt: Date };
-              payments: { some: { status: string; deletedAt: null } };
+              payments: { some: { status: string; deletedAt: null; createdAt: { gt: Date } } };
             };
           },
         ]
@@ -170,13 +171,15 @@ describe('createPackagePurchase', () => {
       // retry — one whose payment never started (e.g. missing phone) must not.
       payments: { some: { status: 'PENDING', deletedAt: null } },
     });
+    // Measured on the payment, not the purchase: resuming an older purchase
+    // opens a fresh attempt, and it is the attempt's intention that expires.
 
-    // The cutoff must be computed as "now - PAYMOB_INTENTION_TTL_MS" at call time —
+    // The cutoff must be computed as "now - PACKAGE_CHECKOUT_OPEN_MS" at call time —
     // a pending checkout should block for exactly as long as its Paymob intention
     // is still usable, so the two windows stay consistent by construction.
-    const cutoffMs = where.createdAt.gt.getTime();
-    expect(cutoffMs).toBeGreaterThanOrEqual(before - PAYMOB_INTENTION_TTL_MS);
-    expect(cutoffMs).toBeLessThanOrEqual(after - PAYMOB_INTENTION_TTL_MS);
+    const cutoffMs = where.payments.some.createdAt.gt.getTime();
+    expect(cutoffMs).toBeGreaterThanOrEqual(before - PACKAGE_CHECKOUT_OPEN_MS);
+    expect(cutoffMs).toBeLessThanOrEqual(after - PACKAGE_CHECKOUT_OPEN_MS);
   });
 
   it('rejects (409) a second purchase while an active package still has hours', async () => {
@@ -186,20 +189,32 @@ describe('createPackagePurchase', () => {
     expect(m.packagePurchase.create).not.toHaveBeenCalled();
   });
 
-  it('rejects (409) with a distinct message when a PENDING_PAYMENT checkout exists within the intention TTL', async () => {
+  it('resumes a live checkout for the same package instead of rejecting it (checkout closed, then Buy again)', async () => {
     m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
-    // No active bucket, but a checkout was started moments ago and hasn't been paid yet.
+    mockPurchaseGuards({ pending: { id: 41, packageId: 1, status: 'PENDING_PAYMENT' } });
+
+    await expect(createPackagePurchase('uid', { packageId: 1 })).resolves.toEqual({ purchaseId: 41 });
+    expect(m.packagePurchase.create).not.toHaveBeenCalled();
+    expect(m.payment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses (409) a different package while a checkout is open, naming it, and leaves it payable', async () => {
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards({
-      pending: { id: 41, status: 'PENDING_PAYMENT', createdAt: new Date() },
+      pending: { id: 41, packageId: 2, nameSnapshot: 'Starter Pack', status: 'PENDING_PAYMENT' },
     });
 
     await expect(createPackagePurchase('uid', { packageId: 1 })).rejects.toMatchObject({
       statusCode: 409,
-      message: 'You already have a checkout in progress. Complete it or try again shortly.',
+      message: 'You have an unfinished checkout for Starter Pack. Complete or cancel it first.',
     });
+    // Refused, not cancelled: only the cancel path asks Paymob whether it was paid.
+    expect(m.payment.updateMany).not.toHaveBeenCalled();
     expect(m.packagePurchase.create).not.toHaveBeenCalled();
+  });
 
-    // The two conflicts are different situations and must read differently.
+  it('keeps a distinct 409 message for an active package', async () => {
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
     mockPurchaseGuards({ active: { id: 40, status: 'ACTIVE', hoursRemaining: '12.00' } });
     await expect(createPackagePurchase('uid', { packageId: 1 })).rejects.toMatchObject({
       statusCode: 409,
@@ -232,7 +247,7 @@ describe('createPackagePurchase', () => {
 
   it('does NOT block when the existing PENDING_PAYMENT purchase is older than the intention TTL (abandoned checkout)', async () => {
     m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null, phone: '+201000000000' });
-    // A real query with `createdAt: { gt: now - PAYMOB_INTENTION_TTL_MS }` would exclude a
+    // A real query with `createdAt: { gt: now - PACKAGE_CHECKOUT_OPEN_MS }` would exclude a
     // PENDING_PAYMENT row older than the TTL — it's an abandoned checkout, not a live one,
     // so it must not permanently lock the parent out of buying again.
     mockPurchaseGuards();

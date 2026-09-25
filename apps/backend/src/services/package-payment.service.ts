@@ -9,7 +9,7 @@ import {
   mapIntentionElement,
 } from '@backend/lib/paymob/intention';
 import {
-  PAYMOB_INTENTION_TTL_MS,
+  PACKAGE_CHECKOUT_TTL_MS,
   PAYMOB_RECONCILE_OFFSETS_MS,
   PAYMOB_RETURN_PATH,
   PAYMOB_WEBHOOK_PATH,
@@ -147,7 +147,7 @@ export async function createPaymobIntentionForPackagePurchase(
     // payment row. paymobReconcileAnchorAt is the intention creation time;
     // createdAt is a safe fallback for legacy rows.
     const intentionCreatedAt = latest.paymobReconcileAnchorAt ?? latest.createdAt;
-    if (Date.now() - intentionCreatedAt.getTime() < PAYMOB_INTENTION_TTL_MS) {
+    if (Date.now() - intentionCreatedAt.getTime() < PACKAGE_CHECKOUT_TTL_MS) {
       return {
         paymentId: latest.id,
         clientSecret: latest.paymobClientSecret,
@@ -236,6 +236,9 @@ export async function createPaymobIntentionForPackagePurchase(
       special_reference: merchantOrderId,
       notification_url: notificationUrl,
       redirection_url: redirectionUrl,
+      // Without it the link stays payable for Paymob's default 36 days — long
+      // after we have stopped treating the checkout as open.
+      expiration: PACKAGE_CHECKOUT_TTL_MS / 1000,
       extras: { payment_id: String(payment.id) },
     });
 
@@ -310,4 +313,51 @@ export async function syncPaymobPaymentForPackagePurchase(
   }
 
   return { status: PaymentStatus.PENDING };
+}
+
+/**
+ * The parent left a checkout without paying — they backed out of the Paymob
+ * page, or chose to drop it to buy a different package. Closes the checkout so
+ * it no longer holds up a new purchase.
+ *
+ * Asks Paymob first, because leaving the page is not proof nothing was paid: a
+ * captured payment is settled rather than thrown away, and one Paymob is still
+ * processing (a wallet or 3-D Secure step mid-flight) keeps the checkout open.
+ */
+export async function cancelPackageCheckout(
+  decoded: DecodedIdToken,
+  purchaseId: number,
+): Promise<{ status: PaymentStatus }> {
+  const user = await getUserByUid(decoded.uid);
+
+  const purchase = await prisma.packagePurchase.findUnique({
+    where: { id: purchaseId, deletedAt: null },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' }, take: 1 } },
+  });
+  if (!purchase) throw errors.notFound('Package purchase not found.');
+  if (purchase.userId !== user.id) throw errors.forbidden('Access denied.');
+
+  const payment = purchase.payments[0];
+  if (!payment) return { status: PaymentStatus.FAILED }; // never reached Paymob
+  if (payment.status !== PaymentStatus.PENDING) return { status: payment.status };
+
+  let reason = 'Checkout cancelled by the parent.';
+  if (config.paymob.enabled && payment.paymobClientSecret) {
+    const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
+    const element = await api.getIntentionElement(config.paymob.publicKey, payment.paymobClientSecret);
+
+    if ((element.transactions ?? []).some((t) => t.pending === true)) {
+      throw errors.conflict('Your payment is still being processed. Give it a moment to finish.');
+    }
+
+    const mapped = mapIntentionElement(element);
+    if (mapped === 'captured') {
+      await finalizePackagePaymentCaptured(payment.id, extractLatestTransactionId(element));
+      return { status: PaymentStatus.CAPTURED };
+    }
+    if (mapped === 'failed') reason = 'Paymob reported a failed payment.';
+  }
+
+  await finalizePackagePaymentFailed(payment.id, reason);
+  return { status: PaymentStatus.FAILED };
 }

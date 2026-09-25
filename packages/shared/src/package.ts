@@ -78,6 +78,7 @@ export const PackagePurchaseStatusSchema = z.enum([
 
 export const PackagePurchaseSchema = z.object({
   id: z.number().int(),
+  packageId: z.number().int(),
   packageName: z.string(),
   hoursPurchased: z.number().int(),
   hoursRemaining: z.number(),

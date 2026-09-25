@@ -3,7 +3,7 @@ import { PaymentStatus, type Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import { PAYMOB_INTENTION_TTL_MS } from '@backend/lib/paymob/constants';
+import { PACKAGE_CHECKOUT_OPEN_MS } from '@backend/lib/paymob/constants';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -59,16 +59,17 @@ export async function listActivePackages(): Promise<PublicPackage[]> {
  * it already holds. An EXPIRED bucket, or an ACTIVE one that has been fully
  * consumed (hoursRemaining = 0), does NOT block a new purchase.
  *
- * Also blocks a second checkout while a PENDING_PAYMENT purchase is still
- * recent: `creditPurchaseHours` promotes PENDING_PAYMENT → ACTIVE
- * unconditionally, so without this guard a parent could start two checkouts
- * before paying either (both pass the ACTIVE guard above, since neither is
- * ACTIVE yet) and end up with two simultaneous ACTIVE packages once both are
- * paid. The window is bounded by `PAYMOB_INTENTION_TTL_MS` — the same TTL
- * that governs how long a Paymob checkout intention stays usable — so a
- * PENDING_PAYMENT purchase older than that is treated as an abandoned
- * checkout and does NOT block a new purchase (it can never be paid anymore
- * anyway, since its intention has gone stale).
+ * Never leaves two checkouts payable at once: `creditPurchaseHours` promotes
+ * PENDING_PAYMENT → ACTIVE unconditionally, so two open checkouts (both pass
+ * the ACTIVE guard, since neither is ACTIVE yet) would end up as two ACTIVE
+ * packages once both were paid. So while a checkout is open — a PENDING
+ * payment inside `PACKAGE_CHECKOUT_OPEN_MS`, which outlasts the Paymob link —
+ * buying the same package again returns that purchase to resume, and buying a
+ * different one is refused until the parent pays or cancels it
+ * (`cancelPackageCheckout`). It is refused rather than cancelled here because
+ * only the cancel path asks Paymob first: a checkout silently dropped while its
+ * link could still take money would lose a late payment. An older
+ * PENDING_PAYMENT purchase is an abandoned checkout and is ignored.
  */
 export async function createPackagePurchase(
   firebaseUid: string,
@@ -100,25 +101,31 @@ export async function createPackagePurchase(
     );
   }
 
-  // Block only on a checkout that is genuinely still live — one whose latest
-  // payment attempt is still PENDING. Blocking on the purchase row's age alone
-  // locked the parent out for the full intention TTL after a declined card (the
-  // reconciler gives up on the payment in ~5 minutes) and even after a failure
-  // that never reached Paymob at all, such as a missing phone number.
+  // A checkout is open while its latest payment attempt is PENDING and its
+  // Paymob link can still take money. Closing the app on the checkout leaves
+  // exactly that behind — Paymob never learns the parent left.
   const liveCheckout = await prisma.packagePurchase.findFirst({
     where: {
       userId: user.id,
       status: 'PENDING_PAYMENT',
       deletedAt: null,
-      createdAt: { gt: new Date(now.getTime() - PAYMOB_INTENTION_TTL_MS) },
       payments: {
-        some: { status: PaymentStatus.PENDING, deletedAt: null },
+        some: {
+          status: PaymentStatus.PENDING,
+          deletedAt: null,
+          createdAt: { gt: new Date(now.getTime() - PACKAGE_CHECKOUT_OPEN_MS) },
+        },
       },
     },
+    orderBy: { id: 'desc' },
   });
   if (liveCheckout) {
+    // Same package: resume it. The intention step hands back the still-live
+    // Paymob session instead of opening a second one.
+    if (liveCheckout.packageId === input.packageId) return { purchaseId: liveCheckout.id };
+
     throw errors.conflict(
-      'You already have a checkout in progress. Complete it or try again shortly.',
+      `You have an unfinished checkout for ${liveCheckout.nameSnapshot}. Complete or cancel it first.`,
     );
   }
 

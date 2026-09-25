@@ -8,6 +8,7 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
+import { PACKAGE_CHECKOUT_OPEN_MS } from '@backend/lib/paymob/constants';
 
 /** Prisma client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -482,6 +483,7 @@ export async function expirePackagesForUser(userId: number, db: Db = prisma): Pr
 
 type PurchaseRow = {
   id: number;
+  packageId: number;
   nameSnapshot: string;
   hoursPurchased: number;
   hoursRemaining: Prisma.Decimal;
@@ -494,6 +496,7 @@ type PurchaseRow = {
 function toPurchaseDto(r: PurchaseRow): PackagePurchase {
   return {
     id: r.id,
+    packageId: r.packageId,
     packageName: r.nameSnapshot,
     hoursPurchased: r.hoursPurchased,
     hoursRemaining: Number(r.hoursRemaining),
@@ -514,12 +517,37 @@ export async function getMyPackageHours(firebaseUid: string): Promise<PackageHou
   // ledger disagreeing with the bucket.
   await prisma.$transaction((tx) => expirePackagesForUser(user.id, tx));
 
+  const now = new Date();
   const rows = await prisma.packagePurchase.findMany({
-    where: { userId: user.id, deletedAt: null, status: { in: ['ACTIVE', 'PENDING_PAYMENT'] } },
+    where: {
+      userId: user.id,
+      deletedAt: null,
+      OR: [
+        { status: 'ACTIVE' },
+        // A PENDING_PAYMENT row is only worth showing while it can still be
+        // paid (a live checkout the parent can resume) or once it has been
+        // paid and is waiting on activation. A closed or declined checkout
+        // left behind otherwise sits in the list as "Payment pending" forever.
+        {
+          status: 'PENDING_PAYMENT',
+          payments: {
+            some: {
+              deletedAt: null,
+              OR: [
+                { status: 'CAPTURED' },
+                {
+                  status: 'PENDING',
+                  createdAt: { gt: new Date(now.getTime() - PACKAGE_CHECKOUT_OPEN_MS) },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
     orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }],
   });
 
-  const now = new Date();
   const availableHours = round2(
     rows
       .filter((r) => r.status === 'ACTIVE' && (!r.expiresAt || r.expiresAt > now))
