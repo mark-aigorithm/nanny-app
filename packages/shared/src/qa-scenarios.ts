@@ -126,6 +126,7 @@ const TIER_A: QaScenario[] = [
       'The app lands on the parent Home screen',
       'Her first name appears in the greeting',
       'A wrong code is refused with a readable message, not a raw Firebase error code',
+      'A number with no account is refused under the phone field ("We couldn\'t find an account for that number. Sign up first.") and no SMS is sent',
     ],
   },
   {
@@ -536,7 +537,7 @@ const TIER_A: QaScenario[] = [
 ];
 
 // ──────────────────────────────────────────────────────────────────────
-// Tier B — once per user, and the money variants (26–55)
+// Tier B — once per user, and the money variants (26–57)
 // ──────────────────────────────────────────────────────────────────────
 
 const TIER_B: QaScenario[] = [
@@ -735,7 +736,7 @@ const TIER_B: QaScenario[] = [
     preconditions: ['Registering as a nanny, on the ID step (after her professional details)'],
     steps: ['Capture or pick both sides of the ID and continue', 'Accept the terms and complete setup'],
     expected: [
-      'Both sides must be provided before continuing',
+      'Both sides must be provided before continuing (a passport needs only the front)',
       'The images upload on Continue and the flow moves on to the last step',
       'After Complete setup the account is created and she lands on the "pending review" screen',
       'She cannot reach the dashboard or see any requests while she waits',
@@ -759,6 +760,57 @@ const TIER_B: QaScenario[] = [
       'While Continue is disabled, a line says what is still needed',
       'A day that ends before it starts is flagged under that day, and Continue stays off',
       'Continue moves on to the ID step',
+    ],
+  },
+  {
+    id: 'google-apple-sign-up',
+    area: 'Auth',
+    surface: 'Cross-surface',
+    priority: 'P0',
+    title: 'Sign up with Google (and Apple on iOS) — a shorter wizard with the email already proven',
+    preconditions: ['A Google account with no NannyNow account', 'On iOS, an Apple ID with no NannyNow account'],
+    steps: [
+      'On sign-in tap "Sign up", choose Mother and tap "Continue with Google"',
+      'Verify a phone number on "Your number", fill "About you", set the location and finish',
+      'Sign out, then tap "Continue with Google" on sign-in with the same account',
+      'Repeat as a Nanny, and on iOS repeat with "Continue with Apple"',
+      'On the sign-up screen, tap "Continue with Google" with an account that is already registered',
+    ],
+    expected: [
+      'The mother wizard has 4 steps and the nanny\'s 6 — no "Secure your account" step',
+      'The email on "About you" is filled in, cannot be edited and says it is verified by Google (or Apple)',
+      'The account is created and signing in with Google again goes straight to Home (the nanny to "pending review")',
+      '"Continue with Apple" is only offered on iOS',
+      'An existing account on the sign-up screen says "You already have an account — We signed you in." instead of starting a new sign-up',
+    ],
+  },
+  {
+    id: 'delete-account',
+    area: 'Profile',
+    surface: 'Cross-surface',
+    priority: 'P0',
+    negative: true,
+    title: 'Delete account — the account is gone and the number and email can sign up again',
+    preconditions: [
+      'A mother with no upcoming bookings, and a second mother with an upcoming paid booking',
+      'A nanny still waiting for review',
+    ],
+    steps: [
+      'As the first mother, open Account → "Delete account", read the dialog, then confirm',
+      'Try to sign in again by SMS with the same number',
+      'Register a new account with the same number and email',
+      'As the mother with an upcoming booking, try to delete her account',
+      'As the waiting nanny, delete the account from the "pending review" screen',
+      'On iOS, delete an account that signed up with Apple',
+    ],
+    expected: [
+      'The dialog reads "Delete your account?" and warns it cannot be undone',
+      'After confirming, the app returns to sign-in with "Account deleted — Your account has been deleted."',
+      'SMS sign-in with that number says there is no account, and no SMS is sent',
+      'The same number and email can register a brand-new account',
+      'With an upcoming booking it is refused: "Finish or cancel your upcoming bookings before deleting your account."',
+      'The deleted user disappears from the console\'s lists and her old bookings keep their history',
+      'On iOS the Apple sign-in is revoked, so "Continue with Apple" later starts a fresh sign-up',
     ],
   },
   {
@@ -1058,18 +1110,20 @@ const TIER_B: QaScenario[] = [
     steps: [
       'On the nanny\'s device, open the Profile tab and note there is nothing to edit — it is read-only by design',
       'In the console, open her record and change the bio, years of experience and availability, and remove one of her skills',
+      'Change her age bands, and on a nanny who still carries an old band (e.g. "2-5") remove it',
       'Reopen the Profile tab on her device',
     ],
     expected: [
       'Every change is on her Profile tab after reopening',
       'The console record shows the same values',
       'The skill that was removed stops her receiving requests that require it',
+      'The age bands offered are 0-1, 1-3, 3-5 and 5+; an old band still shows as a chip so it can be removed',
     ],
   },
 ];
 
 // ──────────────────────────────────────────────────────────────────────
-// Tier C — regular, but not on every booking (56–80)
+// Tier C — regular, but not on every booking (58–86)
 // ──────────────────────────────────────────────────────────────────────
 
 const TIER_C: QaScenario[] = [
@@ -1365,6 +1419,87 @@ const TIER_C: QaScenario[] = [
     ],
   },
   {
+    id: 'email-sign-in',
+    area: 'Auth',
+    surface: 'Cross-surface',
+    priority: 'P1',
+    title: 'Sign in with email and password',
+    preconditions: ['A registered account that has a password'],
+    steps: [
+      'On sign-in tap "Sign in with email"',
+      'Try a wrong password, then the right one',
+      'Read the hint under the form',
+    ],
+    expected: [
+      'A wrong password is refused with a readable message',
+      'The right one lands on Home (a nanny on her Dashboard or waiting screen)',
+      'The hint explains that a Google or Apple account signs in with that button, or adds a password through Forgot password → "Text me a code instead"',
+    ],
+  },
+  {
+    id: 'resume-unfinished-sign-up',
+    area: 'Auth',
+    surface: 'Cross-surface',
+    priority: 'P1',
+    negative: true,
+    title: 'A sign-up abandoned half-way resumes instead of dead-ending',
+    preconditions: ['A phone that can receive SMS and is not registered'],
+    steps: [
+      'Start a phone sign-up, verify the number on "Your number", then force-close the app on "About you"',
+      'Reopen the app',
+      'Finish the sign-up from there',
+      'Repeat, but this time tap "Use a different sign-up method" on the resume screen',
+      'Repeat the abandon, then sign in by SMS with that number instead of reopening',
+    ],
+    expected: [
+      'Reopening shows role selection as "Finish setting up your account" with the account she is signed in as — never a silent sign-out',
+      'The wizard skips "Your number", counting 4 steps for a mother, and a password already set reads "Your password is already set."',
+      'Finishing creates the account normally',
+      '"Use a different sign-up method" signs her out and the number can start a fresh sign-up',
+      'SMS sign-in with the abandoned number also resumes the sign-up rather than saying "Sign up first"',
+    ],
+  },
+  {
+    id: 'social-collision-phone',
+    area: 'Auth',
+    surface: 'Cross-surface',
+    priority: 'P1',
+    negative: true,
+    title: 'A Google sign-up with a number that is already registered is linked, not duplicated',
+    preconditions: ['A registered mother', 'A Google account with no NannyNow account'],
+    steps: [
+      'On sign-up tap "Continue with Google" with the new Google account',
+      'On "Your number" enter the registered mother\'s number',
+      'On sign-in, send the code and sign in',
+      'Sign out and tap "Continue with Google" with that Google account',
+    ],
+    expected: [
+      'No code box and no SMS on "Your number" — she is sent to sign-in with the number filled in',
+      'The banner reads "You already have an account. Sign in with your phone once to connect Google."',
+      'After the SMS sign-in she is in her existing account, with her bookings',
+      'Google now signs her straight into that same account — no second account is created',
+    ],
+  },
+  {
+    id: 'social-collision-email',
+    area: 'Auth',
+    surface: 'Cross-surface',
+    priority: 'P1',
+    negative: true,
+    title: 'Google with an email that already has a password account ends in that account',
+    preconditions: ['A registered account with a password, and a Google account for the same email'],
+    steps: [
+      'On sign-in tap "Continue with Google" with that Google account',
+      'If a banner appears, tap "Sign in with email" and sign in with the password',
+      'Sign out and tap "Continue with Google" again',
+    ],
+    expected: [
+      'She ends up in her existing account every time, never a new empty one',
+      'If the banner appears, signing in with email connects Google, and the next Google sign-in goes straight in',
+      'The password and phone sign-in still work afterwards',
+    ],
+  },
+  {
     id: 'forgot-password',
     area: 'Auth',
     surface: 'Parent app',
@@ -1376,9 +1511,14 @@ const TIER_C: QaScenario[] = [
       'Enter the phone number and request a code',
       'Enter the code and set a new password',
       'Sign out and sign in with the new password',
+      'Repeat with a number that has no account',
+      'Repeat on an account that signed up with Google or Apple, choosing "Text me a code instead"',
     ],
     expected: [
       'The code arrives by SMS to that number',
+      'A number with no account is refused before any SMS is sent',
+      'The email channel warns that its link disconnects Google or Apple and points to "Text me a code instead"',
+      'On a Google or Apple account the SMS reset adds a password: email sign-in then works, and "Continue with Google/Apple" still signs her in',
       'The new password must meet the requirements checklist',
       'After resetting she is signed straight in',
       'The new password works on a fresh sign-in and the old one does not',
@@ -1389,8 +1529,6 @@ const TIER_C: QaScenario[] = [
     area: 'Auth',
     surface: 'Cross-surface',
     priority: 'P0',
-    knownGap:
-      'Known gap: signing out does not remove the device\'s push token. On a shared device the next person can keep receiving the previous user\'s notifications.',
     title: 'Signing out really ends the session',
     preconditions: ['Signed in'],
     steps: ['Sign out from the account screen', 'Force-close the app and reopen it'],
@@ -1398,6 +1536,8 @@ const TIER_C: QaScenario[] = [
       'The app returns to the sign-in screen',
       'Reopening does NOT put her back into the account — the session was actually cleared',
       'No data from the previous account is visible after signing in as someone else',
+      'The device stops receiving the previous account\'s push notifications',
+      'After signing out of a Google account, "Continue with Google" shows the account picker again',
     ],
   },
   {
@@ -1468,7 +1608,7 @@ const TIER_C: QaScenario[] = [
 ];
 
 // ──────────────────────────────────────────────────────────────────────
-// Tier D — operations, money edges and console configuration (81–104)
+// Tier D — operations, money edges and console configuration (87–111)
 // ──────────────────────────────────────────────────────────────────────
 
 const TIER_D: QaScenario[] = [
@@ -1832,6 +1972,27 @@ const TIER_D: QaScenario[] = [
       'The campaign\'s impression and tap counts go up in the console',
       'The new certification is selectable on a nanny\'s profile',
       'Deleting a campaign removes it from the carousel',
+    ],
+  },
+  {
+    id: 'admin-legal-documents',
+    area: 'Admin',
+    surface: 'Cross-surface',
+    priority: 'P1',
+    title: 'Terms of Service and Privacy Policy are written in the console and read in the app',
+    preconditions: ['An operator with the Settings section (manage)', 'An operator with Settings view-only'],
+    steps: [
+      'Before anything is saved, open Terms of Service from the last registration step in the app',
+      'In the console open Settings → Terms of Service, write a title and text, and save',
+      'Try to save the Privacy Policy with the text empty',
+      'Reopen Terms of Service in the app',
+      'Sign in as the view-only operator and open Settings',
+    ],
+    expected: [
+      'Unwritten documents show a "will be published here soon" placeholder in the app',
+      'Saving shows a "saved" toast, and the app shows the new text the next time it is opened — signed out too',
+      'An empty text is refused before anything is sent',
+      'The view-only operator can read both documents but cannot save',
     ],
   },
   {
