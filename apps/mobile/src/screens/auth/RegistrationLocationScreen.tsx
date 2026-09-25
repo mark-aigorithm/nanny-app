@@ -3,36 +3,38 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   ScrollView,
-  StatusBar,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
-import { PREFERENCE_OPTIONS, APP_NAME } from '@mobile/constants';
+import { PREFERENCE_OPTIONS } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
 import HomeLocationMapCard, {
   type HomeCoords,
 } from '@mobile/components/HomeLocationMapCard';
 import LocationSearchInput from '@mobile/components/LocationSearchInput';
+import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import { reverseGeocode } from '@mobile/lib/googlePlaces';
+import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { styles } from './styles/registration-step2-screen.styles';
+import { styles } from './styles/registration-location-screen.styles';
 
-export default function RegistrationStep2Screen() {
+/**
+ * A mother's "Location & preferences": her home address and map pin (the
+ * register API needs coordinates), and what matters most to her in a nanny.
+ * Nothing is pre-ticked. A nanny has her own location step
+ * (RegistrationNannyLocationScreen).
+ */
+export default function RegistrationLocationScreen() {
   const router = useRouter();
-  const { role } = useLocalSearchParams<{ role?: string }>();
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
-  // A Google/Apple sign-up skips the email-code and password steps, so it
-  // counts fewer of them.
-  const isSocial = draft.authProvider !== 'phone';
+  const step = stepInfo('location', draft);
 
   const [locationError, setLocationError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
@@ -41,10 +43,6 @@ export default function RegistrationStep2Screen() {
     draft.latitude !== null && draft.longitude !== null
       ? { latitude: draft.latitude, longitude: draft.longitude }
       : null;
-
-  function handleBack() {
-    router.back();
-  }
 
   function handleContinue() {
     if (draft.latitude === null || draft.longitude === null) {
@@ -59,7 +57,8 @@ export default function RegistrationStep2Screen() {
     }
     setLocationError(null);
     setAddressError(null);
-    router.push({ pathname: '/(auth)/register-step-3', params: { role } });
+    const next = nextStep('location', draft);
+    if (next) router.push(next);
   }
 
   // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to
@@ -88,40 +87,17 @@ export default function RegistrationStep2Screen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+        <RegistrationHeader step={step} />
 
-        {/* Fixed header bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerLeft}>
-            <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
-              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.brandText}>{APP_NAME}</Text>
-          </View>
-          <View style={styles.miniProgressTrack}>
-            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
-          </View>
-        </View>
-
-        {/* Full-width progress bar */}
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
-        </View>
-
-        {/* Scrollable body */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Step label */}
-          <Text style={styles.stepLabel}>
-            {isSocial ? 'STEP 2 OF 3' : 'STEP 4 OF 5'} — LOCATION & PREFERENCES
-          </Text>
+          <Text style={styles.stepLabel}>{step.label}</Text>
 
-          {/* Section title */}
-          <Text style={styles.sectionTitle}>Where are you based?</Text>
+          <Text style={styles.headline}>Where are you based?</Text>
 
           {/* Location inputs */}
           <View style={styles.locationGroup}>
@@ -166,6 +142,7 @@ export default function RegistrationStep2Screen() {
           {/* What matters most section */}
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>What matters most?</Text>
+            <Text style={styles.sectionHint}>Optional — pick any that apply.</Text>
             <View style={styles.chipsWrap}>
               {PREFERENCE_OPTIONS.map((pref) => {
                 const isSelected = draft.preferences.includes(pref);

@@ -14,7 +14,7 @@ import { auth } from '@mobile/lib/firebase';
 import RoleSelectionScreen from '@mobile/screens/auth/RoleSelectionScreen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 
-/** What a mother has typed into step 1 before changing her mind. */
+/** What a mother has typed into the wizard before changing her mind. */
 function halfTypedMotherDraft() {
   useRegistrationDraftStore.getState().patch({
     role: 'parent',
@@ -65,10 +65,8 @@ describe('RoleSelectionScreen', () => {
     expect(draft.password).toBe('');
     expect(draft.address).toBe('');
 
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(auth)/register-step-1',
-      params: { role: 'nanny' },
-    });
+    // Every new sign-up proves the phone first.
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/register-phone');
   });
 
   it('starts every attempt from a clean draft, even for the same role', async () => {
@@ -114,7 +112,7 @@ describe('RoleSelectionScreen', () => {
       firstName: 'Mona',
       email: 'mona@gmail.com',
     });
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-1', params: { role: 'parent' } });
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/register-phone');
   });
 
   it('offers no way out of a social sign-up when there is none', async () => {
@@ -157,6 +155,7 @@ describe('RoleSelectionScreen', () => {
       countryCode: '+20',
       phone: '1001234567',
       accountPhone: '+201001234567',
+      phoneOnAccountAtStart: true,
       email: '',
     });
     const { getByText, queryByText } = await renderScreen();
@@ -178,6 +177,8 @@ describe('RoleSelectionScreen', () => {
       phone: '1001234567',
       accountPhone: '+201001234567',
     });
+    // The number is already on the account, so "Your number" is skipped.
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/register-about');
   });
 
   it('names a resumed account by its email when it has one', async () => {

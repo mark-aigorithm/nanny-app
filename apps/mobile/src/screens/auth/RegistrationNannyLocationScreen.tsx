@@ -2,62 +2,59 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ScrollView,
-  StatusBar,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 
-import { colors } from '@mobile/theme';
-import { APP_NAME } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import HomeLocationMapCard, {
   type HomeCoords,
 } from '@mobile/components/HomeLocationMapCard';
 import LocationSearchInput from '@mobile/components/LocationSearchInput';
+import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import { reverseGeocode } from '@mobile/lib/googlePlaces';
+import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-location-screen.styles';
 
-// Nanny counterpart of RegistrationStep2Screen: collects only the home
-// location (address + map pin). Children and preferences are mother-only.
-// The pin is required — the register API needs coordinates for both roles.
+/**
+ * A nanny's "Home location": the address and map pin (the register API needs
+ * coordinates for both roles). The counterpart of RegistrationLocationScreen,
+ * without a mother's preferences. Each error sits by what it's about: the
+ * street address under the address field, the pin under the map.
+ */
 export default function RegistrationNannyLocationScreen() {
   const router = useRouter();
-  const { role } = useLocalSearchParams<{ role?: string }>();
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
-  // A Google/Apple sign-up skips the email-code and password steps, so it
-  // counts fewer of them.
-  const isSocial = draft.authProvider !== 'phone';
+  const step = stepInfo('location', draft);
 
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   const pinCoords =
     draft.latitude !== null && draft.longitude !== null
       ? { latitude: draft.latitude, longitude: draft.longitude }
       : null;
 
-  function handleBack() {
-    router.back();
-  }
-
   function handleContinue() {
     if (draft.latitude === null || draft.longitude === null) {
       setLocationError('Please set your home location on the map.');
       return;
     }
+    // The street line is required for every account — a pin alone doesn't
+    // tell anyone which door.
     if (!draft.address.trim()) {
-      setLocationError('Please enter your street address.');
+      setAddressError('Please enter your street address.');
       return;
     }
     setLocationError(null);
-    // Nannies upload their ID next; that screen continues to the final step.
-    router.push({ pathname: '/(auth)/register-nanny-id', params: { role } });
+    setAddressError(null);
+    const next = nextStep('location', draft);
+    if (next) router.push(next);
   }
 
   // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to
@@ -66,7 +63,10 @@ export default function RegistrationNannyLocationScreen() {
     setLocationError(null);
     patch(coords);
     void reverseGeocode(coords).then((address) => {
-      if (address) patch({ address });
+      if (address) {
+        patch({ address });
+        setAddressError(null);
+      }
     });
   }
 
@@ -76,57 +76,41 @@ export default function RegistrationNannyLocationScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+        <RegistrationHeader step={step} />
 
-        {/* Fixed header bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerLeft}>
-            <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
-              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.brandText}>{APP_NAME}</Text>
-          </View>
-          <View style={styles.miniProgressTrack}>
-            <View style={[styles.miniProgressFill, isSocial && styles.progressFillSocial]} />
-          </View>
-        </View>
-
-        {/* Full-width progress bar */}
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, isSocial && styles.progressFillSocial]} />
-        </View>
-
-        {/* Scrollable body */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Step label */}
-          <Text style={styles.stepLabel}>
-            {isSocial ? 'STEP 2 OF 5' : 'STEP 4 OF 6'} — HOME LOCATION
-          </Text>
+          <Text style={styles.stepLabel}>{step.label}</Text>
 
-          {/* Section title */}
-          <Text style={styles.sectionTitle}>Where are you based?</Text>
-          <Text style={styles.sectionSubtitle}>
-            Families search for nannies near them, so we need your home
-            location to show you in the right results.
-          </Text>
+          <View style={styles.headlineGroup}>
+            <Text style={styles.headline}>Where are you based?</Text>
+            <Text style={styles.subtitle}>
+              Families search for nannies near them, so we need your home
+              location to show you in the right results.
+            </Text>
+          </View>
 
           {/* Location inputs */}
           <View style={styles.locationGroup}>
             {/* Street address with map-search autocomplete */}
             <LocationSearchInput
               value={draft.address}
-              onChangeText={(val) => patch({ address: val })}
+              onChangeText={(val) => {
+                setAddressError(null);
+                patch({ address: val });
+              }}
               onSelectPlace={(coords, address) => {
                 setLocationError(null);
+                setAddressError(null);
                 patch({ ...coords, address });
               }}
               placeholder="Street address"
             />
+            {addressError && <Text style={styles.addressErrorText}>{addressError}</Text>}
 
             {/* Home location map picker */}
             <HomeLocationMapCard

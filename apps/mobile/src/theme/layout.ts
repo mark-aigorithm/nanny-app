@@ -9,6 +9,19 @@ export const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56;
 
 export const BOTTOM_NAV_HEIGHT = 80;
 
+/** The registration wizard's title row, under the status bar. */
+export const REGISTRATION_TITLE_ROW_HEIGHT = Platform.OS === 'ios' ? 44 : 56;
+
+/** The wizard's progress bar, under the title row. */
+export const REGISTRATION_PROGRESS_HEIGHT = 6;
+
+/**
+ * Everything `RegistrationHeader` overlays at the top of a wizard screen; the
+ * screen's scroll content starts this far down.
+ */
+export const REGISTRATION_HEADER_HEIGHT =
+  STATUS_BAR_HEIGHT + REGISTRATION_TITLE_ROW_HEIGHT + REGISTRATION_PROGRESS_HEIGHT;
+
 /**
  * Bottom content clearance for the parent floating pill tab bar:
  * pill height (~72) + bottom offset + breathing room. Screens that scroll

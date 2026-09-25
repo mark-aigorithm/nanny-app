@@ -4,7 +4,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn() }),
-  useLocalSearchParams: () => ({ role: 'parent' }),
 }));
 // The map and the places search are native/network surfaces; Continue's guard
 // only reads the draft. The map mock renders its errorText prop as text so a
@@ -27,7 +26,7 @@ jest.mock('@mobile/components/HomeLocationMapCard', () => {
 jest.mock('@mobile/components/LocationSearchInput', () => () => null);
 jest.mock('@mobile/lib/googlePlaces', () => ({ reverseGeocode: jest.fn().mockResolvedValue(null) }));
 
-import RegistrationStep2Screen from '@mobile/screens/auth/RegistrationStep2Screen';
+import RegistrationNannyLocationScreen from '@mobile/screens/auth/RegistrationNannyLocationScreen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { reverseGeocode } from '@mobile/lib/googlePlaces';
 
@@ -38,12 +37,12 @@ beforeEach(() => {
   mockOnPinChange = undefined;
   mockReverseGeocode.mockResolvedValue(null);
   useRegistrationDraftStore.getState().reset();
-  useRegistrationDraftStore.setState({ role: 'parent', latitude: 30.04, longitude: 31.23 });
+  useRegistrationDraftStore.setState({ role: 'nanny', latitude: 30.04, longitude: 31.23 });
 });
 
 it('asks for a street address when the pin is set but the line is empty', () => {
   useRegistrationDraftStore.setState({ address: '   ' });
-  render(<RegistrationStep2Screen />);
+  render(<RegistrationNannyLocationScreen />);
 
   fireEvent.press(screen.getByText('Continue'));
 
@@ -51,18 +50,18 @@ it('asks for a street address when the pin is set but the line is empty', () => 
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-it('moves on with a pin and a street address', () => {
+it('moves on to her professional details with a pin and a street address', () => {
   useRegistrationDraftStore.setState({ address: '1 Test Street, Cairo' });
-  render(<RegistrationStep2Screen />);
+  render(<RegistrationNannyLocationScreen />);
 
   fireEvent.press(screen.getByText('Continue'));
 
-  expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/register-step-3', params: { role: 'parent' } });
+  expect(mockPush).toHaveBeenCalledWith('/(auth)/register-nanny-details');
 });
 
 it('asks for a home location when the pin is missing', () => {
   useRegistrationDraftStore.setState({ latitude: null, longitude: null, address: '1 Test Street, Cairo' });
-  render(<RegistrationStep2Screen />);
+  render(<RegistrationNannyLocationScreen />);
 
   fireEvent.press(screen.getByText('Continue'));
 
@@ -73,7 +72,7 @@ it('asks for a home location when the pin is missing', () => {
 it('clears the address error once a pin move fills in a street line', async () => {
   useRegistrationDraftStore.setState({ address: '   ' });
   mockReverseGeocode.mockResolvedValueOnce('5 Nile Street');
-  render(<RegistrationStep2Screen />);
+  render(<RegistrationNannyLocationScreen />);
 
   fireEvent.press(screen.getByText('Continue'));
   expect(screen.getByText('Please enter your street address.')).toBeTruthy();
@@ -85,4 +84,9 @@ it('clears the address error once a pin move fills in a street line', async () =
   await waitFor(() => {
     expect(screen.queryByText('Please enter your street address.')).toBeNull();
   });
+});
+
+it('labels itself step 4 of the nanny’s 7', () => {
+  render(<RegistrationNannyLocationScreen />);
+  expect(screen.getByText('STEP 4 OF 7 — HOME LOCATION')).toBeTruthy();
 });

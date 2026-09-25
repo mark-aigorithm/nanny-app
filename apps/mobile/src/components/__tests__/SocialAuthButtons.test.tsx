@@ -37,6 +37,11 @@ jest.mock('expo-apple-authentication', () => {
   };
 });
 
+const mockNotice = jest.fn();
+jest.mock('@mobile/store/confirmDialogStore', () => ({
+  noticeDialog: (...args: unknown[]) => mockNotice(...args),
+}));
+
 const APPLE_HINT = 'Choose mother or nanny first to continue with Apple.';
 
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
@@ -56,15 +61,38 @@ it('sends an existing account to the root router', async () => {
   await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
 });
 
-it('takes a new user with a role straight to step 1', async () => {
+it('on sign-up, says she already has an account before taking her in', async () => {
+  mockOutcome = 'signed-in';
+  render(<SocialAuthButtons context="sign-up" role="parent" />);
+  fireEvent.press(screen.getByText('Continue with Google'));
+
+  await waitFor(() =>
+    expect(mockNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'You already have an account', message: 'We signed you in.' }),
+    ),
+  );
+  expect(mockReplace).not.toHaveBeenCalled();
+  const [{ onDismiss }] = mockNotice.mock.calls[0] as [{ onDismiss: () => void }];
+  onDismiss();
+  expect(mockReplace).toHaveBeenCalledWith('/');
+  await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
+});
+
+it('on sign-in, an existing account goes straight in, with no dialog', async () => {
+  mockOutcome = 'signed-in';
+  render(<SocialAuthButtons context="sign-in" />);
+  fireEvent.press(screen.getByText('Continue with Google'));
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  expect(mockNotice).not.toHaveBeenCalled();
+  await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
+});
+
+it('takes a new user with a role straight into the wizard', async () => {
   mockOutcome = 'new-user';
   render(<SocialAuthButtons context="sign-up" role="nanny" />);
   fireEvent.press(screen.getByText('Continue with Google'));
   await waitFor(() =>
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(auth)/register-step-1',
-      params: { role: 'nanny' },
-    }),
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/register-phone'),
   );
   await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
 });
@@ -73,7 +101,7 @@ it('takes a new user with a role straight to step 1', async () => {
 // seeded, which happens inside the sign-in, before its outcome is back. React
 // Query drops mutate()'s own callbacks for an unmounted caller, so navigating
 // from them left her on the role screen, signed in with nowhere to go.
-it('still takes her to step 1 when the buttons unmount mid-sign-in', async () => {
+it('still takes her into the wizard when the buttons unmount mid-sign-in', async () => {
   let settle: (outcome: string) => void = () => {};
   mockMutateAsync.mockImplementationOnce(
     () =>
@@ -87,10 +115,7 @@ it('still takes her to step 1 when the buttons unmount mid-sign-in', async () =>
   unmount();
   settle('new-user');
   await waitFor(() =>
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(auth)/register-step-1',
-      params: { role: 'parent' },
-    }),
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/register-phone'),
   );
 });
 

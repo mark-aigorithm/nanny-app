@@ -6,7 +6,10 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { Button } from '@mobile/components/ui';
 import { useSocialSignIn, type SocialSignInOutcome } from '@mobile/hooks/useSocialSignIn';
 import { isMappedAuthError } from '@mobile/lib/authErrors';
+import { firstStep } from '@mobile/lib/registrationSteps';
 import { isAppleSignInAvailable } from '@mobile/lib/socialAuth';
+import { noticeDialog } from '@mobile/store/confirmDialogStore';
+import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { borderRadius } from '@mobile/theme';
 import type { Role, SocialProvider } from '@mobile/types';
 import { styles } from './styles/social-auth-buttons.styles';
@@ -64,10 +67,21 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
     }
     switch (outcome) {
       case 'signed-in':
-        router.replace('/');
+        // On sign-up she meant to make an account and got signed in to the
+        // one she already has — say so rather than jump silently.
+        if (context === 'sign-up') {
+          noticeDialog({
+            title: 'You already have an account',
+            message: 'We signed you in.',
+            onDismiss: () => router.replace('/'),
+          });
+        } else {
+          router.replace('/');
+        }
         break;
       case 'new-user':
-        if (role) router.push({ pathname: '/(auth)/register-step-1', params: { role } });
+        // useSocialSignIn has seeded the draft (with the role, when picked).
+        if (role) router.push(firstStep(useRegistrationDraftStore.getState()));
         else router.push('/(auth)/role-selection');
         break;
       case 'needs-link':

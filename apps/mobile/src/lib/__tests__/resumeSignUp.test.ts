@@ -47,8 +47,33 @@ it('seeds a phone+password leftover as a phone sign-up that carries what the acc
     countryCode: '+20',
     phone: '1001234567',
     accountPhone: '+201001234567',
+    // So the wizard skips "Your number" for the whole attempt.
+    phoneOnAccountAtStart: true,
     passwordEmail: 'mona@example.com',
   });
+});
+
+it('seeds a phone-only account (the app was killed after "Your number") to skip that step', () => {
+  seedDraftFromAccount(
+    account({ phoneNumber: '+201001234567', providerData: [{ providerId: 'phone', phoneNumber: '+201001234567' }] }),
+  );
+
+  expect(useRegistrationDraftStore.getState()).toMatchObject({
+    isResume: true,
+    authProvider: 'phone',
+    accountPhone: '+201001234567',
+    phoneOnAccountAtStart: true,
+    passwordEmail: null,
+    email: '',
+  });
+});
+
+it('leaves "Your number" in when the account has no phone yet', () => {
+  seedDraftFromAccount(
+    account({ email: 'mona@gmail.com', emailVerified: true, providerData: [{ providerId: 'google.com' }] }),
+  );
+
+  expect(useRegistrationDraftStore.getState()).toMatchObject({ accountPhone: null, phoneOnAccountAtStart: false });
 });
 
 it('seeds a verified Google account as a Google sign-up', () => {
