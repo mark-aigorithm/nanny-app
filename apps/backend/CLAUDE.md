@@ -195,15 +195,19 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 
 ## Known Gotchas
 
-**The password-reset email is Firebase's, with our template pushed to it**
+**The password-reset email is Firebase's; its link lands on our page**
 The app's "Forgot password" calls Firebase's `sendPasswordResetEmail`, so Firebase's mailer sends
-it — not our SMTP, and nothing lands in `email_logs`. Its HTML is ours
-(`src/lib/email/templates/password-reset.html`, rendered by `renderFirebaseTemplate`), but
-Firebase takes no template per request: a change reaches users only after
-`pnpm firebase:sync-auth-config --apply` pushes it to the project. The Auth emulator ignores templates.
-The same script pushes `src/lib/password-policy.ts` — Firebase's hosted reset page knows nothing of
-the app's password rules, so the project policy is what holds it to them. Change the policy and the
-app's password screens together.
+it — not our SMTP, and nothing lands in `email_logs`. Firebase takes no template per request, and
+the live project refuses edits to a template's subject and body (`EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`,
+console included). So `src/lib/email/templates/password-reset.html` is a preview to paste into the
+console if that lock is ever lifted; `pnpm firebase:sync-auth-config --apply` pushes only what the
+project accepts — the sender name and `src/lib/password-policy.ts`.
+The email's link opens `GET /auth/action` (`routes/reset-password-page.routes.ts`,
+`pages/reset-password/`) once the console's "Customize action URL" points there. The page spends the
+one-time code against Identity Toolkit directly, so the password never reaches this backend, and
+hands any other action mode to Firebase's own handler. Its URL carries a live code: morgan skips it,
+and the page strips it from the address bar. The password rules live in three places — the app's
+password screens, `app.js` and the project policy — change them together.
 
 **Upload URLs are accepted only from the caller's own folder**
 `lib/storage-url.ts` refuses any `avatarUrl` / `idDocumentFrontUrl` / `idDocumentBackUrl` that

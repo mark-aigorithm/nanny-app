@@ -4,10 +4,13 @@ import { renderFirebaseTemplate } from '@backend/lib/email/render';
  * Reads and writes the password-reset email template on the Firebase project
  * through the Identity Toolkit admin API — the same setting the console's
  * Authentication → Templates page edits. Firebase takes no template per
- * request, so this is how the in-repo template reaches its mailer.
+ * request, so this is how the in-repo template would reach its mailer.
  *
- * Only the fields we own are written (see RESET_FIELDS): the sender address
- * and reply-to stay whatever the console has.
+ * Only the sender name is written (RESET_FIELDS). The live project refuses any
+ * change to a template's subject or body with EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED
+ * — Google's anti-spam lock, which the console enforces too — so the branded
+ * subject and body are rendered for a preview only, to paste into the console
+ * once the lock is lifted. The sender address and reply-to stay as they are.
  */
 
 export interface FirebaseEmailTemplateConfig {
@@ -36,11 +39,11 @@ interface ProjectConfig {
   notification?: { sendEmail?: { resetPasswordTemplate?: FirebaseEmailTemplateConfig } };
 }
 
-const RESET_FIELDS = ['senderDisplayName', 'subject', 'body', 'bodyFormat'] as const;
+const RESET_FIELDS = ['senderDisplayName'] as const;
 const RESET_PATH = 'notification.sendEmail.resetPasswordTemplate';
 
 export function buildResetPasswordTemplate(): Required<
-  Pick<FirebaseEmailTemplateConfig, (typeof RESET_FIELDS)[number]>
+  Pick<FirebaseEmailTemplateConfig, 'senderDisplayName' | 'subject' | 'body' | 'bodyFormat'>
 > {
   const { subject, html } = renderFirebaseTemplate('PASSWORD_RESET');
   return { senderDisplayName: 'Nanny Now', subject, body: html, bodyFormat: 'HTML' };
@@ -72,7 +75,7 @@ export async function getResetPasswordTemplate({
   return readConfig(res);
 }
 
-export async function pushResetPasswordTemplate({
+export async function pushResetPasswordSender({
   projectId,
   accessToken,
   fetch: doFetch = fetch,
@@ -82,7 +85,11 @@ export async function pushResetPasswordTemplate({
     method: 'PATCH',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      notification: { sendEmail: { resetPasswordTemplate: buildResetPasswordTemplate() } },
+      notification: {
+        sendEmail: {
+          resetPasswordTemplate: { senderDisplayName: buildResetPasswordTemplate().senderDisplayName },
+        },
+      },
     }),
   });
   return readConfig(res);

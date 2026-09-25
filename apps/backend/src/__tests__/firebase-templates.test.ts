@@ -1,7 +1,7 @@
 import {
   buildResetPasswordTemplate,
   getResetPasswordTemplate,
-  pushResetPasswordTemplate,
+  pushResetPasswordSender,
   type FetchLike,
 } from '@backend/lib/email/firebase-templates';
 
@@ -39,32 +39,29 @@ describe('getResetPasswordTemplate', () => {
   });
 });
 
-describe('pushResetPasswordTemplate', () => {
-  it('patches only the four fields it owns', async () => {
+describe('pushResetPasswordSender', () => {
+  // The project refuses subject/body edits (EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED),
+  // and one refused field fails the whole PATCH — so the sender name goes alone.
+  it('patches the sender name and nothing else', async () => {
     const fetch = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>(() =>
       respond(200, {
         notification: { sendEmail: { resetPasswordTemplate: { subject: 'Reset your Nanny Now password' } } },
       }),
     );
 
-    await pushResetPasswordTemplate({ projectId: PROJECT, accessToken: 'tok', fetch });
+    await pushResetPasswordSender({ projectId: PROJECT, accessToken: 'tok', fetch });
 
     const [url, init] = fetch.mock.calls[0]!;
     const mask = new URL(url).searchParams.get('updateMask');
     expect(url.startsWith(`${CONFIG_URL}?`)).toBe(true);
-    expect(mask?.split(',')).toEqual([
-      'notification.sendEmail.resetPasswordTemplate.senderDisplayName',
-      'notification.sendEmail.resetPasswordTemplate.subject',
-      'notification.sendEmail.resetPasswordTemplate.body',
-      'notification.sendEmail.resetPasswordTemplate.bodyFormat',
-    ]);
+    expect(mask).toBe('notification.sendEmail.resetPasswordTemplate.senderDisplayName');
     expect(init?.method).toBe('PATCH');
     expect(init?.headers).toEqual({ Authorization: 'Bearer tok', 'Content-Type': 'application/json' });
 
     const sent = JSON.parse(init?.body ?? '{}') as {
       notification: { sendEmail: { resetPasswordTemplate: Record<string, unknown> } };
     };
-    expect(sent.notification.sendEmail.resetPasswordTemplate).toEqual(buildResetPasswordTemplate());
+    expect(sent.notification.sendEmail.resetPasswordTemplate).toEqual({ senderDisplayName: 'Nanny Now' });
   });
 
   it("throws with the API's message on a non-2xx", async () => {
@@ -73,7 +70,7 @@ describe('pushResetPasswordTemplate', () => {
     );
 
     await expect(
-      pushResetPasswordTemplate({ projectId: PROJECT, accessToken: 'tok', fetch }),
+      pushResetPasswordSender({ projectId: PROJECT, accessToken: 'tok', fetch }),
     ).rejects.toThrow('403: The caller does not have permission');
   });
 });

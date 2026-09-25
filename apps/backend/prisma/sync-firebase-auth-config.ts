@@ -1,8 +1,11 @@
 /**
  * Pushes the Auth settings we keep in the repo to the Firebase project:
  *
- *   - the password-reset email (src/lib/email/templates/password-reset.html)
- *     → Authentication → Templates. Firebase takes no template per request.
+ *   - the password-reset email's sender name → Authentication → Templates.
+ *     The branded subject and body (src/lib/email/templates/password-reset.html)
+ *     are only previewed: the live project refuses edits to them
+ *     (EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED), so they are pasted into the console
+ *     by hand once Google lifts that lock — see lib/email/firebase-templates.ts.
  *   - the password policy (src/lib/password-policy.ts), so Firebase's hosted
  *     reset page refuses passwords the app would.
  *
@@ -24,7 +27,7 @@ import { firebaseAuth } from '../src/lib/firebase';
 import {
   buildResetPasswordTemplate,
   getResetPasswordTemplate,
-  pushResetPasswordTemplate,
+  pushResetPasswordSender,
   type FirebaseEmailTemplateConfig,
 } from '../src/lib/email/firebase-templates';
 import { PASSWORD_POLICY } from '../src/lib/password-policy';
@@ -73,6 +76,7 @@ async function main(): Promise<void> {
   log('\nReset email');
   log('  current:', summarise(currentTemplate));
   log('  new:    ', summarise(next));
+  log('  (only the sender name is pushed; the subject and body are the preview above)');
   log('\nPassword policy');
   log('  current:', JSON.stringify(currentPolicy ?? '(none)'));
   log('  new:    ', JSON.stringify(PASSWORD_POLICY));
@@ -82,8 +86,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  const savedTemplate = await pushResetPasswordTemplate({ projectId, accessToken });
-  log('\nAPPLIED reset email:', summarise(savedTemplate));
+  const savedTemplate = await pushResetPasswordSender({ projectId, accessToken });
+  log('\nAPPLIED reset email sender:', summarise(savedTemplate));
   const saved = await projectConfig.updateProjectConfig({ passwordPolicyConfig: PASSWORD_POLICY });
   log('APPLIED password policy:', JSON.stringify(saved.passwordPolicyConfig));
 }
