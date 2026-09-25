@@ -1,6 +1,6 @@
 import type { EmailVerificationEmailVars, ReceiptEmailVars } from '@nanny-app/shared';
 
-import { renderEmail } from '@backend/lib/email/render';
+import { renderEmail, renderFirebaseTemplate } from '@backend/lib/email/render';
 
 // Exercises the real in-repo HTML templates (no mocks) so template drift —
 // a renamed variable, a broken {{#if}}, an unclosed tag — fails loudly here.
@@ -110,5 +110,31 @@ describe('layout footer', () => {
 
     expect(html).not.toContain('receipt');
     expect(html).toContain('this address was entered in the Nanny Now app');
+  });
+});
+
+describe('renderFirebaseTemplate PASSWORD_RESET', () => {
+  const { subject, html } = renderFirebaseTemplate('PASSWORD_RESET');
+
+  it('uses the Nanny Now subject', () => {
+    expect(subject).toBe('Reset your Nanny Now password');
+  });
+
+  it("keeps Firebase's placeholders intact for Firebase to fill in", () => {
+    // Button + fallback href + fallback text.
+    expect(html.match(/%LINK%/g)).toHaveLength(3);
+    expect(html).toContain('%EMAIL%');
+    expect(html).toContain('href="%LINK%"');
+  });
+
+  it('sits in the shared layout with its own footer', () => {
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('Nanny Now');
+    expect(html).toContain('a password reset was requested for this address');
+    expect(html).not.toContain('receipt');
+  });
+
+  it('leaves no unreplaced handlebars tokens', () => {
+    expect(html).not.toMatch(/\{\{/);
   });
 });

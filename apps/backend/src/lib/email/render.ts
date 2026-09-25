@@ -110,3 +110,29 @@ export function renderEmail<T extends EmailTemplate>(
   const def = TEMPLATES[template];
   return { subject: def.subject(vars), html: renderInLayout(def.bodyFile, def.footerNote, vars) };
 }
+
+/**
+ * Templates Firebase sends from its own mailer, not us. Kept apart from
+ * `EmailTemplate` because that enum is also the Prisma enum on `email_logs`,
+ * and these sends never reach our log. Firebase fills `%LINK%` / `%EMAIL%`
+ * itself; they are written literally in the body files and pass through
+ * Handlebars untouched. Pushed to the project by
+ * prisma/sync-firebase-email-templates.ts.
+ */
+export type FirebaseEmailTemplate = 'PASSWORD_RESET';
+
+const FIREBASE_TEMPLATES: Record<
+  FirebaseEmailTemplate,
+  { subject: string; bodyFile: string; footerNote: string }
+> = {
+  PASSWORD_RESET: {
+    subject: 'Reset your Nanny Now password',
+    bodyFile: 'password-reset.html',
+    footerNote: "You're receiving this because a password reset was requested for this address.",
+  },
+};
+
+export function renderFirebaseTemplate(template: FirebaseEmailTemplate): RenderedEmail {
+  const def = FIREBASE_TEMPLATES[template];
+  return { subject: def.subject, html: renderInLayout(def.bodyFile, def.footerNote, {}) };
+}
