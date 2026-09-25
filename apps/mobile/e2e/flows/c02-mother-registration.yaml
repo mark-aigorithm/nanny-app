@@ -125,7 +125,10 @@ appId: com.nannyapp.mobile
 - tapOn:
     id: 'registerAccount.code.boxes'
 - inputText: ${output.emailOtp}
-- hideKeyboard
+# No hideKeyboard here: the sixth digit starts the check, which disables and
+# then replaces the code input, closing the keyboard itself. On Android
+# Maestro's hideKeyboard with no keyboard up is a Back press, which pops
+# this step back to About you.
 # Six digits check themselves; the password fields appear once they pass.
 - extendedWaitUntil:
     visible: 'Enter a password'
