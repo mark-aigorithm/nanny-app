@@ -12,7 +12,10 @@ import { fileURLToPath } from 'node:url';
 
 const backendRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const assets = [['src/lib/email/templates', 'dist/lib/email/templates']];
+const assets = [
+  ['src/lib/email/templates', 'dist/lib/email/templates'],
+  ['src/pages/reset-password', 'dist/pages/reset-password'],
+];
 
 for (const [from, to] of assets) {
   const src = join(backendRoot, from);

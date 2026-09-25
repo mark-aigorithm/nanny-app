@@ -17,7 +17,12 @@ export function buildApp(): Express {
   app.use(cors());
   app.use(express.json({ limit: '1mb' }));
   if (config.nodeEnv !== 'test') {
-    app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined'));
+    app.use(
+      morgan(config.nodeEnv === 'development' ? 'dev' : 'combined', {
+        // The reset page's URL carries a live one-time code; keep it out of the logs.
+        skip: (req) => req.path === '/auth/action',
+      }),
+    );
   }
 
   app.use(apiRouter);
