@@ -195,6 +195,13 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 
 ## Known Gotchas
 
+**The password-reset email is Firebase's, with our template pushed to it**
+The app's "Forgot password" calls Firebase's `sendPasswordResetEmail`, so Firebase's mailer sends
+it — not our SMTP, and nothing lands in `email_logs`. Its HTML is ours
+(`src/lib/email/templates/password-reset.html`, rendered by `renderFirebaseTemplate`), but
+Firebase takes no template per request: a change reaches users only after
+`pnpm email:sync-firebase --apply` pushes it to the project. The Auth emulator ignores templates.
+
 **Upload URLs are accepted only from the caller's own folder**
 `lib/storage-url.ts` refuses any `avatarUrl` / `idDocumentFrontUrl` / `idDocumentBackUrl` that
 isn't a download URL for `<folder>/<uid>/…` in our bucket — otherwise a client could pin its
