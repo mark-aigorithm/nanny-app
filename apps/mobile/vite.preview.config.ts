@@ -41,6 +41,10 @@ export default defineConfig({
       // the bundler, and it drags in expo-modules-core's unbundlable .ts
       // declaration files.
       'expo-notifications': path.resolve(__dirname, 'src/mocks/expo-notifications-web.tsx'),
+      // Stub the social sign-in wrapper — it imports the Google and Apple
+      // native modules (JSX in .js files, no web build), and `useAuth` pulls
+      // it into every auth screen.
+      '@mobile/lib/socialAuth': path.resolve(__dirname, 'src/mocks/social-auth-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],
