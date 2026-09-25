@@ -97,6 +97,16 @@ export const styles = StyleSheet.create({
     ...typeScale.caption,
     color: colors.textMuted,
   },
+  resumeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  resumeText: {
+    ...typeScale.labelMd,
+    color: colors.primaryDark,
+  },
 
   // Status chip
   statusChip: {

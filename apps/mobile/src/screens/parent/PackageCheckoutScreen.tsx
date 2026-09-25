@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview';
 
 import { colors } from '@mobile/theme';
-import { usePurchasePackage } from '@mobile/hooks/usePackages';
+import { useCancelPackageCheckout, usePurchasePackage } from '@mobile/hooks/usePackages';
 import type { PackageCheckoutSession } from '@mobile/hooks/usePackages';
 import { hasRequiredPackageCheckout, type PackageFlowParams } from '@mobile/lib/packagePurchaseDraft';
 import { getApiErrorMessage } from '@mobile/lib/api';
@@ -154,7 +154,22 @@ export default function PackageCheckoutScreen() {
   const [wrapHeight, setWrapHeight] = useState(0);
 
   const purchasePackage = usePurchasePackage();
+  const { mutate: cancelCheckout } = useCancelPackageCheckout();
   const draftReady = hasRequiredPackageCheckout(params);
+
+  // Leaving without paying closes the checkout, so backing out — or a mis-tap
+  // on Continue — doesn't hold up the next purchase until the link expires.
+  // Skipped once Paymob redirected (the result screen settles it), and the
+  // backend refuses if Paymob shows the payment went through or is in flight.
+  const openPurchaseIdRef = useRef<number | null>(null);
+  openPurchaseIdRef.current = session?.purchaseId ?? null;
+  useEffect(
+    () => () => {
+      const purchaseId = openPurchaseIdRef.current;
+      if (purchaseId != null && !redirectHandledRef.current) cancelCheckout({ purchaseId });
+    },
+    [cancelCheckout],
+  );
 
   const startPurchase = useCallback(async () => {
     if (!packageId) return;

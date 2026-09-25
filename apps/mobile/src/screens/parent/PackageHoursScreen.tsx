@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import type { PackagePurchase } from '@nanny-app/shared';
 
 import { Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
@@ -25,8 +26,9 @@ function formatDate(iso: string): string {
 
 function PackageBucketRow({ bucket }: { bucket: PackagePurchase }) {
   const visual = STATUS_VISUALS[bucket.status];
+  const isPending = bucket.status === 'PENDING_PAYMENT';
 
-  return (
+  const card = (
     <Card style={styles.bucketCard}>
       <View style={styles.bucketHeaderRow}>
         <Text style={styles.bucketName}>{bucket.packageName}</Text>
@@ -35,14 +37,44 @@ function PackageBucketRow({ bucket }: { bucket: PackagePurchase }) {
         </View>
       </View>
 
-      <Text style={styles.bucketHours}>
-        {bucket.hoursRemaining}h of {bucket.hoursPurchased}h left
-      </Text>
-
-      {bucket.expiresAt ? (
-        <Text style={styles.bucketExpiry}>Expires {formatDate(bucket.expiresAt)}</Text>
-      ) : null}
+      {isPending ? (
+        <>
+          <Text style={styles.bucketHours}>{bucket.hoursPurchased}h once paid</Text>
+          <View style={styles.resumeRow}>
+            <Text style={styles.resumeText}>Complete payment</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.primaryDark} />
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.bucketHours}>
+            {bucket.hoursRemaining}h of {bucket.hoursPurchased}h left
+          </Text>
+          {bucket.expiresAt ? (
+            <Text style={styles.bucketExpiry}>Expires {formatDate(bucket.expiresAt)}</Text>
+          ) : null}
+        </>
+      )}
     </Card>
+  );
+
+  if (!isPending) return card;
+
+  // The backend only lists a pending purchase while its checkout can still be
+  // paid, and buying the same package again resumes that checkout.
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Complete payment for ${bucket.packageName}`}
+      onPress={() =>
+        router.push({
+          pathname: '/(parent)/packages/checkout',
+          params: { packageId: String(bucket.packageId) },
+        } as never)
+      }
+    >
+      {card}
+    </Pressable>
   );
 }
 

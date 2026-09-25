@@ -42,3 +42,17 @@ export function useSyncPackagePayment() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [PACKAGE_HOURS_KEY] }),
   });
 }
+
+/**
+ * Close a checkout the parent left without paying, so it stops holding up a new
+ * purchase. The backend checks with Paymob first: CAPTURED means it had
+ * actually been paid, and a 409 means a payment is still being processed.
+ */
+export function useCancelPackageCheckout() {
+  const qc = useQueryClient();
+  return useMutation<{ status: PaymentStatus }, Error, { purchaseId: number }>({
+    mutationFn: ({ purchaseId }) =>
+      unwrap<{ status: PaymentStatus }>(api.post(`/packages/purchases/${purchaseId}/cancel`)),
+    onSettled: () => qc.invalidateQueries({ queryKey: [PACKAGE_HOURS_KEY] }),
+  });
+}

@@ -60,6 +60,19 @@ appId: com.nannyapp.mobile
     text: 'Buy package'
     below: ${PACKAGE_NAME}
 
+# Buy only opens the review; nothing is created until the parent confirms.
+- extendedWaitUntil:
+    visible: 'Review package'
+    timeout: 30000
+- assertVisible: '${PACKAGE_NAME}'
+- scrollUntilVisible:
+    element:
+      text: 'Continue to payment'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn: 'Continue to payment'
+
 - extendedWaitUntil:
     visible: 'Complete your payment to activate your package.'
     timeout: 30000
@@ -83,8 +96,8 @@ appId: com.nannyapp.mobile
 - assertVisible: ${PACKAGE_NAME}
 
 # ── Spend them ─────────────────────────────────────────────────────────────
-# One press is enough: checkout and its result screen each REPLACED the screen
-# before them, so the packages list is no longer on the stack — back from My
+# One press is enough: the result screen replaced checkout and My Hours
+# replaced the whole packages flow (list, review, result), so back from My
 # Hours goes straight home.
 - back
 - extendedWaitUntil:

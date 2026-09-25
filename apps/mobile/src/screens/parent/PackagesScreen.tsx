@@ -112,7 +112,7 @@ function PackageCard({
         title="Buy package"
         onPress={() =>
           router.push({
-            pathname: '/(parent)/packages/checkout',
+            pathname: '/(parent)/packages/review',
             params: { packageId: String(pkg.id) },
           } as never)
         }
