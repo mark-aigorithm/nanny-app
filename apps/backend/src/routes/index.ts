@@ -18,6 +18,7 @@ import { packageRouter } from './package.routes';
 import { paymobRouter } from './paymob.routes';
 import { qaRouter } from './qa.routes';
 import { referralRouter } from './referral.routes';
+import { resetPasswordPageRouter } from './reset-password-page.routes';
 import { rewardRouter } from './reward.routes';
 import { supportRouter } from './support.routes';
 import { webhookRouter } from './webhook.routes';
@@ -31,6 +32,8 @@ apiRouter.get('/health', (_req: Request, res: Response) => {
 apiRouter.use('/webhooks', webhookRouter);
 apiRouter.use('/paymob', paymobRouter);
 apiRouter.use('/admin', adminRouter);
+// Before /auth: the public page the reset email links to (see the router).
+apiRouter.use('/auth/action', resetPasswordPageRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/addresses', addressRouter);
 apiRouter.use('/nanny', nannyRouter);

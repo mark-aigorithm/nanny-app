@@ -32,3 +32,8 @@ await build({
 // tracer cannot follow.
 cpSync('src/lib/email/templates', 'dist/templates', { recursive: true });
 console.log('[esbuild] src/lib/email/templates -> dist/templates');
+
+// Same story for the reset-password page (src/pages/reset-password.ts reads
+// `__dirname/reset-password`).
+cpSync('src/pages/reset-password', 'dist/reset-password', { recursive: true });
+console.log('[esbuild] src/pages/reset-password -> dist/reset-password');
