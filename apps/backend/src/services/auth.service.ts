@@ -101,26 +101,31 @@ function toUserResponse(user: User, location: FlatLocation): UserResponse {
 
 /**
  * Whether an email or phone already belongs to a user row. This is the one
- * rule for "taken", asked twice: from step 1 of the wizard via
- * `checkAvailability`, and again by `registerUser` before the insert — so the
- * early answer and the final one cannot drift apart.
+ * rule for "taken", asked from the wizard via `checkAvailability` (phone alone
+ * on "Your number", both on "About you"), and again by `registerUser` before
+ * the insert — so the early answer and the final one cannot drift apart. With
+ * no email, the email half is skipped and reported free.
  *
  * Deliberately no `deletedAt` filter: `users.email` and `users.phone` are
  * unique columns, so a soft-deleted row still holding the value would make the
  * insert fail, and this must report what the insert will do. (A self-deleted
  * account frees them — see `scrambleIdentity` in account-deletion.service.ts.)
  */
-async function findIdentityOwners(email: string, phone: string): Promise<AvailabilityResponse> {
+async function findIdentityOwners(
+  email: string | undefined,
+  phone: string,
+): Promise<AvailabilityResponse> {
   const [emailOwner, phoneOwner] = await Promise.all([
-    prisma.user.findUnique({ where: { email } }),
+    email === undefined ? null : prisma.user.findUnique({ where: { email } }),
     prisma.user.findUnique({ where: { phone } }),
   ]);
   return { emailTaken: emailOwner !== null, phoneTaken: phoneOwner !== null };
 }
 
 /**
- * Step 1 of the wizard asks this before moving on, so a taken email or phone
- * is refused while the fields are still on screen. Public and side-effect
+ * The wizard asks this before moving on, so a taken email or phone is refused
+ * while the field is still on screen — and a taken phone before any SMS is
+ * paid for. Public and side-effect
  * free; the body has already been normalised by CheckAvailabilitySchema.
  */
 export async function checkAvailability(

@@ -103,7 +103,15 @@ export const PhoneE164Schema = z
  * anything is sent or created, so a taken email or phone is refused while the
  * fields are still on screen rather than at the end of the wizard.
  */
-export const CheckAvailabilitySchema = z.object({ email: EmailSchema, phone: PhoneE164Schema });
+/**
+ * `email` is optional: the wizard's first screen ("Your number") asks about
+ * the phone alone, before the email has been typed. "About you" asks again
+ * with both.
+ */
+export const CheckAvailabilitySchema = z.object({
+  email: EmailSchema.optional(),
+  phone: PhoneE164Schema,
+});
 export type CheckAvailabilityRequest = z.infer<typeof CheckAvailabilitySchema>;
 
 /**
