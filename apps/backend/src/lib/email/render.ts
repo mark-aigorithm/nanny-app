@@ -11,7 +11,8 @@ import type {
 /**
  * Renders named email templates to `{ subject, html }`. Templates are in-repo
  * HTML files under ./templates: `layout.html` is the shared chrome (header +
- * footer, matching the mobile app's design tokens) with a `{{{body}}}` slot,
+ * a per-template footer line, matching the mobile app's design tokens) with a
+ * `{{{body}}}` slot,
  * and each template has its own body file. Handlebars does the `{{variable}}`
  * substitution and `{{#if}}` for optional lines; the `formatMoney` helper turns
  * numeric amounts into display strings.
@@ -64,22 +65,33 @@ type TemplateDefs = {
   [K in EmailTemplate]: {
     subject: (vars: TemplateVars[K]) => string;
     bodyFile: string;
+    /** The layout's footer line — each email says why it was sent. */
+    footerNote: string;
   };
 };
 
 const TEMPLATES: TemplateDefs = {
   RECEIPT: {
-    subject: (v) => `Your NannyApp receipt — booking #${v.bookingId}`,
+    subject: (v) => `Your Nanny Now receipt — booking #${v.bookingId}`,
     bodyFile: 'receipt.html',
+    footerNote: 'This is an automated receipt from Nanny Now. Please keep it for your records.',
   },
   EMAIL_VERIFICATION: {
     // The code is deliberately not in the subject: subject lines show up in
     // notification previews on a locked screen, which is not where a
     // one-time code belongs.
-    subject: () => 'Confirm your email for NannyApp',
+    subject: () => 'Confirm your email for Nanny Now',
     bodyFile: 'email-verification.html',
+    footerNote: "You're receiving this because this address was entered in the Nanny Now app.",
   },
 };
+
+/** A body file wrapped in the shared layout. */
+function renderInLayout(bodyFile: string, footerNote: string, vars: object): string {
+  registerHelpers();
+  const body = loadTemplate(bodyFile)(vars);
+  return loadTemplate('layout.html')({ ...vars, body, footerNote });
+}
 
 export interface RenderedEmail {
   subject: string;
@@ -95,9 +107,6 @@ export function renderEmail<T extends EmailTemplate>(
   template: T,
   vars: TemplateVars[T],
 ): RenderedEmail {
-  registerHelpers();
   const def = TEMPLATES[template];
-  const body = loadTemplate(def.bodyFile)(vars);
-  const html = loadTemplate('layout.html')({ ...vars, body });
-  return { subject: def.subject(vars), html };
+  return { subject: def.subject(vars), html: renderInLayout(def.bodyFile, def.footerNote, vars) };
 }

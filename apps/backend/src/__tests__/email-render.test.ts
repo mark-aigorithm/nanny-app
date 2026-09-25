@@ -25,7 +25,7 @@ describe('renderEmail RECEIPT', () => {
   it('builds the subject and substitutes every variable', () => {
     const { subject, html } = renderEmail('RECEIPT', baseVars);
 
-    expect(subject).toContain('booking #42');
+    expect(subject).toBe('Your Nanny Now receipt — booking #42');
     expect(html).toContain('Sarah');
     expect(html).toContain('Mona Ali');
     expect(html).toContain('6 August 2026');
@@ -33,7 +33,8 @@ describe('renderEmail RECEIPT', () => {
     expect(html).toContain('12:00');
     expect(html).toContain('TXN-555');
     // Wrapped in the shared layout, so the brand chrome is present.
-    expect(html).toContain('NannyApp');
+    expect(html).toContain('Nanny Now');
+    expect(html).not.toContain('NannyApp');
     expect(html).toContain('<!DOCTYPE html>');
   });
 
@@ -66,11 +67,11 @@ describe('renderEmail EMAIL_VERIFICATION', () => {
   it('renders the code, the expiry and the greeting inside the shared layout', () => {
     const { subject, html } = renderEmail('EMAIL_VERIFICATION', verificationVars);
 
-    expect(subject).toBe('Confirm your email for NannyApp');
+    expect(subject).toBe('Confirm your email for Nanny Now');
     expect(html).toContain('004821');
     expect(html).toContain('10 minutes');
     expect(html).toContain('Hi Sarah');
-    expect(html).toContain('NannyApp');
+    expect(html).toContain('Nanny Now');
     expect(html).toContain('<!DOCTYPE html>');
   });
 
@@ -96,5 +97,18 @@ describe('renderEmail EMAIL_VERIFICATION', () => {
 
   it('leaves no unreplaced handlebars tokens', () => {
     expect(renderEmail('EMAIL_VERIFICATION', verificationVars).html).not.toMatch(/\{\{/);
+  });
+});
+
+describe('layout footer', () => {
+  it('calls a receipt a receipt', () => {
+    expect(renderEmail('RECEIPT', baseVars).html).toContain('automated receipt from Nanny Now');
+  });
+
+  it('does not call the verification email a receipt', () => {
+    const { html } = renderEmail('EMAIL_VERIFICATION', verificationVars);
+
+    expect(html).not.toContain('receipt');
+    expect(html).toContain('this address was entered in the Nanny Now app');
   });
 });
