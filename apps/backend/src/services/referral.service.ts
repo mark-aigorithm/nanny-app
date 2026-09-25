@@ -391,14 +391,15 @@ export async function validateReferralCode(
   };
   if (!config.referralEnabled) return invalid;
 
-  // Called mid-signup, before an account exists, so an anonymous caller is
-  // expected. The self-referral check only applies once we know who is asking.
-  const userId = firebaseUid ? await resolveUserId(firebaseUid) : null;
+  // Called mid-signup: the caller is usually signed in to Firebase (phone
+  // verified) but has no users row until /auth/register — so match the code's
+  // owner on the Firebase uid rather than resolving the caller's row, which
+  // would 401 exactly the caller this endpoint exists for.
   const referrer = await prisma.user.findFirst({
     where: { referralCode: code.trim().toUpperCase(), deletedAt: null, role: Role.MOTHER },
-    select: { id: true, firstName: true },
+    select: { firstName: true, firebaseUid: true },
   });
-  if (!referrer || referrer.id === userId) return invalid;
+  if (!referrer || referrer.firebaseUid === firebaseUid) return invalid;
 
   return {
     valid: true,

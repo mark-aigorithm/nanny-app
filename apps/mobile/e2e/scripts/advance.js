@@ -507,8 +507,9 @@ function seedReferral() {
   output.redeemStatus = String(redeem.status);
 
   // `/referrals/validate` is optional-auth precisely so the signup field can
-  // call it before an account exists — so these go out with no token at all,
-  // which is the state the field is really in.
+  // call it before an account exists. These go out with no token; the field's
+  // real state — signed in to Firebase, no users row yet — is covered by C2's
+  // "Invited by Mona" and by the backend's A24 journey.
   var good = http.get(BACKEND_URL + '/referrals/validate?code=' + summary.code);
   var junk = http.get(BACKEND_URL + '/referrals/validate?code=NOPE-0000');
   output.validReferrer = String(json(good.body).data.referrerFirstName);
