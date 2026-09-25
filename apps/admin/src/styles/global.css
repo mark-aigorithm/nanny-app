@@ -1042,6 +1042,15 @@ input[type='number'] {
   margin-top: 0.85rem;
 }
 
+/* Legal documents (Settings → Legal documents): one form per document, saved on its own. */
+.legal-entry .legal-body {
+  min-height: 12rem;
+}
+
+.legal-entry .faq-empty {
+  margin: 0;
+}
+
 .faq-empty {
   margin: 0 0 0.85rem;
   color: var(--color-text-muted);

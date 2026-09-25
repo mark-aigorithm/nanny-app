@@ -36,6 +36,7 @@ import {
   updatePlatformConfig,
   updateSupportContact,
 } from '@admin/lib/api';
+import { LegalDocumentsCard } from '@admin/features/support/legal-documents-card';
 import { SupportFaqCard } from '@admin/features/support/support-faq-card';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
@@ -596,6 +597,7 @@ export function SettingsPage() {
           )}
 
           <SupportFaqCard canManage={canManage} />
+          <LegalDocumentsCard canManage={canManage} />
         </div>
 
         <aside className="settings-rail">
