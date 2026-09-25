@@ -590,9 +590,9 @@ The Account tab's "Delete account" raises a themed confirm dialog ("Delete your 
 which the row's soft-delete requires so a bodiless discard call can never reach it. The backend
 scrambles the row's email, phone and Firebase uid and hard-deletes the Firebase user; the app clears
 its session and shows a one-button "Account deleted" notice over the sign-in screen it lands back
-on. The flow then signs in by SMS with the same number to prove it is free again: Firebase mints a
-throwaway phone-only account for the code check, finds no row behind it, discards it, and shows the
-same "We couldn't find an account for that number" refusal an unregistered number gets.
+on. The flow then tries SMS sign-in with the same number to prove it is free again: `/auth/phone-account`
+finds neither a row nor a Firebase user, so the door shows the same "We couldn't find an account for
+that number" refusal an unregistered number gets — before any code is sent.
 
 ---
 

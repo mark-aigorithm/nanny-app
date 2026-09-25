@@ -20,7 +20,7 @@ jest.mock('@backend/lib/config', () => ({
 // hermeticity gap the other four config-mocked test files close by already
 // mocking this module.
 jest.mock('@backend/lib/firebase', () => ({
-  firebaseAuth: { updateUser: jest.fn() },
+  firebaseAuth: { updateUser: jest.fn(), getUserByPhoneNumber: jest.fn() },
 }));
 
 jest.mock('@backend/services/certification.service', () => ({
@@ -39,7 +39,8 @@ import { Role, type RegisterRequest } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { AppError } from '@backend/lib/errors';
-import { checkAvailability, registerUser } from '@backend/services/auth.service';
+import { firebaseAuth } from '@backend/lib/firebase';
+import { checkAvailability, phoneHasAccount, registerUser } from '@backend/services/auth.service';
 import { storageUrl } from '../../test/storage-url';
 
 const mockPrisma = prisma as unknown as {
@@ -134,6 +135,41 @@ describe('checkAvailability', () => {
     await checkAvailability({ email: FREE_EMAIL, phone: FREE_PHONE });
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { email: FREE_EMAIL } });
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { phone: FREE_PHONE } });
+  });
+});
+
+describe('phoneHasAccount', () => {
+  const mockGetUserByPhone = firebaseAuth.getUserByPhoneNumber as jest.Mock;
+  const withProviders = (...ids: string[]) => ({ providerData: ids.map((providerId) => ({ providerId })) });
+
+  it('is true for a number a row holds, without asking Firebase', async () => {
+    await expect(phoneHasAccount(TAKEN_PHONE)).resolves.toEqual({ hasAccount: true });
+    expect(mockGetUserByPhone).not.toHaveBeenCalled();
+  });
+
+  it('is false when neither a row nor a Firebase user holds it', async () => {
+    mockGetUserByPhone.mockRejectedValueOnce({ code: 'auth/user-not-found' });
+    await expect(phoneHasAccount(FREE_PHONE)).resolves.toEqual({ hasAccount: false });
+  });
+
+  it('is false for a phone-only Firebase user with no row — the stray the SMS door discards', async () => {
+    mockGetUserByPhone.mockResolvedValueOnce(withProviders('phone'));
+    await expect(phoneHasAccount(FREE_PHONE)).resolves.toEqual({ hasAccount: false });
+  });
+
+  it('is true for an unfinished sign-up that has a password too — it gets resumed', async () => {
+    mockGetUserByPhone.mockResolvedValueOnce(withProviders('phone', 'password'));
+    await expect(phoneHasAccount(FREE_PHONE)).resolves.toEqual({ hasAccount: true });
+  });
+
+  it('is true for an unfinished Google sign-up that linked the number', async () => {
+    mockGetUserByPhone.mockResolvedValueOnce(withProviders('google.com', 'phone'));
+    await expect(phoneHasAccount(FREE_PHONE)).resolves.toEqual({ hasAccount: true });
+  });
+
+  it('rethrows any other Firebase failure — an unknown answer is never "no account"', async () => {
+    mockGetUserByPhone.mockRejectedValueOnce(new Error('firebase down'));
+    await expect(phoneHasAccount(FREE_PHONE)).rejects.toThrow('firebase down');
   });
 });
 

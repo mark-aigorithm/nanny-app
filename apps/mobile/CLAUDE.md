@@ -39,6 +39,10 @@ src/
   account with no row (`/auth/me` 404) is an unfinished sign-up: the draft is seeded from it
   (`lib/resumeSignUp.ts`) and role selection opens as "Finish setting up your account". Any other
   `/auth/me` error shows `CouldNotConnectScreen` (Retry / Sign out).
+- The SMS sign-in and SMS-reset doors send through `useSendSignInCode`, which asks
+  `POST /auth/phone-account` first so a number with no account is refused **before** an SMS is paid
+  for. A failed check fails open (the code is sent; the after-confirm `checkAccount` still guards).
+  Registration Step 3 keeps plain `useSendPhoneOtp`.
 - Every user-facing exit (sign out, discard a sign-up, "Start again", delete account) goes through
   `clearLocalSession` (`lib/session.ts`) — push token, parked credential, draft, Google session,
   profile and query cache — so a new exit should too. Deleting: `useDiscardUnfinishedAccount` (bodiless `DELETE /auth/me`, row-less

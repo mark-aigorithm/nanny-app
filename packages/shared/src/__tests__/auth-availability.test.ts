@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { AvailabilityResponseSchema, CheckAvailabilitySchema, PhoneE164Schema } from '../auth';
+import {
+  AvailabilityResponseSchema,
+  CheckAvailabilitySchema,
+  PhoneAccountCheckSchema,
+  PhoneE164Schema,
+} from '../auth';
 
 describe('CheckAvailabilitySchema', () => {
   it('normalises the email the same way every other auth body does', () => {
@@ -35,5 +40,15 @@ describe('AvailabilityResponseSchema', () => {
       phoneTaken: false,
     });
     expect(AvailabilityResponseSchema.safeParse({ emailTaken: 'yes' }).success).toBe(false);
+  });
+});
+
+describe('PhoneAccountCheckSchema', () => {
+  it('takes a trimmed E.164 phone', () => {
+    expect(PhoneAccountCheckSchema.parse({ phone: ' +201001234567 ' })).toEqual({ phone: '+201001234567' });
+  });
+
+  it('refuses a phone that is not E.164', () => {
+    expect(PhoneAccountCheckSchema.safeParse({ phone: '01001234567' }).success).toBe(false);
   });
 });

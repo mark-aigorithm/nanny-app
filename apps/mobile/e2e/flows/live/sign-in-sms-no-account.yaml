@@ -1,9 +1,11 @@
-# The orphan guard — the failure that made an account look deleted.
+# A number nobody registered is told so before any SMS is sent.
 #
-# Confirming a code *is* a sign-in, so Firebase mints a phone-only account for a
-# number nobody registered. The app must delete it and say so; the assertion
-# that matters is the harness one at the end, because a stray account is exactly
-# what a screen cannot show you.
+# The sign-in door asks /auth/phone-account first, so no code goes out and
+# Firebase never mints the phone-only account a confirmed code would. (If the
+# check fails the app sends the code anyway, and the after-confirm guard
+# deletes that stray — the unit tests cover that path.) The assertion that
+# matters is the harness one at the end: a stray account is exactly what a
+# screen cannot show you.
 appId: com.nannyapp.mobile
 ---
 - runFlow: ../_launch.yaml
@@ -16,21 +18,11 @@ appId: com.nannyapp.mobile
 - hideKeyboard
 - tapOn: 'Send code'
 
-- extendedWaitUntil:
-    visible: "Didn't get a code\\?"
-    timeout: 60000
-
-- tapOn:
-    id: 'signIn.code.boxes'
-- inputText: ${ABSENT_CODE}
-- hideKeyboard
-- tapOn: 'Sign in'
-
-# Shown under the phone field once the screen has dropped back to it — and only
-# after the delete has resolved, so the check below is not racing it.
+# Shown under the phone field straight away — no code screen, no SMS.
 - extendedWaitUntil:
     visible: "We couldn't find an account for that number. Sign up first."
-    timeout: 60000
+    timeout: 30000
+- assertNotVisible: "Didn't get a code\\?"
 - assertNotVisible: 'Book care'
 
 # Nothing may be left squatting on the number.

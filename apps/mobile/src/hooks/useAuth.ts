@@ -21,6 +21,7 @@ import { useMutation } from '@tanstack/react-query';
 import type {
   AvailabilityResponse,
   CheckAvailabilityRequest,
+  PhoneAccountCheckResponse,
   RegisterRequest,
   SetVerifiedEmailRequest,
   SetVerifiedEmailResponse,
@@ -67,6 +68,19 @@ function noAccountForPhoneWithParkedCredential(provider: SocialProvider): Mapped
     field: 'phone',
     message: `We couldn't find an account for that number. Continue with ${SOCIAL_PROVIDER_LABEL[provider]} to sign up with it.`,
   };
+}
+
+/**
+ * The error for a number with no account, chosen once for both places that
+ * find out — before the SMS (`useSendSignInCode`) and after the code (the
+ * sign-in door's discard). A credential parked for this attempt is cleared and
+ * offered instead of "Sign up first".
+ */
+function noAccountForPhoneError(): MappedAuthError {
+  const pending = usePendingLinkStore.getState().pending;
+  if (!pending) return NO_ACCOUNT_FOR_PHONE_ERROR;
+  usePendingLinkStore.getState().clear();
+  return noAccountForPhoneWithParkedCredential(pending.provider);
 }
 
 /**
@@ -257,9 +271,9 @@ export function useSignInWithEmail() {
 }
 
 /**
- * Sends an SMS code that signs in as the number — the sign-in door, the SMS
- * password reset and the phone wizard's step 3 — and hands back the handle the
- * code is checked against. `forceResend` marks a user-tapped resend rather
+ * Sends an SMS code that signs in as the number — the phone wizard's step 3
+ * directly, and the sign-in and SMS-reset doors through `useSendSignInCode` —
+ * and hands back the handle the code is checked against. `forceResend` marks a user-tapped resend rather
  * than the first send. (The Google/Apple wizard links a phone instead:
  * `useSendPhoneLinkCode`.)
  */
@@ -269,12 +283,45 @@ export function useSendPhoneOtp() {
     MappedAuthError,
     { phone: string; forceResend?: boolean }
   >({
+    mutationFn: ({ phone, forceResend }) => sendPhoneCode(phone, forceResend),
+  });
+}
+
+async function sendPhoneCode(phone: string, forceResend?: boolean): Promise<PhoneConfirmation> {
+  try {
+    return await auth().signInWithPhoneNumber(phone, forceResend);
+  } catch (error) {
+    throw mapFirebaseAuthError(error);
+  }
+}
+
+/**
+ * `useSendPhoneOtp` for the two doors that sign in to an existing account —
+ * SMS sign-in and SMS password reset. It asks `/auth/phone-account` first, so
+ * a number with no account (never registered, or deleted) is told so under
+ * the phone field without paying for an SMS.
+ *
+ * A failed check fails open and sends the code anyway: the account is checked
+ * again once the code is confirmed, so a flaky check never blocks a sign-in.
+ * A resend skips it — the number was checked before the first send.
+ */
+export function useSendSignInCode() {
+  return useMutation<
+    PhoneConfirmation,
+    MappedAuthError,
+    { phone: string; forceResend?: boolean }
+  >({
     mutationFn: async ({ phone, forceResend }) => {
-      try {
-        return await auth().signInWithPhoneNumber(phone, forceResend);
-      } catch (error) {
-        throw mapFirebaseAuthError(error);
+      if (!forceResend) {
+        let hasAccount = true;
+        try {
+          ({ hasAccount } = await unwrap<PhoneAccountCheckResponse>(api.post('/auth/phone-account', { phone })));
+        } catch {
+          // Fail open — see above.
+        }
+        if (!hasAccount) throw noAccountForPhoneError();
       }
+      return sendPhoneCode(phone, forceResend);
     },
   });
 }
@@ -306,16 +353,10 @@ export function useConfirmPhoneSignIn() {
       const account = await checkAccount(user);
       if (account === 'phone-only-new') {
         await discardPhoneOnlyAccount(user);
-        // Collision B parked a Google/Apple credential and sent her here on a
-        // phoneHint that turned out to belong to nobody — the credential is
-        // still real, so offer it instead of a dead-end "sign up first",
-        // which would just send her right back to the same banner.
-        const pending = usePendingLinkStore.getState().pending;
-        if (pending) {
-          usePendingLinkStore.getState().clear();
-          throw noAccountForPhoneWithParkedCredential(pending.provider);
-        }
-        throw NO_ACCOUNT_FOR_PHONE_ERROR;
+        // Collision B may have parked a Google/Apple credential and sent her
+        // here on a phoneHint that belongs to nobody — `noAccountForPhoneError`
+        // offers it rather than a dead-end "sign up first".
+        throw noAccountForPhoneError();
       }
 
       // Whatever social sign-up was under way belonged to another session —

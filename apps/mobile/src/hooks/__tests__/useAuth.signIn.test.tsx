@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockSignInWithEmailAndPassword = jest.fn();
 const mockSignOut = jest.fn();
+const mockSignInWithPhoneNumber = jest.fn();
 let mockCurrentUser: {
   uid: string;
   email: string | null;
@@ -18,6 +19,7 @@ jest.mock('@mobile/lib/firebase', () => ({
   auth: Object.assign(
     () => ({
       signInWithEmailAndPassword: mockSignInWithEmailAndPassword,
+      signInWithPhoneNumber: mockSignInWithPhoneNumber,
       signOut: mockSignOut,
       get currentUser() {
         return mockCurrentUser;
@@ -28,8 +30,9 @@ jest.mock('@mobile/lib/firebase', () => ({
 }));
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 jest.mock('@mobile/lib/api', () => ({
-  api: { get: (...args: unknown[]) => mockGet(...args) },
+  api: { get: (...args: unknown[]) => mockGet(...args), post: (...args: unknown[]) => mockPost(...args) },
   unwrap: async (p: Promise<{ data: { data: unknown } }>) => (await p).data.data,
   getApiErrorMessage: (_e: unknown, fallback: string) => fallback,
   apiStatusOf: (e: unknown) => (e as { response?: { status?: number } })?.response?.status ?? null,
@@ -50,6 +53,7 @@ jest.mock('@mobile/lib/socialAuth', () => ({
 import {
   useConfirmPhoneAndResetPassword,
   useConfirmPhoneSignIn,
+  useSendSignInCode,
   useSignInWithEmail,
 } from '@mobile/hooks/useAuth';
 import { COULD_NOT_CONNECT } from '@mobile/lib/authErrors';
@@ -198,6 +202,67 @@ describe('useSignInWithEmail', () => {
     expect(mockLinkPendingCredential).not.toHaveBeenCalled();
     // Kept for another try at the password.
     expect(usePendingLinkStore.getState().pending).not.toBeNull();
+    await settled(result);
+  });
+});
+
+describe('useSendSignInCode', () => {
+  const PHONE = '+201234567891';
+  const CONFIRMATION = { confirm: jest.fn() };
+  const answer = (hasAccount: boolean) => ({ data: { data: { hasAccount }, error: null } });
+
+  beforeEach(() => {
+    mockSignInWithPhoneNumber.mockResolvedValue(CONFIRMATION);
+  });
+
+  it('sends no SMS for a number with no account', async () => {
+    mockPost.mockResolvedValue(answer(false));
+    const { result } = wrap(() => useSendSignInCode());
+
+    await expect(result.current.mutateAsync({ phone: PHONE })).rejects.toEqual({ field: 'phone', message: NO_ACCOUNT });
+    expect(mockPost).toHaveBeenCalledWith('/auth/phone-account', { phone: PHONE });
+    expect(mockSignInWithPhoneNumber).not.toHaveBeenCalled();
+    await settled(result);
+  });
+
+  it('offers a parked Google credential instead of "sign up first", and clears it', async () => {
+    mockPost.mockResolvedValue(answer(false));
+    usePendingLinkStore.getState().set({ provider: 'google', credential: CREDENTIAL, phoneHint: PHONE });
+    const { result } = wrap(() => useSendSignInCode());
+
+    await expect(result.current.mutateAsync({ phone: PHONE })).rejects.toEqual({
+      field: 'phone',
+      message: "We couldn't find an account for that number. Continue with Google to sign up with it.",
+    });
+    expect(usePendingLinkStore.getState().pending).toBeNull();
+    expect(mockSignInWithPhoneNumber).not.toHaveBeenCalled();
+    await settled(result);
+  });
+
+  it('sends the SMS for a number with an account', async () => {
+    mockPost.mockResolvedValue(answer(true));
+    const { result } = wrap(() => useSendSignInCode());
+
+    await expect(result.current.mutateAsync({ phone: PHONE })).resolves.toBe(CONFIRMATION);
+    expect(mockSignInWithPhoneNumber).toHaveBeenCalledWith(PHONE, undefined);
+    await settled(result);
+  });
+
+  it('fails open — sends the SMS anyway — when the check itself fails', async () => {
+    mockPost.mockRejectedValue(new Error('offline'));
+    const { result } = wrap(() => useSendSignInCode());
+
+    await expect(result.current.mutateAsync({ phone: PHONE })).resolves.toBe(CONFIRMATION);
+    expect(mockSignInWithPhoneNumber).toHaveBeenCalledTimes(1);
+    await settled(result);
+  });
+
+  it('skips the check on a resend — the number was checked before the first send', async () => {
+    const { result } = wrap(() => useSendSignInCode());
+
+    await result.current.mutateAsync({ phone: PHONE, forceResend: true });
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(mockSignInWithPhoneNumber).toHaveBeenCalledWith(PHONE, true);
     await settled(result);
   });
 });

@@ -46,8 +46,10 @@ jest.mock('@mobile/lib/firebase', () => ({
 }));
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 jest.mock('@mobile/lib/api', () => ({
-  api: { get: (...args: unknown[]) => mockGet(...args) },
+  api: { get: (...args: unknown[]) => mockGet(...args), post: (...args: unknown[]) => mockPost(...args) },
+  unwrap: async (p: Promise<{ data: { data: unknown } }>) => (await p).data.data,
   apiStatusOf: (e: unknown) => (e as { response?: { status?: number } })?.response?.status ?? null,
   isNotFound: (e: unknown) => (e as { response?: { status?: number } })?.response?.status === 404,
 }));
@@ -75,6 +77,8 @@ function renderScreen() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // /auth/phone-account — the number has an account unless a test says not.
+  mockPost.mockResolvedValue({ data: { data: { hasAccount: true }, error: null } });
   mockCanGoBack.mockReturnValue(true);
   mockSendReset.mockResolvedValue(undefined);
   mockCurrentUser = {
@@ -237,4 +241,18 @@ it('falls back to the sign-in landing when there is nothing to go back to', () =
   fireEvent.press(screen.getByLabelText('Back'));
   expect(mockBack).not.toHaveBeenCalled();
   expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+});
+
+it('says a number has no account before any reset SMS is sent', async () => {
+  mockPost.mockResolvedValue({ data: { data: { hasAccount: false }, error: null } });
+  renderScreen();
+
+  fireEvent.press(screen.getByText('Text me a code instead'));
+  fireEvent.changeText(screen.getByTestId('forgotPassword.phone'), '1234567893');
+  fireEvent.press(screen.getByText('Send code'));
+
+  expect(
+    await screen.findByText("We couldn't find an account for that number. Sign up first."),
+  ).toBeTruthy();
+  expect(mockSignInWithPhoneNumber).not.toHaveBeenCalled();
 });

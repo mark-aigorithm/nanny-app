@@ -3,6 +3,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import {
   CheckAvailabilitySchema,
   DeleteMeRequestSchema,
+  PhoneAccountCheckSchema,
   ReclaimEmailRequestSchema,
   RegisterRequestSchema,
   SaveChildrenSchema,
@@ -19,6 +20,7 @@ import { ok } from '@backend/lib/api-response';
 import { errors } from '@backend/lib/errors';
 import {
   checkAvailability,
+  phoneHasAccount,
   registerUser,
   getMe,
   getMyChildren,
@@ -75,6 +77,27 @@ authRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await checkAvailability(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * POST /auth/phone-account
+ * The SMS sign-in and SMS reset doors ask this before sending a code, so a
+ * number with no account (never registered, or deleted) is told so without
+ * paying for an SMS. Public: the caller isn't signed in yet.
+ *
+ * An enumeration oracle for phone numbers, like /auth/availability above; it
+ * waits on the same per-IP limiter (FOUND-05).
+ */
+authRouter.post(
+  '/phone-account',
+  validateBody(PhoneAccountCheckSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await phoneHasAccount(req.body.phone)));
     } catch (err) {
       next(err);
     }
