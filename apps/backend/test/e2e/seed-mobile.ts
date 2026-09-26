@@ -257,6 +257,24 @@ async function configurePlatform(settings: Record<string, string>): Promise<void
 }
 
 /**
+ * Puts the Terms of Service and Privacy Policy back to their placeholders.
+ *
+ * The admin suite edits these documents through the console, against the same
+ * test database, so a mobile run after it would otherwise find the admin's
+ * text where C2 expects the placeholder. Soft-deleting the one
+ * `legal_documents` row is what an untouched platform looks like: every read
+ * filters on `deletedAt`, and a missing row reads as the placeholders.
+ */
+async function resetLegalDocuments(): Promise<void> {
+  const { count } = await prisma.appSettings.updateMany({
+    where: { key: 'legal_documents', deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  // eslint-disable-next-line no-console
+  console.log(`[seed-mobile] legal     ${count ? 'reset to placeholders' : 'already placeholders'}`);
+}
+
+/**
  * Undoes the previous run for these accounts.
  *
  * Soft deletes throughout, which is enough because every read that matters
@@ -494,6 +512,7 @@ async function main(): Promise<void> {
   }
 
   await configurePlatform(fixtures.platformSettings);
+  await resetLegalDocuments();
 
   const specs = JSON.parse(rawAccounts) as AccountSpec[];
   const userIds: number[] = [];

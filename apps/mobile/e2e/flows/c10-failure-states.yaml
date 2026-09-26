@@ -20,6 +20,10 @@
 # then signs in as. The 401 path is asserted where it can be: the backend's own
 # integration tests reject tampered and stale tokens directly.
 appId: com.nannyapp.mobile
+# Runs even when a step fails: a device left in airplane mode fails every flow
+# after this one on "You're offline".
+onFlowComplete:
+  - setAirplaneMode: disabled
 ---
 - runFlow: _launch.yaml
 

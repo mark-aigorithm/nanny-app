@@ -32,7 +32,15 @@ appId: com.nannyapp.mobile
 - assertTrue: ${output.status == 'IN_PROGRESS'}
 
 - runFlow: _open-running-booking.yaml
-- assertVisible: '4 hours'
+# The Duration row sits below the address, shift and nanny-contact cards, so
+# it is off screen on arrival: scroll down to read it, then back up to the
+# shift card the next steps drive.
+- scrollUntilVisible:
+    element: '4 hours'
+    direction: DOWN
+- scrollUntilVisible:
+    element: 'SHIFT IN PROGRESS'
+    direction: UP
 
 # ── Ask for two more hours ─────────────────────────────────────────────────
 - assertVisible: 'SHIFT IN PROGRESS'
@@ -75,5 +83,8 @@ appId: com.nannyapp.mobile
 
 # ── The booking is longer ──────────────────────────────────────────────────
 - runFlow: _open-running-booking.yaml
-- assertVisible: '6 hours'
+# Checked before scrolling: the confirmed-extension card would sit at the top.
 - assertNotVisible: 'EXTRA HOURS CONFIRMED'
+- scrollUntilVisible:
+    element: '6 hours'
+    direction: DOWN
