@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 
 import {
   Avatar,
+  Button,
   FadeInView,
   IconCircle,
   PressableScale,
@@ -211,16 +212,16 @@ export default function MotherProfileWalletScreen() {
               {signOut.isPending ? 'Signing out…' : 'Sign out'}
             </Text>
           </PressableScale>
-          <PressableScale
-            style={styles.listItem}
+        </FadeInView>
+
+        <FadeInView index={5}>
+          <Button
+            variant="destructive"
+            title={isDeleting ? 'Deleting…' : 'Delete account'}
+            icon="trash-outline"
             disabled={isDeleting || signOut.isPending}
             onPress={confirmDeleteAccount}
-          >
-            <Ionicons name="trash-outline" size={22} color={colors.errorDark} />
-            <Text style={[styles.listItemLabel, styles.listItemDestructive]}>
-              {isDeleting ? 'Deleting…' : 'Delete account'}
-            </Text>
-          </PressableScale>
+          />
         </FadeInView>
       </ScrollView>
     </ScreenContainer>
