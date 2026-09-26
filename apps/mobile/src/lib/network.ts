@@ -26,10 +26,39 @@ export async function readIsOffline(): Promise<boolean> {
   }
 }
 
-/** Calls `listener` on every OS connectivity change. Returns the unsubscribe. */
+/**
+ * How long after a connectivity event to read the state again. Long enough for
+ * Android to finish tearing the lost network down, short enough that the
+ * offline screen still feels immediate.
+ */
+export const SETTLE_REREAD_MS = 1500;
+
+/**
+ * Calls `listener` on every OS connectivity change, then once more with a
+ * fresh read shortly after. Returns the unsubscribe.
+ *
+ * The second read is not belt-and-braces. On Android, expo-network builds the
+ * event it sends from `onLost` by asking for the *active* network at that
+ * instant — and that can still name the network being lost. The event then
+ * says "online", nothing follows it, and the app never notices it went
+ * offline (seen on the emulator as airplane mode with no offline screen). By
+ * the settled re-read the OS has caught up.
+ */
 export function subscribeIsOffline(listener: (isOffline: boolean) => void): () => void {
+  let active = true;
+  let settle: ReturnType<typeof setTimeout> | undefined;
   const subscription = Network.addNetworkStateListener((state) => {
     listener(isOfflineState(state));
+    clearTimeout(settle);
+    settle = setTimeout(() => {
+      void readIsOffline().then((offline) => {
+        if (active) listener(offline);
+      });
+    }, SETTLE_REREAD_MS);
   });
-  return () => subscription.remove();
+  return () => {
+    active = false;
+    clearTimeout(settle);
+    subscription.remove();
+  };
 }
