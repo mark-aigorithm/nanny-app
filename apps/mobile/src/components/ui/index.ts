@@ -17,3 +17,6 @@ export { default as StarRatingInput, RATING_LABELS } from './star-rating-input';
 export { default as Stepper } from './stepper';
 export { default as CollapsibleCard } from './collapsible-card';
 export { default as PulseRings } from './pulse-rings';
+export { default as PressableScale } from './pressable-scale';
+export type { PressableScaleProps } from './pressable-scale';
+export { default as FadeInView } from './fade-in-view';

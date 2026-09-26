@@ -1,14 +1,10 @@
 import React from 'react';
-import {
-  Pressable,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
+import { Text, ActivityIndicator, StyleSheet } from 'react-native';
 import type { ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, borderRadius, shadows, spacing } from '@mobile/theme';
+import PressableScale from './pressable-scale';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'text' | 'destructive';
 type ButtonSize = 'md' | 'sm';
@@ -52,15 +48,16 @@ export default function Button({
   const iconSize = size === 'md' ? 20 : 16;
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      haptic={variant === 'primary' || variant === 'destructive' ? 'tap' : undefined}
+      style={[
         styles.base,
         {
           height,
           backgroundColor: variantStyle.bg,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          opacity: disabled ? 0.5 : 1,
         },
         variantStyle.border ? { borderWidth: 1.5, borderColor: variantStyle.border } : undefined,
         variant === 'primary' ? shadows.md : undefined,
@@ -98,7 +95,7 @@ export default function Button({
           )}
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
