@@ -15,6 +15,8 @@ import { useSignOut } from '@mobile/hooks/useAuth';
 import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
+import { usePackageHours } from '@mobile/hooks/usePackages';
+import { useRewardWallet } from '@mobile/hooks/useRewards';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/mother-profile-wallet-screen.styles';
@@ -40,6 +42,10 @@ export default function MotherProfileWalletScreen() {
   const { isGuest } = useGuestGate();
   const { data: unreadData } = useUnreadMessageCount(!isGuest);
   const hasUnread = (unreadData?.unreadCount ?? 0) > 0;
+  const { data: packageHours } = usePackageHours(!isGuest);
+  const { data: rewardWallet } = useRewardWallet(!isGuest);
+  const hoursValue = packageHours ? `${packageHours.availableHours}h` : '—';
+  const pointsValue = rewardWallet ? rewardWallet.pointsBalance.toLocaleString() : '—';
 
   const displayName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -119,44 +125,41 @@ export default function MotherProfileWalletScreen() {
           ))}
         </FadeInView>
 
+        {/* Wallet: what she holds. Buying lives on the Services tab. */}
+        {!isGuest && (
+          <FadeInView index={1} style={styles.walletCard}>
+            <Text style={styles.walletTitle}>Wallet</Text>
+            <View style={styles.walletRow}>
+              <PressableScale
+                style={styles.walletHalf}
+                onPress={() => router.push('/(parent)/package-hours' as never)}
+              >
+                <IconCircle icon="time-outline" size="sm" />
+                <Text style={styles.walletLabel}>Care hours</Text>
+                <Text style={styles.walletValue}>{hoursValue}</Text>
+                <Text style={styles.walletCaption}>available</Text>
+              </PressableScale>
+              <View style={styles.walletDivider} />
+              <PressableScale
+                style={styles.walletHalf}
+                onPress={() => router.push('/(parent)/rewards' as never)}
+              >
+                <IconCircle
+                  icon="gift-outline"
+                  size="sm"
+                  backgroundColor={colors.tintYellow}
+                  iconColor={colors.tintAmber}
+                />
+                <Text style={styles.walletLabel}>Care Points</Text>
+                <Text style={styles.walletValue}>{pointsValue}</Text>
+                <Text style={styles.walletCaption}>points</Text>
+              </PressableScale>
+            </View>
+          </FadeInView>
+        )}
+
         {/* Promo cards */}
-        <FadeInView index={1}>
-          <PressableScale
-            style={styles.promoCard}
-            onPress={() =>
-              router.push({
-                pathname: '/(parent)/rewards',
-                params: { returnTo: 'mother-profile' },
-              } as never)
-            }
-          >
-            <View style={styles.promoTextWrap}>
-              <Text style={styles.promoTitle}>Care Points</Text>
-              <Text style={styles.promoSubtitle}>Earn rewards on every booking</Text>
-            </View>
-            <IconCircle
-              icon="gift-outline"
-              size="lg"
-              backgroundColor={colors.tintYellow}
-              iconColor={colors.tintAmber}
-            />
-          </PressableScale>
-        </FadeInView>
-
         <FadeInView index={2}>
-          <PressableScale
-            style={styles.promoCard}
-            onPress={() => router.push('/(parent)/packages' as never)}
-          >
-            <View style={styles.promoTextWrap}>
-              <Text style={styles.promoTitle}>Packages</Text>
-              <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
-            </View>
-            <IconCircle icon="time-outline" size="lg" />
-          </PressableScale>
-        </FadeInView>
-
-        <FadeInView index={3}>
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
@@ -174,7 +177,7 @@ export default function MotherProfileWalletScreen() {
           </PressableScale>
         </FadeInView>
 
-        <FadeInView index={4}>
+        <FadeInView index={3}>
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
@@ -193,7 +196,7 @@ export default function MotherProfileWalletScreen() {
         </FadeInView>
 
         {/* List section */}
-        <FadeInView index={5} style={styles.listSection}>
+        <FadeInView index={4} style={styles.listSection}>
           <PressableScale
             style={styles.listItem}
             disabled={signOut.isPending || isDeleting}

@@ -18,10 +18,11 @@ export function usePackages() {
   });
 }
 
-export function usePackageHours() {
+export function usePackageHours(enabled = true) {
   return useQuery({
     queryKey: [PACKAGE_HOURS_KEY],
     queryFn: () => unwrap<PackageHoursBalance>(api.get('/packages/me/hours')),
+    enabled,
   });
 }
 

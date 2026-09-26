@@ -72,6 +72,46 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.error,
   },
 
+  // Wallet: two balances side by side, each opening its own history
+  walletCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  walletTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  walletRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  walletHalf: {
+    flex: 1,
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
+  },
+  walletDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: colors.warmBorder,
+    marginHorizontal: spacing.lg,
+  },
+  walletLabel: {
+    ...typeScale.labelMd,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  walletValue: {
+    ...typeScale.headingMd,
+    color: colors.textPrimary,
+  },
+  walletCaption: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+  },
+
   // Promo cards (title + subtitle left, icon circle right)
   promoCard: {
     flexDirection: 'row',

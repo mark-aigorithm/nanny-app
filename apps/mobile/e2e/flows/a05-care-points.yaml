@@ -20,9 +20,10 @@ appId: com.nannyapp.mobile
       EMAIL: ${MOTHER_EMAIL}
 
 # ── The balance ────────────────────────────────────────────────────────────
-- tapOn: 'Services'
+# Care Points lives in the Account tab's Wallet card; Services only sells.
+- tapOn: 'Account'
 - extendedWaitUntil:
-    visible: 'Care Points'
+    visible: 'Wallet'
     timeout: 30000
 - tapOn: 'Care Points'
 
@@ -33,10 +34,10 @@ appId: com.nannyapp.mobile
 - assertVisible: '100 points = 1 free care hour'
 
 # Care Points is a stack screen with no tab bar of its own, so getting back to
-# the tabs is a back press, not a tap on Home.
+# the tabs is a back press, which returns to the Account tab it was opened from.
 - back
 - extendedWaitUntil:
-    visible: 'Services'
+    visible: 'Wallet'
     timeout: 30000
 - tapOn: 'Home'
 
@@ -100,9 +101,9 @@ appId: com.nannyapp.mobile
 - extendedWaitUntil:
     visible: 'Book care'
     timeout: 30000
-- tapOn: 'Services'
+- tapOn: 'Account'
 - extendedWaitUntil:
-    visible: 'Care Points'
+    visible: 'Wallet'
     timeout: 30000
 - tapOn: 'Care Points'
 

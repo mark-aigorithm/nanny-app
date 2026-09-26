@@ -11,10 +11,11 @@ import { api, unwrap, unwrapPaginated } from '@mobile/lib/api';
 const REWARDS_KEY = 'rewards';
 
 /** The signed-in parent's Care Points wallet (balance + free-hour credit). */
-export function useRewardWallet() {
+export function useRewardWallet(enabled = true) {
   return useQuery({
     queryKey: [REWARDS_KEY, 'wallet'],
     queryFn: () => unwrap<RewardWallet>(api.get('/rewards/wallet')),
+    enabled,
   });
 }
 
