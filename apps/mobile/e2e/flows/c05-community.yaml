@@ -111,10 +111,9 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - assertVisible: 'Fits behind the back seat'
 
-# The arrow, not the hardware back button: `back` pops the whole community
-# section and lands on Home, because the create screen replaced the feed in the
-# stack on its way out. The arrow calls `exitPostDetail`, which navigates to the
-# feed the post was opened from — which is also what a person gets.
+# The arrow, which pops post detail back to the feed it was opened from (the
+# hardware back button does the same — every detail screen is a stack screen
+# over the tabs).
 - tapOn: 'Back'
 - extendedWaitUntil:
     visible: 'Q&A'

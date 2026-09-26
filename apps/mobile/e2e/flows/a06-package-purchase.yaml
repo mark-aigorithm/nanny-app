@@ -98,8 +98,12 @@ appId: com.nannyapp.mobile
 # ── Spend them ─────────────────────────────────────────────────────────────
 # One press is enough: the result screen replaced checkout and My Hours
 # replaced the whole packages flow (list, review, result), so back from My
-# Hours goes straight home.
+# Hours returns to the Services tab the flow was opened from.
 - back
+- extendedWaitUntil:
+    visible: 'Packages'
+    timeout: 30000
+- tapOn: 'Home'
 - extendedWaitUntil:
     visible: 'Book care'
     timeout: 30000

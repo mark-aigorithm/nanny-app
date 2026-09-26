@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { formatAddressArea, type Address, type AddressInput } from '@nanny-app/shared';
 
 import AddressFormSheet from '@mobile/components/AddressFormSheet';
@@ -14,7 +14,6 @@ import {
   useUpdateAddress,
 } from '@mobile/hooks/useAddresses';
 import { getApiErrorMessage } from '@mobile/lib/api';
-import { getProfileReturnHref } from '@mobile/lib/profileUtils';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/addresses-screen.styles';
 
@@ -28,7 +27,6 @@ type SheetState = { mode: 'closed' } | { mode: 'add' } | { mode: 'edit'; address
  */
 export default function AddressesScreen() {
   const router = useRouter();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { data: addresses, isLoading, isError, refetch } = useAddresses();
   const createAddress = useCreateAddress();
   const updateAddress = useUpdateAddress();
@@ -38,7 +36,7 @@ export default function AddressesScreen() {
   const [sheet, setSheet] = useState<SheetState>({ mode: 'closed' });
   const [sheetError, setSheetError] = useState<string | null>(null);
 
-  const handleBack = () => router.replace(getProfileReturnHref(returnTo) as never);
+  const handleBack = () => router.back();
 
   const openAdd = () => {
     setSheetError(null);

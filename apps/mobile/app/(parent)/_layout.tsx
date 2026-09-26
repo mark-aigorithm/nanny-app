@@ -1,12 +1,19 @@
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 
 import RatingPromptHost from '@mobile/components/RatingPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
 import IdUploadModal from '@mobile/components/IdUploadModal';
-import ParentTabBar from '@mobile/components/ParentTabBar';
 import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
-import { fadeRiseTransition } from '@mobile/lib/sceneTransitions';
 
+// A screen opened straight from a link or a notification still has the tabs
+// underneath it, so back lands somewhere instead of leaving the app.
+export const unstable_settings = { anchor: '(tabs)' };
+
+/**
+ * The parent area is a Stack over the (tabs) group: every detail screen and
+ * flow (book/, packages/, chat/…) is pushed on top of the tabs, so back —
+ * header or hardware — returns to the screen it was opened from.
+ */
 export default function ParentLayout() {
   const reducedMotion = useReducedMotion();
 
@@ -14,37 +21,9 @@ export default function ParentLayout() {
     <>
       <RegisterPromptModal />
       <IdUploadModal />
-      <Tabs
-        tabBar={props => <ParentTabBar {...props} />}
-        screenOptions={{ headerShown: false, ...fadeRiseTransition(reducedMotion) }}
-      >
-        <Tabs.Screen name="home" options={{ title: 'Home' }} />
-        <Tabs.Screen name="services" options={{ title: 'Services' }} />
-        <Tabs.Screen name="community" options={{ title: 'Community' }} />
-        <Tabs.Screen name="messages" options={{ title: 'Messages' }} />
-        <Tabs.Screen name="bookings" options={{ title: 'Activity' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-        <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
-        <Tabs.Screen name="mother-profile" options={{ title: 'Profile' }} />
-        <Tabs.Screen name="rewards" options={{ headerShown: false }} />
-        <Tabs.Screen name="packages" options={{ headerShown: false }} />
-        <Tabs.Screen name="package-hours" options={{ headerShown: false }} />
-        <Tabs.Screen name="refer-a-friend" options={{ headerShown: false }} />
-        <Tabs.Screen name="customer-support" options={{ title: 'Support' }} />
-        <Tabs.Screen name="book" options={{ title: 'Book' }} />
-        <Tabs.Screen name="chat" options={{ title: 'Chat' }} />
-        <Tabs.Screen name="nanny" options={{ title: 'Nanny' }} />
-        <Tabs.Screen name="marketplace" options={{ headerShown: false }} />
-        <Tabs.Screen name="events-meetups" options={{ headerShown: false }} />
-        <Tabs.Screen name="community-feed" options={{ headerShown: false }} />
-        <Tabs.Screen name="booking-history" options={{ headerShown: false }} />
-        <Tabs.Screen name="account-details" options={{ headerShown: false }} />
-        <Tabs.Screen name="create-post" options={{ headerShown: false }} />
-        <Tabs.Screen name="post-detail" options={{ headerShown: false }} />
-        <Tabs.Screen name="create-event" options={{ headerShown: false }} />
-        <Tabs.Screen name="marketplace-item-detail" options={{ headerShown: false }} />
-        <Tabs.Screen name="create-listing" options={{ headerShown: false }} />
-      </Tabs>
+      <Stack screenOptions={{ headerShown: false, animation: reducedMotion ? 'none' : 'default' }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
       <RatingPromptHost />
     </>
   );

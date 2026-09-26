@@ -9,7 +9,6 @@ export function navigateToBookingDetail(
     pathname: '/(parent)/book/booking-detail',
     params: {
       bookingId,
-      returnTo: 'bookings',
       ...(options?.focusCareLog ? { focusCareLog: '1' } : {}),
     },
   } as never);

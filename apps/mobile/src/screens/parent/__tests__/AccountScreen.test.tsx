@@ -119,22 +119,16 @@ describe('Account screen', () => {
     const { getByText } = renderScreen();
 
     fireEvent.press(getByText('Account details'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/account-details',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/account-details');
 
     fireEvent.press(getByText('Help'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/customer-support',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/customer-support');
 
     fireEvent.press(getByText('Inbox'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/messages');
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/messages');
 
     fireEvent.press(getByText('Notifications'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/notifications');
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/notifications');
   });
 
   it('shows the wallet balances and opens each history', async () => {
@@ -158,14 +152,11 @@ describe('Account screen', () => {
     expect(queryByText('Care Points')).toBeNull();
   });
 
-  it('routes the promo cards with returnTo mother-profile', () => {
+  it('routes the promo cards', () => {
     const { getByText } = renderScreen();
 
     fireEvent.press(getByText('Refer a friend'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/refer-a-friend',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/refer-a-friend');
   });
 
   it('signs out from the list section', () => {

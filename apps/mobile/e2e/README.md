@@ -416,11 +416,11 @@ effect: after checking a shift is due, the nanny's app opens onto a **"Shift sta
 and a tap aimed at the tab bar behind it silently does nothing — C4 waits for the prompt and uses it,
 which is what a nanny does anyway.
 
-**`back` pops further than you expect.** Screens that navigate with `router.replace` leave nothing
-underneath, so the hardware back button skips the screen a flow came from and lands on Home. Seen in
-C8 (a notification routing *across* sections), C5 (post detail, after the create screen replaced the
-feed) and C10 (Refer a friend). Use the screen's own back arrow — which is why `PostDetailScreen`
-and `ChatThreadScreen` now carry `accessibilityLabel="Back"`.
+**`back` returns to where the screen was opened from.** The parent area is a Stack over the
+`(tabs)` group, so every detail screen and flow is pushed over the tab it came from and `back` pops
+to it — assert on that screen, not on Home. The exceptions are the ends of a flow (booking
+confirmation, both payment results): their back leaves the whole flow for Home. A screen reached by
+`router.replace` (My Hours after a package purchase) sits where the flow it replaced sat.
 
 **A text selector must match the whole node.** It bites hardest on a sentence with a value in the
 middle: the referral hero renders as *one* node, so `'They start with 100 Care Points'` matches

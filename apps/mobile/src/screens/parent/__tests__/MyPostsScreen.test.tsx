@@ -90,7 +90,7 @@ describe('MyPostsScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(
       expect.objectContaining({
         pathname: '/(parent)/create-post',
-        params: expect.objectContaining({ postId: '44', returnTo: 'my-posts' }),
+        params: { postId: '44' },
       }),
     );
   });
@@ -137,7 +137,7 @@ describe('MyPostsScreen', () => {
     expect(queryByText('Edit & resubmit')).toBeNull();
   });
 
-  it('opens a live post in the feed it belongs to', async () => {
+  it('opens a live post', async () => {
     mockPosts([makePost({ id: 45, type: 'event', title: 'Coffee morning', price: null })]);
 
     const { getByText, queryByText } = renderScreen();
@@ -149,7 +149,7 @@ describe('MyPostsScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(
       expect.objectContaining({
         pathname: '/(parent)/post-detail',
-        params: expect.objectContaining({ postId: '45', filter: 'Events' }),
+        params: { postId: '45' },
       }),
     );
   });

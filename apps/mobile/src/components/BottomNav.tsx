@@ -32,35 +32,35 @@ const TABS: {
   label: string;
   activeIcon: keyof typeof Ionicons.glyphMap;
   inactiveIcon: keyof typeof Ionicons.glyphMap;
-  href: '/(parent)/home' | '/(parent)/services' | '/(parent)/bookings' | '/(parent)/mother-profile';
+  href: '/(parent)/(tabs)/home' | '/(parent)/(tabs)/services' | '/(parent)/(tabs)/bookings' | '/(parent)/(tabs)/mother-profile';
 }[] = [
   {
     key: 'home',
     label: 'Home',
     activeIcon: 'home',
     inactiveIcon: 'home-outline',
-    href: '/(parent)/home',
+    href: '/(parent)/(tabs)/home',
   },
   {
     key: 'services',
     label: 'Services',
     activeIcon: 'grid',
     inactiveIcon: 'grid-outline',
-    href: '/(parent)/services',
+    href: '/(parent)/(tabs)/services',
   },
   {
     key: 'activity',
     label: 'Activity',
     activeIcon: 'receipt',
     inactiveIcon: 'receipt-outline',
-    href: '/(parent)/bookings',
+    href: '/(parent)/(tabs)/bookings',
   },
   {
     key: 'account',
     label: 'Account',
     activeIcon: 'person',
     inactiveIcon: 'person-outline',
-    href: '/(parent)/mother-profile',
+    href: '/(parent)/(tabs)/mother-profile',
   },
 ];
 
@@ -135,7 +135,7 @@ export default function BottomNav({ activeTab }: Props) {
         {TABS.map(tab => {
           const isActive = tab.key === activeTab;
           const guestMessage = GUEST_GATE_MESSAGES[tab.key];
-          const navigate = () => router.push(tab.href);
+          const navigate = () => router.navigate(tab.href);
           return (
             <PressableScale
               key={tab.key}

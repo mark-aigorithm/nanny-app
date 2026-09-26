@@ -24,6 +24,7 @@ import {
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
+import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { confirmDialog } from '@mobile/store/confirmDialogStore';
@@ -166,14 +167,17 @@ export default function BookingConfirmationScreen() {
       onConfirm: () =>
         cancelBooking.mutate(
           { id: booking.id, reason: 'Cancelled by parent' },
-          { onSuccess: () => router.replace('/(parent)/home') },
+          { onSuccess: () => router.dismissTo('/(parent)/(tabs)/home') },
         ),
     });
   };
 
   const handleBackToHome = () => {
-    router.replace('/(parent)/home');
+    router.dismissTo('/(parent)/(tabs)/home');
   };
+  // The flow behind this screen is finished; back leaves it rather than
+  // walking into steps already done.
+  useHardwareBack(handleBackToHome);
 
   if (isLoading || !booking) {
     return (

@@ -43,13 +43,19 @@ export default function ServicesHubScreen() {
   const openTile = (key: string) => {
     switch (key) {
       case 'community':
-        router.push('/(parent)/community');
+        router.push('/(parent)/(tabs)/community');
         break;
       case 'marketplace':
-        router.push('/(parent)/marketplace');
+        router.push({
+          pathname: '/(parent)/(tabs)/community-feed',
+          params: { filter: 'Marketplace' },
+        });
         break;
       case 'events':
-        router.push('/(parent)/events-meetups');
+        router.push({
+          pathname: '/(parent)/(tabs)/community-feed',
+          params: { filter: 'Events' },
+        });
         break;
       case 'packages':
         router.push('/(parent)/packages' as never);

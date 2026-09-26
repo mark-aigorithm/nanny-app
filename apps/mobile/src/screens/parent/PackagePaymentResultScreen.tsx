@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PaymentStatus } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
+import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useSyncPackagePayment, usePackageHours } from '@mobile/hooks/usePackages';
 import type { PackageFlowParams } from '@mobile/lib/packagePurchaseDraft';
 import { styles } from './styles/package-payment-result-screen.styles';
@@ -148,8 +149,11 @@ export default function PackagePaymentResultScreen() {
   };
 
   const handleBackHome = () => {
-    router.replace('/(parent)/home');
+    router.dismissTo('/(parent)/(tabs)/home');
   };
+  // The flow behind this screen is finished; back leaves it rather than
+  // walking into steps already done.
+  useHardwareBack(handleBackHome);
 
   if (purchaseId && (outcome === 'loading' || outcome === 'pending')) {
     return (

@@ -8,21 +8,16 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { whatsappLink } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';
 import type { FaqItem } from '@mobile/types';
-import { getProfileReturnHref } from '@mobile/lib/profileUtils';
 import { useSupportContact, useSupportFaq } from '@mobile/hooks/useSupport';
 import { styles } from './styles/customer-support-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 export default function CustomerSupportScreen() {
   const router = useRouter();
-  const { returnTo, profileReturnTo } = useLocalSearchParams<{
-    returnTo?: string;
-    profileReturnTo?: string;
-  }>();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(1);
   const [searchQuery, setSearchQuery] = useState('');
   const { data: support } = useSupportContact();
@@ -44,20 +39,7 @@ export default function CustomerSupportScreen() {
       )
     : faqs;
 
-  const handleBack = () => {
-    if (returnTo === 'mother-profile') {
-      router.replace({
-        pathname: '/(parent)/mother-profile',
-        params: { returnTo: profileReturnTo ?? 'home' },
-      } as never);
-      return;
-    }
-    if (returnTo) {
-      router.replace(getProfileReturnHref(returnTo) as never);
-      return;
-    }
-    router.back();
-  };
+  const handleBack = () => router.back();
 
   /**
    * Deep links can fail — no dialer on the device, no mail client configured.
@@ -173,7 +155,7 @@ export default function CustomerSupportScreen() {
 
             <Pressable
               style={styles.contactCard}
-              onPress={() => router.push('/(parent)/community')}
+              onPress={() => router.dismissTo('/(parent)/(tabs)/community')}
             >
               <View style={styles.contactIconWrapBeige}>
                 <Ionicons name="chatbubbles-outline" size={20} color={colors.textTertiary} />

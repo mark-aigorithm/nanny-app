@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
 import { useUpdateProfile } from '@mobile/hooks/useMe';
 import { isLocalImageUri, uploadImageToFirebase } from '@mobile/lib/storage';
@@ -22,7 +22,6 @@ import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 export default function AccountDetailsScreen() {
   const router = useRouter();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const updateProfile = useUpdateProfile();
   const profile = useUserProfileStore((s) => s.profile);
 
@@ -75,12 +74,7 @@ export default function AccountDetailsScreen() {
     }
   }
 
-  const handleBack = () => {
-    router.replace({
-      pathname: '/(parent)/mother-profile',
-      params: { returnTo: returnTo ?? 'home' },
-    } as never);
-  };
+  const handleBack = () => router.back();
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -194,10 +188,7 @@ export default function AccountDetailsScreen() {
             <Pressable
               style={styles.linkRow}
               onPress={() =>
-                router.push({
-                  pathname: '/(parent)/addresses',
-                  params: { returnTo: 'account-details' },
-                } as never)
+                router.push('/(parent)/addresses' as never)
               }
               accessibilityRole="button"
               accessibilityLabel="Manage addresses"

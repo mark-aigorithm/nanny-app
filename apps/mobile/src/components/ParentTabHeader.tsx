@@ -30,7 +30,7 @@ export default function ParentTabHeader({ bottomContent }: ParentTabHeaderProps)
   const { gate } = useGuestGate();
 
   const openProfile = () => {
-    router.push('/(parent)/mother-profile' as never);
+    router.push('/(parent)/(tabs)/mother-profile' as never);
   };
 
   return (

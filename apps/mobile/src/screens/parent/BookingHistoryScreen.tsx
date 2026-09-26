@@ -48,14 +48,14 @@ export default function BookingHistoryScreen() {
   const handleViewDetails = (bookingId: string) => {
     router.push({
       pathname: '/(parent)/book/booking-detail',
-      params: { bookingId, returnTo: 'bookings' },
+      params: { bookingId },
     } as never);
   };
 
   const handleLeaveReview = (bookingId: string) => {
     router.push({
       pathname: '/(parent)/book/review',
-      params: { bookingId, returnTo: 'bookings' },
+      params: { bookingId },
     } as never);
   };
 
@@ -90,7 +90,7 @@ export default function BookingHistoryScreen() {
           onPressBooking={(booking) =>
             router.push({
               pathname: '/(parent)/book/booking-detail',
-              params: { bookingId: booking.id, returnTo: 'bookings' },
+              params: { bookingId: booking.id },
             } as never)
           }
         />

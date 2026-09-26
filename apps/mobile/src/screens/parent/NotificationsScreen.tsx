@@ -87,7 +87,7 @@ export default function NotificationsScreen() {
       } else {
         router.push({
           pathname: '/(parent)/post-detail',
-          params: { postId: notification.referenceId, returnTo: 'community' },
+          params: { postId: notification.referenceId },
         });
       }
       return;
@@ -108,7 +108,7 @@ export default function NotificationsScreen() {
       notification.type === 'nanny_checkin' ||
       notification.type === 'booking_completed'
     ) {
-      router.push('/(parent)/bookings' as never);
+      router.push('/(parent)/(tabs)/bookings' as never);
     }
   };
 

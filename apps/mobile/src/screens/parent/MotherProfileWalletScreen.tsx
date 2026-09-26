@@ -57,22 +57,16 @@ export default function MotherProfileWalletScreen() {
   const handleTilePress = (key: (typeof QUICK_TILES)[number]['key']) => {
     switch (key) {
       case 'account':
-        router.push({
-          pathname: '/(parent)/account-details',
-          params: { returnTo: 'mother-profile' },
-        } as never);
+        router.push('/(parent)/account-details' as never);
         break;
       case 'help':
-        router.push({
-          pathname: '/(parent)/customer-support',
-          params: { returnTo: 'mother-profile' },
-        } as never);
+        router.push('/(parent)/customer-support' as never);
         break;
       case 'inbox':
-        router.push('/(parent)/messages' as never);
+        router.push('/(parent)/(tabs)/messages' as never);
         break;
       case 'notifications':
-        router.push('/(parent)/notifications' as never);
+        router.push('/(parent)/(tabs)/notifications' as never);
         break;
     }
   };
@@ -164,10 +158,7 @@ export default function MotherProfileWalletScreen() {
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
-              router.push({
-                pathname: '/(parent)/addresses',
-                params: { returnTo: 'mother-profile' },
-              } as never)
+              router.push('/(parent)/addresses' as never)
             }
           >
             <View style={styles.promoTextWrap}>
@@ -182,10 +173,7 @@ export default function MotherProfileWalletScreen() {
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
-              router.push({
-                pathname: '/(parent)/refer-a-friend',
-                params: { returnTo: 'mother-profile' },
-              } as never)
+              router.push('/(parent)/refer-a-friend' as never)
             }
           >
             <View style={styles.promoTextWrap}>

@@ -50,18 +50,6 @@ export function getPostTypeTagStyle(type: CommunityPostType): 'qa' | 'marketplac
   return type;
 }
 
-/** The feed pill a post belongs under — for opening its detail from elsewhere. */
-export function feedFilterForType(type: CommunityPostType): 'Q&A' | 'Marketplace' | 'Events' {
-  switch (type) {
-    case 'qa':
-      return 'Q&A';
-    case 'marketplace':
-      return 'Marketplace';
-    case 'event':
-      return 'Events';
-  }
-}
-
 export type CommunityFeedFilter = CommunityPostType | undefined;
 
 export function filterPillToType(pill: string): CommunityFeedFilter {
@@ -132,28 +120,3 @@ export type CommentsPage = {
   comments: import('@nanny-app/shared').CommentResponse[];
   meta: PaginationMeta;
 };
-
-export type CommunityReturnTo = 'community' | 'community-feed' | 'my-posts';
-
-export function getCommunityReturnHref(params: {
-  returnTo?: string;
-  filter?: string;
-}): { pathname: string; params?: { filter: string } } {
-  if (params.returnTo === 'my-posts') {
-    return { pathname: '/(parent)/my-posts' };
-  }
-  if (params.returnTo === 'community-feed') {
-    return {
-      pathname: '/(parent)/community-feed',
-      ...(params.filter ? { params: { filter: params.filter } } : {}),
-    };
-  }
-  return {
-    pathname: '/(parent)/community',
-    ...(params.filter ? { params: { filter: params.filter } } : {}),
-  };
-}
-
-/** @deprecated Use getCommunityReturnHref */
-export const getCreatePostExitHref = getCommunityReturnHref;
-export type CreatePostReturnTo = CommunityReturnTo;
