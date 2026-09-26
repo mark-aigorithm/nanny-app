@@ -29,10 +29,6 @@ export type {
   CreatePostUiType,
 } from './community';
 
-export type { CreateEventData } from './events';
-
-export type { ProductItem, ProductDetail } from './marketplace';
-
 export type { Conversation, ChatMessage } from './messages';
 
 export type {
