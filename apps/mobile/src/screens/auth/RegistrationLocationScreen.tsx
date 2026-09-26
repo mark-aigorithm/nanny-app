@@ -1,24 +1,23 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { colors } from '@mobile/theme';
 import { PREFERENCE_OPTIONS } from '@mobile/constants';
 import Button from '@mobile/components/ui/button';
 import Chip from '@mobile/components/ui/chip';
+import AddressPartsFields from '@mobile/components/AddressPartsFields';
 import HomeLocationMapCard, {
   type HomeCoords,
 } from '@mobile/components/HomeLocationMapCard';
 import LocationSearchInput from '@mobile/components/LocationSearchInput';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
-import { reverseGeocode } from '@mobile/lib/googlePlaces';
+import { reverseGeocodeDetailed } from '@mobile/lib/googlePlaces';
 import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-location-screen.styles';
@@ -34,6 +33,7 @@ export default function RegistrationLocationScreen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+  const applyParts = useRegistrationDraftStore((s) => s.applyParts);
   const step = stepInfo('location', draft);
 
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -62,13 +62,17 @@ export default function RegistrationLocationScreen() {
   }
 
   // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to
-  // fill the address input so the two stay in sync.
+  // fill the address line and its parts so they stay in step with the pin.
+  // Only the latest pin's answer lands — two quick taps can resolve out of order.
+  const pinRequestRef = useRef(0);
   function handlePinChange(coords: HomeCoords) {
     setLocationError(null);
     patch(coords);
-    void reverseGeocode(coords).then((address) => {
-      if (address) {
-        patch({ address });
+    const request = ++pinRequestRef.current;
+    void reverseGeocodeDetailed(coords).then((geocoded) => {
+      if (geocoded && request === pinRequestRef.current) {
+        patch({ address: geocoded.formattedAddress });
+        applyParts(geocoded.parts);
         setAddressError(null);
       }
     });
@@ -108,10 +112,11 @@ export default function RegistrationLocationScreen() {
                 setAddressError(null);
                 patch({ address: val });
               }}
-              onSelectPlace={(coords, address) => {
+              onSelectPlace={(coords, address, parts) => {
                 setLocationError(null);
                 setAddressError(null);
                 patch({ ...coords, address });
+                applyParts(parts);
               }}
               placeholder="Street address"
             />
@@ -120,23 +125,14 @@ export default function RegistrationLocationScreen() {
                 field, so it renders only here. */}
             {addressError && <Text style={styles.addressErrorText}>{addressError}</Text>}
 
-            {/* Neighbourhood */}
-            <TextInput
-              style={styles.inputShort}
-              value={draft.neighbourhood}
-              onChangeText={(val) => patch({ neighbourhood: val })}
-              placeholder="Neighbourhood (optional)"
-              placeholderTextColor={colors.textPlaceholder}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-
             {/* Home location map picker */}
             <HomeLocationMapCard
               coords={pinCoords}
               onChange={handlePinChange}
               errorText={locationError}
             />
+
+            <AddressPartsFields values={draft} onChange={(key, value) => patch({ [key]: value })} />
           </View>
 
           {/* What matters most section */}

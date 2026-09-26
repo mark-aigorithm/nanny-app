@@ -191,6 +191,11 @@ export default function RegistrationFinishScreen() {
         address: draft.address,
         latitude,
         longitude,
+        // An emptied part is sent as '' and stored as "not given".
+        governorate: draft.governorate,
+        area: draft.area,
+        street: draft.street,
+        building: draft.building,
         idDocumentType: draft.idDocumentType ?? undefined,
         ...uploads,
         ...(apiRole === 'NANNY' && {

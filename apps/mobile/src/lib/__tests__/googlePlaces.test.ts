@@ -47,7 +47,7 @@ describe('placeDetails', () => {
       latitude: 29.96,
       longitude: 31.25,
       formattedAddress: '12 Rd 9, Maadi, Cairo Governorate, Egypt',
-      parts: { governorate: 'Cairo', area: 'Maadi', street: '12 Road 9' },
+      parts: { governorate: 'Cairo', area: 'Maadi', street: 'Road 9', building: '12' },
     });
   });
 });
@@ -66,7 +66,7 @@ describe('reverseGeocodeDetailed', () => {
 
     expect(result).toEqual({
       formattedAddress: '12 Rd 9, Maadi, Cairo Governorate, Egypt',
-      parts: { governorate: 'Cairo', area: 'Maadi', street: '12 Road 9' },
+      parts: { governorate: 'Cairo', area: 'Maadi', street: 'Road 9', building: '12' },
     });
   });
 
@@ -84,7 +84,49 @@ describe('reverseGeocodeDetailed', () => {
 
     const result = await reverseGeocodeDetailed({ latitude: 30.0, longitude: 31.49 });
 
-    expect(result?.parts).toEqual({ governorate: 'Cairo', area: 'New Cairo 1', street: null });
+    expect(result?.parts).toEqual({ governorate: 'Cairo', area: 'New Cairo 1', street: null, building: null });
+  });
+
+  it('takes the street from the nearest route when the pin resolves to a plus-code premise', async () => {
+    // Recorded shape for a pin inside a New Cairo block: Google tags the plus
+    // code as premise|street_address and only names the road in a later result.
+    respond({
+      status: 'OK',
+      results: [
+        {
+          formatted_address: '2F5R+3G2, New Cairo 1, Cairo Governorate 4727110, Egypt',
+          types: ['premise', 'street_address'],
+          address_components: [component('2F5R+3G2', 'plus_code'), component('New Cairo 1', 'administrative_area_level_2'), component('Cairo Governorate', 'administrative_area_level_1')],
+        },
+        { formatted_address: '2F4R+XG New Cairo 1, Egypt', types: ['plus_code'], address_components: [] },
+        {
+          formatted_address: 'Zizinia, New Cairo 1, Cairo Governorate, Egypt',
+          types: ['route'],
+          address_components: [component('Zizinia', 'route'), component('New Cairo 1', 'administrative_area_level_2')],
+        },
+      ],
+    });
+
+    const result = await reverseGeocodeDetailed({ latitude: 30.0074, longitude: 31.4913 });
+
+    expect(result).toEqual({
+      formattedAddress: '2F5R+3G2, New Cairo 1, Cairo Governorate 4727110, Egypt',
+      parts: { governorate: 'Cairo', area: 'New Cairo 1', street: 'Zizinia', building: null },
+    });
+  });
+
+  it('prefers a numbered street address over a numberless premise listed before it', async () => {
+    respond({
+      status: 'OK',
+      results: [
+        { formatted_address: 'Plus code premise', types: ['premise'], address_components: [component('2F5R+3G2', 'plus_code')] },
+        { formatted_address: '12 Rd 9, Maadi, Cairo Governorate, Egypt', types: ['street_address'], address_components: MAADI_STREET },
+      ],
+    });
+
+    const result = await reverseGeocodeDetailed({ latitude: 29.96, longitude: 31.25 });
+
+    expect(result?.parts).toMatchObject({ street: 'Road 9', building: '12' });
   });
 
   it('returns null on a non-OK status', async () => {

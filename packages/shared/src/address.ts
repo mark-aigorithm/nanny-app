@@ -36,8 +36,9 @@ export const AddressPartsSchema = z.object({
   governorate: optionalText(100),
   /** "Maadi", "New Cairo 1" — administrative_area_level_2. */
   area: optionalText(100),
-  /** "12 Road 9" — street_number + route, when the pin hit a street. */
+  /** "Road 9" — the route, when the pin hit or sits beside a street. */
   street: optionalText(100),
+  /** "12" — Google's street_number (or a named premise), when it knows the door. */
   building: optionalText(100),
   floor: optionalText(100),
   apartment: optionalText(100),
@@ -129,15 +130,18 @@ export type ParsedAddressParts = {
   governorate: string | null;
   area: string | null;
   street: string | null;
+  building: string | null;
 };
 
 /**
  * The structured parts Google actually provides for Egypt, probed live: there
  * is no `locality`; the governorate is administrative_area_level_1 and the
- * district is level 2. A street is only present when the result is a real
- * street address — a dropped pin often resolves to a plus code or a POI
- * first, so callers should prefer a `street_address` / `premise` result.
- * Building, floor and apartment never come from Google.
+ * district is level 2. The street is the `route`; the building is the
+ * `street_number` (the "30" of "30 Street 11" is the building's number), or a
+ * named `premise` when there is no number. Both are only present when the
+ * result is a real street address — a dropped pin often resolves to a plus
+ * code or a POI first, so callers should prefer a `street_address` /
+ * `premise` result. Floor and apartment never come from Google.
  */
 export function parseAddressComponents(
   components: readonly GoogleAddressComponent[] | undefined,
@@ -147,9 +151,71 @@ export function parseAddressComponents(
 
   const governorate = find('administrative_area_level_1')?.replace(/\s+Governorate$/i, '') ?? null;
   const area = find('administrative_area_level_2');
-  const route = find('route');
-  const number = find('street_number');
-  const street = route ? (number ? `${number} ${route}` : route) : null;
+  const street = find('route');
+  const building = find('street_number') ?? find('premise');
 
-  return { governorate, area, street };
+  return { governorate, area, street, building };
+}
+
+/** One reverse-geocoding result — the Geocoding REST JSON and the Maps JS Geocoder share it. */
+export type ReverseGeocodeResult = {
+  formatted_address?: string;
+  types?: readonly string[];
+  address_components?: readonly GoogleAddressComponent[];
+};
+
+/**
+ * The address a dropped pin means, out of everything Google answers for it.
+ * Google lists a plus code or the nearest POI first, so the first actual
+ * street address (`street_address` / `premise`) is preferred — one carrying a
+ * building number first, since Google also tags a bare plus code as
+ * `premise`. Falls back to the first result; null when there is none. When
+ * the chosen result names no street (a pin inside a New Cairo block), the
+ * street comes from the nearest result that has one — the road the pin sits
+ * on. The building is never borrowed: another result's number is another
+ * building.
+ */
+export function pickReverseGeocodeResult(
+  results: readonly ReverseGeocodeResult[],
+): { formattedAddress: string; parts: ParsedAddressParts } | null {
+  const isStreet = (r: ReverseGeocodeResult) =>
+    (r.types ?? []).some((t) => t === 'street_address' || t === 'premise');
+  const parsed = results.map((r) => parseAddressComponents(r.address_components));
+  const numbered = results.findIndex((r, i) => isStreet(r) && parsed[i]?.building != null);
+  const index = numbered >= 0 ? numbered : Math.max(results.findIndex(isStreet), 0);
+  const best = results[index];
+  const parts = parsed[index];
+  if (typeof best?.formatted_address !== 'string' || !parts) return null;
+  const nearestStreet = parsed.find((p) => p.street !== null)?.street ?? null;
+  return {
+    formattedAddress: best.formatted_address,
+    parts: { ...parts, street: parts.street ?? nearestStreet },
+  };
+}
+
+/** The form fields Google's parts land in — every address form has these four. */
+export type AddressPartFields = Record<keyof ParsedAddressParts, string>;
+
+const PART_KEYS = ['governorate', 'area', 'street', 'building'] as const;
+
+/**
+ * Lands a fresh search pick or pin's parts in a form. A part Google knows
+ * replaces the field; a part it doesn't know leaves the field alone — unless
+ * the field still holds exactly what the previous pick filled in, which
+ * belonged to the old spot (moving the pin off No. 30 must not keep "30" as
+ * the building). Anything typed by hand survives a pin move.
+ */
+export function applyAddressParts<F extends AddressPartFields>(
+  fields: F,
+  parts: ParsedAddressParts,
+  previous: ParsedAddressParts | null,
+): F {
+  const next: F = { ...fields };
+  for (const key of PART_KEYS) {
+    const known = parts[key];
+    const stale = previous?.[key];
+    if (known !== null) next[key] = known as F[typeof key];
+    else if (stale != null && fields[key] === stale) next[key] = '' as F[typeof key];
+  }
+  return next;
 }

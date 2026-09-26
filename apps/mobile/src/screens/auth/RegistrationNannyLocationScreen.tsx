@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,13 @@ import {
 import { useRouter } from 'expo-router';
 
 import Button from '@mobile/components/ui/button';
+import AddressPartsFields from '@mobile/components/AddressPartsFields';
 import HomeLocationMapCard, {
   type HomeCoords,
 } from '@mobile/components/HomeLocationMapCard';
 import LocationSearchInput from '@mobile/components/LocationSearchInput';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
-import { reverseGeocode } from '@mobile/lib/googlePlaces';
+import { reverseGeocodeDetailed } from '@mobile/lib/googlePlaces';
 import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-location-screen.styles';
@@ -30,6 +31,7 @@ export default function RegistrationNannyLocationScreen() {
 
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
+  const applyParts = useRegistrationDraftStore((s) => s.applyParts);
   const step = stepInfo('location', draft);
 
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -58,13 +60,17 @@ export default function RegistrationNannyLocationScreen() {
   }
 
   // Pin moved on the map (tap/drag): store the coords, then reverse-geocode to
-  // fill the address input so the two stay in sync.
+  // fill the address line and its parts so they stay in step with the pin.
+  // Only the latest pin's answer lands — two quick taps can resolve out of order.
+  const pinRequestRef = useRef(0);
   function handlePinChange(coords: HomeCoords) {
     setLocationError(null);
     patch(coords);
-    void reverseGeocode(coords).then((address) => {
-      if (address) {
-        patch({ address });
+    const request = ++pinRequestRef.current;
+    void reverseGeocodeDetailed(coords).then((geocoded) => {
+      if (geocoded && request === pinRequestRef.current) {
+        patch({ address: geocoded.formattedAddress });
+        applyParts(geocoded.parts);
         setAddressError(null);
       }
     });
@@ -103,10 +109,11 @@ export default function RegistrationNannyLocationScreen() {
                 setAddressError(null);
                 patch({ address: val });
               }}
-              onSelectPlace={(coords, address) => {
+              onSelectPlace={(coords, address, parts) => {
                 setLocationError(null);
                 setAddressError(null);
                 patch({ ...coords, address });
+                applyParts(parts);
               }}
               placeholder="Street address"
             />
@@ -118,6 +125,8 @@ export default function RegistrationNannyLocationScreen() {
               onChange={handlePinChange}
               errorText={locationError}
             />
+
+            <AddressPartsFields values={draft} onChange={(key, value) => patch({ [key]: value })} />
           </View>
         </ScrollView>
 

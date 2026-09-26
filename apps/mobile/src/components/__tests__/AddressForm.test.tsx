@@ -11,7 +11,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 const MAADI = {
   coords: { latitude: 29.9602, longitude: 31.2569 },
   address: '12 Rd 9, Maadi, Cairo Governorate, Egypt',
-  parts: { governorate: 'Cairo', area: 'Maadi', street: '12 Road 9' },
+  parts: { governorate: 'Cairo', area: 'Maadi', street: 'Road 9', building: '12' },
 };
 
 jest.mock('@mobile/components/LocationSearchInput', () => {
@@ -57,7 +57,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockReverse.mockResolvedValue({
     formattedAddress: '2F5R+3G2, New Cairo 1, Cairo Governorate, Egypt',
-    parts: { governorate: 'Cairo', area: 'New Cairo 1', street: null },
+    parts: { governorate: 'Cairo', area: 'New Cairo 1', street: 'Zizinia', building: null },
   });
 });
 
@@ -80,7 +80,8 @@ describe('AddressForm', () => {
 
     expect(getByDisplayValue('Cairo')).toBeTruthy();
     expect(getByDisplayValue('Maadi')).toBeTruthy();
-    expect(getByDisplayValue('12 Road 9')).toBeTruthy();
+    expect(getByDisplayValue('Road 9')).toBeTruthy();
+    expect(getByDisplayValue('12')).toBeTruthy();
 
     fireEvent.press(getByText('Save address'));
 
@@ -90,7 +91,8 @@ describe('AddressForm', () => {
       formattedAddress: MAADI.address,
       governorate: 'Cairo',
       area: 'Maadi',
-      street: '12 Road 9',
+      street: 'Road 9',
+      building: '12',
       latitude: 29.9602,
       longitude: 31.2569,
     });
@@ -109,7 +111,35 @@ describe('AddressForm', () => {
 
     fireEvent.press(getByText('Save address'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({ building: 'Villa 12', street: null, latitude: 30.0074 });
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ building: 'Villa 12', street: 'Zizinia', latitude: 30.0074 });
+  });
+
+  it('fills the street and building from a pin', async () => {
+    mockReverse.mockResolvedValue({
+      formattedAddress: '30 Street 11, Maadi, Cairo Governorate, Egypt',
+      parts: { governorate: 'Cairo', area: 'Maadi', street: 'Street 11', building: '30' },
+    });
+    const { getByText, getByPlaceholderText } = render(<AddressForm onSubmit={jest.fn()} />);
+
+    fireEvent.press(getByText('drop pin'));
+
+    await waitFor(() => expect(getByPlaceholderText('Street').props.value).toBe('Street 11'));
+    expect(getByPlaceholderText('Building').props.value).toBe('30');
+  });
+
+  it("clears the last pin's building when the pin moves somewhere Google has no number for", async () => {
+    mockReverse.mockResolvedValueOnce({
+      formattedAddress: '30 Street 11, Maadi, Cairo Governorate, Egypt',
+      parts: { governorate: 'Cairo', area: 'Maadi', street: 'Street 11', building: '30' },
+    });
+    const { getByText, getByPlaceholderText } = render(<AddressForm onSubmit={jest.fn()} />);
+
+    fireEvent.press(getByText('drop pin'));
+    await waitFor(() => expect(getByPlaceholderText('Building').props.value).toBe('30'));
+
+    fireEvent.press(getByText('drop pin'));
+    await waitFor(() => expect(getByPlaceholderText('Street').props.value).toBe('Zizinia'));
+    expect(getByPlaceholderText('Building').props.value).toBe('');
   });
 
   it('asks for a name when the label is "Other"', async () => {

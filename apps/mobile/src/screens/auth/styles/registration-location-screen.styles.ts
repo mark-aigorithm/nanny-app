@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { borderRadius, colors, fontFamily, spacing, typeScale } from '@mobile/theme';
+import { borderRadius, colors, spacing, typeScale } from '@mobile/theme';
 import { wizardBase } from './registration-wizard.styles';
 
 export const styles = StyleSheet.create({
@@ -16,17 +16,6 @@ export const styles = StyleSheet.create({
     ...typeScale.labelMd,
     color: colors.error,
   },
-  // Short input (neighbourhood)
-  inputShort: {
-    height: 44,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: 14,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-
   // What matters most
   sectionBlock: {
     gap: spacing.lg,

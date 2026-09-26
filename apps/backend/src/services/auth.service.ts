@@ -380,8 +380,9 @@ export async function registerUser(
       // The wizard's location becomes the user's first address — her default,
       // and for a nanny the only one she will ever have (support edits it from
       // here on). Same transaction as the user row, so neither exists alone.
-      // The wizard captures one line and a pin; the structured parts stay null
-      // until the address is edited in-app.
+      // The wizard captures the line, the pin and the parts Google pre-filled
+      // (governorate / area / street / building); floor, apartment and the
+      // landmark stay null until the address is edited in-app.
       const home = await createAddress(
         user.id,
         {
@@ -389,6 +390,10 @@ export async function registerUser(
           formattedAddress: body.address,
           latitude: body.latitude,
           longitude: body.longitude,
+          governorate: body.governorate,
+          area: body.area,
+          street: body.street,
+          building: body.building,
           isDefault: true,
         },
         tx,

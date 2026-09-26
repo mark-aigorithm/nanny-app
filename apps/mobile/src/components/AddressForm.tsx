@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, Switch } from 'react-native';
 import {
   AddressInputSchema,
+  applyAddressParts,
   type Address,
   type AddressInput,
   type ParsedAddressParts,
@@ -66,21 +67,11 @@ function fieldsFrom(initial: Address | undefined): Fields {
   };
 }
 
-/** Google's parts land in the fields only where it knew something — a pin move never blanks a typed street. */
-function mergeParts(fields: Fields, parts: ParsedAddressParts): Fields {
-  return {
-    ...fields,
-    governorate: parts.governorate ?? fields.governorate,
-    area: parts.area ?? fields.area,
-    street: parts.street ?? fields.street,
-  };
-}
-
 /**
  * What a mother fills in to add or edit a saved address. Search or pin sets
  * the line and the coordinates and pre-fills the parts Google knows
- * (governorate / area / street, all editable); building, floor, apartment and
- * the landmark are hers to type — Google never knows them. Validated with the
+ * (governorate / area / street / building, all editable); floor, apartment
+ * and the landmark are hers to type — Google never knows them. Validated with the
  * shared AddressInputSchema so required/optional cannot drift from the API.
  */
 export default function AddressForm({
@@ -106,21 +97,31 @@ export default function AddressForm({
   );
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
+  // The parts the last search pick or pin filled in, so the next one can tell
+  // Google's stale values (cleared) from her own typing (kept).
+  const lastPartsRef = useRef<ParsedAddressParts | null>(null);
+
+  const landParts = (parts: ParsedAddressParts, formattedAddress: string) => {
+    const previous = lastPartsRef.current;
+    lastPartsRef.current = parts;
+    setFields((current) => ({ ...applyAddressParts(current, parts, previous), formattedAddress }));
+  };
 
   const set = (key: keyof Fields) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
 
   // Pin moved: keep the coords, then reverse-geocode to keep the line and the
-  // Google-known parts in step. Typed fields survive (see mergeParts).
+  // Google-known parts in step. Typed fields survive (see applyAddressParts).
+  // Only the latest pin's answer lands — two quick taps can resolve out of order.
+  const pinRequestRef = useRef(0);
   const handlePinChange = (next: HomeCoords) => {
     setFieldErrors({});
     setCoords(next);
+    const request = ++pinRequestRef.current;
     void reverseGeocodeDetailed(next).then((geocoded) => {
-      if (!geocoded) return;
-      setFields((current) => ({
-        ...mergeParts(current, geocoded.parts),
-        formattedAddress: geocoded.formattedAddress,
-      }));
+      if (geocoded && request === pinRequestRef.current) {
+        landParts(geocoded.parts, geocoded.formattedAddress);
+      }
     });
   };
 
@@ -196,7 +197,7 @@ export default function AddressForm({
           onSelectPlace={(place, address, parts) => {
             setFieldErrors({});
             setCoords(place);
-            setFields((current) => ({ ...mergeParts(current, parts), formattedAddress: address }));
+            landParts(parts, address);
           }}
           placeholder="Street address"
         />

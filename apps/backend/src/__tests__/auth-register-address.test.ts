@@ -154,6 +154,25 @@ describe('registerUser — location', () => {
     );
   });
 
+  it('saves the street and building the location step pre-filled on that row', async () => {
+    const tx = makeTx();
+    mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
+
+    await registerUser(DECODED, {
+      ...MOTHER_BODY,
+      governorate: 'Cairo',
+      area: 'Maadi',
+      street: 'Garden Street',
+      building: '14',
+    });
+
+    expect(tx.address.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ governorate: 'Cairo', area: 'Maadi', street: 'Garden Street', building: '14' }),
+      }),
+    );
+  });
+
   it('answers with the location read back off the new address row', async () => {
     const tx = makeTx();
     mockPrisma.$transaction.mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx));
