@@ -1,42 +1,9 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-type Placement = 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end';
+import { useAnchoredPopover, type PopoverPlacement } from './use-anchored-popover';
 
 const MenuContext = createContext<{ close: () => void } | null>(null);
-
-/** Gap (px) between the trigger and its popover. */
-const OFFSET = 6;
-
-/**
- * Fixed-position style for the popover, computed from the trigger's viewport
- * rect. Using `position: fixed` + a portal means no ancestor `overflow`
- * (e.g. the table's scroll container or a flush card) can clip the menu.
- */
-function popoverStyle(rect: DOMRect, placement: Placement, matchWidth: boolean): CSSProperties {
-  const style: CSSProperties = { position: 'fixed' };
-  if (placement === 'bottom-start' || placement === 'bottom-end') {
-    style.top = rect.bottom + OFFSET;
-  } else {
-    style.bottom = window.innerHeight - rect.top + OFFSET;
-  }
-  if (placement === 'bottom-start' || placement === 'top-start') {
-    style.left = rect.left;
-  } else {
-    style.right = window.innerWidth - rect.right;
-  }
-  if (matchWidth) style.width = rect.width;
-  return style;
-}
 
 type MenuProps = {
   /** Content rendered inside the trigger button (icon and/or text). */
@@ -46,7 +13,7 @@ type MenuProps = {
   triggerClassName?: string;
   /** Extra class on the root wrapper (e.g. for full-width triggers). */
   className?: string;
-  placement?: Placement;
+  placement?: PopoverPlacement;
   /** Match the popover width to the trigger (for full-width triggers). */
   matchTriggerWidth?: boolean;
   children: ReactNode;
@@ -54,8 +21,9 @@ type MenuProps = {
 
 /**
  * Headless dropdown menu: a trigger button and a popover of items.
- * The popover is portaled to the body and positioned with `position: fixed`,
- * so it's never clipped by an ancestor's overflow (tables, flush cards).
+ * The popover is portaled to the body and anchored with `position: fixed`, so
+ * it's never clipped by an ancestor's overflow (tables, flush cards), and it
+ * flips above the trigger when there's no room below (a table's last row).
  * Closes on outside click, Escape, or after an item is selected.
  */
 export function Menu({
@@ -68,24 +36,15 @@ export function Menu({
   children,
 }: MenuProps) {
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-
-  // Position the popover against the trigger, and keep it aligned while open.
-  useLayoutEffect(() => {
-    if (!open) return;
-    const measure = () => {
-      if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
-    };
-    measure();
-    window.addEventListener('scroll', measure, true);
-    window.addEventListener('resize', measure);
-    return () => {
-      window.removeEventListener('scroll', measure, true);
-      window.removeEventListener('resize', measure);
-    };
-  }, [open]);
+  useAnchoredPopover({
+    open,
+    triggerRef,
+    popoverRef,
+    placement,
+    width: matchTriggerWidth ? 'match' : 'auto',
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -119,14 +78,8 @@ export function Menu({
         {trigger}
       </button>
       {open &&
-        rect &&
         createPortal(
-          <div
-            ref={popoverRef}
-            className="menu-popover"
-            role="menu"
-            style={popoverStyle(rect, placement, matchTriggerWidth)}
-          >
+          <div ref={popoverRef} className="menu-popover" role="menu">
             <MenuContext.Provider value={{ close: () => setOpen(false) }}>
               {children}
             </MenuContext.Provider>

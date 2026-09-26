@@ -117,7 +117,8 @@ test('offers only the transitions the server will accept', async ({ page }) => {
   // nanny, and approving one without a nanny is refused as well. So all that is
   // left is its own status, present as the selected value, plus the one thing
   // an operator can actually do to an unclaimed request.
-  await expect(rowFor(page, booking.mother.surname).getByRole('option')).toHaveText([
+  // The listbox is portaled to <body>, so it's found on the page, not in the row.
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveText([
     'pending',
     'cancelled',
   ]);

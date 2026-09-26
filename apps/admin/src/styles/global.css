@@ -2178,11 +2178,16 @@ input[type='number'] {
   display: inline-flex;
 }
 
-/* Portaled to <body> and positioned with `position: fixed` (inline styles set
-   the exact offsets from the trigger), so no ancestor overflow can clip it. */
+/* Portaled to <body> and anchored with `position: fixed` — useAnchoredPopover
+   writes top/left (flipping above the trigger when there's no room below) and,
+   when even the roomier side is too short, a max-height, so it scrolls instead
+   of running off-screen. Above the modal backdrop so menus work inside dialogs;
+   below toasts. */
 .menu-popover {
-  z-index: 50;
+  position: fixed;
+  z-index: 1100;
   min-width: 190px;
+  overflow-y: auto;
   padding: 0.35rem;
   background: var(--color-surface);
   border: 1px solid var(--color-warm-border);
@@ -2339,12 +2344,11 @@ input[type='number'] {
   text-transform: capitalize;
 }
 
+/* Portaled and anchored exactly like .menu-popover; the hook also sets its
+   min-width to the trigger's. */
 .dropdown-popover {
-  position: absolute;
-  z-index: 60;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 100%;
+  position: fixed;
+  z-index: 1100;
   max-height: 280px;
   overflow-y: auto;
   padding: 0.3rem;
@@ -2393,7 +2397,7 @@ input[type='number'] {
   background: var(--color-primary-muted);
 }
 
-.dropdown-trigger--compact + .dropdown-popover .dropdown-option {
+.dropdown-popover--compact .dropdown-option {
   text-transform: capitalize;
 }
 
@@ -4076,8 +4080,7 @@ input[type='number'] {
    width of its card, the number and status columns are pinned, and the
    scenario column absorbs everything else — on a phone that is most of the
    row. The generic .table-wrap scroll is switched off because nothing can
-   overflow it now, and leaving it on would clip the status popover on the
-   last rows. */
+   overflow it now. */
 .qa-table .table-wrap {
   overflow: visible;
 }
