@@ -4,6 +4,7 @@ import {
   AddressInputSchema,
   BookingAddressSchema,
   UpdateAddressSchema,
+  applyAddressParts,
   formatAddressArea,
   parseAddressComponents,
 } from '../address';
@@ -34,29 +35,57 @@ const ROUTE_ONLY = [
 ];
 
 describe('parseAddressComponents', () => {
-  it('reads governorate, area and a numbered street off a street_address result', () => {
+  it('reads governorate, area, the street and its number as the building off a street_address result', () => {
     expect(parseAddressComponents(ZAMALEK_STREET)).toEqual({
       governorate: 'Cairo',
       area: 'Zamalek',
-      street: '11 26th of July Corridor',
+      street: '26th of July Corridor',
+      building: '11',
     });
   });
 
-  it('leaves the street null when the pin only resolved to a plus code', () => {
+  it('leaves street and building null when the pin only resolved to a plus code', () => {
     expect(parseAddressComponents(NEW_CAIRO_PLUS_CODE)).toEqual({
       governorate: 'Cairo',
       area: 'New Cairo 1',
       street: null,
+      building: null,
     });
   });
 
-  it('uses the route alone when there is no street number', () => {
-    expect(parseAddressComponents(ROUTE_ONLY).street).toBe('Al Mehwar Al Markazi');
+  it('uses the route alone, with no building, when there is no street number', () => {
+    expect(parseAddressComponents(ROUTE_ONLY)).toMatchObject({ street: 'Al Mehwar Al Markazi', building: null });
+  });
+
+  it('takes a named premise as the building when there is no number', () => {
+    const tower = [{ long_name: 'Nile Tower B', short_name: 'Nile Tower B', types: ['premise'] }, ...ROUTE_ONLY];
+    expect(parseAddressComponents(tower).building).toBe('Nile Tower B');
   });
 
   it('returns all nulls for an empty or missing component list', () => {
-    expect(parseAddressComponents([])).toEqual({ governorate: null, area: null, street: null });
-    expect(parseAddressComponents(undefined)).toEqual({ governorate: null, area: null, street: null });
+    const none = { governorate: null, area: null, street: null, building: null };
+    expect(parseAddressComponents([])).toEqual(none);
+    expect(parseAddressComponents(undefined)).toEqual(none);
+  });
+});
+
+describe('applyAddressParts', () => {
+  const blank = { governorate: '', area: '', street: '', building: '', floor: '2' };
+  const no30 = { governorate: 'Cairo', area: 'Maadi', street: 'Street 11', building: '30' };
+
+  it('fills every part Google knows and leaves the other fields alone', () => {
+    expect(applyAddressParts(blank, no30, null)).toEqual({ ...no30, floor: '2' });
+  });
+
+  it('clears what the previous pin filled in when the new spot has no such part', () => {
+    const moved = { governorate: 'Cairo', area: 'Maadi', street: 'Street 11', building: null };
+    expect(applyAddressParts({ ...no30, floor: '2' }, moved, no30).building).toBe('');
+  });
+
+  it('keeps a value typed by hand when the new spot has no such part', () => {
+    const moved = { governorate: 'Cairo', area: 'Maadi', street: null, building: null };
+    const typed = { ...no30, street: 'Road 9', building: 'Villa 12', floor: '2' };
+    expect(applyAddressParts(typed, moved, no30)).toMatchObject({ street: 'Road 9', building: 'Villa 12' });
   });
 });
 

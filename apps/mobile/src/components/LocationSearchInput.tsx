@@ -18,7 +18,7 @@ type LocationSearchInputProps = {
   onChangeText: (text: string) => void;
   /**
    * Fired when the user picks a suggestion; supplies resolved coords + address,
-   * plus the structured parts Google knows (governorate / area / street) for
+   * plus the structured parts Google knows (governorate / area / street / building) for
    * forms that keep them. Older callers ignore the third argument.
    */
   onSelectPlace: (coords: LocationSearchCoords, address: string, parts: ParsedAddressParts) => void;

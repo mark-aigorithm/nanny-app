@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   AdminUpsertNannyAddressSchema,
-  parseAddressComponents,
+  applyAddressParts,
   type Address,
   type AdminUpsertNannyAddressInput,
   type ParsedAddressParts,
@@ -50,16 +50,6 @@ function fieldsFrom(initial: Address | null): Fields {
   };
 }
 
-/** Google's parts land only where it knew something — never blanking a typed street. */
-function mergeParts(fields: Fields, parts: ParsedAddressParts): Fields {
-  return {
-    ...fields,
-    governorate: parts.governorate ?? fields.governorate,
-    area: parts.area ?? fields.area,
-    street: parts.street ?? fields.street,
-  };
-}
-
 /** "" → undefined so an empty numeric field fails the schema as "missing", not as NaN. */
 function numberOrUndefined(value: string): number | undefined {
   const trimmed = value.trim();
@@ -72,21 +62,28 @@ function numberOrUndefined(value: string): number | undefined {
  * Edits a nanny's single address — the only way it changes after
  * registration. With a Maps key: Places search and a draggable pin, which
  * pre-fill the line and the parts Google knows. Without one: the same fields
- * plus typed coordinates. Building, floor, apartment and the landmark are
- * always typed; Google never knows them.
+ * plus typed coordinates. Floor, apartment and the landmark are always
+ * typed; Google never knows them.
  */
 export function AddressEditor({ initial, onSave, onCancel, saving = false, error = null }: AddressEditorProps) {
   const [fields, setFields] = useState<Fields>(() => fieldsFrom(initial));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const mapsAvailable = isMapsAvailable();
+  // The parts the last pick filled in — see applyAddressParts.
+  const lastPartsRef = useRef<ParsedAddressParts | null>(null);
 
   const set = (key: keyof Fields) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
 
   function handlePick(pick: PinPick) {
     setFieldErrors({});
+    // No parts means geocoding failed — nothing is known about the new spot,
+    // so the fields (and what the last pick filled) stay as they are.
+    const { parts } = pick;
+    const previous = lastPartsRef.current;
+    if (parts) lastPartsRef.current = parts;
     setFields((current) => ({
-      ...mergeParts(current, parseAddressComponents(pick.components)),
+      ...(parts ? applyAddressParts(current, parts, previous) : current),
       formattedAddress: pick.formattedAddress ?? current.formattedAddress,
       latitude: String(pick.latitude),
       longitude: String(pick.longitude),

@@ -8,7 +8,7 @@ import {
   useMapsLibrary,
   type MapMouseEvent,
 } from '@vis.gl/react-google-maps';
-import type { GoogleAddressComponent } from '@nanny-app/shared';
+import { parseAddressComponents, pickReverseGeocodeResult, type ParsedAddressParts } from '@nanny-app/shared';
 
 import { mapsApiKey } from '@admin/lib/maps';
 
@@ -18,7 +18,8 @@ export type PinPick = {
   longitude: number;
   /** Google's line for the spot; absent when only the pin moved and geocoding failed. */
   formattedAddress?: string;
-  components?: GoogleAddressComponent[];
+  /** The parts Google knows for the spot; absent under the same failure. */
+  parts?: ParsedAddressParts;
 };
 
 type AddressMapProps = {
@@ -31,9 +32,9 @@ const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 };
 
 /**
  * Places search plus a draggable pin. Search resolves to coordinates and
- * Google's address components; a pin drop or drag reverse-geocodes the same
- * way, preferring a real street address over the plus code Google lists
- * first, so the editor fills the same fields either way.
+ * Google's address parts; a pin drop or drag reverse-geocodes to the same
+ * (see pickReverseGeocodeResult), so the editor fills the same fields either
+ * way.
  */
 export function AddressMap({ pin, onPick }: AddressMapProps) {
   return (
@@ -78,29 +79,19 @@ function PanTo({ pin }: { pin: AddressMapProps['pin'] }) {
   return null;
 }
 
-function isStreet(result: google.maps.GeocoderResult): boolean {
-  return result.types.some((t) => t === 'street_address' || t === 'premise');
-}
-
 /** Reverse-geocodes a pin and reports the spot; falls back to bare coordinates. */
 async function geocodeAndPick(lat: number, lng: number, onPick: (pick: PinPick) => void) {
   try {
     const geocoder = new google.maps.Geocoder();
     const { results } = await geocoder.geocode({ location: { lat, lng } });
-    const best = results.find(isStreet) ?? results[0];
-    onPick({
-      latitude: lat,
-      longitude: lng,
-      ...(best
-        ? { formattedAddress: best.formatted_address, components: best.address_components }
-        : {}),
-    });
+    const best = pickReverseGeocodeResult(results);
+    onPick({ latitude: lat, longitude: lng, ...(best ?? {}) });
   } catch {
     onPick({ latitude: lat, longitude: lng });
   }
 }
 
-/** Google Places autocomplete, biased to Egypt, resolving a pick to a pin + components. */
+/** Google Places autocomplete, biased to Egypt, resolving a pick to a pin + parts. */
 function PlacesSearch({ onPick }: { onPick: (pick: PinPick) => void }) {
   const places = useMapsLibrary('places');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -120,7 +111,7 @@ function PlacesSearch({ onPick }: { onPick: (pick: PinPick) => void }) {
         latitude: location.lat(),
         longitude: location.lng(),
         ...(place.formatted_address ? { formattedAddress: place.formatted_address } : {}),
-        ...(place.address_components ? { components: place.address_components } : {}),
+        ...(place.address_components ? { parts: parseAddressComponents(place.address_components) } : {}),
       });
       setQuery(place.formatted_address ?? '');
     });
