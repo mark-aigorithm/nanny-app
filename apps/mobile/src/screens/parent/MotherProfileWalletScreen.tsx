@@ -17,6 +17,7 @@ import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
 import { usePackageHours } from '@mobile/hooks/usePackages';
 import { useRewardWallet } from '@mobile/hooks/useRewards';
+import { currentPackageLabel } from '@mobile/lib/currentPackage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/mother-profile-wallet-screen.styles';
@@ -45,6 +46,8 @@ export default function MotherProfileWalletScreen() {
   const { data: packageHours } = usePackageHours(!isGuest);
   const { data: rewardWallet } = useRewardWallet(!isGuest);
   const hoursValue = packageHours ? `${packageHours.availableHours}h` : '—';
+  // Which package those hours come from — or that there isn't one.
+  const hoursCaption = packageHours ? currentPackageLabel(packageHours) : 'available';
   const pointsValue = rewardWallet ? rewardWallet.pointsBalance.toLocaleString() : '—';
 
   const displayName = profile
@@ -131,7 +134,9 @@ export default function MotherProfileWalletScreen() {
                 <IconCircle icon="time-outline" size="sm" />
                 <Text style={styles.walletLabel}>Care hours</Text>
                 <Text style={styles.walletValue}>{hoursValue}</Text>
-                <Text style={styles.walletCaption}>available</Text>
+                <Text style={styles.walletCaption} numberOfLines={1}>
+                  {hoursCaption}
+                </Text>
               </PressableScale>
               <View style={styles.walletDivider} />
               <PressableScale

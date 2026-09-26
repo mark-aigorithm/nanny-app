@@ -145,6 +145,37 @@ describe('Account screen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(parent)/rewards');
   });
 
+  it('says when she has no active package', async () => {
+    const { findByText } = renderScreen();
+    await findByText('No active package');
+  });
+
+  it('names the package her care hours come from', async () => {
+    const hours = MOCK_GET_DATA['/packages/me/hours'];
+    MOCK_GET_DATA['/packages/me/hours'] = {
+      availableHours: 12,
+      buckets: [
+        {
+          id: 7,
+          packageId: 3,
+          packageName: 'Family 20',
+          hoursPurchased: 20,
+          hoursRemaining: 12,
+          maxSkills: 2,
+          status: 'ACTIVE',
+          purchasedAt: '2026-09-01T00:00:00.000Z',
+          expiresAt: null,
+        },
+      ],
+    };
+    try {
+      const { findByText } = renderScreen();
+      await findByText('Family 20');
+    } finally {
+      MOCK_GET_DATA['/packages/me/hours'] = hours;
+    }
+  });
+
   it('hides the wallet from guests', () => {
     useGuestStore.setState({ isGuest: true });
     const { queryByText } = renderScreen();
