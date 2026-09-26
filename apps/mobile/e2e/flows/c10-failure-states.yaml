@@ -7,11 +7,19 @@
 # list is a fact about this run rather than a coincidence, which is not true of
 # any other list in this database.
 #
-# **Cannot ask** is real: the device goes into airplane mode, so the request
-# leaves and finds nothing. Stubbing the client would test the stub. What
-# matters is both halves — that the screen says so in words a person can act on,
-# and that it comes back when the network does. A failure state that never
-# recovers is the more common bug of the two.
+# **Cannot ask** is real: the device goes into airplane mode, so nothing it
+# asks can arrive. Stubbing the client would test the stub. Since OfflineGate
+# (components/OfflineGate.tsx) the app answers that at the root: the moment the
+# device reports no connection, one full-screen "You're offline" covers
+# whatever she was on. What matters is both halves — that it says so in words
+# a person can act on, and that it gets out of the way when the network comes
+# back, revealing the screen she left rather than a reset app. A failure state
+# that never recovers is the more common bug of the two.
+#
+# The Refer-a-friend screen's own error line ("Couldn’t load your invites") is
+# for a request that fails while the device still believes it is online — the
+# gate never sees that, and airplane mode cannot produce it reliably, so it is
+# covered by ReferAFriendScreen.test.tsx instead of here.
 #
 # ── Not covered here: a token expiring mid-session ─────────────────────────
 # A Firebase ID token is good for an hour and `getIdToken()` refreshes it
@@ -44,41 +52,60 @@ onFlowComplete:
     timeout: 30000
 
 # ── Cannot ask ─────────────────────────────────────────────────────────────
-- setAirplaneMode: enabled
-
+# A real screen to leave behind first, opened while online, so the recovery
+# below can prove she comes back to it.
 - tapOn: 'Account'
 - extendedWaitUntil:
     visible: 'Refer a friend'
     timeout: 30000
 - tapOn: 'Refer a friend'
-
-# Three attempts and no network, so this takes a moment. The assertion is that
-# it *ends* — a screen still spinning after the last retry is the failure this
-# step exists to catch.
 - extendedWaitUntil:
-    visible: 'Couldn’t load your invites. Pull to refresh.'
-    timeout: 90000
+    visible: 'Your code'
+    timeout: 30000
 
-# And it does not pretend: no code, no invite list, nothing that would read as
-# real data cached from somewhere.
-- assertNotVisible: 'Your code'
+- setAirplaneMode: enabled
+
+# One clear state, not a spinner: the gate covers the app as soon as the OS
+# reports the connection gone.
+- extendedWaitUntil:
+    visible: "You're offline"
+    timeout: 60000
+- assertVisible: 'Try again'
+
+# "Try again" really re-checks rather than waving her through: still offline,
+# so the gate stays, and the button comes back for another go.
+- tapOn: 'Try again'
+- extendedWaitUntil:
+    visible: 'Try again'
+    timeout: 15000
+- assertVisible: "You're offline"
 
 # ── And back again ─────────────────────────────────────────────────────────
 - setAirplaneMode: disabled
 
-# The recovery the message itself asks for: it says "Pull to refresh", so the
-# flow pulls to refresh. Wrapped in a retry because the radio takes a few
-# seconds to reassociate after airplane mode ends, and a refetch that lands in
-# that gap fails again with nothing left to trigger another.
+# The gate follows the OS back online by itself. The radio takes a few seconds
+# to reassociate, and the OS's change event can lag it, so each round first
+# waits, then uses the gate's own "Try again" — the recovery it offers her.
 - retry:
     maxRetries: 4
     commands:
-      - swipe:
-          start: '50%, 35%'
-          end: '50%, 85%'
+      - runFlow:
+          when:
+            visible: "You're offline"
+          commands:
+            - extendedWaitUntil:
+                notVisible: "You're offline"
+                timeout: 15000
+                optional: true
+            - runFlow:
+                when:
+                  visible: 'Try again'
+                commands:
+                  - tapOn: 'Try again'
       - extendedWaitUntil:
-          visible: 'Your code'
-          timeout: 45000
+          notVisible: "You're offline"
+          timeout: 20000
 
+# Revealed, not reset: the screen she was on, with its data.
+- assertVisible: 'Your code'
 - assertVisible: 'Give an hour, get two'
-- assertNotVisible: 'Couldn’t load your invites. Pull to refresh.'

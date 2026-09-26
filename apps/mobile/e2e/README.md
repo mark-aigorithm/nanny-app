@@ -433,6 +433,12 @@ emulator and is what C10 uses; the JS bundle is already loaded, so only API call
 is not instant — the radio takes a few seconds to reassociate, and a refetch that lands in that gap
 fails again with nothing left to trigger another. Wrap the recovery in `- retry:`.
 
+Going offline also raises `OfflineGate`'s full-screen "You're offline" over the whole app within a
+few seconds — so a flow cannot navigate or read an in-screen error once airplane mode is on. Open
+the screen you need *before* going offline, assert the gate, and expect it to lift (revealing that
+screen) after coming back. Put `setAirplaneMode: disabled` in the flow's `onFlowComplete`, or a
+failure leaves every later flow staring at the gate.
+
 **The emulator is not reset between flows.** Every flow opens with
 `runFlow: _launch.yaml`, which clears the app's own storage — that is what keeps
 them order-independent.

@@ -1,6 +1,11 @@
 import * as Network from 'expo-network';
 
-import { isOfflineState, readIsOffline, subscribeIsOffline } from '@mobile/lib/network';
+import {
+  isOfflineState,
+  readIsOffline,
+  SETTLE_REREAD_MS,
+  subscribeIsOffline,
+} from '@mobile/lib/network';
 
 // jest.setup.js already replaces expo-network with jest.fn()s; type them so
 // each test can steer one call without re-declaring the whole module.
@@ -61,5 +66,61 @@ describe('subscribeIsOffline', () => {
 
     unsubscribe();
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+
+  describe('the settled re-read', () => {
+    let emit: ((state: Network.NetworkState) => void) | undefined;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockedNetwork.addNetworkStateListener.mockImplementationOnce((listener) => {
+        emit = listener;
+        return { remove: jest.fn() };
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('catches going offline when the event itself still reported the lost network', async () => {
+      // What Android's onLost can send: the network being lost, still "active".
+      mockedNetwork.getNetworkStateAsync.mockResolvedValueOnce({ isConnected: false });
+      const listener = jest.fn();
+      subscribeIsOffline(listener);
+
+      emit?.({ isConnected: true, isInternetReachable: true });
+      expect(listener.mock.calls).toEqual([[false]]);
+
+      await jest.advanceTimersByTimeAsync(SETTLE_REREAD_MS);
+      expect(listener.mock.calls).toEqual([[false], [true]]);
+    });
+
+    it('re-reads once per burst of events, after the last one', async () => {
+      mockedNetwork.getNetworkStateAsync.mockResolvedValue({ isConnected: true, isInternetReachable: true });
+      const listener = jest.fn();
+      subscribeIsOffline(listener);
+
+      emit?.({ isConnected: false });
+      await jest.advanceTimersByTimeAsync(SETTLE_REREAD_MS / 2);
+      emit?.({ isConnected: true, isInternetReachable: true });
+      await jest.advanceTimersByTimeAsync(SETTLE_REREAD_MS);
+
+      expect(mockedNetwork.getNetworkStateAsync).toHaveBeenCalledTimes(1);
+      expect(listener.mock.calls).toEqual([[true], [false], [false]]);
+    });
+
+    it('does not call back after unsubscribing', async () => {
+      mockedNetwork.getNetworkStateAsync.mockResolvedValueOnce({ isConnected: false });
+      const listener = jest.fn();
+      const unsubscribe = subscribeIsOffline(listener);
+
+      emit?.({ isConnected: true, isInternetReachable: true });
+      unsubscribe();
+      await jest.advanceTimersByTimeAsync(SETTLE_REREAD_MS);
+
+      expect(listener.mock.calls).toEqual([[false]]);
+      expect(mockedNetwork.getNetworkStateAsync).not.toHaveBeenCalled();
+    });
   });
 });
