@@ -10,6 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
+import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useBooking, useSyncPaymobPayment } from '@mobile/hooks/useBookings';
 import { bookingFlowRetryParams, type BookingFlowParams } from '@mobile/lib/bookingDraft';
 import { styles } from './styles/booking-payment-result-screen.styles';
@@ -142,12 +143,15 @@ export default function BookingPaymentResultScreen() {
   };
 
   const handleViewBookings = () => {
-    router.replace('/(parent)/bookings' as never);
+    router.dismissTo('/(parent)/(tabs)/bookings');
   };
 
   const handleBackHome = () => {
-    router.replace('/(parent)/home');
+    router.dismissTo('/(parent)/(tabs)/home');
   };
+  // The flow behind this screen is finished; back leaves it rather than
+  // walking into steps already done.
+  useHardwareBack(handleBackHome);
 
   if (bookingId && (outcome === 'loading' || outcome === 'pending')) {
     return (

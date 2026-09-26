@@ -12,9 +12,9 @@ jest.mock('@mobile/lib/api', () => ({
   ),
 }));
 
-const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ navigate: mockNavigate, push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
 }));
 
 // No SafeAreaProvider in jest — stub the insets hook the floating bar uses.
@@ -55,15 +55,15 @@ describe('BottomNav', () => {
   it('navigates to the services hub', () => {
     const { getByText } = renderNav();
     fireEvent.press(getByText('Services'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/services');
+    expect(mockNavigate).toHaveBeenCalledWith('/(parent)/(tabs)/services');
   });
 
   it('navigates to bookings for Activity and mother-profile for Account when signed in', () => {
     const { getByText } = renderNav();
     fireEvent.press(getByText('Activity'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/bookings');
+    expect(mockNavigate).toHaveBeenCalledWith('/(parent)/(tabs)/bookings');
     fireEvent.press(getByText('Account'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/mother-profile');
+    expect(mockNavigate).toHaveBeenCalledWith('/(parent)/(tabs)/mother-profile');
   });
 
   it('gates Activity and Account behind the register prompt for guests', () => {
@@ -71,14 +71,14 @@ describe('BottomNav', () => {
     const { getByText } = renderNav();
 
     fireEvent.press(getByText('Activity'));
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
     expect(useRegisterPromptStore.getState().message).toBe(
       'Create your free account to book and manage care.',
     );
 
     useRegisterPromptStore.setState({ message: null });
     fireEvent.press(getByText('Account'));
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
     expect(useRegisterPromptStore.getState().message).toBe(
       'Create your free account to set up your profile.',
     );
@@ -88,7 +88,7 @@ describe('BottomNav', () => {
     useGuestStore.setState({ isGuest: true });
     const { getByText } = renderNav();
     fireEvent.press(getByText('Services'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/services');
+    expect(mockNavigate).toHaveBeenCalledWith('/(parent)/(tabs)/services');
     expect(useRegisterPromptStore.getState().message).toBeNull();
   });
 

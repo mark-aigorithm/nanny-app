@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 
 import {
   Avatar,
+  Button,
   FadeInView,
   IconCircle,
   PressableScale,
@@ -15,6 +16,8 @@ import { useSignOut } from '@mobile/hooks/useAuth';
 import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
+import { usePackageHours } from '@mobile/hooks/usePackages';
+import { useRewardWallet } from '@mobile/hooks/useRewards';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/mother-profile-wallet-screen.styles';
@@ -40,6 +43,10 @@ export default function MotherProfileWalletScreen() {
   const { isGuest } = useGuestGate();
   const { data: unreadData } = useUnreadMessageCount(!isGuest);
   const hasUnread = (unreadData?.unreadCount ?? 0) > 0;
+  const { data: packageHours } = usePackageHours(!isGuest);
+  const { data: rewardWallet } = useRewardWallet(!isGuest);
+  const hoursValue = packageHours ? `${packageHours.availableHours}h` : '—';
+  const pointsValue = rewardWallet ? rewardWallet.pointsBalance.toLocaleString() : '—';
 
   const displayName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -50,22 +57,16 @@ export default function MotherProfileWalletScreen() {
   const handleTilePress = (key: (typeof QUICK_TILES)[number]['key']) => {
     switch (key) {
       case 'account':
-        router.push({
-          pathname: '/(parent)/account-details',
-          params: { returnTo: 'mother-profile' },
-        } as never);
+        router.push('/(parent)/account-details' as never);
         break;
       case 'help':
-        router.push({
-          pathname: '/(parent)/customer-support',
-          params: { returnTo: 'mother-profile' },
-        } as never);
+        router.push('/(parent)/customer-support' as never);
         break;
       case 'inbox':
-        router.push('/(parent)/messages' as never);
+        router.push('/(parent)/(tabs)/messages' as never);
         break;
       case 'notifications':
-        router.push('/(parent)/notifications' as never);
+        router.push('/(parent)/(tabs)/notifications' as never);
         break;
     }
   };
@@ -119,51 +120,45 @@ export default function MotherProfileWalletScreen() {
           ))}
         </FadeInView>
 
-        {/* Promo cards */}
-        <FadeInView index={1}>
-          <PressableScale
-            style={styles.promoCard}
-            onPress={() =>
-              router.push({
-                pathname: '/(parent)/rewards',
-                params: { returnTo: 'mother-profile' },
-              } as never)
-            }
-          >
-            <View style={styles.promoTextWrap}>
-              <Text style={styles.promoTitle}>Care Points</Text>
-              <Text style={styles.promoSubtitle}>Earn rewards on every booking</Text>
+        {/* Wallet: what she holds. Buying lives on the Services tab. */}
+        {!isGuest && (
+          <FadeInView index={1} style={styles.walletCard}>
+            <Text style={styles.walletTitle}>Wallet</Text>
+            <View style={styles.walletRow}>
+              <PressableScale
+                style={styles.walletHalf}
+                onPress={() => router.push('/(parent)/package-hours' as never)}
+              >
+                <IconCircle icon="time-outline" size="sm" />
+                <Text style={styles.walletLabel}>Care hours</Text>
+                <Text style={styles.walletValue}>{hoursValue}</Text>
+                <Text style={styles.walletCaption}>available</Text>
+              </PressableScale>
+              <View style={styles.walletDivider} />
+              <PressableScale
+                style={styles.walletHalf}
+                onPress={() => router.push('/(parent)/rewards' as never)}
+              >
+                <IconCircle
+                  icon="gift-outline"
+                  size="sm"
+                  backgroundColor={colors.tintYellow}
+                  iconColor={colors.tintAmber}
+                />
+                <Text style={styles.walletLabel}>Care Points</Text>
+                <Text style={styles.walletValue}>{pointsValue}</Text>
+                <Text style={styles.walletCaption}>points</Text>
+              </PressableScale>
             </View>
-            <IconCircle
-              icon="gift-outline"
-              size="lg"
-              backgroundColor={colors.tintYellow}
-              iconColor={colors.tintAmber}
-            />
-          </PressableScale>
-        </FadeInView>
+          </FadeInView>
+        )}
 
+        {/* Promo cards */}
         <FadeInView index={2}>
           <PressableScale
             style={styles.promoCard}
-            onPress={() => router.push('/(parent)/packages' as never)}
-          >
-            <View style={styles.promoTextWrap}>
-              <Text style={styles.promoTitle}>Packages</Text>
-              <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
-            </View>
-            <IconCircle icon="time-outline" size="lg" />
-          </PressableScale>
-        </FadeInView>
-
-        <FadeInView index={3}>
-          <PressableScale
-            style={styles.promoCard}
             onPress={() =>
-              router.push({
-                pathname: '/(parent)/addresses',
-                params: { returnTo: 'mother-profile' },
-              } as never)
+              router.push('/(parent)/addresses' as never)
             }
           >
             <View style={styles.promoTextWrap}>
@@ -174,14 +169,11 @@ export default function MotherProfileWalletScreen() {
           </PressableScale>
         </FadeInView>
 
-        <FadeInView index={4}>
+        <FadeInView index={3}>
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
-              router.push({
-                pathname: '/(parent)/refer-a-friend',
-                params: { returnTo: 'mother-profile' },
-              } as never)
+              router.push('/(parent)/refer-a-friend' as never)
             }
           >
             <View style={styles.promoTextWrap}>
@@ -193,7 +185,7 @@ export default function MotherProfileWalletScreen() {
         </FadeInView>
 
         {/* List section */}
-        <FadeInView index={5} style={styles.listSection}>
+        <FadeInView index={4} style={styles.listSection}>
           <PressableScale
             style={styles.listItem}
             disabled={signOut.isPending || isDeleting}
@@ -208,16 +200,16 @@ export default function MotherProfileWalletScreen() {
               {signOut.isPending ? 'Signing out…' : 'Sign out'}
             </Text>
           </PressableScale>
-          <PressableScale
-            style={styles.listItem}
+        </FadeInView>
+
+        <FadeInView index={5}>
+          <Button
+            variant="destructive"
+            title={isDeleting ? 'Deleting…' : 'Delete account'}
+            icon="trash-outline"
             disabled={isDeleting || signOut.isPending}
             onPress={confirmDeleteAccount}
-          >
-            <Ionicons name="trash-outline" size={22} color={colors.errorDark} />
-            <Text style={[styles.listItemLabel, styles.listItemDestructive]}>
-              {isDeleting ? 'Deleting…' : 'Delete account'}
-            </Text>
-          </PressableScale>
+          />
         </FadeInView>
       </ScrollView>
     </ScreenContainer>

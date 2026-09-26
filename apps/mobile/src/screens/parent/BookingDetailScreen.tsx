@@ -50,9 +50,8 @@ function getStatusStyle(status: BookingStatus) {
 
 export default function BookingDetailScreen() {
   const router = useRouter();
-  const { bookingId, returnTo, focusCareLog } = useLocalSearchParams<{
+  const { bookingId, focusCareLog } = useLocalSearchParams<{
     bookingId?: string;
-    returnTo?: string;
     focusCareLog?: string;
   }>();
 
@@ -82,15 +81,11 @@ export default function BookingDetailScreen() {
   }, [focusCareLog, isLoading, booking, canViewCareLog]);
 
   const handleBack = () => {
-    if (returnTo === 'bookings') {
-      router.replace('/(parent)/bookings' as never);
-      return;
-    }
     if (router.canGoBack()) {
       router.back();
       return;
     }
-    router.replace('/(parent)/bookings' as never);
+    router.dismissTo('/(parent)/(tabs)/bookings');
   };
 
   const handleCompletePayment = () => {

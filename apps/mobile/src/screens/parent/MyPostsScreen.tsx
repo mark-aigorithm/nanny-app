@@ -16,7 +16,6 @@ import { Button, Card, ScreenContainer, StackHeader } from '@mobile/components/u
 import { useMyPosts } from '@mobile/hooks/useCommunity';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import {
-  feedFilterForType,
   formatEventDate,
   formatPrice,
   formatTimeAgo,
@@ -151,17 +150,13 @@ export default function MyPostsScreen() {
   const openEdit = (postId: number) =>
     router.push({
       pathname: '/(parent)/create-post',
-      params: { postId: String(postId), returnTo: 'my-posts' },
+      params: { postId: String(postId) },
     } as never);
 
   const openDetail = (post: CommunityPostResponse) =>
     router.push({
       pathname: '/(parent)/post-detail',
-      params: {
-        postId: String(post.id),
-        returnTo: 'community',
-        filter: feedFilterForType(post.type),
-      },
+      params: { postId: String(post.id) },
     } as never);
 
   return (

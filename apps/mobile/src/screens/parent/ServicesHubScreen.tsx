@@ -25,7 +25,6 @@ const TILES: {
   { key: 'community', label: 'Community', icon: 'people-outline' },
   { key: 'marketplace', label: 'Marketplace', icon: 'storefront-outline' },
   { key: 'events', label: 'Events & Meetups', icon: 'calendar-outline' },
-  { key: 'rewards', label: 'Care Points', icon: 'gift-outline' },
   { key: 'packages', label: 'Packages', icon: 'time-outline' },
 ];
 
@@ -44,19 +43,19 @@ export default function ServicesHubScreen() {
   const openTile = (key: string) => {
     switch (key) {
       case 'community':
-        router.push('/(parent)/community');
+        router.push('/(parent)/(tabs)/community');
         break;
       case 'marketplace':
-        router.push('/(parent)/marketplace');
+        router.push({
+          pathname: '/(parent)/(tabs)/community-feed',
+          params: { filter: 'Marketplace' },
+        });
         break;
       case 'events':
-        router.push('/(parent)/events-meetups');
-        break;
-      case 'rewards':
         router.push({
-          pathname: '/(parent)/rewards',
-          params: { returnTo: 'services' },
-        } as never);
+          pathname: '/(parent)/(tabs)/community-feed',
+          params: { filter: 'Events' },
+        });
         break;
       case 'packages':
         router.push('/(parent)/packages' as never);
@@ -67,7 +66,6 @@ export default function ServicesHubScreen() {
   };
 
   const GATED_TILE_COPY: Record<string, string> = {
-    rewards: 'Create your free account to earn Care Points.',
     packages: 'Create your free account to buy care packages.',
   };
 

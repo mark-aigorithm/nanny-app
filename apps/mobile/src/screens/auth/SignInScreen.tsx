@@ -134,11 +134,14 @@ export default function SignInScreen() {
 
   function continueAsGuest() {
     useGuestStore.getState().enterGuestMode();
-    // A guest who reached sign-in from RegisterPromptModal (pushed from
-    // `(parent)`) pops back to it instead of stacking a second `(parent)`; on
-    // a cold start dismissTo behaves like replace, since there's nothing to
-    // dismiss.
-    router.dismissTo('/(parent)/home');
+    // A guest who reached sign-in from RegisterPromptModal (pushed over
+    // `(parent)`) pops back to the screen she was on; a cold start has nothing
+    // to pop, so it lands on Home.
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(parent)/(tabs)/home');
   }
 
   const resendDisabled = secondsLeft > 0 || sendOtp.isPending;

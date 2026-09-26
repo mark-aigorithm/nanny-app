@@ -25,7 +25,7 @@ export default function NotificationPermissionScreen() {
 
   // A freshly-registered nanny is always PENDING_REVIEW — she lands on the
   // pending screen until an admin approves her.
-  const homeRoute = role === 'nanny' ? '/(auth)/pending-review' : '/(parent)/home';
+  const homeRoute = role === 'nanny' ? '/(auth)/pending-review' : '/(parent)/(tabs)/home';
 
   async function handleEnable() {
     try {

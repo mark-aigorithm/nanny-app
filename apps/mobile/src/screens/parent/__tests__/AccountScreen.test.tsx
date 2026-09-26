@@ -10,8 +10,17 @@ interface DeleteMutateOptions {
   onError?: (error: MappedAuthError) => void;
 }
 
+// Each GET answers with the payload its screen section reads.
+const MOCK_GET_DATA: Record<string, unknown> = {
+  '/packages/me/hours': { availableHours: 12, buckets: [] },
+  '/rewards/wallet': { pointsBalance: 1250, lifetimeEarned: 1500, lifetimeRedeemed: 250 },
+};
 jest.mock('@mobile/lib/api', () => ({
-  api: { get: jest.fn().mockResolvedValue({ data: { data: { unreadCount: 2 }, error: null } }) },
+  api: {
+    get: jest.fn((url: string) =>
+      Promise.resolve({ data: { data: MOCK_GET_DATA[url] ?? { unreadCount: 2 }, error: null } }),
+    ),
+  },
   unwrap: jest.fn((promise: Promise<{ data: { data: unknown; error: string | null } }>) =>
     promise.then((res) => res.data.data),
   ),
@@ -39,6 +48,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import MotherProfileWalletScreen from '@mobile/screens/parent/MotherProfileWalletScreen';
 import { useConfirmDialogStore } from '@mobile/store/confirmDialogStore';
+import { useGuestStore } from '@mobile/store/guestStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 const PROFILE = {
@@ -78,6 +88,7 @@ beforeEach(() => {
   mockIsDeleting = false;
   useUserProfileStore.setState({ profile: PROFILE });
   useConfirmDialogStore.setState({ dialog: null });
+  useGuestStore.setState({ isGuest: false });
 });
 
 /** Presses the dialog's confirm action the way ConfirmDialogHost does. */
@@ -108,41 +119,44 @@ describe('Account screen', () => {
     const { getByText } = renderScreen();
 
     fireEvent.press(getByText('Account details'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/account-details',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/account-details');
 
     fireEvent.press(getByText('Help'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/customer-support',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/customer-support');
 
     fireEvent.press(getByText('Inbox'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/messages');
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/messages');
 
     fireEvent.press(getByText('Notifications'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/notifications');
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/notifications');
   });
 
-  it('routes the promo cards with returnTo mother-profile', () => {
-    const { getByText } = renderScreen();
+  it('shows the wallet balances and opens each history', async () => {
+    const { findByText, getByText, queryByText } = renderScreen();
+
+    await findByText('12h');
+    await findByText('1,250');
+    expect(queryByText('Packages')).toBeNull();
+
+    fireEvent.press(getByText('Care hours'));
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/package-hours');
 
     fireEvent.press(getByText('Care Points'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/rewards',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/rewards');
+  });
 
-    fireEvent.press(getByText('Packages'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/packages');
+  it('hides the wallet from guests', () => {
+    useGuestStore.setState({ isGuest: true });
+    const { queryByText } = renderScreen();
+    expect(queryByText('Wallet')).toBeNull();
+    expect(queryByText('Care Points')).toBeNull();
+  });
+
+  it('routes the promo cards', () => {
+    const { getByText } = renderScreen();
 
     fireEvent.press(getByText('Refer a friend'));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/refer-a-friend',
-      params: { returnTo: 'mother-profile' },
-    });
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/refer-a-friend');
   });
 
   it('signs out from the list section', () => {

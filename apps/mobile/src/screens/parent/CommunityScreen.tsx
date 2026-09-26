@@ -60,15 +60,12 @@ export default function CommunityScreen() {
   const openPostDetail = (postId: string) => {
     router.push({
       pathname: '/(parent)/post-detail',
-      params: { postId, returnTo: 'community', filter: activeFilter },
+      params: { postId },
     });
   };
 
   const openCreatePost = gate(() => {
-    router.push({
-      pathname: '/(parent)/create-post',
-      params: { returnTo: 'community', filter: activeFilter },
-    } as never);
+    router.push('/(parent)/create-post' as never);
   }, 'Create your free account to post in the community.');
 
   return (

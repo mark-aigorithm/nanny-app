@@ -1,9 +1,7 @@
 # Branding capture, part B — the services and account surfaces.
 #
-# Every detail screen is left by `back` followed by tapping the tab again.
-# Some of these screens exit with `router.replace`, so `back` lands on Home
-# rather than where it came from; tapping the tab afterwards is correct from
-# either, and keeps the flow from having to know which.
+# Every detail screen is left by `back` followed by tapping the tab again;
+# `back` already returns to the tab, so the tap is belt and braces.
 appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml

@@ -46,14 +46,14 @@ beforeEach(() => {
 });
 
 describe('ServicesHubScreen', () => {
-  it('shows the hero and the five service tiles', () => {
-    const { getByText } = renderScreen();
+  it('shows the hero and the four service tiles', () => {
+    const { getByText, queryByText } = renderScreen();
     getByText('Book a Nanny');
     getByText('Community');
     getByText('Marketplace');
     getByText('Events & Meetups');
-    getByText('Care Points');
     getByText('Packages');
+    expect(queryByText('Care Points')).toBeNull();
   });
 
   it('navigates to each destination', () => {
@@ -63,25 +63,25 @@ describe('ServicesHubScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(parent)/book/booking-date-picker');
 
     fireEvent.press(getByText('Community'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/community');
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/community');
 
     fireEvent.press(getByText('Marketplace'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/marketplace');
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(parent)/(tabs)/community-feed',
+      params: { filter: 'Marketplace' },
+    });
 
     fireEvent.press(getByText('Events & Meetups'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/events-meetups');
-
-    fireEvent.press(getByText('Care Points'));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/rewards',
-      params: { returnTo: 'services' },
+      pathname: '/(parent)/(tabs)/community-feed',
+      params: { filter: 'Events' },
     });
 
     fireEvent.press(getByText('Packages'));
     expect(mockPush).toHaveBeenCalledWith('/(parent)/packages');
   });
 
-  it('gates booking and Care Points for guests but leaves browsing open', () => {
+  it('gates booking and Packages for guests but leaves browsing open', () => {
     useGuestStore.setState({ isGuest: true });
     const { getByText } = renderScreen();
 
@@ -92,13 +92,6 @@ describe('ServicesHubScreen', () => {
     );
 
     useRegisterPromptStore.setState({ message: null });
-    fireEvent.press(getByText('Care Points'));
-    expect(mockPush).not.toHaveBeenCalled();
-    expect(useRegisterPromptStore.getState().message).toBe(
-      'Create your free account to earn Care Points.',
-    );
-
-    useRegisterPromptStore.setState({ message: null });
     fireEvent.press(getByText('Packages'));
     expect(mockPush).not.toHaveBeenCalled();
     expect(useRegisterPromptStore.getState().message).toBe(
@@ -106,6 +99,6 @@ describe('ServicesHubScreen', () => {
     );
 
     fireEvent.press(getByText('Community'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/community');
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/community');
   });
 });

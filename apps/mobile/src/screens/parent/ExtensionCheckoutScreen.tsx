@@ -53,7 +53,7 @@ export default function ExtensionCheckoutScreen() {
       router.back();
       return;
     }
-    router.replace('/(parent)/bookings' as never);
+    router.dismissTo('/(parent)/(tabs)/bookings');
   }, [router]);
 
   const startCheckout = useCallback(async () => {

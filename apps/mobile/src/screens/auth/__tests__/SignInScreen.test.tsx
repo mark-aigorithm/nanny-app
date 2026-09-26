@@ -4,9 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
-const mockDismissTo = jest.fn();
+const mockBack = jest.fn();
+let mockCanGoBack = false;
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, push: mockPush, dismissTo: mockDismissTo }),
+  useRouter: () => ({
+    replace: mockReplace,
+    push: mockPush,
+    back: mockBack,
+    canGoBack: () => mockCanGoBack,
+  }),
 }));
 
 const mockConfirm = jest.fn();
@@ -257,10 +263,20 @@ describe('the front door', () => {
   });
 
   it('lets a visitor browse as a guest', () => {
+    mockCanGoBack = false;
     renderScreen();
     fireEvent.press(screen.getByText('Continue as guest'));
     expect(useGuestStore.getState().isGuest).toBe(true);
-    expect(mockDismissTo).toHaveBeenCalledWith('/(parent)/home');
+    expect(mockReplace).toHaveBeenCalledWith('/(parent)/(tabs)/home');
+  });
+
+  it('returns a guest to the screen the register prompt was opened over', () => {
+    mockCanGoBack = true;
+    renderScreen();
+    fireEvent.press(screen.getByText('Continue as guest'));
+    expect(mockBack).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+    mockCanGoBack = false;
   });
 
   it('hides the guest link while a Google connection is waiting to be linked', () => {

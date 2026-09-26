@@ -19,7 +19,7 @@ import { noticeDialog } from '@mobile/store/confirmDialogStore';
 
 export default function ReviewScreen() {
   const router = useRouter();
-  const { bookingId, returnTo } = useLocalSearchParams<{ bookingId?: string; returnTo?: string }>();
+  const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
 
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -35,15 +35,11 @@ export default function ReviewScreen() {
   const canSubmit = rating > 0 && !!bookingId && !createReview.isPending;
 
   const handleExit = () => {
-    if (returnTo === 'bookings') {
-      router.replace('/(parent)/bookings' as never);
-      return;
-    }
     if (router.canGoBack()) {
       router.back();
       return;
     }
-    router.replace('/(parent)/bookings' as never);
+    router.dismissTo('/(parent)/(tabs)/bookings');
   };
 
   const handleSubmit = () => {

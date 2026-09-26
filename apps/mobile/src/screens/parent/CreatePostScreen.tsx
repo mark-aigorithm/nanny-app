@@ -19,7 +19,6 @@ import { useCommunityPost, useCreatePost, useUpdatePost } from '@mobile/hooks/us
 import {
   createTypeToUi,
   uiTypeToCreate,
-  getCreatePostExitHref,
 } from '@mobile/lib/communityUtils';
 import type { CreatePostUiType } from '@mobile/types';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
@@ -55,8 +54,6 @@ export default function CreatePostScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     type?: string;
-    returnTo?: string;
-    filter?: string;
     /** Set when editing an existing post — the screen doubles as the editor. */
     postId?: string;
   }>();
@@ -105,7 +102,7 @@ export default function CreatePostScreen() {
   }, [existingPost]);
 
   const exitCreatePost = () => {
-    router.replace(getCreatePostExitHref(params) as never);
+    router.back();
   };
 
   const canPost =

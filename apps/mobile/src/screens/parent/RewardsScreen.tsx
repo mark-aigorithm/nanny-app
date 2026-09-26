@@ -1,14 +1,13 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { RewardLedgerEntry } from '@nanny-app/shared';
 
 import { Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { useRewardConfig, useRewardHistory, useRewardWallet } from '@mobile/hooks/useRewards';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
-import { getProfileReturnHref } from '@mobile/lib/profileUtils';
 import { styles } from './styles/rewards-screen.styles';
 
 type EntryVisual = { icon: keyof typeof Ionicons.glyphMap; bg: string; fg: string; label: string };
@@ -38,7 +37,6 @@ function formatDate(iso: string): string {
 
 export default function RewardsScreen() {
   const router = useRouter();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   const wallet = useRewardWallet();
   const config = useRewardConfig();
@@ -56,7 +54,7 @@ export default function RewardsScreen() {
   const balance = wallet.data?.pointsBalance ?? 0;
   const pointsPerHour = config.data?.redemptionPointsPerHour ?? 0;
 
-  const handleBack = () => router.replace(getProfileReturnHref(returnTo) as never);
+  const handleBack = () => router.back();
 
   return (
     <ScreenContainer useSafeArea={false}>

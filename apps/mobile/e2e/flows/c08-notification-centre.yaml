@@ -55,16 +55,9 @@ appId: com.nannyapp.mobile
     visible: 'My posts'
     timeout: 30000
 
-# Back from My posts lands on Home rather than popping to the notification
-# it came from — the handler pushes across to a different section, not deeper
-# into this one. So the way back in is the bell, which is also the honest path:
-# it is what a person taps.
+# My posts is pushed over the tabs, so back pops to the notification centre it
+# was opened from.
 - back
-- extendedWaitUntil:
-    visible: 'Book care'
-    timeout: 30000
-
-- tapOn: 'Open notifications'
 - extendedWaitUntil:
     visible: 'Notifications'
     timeout: 30000

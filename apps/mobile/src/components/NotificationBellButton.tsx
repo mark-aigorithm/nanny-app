@@ -14,7 +14,7 @@ interface Props {
   iconColor?: string;
   style?: StyleProp<ViewStyle>;
   hitSlop?: number;
-  route?: '/(parent)/notifications' | '/(nanny)/notifications';
+  route?: '/(parent)/(tabs)/notifications' | '/(nanny)/notifications';
 }
 
 export default function NotificationBellButton({
@@ -22,7 +22,7 @@ export default function NotificationBellButton({
   iconColor = colors.textPrimary,
   style,
   hitSlop = 8,
-  route = '/(parent)/notifications',
+  route = '/(parent)/(tabs)/notifications',
 }: Props) {
   const router = useRouter();
   const { gate } = useGuestGate();

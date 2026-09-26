@@ -61,7 +61,7 @@ it('sends a signed-out visitor to sign-in, and a guest home', () => {
 
   act(() => useGuestStore.setState({ isGuest: true }));
   rerender({});
-  expect(result.current).toEqual({ kind: 'redirect', href: '/(parent)/home' });
+  expect(result.current).toEqual({ kind: 'redirect', href: '/(parent)/(tabs)/home' });
 });
 
 it('waits while /auth/me is in flight', () => {
@@ -73,7 +73,7 @@ it('waits while /auth/me is in flight', () => {
 it('routes a profile by role, approval and email as before', () => {
   useUserProfileStore.setState({ profile: profile() });
   const { result, rerender } = renderHook(() => useRootGate());
-  expect(result.current).toEqual({ kind: 'redirect', href: '/(parent)/home' });
+  expect(result.current).toEqual({ kind: 'redirect', href: '/(parent)/(tabs)/home' });
 
   act(() => useUserProfileStore.setState({ profile: profile({ isEmailVerified: false }) }));
   rerender({});

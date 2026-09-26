@@ -136,10 +136,31 @@ Before creating any new visual pattern, check if an existing component covers it
   (`PressableScale`, `FadeInView`, the parent tab transitions and tab bar already do).
 - Haptics only through `@mobile/lib/haptics` (`hapticTap` for actions, `hapticSelect` for
   tabs/segments/chips) — usually via `PressableScale`'s `haptic` prop.
-- Parent screens are sibling `Tabs.Screen`s: `fadeRiseTransition` (`lib/sceneTransitions.ts`)
-  animates every switch, and the floating `BottomNav` is mounted once by `ParentTabBar` (the
-  Tabs `tabBar`). **Never render `<BottomNav>` in a screen** — add the route to `ROUTE_TO_TAB`
-  in `components/ParentTabBar.tsx` to show the bar on it.
+- The parent tab screens are sibling `Tabs.Screen`s in `app/(parent)/(tabs)/`:
+  `fadeRiseTransition` (`lib/sceneTransitions.ts`) animates every switch, and the floating
+  `BottomNav` is mounted once by `ParentTabBar` (the Tabs `tabBar`). **Never render `<BottomNav>`
+  in a screen** — a screen that should carry the bar goes in `(tabs)/` and in `ROUTE_TO_TAB`
+  (`components/ParentTabBar.tsx`).
+
+### Parent navigation
+
+`app/(parent)/_layout.tsx` is a **Stack over the `(tabs)` group** (`anchor: '(tabs)'`). Every
+detail screen and flow (`book/`, `packages/`, `chat/`, `nanny/`, rewards, post-detail…) is a stack
+screen pushed over the tab it was opened from, so header back, `router.back()` and Android's back
+button all return there — no `returnTo` params. Two rules keep it that way, because breaking
+either fails silently:
+
+- **Stack screen → a tab:** `router.back()`, or `router.dismissTo('/(parent)/(tabs)/<tab>')`.
+  Never `push`/`replace`/`navigate` to a tab href from a stack screen — it stacks a second copy of
+  the tabs.
+- **Tab → tab:** `push`/`navigate`. `dismissTo` between tabs does nothing.
+- Code that can't know which side it's on (notification taps) uses `goToParentTab`
+  (`lib/parentNav.ts`).
+- The end of a flow (booking confirmation, payment results) leaves with
+  `dismissTo('/(parent)/(tabs)/home')`, and turns off `gestureEnabled` plus takes over Android back
+  (`useHardwareBack`), so back never walks into a submitted request or a paid checkout.
+- Typed routes only know the full path (`/(parent)/(tabs)/home`); after moving a route, run
+  `expo start` once to regenerate `.expo/types` before `tsc`.
 
 ---
 

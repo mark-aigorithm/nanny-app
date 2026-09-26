@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { NativeModules, Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { navigateToBookingDetail, shouldFocusCareLogFromPushData } from '@mobile/lib/notificationNavigation';
+import { goToParentTab } from '@mobile/lib/parentNav';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useMessagingStore } from '@mobile/store/messagingStore';
@@ -124,6 +125,7 @@ export function isExtensionDeclinedPush(data?: Record<string, string>): boolean 
 
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
+  segments: readonly string[],
   queryClient: ReturnType<typeof useQueryClient>,
   data?: Record<string, string>,
 ) {
@@ -140,7 +142,7 @@ function navigateFromNotification(
   // booking detail. Invalidating lets usePendingRating re-detect and open the sheet.
   if (isBookingCompletedPush(data)) {
     void queryClient.invalidateQueries({ queryKey: PENDING_RATING_KEY });
-    router.push('/(parent)/home' as never);
+    goToParentTab(router, segments, '/(parent)/(tabs)/home');
     return;
   }
 
@@ -172,7 +174,7 @@ function navigateFromNotification(
 
   const notificationType = data?.['type'];
   if (notificationType === 'nanny_checkin') {
-    router.push('/(parent)/bookings' as never);
+    goToParentTab(router, segments, '/(parent)/(tabs)/bookings');
   }
 }
 
@@ -210,6 +212,11 @@ export function usePushNotifications() {
   const firebaseUser = useAuthStore((s) => s.user);
   const router = useRouter();
   const queryClient = useQueryClient();
+  // Read when a tap arrives, not when the listeners were attached: where she
+  // is decides how a tab is reached (see goToParentTab).
+  const segments = useSegments();
+  const segmentsRef = useRef<readonly string[]>(segments);
+  segmentsRef.current = segments;
 
   useEffect(() => {
     if (!firebaseUser || !isNativePushAvailable()) return;
@@ -249,12 +256,12 @@ export function usePushNotifications() {
       });
 
       unsubscribeOpened = messaging.onNotificationOpenedApp((message) => {
-        navigateFromNotification(router, queryClient, message.data);
+        navigateFromNotification(router, segmentsRef.current, queryClient, message.data);
       });
 
       void messaging.getInitialNotification().then((message) => {
         if (message?.data) {
-          navigateFromNotification(router, queryClient, message.data);
+          navigateFromNotification(router, segmentsRef.current, queryClient, message.data);
         }
       });
 
@@ -263,7 +270,7 @@ export function usePushNotifications() {
           const data = response.notification.request.content.data as
             | Record<string, string>
             | undefined;
-          navigateFromNotification(router, queryClient, data);
+          navigateFromNotification(router, segmentsRef.current, queryClient, data);
         });
       }
     } catch {

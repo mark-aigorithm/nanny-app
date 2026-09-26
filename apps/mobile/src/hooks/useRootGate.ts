@@ -58,7 +58,7 @@ export function useRootGate(): RootGate {
   // No Firebase user: guests browse the read-only parent experience,
   // everyone else lands on sign-in.
   if (!user) {
-    return { kind: 'redirect', href: isGuest ? '/(parent)/home' : '/(auth)/sign-in' };
+    return { kind: 'redirect', href: isGuest ? '/(parent)/(tabs)/home' : '/(auth)/sign-in' };
   }
 
   // Firebase user but profile fetch in flight — a blank frame while
@@ -89,7 +89,7 @@ export function useRootGate(): RootGate {
           return { kind: 'redirect', href: '/(auth)/pending-review' };
       }
     }
-    return { kind: 'redirect', href: '/(parent)/home' };
+    return { kind: 'redirect', href: '/(parent)/(tabs)/home' };
   }
 
   // Firebase user with no row — finish setting it up.

@@ -27,17 +27,12 @@ import {
 } from '@mobile/hooks/useCommunity';
 import { useContactSeller } from '@mobile/hooks/useMessaging';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
-import { getCommunityReturnHref } from '@mobile/lib/communityUtils';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { postDetailTheme, styles } from './styles/post-detail-screen.styles';
 
 export default function PostDetailScreen() {
   const router = useRouter();
-  const { postId, returnTo, filter } = useLocalSearchParams<{
-    postId: string;
-    returnTo?: string;
-    filter?: string;
-  }>();
+  const { postId } = useLocalSearchParams<{ postId: string }>();
   const [replyText, setReplyText] = useState('');
   const [replyToId, setReplyToId] = useState<number | undefined>();
   const inputRef = useRef<TextInput>(null);
@@ -83,7 +78,7 @@ export default function PostDetailScreen() {
   };
 
   const exitPostDetail = () => {
-    router.replace(getCommunityReturnHref({ returnTo, filter }) as never);
+    router.back();
   };
 
   const handleSubmitComment = async () => {

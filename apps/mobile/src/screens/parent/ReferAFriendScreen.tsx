@@ -10,14 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { ReferralListItem } from '@nanny-app/shared';
 
 import { Button, Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { useReferralSummary } from '@mobile/hooks/useReferrals';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
-import { getProfileReturnHref } from '@mobile/lib/profileUtils';
 import { styles } from './styles/refer-a-friend-screen.styles';
 
 /** How long the "Copied" confirmation stays up after tapping the code. */
@@ -63,7 +62,6 @@ function InviteRow({ item }: { item: ReferralListItem }) {
 
 export default function ReferAFriendScreen() {
   const router = useRouter();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   const summary = useReferralSummary();
   const [copied, setCopied] = useState(false);
@@ -78,7 +76,7 @@ export default function ReferAFriendScreen() {
   }, [copied]);
 
   const data = summary.data;
-  const handleBack = () => router.replace(getProfileReturnHref(returnTo) as never);
+  const handleBack = () => router.back();
 
   const handleCopy = async () => {
     if (!data) return;

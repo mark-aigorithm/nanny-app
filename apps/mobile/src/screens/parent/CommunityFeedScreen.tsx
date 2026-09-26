@@ -200,11 +200,7 @@ export default function CommunityFeedScreen() {
               onPress={() =>
                 router.push({
                   pathname: '/(parent)/post-detail',
-                  params: {
-                    postId: item.id,
-                    returnTo: 'community-feed',
-                    ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
-                  },
+                  params: { postId: item.id },
                 })
               }
               onLikePress={gate(
@@ -227,13 +223,7 @@ export default function CommunityFeedScreen() {
         accessibilityLabel="Create post"
         onPress={gate(
           () =>
-            router.push({
-              pathname: '/(parent)/create-post',
-              params: {
-                returnTo: 'community-feed',
-                ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
-              },
-            } as never),
+            router.push('/(parent)/create-post' as never),
           'Create your free account to post in the community.',
         )}
       >
