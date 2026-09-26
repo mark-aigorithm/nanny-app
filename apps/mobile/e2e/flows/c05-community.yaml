@@ -129,6 +129,14 @@ appId: com.nannyapp.mobile
 - tapOn:
     id: 'createPost.title'
 - inputText: 'E2E lab coffee morning'
+# The keyboard now covers the location field (it sits under Description and
+# Date & time), so drop it and bring the field into view before tapping.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'createPost.location'
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: 'createPost.location'
 - inputText: 'Maadi Community Hall'

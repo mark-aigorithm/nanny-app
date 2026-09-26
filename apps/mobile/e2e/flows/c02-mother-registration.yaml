@@ -152,12 +152,24 @@ appId: com.nannyapp.mobile
 - tapOn:
     point: '50%,44%'
 # The street line is required for every account. After the map tap, so a
-# reverse-geocoded line can't overwrite it afterwards.
+# reverse-geocoded line can't overwrite it afterwards — but that tap has
+# already written the geocoded line into this field (and the address parts
+# below it), so clear it with the field's own ✕ before typing — tapping the
+# field lands the cursor mid-line, where eraseText leaves the tail behind.
+- tapOn: 'Clear address'
 - tapOn: 'Street address'
 - inputText: '1 Test Street, Cairo'
 - hideKeyboard
 # A preference, for coverage — optional (nothing is pre-ticked), so it does
-# not gate Continue.
+# not gate Continue. The Governorate/Area/Street/Building fields push it below
+# the fold. Swipe from the address-part fields: a swipe through the middle of
+# the screen starts on the open suggestion list and scrolls nothing.
+- swipe:
+    start: '50%, 80%'
+    end: '50%, 35%'
+- scrollUntilVisible:
+    element: 'Background checked'
+    direction: DOWN
 - tapOn: 'Background checked'
 - tapOn: 'Continue'
 
