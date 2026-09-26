@@ -81,20 +81,8 @@ export const IMG_USER_PROFILE_MESSAGES =
 // Community
 export const IMG_AVATAR_SARAH_COMMUNITY =
   'https://www.figma.com/api/mcp/asset/b7f91406-93dc-4d30-860a-dc6e88a9fc5a';
-export const IMG_AVATAR_ELENA_COMMUNITY =
-  'https://www.figma.com/api/mcp/asset/6ba72ba9-1c3f-4232-a5a2-33333bc60cbc';
-export const IMG_AVATAR_DAVID_COMMUNITY =
-  'https://www.figma.com/api/mcp/asset/d79b72d7-50fc-40da-9658-91cf8aa579f8';
 export const IMG_POST_ROOM =
   'https://www.figma.com/api/mcp/asset/e5e2492a-ec18-4a84-b3ca-85fde8330bf9';
-export const IMG_USER_PROFILE_COMMUNITY =
-  'https://www.figma.com/api/mcp/asset/17cd0eca-d5d2-4d82-8b50-1e3a50ebc144';
-
-// Events
-export const IMG_EVENT_STORYTIME =
-  'https://www.figma.com/api/mcp/asset/e5e2492a-ec18-4a84-b3ca-85fde8330bf9';
-export const IMG_EVENT_SIGN_LANGUAGE =
-  'https://www.figma.com/api/mcp/asset/8a071716-147b-4521-91d8-f02ffc431d69';
 
 // Booking
 export const IMG_ELENA_BOOKING =

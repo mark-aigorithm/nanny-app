@@ -1,7 +1,5 @@
 export { MOCK_NANNIES_HOME, MOCK_NANNIES_SEARCH, MOCK_NANNIES_RESULTS, MOCK_NANNY_BOOKING } from './nannies';
 export { MOCK_BOOKING, MOCK_UPCOMING_BOOKINGS, MOCK_PAST_BOOKINGS } from './bookings';
-export { MOCK_EVENTS } from './events';
-export { MOCK_PRODUCTS } from './marketplace';
 export { MOCK_CONVERSATIONS, MOCK_MESSAGES } from './messages';
 export { MOCK_NOTIFICATIONS } from './notifications';
 export {
