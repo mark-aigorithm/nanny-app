@@ -753,8 +753,8 @@ export async function refundBooking(
       booking.mother.id,
       NotificationType.BOOKING_REFUNDED,
       'booking_refunded',
-      'You were refunded',
-      `${money(amount)} was refunded to your card: ${input.reason}`,
+      'Refund initiated',
+      `We've initiated a refund of ${money(amount)} to your card. It may take a few business days to appear in your bank account. Reason: ${input.reason}`,
       id,
     );
     const detail = await getAdminBooking(id);
