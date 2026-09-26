@@ -7,6 +7,8 @@ export function useRouter() {
     push: (route: any) => console.log('[preview] router.push', route),
     replace: (route: any) => console.log('[preview] router.replace', route),
     back: () => console.log('[preview] router.back'),
+    navigate: (route: any) => console.log('[preview] router.navigate', route),
+    dismissTo: (route: any) => console.log('[preview] router.dismissTo', route),
     canGoBack: () => false,
   };
 }
@@ -31,6 +33,13 @@ export function useLocalSearchParams<T = Record<string, string>>(): T {
 export function useGlobalSearchParams<T = Record<string, string>>(): T {
   return {} as T;
 }
+
+export function useSegments(): string[] {
+  return [];
+}
+
+// Focus never changes in a single-screen preview; nothing to subscribe to.
+export function useFocusEffect(_effect: () => void | (() => void)): void {}
 
 export function Link(props: any) {
   return null;
