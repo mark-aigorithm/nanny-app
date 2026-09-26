@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import BottomNav from '@mobile/components/BottomNav';
 import type { ProductItem } from '@mobile/types';
 import { MOCK_PRODUCTS } from '@mobile/mocks';
 import { colors } from '@mobile/theme';
@@ -171,7 +170,6 @@ export default function MarketplaceScreen() {
         </SafeAreaView>
       </View>
 
-      <BottomNav activeTab="services" />
     </View>
   );
 }

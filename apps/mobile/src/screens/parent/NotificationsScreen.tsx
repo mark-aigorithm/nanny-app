@@ -12,8 +12,7 @@ import type { NotificationResponse } from '@nanny-app/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import BottomNav from '@mobile/components/BottomNav';
-import { IconCircle } from '@mobile/components/ui';
+import { FadeInView, IconCircle, PressableScale } from '@mobile/components/ui';
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -166,11 +165,11 @@ export default function NotificationsScreen() {
             const countLabel =
               option.key === 'unread' && unreadCount > 0 ? ` (${unreadCount})` : '';
             return (
-              <TouchableOpacity
+              <PressableScale
                 key={option.key}
                 style={[styles.pill, isActive ? styles.pillActive : styles.pillInactive]}
+                haptic="select"
                 onPress={() => setFilter(option.key)}
-                activeOpacity={0.8}
               >
                 <Text
                   style={[
@@ -181,7 +180,7 @@ export default function NotificationsScreen() {
                   {option.label}
                   {countLabel}
                 </Text>
-              </TouchableOpacity>
+              </PressableScale>
             );
           })}
         </ScrollView>
@@ -208,8 +207,8 @@ export default function NotificationsScreen() {
           </View>
         ) : (
           <>
-            {sections.map((section) => (
-              <View key={section.title} style={styles.section}>
+            {sections.map((section, index) => (
+              <FadeInView key={section.title} index={index} style={styles.section}>
                 <Text style={styles.sectionHeading}>{section.title}</Text>
                 <View style={styles.cardGroup}>
                   {section.items.map((notification) => (
@@ -220,7 +219,7 @@ export default function NotificationsScreen() {
                     />
                   ))}
                 </View>
-              </View>
+              </FadeInView>
             ))}
             {hasNextPage && (
               <Pressable
@@ -236,8 +235,6 @@ export default function NotificationsScreen() {
           </>
         )}
       </ScrollView>
-
-      <BottomNav activeTab="home" />
     </View>
   );
 }
@@ -253,9 +250,9 @@ function NotificationCard({
   const icon = getNotificationIcon(notification.type);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <PressableScale
       onPress={onPress}
+      scaleTo={0.98}
       style={[styles.card, isUnread ? styles.cardUnread : styles.cardRead]}
     >
       <IconCircle
@@ -277,6 +274,6 @@ function NotificationCard({
           {notification.body}
         </Text>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }

@@ -16,8 +16,6 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
-jest.mock('@mobile/components/BottomNav', () => () => null);
-
 const mockNavigateToBookingDetail = jest.fn();
 jest.mock('@mobile/lib/notificationNavigation', () => ({
   navigateToBookingDetail: (...args: unknown[]) => mockNavigateToBookingDetail(...args),

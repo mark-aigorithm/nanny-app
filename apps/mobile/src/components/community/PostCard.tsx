@@ -5,6 +5,7 @@ import type { CommunityPostResponse } from '@nanny-app/shared';
 
 import PostActionBar from '@mobile/components/community/PostActionBar';
 import PostTagChip from '@mobile/components/community/PostTagChip';
+import PressableScale from '@mobile/components/ui/pressable-scale';
 import {
   formatAuthorName,
   formatEventDate,
@@ -159,7 +160,11 @@ export default function PostCard({
   );
 
   if (onPress) {
-    return <Pressable onPress={onPress}>{content}</Pressable>;
+    return (
+      <PressableScale onPress={onPress} scaleTo={0.98}>
+        {content}
+      </PressableScale>
+    );
   }
   return content;
 }

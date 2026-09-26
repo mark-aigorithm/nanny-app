@@ -1,10 +1,11 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import type { ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 
 import { colors, screenPadding, shadows, PARENT_TAB_FAB_BOTTOM } from '@mobile/theme';
+import PressableScale from '@mobile/components/ui/pressable-scale';
 
 interface ParentTabFabProps {
   onPress?: () => void;
@@ -27,15 +28,15 @@ export default function ParentTabFab({
   accessibilityLabel,
 }: ParentTabFabProps) {
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[styles.fab, style]}
-      activeOpacity={0.85}
+      haptic="tap"
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
       <Ionicons name={icon} size={iconSize} color={colors.white} />
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 

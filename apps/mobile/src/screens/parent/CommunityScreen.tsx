@@ -12,10 +12,10 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabFab from '@mobile/components/ParentTabFab';
 import PostCard from '@mobile/components/community/PostCard';
+import { FadeInView, PressableScale } from '@mobile/components/ui';
 import {
   useCommunityPosts,
   useToggleEventRsvp,
@@ -84,12 +84,13 @@ export default function CommunityScreen() {
           {FILTER_PILLS.map((pill) => {
             const isActive = pill === activeFilter;
             return (
-              <Pressable
+              <PressableScale
                 key={pill}
                 style={[
                   styles.filterPill,
                   isActive ? styles.filterPillActive : styles.filterPillInactive,
                 ]}
+                haptic="select"
                 onPress={() => setActiveFilter(pill)}
               >
                 <Text
@@ -100,7 +101,7 @@ export default function CommunityScreen() {
                 >
                   {pill}
                 </Text>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </ScrollView>
@@ -158,28 +159,28 @@ export default function CommunityScreen() {
             <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
           ) : null
         }
-        renderItem={({ item }) => (
-          <PostCard
-            post={item}
-            compact
-            onPress={() => openPostDetail(String(item.id))}
-            onLikePress={gate(
-              () => toggleLike.mutate(item.id),
-              'Create your free account to like posts.',
-            )}
-            onRsvpPress={gate(
-              () => toggleRsvp.mutate(item.id),
-              'Create your free account to RSVP to events.',
-            )}
-          />
+        renderItem={({ item, index }) => (
+          <FadeInView index={index}>
+            <PostCard
+              post={item}
+              compact
+              onPress={() => openPostDetail(String(item.id))}
+              onLikePress={gate(
+                () => toggleLike.mutate(item.id),
+                'Create your free account to like posts.',
+              )}
+              onRsvpPress={gate(
+                () => toggleRsvp.mutate(item.id),
+                'Create your free account to RSVP to events.',
+              )}
+            />
+          </FadeInView>
         )}
       />
 
       <ParentTabHeader />
 
       <ParentTabFab onPress={openCreatePost} accessibilityLabel="Create post" />
-
-      <BottomNav activeTab="services" />
     </View>
   );
 }

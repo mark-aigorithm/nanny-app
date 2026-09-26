@@ -1,13 +1,12 @@
 import React, { useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import BottomNav from '@mobile/components/BottomNav';
 import CampaignCarousel from '@mobile/components/CampaignCarousel';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentActiveBookingCard from '@mobile/components/ParentActiveBookingCard';
-import { Button, ScreenContainer } from '@mobile/components/ui';
+import { Button, FadeInView, PressableScale, ScreenContainer } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
@@ -108,27 +107,30 @@ export default function HomeScreen() {
             for an ID if they have none on file (upload-then-book). A verified
             email needs no gate — registration proves one, and an account
             without one never reaches the app. */}
-        <Pressable
-          style={styles.bookCareCard}
-          onPress={gate(
-            idGate(() => router.push('/(parent)/book/booking-date-picker')),
-            'Create your free account to book trusted, vetted nannies.',
-          )}
-        >
-          <View style={styles.bookCareIcon}>
-            <Ionicons name="add" size={24} color={colors.white} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bookCareTitle}>Book care</Text>
-            <Text style={styles.bookCareSubtitle}>One request reaches every available nanny</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-        </Pressable>
+        <FadeInView index={0}>
+          <PressableScale
+            style={styles.bookCareCard}
+            haptic="tap"
+            onPress={gate(
+              idGate(() => router.push('/(parent)/book/booking-date-picker')),
+              'Create your free account to book trusted, vetted nannies.',
+            )}
+          >
+            <View style={styles.bookCareIcon}>
+              <Ionicons name="add" size={24} color={colors.white} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bookCareTitle}>Book care</Text>
+              <Text style={styles.bookCareSubtitle}>One request reaches every available nanny</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+          </PressableScale>
+        </FadeInView>
 
         <CampaignCarousel />
 
         {/* How it works */}
-        <View style={styles.section}>
+        <FadeInView index={1} style={styles.section}>
           <Text style={styles.sectionTitle}>How it works</Text>
           <View style={styles.stepsCard}>
             {STEPS.map((step, i) => (
@@ -146,12 +148,10 @@ export default function HomeScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </FadeInView>
       </ScrollView>
 
       <ParentTabHeader />
-
-      <BottomNav activeTab="home" />
     </ScreenContainer>
   );
 }

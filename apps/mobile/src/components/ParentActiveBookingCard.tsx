@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { BookingResponse } from '@nanny-app/shared';
@@ -8,6 +8,7 @@ import { colors, fontFamily, spacing, borderRadius, shadows } from '@mobile/them
 import { useBookingList, fmtBookingDate } from '@mobile/hooks/useBookings';
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
 import { AmountDueCard } from '@mobile/components/booking/AmountDueCard';
+import PressableScale from '@mobile/components/ui/pressable-scale';
 
 // The mother's live order, Uber-style: always visible on Home so she can jump
 // back to "finding a nanny", pay the moment one accepts, or track the visit.
@@ -143,12 +144,9 @@ export default function ParentActiveBookingCard() {
 
   return (
     <View style={styles.wrap}>
-    <Pressable
-      style={({ pressed }) => [
-        styles.container,
-        look.dark ? styles.containerDark : styles.containerLight,
-        pressed && styles.pressed,
-      ]}
+    <PressableScale
+      style={[styles.container, look.dark ? styles.containerDark : styles.containerLight]}
+      haptic="tap"
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${look.eyebrow}: ${look.title}. ${look.cta}`}
@@ -183,7 +181,7 @@ export default function ParentActiveBookingCard() {
       <View style={[styles.chevron, look.dark ? styles.chevronDark : styles.chevronLight]}>
         <Ionicons name="chevron-forward" size={18} color={look.dark ? colors.white : colors.primary} />
       </View>
-    </Pressable>
+    </PressableScale>
 
       {/* Balance due after an admin edit — replaces the Start gate, which the
           server would refuse while the booking is unsettled. */}
@@ -213,7 +211,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryDark,
     ...shadows.md,
   },
-  pressed: { opacity: 0.9 },
   iconWrap: {
     width: 44,
     height: 44,
