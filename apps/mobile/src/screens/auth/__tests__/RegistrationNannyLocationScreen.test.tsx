@@ -24,13 +24,14 @@ jest.mock('@mobile/components/HomeLocationMapCard', () => {
   };
 });
 jest.mock('@mobile/components/LocationSearchInput', () => () => null);
-jest.mock('@mobile/lib/googlePlaces', () => ({ reverseGeocode: jest.fn().mockResolvedValue(null) }));
+jest.mock('@mobile/lib/googlePlaces', () => ({ reverseGeocodeDetailed: jest.fn().mockResolvedValue(null) }));
 
 import RegistrationNannyLocationScreen from '@mobile/screens/auth/RegistrationNannyLocationScreen';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
-import { reverseGeocode } from '@mobile/lib/googlePlaces';
+import { reverseGeocodeDetailed } from '@mobile/lib/googlePlaces';
 
-const mockReverseGeocode = reverseGeocode as jest.Mock;
+const mockReverseGeocode = reverseGeocodeDetailed as jest.Mock;
+const NO_PARTS = { governorate: null, area: null, street: null, building: null };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -71,7 +72,7 @@ it('asks for a home location when the pin is missing', () => {
 
 it('clears the address error once a pin move fills in a street line', async () => {
   useRegistrationDraftStore.setState({ address: '   ' });
-  mockReverseGeocode.mockResolvedValueOnce('5 Nile Street');
+  mockReverseGeocode.mockResolvedValueOnce({ formattedAddress: '5 Nile Street', parts: NO_PARTS });
   render(<RegistrationNannyLocationScreen />);
 
   fireEvent.press(screen.getByText('Continue'));
@@ -84,6 +85,54 @@ it('clears the address error once a pin move fills in a street line', async () =
   await waitFor(() => {
     expect(screen.queryByText('Please enter your street address.')).toBeNull();
   });
+});
+
+it('fills the street and building from a pin, and clears the old building when the pin moves', async () => {
+  mockReverseGeocode
+    .mockResolvedValueOnce({
+      formattedAddress: '30 Street 11, Maadi, Cairo Governorate, Egypt',
+      parts: { governorate: 'Cairo', area: 'Maadi', street: 'Street 11', building: '30' },
+    })
+    .mockResolvedValueOnce({
+      formattedAddress: '2F5R+3G2, New Cairo 1, Cairo Governorate, Egypt',
+      parts: { governorate: 'Cairo', area: 'New Cairo 1', street: 'Zizinia', building: null },
+    });
+  render(<RegistrationNannyLocationScreen />);
+
+  await act(async () => {
+    mockOnPinChange?.({ latitude: 29.96, longitude: 31.25 });
+  });
+  await waitFor(() => expect(screen.getByDisplayValue('Street 11')).toBeTruthy());
+  expect(screen.getByDisplayValue('30')).toBeTruthy();
+  expect(useRegistrationDraftStore.getState()).toMatchObject({
+    address: '30 Street 11, Maadi, Cairo Governorate, Egypt',
+    governorate: 'Cairo',
+    area: 'Maadi',
+    street: 'Street 11',
+    building: '30',
+  });
+
+  await act(async () => {
+    mockOnPinChange?.({ latitude: 30.0, longitude: 31.49 });
+  });
+  await waitFor(() => expect(screen.getByDisplayValue('Zizinia')).toBeTruthy());
+  expect(useRegistrationDraftStore.getState()).toMatchObject({ area: 'New Cairo 1', building: '' });
+});
+
+it('keeps a building typed by hand when the pin moves somewhere Google has no number for', async () => {
+  mockReverseGeocode.mockResolvedValueOnce({
+    formattedAddress: 'New Cairo 1, Cairo Governorate, Egypt',
+    parts: { governorate: 'Cairo', area: 'New Cairo 1', street: null, building: null },
+  });
+  render(<RegistrationNannyLocationScreen />);
+
+  fireEvent.changeText(screen.getByPlaceholderText('No.'), 'Villa 12');
+  await act(async () => {
+    mockOnPinChange?.({ latitude: 30.0, longitude: 31.49 });
+  });
+
+  await waitFor(() => expect(screen.getByDisplayValue('New Cairo 1')).toBeTruthy());
+  expect(useRegistrationDraftStore.getState().building).toBe('Villa 12');
 });
 
 it('labels itself step 4 of the nanny’s 7', () => {

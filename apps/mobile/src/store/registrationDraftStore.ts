@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import type { AgeRange, AvailabilityType, IdDocumentType, WeeklySchedule } from '@nanny-app/shared';
+import {
+  applyAddressParts,
+  type AgeRange,
+  type AvailabilityType,
+  type IdDocumentType,
+  type ParsedAddressParts,
+  type WeeklySchedule,
+} from '@nanny-app/shared';
 import type { AuthCredential } from '@mobile/lib/firebase';
 import type { AuthProvider, Role } from '@mobile/types';
 
@@ -74,7 +81,15 @@ export type RegistrationDraft = {
   password: string;
   // Location (& a mother's preferences)
   address: string;
-  neighbourhood: string;
+  // The address's parts — pre-filled from the pin or a search, editable, and
+  // saved on the first address with the line. `autofilledParts` is what
+  // Google last filled in, so the next pin can clear its stale values without
+  // touching what she typed (see applyAddressParts).
+  governorate: string;
+  area: string;
+  street: string;
+  building: string;
+  autofilledParts: ParsedAddressParts | null;
   // Home coordinates from the map picker; null until the user sets the pin.
   latitude: number | null;
   longitude: number | null;
@@ -94,6 +109,8 @@ export type RegistrationDraft = {
 
 type RegistrationDraftState = RegistrationDraft & {
   patch: (partial: Partial<RegistrationDraft>) => void;
+  /** Lands the parts Google knows for a new pin or search pick. */
+  applyParts: (parts: ParsedAddressParts) => void;
   reset: () => void;
 };
 
@@ -123,7 +140,11 @@ const INITIAL: RegistrationDraft = {
   idBackUpload: null,
   password: '',
   address: '',
-  neighbourhood: '',
+  governorate: '',
+  area: '',
+  street: '',
+  building: '',
+  autofilledParts: null,
   latitude: null,
   longitude: null,
   // Nothing is chosen for her — she ticks what matters.
@@ -142,5 +163,7 @@ const INITIAL: RegistrationDraft = {
 export const useRegistrationDraftStore = create<RegistrationDraftState>((set) => ({
   ...INITIAL,
   patch: (partial) => set(partial),
+  applyParts: (parts) =>
+    set((draft) => ({ ...applyAddressParts(draft, parts, draft.autofilledParts), autofilledParts: parts })),
   reset: () => set(INITIAL),
 }));

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AddressPartsSchema } from './address';
 import {
   AgeRangeSchema,
   AvailabilityTypeSchema,
@@ -240,6 +241,11 @@ export const RegisterRequestSchema = z
     // proximity search / distance sorting work for every account.
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
+    // The parts the location step pre-fills from the pin or a search (and the
+    // person can correct) — they land on the first address alongside the line.
+    // Optional: a pin inside a compound knows no street, and older builds send none.
+    ...AddressPartsSchema.pick({ governorate: true, area: true, street: true, building: true }).partial()
+      .shape,
     // The nanny's ID document (Firebase Storage download URLs) + its type,
     // captured at registration for admin KYC review. Mothers omit these; the
     // refine below makes them mandatory for nannies. A passport needs only the

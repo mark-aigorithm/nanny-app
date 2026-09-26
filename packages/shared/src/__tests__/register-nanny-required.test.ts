@@ -45,6 +45,16 @@ describe('RegisterRequestSchema — what a nanny must provide', () => {
     expect(firstMessage({ ...NANNY, address: undefined })).toBe('Please enter your street address.');
   });
 
+  it('takes the pre-filled address parts, trimmed, with an emptied one as not given', () => {
+    const parsed = RegisterRequestSchema.parse({ ...NANNY, street: ' Street 11 ', building: '30', area: '' });
+    expect(parsed).toMatchObject({ street: 'Street 11', building: '30', area: null });
+  });
+
+  it('accepts a sign-up with no address parts at all', () => {
+    const parsed = RegisterRequestSchema.parse(NANNY);
+    expect(parsed.street).toBeUndefined();
+  });
+
   it('needs at least one age range', () => {
     expect(firstMessage({ ...NANNY, ageRanges: [] })).toBe(
       'Please pick at least one age range you care for.',
