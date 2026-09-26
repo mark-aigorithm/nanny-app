@@ -78,12 +78,6 @@ export const IMG_SUPPORT_AVATAR =
 export const IMG_USER_PROFILE_MESSAGES =
   'https://www.figma.com/api/mcp/asset/e3b31381-7984-4540-863f-9fb1008d16d8';
 
-// Community
-export const IMG_AVATAR_SARAH_COMMUNITY =
-  'https://www.figma.com/api/mcp/asset/b7f91406-93dc-4d30-860a-dc6e88a9fc5a';
-export const IMG_POST_ROOM =
-  'https://www.figma.com/api/mcp/asset/e5e2492a-ec18-4a84-b3ca-85fde8330bf9';
-
 // Booking
 export const IMG_ELENA_BOOKING =
   'https://www.figma.com/api/mcp/asset/b036d9b4-1369-46b2-a2ab-7bf10277dba5';
