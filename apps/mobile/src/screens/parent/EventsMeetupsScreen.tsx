@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import BottomNav from '@mobile/components/BottomNav';
 import { colors } from '@mobile/theme';
 import { APP_NAME } from '@mobile/constants';
 import { IMG_USER_PROFILE_COMMUNITY } from '@mobile/mocks/images';
@@ -175,7 +174,6 @@ export default function EventsMeetupsScreen() {
         <Text style={styles.fabLabel}>CREATE EVENT</Text>
       </View>
 
-      <BottomNav activeTab="services" />
     </View>
   );
 }

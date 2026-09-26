@@ -3,13 +3,21 @@ import { Tabs } from 'expo-router';
 import RatingPromptHost from '@mobile/components/RatingPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
 import IdUploadModal from '@mobile/components/IdUploadModal';
+import ParentTabBar from '@mobile/components/ParentTabBar';
+import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
+import { fadeRiseTransition } from '@mobile/lib/sceneTransitions';
 
 export default function ParentLayout() {
+  const reducedMotion = useReducedMotion();
+
   return (
     <>
       <RegisterPromptModal />
       <IdUploadModal />
-      <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
+      <Tabs
+        tabBar={props => <ParentTabBar {...props} />}
+        screenOptions={{ headerShown: false, ...fadeRiseTransition(reducedMotion) }}
+      >
         <Tabs.Screen name="home" options={{ title: 'Home' }} />
         <Tabs.Screen name="services" options={{ title: 'Services' }} />
         <Tabs.Screen name="community" options={{ title: 'Community' }} />

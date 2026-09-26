@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 
 // `@mobile/lib/api` imports firebase, which eagerly initializes the real SDK
 // at module-load time and crashes jest-expo's transform. Stub the API layer.
@@ -89,5 +90,11 @@ describe('BottomNav', () => {
     fireEvent.press(getByText('Services'));
     expect(mockPush).toHaveBeenCalledWith('/(parent)/services');
     expect(useRegisterPromptStore.getState().message).toBeNull();
+  });
+
+  it('ticks a selection haptic when switching tabs', () => {
+    const { getByText } = renderNav();
+    fireEvent.press(getByText('Services'));
+    expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
   });
 });

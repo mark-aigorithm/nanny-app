@@ -55,9 +55,6 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     minHeight: 56,
   },
-  tilePressed: {
-    opacity: 0.7,
-  },
   tileLabel: {
     ...typeScale.labelMd,
     color: colors.textPrimary,

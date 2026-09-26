@@ -4,6 +4,7 @@ import type { ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, borderRadius, spacing } from '@mobile/theme';
+import PressableScale from './pressable-scale';
 
 interface ChipProps {
   label: string;
@@ -32,8 +33,9 @@ export default function Chip({
   const fontSize = size === 'md' ? 14 : 12;
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
+      haptic={onPress ? 'select' : undefined}
       style={[
         styles.base,
         {
@@ -64,7 +66,7 @@ export default function Chip({
           />
         </Pressable>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

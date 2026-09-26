@@ -11,10 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import BottomNav from '@mobile/components/BottomNav';
 import NotificationBellButton from '@mobile/components/NotificationBellButton';
 import PostCard from '@mobile/components/community/PostCard';
-import { SearchBar } from '@mobile/components/ui';
+import { FadeInView, PressableScale, SearchBar } from '@mobile/components/ui';
 import {
   useCommunityPosts,
   useToggleEventRsvp,
@@ -120,12 +119,13 @@ export default function CommunityFeedScreen() {
           {FILTER_PILLS.map((pill) => {
             const isActive = pill === activeFilter;
             return (
-              <Pressable
+              <PressableScale
                 key={pill}
                 style={[
                   styles.filterPill,
                   isActive ? styles.filterPillActive : styles.filterPillInactive,
                 ]}
+                haptic="select"
                 onPress={() => setActiveFilter(pill)}
               >
                 <Text
@@ -136,7 +136,7 @@ export default function CommunityFeedScreen() {
                 >
                   {pill}
                 </Text>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </ScrollView>
@@ -193,33 +193,36 @@ export default function CommunityFeedScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
           ) : null
         }
-        renderItem={({ item }) => (
-          <PostCard
-            post={item}
-            onPress={() =>
-              router.push({
-                pathname: '/(parent)/post-detail',
-                params: {
-                  postId: item.id,
-                  returnTo: 'community-feed',
-                  ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
-                },
-              })
-            }
-            onLikePress={gate(
-              () => toggleLike.mutate(item.id),
-              'Create your free account to like posts.',
-            )}
-            onRsvpPress={gate(
-              () => toggleRsvp.mutate(item.id),
-              'Create your free account to RSVP to events.',
-            )}
-          />
+        renderItem={({ item, index }) => (
+          <FadeInView index={index}>
+            <PostCard
+              post={item}
+              onPress={() =>
+                router.push({
+                  pathname: '/(parent)/post-detail',
+                  params: {
+                    postId: item.id,
+                    returnTo: 'community-feed',
+                    ...(activeFilter !== 'All posts' ? { filter: activeFilter } : {}),
+                  },
+                })
+              }
+              onLikePress={gate(
+                () => toggleLike.mutate(item.id),
+                'Create your free account to like posts.',
+              )}
+              onRsvpPress={gate(
+                () => toggleRsvp.mutate(item.id),
+                'Create your free account to RSVP to events.',
+              )}
+            />
+          </FadeInView>
         )}
       />
 
-      <Pressable
+      <PressableScale
         style={styles.fab}
+        haptic="tap"
         accessibilityRole="button"
         accessibilityLabel="Create post"
         onPress={gate(
@@ -235,9 +238,7 @@ export default function CommunityFeedScreen() {
         )}
       >
         <Ionicons name="add" size={28} color={colors.white} />
-      </Pressable>
-
-      <BottomNav activeTab="services" />
+      </PressableScale>
     </View>
   );
 }

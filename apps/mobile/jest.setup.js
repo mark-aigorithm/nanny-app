@@ -202,3 +202,14 @@ jest.mock('expo-crypto', () => ({
   digestStringAsync: jest.fn(async () => 'hashed-nonce'),
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 }));
+
+// 11. Haptics — a native module; taps fire it through lib/haptics. Resolving
+//     no-ops keep every press silent under jest; a test asserting on a tick
+//     reads these mocks directly.
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn().mockResolvedValue(undefined),
+  selectionAsync: jest.fn().mockResolvedValue(undefined),
+  notificationAsync: jest.fn().mockResolvedValue(undefined),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
+}));

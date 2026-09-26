@@ -1,10 +1,15 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import BottomNav from '@mobile/components/BottomNav';
-import { IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
+import {
+  FadeInView,
+  IconCircle,
+  PressableScale,
+  ScreenContainer,
+  StackHeader,
+} from '@mobile/components/ui';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
 import { colors } from '@mobile/theme';
@@ -80,33 +85,26 @@ export default function ServicesHubScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          style={({ pressed }) => [styles.heroTile, pressed && styles.tilePressed]}
-          onPress={openBooking}
-        >
-          <IconCircle icon="add" size="lg" backgroundColor={colors.primary} iconColor={colors.white} />
-          <View style={styles.heroTextWrap}>
-            <Text style={styles.heroTitle}>Book a Nanny</Text>
-            <Text style={styles.heroSubtitle}>One request reaches every available nanny</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
-        </Pressable>
+        <FadeInView index={0}>
+          <PressableScale style={styles.heroTile} haptic="tap" onPress={openBooking}>
+            <IconCircle icon="add" size="lg" backgroundColor={colors.primary} iconColor={colors.white} />
+            <View style={styles.heroTextWrap}>
+              <Text style={styles.heroTitle}>Book a Nanny</Text>
+              <Text style={styles.heroSubtitle}>One request reaches every available nanny</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
+          </PressableScale>
+        </FadeInView>
 
-        <View style={styles.grid}>
+        <FadeInView index={1} style={styles.grid}>
           {TILES.map((tile) => (
-            <Pressable
-              key={tile.key}
-              style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-              onPress={tileHandler(tile.key)}
-            >
+            <PressableScale key={tile.key} style={styles.tile} onPress={tileHandler(tile.key)}>
               <Ionicons name={tile.icon} size={24} color={colors.textPrimary} />
               <Text style={styles.tileLabel}>{tile.label}</Text>
-            </Pressable>
+            </PressableScale>
           ))}
-        </View>
+        </FadeInView>
       </ScrollView>
-
-      <BottomNav activeTab="services" />
     </ScreenContainer>
   );
 }

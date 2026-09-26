@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
   Image,
   StatusBar,
   ActivityIndicator,
@@ -11,9 +10,9 @@ import {
 import type { ConversationResponse } from '@nanny-app/shared';
 import { useRouter } from 'expo-router';
 
-import BottomNav from '@mobile/components/BottomNav';
 import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabSearchStrip from '@mobile/components/ParentTabSearchStrip';
+import { FadeInView, PressableScale } from '@mobile/components/ui';
 import { useConversations } from '@mobile/hooks/useMessaging';
 import { formatAuthorName, formatPrice, formatTimeAgo } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
@@ -39,7 +38,11 @@ function ConversationItem({
   const participantAvatar = resolveImageUri(conversation.otherParticipant.avatarUrl);
 
   return (
-    <Pressable style={styles.chatItem} onPress={() => onPress(String(conversation.id))}>
+    <PressableScale
+      style={styles.chatItem}
+      scaleTo={0.98}
+      onPress={() => onPress(String(conversation.id))}
+    >
       <View style={styles.chatAvatarWrapper}>
         <View style={styles.chatAvatarBg}>
           {participantAvatar ? (
@@ -83,7 +86,7 @@ function ConversationItem({
           )}
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -122,17 +125,18 @@ export default function MessagesScreen() {
               No conversations yet. Message a seller from a marketplace post to start chatting.
             </Text>
           ) : (
-            conversations.map((conversation) => (
-              <ConversationItem
-                key={conversation.id}
-                conversation={conversation}
-                onPress={(id) =>
-                  router.push({
-                    pathname: '/(parent)/chat/messaging',
-                    params: { conversationId: id },
-                  })
-                }
-              />
+            conversations.map((conversation, index) => (
+              <FadeInView key={conversation.id} index={index}>
+                <ConversationItem
+                  conversation={conversation}
+                  onPress={(id) =>
+                    router.push({
+                      pathname: '/(parent)/chat/messaging',
+                      params: { conversationId: id },
+                    })
+                  }
+                />
+              </FadeInView>
             ))
           )}
         </View>
@@ -146,8 +150,6 @@ export default function MessagesScreen() {
         placeholder="Search conversations..."
         onClear={() => setSearchQuery('')}
       />
-
-      <BottomNav activeTab="account" />
     </View>
   );
 }

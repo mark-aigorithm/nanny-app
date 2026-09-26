@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Pressable,
   Image,
   ActivityIndicator,
   StatusBar,
@@ -12,8 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import BottomNav from '@mobile/components/BottomNav';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
+import { FadeInView, PressableScale } from '@mobile/components/ui';
 import { colors, STATUS_BAR_HEIGHT } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
@@ -100,16 +99,16 @@ export default function BookingHistoryScreen() {
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
-              <TouchableOpacity
+              <PressableScale
                 key={tab.key}
                 style={[styles.tab, isActive && styles.tabActive]}
-                activeOpacity={0.8}
+                haptic="select"
                 onPress={() => setActiveTab(tab.key)}
               >
                 <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
                   {tab.label}
                 </Text>
-              </TouchableOpacity>
+              </PressableScale>
             );
           })}
         </View>
@@ -125,42 +124,43 @@ export default function BookingHistoryScreen() {
           </View>
         ) : activeTab === 'upcoming' ? (
           <View style={styles.section}>
-            {bookings.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                onViewDetails={handleViewDetails}
-                onCompletePayment={handleCompletePayment}
-              />
+            {bookings.map((booking, index) => (
+              <FadeInView key={booking.id} index={index}>
+                <BookingCard
+                  booking={booking}
+                  onViewDetails={handleViewDetails}
+                  onCompletePayment={handleCompletePayment}
+                />
+              </FadeInView>
             ))}
           </View>
         ) : activeTab === 'past' ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Past bookings</Text>
-            {bookings.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                onViewDetails={handleViewDetails}
-                onLeaveReview={handleLeaveReview}
-              />
+            {bookings.map((booking, index) => (
+              <FadeInView key={booking.id} index={index}>
+                <BookingCard
+                  booking={booking}
+                  onViewDetails={handleViewDetails}
+                  onLeaveReview={handleLeaveReview}
+                />
+              </FadeInView>
             ))}
           </View>
         ) : (
           <View style={styles.section}>
-            {bookings.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                onViewDetails={handleViewDetails}
-                variant="cancelled"
-              />
+            {bookings.map((booking, index) => (
+              <FadeInView key={booking.id} index={index}>
+                <BookingCard
+                  booking={booking}
+                  onViewDetails={handleViewDetails}
+                  variant="cancelled"
+                />
+              </FadeInView>
             ))}
           </View>
         )}
       </ScrollView>
-
-      <BottomNav activeTab="activity" />
     </View>
   );
 }
@@ -194,8 +194,8 @@ function BookingCard({
   const hasFooterAction = Boolean(onLeaveReview && isCompleted && !booking.myReview);
 
   return (
-    <Pressable
-      style={({ pressed }) => [cardStyle, pressed && styles.cardPressed]}
+    <PressableScale
+      style={cardStyle}
       onPress={() => onViewDetails(String(booking.id))}
       accessibilityRole="button"
       accessibilityLabel={`${nannyName ?? 'Booking'} on ${dateDisplay}, ${formatBookingStatus(
@@ -281,14 +281,14 @@ function BookingCard({
       ) : null}
 
       {booking.status === 'APPROVED' && onCompletePayment ? (
-        <TouchableOpacity
+        <PressableScale
           style={styles.payButton}
-          activeOpacity={0.85}
+          haptic="tap"
           onPress={() => onCompletePayment(booking)}
         >
           <Ionicons name="card-outline" size={16} color={colors.white} />
           <Text style={styles.payButtonText}>Complete payment</Text>
-        </TouchableOpacity>
+        </PressableScale>
       ) : null}
 
       {/* Only drawn when something still sits below it — a divider with an
@@ -308,6 +308,6 @@ function BookingCard({
           </View>
         </>
       ) : null}
-    </Pressable>
+    </PressableScale>
   );
 }

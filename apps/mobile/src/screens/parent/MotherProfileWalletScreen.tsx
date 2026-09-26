@@ -1,10 +1,16 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import BottomNav from '@mobile/components/BottomNav';
-import { Avatar, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
+import {
+  Avatar,
+  FadeInView,
+  IconCircle,
+  PressableScale,
+  ScreenContainer,
+  StackHeader,
+} from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
@@ -97,11 +103,11 @@ export default function MotherProfileWalletScreen() {
         </View>
 
         {/* 2x2 quick tiles */}
-        <View style={styles.tileGrid}>
+        <FadeInView index={0} style={styles.tileGrid}>
           {QUICK_TILES.map((tile) => (
-            <Pressable
+            <PressableScale
               key={tile.key}
-              style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+              style={styles.tile}
               onPress={() => handleTilePress(tile.key)}
             >
               <View style={styles.tileIconWrap}>
@@ -109,78 +115,86 @@ export default function MotherProfileWalletScreen() {
                 {tile.key === 'inbox' && hasUnread && <View style={styles.tileBadge} />}
               </View>
               <Text style={styles.tileLabel}>{tile.label}</Text>
-            </Pressable>
+            </PressableScale>
           ))}
-        </View>
+        </FadeInView>
 
         {/* Promo cards */}
-        <Pressable
-          style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
-          onPress={() =>
-            router.push({
-              pathname: '/(parent)/rewards',
-              params: { returnTo: 'mother-profile' },
-            } as never)
-          }
-        >
-          <View style={styles.promoTextWrap}>
-            <Text style={styles.promoTitle}>Care Points</Text>
-            <Text style={styles.promoSubtitle}>Earn rewards on every booking</Text>
-          </View>
-          <IconCircle
-            icon="gift-outline"
-            size="lg"
-            backgroundColor={colors.tintYellow}
-            iconColor={colors.tintAmber}
-          />
-        </Pressable>
+        <FadeInView index={1}>
+          <PressableScale
+            style={styles.promoCard}
+            onPress={() =>
+              router.push({
+                pathname: '/(parent)/rewards',
+                params: { returnTo: 'mother-profile' },
+              } as never)
+            }
+          >
+            <View style={styles.promoTextWrap}>
+              <Text style={styles.promoTitle}>Care Points</Text>
+              <Text style={styles.promoSubtitle}>Earn rewards on every booking</Text>
+            </View>
+            <IconCircle
+              icon="gift-outline"
+              size="lg"
+              backgroundColor={colors.tintYellow}
+              iconColor={colors.tintAmber}
+            />
+          </PressableScale>
+        </FadeInView>
 
-        <Pressable
-          style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
-          onPress={() => router.push('/(parent)/packages' as never)}
-        >
-          <View style={styles.promoTextWrap}>
-            <Text style={styles.promoTitle}>Packages</Text>
-            <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
-          </View>
-          <IconCircle icon="time-outline" size="lg" />
-        </Pressable>
+        <FadeInView index={2}>
+          <PressableScale
+            style={styles.promoCard}
+            onPress={() => router.push('/(parent)/packages' as never)}
+          >
+            <View style={styles.promoTextWrap}>
+              <Text style={styles.promoTitle}>Packages</Text>
+              <Text style={styles.promoSubtitle}>Buy packages and track your balance</Text>
+            </View>
+            <IconCircle icon="time-outline" size="lg" />
+          </PressableScale>
+        </FadeInView>
 
-        <Pressable
-          style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
-          onPress={() =>
-            router.push({
-              pathname: '/(parent)/addresses',
-              params: { returnTo: 'mother-profile' },
-            } as never)
-          }
-        >
-          <View style={styles.promoTextWrap}>
-            <Text style={styles.promoTitle}>Addresses</Text>
-            <Text style={styles.promoSubtitle}>Where your nanny comes to</Text>
-          </View>
-          <IconCircle icon="location-outline" size="lg" />
-        </Pressable>
+        <FadeInView index={3}>
+          <PressableScale
+            style={styles.promoCard}
+            onPress={() =>
+              router.push({
+                pathname: '/(parent)/addresses',
+                params: { returnTo: 'mother-profile' },
+              } as never)
+            }
+          >
+            <View style={styles.promoTextWrap}>
+              <Text style={styles.promoTitle}>Addresses</Text>
+              <Text style={styles.promoSubtitle}>Where your nanny comes to</Text>
+            </View>
+            <IconCircle icon="location-outline" size="lg" />
+          </PressableScale>
+        </FadeInView>
 
-        <Pressable
-          style={({ pressed }) => [styles.promoCard, pressed && styles.tilePressed]}
-          onPress={() =>
-            router.push({
-              pathname: '/(parent)/refer-a-friend',
-              params: { returnTo: 'mother-profile' },
-            } as never)
-          }
-        >
-          <View style={styles.promoTextWrap}>
-            <Text style={styles.promoTitle}>Refer a friend</Text>
-            <Text style={styles.promoSubtitle}>You each get a discount</Text>
-          </View>
-          <IconCircle icon="people-outline" size="lg" />
-        </Pressable>
+        <FadeInView index={4}>
+          <PressableScale
+            style={styles.promoCard}
+            onPress={() =>
+              router.push({
+                pathname: '/(parent)/refer-a-friend',
+                params: { returnTo: 'mother-profile' },
+              } as never)
+            }
+          >
+            <View style={styles.promoTextWrap}>
+              <Text style={styles.promoTitle}>Refer a friend</Text>
+              <Text style={styles.promoSubtitle}>You each get a discount</Text>
+            </View>
+            <IconCircle icon="people-outline" size="lg" />
+          </PressableScale>
+        </FadeInView>
 
         {/* List section */}
-        <View style={styles.listSection}>
-          <Pressable
+        <FadeInView index={5} style={styles.listSection}>
+          <PressableScale
             style={styles.listItem}
             disabled={signOut.isPending || isDeleting}
             onPress={() =>
@@ -193,8 +207,8 @@ export default function MotherProfileWalletScreen() {
             <Text style={[styles.listItemLabel, styles.listItemDestructive]}>
               {signOut.isPending ? 'Signing out…' : 'Sign out'}
             </Text>
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             style={styles.listItem}
             disabled={isDeleting || signOut.isPending}
             onPress={confirmDeleteAccount}
@@ -203,11 +217,9 @@ export default function MotherProfileWalletScreen() {
             <Text style={[styles.listItemLabel, styles.listItemDestructive]}>
               {isDeleting ? 'Deleting…' : 'Delete account'}
             </Text>
-          </Pressable>
-        </View>
+          </PressableScale>
+        </FadeInView>
       </ScrollView>
-
-      <BottomNav activeTab="account" />
     </ScreenContainer>
   );
 }

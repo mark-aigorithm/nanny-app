@@ -61,9 +61,6 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
     minHeight: 104,
   },
-  tilePressed: {
-    opacity: 0.7,
-  },
   tileLabel: {
     ...typeScale.labelMd,
     color: colors.textPrimary,

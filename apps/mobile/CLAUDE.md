@@ -93,6 +93,7 @@ All visual constants are centralized in `src/theme/` and imported via `@mobile/t
 | `spacing.ts` | `spacing` — scale (xxs→4xl); `screenPadding` — standard horizontal padding (24) |
 | `borders.ts` | `borderRadius` — scale (sm→full) |
 | `shadows.ts` | `shadows` — elevation presets as `ViewStyle` |
+| `motion.ts` | `motion` — durations, press scale, spring configs, list stagger |
 | `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT` (nanny in-flow bar), `FLOATING_NAV_CLEARANCE` (parent floating pill), and the parent-tab helpers `PARENT_TAB_CONTENT_TOP(_WITH_SEARCH)`, `PARENT_TAB_SCROLL_BOTTOM`, `PARENT_TAB_FAB_BOTTOM` |
 | `index.ts` | Barrel re-export of all above |
 
@@ -120,9 +121,25 @@ Before creating any new visual pattern, check if an existing component covers it
 | `Stepper` | −/+ numeric stepper (supports `formatValue`) |
 | `CollapsibleCard` | Card with an expanding body and a header summary |
 | `PulseRings` | Expanding sonar rings for "searching" states |
+| `PressableScale` | Drop-in `Pressable` with the standard press feedback (soft scale + optional `haptic`) — use for every tappable card/tile/button |
+| `FadeInView` | One-time fade-and-rise entrance for list items and sections (`index` staggers) |
 
 - Only create new UI components if no existing one covers the use case
 - Import from `@mobile/components/ui`
+
+### Motion
+
+- Motion is **calm and subtle**: timings, springs and the press scale come from `motion` in
+  `@mobile/theme` — never hardcode a duration. Use core `Animated` with `useNativeDriver: true`;
+  Reanimated is not installed, and `LayoutAnimation` is unsafe on the New Architecture.
+- Every animation honours the OS Reduce Motion setting via `useReducedMotion()`
+  (`PressableScale`, `FadeInView`, the parent tab transitions and tab bar already do).
+- Haptics only through `@mobile/lib/haptics` (`hapticTap` for actions, `hapticSelect` for
+  tabs/segments/chips) — usually via `PressableScale`'s `haptic` prop.
+- Parent screens are sibling `Tabs.Screen`s: `fadeRiseTransition` (`lib/sceneTransitions.ts`)
+  animates every switch, and the floating `BottomNav` is mounted once by `ParentTabBar` (the
+  Tabs `tabBar`). **Never render `<BottomNav>` in a screen** — add the route to `ROUTE_TO_TAB`
+  in `components/ParentTabBar.tsx` to show the bar on it.
 
 ---
 

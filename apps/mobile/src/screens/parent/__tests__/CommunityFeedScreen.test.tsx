@@ -12,7 +12,6 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({}),
 }));
-jest.mock('@mobile/components/BottomNav', () => () => null);
 jest.mock('@mobile/components/NotificationBellButton', () => () => null);
 
 import { unwrapPaginated } from '@mobile/lib/api';

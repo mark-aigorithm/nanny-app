@@ -21,7 +21,6 @@ jest.mock('@mobile/components/ParentActiveBookingCard', () => {
 });
 jest.mock('@mobile/components/CampaignCarousel', () => () => null);
 jest.mock('@mobile/components/ParentTabHeader', () => () => null);
-jest.mock('@mobile/components/BottomNav', () => () => null);
 
 import HomeScreen from '@mobile/screens/parent/HomeScreen';
 import { useGuestStore } from '@mobile/store/guestStore';
