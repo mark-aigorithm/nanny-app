@@ -22,6 +22,9 @@ function propsFor(routeNames: string[], index: number): BottomTabBarProps {
   } as unknown as BottomTabBarProps;
 }
 
+// The slice of a rendered node these assertions read.
+type RenderedNode = { props: Record<string, unknown> };
+
 const ROUTES = ['home', 'services', 'bookings', 'mother-profile', 'post-detail', 'notifications'];
 
 beforeEach(() => {
@@ -48,7 +51,7 @@ describe('ParentTabBar', () => {
 
     expect(mockBottomNav).toHaveBeenLastCalledWith({ activeTab: 'services' });
     const hidden = UNSAFE_root.findAll(
-      (node) => node.props.pointerEvents === 'none' && node.props.accessibilityElementsHidden,
+      (node: RenderedNode) => node.props.pointerEvents === 'none' && node.props.accessibilityElementsHidden,
     );
     expect(hidden.length).toBeGreaterThan(0);
   });
@@ -57,7 +60,9 @@ describe('ParentTabBar', () => {
     const { UNSAFE_root } = render(
       <ParentTabBar {...propsFor(ROUTES, ROUTES.indexOf('home'))} />,
     );
-    const passThrough = UNSAFE_root.findAll((node) => node.props.pointerEvents === 'box-none');
+    const passThrough = UNSAFE_root.findAll(
+      (node: RenderedNode) => node.props.pointerEvents === 'box-none',
+    );
     expect(passThrough.length).toBeGreaterThan(0);
   });
 });
