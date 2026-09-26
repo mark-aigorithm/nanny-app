@@ -7,7 +7,7 @@ import { PreviewProviders } from './harness';
 
 // A pin already dropped on No. 30 Street 11, so the pre-filled parts show.
 useRegistrationDraftStore.setState({
-  role: 'mother',
+  role: 'parent',
   latitude: 29.9602,
   longitude: 31.2569,
   address: '30 Street 11, Maadi, Cairo Governorate, Egypt',
