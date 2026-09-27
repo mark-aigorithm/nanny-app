@@ -56,8 +56,8 @@ This is one helper, in a new `services/id-document.service.ts`, used by both rol
 | `POST /admin/nannies/:id/invalidate-id` | `invalidateNannyId(profileId, input)` → resolves `userId` → helper | `AdminNanny` |
 | `POST /admin/mothers/:id/invalidate-id` | `invalidateMotherId(userId, input)` → helper | the mother DTO that approve/reject return |
 
-- The body is `InvalidateIdSchema = { reason?: string (trimmed, 1–500) }`, added
-  to `packages/shared` next to `RejectNannySchema`.
+- The body is the existing `RejectNannySchema` (`{ reason?: string }`, trimmed,
+  1–500). It already backs both reject routes, so there is no new schema.
 - Both routes get a `users: MANAGE` row in `ADMIN_ROUTE_PERMISSIONS`. The route
   table test fails without it.
 
@@ -110,8 +110,10 @@ next "Book care", and the server-side booking gate is the backstop.
 
 ### Notification rendering
 
-Add an icon case for `id_reupload_requested` in `notificationUtils.ts` (an ID
-card or alert icon) so the in-app list doesn't fall back to a generic icon.
+The in-app row's type is `nanny_rejected` (the reused enum), and the push type
+never reaches the list. So add an icon case for `nanny_rejected` in
+`notificationUtils.ts` (an `id-card` glyph) so the list doesn't fall back to a
+generic icon. It covers reject too.
 
 ## Error handling
 
