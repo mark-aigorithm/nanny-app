@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { AdminListQuerySchema } from './admin';
+import { AdminListQuerySchema, AdminSortDirSchema } from './admin';
 
 // ──────────────────────────────────────────────────────────────
 // Packages — admin-curated catalog of purchasable hour bundles
@@ -73,7 +73,10 @@ export const PublicPackageSchema = z.object({
 export type PublicPackage = z.infer<typeof PublicPackageSchema>;
 
 export const PackagePurchaseStatusSchema = z.enum([
-  'PENDING_PAYMENT', 'ACTIVE', 'EXPIRED', 'REFUNDED',
+  'PENDING_PAYMENT',
+  'ACTIVE',
+  'EXPIRED',
+  'REFUNDED',
 ]);
 
 export const PackagePurchaseSchema = z.object({
@@ -114,9 +117,24 @@ export const AdminPackagePurchaseSchema = z.object({
 });
 export type AdminPackagePurchase = z.infer<typeof AdminPackagePurchaseSchema>;
 
+/** Columns the admin Package Purchases list can be sorted by. */
+export const AdminPackagePurchaseSortKeySchema = z.enum([
+  'buyer',
+  'package',
+  'hours',
+  'price',
+  'status',
+  'purchased',
+  'expires',
+]);
+export type AdminPackagePurchaseSortKey = z.infer<typeof AdminPackagePurchaseSortKeySchema>;
+
+/** Page/limit, filters and a column sort — newest purchases first by default. */
 export const AdminPackagePurchaseListQuerySchema = AdminListQuerySchema.extend({
   status: PackagePurchaseStatusSchema.optional(),
   search: z.string().trim().max(200).optional(),
+  sortBy: AdminPackagePurchaseSortKeySchema.catch('purchased').default('purchased'),
+  sortDir: AdminSortDirSchema.catch('desc').default('desc'),
 });
 export type AdminPackagePurchaseListQuery = z.infer<typeof AdminPackagePurchaseListQuerySchema>;
 

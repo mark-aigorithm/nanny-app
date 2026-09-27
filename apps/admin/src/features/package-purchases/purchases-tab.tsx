@@ -1,7 +1,11 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { ADMIN_PAGE_SIZES, type AdminPackagePurchase } from '@nanny-app/shared';
+import {
+  ADMIN_PAGE_SIZES,
+  type AdminPackagePurchase,
+  type AdminPackagePurchaseSortKey,
+} from '@nanny-app/shared';
 
 import {
   ErrorState,
@@ -14,6 +18,7 @@ import {
 import { fetchPackagePurchases } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
 
 import { PurchaseLedgerDrawer } from './purchase-ledger-drawer';
 import { PurchaseTable } from './purchase-table';
@@ -35,6 +40,11 @@ export function PurchasesTab() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { page, limit, setPage, setLimit, reset } = usePagination();
+  // Newest purchases first by default; a header click re-sorts on the server.
+  const { sort, onSortChange } = useTableSort<AdminPackagePurchaseSortKey>(
+    { sortBy: 'purchased', sortDir: 'desc' },
+    reset,
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,13 +60,14 @@ export function PurchasesTab() {
   }
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['package-purchases', page, limit, status, appliedSearch],
+    queryKey: ['package-purchases', page, limit, status, appliedSearch, sort],
     queryFn: () =>
       fetchPackagePurchases({
         page,
         limit,
         status: status === 'ALL' ? undefined : status,
         search: appliedSearch || undefined,
+        ...sort,
       }),
     placeholderData: keepPreviousData,
   });
@@ -106,6 +117,8 @@ export function PurchasesTab() {
             rows={purchases}
             onRowClick={setSelectedId}
             hasActiveFilters={status !== 'ALL' || appliedSearch !== ''}
+            sort={sort}
+            onSortChange={onSortChange}
           />
           {meta && (
             <Pagination

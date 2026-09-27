@@ -1,8 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
-import { PackageForm } from '@admin/features/packages/package-form';
+import {
+  Button,
+  ErrorState,
+  ICON_SIZE,
+  PageHeader,
+  Plus,
+  StaleRefreshBanner,
+  TableSkeleton,
+} from '@admin/components/ui';
+import { PackageFormModal } from '@admin/features/packages/package-form';
 import { PackageTable } from '@admin/features/packages/package-table';
 import { PurchasesTab } from '@admin/features/package-purchases/purchases-tab';
 import { fetchPackages } from '@admin/lib/api';
@@ -19,7 +27,14 @@ type TabId = (typeof TABS)[number]['id'];
 export function PackagesPage() {
   const canManage = useCanManage('packages');
   const [tab, setTab] = useState<TabId>('packages');
-  const { data: packages, isLoading, error, refetch, isFetching } = useQuery({
+  const [adding, setAdding] = useState(false);
+  const {
+    data: packages,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['packages'],
     queryFn: fetchPackages,
   });
@@ -29,6 +44,16 @@ export function PackagesPage() {
       <PageHeader
         title="Packages"
         subtitle="Curate the purchasable hour bundles offered to parents and review every prepaid purchase behind them."
+        action={
+          // Purchases are read-only — adding only makes sense on the catalogue tab.
+          canManage &&
+          tab === 'packages' && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus size={ICON_SIZE.inline} aria-hidden />
+              Add package
+            </Button>
+          )
+        }
       />
 
       <div className="subtabs" role="tablist" aria-label="Package sections">
@@ -48,7 +73,6 @@ export function PackagesPage() {
       <div className="subtab-panel">
         {tab === 'packages' && (
           <>
-            {canManage && <PackageForm />}
             {isLoading && <TableSkeleton columns={6} />}
             {error != null && !packages && (
               <ErrorState
@@ -73,6 +97,7 @@ export function PackagesPage() {
         )}
         {tab === 'purchases' && <PurchasesTab />}
       </div>
+      {adding && <PackageFormModal onClose={() => setAdding(false)} />}
     </section>
   );
 }
