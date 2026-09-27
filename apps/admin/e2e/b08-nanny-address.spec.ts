@@ -45,11 +45,6 @@ test('rewrites her address and the console and the app both read the new one', a
   await expect(card).toContainText('Sidi Gaber, Alexandria');
   await expect(card).toContainText('Opposite the tram stop');
 
-  // The summary card's location line is derived from the same row.
-  await expect(page.locator('.nanny-summary')).toContainText(
-    '5 Corniche, Sidi Gaber, Alexandria',
-  );
-
   // And so is what the nanny's own app reads.
   const appToken = await signIn(nanny.email);
   const response = await fetch(`${process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:3001'}/addresses`, {

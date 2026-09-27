@@ -18,7 +18,6 @@ import {
   ICON_SIZE,
   LoadingState,
   Mail,
-  MapPin,
   Phone,
   PromptDialog,
   StaleRefreshBanner,
@@ -184,115 +183,115 @@ export function NannyDetailPage() {
             />
           </div>
 
-          <div className="detail-columns">
-            <div className="detail-column">
-              <Card
-                title="About"
-                action={
-                  canManage && !editingProfile ? (
-                    <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
-                      Edit profile
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {editingProfile ? (
-                  <NannyProfileEditor
-                    nanny={nanny}
-                    certifications={activeCertifications}
-                    onDone={() => setEditingProfile(false)}
+          {/* Paired cards share a row, so their edges line up; the long-form
+              profile cards run full width beneath them. */}
+          <div className="nanny-detail-grid">
+            <Card
+              title="Application"
+              action={
+                canManage && (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) ? (
+                  <RequestNewIdButton
+                    name={nanny.name}
+                    consequence="Until it's approved she won't appear to parents or get new bookings. This isn't possible while she has active bookings."
+                    request={(reason) => invalidateNannyId(id, reason)}
+                    onDone={invalidate}
                   />
-                ) : (
-                  <AboutSection nanny={nanny} />
-                )}
-              </Card>
-
-              <Card
-                title="Skills"
-                action={
-                  canManage && !editingSkills ? (
-                    <Button size="sm" variant="ghost" onClick={() => setEditingSkills(true)}>
-                      Edit skills
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {editingSkills ? (
-                  <NannySkillsEditor
-                    nanny={nanny}
-                    skills={activeSkills}
-                    onDone={() => setEditingSkills(false)}
-                  />
-                ) : nanny.skills.length > 0 ? (
-                  <div className="detail-skills-list">
-                    {nanny.skills.map((skill) => (
-                      <Badge key={skill.id} tone={skill.isActive ? 'neutral' : 'warning'}>
-                        {skill.isActive ? skill.name : `${skill.name} · inactive`}
+                ) : undefined
+              }
+            >
+              <DescriptionList
+                items={[
+                  {
+                    label: 'Status',
+                    value: (
+                      <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
+                        {approvalStatusLabel(nanny.approvalStatus)}
                       </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="table-subtext">No skills assigned yet.</p>
-                )}
-              </Card>
-            </div>
+                    ),
+                  },
+                  {
+                    label: 'ID document',
+                    value: nanny.idDocumentType ? ID_TYPE_LABEL[nanny.idDocumentType] : DASH,
+                  },
+                  { label: 'Registered', value: formatDate(nanny.createdAt) },
+                  {
+                    label: 'Reviewed',
+                    value: nanny.reviewedAt ? formatDate(nanny.reviewedAt) : DASH,
+                  },
+                  ...(nanny.rejectionReason
+                    ? [
+                        {
+                          label:
+                            nanny.approvalStatus === 'REJECTED'
+                              ? 'Rejection reason'
+                              : 'Reason for new ID',
+                          value: nanny.rejectionReason,
+                          wide: true,
+                        },
+                      ]
+                    : []),
+                  {
+                    label: 'ID photos',
+                    wide: true,
+                    value: <IdPhotos nanny={nanny} onOpen={() => setIdOpen(true)} />,
+                  },
+                ]}
+              />
+            </Card>
 
-            <div className="detail-column">
-              <Card
-                title="Application"
-                action={
-                  canManage && (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) ? (
-                    <RequestNewIdButton
-                      name={nanny.name}
-                      consequence="Until it's approved she won't appear to parents or get new bookings. This isn't possible while she has active bookings."
-                      request={(reason) => invalidateNannyId(id, reason)}
-                      onDone={invalidate}
-                    />
-                  ) : undefined
-                }
-              >
-                <DescriptionList
-                  items={[
-                    {
-                      label: 'Status',
-                      value: (
-                        <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
-                          {approvalStatusLabel(nanny.approvalStatus)}
-                        </Badge>
-                      ),
-                    },
-                    {
-                      label: 'ID document',
-                      value: nanny.idDocumentType ? ID_TYPE_LABEL[nanny.idDocumentType] : DASH,
-                    },
-                    { label: 'Registered', value: formatDate(nanny.createdAt) },
-                    {
-                      label: 'Reviewed',
-                      value: nanny.reviewedAt ? formatDate(nanny.reviewedAt) : DASH,
-                    },
-                    ...(nanny.rejectionReason
-                      ? [
-                          {
-                            label:
-                              nanny.approvalStatus === 'REJECTED'
-                                ? 'Rejection reason'
-                                : 'Reason for new ID',
-                            value: nanny.rejectionReason,
-                            wide: true,
-                          },
-                        ]
-                      : []),
-                    {
-                      label: 'ID photos',
-                      wide: true,
-                      value: <IdPhotos nanny={nanny} onOpen={() => setIdOpen(true)} />,
-                    },
-                  ]}
+            <NannyAddressCard nanny={nanny} canManage={canManage} />
+
+            <Card
+              className="nanny-detail-wide"
+              title="About"
+              action={
+                canManage && !editingProfile ? (
+                  <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
+                    Edit profile
+                  </Button>
+                ) : undefined
+              }
+            >
+              {editingProfile ? (
+                <NannyProfileEditor
+                  nanny={nanny}
+                  certifications={activeCertifications}
+                  onDone={() => setEditingProfile(false)}
                 />
-              </Card>
+              ) : (
+                <AboutSection nanny={nanny} />
+              )}
+            </Card>
 
-              <NannyAddressCard nanny={nanny} canManage={canManage} />
-            </div>
+            <Card
+              className="nanny-detail-wide"
+              title="Skills"
+              action={
+                canManage && !editingSkills ? (
+                  <Button size="sm" variant="ghost" onClick={() => setEditingSkills(true)}>
+                    Edit skills
+                  </Button>
+                ) : undefined
+              }
+            >
+              {editingSkills ? (
+                <NannySkillsEditor
+                  nanny={nanny}
+                  skills={activeSkills}
+                  onDone={() => setEditingSkills(false)}
+                />
+              ) : nanny.skills.length > 0 ? (
+                <div className="detail-skills-list">
+                  {nanny.skills.map((skill) => (
+                    <Badge key={skill.id} tone={skill.isActive ? 'neutral' : 'warning'}>
+                      {skill.isActive ? skill.name : `${skill.name} · inactive`}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="table-subtext">No skills assigned yet.</p>
+              )}
+            </Card>
           </div>
         </>
       )}
@@ -319,7 +318,7 @@ export function NannyDetailPage() {
 
 /**
  * Who she is at a glance: photo, status, verification and how to reach her.
- * The cards below hold the detail an admin opens the record to check.
+ * Her address lives in its own card below, so it isn't repeated here.
  */
 function NannySummary({ nanny }: { nanny: AdminNannyDetail }) {
   return (
@@ -347,10 +346,6 @@ function NannySummary({ nanny }: { nanny: AdminNannyDetail }) {
           <li>
             <Phone size={ICON_SIZE.inline} aria-label="Phone" />
             {nanny.phone ?? DASH}
-          </li>
-          <li>
-            <MapPin size={ICON_SIZE.inline} aria-label="Location" />
-            {nanny.location ?? DASH}
           </li>
         </ul>
       </div>
