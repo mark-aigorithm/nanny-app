@@ -4,12 +4,14 @@
  * every save and fail it — and let the admin keep or drop it.
  */
 import type { AdminNanny, SetNannySkillsInput, Skill } from '@nanny-app/shared';
+import { useQuery } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
+import { fetchNanny } from '@admin/lib/api';
 import { renderWithProviders } from '@admin/test/render';
 import { server } from '@admin/test/server';
 
@@ -96,6 +98,46 @@ describe('NannySkillsEditor', () => {
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(sent.body?.skillIds).toEqual([3]);
+  });
+
+  it('updates the open detail page without a reload', async () => {
+    const saved: AdminNanny = {
+      ...NANNY,
+      skills: [{ id: 5, name: 'Test Skill 2', feeType: null, feeValue: 0, isActive: true }],
+    };
+    let current = NANNY;
+    server.use(
+      http.put('/api/admin/nannies/:id/skills', () => {
+        current = saved;
+        return HttpResponse.json({ data: saved, error: null });
+      }),
+      http.get('/api/admin/nannies/:id', () => HttpResponse.json({ data: current, error: null })),
+    );
+    // Stands in for the detail page, which keys its query by the URL param —
+    // a string, not a number.
+    function DetailSkills() {
+      const { data } = useQuery({
+        queryKey: ['nanny', '21'],
+        queryFn: () => fetchNanny('21'),
+      });
+      return <p data-testid="detail-skills">{data?.skills.map((s) => s.name).join(', ')}</p>;
+    }
+    const onDone = vi.fn();
+    renderWithProviders(
+      <>
+        <DetailSkills />
+        <NannySkillsEditor nanny={NANNY} skills={ACTIVE} onDone={onDone} />
+      </>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('detail-skills')).toHaveTextContent('French, Test Skill 1'),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save skills' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('detail-skills')).toHaveTextContent(/^Test Skill 2$/),
+    );
   });
 
   it('orders skills naturally, so "Test Skill 2" comes before "Test Skill 10"', () => {

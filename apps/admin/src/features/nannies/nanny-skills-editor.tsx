@@ -45,10 +45,15 @@ export function NannySkillsEditor({ nanny, skills, onDone }: NannySkillsEditorPr
 
   const saveMutation = useMutation({
     mutationFn: () => setNannySkills(nanny.id, { skillIds: [...selected] }),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      // The detail page keys its query by the URL param, a string — a numeric
+      // key would match nothing and leave the old skills on screen.
+      const detailKey = ['nanny', String(nanny.id)];
+      queryClient.setQueryData<AdminNanny>(detailKey, (prev) =>
+        prev ? { ...prev, skills: updated.skills } : prev,
+      );
+      void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({ queryKey: ['admin-nannies'] });
-      // Also refresh the nanny detail page's data if it's what's open.
-      void queryClient.invalidateQueries({ queryKey: ['nanny', nanny.id] });
       onDone();
     },
   });
