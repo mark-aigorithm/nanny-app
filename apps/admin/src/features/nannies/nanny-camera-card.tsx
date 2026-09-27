@@ -34,7 +34,11 @@ export function NannyCameraCard({ nanny }: NannyCameraCardProps) {
   const [selected, setSelected] = useState<number | ''>('');
   const [confirmingUnassign, setConfirmingUnassign] = useState(false);
 
-  const { data: cameras, isLoading, error } = useQuery({
+  const {
+    data: cameras,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['cameras'],
     queryFn: fetchCameras,
     enabled: canManage,

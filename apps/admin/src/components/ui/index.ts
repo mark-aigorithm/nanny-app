@@ -21,7 +21,7 @@ export { Input } from './input';
 export { Switch } from './switch';
 
 // Data display
-export { Table, type Column, type TableSort } from './table';
+export { Table, actionsColumn, type Column, type TableSort } from './table';
 export { Pagination } from './pagination';
 
 // Loading
@@ -37,6 +37,7 @@ export { ToastProvider, useToast } from './toast';
 
 // Overlays
 export { Modal } from './modal';
+export { FormModal } from './form-modal';
 export { ConfirmDialog } from './confirm-dialog';
 export { PromptDialog } from './prompt-dialog';
 

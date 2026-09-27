@@ -150,6 +150,21 @@ export function Table<T, K extends string = string>({
   );
 }
 
+/**
+ * The standard last column of a table page: a row's actions in a kebab menu
+ * (`<ActionMenu>` with Edit first, destructive items last behind a separator).
+ */
+export function actionsColumn<T, K extends string = string>(
+  render: (row: T) => ReactNode,
+): Column<T, K> {
+  return {
+    key: 'actions',
+    header: <span className="sr-only">Actions</span>,
+    align: 'right',
+    render,
+  };
+}
+
 type HeaderCellProps<T, K extends string> = {
   column: Column<T, K>;
   sort: TableSort<K> | undefined;
@@ -166,7 +181,8 @@ function HeaderCell<T, K extends string>({ column, sort, onSortChange }: HeaderC
 
   const direction = sort?.sortBy === sortKey ? sort.sortDir : undefined;
   const active = direction !== undefined;
-  const SortIcon = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ChevronsUpDown;
+  const SortIcon =
+    direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ChevronsUpDown;
 
   return (
     <th
@@ -180,7 +196,11 @@ function HeaderCell<T, K extends string>({ column, sort, onSortChange }: HeaderC
           onSortChange({
             sortBy: sortKey,
             // A second click on the same column flips it; a new column starts its own way.
-            sortDir: direction ? (direction === 'asc' ? 'desc' : 'asc') : (column.sortFirst ?? 'asc'),
+            sortDir: direction
+              ? direction === 'asc'
+                ? 'desc'
+                : 'asc'
+              : (column.sortFirst ?? 'asc'),
           })
         }
       >
