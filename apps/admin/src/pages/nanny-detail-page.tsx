@@ -2,23 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { idTypeRequiresBack, type AdminNannyDetail, type IdDocumentType } from '@nanny-app/shared';
+import type { AdminNannyDetail } from '@nanny-app/shared';
 
 import {
   Badge,
   Briefcase,
   Button,
   Card,
-  CircleCheck,
-  CircleOff,
   ClipboardList,
   DescriptionList,
   DetailHeader,
   ErrorState,
   ICON_SIZE,
   LoadingState,
-  Mail,
-  Phone,
   PromptDialog,
   StaleRefreshBanner,
   StatCard,
@@ -33,6 +29,7 @@ import {
   workingDays,
 } from '@admin/features/nannies/nanny-profile-editor';
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
+import { ID_TYPE_LABEL, IdPhotos, ProfileSummary } from '@admin/features/users/profile-detail';
 import { RequestNewIdButton } from '@admin/features/users/request-new-id-button';
 import {
   approveNanny,
@@ -44,7 +41,7 @@ import {
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
-import { formatEgp, initials } from '@admin/lib/format';
+import { formatEgp } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
@@ -52,11 +49,6 @@ function formatDate(iso: string): string {
 }
 
 const DASH = <span className="table-empty">—</span>;
-
-const ID_TYPE_LABEL: Record<IdDocumentType, string> = {
-  PASSPORT: 'Passport',
-  NATIONAL_ID: 'National ID',
-};
 
 export function NannyDetailPage() {
   const canManage = useCanManage('users');
@@ -161,7 +153,19 @@ export function NannyDetailPage() {
             />
           )}
 
-          <NannySummary nanny={nanny} />
+          <ProfileSummary
+            name={nanny.name}
+            avatarUrl={nanny.avatarUrl}
+            email={nanny.email}
+            phone={nanny.phone}
+            isEmailVerified={nanny.isEmailVerified}
+            isPhoneVerified={nanny.isPhoneVerified}
+            badges={
+              <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
+                {approvalStatusLabel(nanny.approvalStatus)}
+              </Badge>
+            }
+          />
 
           <div className="stat-grid stat-grid--fit">
             <StatCard
@@ -185,7 +189,7 @@ export function NannyDetailPage() {
 
           {/* Paired cards share a row, so their edges line up; the long-form
               profile cards run full width beneath them. */}
-          <div className="nanny-detail-grid">
+          <div className="detail-grid">
             <Card
               title="Application"
               action={
@@ -233,7 +237,7 @@ export function NannyDetailPage() {
                   {
                     label: 'ID photos',
                     wide: true,
-                    value: <IdPhotos nanny={nanny} onOpen={() => setIdOpen(true)} />,
+                    value: <IdPhotos subject={nanny} onOpen={() => setIdOpen(true)} />,
                   },
                 ]}
               />
@@ -242,7 +246,7 @@ export function NannyDetailPage() {
             <NannyAddressCard nanny={nanny} canManage={canManage} />
 
             <Card
-              className="nanny-detail-wide"
+              className="detail-grid-wide"
               title="About"
               action={
                 canManage && !editingProfile ? (
@@ -264,7 +268,7 @@ export function NannyDetailPage() {
             </Card>
 
             <Card
-              className="nanny-detail-wide"
+              className="detail-grid-wide"
               title="Skills"
               action={
                 canManage && !editingSkills ? (
@@ -313,93 +317,6 @@ export function NannyDetailPage() {
 
       {idOpen && nanny && <IdDocumentModal subject={nanny} onClose={() => setIdOpen(false)} />}
     </section>
-  );
-}
-
-/**
- * Who she is at a glance: photo, status, verification and how to reach her.
- * Her address lives in its own card below, so it isn't repeated here.
- */
-function NannySummary({ nanny }: { nanny: AdminNannyDetail }) {
-  return (
-    <Card className="nanny-summary">
-      {nanny.avatarUrl ? (
-        <img className="nanny-summary-avatar" src={nanny.avatarUrl} alt="" />
-      ) : (
-        <span className="nanny-summary-avatar nanny-summary-avatar--fallback" aria-hidden>
-          {initials(nanny.name)}
-        </span>
-      )}
-      <div className="nanny-summary-body">
-        <div className="nanny-summary-badges">
-          <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
-            {approvalStatusLabel(nanny.approvalStatus)}
-          </Badge>
-          <VerifiedBadge label="Email" verified={nanny.isEmailVerified} />
-          <VerifiedBadge label="Phone" verified={nanny.isPhoneVerified} />
-        </div>
-        <ul className="nanny-summary-contact">
-          <li>
-            <Mail size={ICON_SIZE.inline} aria-label="Email" />
-            {nanny.email}
-          </li>
-          <li>
-            <Phone size={ICON_SIZE.inline} aria-label="Phone" />
-            {nanny.phone ?? DASH}
-          </li>
-        </ul>
-      </div>
-    </Card>
-  );
-}
-
-/**
- * Her ID, front and back, right where the application is decided. Clicking
- * opens the full-size viewer. A passport has no back side.
- */
-function IdPhotos({ nanny, onOpen }: { nanny: AdminNannyDetail; onOpen: () => void }) {
-  if (!nanny.idDocumentFrontUrl && !nanny.idDocumentBackUrl) {
-    return <p className="table-subtext">No ID uploaded yet.</p>;
-  }
-  const showBack = nanny.idDocumentType == null || idTypeRequiresBack(nanny.idDocumentType);
-  return (
-    <button
-      type="button"
-      className="id-review-thumbs nanny-id-photos"
-      onClick={onOpen}
-      title="Click to enlarge"
-    >
-      <span className="id-review-thumb">
-        {nanny.idDocumentFrontUrl ? (
-          <img src={nanny.idDocumentFrontUrl} alt={`Front of ${nanny.name}'s ID`} />
-        ) : (
-          <span className="id-review-thumb-empty">No front image</span>
-        )}
-        <span className="id-review-thumb-tag">Front</span>
-      </span>
-      {showBack && (
-        <span className="id-review-thumb">
-          {nanny.idDocumentBackUrl ? (
-            <img src={nanny.idDocumentBackUrl} alt={`Back of ${nanny.name}'s ID`} />
-          ) : (
-            <span className="id-review-thumb-empty">No back image</span>
-          )}
-          <span className="id-review-thumb-tag">Back</span>
-        </span>
-      )}
-    </button>
-  );
-}
-
-function VerifiedBadge({ label, verified }: { label: string; verified: boolean }) {
-  const Icon = verified ? CircleCheck : CircleOff;
-  return (
-    <Badge tone={verified ? 'success' : 'neutral'}>
-      <span className="badge-with-icon">
-        <Icon size={12} aria-hidden />
-        {label} {verified ? 'verified' : 'not verified'}
-      </span>
-    </Badge>
   );
 }
 

@@ -11,11 +11,11 @@ import {
   Card,
   ClipboardList,
   DescriptionList,
-  type DescriptionItem,
   DetailHeader,
   ErrorState,
   ICON_SIZE,
   LoadingState,
+  MapPin,
   Pencil,
   PromptDialog,
   StaleRefreshBanner,
@@ -24,6 +24,7 @@ import {
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { MotherEditForm } from '@admin/features/users/mother-edit-form';
+import { ID_TYPE_LABEL, IdPhotos, ProfileSummary } from '@admin/features/users/profile-detail';
 import { RequestNewIdButton } from '@admin/features/users/request-new-id-button';
 import { approveMother, fetchMother, invalidateMotherId, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -84,85 +85,24 @@ export function MotherDetailPage() {
 
   const actions = mother ? (
     <>
-      <Badge tone={mother.isActive ? 'success' : 'danger'}>
-        {mother.isActive ? 'active' : 'deactivated'}
-      </Badge>
       {canManage && (
         <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
           <Pencil size={ICON_SIZE.inline} aria-hidden />
           Edit
         </Button>
       )}
-      {hasId && (
-        <Button variant="ghost" size="sm" onClick={() => setIdOpen(true)}>
-          View ID
-        </Button>
-      )}
-      {canManage && hasId && (
-        <RequestNewIdButton
-          name={mother.name}
-          consequence="Until it's approved she can't book care."
-          request={(reason) => invalidateMotherId(id, reason)}
-          onDone={invalidate}
-        />
-      )}
       {canReview && (
         <Button size="sm" disabled={mutating} onClick={() => approveMutation.mutate()}>
-          Approve
+          Approve ID
         </Button>
       )}
       {canReview && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
-          Reject
+          Reject ID
         </Button>
       )}
     </>
   ) : undefined;
-
-  const contact: DescriptionItem[] = mother
-    ? [
-        { label: 'Email', value: mother.email },
-        { label: 'Phone', value: mother.phone ?? DASH },
-        { label: 'Address', value: mother.location ?? DASH, wide: true },
-      ]
-    : [];
-
-  const account: DescriptionItem[] = mother
-    ? [
-        {
-          label: 'Status',
-          value: (
-            <Badge tone={mother.isActive ? 'success' : 'danger'}>
-              {mother.isActive ? 'active' : 'deactivated'}
-            </Badge>
-          ),
-        },
-        {
-          label: 'Verification',
-          value:
-            [mother.isEmailVerified ? 'email' : null, mother.isPhoneVerified ? 'phone' : null]
-              .filter(Boolean)
-              .join(' & ') || 'none',
-        },
-        {
-          label: 'ID status',
-          value: mother.approvalStatus ? (
-            <>
-              <Badge tone={approvalStatusTone(mother.approvalStatus)}>
-                {approvalStatusLabel(mother.approvalStatus)}
-              </Badge>
-              {mother.rejectionReason && (
-                <div className="table-subtext">{mother.rejectionReason}</div>
-              )}
-            </>
-          ) : (
-            DASH
-          ),
-        },
-        { label: 'Reviewed at', value: mother.reviewedAt ? formatDate(mother.reviewedAt) : DASH },
-        { label: 'User ID', value: <code>{mother.id}</code> },
-      ]
-    : [];
 
   return (
     <section>
@@ -170,7 +110,9 @@ export function MotherDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={mother ? mother.name : 'Mommy details'}
-        subtitle={mother?.approvalStatus ? approvalStatusLabel(mother.approvalStatus) : 'Parent account'}
+        subtitle={
+          mother ? `User ID ${mother.id} · Joined ${formatDate(mother.createdAt)}` : undefined
+        }
         actions={actions}
       />
 
@@ -191,49 +133,132 @@ export function MotherDetailPage() {
               retrying={isFetching}
             />
           )}
-          <div className="stat-grid">
+
+          <ProfileSummary
+            name={mother.name}
+            avatarUrl={mother.avatarUrl}
+            email={mother.email}
+            phone={mother.phone}
+            isEmailVerified={mother.isEmailVerified}
+            isPhoneVerified={mother.isPhoneVerified}
+            badges={
+              <>
+                <Badge tone={mother.isActive ? 'success' : 'danger'}>
+                  {mother.isActive ? 'active' : 'deactivated'}
+                </Badge>
+                {mother.approvalStatus && (
+                  <Badge tone={approvalStatusTone(mother.approvalStatus)}>
+                    {approvalStatusLabel(mother.approvalStatus)}
+                  </Badge>
+                )}
+              </>
+            }
+          />
+
+          <div className="stat-grid stat-grid--fit">
             <StatCard
               label="Bookings placed"
               value={mother.bookingCount}
               icon={<ClipboardList size={ICON_SIZE.stat} aria-hidden />}
             />
             <StatCard
+              label="Saved addresses"
+              value={mother.addresses.length}
+              icon={<MapPin size={ICON_SIZE.stat} aria-hidden />}
+              iconTone="gold"
+            />
+            <StatCard
               label="Registered"
               value={formatDate(mother.createdAt)}
               icon={<CalendarClock size={ICON_SIZE.stat} aria-hidden />}
-              iconTone="gold"
+              iconTone="bronze"
             />
           </div>
 
-          <Card title="Contact">
-            <DescriptionList items={contact} />
-          </Card>
+          {/* Same shape as the nanny record: paired cards share a row so their
+              edges line up. */}
+          <div className="detail-grid">
+            <Card
+              title="Application"
+              action={
+                canManage && hasId ? (
+                  <RequestNewIdButton
+                    name={mother.name}
+                    consequence="Until it's approved she can't book care."
+                    request={(reason) => invalidateMotherId(id, reason)}
+                    onDone={invalidate}
+                  />
+                ) : undefined
+              }
+            >
+              <DescriptionList
+                items={[
+                  {
+                    label: 'ID status',
+                    value: mother.approvalStatus ? (
+                      <Badge tone={approvalStatusTone(mother.approvalStatus)}>
+                        {approvalStatusLabel(mother.approvalStatus)}
+                      </Badge>
+                    ) : (
+                      DASH
+                    ),
+                  },
+                  {
+                    label: 'ID document',
+                    value: mother.idDocumentType ? ID_TYPE_LABEL[mother.idDocumentType] : DASH,
+                  },
+                  {
+                    label: 'Reviewed',
+                    value: mother.reviewedAt ? formatDate(mother.reviewedAt) : DASH,
+                  },
+                  ...(mother.rejectionReason
+                    ? [
+                        {
+                          label:
+                            mother.approvalStatus === 'REJECTED'
+                              ? 'Rejection reason'
+                              : 'Reason for new ID',
+                          value: mother.rejectionReason,
+                          wide: true,
+                        },
+                      ]
+                    : []),
+                  {
+                    label: 'ID photos',
+                    wide: true,
+                    value: <IdPhotos subject={mother} onOpen={() => setIdOpen(true)} />,
+                  },
+                ]}
+              />
+            </Card>
 
-          <Card title="Addresses">
-            {mother.addresses.length === 0 ? (
-              <p className="empty-state">No addresses on file.</p>
-            ) : (
-              <ul className="address-list">
-                {mother.addresses.map((address) => (
-                  <li key={address.id} className="address-list-item">
-                    <div className="address-list-head">
-                      <strong>{address.label}</strong>
-                      {address.isDefault && <Badge tone="success">Default</Badge>}
-                    </div>
-                    <div>{address.formattedAddress}</div>
-                    <div className="table-subtext">
-                      {formatAddressArea(address)}
-                      {address.landmark ? ` · ${address.landmark}` : ''}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card title="Account">
-            <DescriptionList items={account} />
-          </Card>
+            <Card title="Addresses">
+              {mother.addresses.length === 0 ? (
+                <p className="table-subtext">No addresses on file.</p>
+              ) : (
+                <ul className="address-list">
+                  {mother.addresses.map((address) => {
+                    const area = formatAddressArea(address);
+                    const details = [area, address.landmark].filter(Boolean).join(' · ');
+                    return (
+                      <li key={address.id} className="address-list-item">
+                        <div className="address-list-head">
+                          <strong>{address.label}</strong>
+                          {address.isDefault && <Badge tone="success">Default</Badge>}
+                        </div>
+                        {address.formattedAddress ? (
+                          <div>{address.formattedAddress}</div>
+                        ) : (
+                          <div className="table-subtext">No street address on file.</div>
+                        )}
+                        {details && <div className="table-subtext">{details}</div>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </div>
         </>
       )}
 

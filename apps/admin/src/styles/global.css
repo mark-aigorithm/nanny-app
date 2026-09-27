@@ -708,29 +708,39 @@ input[type='number'] {
 }
 
 
-/* ── Nanny detail ───────────────────────────────────────── */
+/* ── Nanny & mommy detail ───────────────────────────────── */
 
 /* Cards sit in shared rows rather than two independent stacks, so every
    pair's top and bottom edges line up: each card stretches to its row's
    height. Paired cards stack below ~1100px; wide ones always span. */
-.nanny-detail-grid {
+.detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   margin-bottom: 1.5rem;
 }
 
-.nanny-detail-grid > .card {
+.detail-grid > .card {
   margin-bottom: 0;
   min-width: 0;
 }
 
-.nanny-detail-grid > .nanny-detail-wide {
+.detail-grid > .detail-grid-wide {
   grid-column: 1 / -1;
 }
 
+/* A title with no action button is shorter than one with; give both the same
+   row so paired cards' headings and content start on the same line. */
+.detail-grid > .card > h3,
+.detail-grid > .card > .card-header {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  margin-bottom: 1.5rem;
+}
+
 @media (max-width: 1100px) {
-  .nanny-detail-grid {
+  .detail-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -740,14 +750,14 @@ input[type='number'] {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
 }
 
-.nanny-summary {
+.profile-summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 1.25rem 1.5rem;
 }
 
-.nanny-summary-avatar {
+.profile-summary-avatar {
   flex: none;
   width: 88px;
   height: 88px;
@@ -757,7 +767,7 @@ input[type='number'] {
   border: 3px solid var(--color-warm-subtle);
 }
 
-.nanny-summary-avatar--fallback {
+.profile-summary-avatar--fallback {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -767,7 +777,7 @@ input[type='number'] {
   font-weight: 800;
 }
 
-.nanny-summary-body {
+.profile-summary-body {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -775,7 +785,7 @@ input[type='number'] {
   flex: 1;
 }
 
-.nanny-summary-badges {
+.profile-summary-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -787,7 +797,7 @@ input[type='number'] {
   gap: 0.3rem;
 }
 
-.nanny-summary-contact {
+.profile-summary-contact {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -798,7 +808,7 @@ input[type='number'] {
   font-size: 0.92rem;
 }
 
-.nanny-summary-contact li {
+.profile-summary-contact li {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -806,14 +816,14 @@ input[type='number'] {
   overflow-wrap: anywhere;
 }
 
-.nanny-summary-contact svg {
+.profile-summary-contact svg {
   flex: none;
   color: var(--color-primary-dark);
 }
 
 /* The gallery's ID thumbnails, capped so the Application card stays close to
    its row partner's height; the full-size viewer is a click away. */
-.id-review-thumbs.nanny-id-photos {
+.id-review-thumbs.profile-id-photos {
   grid-template-columns: repeat(auto-fit, minmax(0, 220px));
   justify-content: start;
   width: 100%;
@@ -892,7 +902,7 @@ input[type='number'] {
   padding: 0.75rem 1rem;
   border: 1px solid var(--color-warm-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
+  background: var(--color-background);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
