@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ICON_SIZE, X } from './icon';
@@ -19,6 +19,7 @@ type ModalProps = {
  * content bare — no wrapper needed for the gutters.
  */
 export function Modal({ title, onClose, children, footer, size = 'md' }: ModalProps) {
+  const titleId = useId();
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
@@ -33,11 +34,19 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
         className={`modal${size === 'sm' ? ' modal--sm' : ''}`}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
-          <button type="button" className="icon-btn icon-btn--plain" aria-label="Close" onClick={onClose}>
+          <h2 id={titleId} className="modal-title">
+            {title}
+          </h2>
+          <button
+            type="button"
+            className="icon-btn icon-btn--plain"
+            aria-label="Close"
+            onClick={onClose}
+          >
             <X size={ICON_SIZE.inline} />
           </button>
         </div>

@@ -42,37 +42,6 @@ function uniqueName(prefix: string): string {
 }
 
 /**
- * The create form on a catalogue page, scoped by its card heading.
- *
- * Everything below fills through this rather than `page.getByLabel`, because
- * these pages reuse label words freely — "Hours" appears twice on Packages,
- * "Maximum" twice on Booking Options — and `Field` folds its hint text into the
- * label element, so the accessible name of one control can be a superstring of
- * another's. A page-wide lookup by label matches several inputs and fails strict
- * mode; scoping to the card and matching exactly does not.
- */
-function form(page: Page, title: string) {
-  return page.locator('.card').filter({ has: page.getByRole('heading', { name: title }) });
-}
-
-/**
- * Fills a numeric or text input inside a create form.
- *
- * Matched on a name *starting with* the label, not equalling it: `Field` renders
- * its hint inside the same `<label>`, so "Description" is really "Description
- * Optional — shown to admins only." Anchoring at the start still separates the
- * two "Hours" fields on Packages, where the other one begins "Validity (days)".
- */
-async function fill(page: Page, title: string, label: string, value: string): Promise<void> {
-  const scope = form(page, title);
-  const name = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
-  const input = scope
-    .getByRole('textbox', { name })
-    .or(scope.getByRole('spinbutton', { name }));
-  await input.fill(value);
-}
-
-/**
  * The booking-length ceiling on the Booking Options page.
  *
  * Not reachable as "Maximum": that page has two of them — the longest bookable
@@ -83,12 +52,6 @@ function maxHours(page: Page) {
   return page.getByRole('spinbutton', { name: 'Maximum hours', exact: true });
 }
 
-/** Sets one of the console's custom Select controls by its visible label. */
-async function choose(page: Page, label: string, option: string): Promise<void> {
-  await page.locator('.field', { hasText: label }).getByRole('button').click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
-
 test('a new skill reaches the catalogue a nanny picks from', async ({ page }) => {
   const admin = await superuserToken();
   const live = uniqueName('skill');
@@ -96,15 +59,23 @@ test('a new skill reaches the catalogue a nanny picks from', async ({ page }) =>
 
   await gotoConsole(page, '/skills');
 
-  await fill(page, 'Create skill', 'Name', live);
-  await fill(page, 'Create skill', 'Description', 'Created by the E2E suite.');
-  await page.getByRole('button', { name: 'Create skill' }).click();
+  // "Add skill" opens the page's one form dialog; its submit shares the header
+  // button's label, so everything after the click is scoped to the dialog.
+  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Add skill' }).click();
+  await dialog.getByRole('textbox', { name: /^Name/ }).fill(live);
+  await dialog.getByRole('textbox', { name: /^Description/ }).fill('Created by the E2E suite.');
+  await dialog.getByRole('button', { name: 'Add skill' }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.locator('tbody tr').filter({ hasText: live })).toBeVisible();
 
-  // The same form again, this time switched off before saving.
-  await fill(page, 'Create skill', 'Name', hidden);
-  await choose(page, 'Status', 'Inactive');
-  await page.getByRole('button', { name: 'Create skill' }).click();
+  // The same dialog again, this time switched off before saving.
+  await page.getByRole('button', { name: 'Add skill' }).click();
+  await dialog.getByRole('textbox', { name: /^Name/ }).fill(hidden);
+  await dialog.locator('.field', { hasText: 'Status' }).getByRole('button').click();
+  await page.getByRole('option', { name: 'Inactive', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Add skill' }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.locator('tbody tr').filter({ hasText: hidden })).toBeVisible();
 
   const names = (await listAppSkills(admin)).map((skill) => skill.name);
@@ -119,8 +90,13 @@ test('a new certification reaches the nanny picker', async ({ page }) => {
 
   await gotoConsole(page, '/certifications');
 
-  await fill(page, 'Create certification', 'Name', name);
-  await page.getByRole('button', { name: 'Create certification' }).click();
+  // Add opens the page's one form dialog; its submit shares the header button's label,
+  // so everything after the click is scoped to the dialog.
+  await page.getByRole('button', { name: 'Add certification' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: /^Name/ }).fill(name);
+  await dialog.getByRole('button', { name: 'Add certification' }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.locator('tbody tr').filter({ hasText: name })).toBeVisible();
 
   expect((await listAppCertifications(admin)).map((c) => c.name)).toContain(name);
@@ -132,10 +108,15 @@ test('a new package is offered to a mother', async ({ page }) => {
 
   await gotoConsole(page, '/packages');
 
-  await fill(page, 'Create package', 'Name', name);
-  await fill(page, 'Create package', 'Hours', '10');
-  await fill(page, 'Create package', 'Price (EGP)', '900');
-  await page.getByRole('button', { name: 'Create package' }).click();
+  // Add opens the page's one form dialog; its submit shares the header button's label,
+  // so everything after the click is scoped to the dialog.
+  await page.getByRole('button', { name: 'Add package' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: /^Name/ }).fill(name);
+  await dialog.getByRole('spinbutton', { name: /^Hours/ }).fill('10');
+  await dialog.getByRole('spinbutton', { name: /^Price \(EGP\)/ }).fill('900');
+  await dialog.getByRole('button', { name: 'Add package' }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.locator('tbody tr').filter({ hasText: name })).toBeVisible();
 
   expect((await listAppPackages(admin)).map((p) => p.name)).toContain(name);
@@ -147,9 +128,14 @@ test('a new promo code discounts a real checkout', async ({ page }) => {
 
   await gotoConsole(page, '/promo-codes');
 
-  await fill(page, 'Create promo code', 'Code', code);
-  await fill(page, 'Create promo code', 'Discount %', '10');
-  await page.getByRole('button', { name: 'Create promo code' }).click();
+  // Add opens the page's one form dialog; its submit shares the header button's label,
+  // so everything after the click is scoped to the dialog.
+  await page.getByRole('button', { name: 'Add promo code' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: /^Code/ }).fill(code);
+  await dialog.getByRole('spinbutton', { name: /^Discount %/ }).fill('10');
+  await dialog.getByRole('button', { name: 'Add promo code' }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.locator('tbody tr').filter({ hasText: code })).toBeVisible();
 
   // Not "the row exists" — the money actually taken off a mother's subtotal.
