@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
 
 import NannyShiftPromptHost from '@mobile/components/NannyShiftPromptHost';
+import { useNannyAccessGuard } from '@mobile/hooks/useNannyAccessGuard';
 
 export default function NannyLayout() {
+  useNannyAccessGuard();
   return (
     <>
       <Tabs screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>

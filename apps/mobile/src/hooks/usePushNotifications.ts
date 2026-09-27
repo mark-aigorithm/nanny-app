@@ -123,12 +123,30 @@ export function isExtensionDeclinedPush(data?: Record<string, string>): boolean 
   return type === 'booking_extension_declined';
 }
 
+const ACCOUNT_STATUS_PUSHES = new Set([
+  'id_reupload_requested',
+  'nanny_rejected',
+  'nanny_approved',
+  'id_rejected',
+  'id_approved',
+]);
+
+/** A push that changed her approval status — the profile must be re-read. */
+export function isAccountStatusPush(data?: Record<string, string>): boolean {
+  const type = data?.['type']?.toLowerCase();
+  return type !== undefined && ACCOUNT_STATUS_PUSHES.has(type);
+}
+
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
   segments: readonly string[],
   queryClient: ReturnType<typeof useQueryClient>,
   data?: Record<string, string>,
 ) {
+  if (isAccountStatusPush(data)) {
+    void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+  }
+
   const conversationId = data?.['conversationId'];
   if (conversationId) {
     router.push({
@@ -252,6 +270,10 @@ export function usePushNotifications() {
 
         if (isBookingCompletedPush(message.data)) {
           queryClient.invalidateQueries({ queryKey: PENDING_RATING_KEY });
+        }
+
+        if (isAccountStatusPush(message.data)) {
+          queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
         }
       });
 
