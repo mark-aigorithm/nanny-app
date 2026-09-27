@@ -45,6 +45,7 @@ const NANNY: AdminNanny = {
     { id: 3, name: 'French', feeType: null, feeValue: 0, isActive: true },
     { id: 4, name: 'Test Skill 1', feeType: null, feeValue: 0, isActive: false },
   ],
+  camera: null,
   isEmailVerified: false,
   isPhoneVerified: false,
   approvalStatus: 'APPROVED',

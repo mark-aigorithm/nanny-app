@@ -83,6 +83,7 @@ function makeRow(
       reviewedAt: null,
       idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
       idDocumentBackUrl: 'https://storage.example/nanny-ids/back.jpg',
+      cameras: [],
       ...userOverrides,
     },
     nannySkills: [],
@@ -142,6 +143,7 @@ function stubProfileRow(skills: Array<{ id: number; name: string; isActive?: boo
       reviewedAt: null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
+      cameras: [],
     },
     nannySkills: skills.map((s) => ({
       skill: { feeType: null, feeValue: 0, isActive: true, ...s },
@@ -188,6 +190,19 @@ describe('listAdminNannies', () => {
 
     expect(nannies[0]?.idDocumentFrontUrl).toBeNull();
     expect(nannies[0]?.idDocumentBackUrl).toBeNull();
+  });
+
+  it('shows her camera, or null when none is assigned', async () => {
+    mockPrisma.nannyProfile.count.mockResolvedValue(2);
+    mockPrisma.nannyProfile.findMany.mockResolvedValue([
+      makeRow({}, { cameras: [{ id: 7, name: 'Living room' }] }),
+      makeRow({ id: 2 }),
+    ]);
+
+    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20, sort: 'newest' });
+
+    expect(nannies[0]?.camera).toEqual({ id: 7, name: 'Living room' });
+    expect(nannies[1]?.camera).toBeNull();
   });
 
   it('orders by the requested direction — newest first by default, oldest on request', async () => {

@@ -8,6 +8,8 @@ jest.mock('@backend/db/prisma', () => ({
     },
     // The detail page carries her address book.
     address: { findMany: jest.fn().mockResolvedValue([]) },
+    // ...and the hours she has booked.
+    booking: { aggregate: jest.fn().mockResolvedValue({ _sum: { durationHours: null } }) },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
@@ -28,6 +30,8 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn().mockResolvedValue(undefined),
 }));
 
+import { Prisma } from '@prisma/client';
+
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
@@ -41,6 +45,7 @@ import {
 
 const mockPrisma = prisma as unknown as {
   user: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock; update: jest.Mock };
+  booking: { aggregate: jest.Mock };
 };
 const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
 
@@ -186,6 +191,33 @@ describe('getAdminMother', () => {
     expect(mother.lastName).toBe('Ibrahim');
   });
 
+  it('sums the hours of her bookings, leaving out cancelled and refunded ones', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.booking.aggregate.mockResolvedValueOnce({
+      _sum: { durationHours: new Prisma.Decimal('7.5') },
+    });
+
+    const mother = await getAdminMother(29);
+
+    expect(mother.hoursBooked).toBe(7.5);
+    expect(mockPrisma.booking.aggregate).toHaveBeenCalledWith({
+      where: {
+        motherId: 29,
+        deletedAt: null,
+        status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      },
+      _sum: { durationHours: true },
+    });
+  });
+
+  it('reports zero hours when she has no counted bookings', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+
+    const mother = await getAdminMother(29);
+
+    expect(mother.hoursBooked).toBe(0);
+  });
+
   it('throws when the mother does not exist', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
     await expect(getAdminMother(999)).rejects.toThrow(AppError);
@@ -312,6 +344,7 @@ describe('updateAdminMother', () => {
       firstName: 'Salma',
       lastName: 'Adel',
       isActive: false,
+      hoursBooked: 0,
     });
   });
 

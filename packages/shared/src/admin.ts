@@ -662,6 +662,23 @@ export const AdminApprovalStatusFilterSchema = z.enum([
 ]);
 export type AdminApprovalStatusFilter = z.infer<typeof AdminApprovalStatusFilterSchema>;
 
+/**
+ * The camera parents watch during a nanny's bookings. A nanny can hold only
+ * one through the console; if older data gave her several, it's the newest —
+ * the same one the booking feed resolves to.
+ */
+export const AdminNannyCameraSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+});
+export type AdminNannyCamera = z.infer<typeof AdminNannyCameraSchema>;
+
+/** Give a nanny a free camera, or take hers away with null (PUT /admin/nannies/:id/camera). */
+export const AssignNannyCameraSchema = z.object({
+  cameraId: z.number().int().positive().nullable(),
+});
+export type AssignNannyCameraInput = z.infer<typeof AssignNannyCameraSchema>;
+
 export const AdminNannySchema = z.object({
   /** NannyProfile id (used by approve/reject endpoints). */
   id: z.number().int(),
@@ -675,6 +692,8 @@ export const AdminNannySchema = z.object({
   yearsOfExperience: z.number().int().nullable(),
   certifications: z.array(PublicCertificationSchema),
   skills: z.array(AdminNannySkillSchema),
+  /** Null when no camera is assigned to her. */
+  camera: AdminNannyCameraSchema.nullable(),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   approvalStatus: ApprovalStatusSchema,
@@ -787,6 +806,11 @@ export const AdminMotherDetailSchema = AdminMotherSchema.extend({
   lastName: z.string(),
   /** Her address book, default first. Read-only in the console. */
   addresses: z.array(AddressSchema),
+  /**
+   * Hours across her bookings, paid extensions included — cancelled and
+   * refunded bookings left out, unlike `bookingCount`.
+   */
+  hoursBooked: z.number(),
 });
 export type AdminMotherDetail = z.infer<typeof AdminMotherDetailSchema>;
 

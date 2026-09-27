@@ -37,6 +37,7 @@ import {
   RejectPostSchema,
   SetBookingStatusSchema,
   AdminUpsertNannyAddressSchema,
+  AssignNannyCameraSchema,
   AssignBookingNannySchema,
   SetNannySkillsSchema,
   UpdateAdminMotherSchema,
@@ -138,6 +139,7 @@ import {
 } from '@backend/services/duration-rule.service';
 import { previewBreakdown } from '@backend/services/pricing-config.service';
 import {
+  assignNannyCamera,
   createCamera,
   deleteCamera,
   listCameras,
@@ -472,6 +474,18 @@ adminRouter.put(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await updateAdminNannyAddress(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.put(
+  '/nannies/:id/camera',
+  validateBody(AssignNannyCameraSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await assignNannyCamera(routeIdParam(req.params.id), req.body.cameraId)));
     } catch (err) {
       next(err);
     }

@@ -100,24 +100,11 @@ export function NannyReviewTab() {
         </>
       ),
     },
-    { key: 'location', header: 'Location', render: (nanny) => nanny.location ?? EMPTY },
     {
-      key: 'experience',
-      header: 'Experience',
-      render: (nanny) => (
-        <>
-          {nanny.yearsOfExperience !== null ? `${nanny.yearsOfExperience} yrs` : EMPTY}
-          {nanny.certifications.length > 0 && (
-            <div className="table-subtext">{nanny.certifications.join(', ')}</div>
-          )}
-        </>
-      ),
-    },
-    {
-      key: 'registered',
-      header: 'Registered',
-      nowrap: true,
-      render: (nanny) => formatDate(nanny.createdAt),
+      key: 'camera',
+      header: 'Camera',
+      render: (nanny) =>
+        nanny.camera ? nanny.camera.name : <span className="table-subtext">Not assigned</span>,
     },
     {
       key: 'status',
@@ -156,7 +143,7 @@ export function NannyReviewTab() {
           }}
         />
       </div>
-      {isLoading && <TableSkeleton columns={6} />}
+      {isLoading && <TableSkeleton columns={4} />}
       {error != null && !nannies && (
         <ErrorState
           message={apiErrorMessage(error)}

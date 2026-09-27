@@ -85,6 +85,8 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'POST', pattern: '/nannies/:id/invalidate-id', requires: section('users', 'MANAGE') },
   { method: 'PUT', pattern: '/nannies/:id/skills', requires: section('users', 'MANAGE') },
   { method: 'PUT', pattern: '/nannies/:id/address', requires: section('users', 'MANAGE') },
+  // A camera assignment, made from her page — so it's a Cameras privilege.
+  { method: 'PUT', pattern: '/nannies/:id/camera', requires: section('cameras', 'MANAGE') },
   { method: 'GET', pattern: '/mothers', requires: section('users', 'VIEW') },
   { method: 'GET', pattern: '/mothers/:id', requires: section('users', 'VIEW') },
   { method: 'GET', pattern: '/mothers/:id/addresses', requires: section('users', 'VIEW') },

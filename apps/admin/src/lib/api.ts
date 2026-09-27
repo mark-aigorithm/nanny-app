@@ -21,6 +21,7 @@ import type {
   AdminMother,
   AdminMotherDetail,
   AdminNanny,
+  AdminNannyCamera,
   AdminNannyDetail,
   AdminPackagePurchase,
   AdminPackagePurchaseDetail,
@@ -549,6 +550,18 @@ export async function updateNannyAddress(
   const res = await apiClient.put<ApiEnvelope<Address>>(
     `/admin/nannies/${nannyProfileId}/address`,
     input,
+  );
+  return res.data.data;
+}
+
+/** Gives a nanny a free camera, or takes hers away with null. */
+export async function assignNannyCamera(
+  nannyProfileId: number,
+  cameraId: number | null,
+): Promise<AdminNannyCamera | null> {
+  const res = await apiClient.put<ApiEnvelope<AdminNannyCamera | null>>(
+    `/admin/nannies/${nannyProfileId}/camera`,
+    { cameraId },
   );
   return res.data.data;
 }

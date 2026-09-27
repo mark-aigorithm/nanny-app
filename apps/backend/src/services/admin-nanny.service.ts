@@ -48,6 +48,14 @@ const nannyInclude = {
       reviewedAt: true,
       idDocumentFrontUrl: true,
       idDocumentBackUrl: true,
+      // The feed parents watch: her newest active camera, the same pick as
+      // findNannyCamera in booking-camera.service.
+      cameras: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true, name: true },
+      },
     },
   },
   // A skill deleted from the catalog is gone from her profile too; a
@@ -89,6 +97,7 @@ function toDto(row: AdminNannyRow): AdminNanny {
       feeValue: Number(ns.skill.feeValue),
       isActive: ns.skill.isActive,
     })),
+    camera: row.user.cameras[0] ?? null,
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
     approvalStatus: row.user.approvalStatus ?? ApprovalStatus.PENDING_REVIEW,

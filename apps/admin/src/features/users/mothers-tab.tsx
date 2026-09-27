@@ -22,7 +22,6 @@ import {
 } from '@admin/components/ui';
 import { fetchMothers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
-import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { usePagination } from '@admin/lib/use-pagination';
 
 const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
@@ -32,10 +31,6 @@ const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
 ];
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
 
 const EMPTY = <span className="table-empty">—</span>;
 
@@ -71,21 +66,8 @@ export function MothersTab() {
       key: 'phone',
       header: 'Phone number',
       nowrap: true,
-      render: (mother) => (
-        <>
-          {mother.phone ?? EMPTY}
-          {(mother.isEmailVerified || mother.isPhoneVerified) && (
-            <div className="table-subtext">
-              {[mother.isEmailVerified ? 'email' : null, mother.isPhoneVerified ? 'phone' : null]
-                .filter(Boolean)
-                .join(' & ')}{' '}
-              verified
-            </div>
-          )}
-        </>
-      ),
+      render: (mother) => mother.phone ?? EMPTY,
     },
-    { key: 'location', header: 'Location', render: (mother) => mother.location ?? EMPTY },
     { key: 'email', header: 'Email', render: (mother) => mother.email },
     {
       key: 'active',
@@ -95,40 +77,6 @@ export function MothersTab() {
           {mother.isActive ? 'Active' : 'Deactivated'}
         </Badge>
       ),
-    },
-    {
-      key: 'status',
-      header: 'ID status',
-      render: (mother) =>
-        mother.approvalStatus ? (
-          <>
-            <Badge tone={approvalStatusTone(mother.approvalStatus)}>
-              {approvalStatusLabel(mother.approvalStatus)}
-            </Badge>
-            {mother.rejectionReason && (
-              <div className="table-subtext">{mother.rejectionReason}</div>
-            )}
-          </>
-        ) : (
-          EMPTY
-        ),
-    },
-    {
-      key: 'bookings',
-      header: 'Bookings',
-      align: 'right',
-      render: (mother) =>
-        mother.bookingCount > 0 ? (
-          <Badge tone="neutral">{mother.bookingCount}</Badge>
-        ) : (
-          EMPTY
-        ),
-    },
-    {
-      key: 'registered',
-      header: 'Registered',
-      nowrap: true,
-      render: (mother) => formatDate(mother.createdAt),
     },
   ];
 
@@ -155,7 +103,7 @@ export function MothersTab() {
           }}
         />
       </div>
-      {isLoading && <TableSkeleton columns={8} />}
+      {isLoading && <TableSkeleton columns={4} />}
       {error != null && !mothers && (
         <ErrorState
           message={apiErrorMessage(error)}
