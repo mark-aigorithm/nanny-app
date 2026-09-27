@@ -86,7 +86,12 @@ describe('QaChecklistPage', () => {
 
   it('offers Invalid for a scenario that is wrong rather than the app', async () => {
     const saved = vi.fn();
-    const entry = { status: 'INVALID', note: '', tester: '', updatedAt: '2026-09-05T10:00:00.000Z' };
+    const entry = {
+      status: 'INVALID',
+      note: '',
+      tester: '',
+      updatedAt: '2026-09-05T10:00:00.000Z',
+    };
     // The save invalidates and re-reads the board, so the re-read has to
     // hold the entry too or the count would snap back to zero.
     server.use(
@@ -152,9 +157,7 @@ describe('QaChecklistPage', () => {
 
     // The optimistic tick shows, then rolls back — so the counter must land
     // back on zero rather than keeping a result the server never stored.
-    await waitFor(() =>
-      expect(screen.getByText(`0 / ${QA_SCENARIOS.length}`)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(`0 / ${QA_SCENARIOS.length}`)).toBeInTheDocument());
   });
 
   it('carries a half-typed note into the write that records the result', async () => {
@@ -176,7 +179,9 @@ describe('QaChecklistPage', () => {
     );
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: new RegExp(FIRST.title, 'i') }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: new RegExp(FIRST.title, 'i') }),
+    );
     await userEvent.type(await screen.findByLabelText(/what happened/i), 'nanny never appeared');
 
     // Straight from the textarea to the result control, with no blur in
@@ -196,7 +201,9 @@ describe('QaChecklistPage', () => {
     server.use(checklist());
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: new RegExp(FIRST.title, 'i') }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: new RegExp(FIRST.title, 'i') }),
+    );
 
     expect(await screen.findByText(FIRST.steps[0]!)).toBeInTheDocument();
     expect(screen.getByText(FIRST.expected[0]!)).toBeInTheDocument();
@@ -214,6 +221,26 @@ describe('QaChecklistPage', () => {
     expect(
       await screen.findByText(`Showing ${p0} of ${QA_SCENARIOS.length} scenarios.`),
     ).toBeInTheDocument();
+  });
+
+  it('walks the catalogue in order by default, and sorts by a column when asked', async () => {
+    server.use(checklist());
+    renderPage();
+
+    await screen.findByText(FIRST.title);
+    const firstRow = () => screen.getAllByRole('row')[1]!;
+    expect(within(firstRow()).getByText(FIRST.title)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Scenario' }));
+    const [alphabetical] = [...QA_SCENARIOS].sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }),
+    );
+    expect(within(firstRow()).getByText(alphabetical!.title)).toBeInTheDocument();
+
+    // "#" flips back through the catalogue from its last scenario.
+    await userEvent.click(screen.getByRole('button', { name: '#' }));
+    await userEvent.click(screen.getByRole('button', { name: '#' }));
+    expect(within(firstRow()).getByText(QA_SCENARIOS.at(-1)!.title)).toBeInTheDocument();
   });
 
   it('explains itself when the checklist cannot be loaded', async () => {

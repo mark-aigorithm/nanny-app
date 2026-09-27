@@ -40,10 +40,22 @@ export function PermissionMatrix({ value, onChange, disabled }: Props) {
           operator.
         </span>
         <div className="row-actions">
-          <Button type="button" variant="ghost" size="sm" onClick={() => setAll('VIEW')} disabled={disabled}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setAll('VIEW')}
+            disabled={disabled}
+          >
             All view
           </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setAll('NONE')} disabled={disabled}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setAll('NONE')}
+            disabled={disabled}
+          >
             Clear all
           </Button>
         </div>

@@ -4126,12 +4126,6 @@ input[type='number'] {
    Operator permission matrix (Team → add / edit access)
    ───────────────────────────────────────────────────────────── */
 
-.operator-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
 .perm-matrix {
   display: flex;
   flex-direction: column;

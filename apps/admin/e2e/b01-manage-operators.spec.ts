@@ -60,7 +60,10 @@ function nav(page: Page, label: string) {
 async function grant(page: Page, section: string, level: 'No access' | 'View' | 'Manage') {
   const group = page.getByRole('radiogroup', { name: `Access to ${section}` });
 
-  await group.locator('label').filter({ hasText: new RegExp(`^${level}$`) }).click();
+  await group
+    .locator('label')
+    .filter({ hasText: new RegExp(`^${level}$`) })
+    .click();
   await expect(group.getByRole('radio', { name: level })).toBeChecked();
 }
 
@@ -79,6 +82,9 @@ async function createOperator(
   const account = uniqueConsoleAccount();
 
   await gotoConsole(page, '/admins');
+  // "Add team member" opens the page's one form dialog; its submit shares the
+  // header button's label, so the second click is scoped to the dialog.
+  const dialog = page.getByRole('dialog');
   await page.getByRole('button', { name: 'Add team member' }).click();
 
   await page.getByLabel('Name').fill(account.name);
@@ -90,7 +96,7 @@ async function createOperator(
     await grant(page, section, level);
   }
 
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await dialog.getByRole('button', { name: 'Add team member' }).click();
   await expect(toast(page, 'Account created')).toBeVisible();
 
   return account;
@@ -126,10 +132,12 @@ test('widening a grant reaches the operator on their next sign-in', async ({ pag
   await gotoConsole(before, '/bookings');
   await expect(nav(before, 'Users')).toHaveCount(0);
 
-  await rowFor(page, account.surname).getByRole('button', { name: /^Actions for/ }).click();
-  await page.getByRole('menuitem', { name: 'Edit access' }).click();
+  await rowFor(page, account.surname)
+    .getByRole('button', { name: /^Actions for/ })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   await grant(page, 'Users', 'View');
-  await page.getByRole('button', { name: 'Save access' }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(toast(page, 'Access updated')).toBeVisible();
 
   const after = await newSignedOutPage(browser);
@@ -145,10 +153,12 @@ test('widening a grant reaches the operator on their next sign-in', async ({ pag
 test('narrowing a grant closes the section it removed', async ({ page, browser }) => {
   const account = await createOperator(page, { Bookings: 'Manage', Users: 'Manage' });
 
-  await rowFor(page, account.surname).getByRole('button', { name: /^Actions for/ }).click();
-  await page.getByRole('menuitem', { name: 'Edit access' }).click();
+  await rowFor(page, account.surname)
+    .getByRole('button', { name: /^Actions for/ })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   await grant(page, 'Users', 'No access');
-  await page.getByRole('button', { name: 'Save access' }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(toast(page, 'Access updated')).toBeVisible();
 
   const theirs = await newSignedOutPage(browser);
@@ -169,7 +179,9 @@ test('removing an operator ends their access at the door', async ({ page, browse
   await signInToConsole(before, account.email, account.password);
   await expect(nav(before, 'Bookings')).toBeVisible();
 
-  await rowFor(page, account.surname).getByRole('button', { name: /^Actions for/ }).click();
+  await rowFor(page, account.surname)
+    .getByRole('button', { name: /^Actions for/ })
+    .click();
   await page.getByRole('menuitem', { name: 'Remove' }).click();
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
 
