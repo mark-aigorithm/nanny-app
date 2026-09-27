@@ -54,6 +54,8 @@ export {
   Hourglass,
   CalendarX2,
   MapPin,
+  Mail,
+  Briefcase,
   BellRing,
   Phone,
   // Reporting

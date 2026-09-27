@@ -51,3 +51,13 @@ export function formatAmount(amount: number): string {
 export function formatHours(hours: number): string {
   return Number.isInteger(hours) ? String(hours) : hours.toFixed(2);
 }
+
+/** Up to two initials for an avatar fallback, e.g. "Nanny Test" → "NT". */
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+}

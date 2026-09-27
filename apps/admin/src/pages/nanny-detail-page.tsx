@@ -2,27 +2,36 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import type { AdminNannyDetail } from '@nanny-app/shared';
+import { idTypeRequiresBack, type AdminNannyDetail, type IdDocumentType } from '@nanny-app/shared';
 
 import {
   Badge,
+  Briefcase,
   Button,
   Card,
+  CircleCheck,
+  CircleOff,
+  ClipboardList,
   DescriptionList,
-  type DescriptionItem,
   DetailHeader,
   ErrorState,
+  ICON_SIZE,
   LoadingState,
+  Mail,
+  MapPin,
+  Phone,
   PromptDialog,
   StaleRefreshBanner,
+  StatCard,
   useToast,
+  Wallet,
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { NannyAddressCard } from '@admin/features/nannies/nanny-address-card';
 import {
   NannyProfileEditor,
   availabilityLabel,
-  formatWorkingHours,
+  workingDays,
 } from '@admin/features/nannies/nanny-profile-editor';
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
 import {
@@ -34,17 +43,19 @@ import {
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
+import { formatEgp, initials } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-function money(n: number): string {
-  return `EGP ${n.toFixed(2)}`;
-}
-
 const DASH = <span className="table-empty">—</span>;
+
+const ID_TYPE_LABEL: Record<IdDocumentType, string> = {
+  PASSPORT: 'Passport',
+  NATIONAL_ID: 'National ID',
+};
 
 export function NannyDetailPage() {
   const canManage = useCanManage('users');
@@ -96,15 +107,9 @@ export function NannyDetailPage() {
   });
 
   const mutating = approveMutation.isPending || rejectMutation.isPending;
-  const hasId = Boolean(nanny?.idDocumentFrontUrl || nanny?.idDocumentBackUrl);
 
   const actions = nanny ? (
     <>
-      {hasId && (
-        <Button variant="ghost" size="sm" onClick={() => setIdOpen(true)}>
-          View ID
-        </Button>
-      )}
       {canManage && nanny.approvalStatus !== 'APPROVED' && (
         <Button
           size="sm"
@@ -128,7 +133,9 @@ export function NannyDetailPage() {
         backTo="/users"
         backLabel="Back to users"
         title={nanny ? nanny.name : 'Nanny details'}
-        subtitle={nanny ? approvalStatusLabel(nanny.approvalStatus) : undefined}
+        subtitle={
+          nanny ? `User ID ${nanny.userId} · Joined ${formatDate(nanny.createdAt)}` : undefined
+        }
         actions={actions}
       />
 
@@ -150,55 +157,69 @@ export function NannyDetailPage() {
               retrying={isFetching}
             />
           )}
-          <Card title="Profile">
-            {editingProfile ? (
-              <NannyProfileEditor
-                nanny={nanny}
-                certifications={activeCertifications}
-                onDone={() => setEditingProfile(false)}
-              />
-            ) : (
-              <div className="detail-skills">
-                <DescriptionList items={profileItems(nanny)} />
-                {canManage && (
-                  <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
-                    Edit profile
-                  </Button>
+
+          <NannySummary nanny={nanny} />
+
+          <div className="stat-grid stat-grid--fit">
+            <StatCard
+              label="Amount gained"
+              value={formatEgp(nanny.amountGained)}
+              icon={<Wallet size={ICON_SIZE.stat} aria-hidden />}
+            />
+            <StatCard
+              label="Completed bookings"
+              value={nanny.completedBookings}
+              icon={<ClipboardList size={ICON_SIZE.stat} aria-hidden />}
+              iconTone="gold"
+            />
+            <StatCard
+              label="Experience"
+              value={nanny.yearsOfExperience !== null ? `${nanny.yearsOfExperience} yrs` : '—'}
+              icon={<Briefcase size={ICON_SIZE.stat} aria-hidden />}
+              iconTone="bronze"
+            />
+          </div>
+
+          <div className="detail-columns">
+            <div className="detail-column">
+              <Card
+                title="About"
+                action={
+                  canManage && !editingProfile ? (
+                    <Button size="sm" variant="ghost" onClick={() => setEditingProfile(true)}>
+                      Edit profile
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {editingProfile ? (
+                  <NannyProfileEditor
+                    nanny={nanny}
+                    certifications={activeCertifications}
+                    onDone={() => setEditingProfile(false)}
+                  />
+                ) : (
+                  <AboutSection nanny={nanny} />
                 )}
-              </div>
-            )}
-          </Card>
+              </Card>
 
-          <NannyAddressCard nanny={nanny} canManage={canManage} />
-
-          <Card title="Earnings">
-            <DescriptionList
-              items={[
-                { label: 'Amount gained', value: <strong>{money(nanny.amountGained)}</strong> },
-                { label: 'Completed bookings', value: nanny.completedBookings },
-              ]}
-            />
-          </Card>
-
-          <Card title="Identifiers">
-            <DescriptionList
-              items={[
-                { label: 'Nanny profile ID', value: <code>{nanny.id}</code> },
-                { label: 'User ID', value: <code>{nanny.userId}</code> },
-              ]}
-            />
-          </Card>
-
-          <Card title="Skills">
-            {editingSkills ? (
-              <NannySkillsEditor
-                nanny={nanny}
-                skills={activeSkills}
-                onDone={() => setEditingSkills(false)}
-              />
-            ) : (
-              <div className="detail-skills">
-                {nanny.skills.length > 0 ? (
+              <Card
+                title="Skills"
+                action={
+                  canManage && !editingSkills ? (
+                    <Button size="sm" variant="ghost" onClick={() => setEditingSkills(true)}>
+                      Edit skills
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {editingSkills ? (
+                  <NannySkillsEditor
+                    nanny={nanny}
+                    skills={activeSkills}
+                    onDone={() => setEditingSkills(false)}
+                  />
+                ) : nanny.skills.length > 0 ? (
                   <div className="detail-skills-list">
                     {nanny.skills.map((skill) => (
                       <Badge key={skill.id} tone={skill.isActive ? 'neutral' : 'warning'}>
@@ -209,14 +230,45 @@ export function NannyDetailPage() {
                 ) : (
                   <p className="table-subtext">No skills assigned yet.</p>
                 )}
-                {canManage && (
-                  <Button size="sm" variant="ghost" onClick={() => setEditingSkills(true)}>
-                    Edit skills
-                  </Button>
-                )}
-              </div>
-            )}
-          </Card>
+              </Card>
+            </div>
+
+            <div className="detail-column">
+              <Card title="Application">
+                <DescriptionList
+                  items={[
+                    {
+                      label: 'Status',
+                      value: (
+                        <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
+                          {approvalStatusLabel(nanny.approvalStatus)}
+                        </Badge>
+                      ),
+                    },
+                    {
+                      label: 'ID document',
+                      value: nanny.idDocumentType ? ID_TYPE_LABEL[nanny.idDocumentType] : DASH,
+                    },
+                    { label: 'Registered', value: formatDate(nanny.createdAt) },
+                    {
+                      label: 'Reviewed',
+                      value: nanny.reviewedAt ? formatDate(nanny.reviewedAt) : DASH,
+                    },
+                    ...(nanny.rejectionReason
+                      ? [{ label: 'Rejection reason', value: nanny.rejectionReason, wide: true }]
+                      : []),
+                    {
+                      label: 'ID photos',
+                      wide: true,
+                      value: <IdPhotos nanny={nanny} onOpen={() => setIdOpen(true)} />,
+                    },
+                  ]}
+                />
+              </Card>
+
+              <NannyAddressCard nanny={nanny} canManage={canManage} />
+            </div>
+          </div>
         </>
       )}
 
@@ -240,65 +292,157 @@ export function NannyDetailPage() {
   );
 }
 
-function profileItems(nanny: AdminNannyDetail): DescriptionItem[] {
-  return [
-    {
-      label: 'Photo',
-      value: nanny.avatarUrl ? (
-        <img className="id-review-avatar" src={nanny.avatarUrl} alt="" />
+/**
+ * Who she is at a glance: photo, status, verification and how to reach her.
+ * The cards below hold the detail an admin opens the record to check.
+ */
+function NannySummary({ nanny }: { nanny: AdminNannyDetail }) {
+  return (
+    <Card className="nanny-summary">
+      {nanny.avatarUrl ? (
+        <img className="nanny-summary-avatar" src={nanny.avatarUrl} alt="" />
       ) : (
-        DASH
-      ),
-    },
-    {
-      label: 'Status',
-      value: (
-        <>
+        <span className="nanny-summary-avatar nanny-summary-avatar--fallback" aria-hidden>
+          {initials(nanny.name)}
+        </span>
+      )}
+      <div className="nanny-summary-body">
+        <div className="nanny-summary-badges">
           <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
             {approvalStatusLabel(nanny.approvalStatus)}
           </Badge>
-          {nanny.rejectionReason && <div className="table-subtext">{nanny.rejectionReason}</div>}
-        </>
-      ),
-    },
-    { label: 'Email', value: nanny.email },
-    { label: 'Phone', value: nanny.phone ?? DASH },
-    { label: 'Location', value: nanny.location ?? DASH },
-    {
-      label: 'Home pin',
-      value:
-        nanny.latitude !== null && nanny.longitude !== null
-          ? `${nanny.latitude}, ${nanny.longitude}`
-          : DASH,
-    },
-    { label: 'Date of birth', value: nanny.dateOfBirth ? formatDate(nanny.dateOfBirth) : DASH },
-    {
-      label: 'Experience',
-      value: nanny.yearsOfExperience !== null ? `${nanny.yearsOfExperience} yrs` : DASH,
-    },
-    { label: 'Availability', value: availabilityLabel(nanny.availabilityType) },
-    {
-      label: 'Age ranges',
-      value: nanny.ageRanges.length > 0 ? nanny.ageRanges.join(', ') : DASH,
-    },
-    { label: 'Working hours', value: formatWorkingHours(nanny.schedule) ?? DASH, wide: true },
-    {
-      label: 'Certifications',
-      value:
-        nanny.certifications.length > 0
-          ? nanny.certifications.map((c) => c.name).join(', ')
-          : DASH,
-      wide: true,
-    },
-    { label: 'Bio', value: nanny.bio ?? DASH, wide: true },
-    {
-      label: 'Verification',
-      value:
-        [nanny.isEmailVerified ? 'email' : null, nanny.isPhoneVerified ? 'phone' : null]
-          .filter(Boolean)
-          .join(' & ') || 'none',
-    },
-    { label: 'Registered', value: formatDate(nanny.createdAt) },
-    { label: 'Reviewed at', value: nanny.reviewedAt ? formatDate(nanny.reviewedAt) : DASH },
-  ];
+          <VerifiedBadge label="Email" verified={nanny.isEmailVerified} />
+          <VerifiedBadge label="Phone" verified={nanny.isPhoneVerified} />
+        </div>
+        <ul className="nanny-summary-contact">
+          <li>
+            <Mail size={ICON_SIZE.inline} aria-label="Email" />
+            {nanny.email}
+          </li>
+          <li>
+            <Phone size={ICON_SIZE.inline} aria-label="Phone" />
+            {nanny.phone ?? DASH}
+          </li>
+          <li>
+            <MapPin size={ICON_SIZE.inline} aria-label="Location" />
+            {nanny.location ?? DASH}
+          </li>
+        </ul>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Her ID, front and back, right where the application is decided. Clicking
+ * opens the full-size viewer. A passport has no back side.
+ */
+function IdPhotos({ nanny, onOpen }: { nanny: AdminNannyDetail; onOpen: () => void }) {
+  if (!nanny.idDocumentFrontUrl && !nanny.idDocumentBackUrl) {
+    return <p className="table-subtext">No ID uploaded yet.</p>;
+  }
+  const showBack = nanny.idDocumentType == null || idTypeRequiresBack(nanny.idDocumentType);
+  return (
+    <button
+      type="button"
+      className="id-review-thumbs nanny-id-photos"
+      onClick={onOpen}
+      title="Click to enlarge"
+    >
+      <span className="id-review-thumb">
+        {nanny.idDocumentFrontUrl ? (
+          <img src={nanny.idDocumentFrontUrl} alt={`Front of ${nanny.name}'s ID`} />
+        ) : (
+          <span className="id-review-thumb-empty">No front image</span>
+        )}
+        <span className="id-review-thumb-tag">Front</span>
+      </span>
+      {showBack && (
+        <span className="id-review-thumb">
+          {nanny.idDocumentBackUrl ? (
+            <img src={nanny.idDocumentBackUrl} alt={`Back of ${nanny.name}'s ID`} />
+          ) : (
+            <span className="id-review-thumb-empty">No back image</span>
+          )}
+          <span className="id-review-thumb-tag">Back</span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+function VerifiedBadge({ label, verified }: { label: string; verified: boolean }) {
+  const Icon = verified ? CircleCheck : CircleOff;
+  return (
+    <Badge tone={verified ? 'success' : 'neutral'}>
+      <span className="badge-with-icon">
+        <Icon size={12} aria-hidden />
+        {label} {verified ? 'verified' : 'not verified'}
+      </span>
+    </Badge>
+  );
+}
+
+function AboutSection({ nanny }: { nanny: AdminNannyDetail }) {
+  const days = workingDays(nanny.schedule);
+  return (
+    <div className="nanny-about">
+      {nanny.bio ? (
+        <p className="nanny-about-bio">{nanny.bio}</p>
+      ) : (
+        <p className="table-subtext">No bio yet.</p>
+      )}
+      <DescriptionList
+        items={[
+          {
+            label: 'Date of birth',
+            value: nanny.dateOfBirth ? formatDate(nanny.dateOfBirth) : DASH,
+          },
+          { label: 'Availability', value: availabilityLabel(nanny.availabilityType) },
+          {
+            label: 'Age ranges',
+            value:
+              nanny.ageRanges.length > 0 ? (
+                <div className="detail-skills-list">
+                  {nanny.ageRanges.map((range) => (
+                    <Badge key={range}>{range}</Badge>
+                  ))}
+                </div>
+              ) : (
+                DASH
+              ),
+          },
+          {
+            label: 'Certifications',
+            value:
+              nanny.certifications.length > 0 ? (
+                <div className="detail-skills-list">
+                  {nanny.certifications.map((c) => (
+                    <Badge key={c.id}>{c.name}</Badge>
+                  ))}
+                </div>
+              ) : (
+                DASH
+              ),
+          },
+          {
+            label: 'Working hours',
+            wide: true,
+            value: days ? (
+              <ul className="nanny-hours">
+                {days.map(({ day, hours }) => (
+                  <li key={day} className={hours ? undefined : 'nanny-hours-off'}>
+                    <span className="nanny-hours-day">{day.slice(0, 3)}</span>
+                    <span>{hours ?? 'Off'}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              DASH
+            ),
+          },
+        ]}
+      />
+    </div>
+  );
 }
