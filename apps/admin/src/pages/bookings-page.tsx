@@ -10,12 +10,14 @@ import {
   PLATFORM_TIMEZONE,
   SetBookingStatusSchema,
   type AdminBooking,
+  type AdminBookingSortKey,
   type AdminBookingStatusFilter,
   type NannyBookingDecision,
 } from '@nanny-app/shared';
 
 import {
   ActionMenu,
+  actionsColumn,
   Badge,
   Ban,
   Button,
@@ -47,12 +49,9 @@ import {
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
-import {
-  formatDateTime,
-  fromDateTimeLocalInput,
-  toDateTimeLocalInput,
-} from '@admin/lib/format';
+import { formatDateTime, fromDateTimeLocalInput, toDateTimeLocalInput } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
 import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
 
 const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'REFUNDED']);
@@ -151,13 +150,18 @@ export function BookingsPage() {
   const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
   const [assigning, setAssigning] = useState<AdminBooking | null>(null);
   const { page, limit, setPage, setLimit, reset } = usePagination();
+  // Newest requests (the shortest wait) first, as the queue has always read.
+  const { sort, onSortChange } = useTableSort<AdminBookingSortKey>(
+    { sortBy: 'waiting', sortDir: 'asc' },
+    reset,
+  );
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['bookings', status, page, limit],
-    queryFn: () => fetchBookings(status, { page, limit }),
+    queryKey: ['bookings', status, sort, page, limit],
+    queryFn: () => fetchBookings(status, { page, limit, ...sort }),
   });
   const bookings = data?.data;
   const meta = data?.meta;
@@ -255,7 +259,7 @@ export function BookingsPage() {
    * the Status column already shows the same value, so an inert second one
    * would only repeat it.
    */
-  const overrideColumn: Column<AdminBooking> = {
+  const overrideColumn: Column<AdminBooking, AdminBookingSortKey> = {
     key: 'override',
     header: 'Override',
     render: (booking) => {
@@ -284,10 +288,11 @@ export function BookingsPage() {
     },
   };
 
-  const columns: Column<AdminBooking>[] = [
+  const columns: Column<AdminBooking, AdminBookingSortKey>[] = [
     {
       key: 'mother',
       header: 'Mother',
+      sortKey: 'mother',
       render: (booking) => (
         <>
           {booking.mother.name}
@@ -298,6 +303,7 @@ export function BookingsPage() {
     {
       key: 'nanny',
       header: 'Nanny',
+      sortKey: 'nanny',
       render: (booking) => (
         <>
           {booking.nanny?.name ?? '—'}
@@ -305,17 +311,34 @@ export function BookingsPage() {
         </>
       ),
     },
-    { key: 'starts', header: 'Starts', nowrap: true, render: (b) => formatDateTime(b.startTime) },
-    { key: 'ends', header: 'Ends', nowrap: true, render: (b) => formatDateTime(b.endTime) },
+    {
+      key: 'starts',
+      header: 'Starts',
+      sortKey: 'starts',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (b) => formatDateTime(b.startTime),
+    },
+    {
+      key: 'ends',
+      header: 'Ends',
+      sortKey: 'ends',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (b) => formatDateTime(b.endTime),
+    },
     {
       key: 'total',
       header: 'Total (EGP)',
+      sortKey: 'total',
+      sortFirst: 'desc',
       align: 'right',
       render: (b) => b.totalAmount.toFixed(2),
     },
     {
       key: 'promo',
       header: 'Promo',
+      sortKey: 'promo',
       render: (b) =>
         b.promoCode ? (
           `${b.promoCode} (−${b.discountAmount.toFixed(2)})`
@@ -332,11 +355,14 @@ export function BookingsPage() {
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (b) => <Badge tone={statusTone(b.status)}>{statusLabel(b.status)}</Badge>,
     },
     {
       key: 'waiting',
       header: 'Waiting',
+      sortKey: 'waiting',
+      sortFirst: 'desc',
       nowrap: true,
       render: (b) =>
         b.status === 'PENDING' ? (
@@ -348,19 +374,15 @@ export function BookingsPage() {
         ),
     },
     ...(canManage ? [overrideColumn] : []),
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      render: (booking) => {
-        const isPending = booking.status === 'PENDING';
-        const isTerminal = TERMINAL_STATUSES.has(booking.status);
-        // A view-only operator can browse the queue but not act on it.
-        if (!canManage || (!isPending && isTerminal)) {
-          return <span className="table-empty">—</span>;
-        }
-        return (
-          <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
+    actionsColumn((booking) => {
+      const isPending = booking.status === 'PENDING';
+      const isTerminal = TERMINAL_STATUSES.has(booking.status);
+      // A view-only operator can browse the queue but not act on it.
+      if (!canManage || (!isPending && isTerminal)) {
+        return <span className="table-empty">—</span>;
+      }
+      return (
+        <div className="cell-interactive" onClick={(e) => e.stopPropagation()}>
           <ActionMenu label={`Actions for ${booking.mother.name}'s booking`} disabled={mutating}>
             {canApproveBooking(booking) && (
               <MenuItem
@@ -405,10 +427,9 @@ export function BookingsPage() {
               </>
             )}
           </ActionMenu>
-          </div>
-        );
-      },
-    },
+        </div>
+      );
+    }),
   ];
 
   return (
@@ -446,6 +467,8 @@ export function BookingsPage() {
           rows={bookings}
           rowKey={(booking) => booking.id}
           empty="No bookings with this status."
+          sort={sort}
+          onSortChange={onSortChange}
           onRowClick={(booking) => navigate(`/bookings/${booking.id}`)}
           rowClassName={(b) => {
             if (b.status !== 'PENDING') return undefined;
@@ -517,14 +540,14 @@ export function BookingsPage() {
           danger
           multiline
           busy={rejectMutation.isPending}
-          onSubmit={(reason) => rejectMutation.mutate({ id: rejecting.id, reason: reason || undefined })}
+          onSubmit={(reason) =>
+            rejectMutation.mutate({ id: rejecting.id, reason: reason || undefined })
+          }
           onCancel={() => setRejecting(null)}
         />
       )}
 
-      {assigning && (
-        <AssignNannyModal booking={assigning} onClose={() => setAssigning(null)} />
-      )}
+      {assigning && <AssignNannyModal booking={assigning} onClose={() => setAssigning(null)} />}
     </section>
   );
 }

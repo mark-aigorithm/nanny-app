@@ -37,6 +37,7 @@ import {
   RejectPostSchema,
   SetBookingStatusSchema,
   AdminUpsertNannyAddressSchema,
+  AssignNannyCameraSchema,
   AssignBookingNannySchema,
   SetNannySkillsSchema,
   UpdateAdminMotherSchema,
@@ -138,6 +139,7 @@ import {
 } from '@backend/services/duration-rule.service';
 import { previewBreakdown } from '@backend/services/pricing-config.service';
 import {
+  assignNannyCamera,
   createCamera,
   deleteCamera,
   listCameras,
@@ -218,8 +220,8 @@ adminRouter.get(
   validateQuery(AdminBookingListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit } = res.locals['validatedQuery'] as AdminBookingListQuery;
-      const { bookings, meta } = await listAdminBookings(status, { page, limit });
+      const { status, ...query } = res.locals['validatedQuery'] as AdminBookingListQuery;
+      const { bookings, meta } = await listAdminBookings(status, query);
       res.json(okPaged(bookings, meta));
     } catch (err) {
       next(err);
@@ -384,8 +386,8 @@ adminRouter.get(
   validateQuery(AdminNannyListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit, sort } = res.locals['validatedQuery'] as AdminNannyListQuery;
-      const { nannies, meta } = await listAdminNannies(status, { page, limit, sort });
+      const { status, ...query } = res.locals['validatedQuery'] as AdminNannyListQuery;
+      const { nannies, meta } = await listAdminNannies(status, query);
       res.json(okPaged(nannies, meta));
     } catch (err) {
       next(err);
@@ -478,6 +480,18 @@ adminRouter.put(
   },
 );
 
+adminRouter.put(
+  '/nannies/:id/camera',
+  validateBody(AssignNannyCameraSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await assignNannyCamera(routeIdParam(req.params.id), req.body.cameraId)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ── Mothers directory (parent accounts: list, detail, edit + ID review) ────
 
 adminRouter.get(
@@ -485,8 +499,8 @@ adminRouter.get(
   validateQuery(AdminMotherListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit, sort } = res.locals['validatedQuery'] as AdminMotherListQuery;
-      const { mothers, meta } = await listAdminMothers(status, { page, limit, sort });
+      const { status, ...query } = res.locals['validatedQuery'] as AdminMotherListQuery;
+      const { mothers, meta } = await listAdminMothers(status, query);
       res.json(okPaged(mothers, meta));
     } catch (err) {
       next(err);
@@ -1164,8 +1178,8 @@ adminRouter.get(
   validateQuery(RewardWalletListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { page, limit, search } = res.locals['validatedQuery'] as RewardWalletListQuery;
-      const { wallets, meta } = await listWallets({ page, limit, search });
+      const query = res.locals['validatedQuery'] as RewardWalletListQuery;
+      const { wallets, meta } = await listWallets(query);
       res.json(okPaged(wallets, meta));
     } catch (err) {
       next(err);

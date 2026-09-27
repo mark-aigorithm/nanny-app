@@ -9,6 +9,7 @@ jest.mock('@backend/db/prisma', () => ({
       findMany: jest.fn(),
     },
     user: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   },
 }));
@@ -18,11 +19,10 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn(),
 }));
 
+import type { Prisma } from '@prisma/client';
+
 import { prisma } from '@backend/db/prisma';
-import {
-  createInAppNotification,
-  dispatchPush,
-} from '@backend/services/notification.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 import {
   applyBookingRedemption,
   awardPointsForBooking,
@@ -43,6 +43,7 @@ const mockPrisma = prisma as unknown as {
     findMany: jest.Mock;
   };
   user: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
+  $queryRaw: jest.Mock;
   $transaction: jest.Mock;
 };
 
@@ -153,7 +154,12 @@ describe('awardPointsForBooking', () => {
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: 'EARN', points: 30, balanceAfter: 35, bookingId: 101 }),
+        data: expect.objectContaining({
+          type: 'EARN',
+          points: 30,
+          balanceAfter: 35,
+          bookingId: 101,
+        }),
       }),
     );
     expect(mockNotify).toHaveBeenCalledWith(
@@ -216,9 +222,7 @@ describe('grantPoints', () => {
       }),
     );
     expect(summary).toMatchObject({ userId: 29, pointsBalance: 70, name: 'Sarah Jones' });
-    expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'POINTS_GRANTED' }),
-    );
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ type: 'POINTS_GRANTED' }));
   });
 
   it('clamps a revoke so the balance never goes negative', async () => {
@@ -253,7 +257,13 @@ describe('grantPoints', () => {
 });
 
 describe('applyBookingRedemption', () => {
-  const params = { userId: 29, scope: { bookingId: 101 }, redeemHours: 2, perHour: 50, durationHours: 3 };
+  const params = {
+    userId: 29,
+    scope: { bookingId: 101 },
+    redeemHours: 2,
+    perHour: 50,
+    durationHours: 3,
+  };
 
   it('deducts points, records a REDEEM entry, and returns the discount', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
@@ -271,7 +281,12 @@ describe('applyBookingRedemption', () => {
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: 'REDEEM', points: -200, balanceAfter: 100, bookingId: 101 }),
+        data: expect.objectContaining({
+          type: 'REDEEM',
+          points: -200,
+          balanceAfter: 100,
+          bookingId: 101,
+        }),
       }),
     );
   });
@@ -336,7 +351,12 @@ describe('refundBookingRedemption', () => {
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: 'REFUND', points: 200, balanceAfter: 300, bookingId: 101 }),
+        data: expect.objectContaining({
+          type: 'REFUND',
+          points: 200,
+          balanceAfter: 300,
+          bookingId: 101,
+        }),
       }),
     );
   });
@@ -352,21 +372,33 @@ describe('refundBookingRedemption', () => {
 });
 
 describe('listWallets (paginated)', () => {
-  function makeUserRow(overrides: Record<string, unknown> = {}) {
+  const LIST_QUERY = { page: 1, limit: 20, sortBy: 'joined', sortDir: 'desc' } as const;
+
+  function makeDirectoryRow(overrides: Record<string, unknown> = {}) {
     return {
-      id: 29,
+      userId: 29,
       firstName: 'Nour',
       lastName: 'Ibrahim',
       email: 'nour@example.com',
       avatarUrl: null,
-      rewardWallet: {
-        userId: 29,
-        pointsBalance: 120,
-        lifetimeEarned: 200,
-        lifetimeRedeemed: 80,
-      },
+      pointsBalance: 120,
+      lifetimeEarned: 200,
+      lifetimeRedeemed: 80,
       ...overrides,
     };
+  }
+
+  /** listWallets runs two raw queries — the count, then the page. */
+  function mockDirectory(total: number, rows: unknown[]) {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ total }]).mockResolvedValueOnce(rows);
+  }
+
+  function countSql(): Prisma.Sql {
+    return mockPrisma.$queryRaw.mock.calls[0][0] as Prisma.Sql;
+  }
+
+  function pageSql(): Prisma.Sql {
+    return mockPrisma.$queryRaw.mock.calls[1][0] as Prisma.Sql;
   }
 
   beforeEach(() => {
@@ -374,15 +406,12 @@ describe('listWallets (paginated)', () => {
     mockPrisma.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
   });
 
-  it('applies skip/take for the page and returns the wallet DTOs + meta', async () => {
-    mockPrisma.user.count.mockResolvedValue(42);
-    mockPrisma.user.findMany.mockResolvedValue([makeUserRow()]);
+  it('pages with LIMIT/OFFSET and returns the wallet DTOs + meta', async () => {
+    mockDirectory(42, [makeDirectoryRow()]);
 
-    const { wallets, meta } = await listWallets({ page: 2, limit: 10 });
+    const { wallets, meta } = await listWallets({ ...LIST_QUERY, page: 2, limit: 10 });
 
-    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 10, take: 10 }),
-    );
+    expect(pageSql().values.slice(-2)).toEqual([10, 10]);
     expect(wallets[0]).toEqual({
       userId: 29,
       name: 'Nour Ibrahim',
@@ -395,30 +424,50 @@ describe('listWallets (paginated)', () => {
     expect(meta).toEqual({ page: 2, limit: 10, total: 42, totalPages: 5 });
   });
 
-  it('passes a case-insensitive name/email search into the where clause', async () => {
-    mockPrisma.user.count.mockResolvedValue(1);
-    mockPrisma.user.findMany.mockResolvedValue([makeUserRow()]);
+  it('lists only live parents, and counts the same set it pages', async () => {
+    mockDirectory(0, []);
 
-    await listWallets({ page: 1, limit: 20, search: 'nour' });
+    await listWallets(LIST_QUERY);
 
-    const where = mockPrisma.user.findMany.mock.calls[0][0].where;
-    expect(where.OR).toEqual([
-      { firstName: { contains: 'nour', mode: 'insensitive' } },
-      { lastName: { contains: 'nour', mode: 'insensitive' } },
-      { email: { contains: 'nour', mode: 'insensitive' } },
-    ]);
+    for (const sql of [countSql(), pageSql()]) {
+      expect(sql.sql).toContain("u.role::text = 'MOTHER' AND u.deleted_at IS NULL");
+    }
   });
 
-  it('defaults a wallet-less parent to zeroed balances', async () => {
-    mockPrisma.user.count.mockResolvedValue(1);
-    mockPrisma.user.findMany.mockResolvedValue([makeUserRow({ rewardWallet: null })]);
+  it('matches the search against name or email as a bound, literal pattern', async () => {
+    mockDirectory(1, [makeDirectoryRow()]);
 
-    const { wallets } = await listWallets({ page: 1, limit: 20 });
+    await listWallets({ ...LIST_QUERY, search: ' 50%_off\\ ' });
 
-    expect(wallets[0]).toMatchObject({
-      pointsBalance: 0,
-      lifetimeEarned: 0,
-      lifetimeRedeemed: 0,
-    });
+    for (const sql of [countSql(), pageSql()]) {
+      expect(sql.sql).toContain('(u.first_name ILIKE ? OR u.last_name ILIKE ? OR u.email ILIKE ?)');
+      // Trimmed, wildcards escaped, and never spliced into the SQL text.
+      expect(sql.values.slice(0, 3)).toEqual(Array(3).fill('%50\\%\\_off\\\\%'));
+      expect(sql.sql).not.toContain('50');
+    }
+  });
+
+  it('reads a wallet-less parent as zeroed balances', async () => {
+    mockDirectory(0, []);
+
+    await listWallets(LIST_QUERY);
+
+    expect(pageSql().sql).toContain('LEFT JOIN reward_wallets w ON w.user_id = u.id');
+    expect(pageSql().sql).toContain('COALESCE(w.points_balance, 0) AS "pointsBalance"');
+  });
+
+  it.each([
+    ['name', 'asc', 'u.first_name ASC, u.last_name ASC, u.id ASC'],
+    // A missing wallet sorts as 0 pts, never as a NULL ahead of real balances.
+    ['balance', 'desc', 'COALESCE(w.points_balance, 0) DESC, u.id DESC'],
+    ['earned', 'desc', 'COALESCE(w.lifetime_earned, 0) DESC, u.id DESC'],
+    ['redeemed', 'asc', 'COALESCE(w.lifetime_redeemed, 0) ASC, u.id ASC'],
+    ['joined', 'desc', 'u.created_at DESC, u.id DESC'],
+  ] as const)('sorts by %s %s', async (sortBy, sortDir, orderBy) => {
+    mockDirectory(0, []);
+
+    await listWallets({ page: 1, limit: 20, sortBy, sortDir });
+
+    expect(pageSql().sql).toContain(`ORDER BY ${orderBy}\n`);
   });
 });

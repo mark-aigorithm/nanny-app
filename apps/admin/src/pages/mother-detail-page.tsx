@@ -7,15 +7,14 @@ import { formatAddressArea } from '@nanny-app/shared';
 import {
   Badge,
   Button,
-  CalendarClock,
   Card,
   ClipboardList,
+  Clock,
   DescriptionList,
   DetailHeader,
   ErrorState,
   ICON_SIZE,
   LoadingState,
-  MapPin,
   Pencil,
   PromptDialog,
   StaleRefreshBanner,
@@ -29,6 +28,7 @@ import { RequestNewIdButton } from '@admin/features/users/request-new-id-button'
 import { approveMother, fetchMother, invalidateMotherId, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
+import { formatHours } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 
 function formatDate(iso: string): string {
@@ -162,16 +162,11 @@ export function MotherDetailPage() {
               icon={<ClipboardList size={ICON_SIZE.stat} aria-hidden />}
             />
             <StatCard
-              label="Saved addresses"
-              value={mother.addresses.length}
-              icon={<MapPin size={ICON_SIZE.stat} aria-hidden />}
+              label="Hours booked"
+              value={formatHours(mother.hoursBooked)}
+              icon={<Clock size={ICON_SIZE.stat} aria-hidden />}
               iconTone="gold"
-            />
-            <StatCard
-              label="Registered"
-              value={formatDate(mother.createdAt)}
-              icon={<CalendarClock size={ICON_SIZE.stat} aria-hidden />}
-              iconTone="bronze"
+              hint="Excludes cancelled and refunded bookings"
             />
           </div>
 
@@ -206,6 +201,10 @@ export function MotherDetailPage() {
                   {
                     label: 'ID document',
                     value: mother.idDocumentType ? ID_TYPE_LABEL[mother.idDocumentType] : DASH,
+                  },
+                  {
+                    label: 'Registered',
+                    value: formatDate(mother.createdAt),
                   },
                   {
                     label: 'Reviewed',

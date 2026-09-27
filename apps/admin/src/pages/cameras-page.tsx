@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { Camera } from '@nanny-app/shared';
-
-import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
-import { CameraForm } from '@admin/features/cameras/camera-form';
+import {
+  Button,
+  ErrorState,
+  ICON_SIZE,
+  PageHeader,
+  Plus,
+  StaleRefreshBanner,
+  TableSkeleton,
+} from '@admin/components/ui';
+import { CameraFormModal } from '@admin/features/cameras/camera-form';
 import { CameraTable } from '@admin/features/cameras/camera-table';
 import { fetchCameras } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -12,8 +18,14 @@ import { useCanManage } from '@admin/lib/permissions';
 
 export function CamerasPage() {
   const canManage = useCanManage('cameras');
-  const [editing, setEditing] = useState<Camera | null>(null);
-  const { data: cameras, isLoading, error, refetch, isFetching } = useQuery({
+  const [adding, setAdding] = useState(false);
+  const {
+    data: cameras,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['cameras'],
     queryFn: fetchCameras,
   });
@@ -23,14 +35,15 @@ export function CamerasPage() {
       <PageHeader
         title="Cameras"
         subtitle="Manage camera streams and optionally assign them to a nanny."
+        action={
+          canManage && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus size={ICON_SIZE.inline} aria-hidden />
+              Add camera
+            </Button>
+          )
+        }
       />
-      {canManage && (
-        <CameraForm
-          key={editing?.id ?? 'new'}
-          editing={editing ?? undefined}
-          onDone={() => setEditing(null)}
-        />
-      )}
       {isLoading && <TableSkeleton columns={5} />}
       {error != null && !cameras && (
         <ErrorState
@@ -48,9 +61,10 @@ export function CamerasPage() {
               retrying={isFetching}
             />
           )}
-          <CameraTable cameras={cameras} onEdit={setEditing} />
+          <CameraTable cameras={cameras} />
         </>
       )}
+      {adding && <CameraFormModal onClose={() => setAdding(false)} />}
     </section>
   );
 }

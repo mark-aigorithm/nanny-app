@@ -21,10 +21,7 @@ jest.mock('@backend/services/notification.service', () => ({
 }));
 
 import { prisma } from '@backend/db/prisma';
-import {
-  createInAppNotification,
-  dispatchPush,
-} from '@backend/services/notification.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 import {
   approvePost,
   listCommunityPosts,
@@ -115,12 +112,14 @@ describe('listCommunityPosts', () => {
       status: 'PENDING',
       page: 1,
       limit: 20,
+      sortBy: 'submitted',
+      sortDir: 'asc',
     });
 
     expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ deletedAt: null, moderationStatus: 'PENDING' }),
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       }),
     );
     expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
@@ -142,18 +141,59 @@ describe('listCommunityPosts', () => {
     mockPrisma.communityPost.count.mockResolvedValue(0);
     mockPrisma.communityPost.findMany.mockResolvedValue([]);
 
-    await listCommunityPosts({ type: 'QA', status: 'ALL', page: 1, limit: 20 });
+    await listCommunityPosts({
+      type: 'QA',
+      status: 'ALL',
+      page: 1,
+      limit: 20,
+      sortBy: 'submitted',
+      sortDir: 'desc',
+    });
 
     expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ type: CommunityPostType.QA }),
-        orderBy: [{ isOfficial: 'desc' }, { createdAt: 'desc' }],
       }),
     );
     expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.not.objectContaining({ moderationStatus: expect.anything() }),
       }),
+    );
+  });
+
+  it.each([
+    [
+      'title',
+      'asc',
+      [
+        { title: { sort: 'asc', nulls: 'last' } },
+        { body: { sort: 'asc', nulls: 'last' } },
+        { id: 'asc' },
+      ],
+    ],
+    ['type', 'desc', [{ type: 'desc' }, { id: 'desc' }]],
+    // Ascending groups the "Official" rows first, so isOfficial runs the other way.
+    [
+      'author',
+      'asc',
+      [
+        { isOfficial: 'desc' },
+        { author: { firstName: 'asc' } },
+        { author: { lastName: 'asc' } },
+        { id: 'asc' },
+      ],
+    ],
+    ['status', 'asc', [{ moderationStatus: 'asc' }, { id: 'asc' }]],
+    ['submitted', 'desc', [{ createdAt: 'desc' }, { id: 'desc' }]],
+  ] as const)('sorts by %s %s', async (sortBy, sortDir, orderBy) => {
+    mockPrisma.communityPost.count.mockResolvedValue(0);
+    mockPrisma.communityPost.findMany.mockResolvedValue([]);
+
+    await listCommunityPosts({ type: 'ALL', status: 'ALL', page: 1, limit: 20, sortBy, sortDir });
+
+    expect(mockPrisma.communityPost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy }),
     );
   });
 });

@@ -39,6 +39,7 @@ import {
   useSetQaScenarioStatus,
 } from '@admin/features/qa/use-qa-checklist';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { useClientSort } from '@admin/lib/use-table-sort';
 
 const ANY = 'ANY';
 
@@ -49,6 +50,8 @@ const STATUS_LABELS: Record<QaStatus, string> = {
   BLOCKED: 'Blocked',
   INVALID: 'Invalid',
 };
+
+type QaSortKey = 'number' | 'scenario' | 'status';
 
 /** A scenario with its display number and whatever has been recorded for it. */
 type Row = {
@@ -93,7 +96,9 @@ export function QaChecklistPage() {
 
   function draftFor(scenarioId: string): QaDraft {
     const entry = entries[scenarioId];
-    return draftsRef.current[scenarioId] ?? { note: entry?.note ?? '', tester: entry?.tester ?? '' };
+    return (
+      draftsRef.current[scenarioId] ?? { note: entry?.note ?? '', tester: entry?.tester ?? '' }
+    );
   }
 
   /** Every scenario with its number, which is its position in the catalogue. */
@@ -139,6 +144,22 @@ export function QaChecklistPage() {
 
   const filtered = rows.length !== allRows.length;
 
+  // Catalogue order by default — the scenarios are ordered by how often the
+  // journey happens, which is the order a round is meant to be walked in.
+  const {
+    rows: sortedRows,
+    sort,
+    onSortChange,
+  } = useClientSort<Row, QaSortKey>(
+    rows,
+    {
+      number: (row) => row.number,
+      scenario: (row) => row.scenario.title,
+      status: (row) => STATUS_LABELS[row.status],
+    },
+    { sortBy: 'number', sortDir: 'asc' },
+  );
+
   function toggle(id: string) {
     setExpanded((current) => {
       const next = new Set(current);
@@ -161,16 +182,18 @@ export function QaChecklistPage() {
     );
   }
 
-  const columns: Column<Row>[] = [
+  const columns: Column<Row, QaSortKey>[] = [
     {
       key: 'number',
       header: '#',
+      sortKey: 'number',
       nowrap: true,
       render: (row) => <span className="qa-number">{row.number}</span>,
     },
     {
       key: 'scenario',
       header: 'Scenario',
+      sortKey: 'scenario',
       render: (row) => (
         <button
           type="button"
@@ -209,6 +232,7 @@ export function QaChecklistPage() {
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       nowrap: true,
       render: (row) => (
         // Not the `compact` variant the bookings console uses: that one
@@ -334,9 +358,11 @@ export function QaChecklistPage() {
             <div className="qa-table">
               <Table
                 columns={columns}
-                rows={rows}
+                rows={sortedRows ?? []}
                 rowKey={(row) => row.scenario.id}
                 empty="No scenarios match these filters."
+                sort={sort}
+                onSortChange={onSortChange}
                 renderExpanded={(row) =>
                   expanded.has(row.scenario.id) ? (
                     <QaScenarioDetail

@@ -81,6 +81,28 @@ export const AdminSortedListQuerySchema = AdminListQuerySchema.extend({
 });
 export type AdminSortedListQuery = z.infer<typeof AdminSortedListQuerySchema>;
 
+/** Direction of a sortable admin table column. */
+export const AdminSortDirSchema = z.enum(['asc', 'desc']);
+export type AdminSortDir = z.infer<typeof AdminSortDirSchema>;
+
+/**
+ * A column sort sent by a sortable console table: the column's key and a
+ * direction. Every list that sorts by column takes this pair as its query
+ * params, and declares which keys it accepts.
+ */
+export type AdminColumnSort<K extends string = string> = { sortBy: K; sortDir: AdminSortDir };
+
+/** Columns the Mommies and Nannies directories can be sorted by. */
+export const AdminUserSortKeySchema = z.enum(['name', 'email', 'registered', 'status']);
+export type AdminUserSortKey = z.infer<typeof AdminUserSortKeySchema>;
+
+/** Page/limit plus a column sort for the user directories — newest sign-ups first by default. */
+export const AdminUserDirectoryQuerySchema = AdminListQuerySchema.extend({
+  sortBy: AdminUserSortKeySchema.catch('registered').default('registered'),
+  sortDir: AdminSortDirSchema.catch('desc').default('desc'),
+});
+export type AdminUserDirectoryQuery = z.infer<typeof AdminUserDirectoryQuerySchema>;
+
 // ──────────────────────────────────────────────────────────────
 // Promo codes
 // ──────────────────────────────────────────────────────────────
@@ -310,9 +332,30 @@ export const AdminBookingSchema = z.object({
 });
 export type AdminBooking = z.infer<typeof AdminBookingSchema>;
 
-/** Paginated booking list query (GET /admin/bookings). */
+/**
+ * Columns the admin Bookings list can be sorted by. `waiting` is how long the
+ * request has waited — the reverse of when it was made.
+ */
+export const AdminBookingSortKeySchema = z.enum([
+  'mother',
+  'nanny',
+  'starts',
+  'ends',
+  'total',
+  'promo',
+  'status',
+  'waiting',
+]);
+export type AdminBookingSortKey = z.infer<typeof AdminBookingSortKeySchema>;
+
+/**
+ * Paginated booking list query (GET /admin/bookings), with a column sort —
+ * newest requests (the shortest wait) first by default.
+ */
 export const AdminBookingListQuerySchema = AdminListQuerySchema.extend({
   status: AdminBookingStatusFilterSchema.catch('ALL').default('ALL'),
+  sortBy: AdminBookingSortKeySchema.catch('waiting').default('waiting'),
+  sortDir: AdminSortDirSchema.catch('asc').default('asc'),
 });
 export type AdminBookingListQuery = z.infer<typeof AdminBookingListQuerySchema>;
 
@@ -662,6 +705,23 @@ export const AdminApprovalStatusFilterSchema = z.enum([
 ]);
 export type AdminApprovalStatusFilter = z.infer<typeof AdminApprovalStatusFilterSchema>;
 
+/**
+ * The camera parents watch during a nanny's bookings. A nanny can hold only
+ * one through the console; if older data gave her several, it's the newest —
+ * the same one the booking feed resolves to.
+ */
+export const AdminNannyCameraSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+});
+export type AdminNannyCamera = z.infer<typeof AdminNannyCameraSchema>;
+
+/** Give a nanny a free camera, or take hers away with null (PUT /admin/nannies/:id/camera). */
+export const AssignNannyCameraSchema = z.object({
+  cameraId: z.number().int().positive().nullable(),
+});
+export type AssignNannyCameraInput = z.infer<typeof AssignNannyCameraSchema>;
+
 export const AdminNannySchema = z.object({
   /** NannyProfile id (used by approve/reject endpoints). */
   id: z.number().int(),
@@ -675,6 +735,8 @@ export const AdminNannySchema = z.object({
   yearsOfExperience: z.number().int().nullable(),
   certifications: z.array(PublicCertificationSchema),
   skills: z.array(AdminNannySkillSchema),
+  /** Null when no camera is assigned to her. */
+  camera: AdminNannyCameraSchema.nullable(),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   approvalStatus: ApprovalStatusSchema,
@@ -690,7 +752,7 @@ export const AdminNannySchema = z.object({
 export type AdminNanny = z.infer<typeof AdminNannySchema>;
 
 /** Paginated nanny list query (GET /admin/nannies). A directory, so newest first. */
-export const AdminNannyListQuerySchema = AdminSortedListQuerySchema.extend({
+export const AdminNannyListQuerySchema = AdminUserDirectoryQuerySchema.extend({
   status: AdminApprovalStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
 });
 export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
@@ -771,7 +833,7 @@ export const AdminMotherSchema = z.object({
 export type AdminMother = z.infer<typeof AdminMotherSchema>;
 
 /** Paginated mother list query (GET /admin/mothers). A directory, so newest first. */
-export const AdminMotherListQuerySchema = AdminSortedListQuerySchema.extend({
+export const AdminMotherListQuerySchema = AdminUserDirectoryQuerySchema.extend({
   status: AdminApprovalStatusFilterSchema.catch('ALL').default('ALL'),
 });
 export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
@@ -787,6 +849,11 @@ export const AdminMotherDetailSchema = AdminMotherSchema.extend({
   lastName: z.string(),
   /** Her address book, default first. Read-only in the console. */
   addresses: z.array(AddressSchema),
+  /**
+   * Hours across her bookings, paid extensions included — cancelled and
+   * refunded bookings left out, unlike `bookingCount`.
+   */
+  hoursBooked: z.number(),
 });
 export type AdminMotherDetail = z.infer<typeof AdminMotherDetailSchema>;
 
@@ -921,10 +988,25 @@ export const AdminCommunityPostSchema = z.object({
 });
 export type AdminCommunityPost = z.infer<typeof AdminCommunityPostSchema>;
 
-/** Paginated queue query (GET /admin/community/posts). */
+/** Columns the community table can be sorted by. `submitted` is the post's creation time. */
+export const AdminCommunitySortKeySchema = z.enum([
+  'title',
+  'type',
+  'author',
+  'status',
+  'submitted',
+]);
+export type AdminCommunitySortKey = z.infer<typeof AdminCommunitySortKeySchema>;
+
+/**
+ * Paginated queue query (GET /admin/community/posts). Oldest submission first by
+ * default — the pending queue is a work queue, so the longest wait is served first.
+ */
 export const AdminCommunityPostListQuerySchema = AdminListQuerySchema.extend({
   type: AdminCommunityTypeFilterSchema.catch('ALL').default('ALL'),
   status: AdminCommunityStatusFilterSchema.catch('PENDING').default('PENDING'),
+  sortBy: AdminCommunitySortKeySchema.catch('submitted').default('submitted'),
+  sortDir: AdminSortDirSchema.catch('asc').default('asc'),
 });
 export type AdminCommunityPostListQuery = z.infer<typeof AdminCommunityPostListQuerySchema>;
 

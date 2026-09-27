@@ -5,8 +5,10 @@ import type {
   BookingAddress,
   AdminBooking,
   AdminBookingDetail,
+  AdminBookingListQuery,
+  AdminBookingSortKey,
   AdminBookingStatusFilter,
-  AdminListQuery,
+  AdminSortDir,
   AppliedSkillFee,
   BookingChild,
   PaginationMeta,
@@ -283,9 +285,42 @@ export async function findAdminBooking(id: number): Promise<AdminBookingRow> {
   return booking;
 }
 
+/** Column sort → Prisma order for the admin Bookings list. */
+function bookingOrderBy(
+  sortBy: AdminBookingSortKey,
+  sortDir: AdminSortDir,
+): Prisma.BookingOrderByWithRelationInput[] {
+  const orders: Record<AdminBookingSortKey, Prisma.BookingOrderByWithRelationInput[]> = {
+    mother: [{ mother: { firstName: sortDir } }, { mother: { lastName: sortDir } }],
+    // An unclaimed request has no nanny: Postgres puts it after every named
+    // nanny A→Z and before them Z→A.
+    nanny: [
+      { nannyProfile: { user: { firstName: sortDir } } },
+      { nannyProfile: { user: { lastName: sortDir } } },
+    ],
+    starts: [{ startTime: sortDir }],
+    ends: [{ endTime: sortDir }],
+    total: [{ totalAmount: sortDir }],
+    // By code; bookings without one fall where `nanny`'s unclaimed ones do.
+    promo: [{ promoCode: { code: sortDir } }],
+    // Enum order: the booking lifecycle, PENDING → … → REFUNDED.
+    status: [{ status: sortDir }],
+    // The Waiting column is time since the request, so the longest wait is the
+    // oldest request. Ascending — the shortest wait, newest first — is the
+    // order the queue has always shown.
+    waiting: [{ createdAt: sortDir === 'asc' ? 'desc' : 'asc' }],
+  };
+  // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
+  return [...orders[sortBy], { id: sortDir }];
+}
+
+/**
+ * Paginated admin Bookings list, filtered by status and sorted by whichever
+ * column header the console last clicked (newest requests first by default).
+ */
 export async function listAdminBookings(
   status: AdminBookingStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sortBy, sortDir }: Omit<AdminBookingListQuery, 'status'>,
 ): Promise<{ bookings: AdminBooking[]; meta: PaginationMeta }> {
   const where: Prisma.BookingWhereInput = {
     deletedAt: null,
@@ -297,7 +332,7 @@ export async function listAdminBookings(
     prisma.booking.findMany({
       where,
       include: bookingInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy: bookingOrderBy(sortBy, sortDir),
       skip: (page - 1) * limit,
       take: limit,
     }),

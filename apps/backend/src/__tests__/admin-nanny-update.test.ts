@@ -73,6 +73,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
       reviewedAt: null,
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
+      cameras: [],
     },
     ...overrides,
   };

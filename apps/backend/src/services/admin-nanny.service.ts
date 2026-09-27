@@ -1,13 +1,14 @@
 import { BookingStatus, ApprovalStatus, Prisma } from '@prisma/client';
 
-import { sortDirection } from '@nanny-app/shared';
 import type {
   Address as AddressDto,
   AdminApprovalStatusFilter,
   AdminNanny,
   AdminNannyDetail,
-  AdminSortedListQuery,
+  AdminSortDir,
   AdminUpsertNannyAddressInput,
+  AdminUserDirectoryQuery,
+  AdminUserSortKey,
   PaginationMeta,
   RejectNannyInput,
   SetNannySkillsInput,
@@ -48,6 +49,14 @@ const nannyInclude = {
       reviewedAt: true,
       idDocumentFrontUrl: true,
       idDocumentBackUrl: true,
+      // The feed parents watch: her newest active camera, the same pick as
+      // findNannyCamera in booking-camera.service.
+      cameras: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true, name: true },
+      },
     },
   },
   // A skill deleted from the catalog is gone from her profile too; a
@@ -89,6 +98,7 @@ function toDto(row: AdminNannyRow): AdminNanny {
       feeValue: Number(ns.skill.feeValue),
       isActive: ns.skill.isActive,
     })),
+    camera: row.user.cameras[0] ?? null,
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
     approvalStatus: row.user.approvalStatus ?? ApprovalStatus.PENDING_REVIEW,
@@ -101,14 +111,29 @@ function toDto(row: AdminNannyRow): AdminNanny {
   };
 }
 
+/** Column sort → Prisma order for the Nannies directory. */
+function nannyOrderBy(
+  sortBy: AdminUserSortKey,
+  sortDir: AdminSortDir,
+): Prisma.NannyProfileOrderByWithRelationInput[] {
+  const orders: Record<AdminUserSortKey, Prisma.NannyProfileOrderByWithRelationInput[]> = {
+    name: [{ user: { firstName: sortDir } }, { user: { lastName: sortDir } }],
+    email: [{ user: { email: sortDir } }],
+    registered: [{ createdAt: sortDir }],
+    // The approval_status enum's own order: awaiting ID → in review → approved → rejected.
+    status: [{ user: { approvalStatus: sortDir } }],
+  };
+  // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
+  return [...orders[sortBy], { id: sortDir }];
+}
+
 /**
- * Paginated nanny directory for the admin Users page. Ordered by the caller's
- * `sort` — the console surfaces it as a control, so this tab and the ID-review
- * gallery can differ visibly instead of silently.
+ * Paginated nanny directory for the admin Users page, sorted by whichever
+ * column header the console last clicked (newest sign-ups first by default).
  */
 export async function listAdminNannies(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: AdminSortedListQuery,
+  { page, limit, sortBy, sortDir }: AdminUserDirectoryQuery,
 ): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
   const where: Prisma.NannyProfileWhereInput = {
     deletedAt: null,
@@ -123,7 +148,7 @@ export async function listAdminNannies(
     prisma.nannyProfile.findMany({
       where,
       include: nannyInclude,
-      orderBy: { createdAt: sortDirection(sort) },
+      orderBy: nannyOrderBy(sortBy, sortDir),
       skip: (page - 1) * limit,
       take: limit,
     }),

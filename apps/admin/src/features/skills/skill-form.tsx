@@ -1,83 +1,89 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
-import { CreateSkillSchema } from '@nanny-app/shared';
+import { CreateSkillSchema, UpdateSkillSchema, type Skill } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field, Select } from '@admin/components/ui';
-import { createSkill } from '@admin/lib/api';
+import { Field, FormModal, Input, Select, useToast } from '@admin/components/ui';
+import { createSkill, updateSkill } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { firstIssueMessage } from '@admin/lib/form-errors';
 
-export function SkillForm() {
+type SkillFormModalProps = {
+  /** The skill to edit; omit to add a new one. */
+  skill?: Skill;
+  onClose: () => void;
+};
+
+/** Add a skill, or edit one — the Nanny Skills page's one dialog for both. */
+export function SkillFormModal({ skill, onClose }: SkillFormModalProps) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  const toast = useToast();
+  const [name, setName] = useState(skill?.name ?? '');
+  const [description, setDescription] = useState(skill?.description ?? '');
+  const [isActive, setIsActive] = useState(skill?.isActive ?? true);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const createMutation = useMutation({
-    mutationFn: createSkill,
-    onSuccess: () => {
-      setName('');
-      setDescription('');
-      setIsActive(true);
-      setFormError(null);
+  const saveMutation = useMutation({
+    mutationFn: (save: () => Promise<Skill>) => save(),
+    onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ['skills'] });
+      toast.success(skill ? 'Skill updated' : 'Skill added', saved.name);
+      onClose();
     },
     onError: (err) => setFormError(apiErrorMessage(err)),
   });
 
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const parsed = CreateSkillSchema.safeParse({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      isActive,
-    });
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      setFormError(issue ? `${issue.path.join('.')}: ${issue.message}` : 'Invalid input');
-      return;
+  function submit() {
+    setFormError(null);
+    const fields = { name: name.trim(), description: description.trim() || undefined, isActive };
+    if (skill) {
+      // Only what this form shows — a skill's fee, set elsewhere, stays as it is.
+      const parsed = UpdateSkillSchema.safeParse(fields);
+      if (!parsed.success) return setFormError(firstIssueMessage(parsed.error));
+      saveMutation.mutate(() => updateSkill(skill.id, parsed.data));
+    } else {
+      const parsed = CreateSkillSchema.safeParse(fields);
+      if (!parsed.success) return setFormError(firstIssueMessage(parsed.error));
+      saveMutation.mutate(() => createSkill(parsed.data));
     }
-    createMutation.mutate(parsed.data);
   }
 
   return (
-    <Card title="Create skill">
-      <form onSubmit={handleSubmit}>
-        <div className="form-grid">
-          <Field label="Name">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="French speaker"
-              required
-            />
-          </Field>
-          <Field label="Description" hint="Optional — shown to admins only.">
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Fluent French for bilingual households"
-            />
-          </Field>
-          <div className="field">
-            <span className="field-label">Status</span>
-            <Select
-              value={isActive ? 'active' : 'inactive'}
-              options={[
-                { value: 'active', label: 'Active' },
-                { value: 'inactive', label: 'Inactive' },
-              ]}
-              onChange={(value) => setIsActive(value === 'active')}
-            />
-            <span className="field-hint">Inactive skills can't be assigned or filtered on.</span>
-          </div>
-        </div>
-        {formError && <Feedback tone="error">{formError}</Feedback>}
-        <Button type="submit" disabled={createMutation.isPending}>
-          {createMutation.isPending ? 'Creating…' : 'Create skill'}
-        </Button>
-      </form>
-    </Card>
+    <FormModal
+      title={skill ? 'Edit skill' : 'Add skill'}
+      submitLabel={skill ? 'Save changes' : 'Add skill'}
+      size="sm"
+      busy={saveMutation.isPending}
+      submitDisabled={name.trim() === ''}
+      error={formError}
+      onSubmit={submit}
+      onClose={onClose}
+    >
+      <Field label="Name">
+        <Input
+          value={name}
+          autoFocus
+          onChange={(event) => setName(event.target.value)}
+          placeholder="French speaker"
+        />
+      </Field>
+      <Field label="Description" hint="Optional — shown to admins only.">
+        <Input
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Fluent French for bilingual households"
+        />
+      </Field>
+      <Field label="Status" hint="Inactive skills can’t be assigned or filtered on.">
+        <Select
+          value={isActive ? 'active' : 'inactive'}
+          options={[
+            { value: 'active', label: 'Active' },
+            { value: 'inactive', label: 'Inactive' },
+          ]}
+          onChange={(value) => setIsActive(value === 'active')}
+        />
+      </Field>
+    </FormModal>
   );
 }

@@ -1,6 +1,7 @@
 import { NotificationType, Prisma, type RewardEntryType } from '@prisma/client';
 
 import type {
+  AdminSortDir,
   GrantPointsInput,
   RewardConfig,
   RewardHistoryQuery,
@@ -8,6 +9,7 @@ import type {
   RewardLedgerEntry,
   RewardWallet,
   RewardWalletListQuery,
+  RewardWalletSortKey,
   RewardWalletSummary,
   UpdateRewardConfigInput,
 } from '@nanny-app/shared';
@@ -438,58 +440,105 @@ export async function grantPoints(input: {
 
 // ── Admin: wallet directory + history ──────────────────────────
 
-/** Parent accounts with their Care Points balances (admin User Wallets tab). */
-export async function listWallets(
-  { page, limit, search }: RewardWalletListQuery,
-): Promise<{ wallets: RewardWalletSummary[]; meta: PaginationMeta }> {
-  const trimmed = search?.trim();
-  const where: Prisma.UserWhereInput = {
-    role: 'MOTHER',
-    deletedAt: null,
-    ...(trimmed
-      ? {
-          OR: [
-            { firstName: { contains: trimmed, mode: 'insensitive' } },
-            { lastName: { contains: trimmed, mode: 'insensitive' } },
-            { email: { contains: trimmed, mode: 'insensitive' } },
-          ],
-        }
-      : {}),
-  };
+/**
+ * Column sort → ORDER BY for the wallet directory. Each key maps to fixed SQL,
+ * so nothing from the request ever reaches the query text.
+ *
+ * Raw SQL, not a Prisma orderBy, because a wallet row only exists once a parent
+ * first earns, redeems or is granted points: most parents have none and read as
+ * 0 pts. A Prisma sort through the relation would rank those missing rows as
+ * NULLs — ahead of the biggest balances when descending — instead of as zeros.
+ */
+const WALLET_SORT_COLUMNS: Record<RewardWalletSortKey, Prisma.Sql[]> = {
+  name: [Prisma.sql`u.first_name`, Prisma.sql`u.last_name`],
+  balance: [Prisma.sql`COALESCE(w.points_balance, 0)`],
+  earned: [Prisma.sql`COALESCE(w.lifetime_earned, 0)`],
+  redeemed: [Prisma.sql`COALESCE(w.lifetime_redeemed, 0)`],
+  joined: [Prisma.sql`u.created_at`],
+};
 
-  const [total, rows] = await prisma.$transaction([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        avatarUrl: true,
-        rewardWallet: {
-          select: {
-            userId: true,
-            pointsBalance: true,
-            lifetimeEarned: true,
-            lifetimeRedeemed: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
+function walletOrderBySql(sortBy: RewardWalletSortKey, sortDir: AdminSortDir): Prisma.Sql {
+  const dir = sortDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
+  const columns = [...WALLET_SORT_COLUMNS[sortBy], Prisma.sql`u.id`];
+  return Prisma.join(
+    columns.map((column) => Prisma.sql`${column} ${dir}`),
+    ', ',
+  );
+}
+
+/** A search term as a literal ILIKE substring pattern (its `%`, `_` and `\` escaped). */
+function containsPattern(term: string): string {
+  return `%${term.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+}
+
+type WalletDirectoryRow = {
+  userId: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl: string | null;
+  pointsBalance: number;
+  lifetimeEarned: number;
+  lifetimeRedeemed: number;
+};
+
+/**
+ * Parent accounts with their Care Points balances (admin User Wallets tab),
+ * sorted by whichever column header the console last clicked (newest sign-ups
+ * first by default). A parent with no wallet row yet lists as 0 pts.
+ */
+export async function listWallets({
+  page,
+  limit,
+  search,
+  sortBy,
+  sortDir,
+}: RewardWalletListQuery): Promise<{ wallets: RewardWalletSummary[]; meta: PaginationMeta }> {
+  const trimmed = search?.trim();
+  const filters: Prisma.Sql[] = [
+    Prisma.sql`u.role::text = 'MOTHER'`,
+    Prisma.sql`u.deleted_at IS NULL`,
+  ];
+  if (trimmed) {
+    const like = containsPattern(trimmed);
+    filters.push(
+      Prisma.sql`(u.first_name ILIKE ${like} OR u.last_name ILIKE ${like} OR u.email ILIKE ${like})`,
+    );
+  }
+  const where = Prisma.join(filters, ' AND ');
+
+  const [counted, rows] = await prisma.$transaction([
+    prisma.$queryRaw<{ total: number }[]>(Prisma.sql`
+      SELECT COUNT(*)::int AS total FROM users u WHERE ${where}
+    `),
+    prisma.$queryRaw<WalletDirectoryRow[]>(Prisma.sql`
+      SELECT
+        u.id AS "userId",
+        u.first_name AS "firstName",
+        u.last_name AS "lastName",
+        u.email AS "email",
+        u.avatar_url AS "avatarUrl",
+        COALESCE(w.points_balance, 0) AS "pointsBalance",
+        COALESCE(w.lifetime_earned, 0) AS "lifetimeEarned",
+        COALESCE(w.lifetime_redeemed, 0) AS "lifetimeRedeemed"
+      FROM users u
+      LEFT JOIN reward_wallets w ON w.user_id = u.id
+      WHERE ${where}
+      ORDER BY ${walletOrderBySql(sortBy, sortDir)}
+      LIMIT ${limit} OFFSET ${(page - 1) * limit}
+    `),
   ]);
+  const total = counted[0]?.total ?? 0;
 
   const wallets = rows.map((row) => ({
-    userId: row.id,
+    userId: row.userId,
     name: displayName(row.firstName, row.lastName),
     email: row.email,
     avatarUrl: row.avatarUrl,
-    pointsBalance: row.rewardWallet?.pointsBalance ?? 0,
-    lifetimeEarned: row.rewardWallet?.lifetimeEarned ?? 0,
-    lifetimeRedeemed: row.rewardWallet?.lifetimeRedeemed ?? 0,
+    pointsBalance: row.pointsBalance,
+    lifetimeEarned: row.lifetimeEarned,
+    lifetimeRedeemed: row.lifetimeRedeemed,
   }));
 
   return {

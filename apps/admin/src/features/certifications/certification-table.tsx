@@ -5,24 +5,27 @@ import type { Certification, UpdateCertificationInput } from '@nanny-app/shared'
 
 import {
   ActionMenu,
+  actionsColumn,
   Badge,
-  Button,
   Check,
   type Column,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
   MenuSeparator,
-  Modal,
   Pencil,
   Power,
   Table,
   Trash2,
   useToast,
 } from '@admin/components/ui';
+import { CertificationFormModal } from '@admin/features/certifications/certification-form';
 import { deleteCertification, updateCertification } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
+import { useClientSort } from '@admin/lib/use-table-sort';
+
+type CertificationSortKey = 'name' | 'description' | 'status';
 
 type CertificationTableProps = {
   certifications: Certification[];
@@ -37,12 +40,22 @@ export function CertificationTable({ certifications }: CertificationTableProps) 
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['certifications'] });
 
+  // The API lists certifications by name, so that is where the table starts.
+  const { rows, sort, onSortChange } = useClientSort<Certification, CertificationSortKey>(
+    certifications,
+    {
+      name: (cert) => cert.name,
+      description: (cert) => cert.description,
+      status: (cert) => (cert.isActive ? 'Active' : 'Inactive'),
+    },
+    { sortBy: 'name', sortDir: 'asc' },
+  );
+
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: number; input: UpdateCertificationInput }) =>
       updateCertification(id, input),
     onSuccess: (updated) => {
       invalidate();
-      setEditing(null);
       toast.success('Certification updated', updated.name);
     },
     onError: (err) => toast.error('Couldn’t update certification', apiErrorMessage(err)),
@@ -58,65 +71,59 @@ export function CertificationTable({ certifications }: CertificationTableProps) 
     onError: (err) => toast.error('Couldn’t delete certification', apiErrorMessage(err)),
   });
 
-  const columns: Column<Certification>[] = [
-    { key: 'name', header: 'Name', render: (cert) => cert.name },
+  const columns: Column<Certification, CertificationSortKey>[] = [
+    { key: 'name', header: 'Name', sortKey: 'name', render: (cert) => cert.name },
     {
       key: 'description',
       header: 'Description',
+      sortKey: 'description',
       render: (cert) => cert.description ?? <span className="table-empty">—</span>,
     },
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (cert) => (
         <Badge tone={cert.isActive ? 'success' : 'neutral'}>
           {cert.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      render: (cert) => (
-        <ActionMenu label={`Actions for ${cert.name}`} disabled={!canManage}>
-          <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(cert)}>
-            Edit
-          </MenuItem>
-          <MenuItem
-            icon={cert.isActive ? <Power size={ICON_SIZE.menu} /> : <Check size={ICON_SIZE.menu} />}
-            disabled={updateMutation.isPending}
-            onSelect={() =>
-              updateMutation.mutate({ id: cert.id, input: { isActive: !cert.isActive } })
-            }
-          >
-            {cert.isActive ? 'Deactivate' : 'Activate'}
-          </MenuItem>
-          <MenuSeparator />
-          <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(cert)}>
-            Delete
-          </MenuItem>
-        </ActionMenu>
-      ),
-    },
+    actionsColumn((cert) => (
+      <ActionMenu label={`Actions for ${cert.name}`} disabled={!canManage}>
+        <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(cert)}>
+          Edit
+        </MenuItem>
+        <MenuItem
+          icon={cert.isActive ? <Power size={ICON_SIZE.menu} /> : <Check size={ICON_SIZE.menu} />}
+          disabled={updateMutation.isPending}
+          onSelect={() =>
+            updateMutation.mutate({ id: cert.id, input: { isActive: !cert.isActive } })
+          }
+        >
+          {cert.isActive ? 'Deactivate' : 'Activate'}
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(cert)}>
+          Delete
+        </MenuItem>
+      </ActionMenu>
+    )),
   ];
 
   return (
     <>
       <Table
         columns={columns}
-        rows={certifications}
+        rows={rows ?? []}
         rowKey={(cert) => cert.id}
-        empty="No certifications yet — create the first one above."
+        empty="No certifications yet — add the first one with “Add certification”."
+        sort={sort}
+        onSortChange={onSortChange}
       />
 
       {editing && (
-        <CertificationEditModal
-          certification={editing}
-          busy={updateMutation.isPending}
-          onCancel={() => setEditing(null)}
-          onSave={(input) => updateMutation.mutate({ id: editing.id, input })}
-        />
+        <CertificationFormModal certification={editing} onClose={() => setEditing(null)} />
       )}
 
       {deleting && (
@@ -131,67 +138,5 @@ export function CertificationTable({ certifications }: CertificationTableProps) 
         />
       )}
     </>
-  );
-}
-
-function CertificationEditModal({
-  certification,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  certification: Certification;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (input: UpdateCertificationInput) => void;
-}) {
-  const [name, setName] = useState(certification.name);
-  const [description, setDescription] = useState(certification.description ?? '');
-  const canSave = !busy && name.trim().length > 0;
-
-  return (
-    <Modal
-      title="Edit certification"
-      size="sm"
-      onClose={onCancel}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            disabled={!canSave}
-            onClick={() => onSave({ name: name.trim(), description: description.trim() || undefined })}
-          >
-            {busy ? 'Saving…' : 'Save changes'}
-          </Button>
-        </>
-      }
-    >
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="certification-name">
-          Name
-        </label>
-        <input
-          id="certification-name"
-          className="input"
-          value={name}
-          autoFocus
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="certification-description">
-          Description
-        </label>
-        <input
-          id="certification-description"
-          className="input"
-          value={description}
-          placeholder="Optional — shown to admins only"
-          onChange={(event) => setDescription(event.target.value)}
-        />
-      </div>
-    </Modal>
   );
 }

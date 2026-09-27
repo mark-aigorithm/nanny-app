@@ -1,6 +1,6 @@
-import { ApprovalStatus, type Prisma } from '@prisma/client';
+import { ApprovalStatus, BookingStatus, type Prisma } from '@prisma/client';
 
-import { hasSectionAccess, sortDirection } from '@nanny-app/shared';
+import { hasSectionAccess } from '@nanny-app/shared';
 import type {
   Address as AddressDto,
   AdminApprovalStatusFilter,
@@ -8,8 +8,10 @@ import type {
   AdminMotherDetail,
   AdminRole,
   AdminSection,
-  AdminSortedListQuery,
+  AdminSortDir,
   AdminUser,
+  AdminUserDirectoryQuery,
+  AdminUserSortKey,
   CreateAdminInput,
   PaginationMeta,
   RejectNannyInput,
@@ -88,13 +90,43 @@ async function findReviewableMother(id: number): Promise<AdminMotherRow> {
 }
 
 /** Detail DTO: the list fields plus the raw first/last name split for the edit form. */
-function toMotherDetailDto(row: AdminMotherRow, addresses: AddressDto[]): AdminMotherDetail {
+function toMotherDetailDto(
+  row: AdminMotherRow,
+  addresses: AddressDto[],
+  hoursBooked: number,
+): AdminMotherDetail {
   return {
     ...toMotherDto(row),
     firstName: row.firstName,
     lastName: row.lastName,
     addresses,
+    hoursBooked,
   };
+}
+
+/**
+ * Hours a mother has booked: each booking's duration (paid extensions are
+ * already folded in), leaving out bookings that were cancelled or refunded.
+ */
+async function hoursBookedBy(motherId: number): Promise<number> {
+  const totals = await prisma.booking.aggregate({
+    where: {
+      motherId,
+      deletedAt: null,
+      status: { notIn: [BookingStatus.CANCELLED, BookingStatus.REFUNDED] },
+    },
+    _sum: { durationHours: true },
+  });
+  return totals._sum.durationHours?.toNumber() ?? 0;
+}
+
+/** Everything the detail page shows beyond the user row itself. */
+async function loadMotherDetail(row: AdminMotherRow): Promise<AdminMotherDetail> {
+  const [addresses, hoursBooked] = await Promise.all([
+    listAddresses(row.id),
+    hoursBookedBy(row.id),
+  ]);
+  return toMotherDetailDto(row, addresses, hoursBooked);
 }
 
 /** Roles that can sign in to the admin console. */
@@ -225,14 +257,30 @@ export async function deleteAdminUser(id: number, actingUserId: number): Promise
   await firebaseAuth.updateUser(row.firebaseUid, { disabled: true });
 }
 
+/** Column sort → Prisma order for the Mommies directory. */
+function motherOrderBy(
+  sortBy: AdminUserSortKey,
+  sortDir: AdminSortDir,
+): Prisma.UserOrderByWithRelationInput[] {
+  const orders: Record<AdminUserSortKey, Prisma.UserOrderByWithRelationInput[]> = {
+    name: [{ firstName: sortDir }, { lastName: sortDir }],
+    email: [{ email: sortDir }],
+    registered: [{ createdAt: sortDir }],
+    // Her column reads "Active" / "Deactivated", so ascending puts Active first.
+    status: [{ isActive: sortDir === 'asc' ? 'desc' : 'asc' }],
+  };
+  // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
+  return [...orders[sortBy], { id: sortDir }];
+}
+
 /**
- * Paginated directory of mother (parent) accounts for the admin Users page.
- * Ordered by the caller's `sort` — the console surfaces it as a control, so this
- * tab and the ID-review gallery can differ visibly instead of silently.
+ * Paginated directory of mother (parent) accounts for the admin Users page,
+ * sorted by whichever column header the console last clicked (newest sign-ups
+ * first by default).
  */
 export async function listAdminMothers(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: AdminSortedListQuery,
+  { page, limit, sortBy, sortDir }: AdminUserDirectoryQuery,
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     role: 'MOTHER',
@@ -245,7 +293,7 @@ export async function listAdminMothers(
     prisma.user.findMany({
       where,
       select: motherSelect,
-      orderBy: { createdAt: sortDirection(sort) },
+      orderBy: motherOrderBy(sortBy, sortDir),
       skip: (page - 1) * limit,
       take: limit,
     }),
@@ -259,8 +307,7 @@ export async function listAdminMothers(
 
 /** Full detail for a single mother account (admin detail page). */
 export async function getAdminMother(id: number): Promise<AdminMotherDetail> {
-  const mother = await findReviewableMother(id);
-  return toMotherDetailDto(mother, await listAddresses(mother.id));
+  return loadMotherDetail(await findReviewableMother(id));
 }
 
 /** A mother's whole address book, for the console's read-only list. */
@@ -369,7 +416,7 @@ export async function updateAdminMother(
     },
     select: motherSelect,
   });
-  return toMotherDetailDto(row, await listAddresses(row.id));
+  return loadMotherDetail(row);
 }
 
 /**

@@ -5,6 +5,7 @@ import type {
   AdminBookingCandidate,
   AdminBookingDetail,
   AdminBookingEditContext,
+  AdminBookingSortKey,
   AdminBookingStatusFilter,
   AdminEditBookingInput,
   AdminEditBookingCommitInput,
@@ -15,18 +16,22 @@ import type {
   AdminIdReview,
   AdminApprovalStatusFilter,
   AdminCommunityPost,
+  AdminCommunitySortKey,
   AdminCommunityStatusFilter,
   AdminCommunityTypeFilter,
+  AdminColumnSort,
   AdminListQuery,
   AdminMother,
   AdminMotherDetail,
   AdminNanny,
+  AdminNannyCamera,
   AdminNannyDetail,
   AdminPackagePurchase,
   AdminPackagePurchaseDetail,
   AdminPackagePurchaseListQuery,
   AdminSortOrder,
   AdminUser,
+  AdminUserSortKey,
   Camera,
   Campaign,
   Certification,
@@ -53,6 +58,7 @@ import type {
   QaChecklistState,
   RewardConfig,
   RewardLedgerEntry,
+  RewardWalletSortKey,
   RewardWalletSummary,
   SetBookingStatusInput,
   SetNannySkillsInput,
@@ -95,6 +101,12 @@ export type Paged<T> = { data: T; meta: PaginationMeta };
  */
 type SortableListQuery = AdminListQuery & { sort?: AdminSortOrder };
 
+/**
+ * Page/limit for a directory sorted by column header. The sort is optional for
+ * the same reason as above.
+ */
+type ColumnSortedListQuery<K extends string> = AdminListQuery & Partial<AdminColumnSort<K>>;
+
 // ── Care Points (rewards) ──────────────────────────────────────
 
 export async function fetchRewardConfig(): Promise<RewardConfig> {
@@ -109,11 +121,17 @@ export async function updateRewardConfig(
   return res.data.data;
 }
 
-export async function fetchRewardWallets(
-  { page, limit, search }: { page: number; limit: number; search?: string },
-): Promise<Paged<RewardWalletSummary[]>> {
+export async function fetchRewardWallets({
+  page,
+  limit,
+  search,
+  sortBy,
+  sortDir,
+}: ColumnSortedListQuery<RewardWalletSortKey> & { search?: string }): Promise<
+  Paged<RewardWalletSummary[]>
+> {
   const res = await apiClient.get<PagedEnvelope<RewardWalletSummary[]>>('/admin/rewards/wallets', {
-    params: { page, limit, ...(search ? { search } : {}) },
+    params: { page, limit, ...(search ? { search } : {}), sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -391,10 +409,10 @@ export async function calculatePricePreview(
 
 export async function fetchBookings(
   status: AdminBookingStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminBookingSortKey>,
 ): Promise<Paged<AdminBooking[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminBooking[]>>('/admin/bookings', {
-    params: { status, page, limit },
+    params: { status, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -502,10 +520,10 @@ export async function refundBooking(
 
 export async function fetchNannies(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: SortableListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminUserSortKey>,
 ): Promise<Paged<AdminNanny[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminNanny[]>>('/admin/nannies', {
-    params: { status, page, limit, sort },
+    params: { status, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -553,6 +571,18 @@ export async function updateNannyAddress(
   return res.data.data;
 }
 
+/** Gives a nanny a free camera, or takes hers away with null. */
+export async function assignNannyCamera(
+  nannyProfileId: number,
+  cameraId: number | null,
+): Promise<AdminNannyCamera | null> {
+  const res = await apiClient.put<ApiEnvelope<AdminNannyCamera | null>>(
+    `/admin/nannies/${nannyProfileId}/camera`,
+    { cameraId },
+  );
+  return res.data.data;
+}
+
 /** A mother's address book, default first. Read-only in the console. */
 export async function fetchMotherAddresses(motherId: number): Promise<Address[]> {
   const res = await apiClient.get<ApiEnvelope<Address[]>>(`/admin/mothers/${motherId}/addresses`);
@@ -561,10 +591,10 @@ export async function fetchMotherAddresses(motherId: number): Promise<Address[]>
 
 export async function fetchMothers(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: SortableListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminUserSortKey>,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
-    params: { status, page, limit, sort },
+    params: { status, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -674,11 +704,11 @@ export async function fetchPackagePurchaseDetail(
 export async function fetchCommunityPosts(
   type: AdminCommunityTypeFilter,
   status: AdminCommunityStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminCommunitySortKey>,
 ): Promise<Paged<AdminCommunityPost[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminCommunityPost[]>>(
     '/admin/community/posts',
-    { params: { type, status, page, limit } },
+    { params: { type, status, page, limit, sortBy, sortDir } },
   );
   return { data: res.data.data, meta: res.data.meta };
 }

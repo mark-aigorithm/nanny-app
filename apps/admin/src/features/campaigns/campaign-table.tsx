@@ -1,59 +1,46 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
-import type { Campaign, CampaignTargetType, UpdateCampaignInput } from '@nanny-app/shared';
+import type { Campaign } from '@nanny-app/shared';
 
 import {
   ActionMenu,
+  actionsColumn,
   Badge,
-  Button,
   Check,
   type Column,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
   MenuSeparator,
-  Modal,
   Pencil,
   Power,
-  Select,
   Table,
   Trash2,
   useToast,
 } from '@admin/components/ui';
-import { deleteCampaign, fetchPackages, fetchPromoCodes, updateCampaign } from '@admin/lib/api';
+import { CampaignFormModal } from '@admin/features/campaigns/campaign-form';
+import { deleteCampaign, updateCampaign } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
-import { uploadImageToFirebase } from '@admin/lib/storage';
+import { useClientSort } from '@admin/lib/use-table-sort';
+
+type CampaignSortKey = 'order' | 'title' | 'target' | 'status' | 'impressions' | 'taps' | 'usage';
 
 type CampaignTableProps = {
   campaigns: Campaign[];
 };
 
-/** A stored UTC ISO datetime (or null) → a `<input type="datetime-local">` value in the
- *  browser's LOCAL wall-clock (YYYY-MM-DDTHH:mm), so it round-trips losslessly through
- *  dateTimeLocalToIso (which parses the value as local). */
-function isoToDateTimeLocal(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** A `<input type="datetime-local">` value (local wall-clock) → an ISO 8601 UTC datetime,
- *  or null when cleared. Matches how the create form interprets the same input. */
-function dateTimeLocalToIso(value: string): string | null {
-  return value ? new Date(value).toISOString() : null;
-}
-
-type Status = { label: string; tone: 'success' | 'neutral' | 'warning' };
+type Status = { label: string; tone: 'success' | 'neutral' | 'warning'; rank: number };
 
 function campaignStatus(c: Campaign): Status {
-  if (!c.isActive) return { label: 'Off', tone: 'neutral' };
+  if (!c.isActive) return { label: 'Off', tone: 'neutral', rank: 3 };
   const now = Date.now();
-  if (c.startsAt && new Date(c.startsAt).getTime() > now) return { label: 'Scheduled', tone: 'warning' };
-  if (c.endsAt && new Date(c.endsAt).getTime() < now) return { label: 'Expired', tone: 'neutral' };
-  return { label: 'Active', tone: 'success' };
+  if (c.startsAt && new Date(c.startsAt).getTime() > now)
+    return { label: 'Scheduled', tone: 'warning', rank: 1 };
+  if (c.endsAt && new Date(c.endsAt).getTime() < now)
+    return { label: 'Expired', tone: 'neutral', rank: 2 };
+  return { label: 'Active', tone: 'success', rank: 0 };
 }
 
 export function CampaignTable({ campaigns }: CampaignTableProps) {
@@ -65,16 +52,21 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['campaigns'] });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: number; input: UpdateCampaignInput }) =>
-      updateCampaign(id, input),
-    onSuccess: (updated) => {
-      invalidate();
-      setEditing(null);
-      toast.success('Campaign updated', updated.title);
+  // The API lists campaigns in carousel order (sort order, then oldest first),
+  // so that is the default — a stable sort keeps the API's tiebreak.
+  const { rows, sort, onSortChange } = useClientSort<Campaign, CampaignSortKey>(
+    campaigns,
+    {
+      order: (c) => c.sortOrder,
+      title: (c) => c.title,
+      target: (c) => `${c.targetType === 'PACKAGE' ? 'Package' : 'Promo'} ${c.targetName}`,
+      status: (c) => campaignStatus(c).rank,
+      impressions: (c) => c.impressionCount,
+      taps: (c) => c.clickCount,
+      usage: (c) => c.targetUsageCount,
     },
-    onError: (err) => toast.error('Couldn’t update campaign', apiErrorMessage(err)),
-  });
+    { sortBy: 'order', sortDir: 'asc' },
+  );
 
   const toggleMutation = useMutation({
     mutationFn: (c: Campaign) => updateCampaign(c.id, { isActive: !c.isActive }),
@@ -95,77 +87,96 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
     onError: (err) => toast.error('Couldn’t delete campaign', apiErrorMessage(err)),
   });
 
-  const columns: Column<Campaign>[] = [
+  const columns: Column<Campaign, CampaignSortKey>[] = [
     {
       key: 'image',
-      header: '',
+      header: <span className="sr-only">Image</span>,
       render: (c) => (
-        <img src={c.imageUrl} alt="" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 6 }} />
+        <img
+          src={c.imageUrl}
+          alt=""
+          style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 6 }}
+        />
       ),
     },
-    { key: 'title', header: 'Title', render: (c) => c.title },
+    { key: 'order', header: 'Order', align: 'right', sortKey: 'order', render: (c) => c.sortOrder },
+    { key: 'title', header: 'Title', sortKey: 'title', render: (c) => c.title },
     {
       key: 'target',
       header: 'Target',
+      sortKey: 'target',
       render: (c) => (
         <span>
-          <Badge tone="neutral">{c.targetType === 'PACKAGE' ? 'Package' : 'Promo'}</Badge> {c.targetName}
+          <Badge tone="neutral">{c.targetType === 'PACKAGE' ? 'Package' : 'Promo'}</Badge>{' '}
+          {c.targetName}
         </span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (c) => {
         const s = campaignStatus(c);
         return <Badge tone={s.tone}>{s.label}</Badge>;
       },
     },
-    { key: 'impressions', header: 'Impressions', align: 'right', render: (c) => c.impressionCount },
-    { key: 'taps', header: 'Taps', align: 'right', render: (c) => c.clickCount },
-    { key: 'usage', header: 'Total usage', align: 'right', render: (c) => c.targetUsageCount },
     {
-      key: 'actions',
-      header: '',
+      key: 'impressions',
+      header: 'Impressions',
       align: 'right',
-      render: (c) => (
-        <ActionMenu label={`Actions for campaign ${c.title}`} disabled={!canManage}>
-          <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(c)}>
-            Edit
-          </MenuItem>
-          <MenuItem
-            icon={c.isActive ? <Power size={ICON_SIZE.menu} /> : <Check size={ICON_SIZE.menu} />}
-            disabled={toggleMutation.isPending}
-            onSelect={() => toggleMutation.mutate(c)}
-          >
-            {c.isActive ? 'Pause' : 'Activate'}
-          </MenuItem>
-          <MenuSeparator />
-          <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(c)}>
-            Delete
-          </MenuItem>
-        </ActionMenu>
-      ),
+      sortKey: 'impressions',
+      sortFirst: 'desc',
+      render: (c) => c.impressionCount,
     },
+    {
+      key: 'taps',
+      header: 'Taps',
+      align: 'right',
+      sortKey: 'taps',
+      sortFirst: 'desc',
+      render: (c) => c.clickCount,
+    },
+    {
+      key: 'usage',
+      header: 'Total usage',
+      align: 'right',
+      sortKey: 'usage',
+      sortFirst: 'desc',
+      render: (c) => c.targetUsageCount,
+    },
+    actionsColumn((c) => (
+      <ActionMenu label={`Actions for campaign ${c.title}`} disabled={!canManage}>
+        <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(c)}>
+          Edit
+        </MenuItem>
+        <MenuItem
+          icon={c.isActive ? <Power size={ICON_SIZE.menu} /> : <Check size={ICON_SIZE.menu} />}
+          disabled={toggleMutation.isPending}
+          onSelect={() => toggleMutation.mutate(c)}
+        >
+          {c.isActive ? 'Pause' : 'Activate'}
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(c)}>
+          Delete
+        </MenuItem>
+      </ActionMenu>
+    )),
   ];
 
   return (
     <>
       <Table
         columns={columns}
-        rows={campaigns}
+        rows={rows ?? []}
         rowKey={(c) => c.id}
-        empty="No campaigns yet — create the first one above."
+        empty="No campaigns yet — add the first one with “Add campaign”."
+        sort={sort}
+        onSortChange={onSortChange}
       />
 
-      {editing && (
-        <CampaignEditModal
-          campaign={editing}
-          busy={updateMutation.isPending}
-          onCancel={() => setEditing(null)}
-          onSave={(input) => updateMutation.mutate({ id: editing.id, input })}
-        />
-      )}
+      {editing && <CampaignFormModal campaign={editing} onClose={() => setEditing(null)} />}
 
       {deleting && (
         <ConfirmDialog
@@ -179,211 +190,5 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
         />
       )}
     </>
-  );
-}
-
-function CampaignEditModal({
-  campaign,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  campaign: Campaign;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (input: UpdateCampaignInput) => void;
-}) {
-  const packages = useQuery({ queryKey: ['packages'], queryFn: fetchPackages });
-  const promoCodes = useQuery({ queryKey: ['promo-codes'], queryFn: fetchPromoCodes });
-
-  const [title, setTitle] = useState(campaign.title);
-  const [subtitle, setSubtitle] = useState(campaign.subtitle ?? '');
-  const [imageUrl, setImageUrl] = useState(campaign.imageUrl);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [targetType, setTargetType] = useState<CampaignTargetType>(campaign.targetType);
-  const [packageId, setPackageId] = useState<number | null>(campaign.packageId);
-  const [promoCodeId, setPromoCodeId] = useState<number | null>(campaign.promoCodeId);
-  const [startsAt, setStartsAt] = useState(isoToDateTimeLocal(campaign.startsAt));
-  const [endsAt, setEndsAt] = useState(isoToDateTimeLocal(campaign.endsAt));
-  const [sortOrder, setSortOrder] = useState(String(campaign.sortOrder));
-  const [isActive, setIsActive] = useState(campaign.isActive);
-
-  async function handleImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const url = await uploadImageToFirebase(file, 'campaigns');
-      setImageUrl(url);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Image upload failed');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const targetId = targetType === 'PACKAGE' ? packageId : promoCodeId;
-  const canSave =
-    !busy && !uploading && title.trim().length > 0 && !!imageUrl && targetId != null;
-
-  const packageOptions = (packages.data ?? []).map((p) => ({ value: p.id, label: p.name }));
-  const promoOptions = (promoCodes.data ?? []).map((c) => ({ value: c.id, label: c.code }));
-
-  return (
-    <Modal
-      title="Edit campaign"
-      size="sm"
-      onClose={onCancel}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            disabled={!canSave}
-            onClick={() =>
-              onSave({
-                title: title.trim(),
-                subtitle: subtitle.trim() ? subtitle.trim() : null,
-                imageUrl,
-                targetType,
-                packageId: targetType === 'PACKAGE' ? packageId ?? undefined : undefined,
-                promoCodeId: targetType === 'PROMO_CODE' ? promoCodeId ?? undefined : undefined,
-                startsAt: dateTimeLocalToIso(startsAt),
-                endsAt: dateTimeLocalToIso(endsAt),
-                sortOrder: Number(sortOrder) || 0,
-                isActive,
-              })
-            }
-          >
-            {busy ? 'Saving…' : 'Save changes'}
-          </Button>
-        </>
-      }
-    >
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="campaign-title">
-          Title
-        </label>
-        <input
-          id="campaign-title"
-          className="input"
-          value={title}
-          autoFocus
-          onChange={(event) => setTitle(event.target.value)}
-        />
-      </div>
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="campaign-subtitle">
-          Subtitle
-        </label>
-        <input
-          id="campaign-subtitle"
-          className="input"
-          value={subtitle}
-          placeholder="Optional line under the title"
-          onChange={(event) => setSubtitle(event.target.value)}
-        />
-      </div>
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="campaign-image">
-          Image
-        </label>
-        {imageUrl && (
-          <img
-            src={imageUrl}
-            alt="Campaign"
-            style={{ maxWidth: 160, borderRadius: 8, marginBottom: 8 }}
-          />
-        )}
-        <input id="campaign-image" className="input" type="file" accept="image/*" onChange={handleImage} />
-        <span className="field-hint">Upload to replace the current image.</span>
-        {uploadError && <span className="field-hint">{uploadError}</span>}
-      </div>
-      <div className="modal-field field">
-        <span className="field-label">Links to</span>
-        <Select
-          value={targetType}
-          options={[
-            { value: 'PACKAGE', label: 'Package' },
-            { value: 'PROMO_CODE', label: 'Promo code' },
-          ]}
-          onChange={(value) => setTargetType(value as CampaignTargetType)}
-        />
-      </div>
-      {targetType === 'PACKAGE' ? (
-        <div className="modal-field field">
-          <span className="field-label">Package</span>
-          <Select<number>
-            value={packageId ?? 0}
-            options={[{ value: 0, label: 'Select a package…' }, ...packageOptions]}
-            onChange={(value) => setPackageId(value === 0 ? null : value)}
-          />
-        </div>
-      ) : (
-        <div className="modal-field field">
-          <span className="field-label">Promo code</span>
-          <Select<number>
-            value={promoCodeId ?? 0}
-            options={[{ value: 0, label: 'Select a promo code…' }, ...promoOptions]}
-            onChange={(value) => setPromoCodeId(value === 0 ? null : value)}
-          />
-        </div>
-      )}
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="campaign-starts">
-          Starts at
-        </label>
-        <input
-          id="campaign-starts"
-          className="input"
-          type="datetime-local"
-          value={startsAt}
-          onChange={(event) => setStartsAt(event.target.value)}
-        />
-        <span className="field-hint">Leave blank to start immediately.</span>
-      </div>
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="campaign-ends">
-          Ends at
-        </label>
-        <input
-          id="campaign-ends"
-          className="input"
-          type="datetime-local"
-          value={endsAt}
-          onChange={(event) => setEndsAt(event.target.value)}
-        />
-        <span className="field-hint">Leave blank for no end date.</span>
-      </div>
-      <div className="modal-field field">
-        <label className="field-label" htmlFor="campaign-sort">
-          Sort order
-        </label>
-        <input
-          id="campaign-sort"
-          className="input"
-          type="number"
-          min={0}
-          step={1}
-          value={sortOrder}
-          onChange={(event) => setSortOrder(event.target.value)}
-        />
-        <span className="field-hint">Lower shows first in the carousel.</span>
-      </div>
-      <div className="modal-field field">
-        <span className="field-label">Status</span>
-        <Select
-          value={isActive ? 'active' : 'paused'}
-          options={[
-            { value: 'active', label: 'Active' },
-            { value: 'paused', label: 'Paused' },
-          ]}
-          onChange={(value) => setIsActive(value === 'active')}
-        />
-      </div>
-    </Modal>
   );
 }

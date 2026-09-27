@@ -63,6 +63,9 @@ Building a…
   page-level failure             → <ErrorState message onRetry retrying />
   transient success/failure      → useToast(): toast.success(...) / toast.error(...)
   KPI tile                       → <StatCard label value icon iconTone hint loading />
+  add / edit form                → <FormModal title submitLabel onSubmit onClose busy error>  (one per entity)
+  page's "Add …" button          → <PageHeader action={<Button><Plus/>Add …</Button>} />
+  sortable column                → column sortKey (+ sortFirst: 'desc' for dates/amounts)
   status pill, button, card,     → <Badge> / <Button> / <Card> / <Field>
   labelled field
   icon                           → import from ./icon (lucide), size via ICON_SIZE.*
@@ -75,8 +78,26 @@ Only build bespoke markup when nothing above fits. When you do, mirror an existi
 1. Root is `<section>` with a `<PageHeader title subtitle />` first.
 2. Data pages follow one shape: `useQuery` → `{ data, isLoading, error, refetch, isFetching }`, then
    `isLoading && <TableSkeleton/>`, `error != null && <ErrorState onRetry={() => void refetch()} retrying={isFetching}/>`, `data && <Table … />`.
-3. Filters go in a `.filter-bar` above the table using `<FilterSelect>`.
+3. Filters go in a `.filter-bar` above the table using `<FilterSelect>`. **No "Sort" dropdown** — headers sort.
 4. Row actions live in an `<ActionMenu>`; destructive ones open a `<ConfirmDialog danger>`; text entry uses `<PromptDialog>`.
+
+### The table page — every list of records looks like this
+
+Reference: **Nanny Skills** (`pages/skills-page.tsx`, `features/skills/skill-form.tsx`, `features/skills/skill-table.tsx`).
+
+- **The page is the table.** No create form above it. The header carries the one primary action:
+  `<PageHeader action={canManage && <Button onClick={…}><Plus size={ICON_SIZE.inline} aria-hidden />Add skill</Button>} />`.
+- **Add and Edit share one modal.** Each entity has one `<XFormModal x? onClose>` built on
+  `<FormModal>` — `x` omitted means create. It owns its mutation, invalidates the list, toasts the
+  result, and shows validation (`firstIssueMessage`) and server errors (`apiErrorMessage`) in the
+  modal. Wide forms lay a `.form-grid` inside it.
+- **Row actions sit in the last column's kebab** — `actionsColumn(row => <ActionMenu>…)`: **Edit**
+  first (opens the same modal), other actions next, destructive last after a `<MenuSeparator />`.
+- **Every meaningful column sorts** — give it a `sortKey` (`sortFirst: 'desc'` for dates and
+  amounts, so the first click shows newest/biggest). A list loaded in full sorts in the browser
+  with `useClientSort`; a paged list sorts on the server with `useTableSort(initial, reset)` and
+  sends `sortBy`/`sortDir` (the API side mirrors `AdminUserDirectoryQuerySchema` + `motherOrderBy`,
+  with an `id` tiebreak).
 5. Mutations report through **toasts** (`useToast`), not inline text. Always pass a descriptive message via `apiErrorMessage(err)` on error.
 6. Reporting/aggregate numbers are computed client-side (see `features/dashboard/use-dashboard-stats.ts`) — reuse the pattern; charts use recharts themed with the `--chart-*` vars.
 
@@ -88,6 +109,9 @@ Only build bespoke markup when nothing above fits. When you do, mirror an existi
 - Literal hex or default chart colors instead of `--color-*` / `--chart-*` vars.
 - Re-adding `max-width` to `.admin-content` (brings back the right-side gap) — width lives on `.page-container`.
 - Rows of filter pills instead of a `FilterSelect` dropdown.
+- A create `<Card>` form above a table, or a bespoke edit modal beside a separate create form —
+  use the page header's Add button and one `FormModal` for both.
+- A "Sort" dropdown, or sorting only the current page of a paged list in the browser.
 
 ## Verify visually
 

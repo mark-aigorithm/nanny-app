@@ -1,6 +1,6 @@
-import type { AdminPackagePurchase } from '@nanny-app/shared';
+import type { AdminPackagePurchase, AdminPackagePurchaseSortKey } from '@nanny-app/shared';
 
-import { Badge, type Column, Table } from '@admin/components/ui';
+import { Badge, type Column, Table, type TableSort } from '@admin/components/ui';
 import { formatDateTime, formatEgp, formatHours } from '@admin/lib/format';
 
 type Props = {
@@ -8,6 +8,9 @@ type Props = {
   onRowClick: (id: number) => void;
   /** Whether a search or non-"ALL" status filter is currently applied. */
   hasActiveFilters: boolean;
+  /** The server-side column sort (see `useTableSort`). */
+  sort: TableSort<AdminPackagePurchaseSortKey>;
+  onSortChange: (next: TableSort<AdminPackagePurchaseSortKey>) => void;
 };
 
 const EMPTY = <span className="table-empty">—</span>;
@@ -29,11 +32,12 @@ function statusLabel(status: string): string {
  * The Package Purchases table: one row per purchase, opening the ledger
  * drill-in on click. Mirrors the mothers/bookings tables' column shape.
  */
-export function PurchaseTable({ rows, onRowClick, hasActiveFilters }: Props) {
-  const columns: Column<AdminPackagePurchase>[] = [
+export function PurchaseTable({ rows, onRowClick, hasActiveFilters, sort, onSortChange }: Props) {
+  const columns: Column<AdminPackagePurchase, AdminPackagePurchaseSortKey>[] = [
     {
       key: 'buyer',
       header: 'Buyer',
+      sortKey: 'buyer',
       render: (p) => (
         <>
           {p.buyerName}
@@ -41,10 +45,12 @@ export function PurchaseTable({ rows, onRowClick, hasActiveFilters }: Props) {
         </>
       ),
     },
-    { key: 'package', header: 'Package', render: (p) => p.packageName },
+    { key: 'package', header: 'Package', sortKey: 'package', render: (p) => p.packageName },
     {
       key: 'hours',
       header: 'Hours',
+      sortKey: 'hours',
+      sortFirst: 'desc',
       align: 'right',
       nowrap: true,
       render: (p) => `${formatHours(p.hoursRemaining)} / ${p.hoursPurchased}`,
@@ -59,6 +65,8 @@ export function PurchaseTable({ rows, onRowClick, hasActiveFilters }: Props) {
     {
       key: 'price',
       header: 'Price',
+      sortKey: 'price',
+      sortFirst: 'desc',
       align: 'right',
       nowrap: true,
       render: (p) => formatEgp(p.pricePaid),
@@ -66,17 +74,22 @@ export function PurchaseTable({ rows, onRowClick, hasActiveFilters }: Props) {
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (p) => <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>,
     },
     {
       key: 'purchased',
       header: 'Purchased',
+      sortKey: 'purchased',
+      sortFirst: 'desc',
       nowrap: true,
       render: (p) => (p.purchasedAt ? formatDateTime(p.purchasedAt) : EMPTY),
     },
     {
       key: 'expires',
       header: 'Expires',
+      sortKey: 'expires',
+      sortFirst: 'desc',
       nowrap: true,
       render: (p) => (p.expiresAt ? formatDateTime(p.expiresAt) : EMPTY),
     },
@@ -88,11 +101,11 @@ export function PurchaseTable({ rows, onRowClick, hasActiveFilters }: Props) {
       rows={rows}
       rowKey={(p) => p.id}
       empty={
-        hasActiveFilters
-          ? 'No package purchases match your filters.'
-          : 'No package purchases yet.'
+        hasActiveFilters ? 'No package purchases match your filters.' : 'No package purchases yet.'
       }
       onRowClick={(p) => onRowClick(p.id)}
+      sort={sort}
+      onSortChange={onSortChange}
     />
   );
 }

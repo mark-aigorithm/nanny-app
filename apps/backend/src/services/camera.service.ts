@@ -1,6 +1,7 @@
 import { ApprovalStatus, Prisma } from '@prisma/client';
 
 import type {
+  AdminNannyCamera,
   Camera,
   CreateCameraInput,
   NannyOption,
@@ -91,6 +92,64 @@ export async function deleteCamera(id: number): Promise<{ id: number }> {
   if (!existing) throw errors.notFound('Camera not found');
   await prisma.camera.update({ where: { id }, data: { deletedAt: new Date() } });
   return { id };
+}
+
+/**
+ * Give a nanny a camera from the free pool, or take hers away (`cameraId`
+ * null). Parents only ever see a nanny's newest camera, so the console keeps
+ * it to one: any other camera she held goes back to the pool in the same
+ * transaction.
+ */
+export async function assignNannyCamera(
+  nannyProfileId: number,
+  cameraId: number | null,
+): Promise<AdminNannyCamera | null> {
+  const profile = await prisma.nannyProfile.findFirst({
+    where: { id: nannyProfileId, deletedAt: null, user: { deletedAt: null } },
+    select: { userId: true, user: { select: { approvalStatus: true } } },
+  });
+  if (!profile) throw errors.notFound('Nanny not found');
+  const { userId } = profile;
+
+  if (cameraId === null) {
+    await prisma.camera.updateMany({
+      where: { nannyUserId: userId, deletedAt: null },
+      data: { nannyUserId: null },
+    });
+    return null;
+  }
+
+  // Same rule as assigning from the Cameras page.
+  if (profile.user.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw errors.badRequest('Only an approved nanny can be given a camera.');
+  }
+
+  const camera = await prisma.camera.findFirst({
+    where: { id: cameraId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  if (!camera) throw errors.notFound('Camera not found');
+
+  await prisma.$transaction(async (tx) => {
+    // Claimed only while it's still free (or already hers), so two admins
+    // picking the same camera can't both get it.
+    const claimed = await tx.camera.updateMany({
+      where: {
+        id: camera.id,
+        deletedAt: null,
+        OR: [{ nannyUserId: null }, { nannyUserId: userId }],
+      },
+      data: { nannyUserId: userId },
+    });
+    if (claimed.count === 0) {
+      throw errors.conflict('That camera is already assigned to another nanny.');
+    }
+    await tx.camera.updateMany({
+      where: { nannyUserId: userId, deletedAt: null, id: { not: camera.id } },
+      data: { nannyUserId: null },
+    });
+  });
+  return camera;
 }
 
 export async function listNannyOptions(): Promise<NannyOption[]> {

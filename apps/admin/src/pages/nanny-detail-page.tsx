@@ -23,6 +23,7 @@ import {
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { NannyAddressCard } from '@admin/features/nannies/nanny-address-card';
+import { NannyCameraCard } from '@admin/features/nannies/nanny-camera-card';
 import {
   NannyProfileEditor,
   availabilityLabel,
@@ -244,6 +245,8 @@ export function NannyDetailPage() {
             </Card>
 
             <NannyAddressCard nanny={nanny} canManage={canManage} />
+
+            <NannyCameraCard nanny={nanny} />
 
             <Card
               className="detail-grid-wide"

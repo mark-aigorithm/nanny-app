@@ -4,10 +4,9 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   ADMIN_PAGE_SIZES,
-  ADMIN_SORT_OPTIONS,
   type AdminMother,
   type AdminApprovalStatusFilter,
-  type AdminSortOrder,
+  type AdminUserSortKey,
 } from '@nanny-app/shared';
 
 import {
@@ -22,8 +21,8 @@ import {
 } from '@admin/components/ui';
 import { fetchMothers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
-import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
 
 const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'ALL', label: 'All' },
@@ -40,18 +39,20 @@ function formatDate(iso: string): string {
 const EMPTY = <span className="table-empty">—</span>;
 
 /**
- * The parent directory. Newest-first by default — a directory is read from the
- * most recent signup — with the same Sort control the ID-review gallery carries,
- * so the two views of the same people never reorder without saying so.
+ * The parent directory. Newest sign-ups first by default — a directory is read
+ * from the most recent — and re-sorted by clicking a column header.
  */
 export function MothersTab() {
   const [status, setStatus] = useState<AdminApprovalStatusFilter>('ALL');
-  const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
+  const { sort, onSortChange } = useTableSort<AdminUserSortKey>(
+    { sortBy: 'registered', sortDir: 'desc' },
+    reset,
+  );
   const navigate = useNavigate();
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-mothers', status, sort, page, limit],
-    queryFn: () => fetchMothers(status, { page, limit, sort }),
+    queryFn: () => fetchMothers(status, { page, limit, ...sort }),
   });
   const mothers = data?.data;
   const meta = data?.meta;
@@ -61,74 +62,37 @@ export function MothersTab() {
     reset();
   }
 
-  const columns: Column<AdminMother>[] = [
+  const columns: Column<AdminMother, AdminUserSortKey>[] = [
     {
       key: 'mother',
       header: 'Mommy',
+      sortKey: 'name',
       render: (mother) => <span className="nanny-name">{mother.name}</span>,
     },
     {
       key: 'phone',
       header: 'Phone number',
       nowrap: true,
-      render: (mother) => (
-        <>
-          {mother.phone ?? EMPTY}
-          {(mother.isEmailVerified || mother.isPhoneVerified) && (
-            <div className="table-subtext">
-              {[mother.isEmailVerified ? 'email' : null, mother.isPhoneVerified ? 'phone' : null]
-                .filter(Boolean)
-                .join(' & ')}{' '}
-              verified
-            </div>
-          )}
-        </>
-      ),
+      render: (mother) => mother.phone ?? EMPTY,
     },
-    { key: 'location', header: 'Location', render: (mother) => mother.location ?? EMPTY },
-    { key: 'email', header: 'Email', render: (mother) => mother.email },
+    { key: 'email', header: 'Email', sortKey: 'email', render: (mother) => mother.email },
+    {
+      key: 'registered',
+      header: 'Registered',
+      sortKey: 'registered',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (mother) => formatDate(mother.createdAt),
+    },
     {
       key: 'active',
       header: 'Status',
+      sortKey: 'status',
       render: (mother) => (
         <Badge tone={mother.isActive ? 'success' : 'neutral'}>
           {mother.isActive ? 'Active' : 'Deactivated'}
         </Badge>
       ),
-    },
-    {
-      key: 'status',
-      header: 'ID status',
-      render: (mother) =>
-        mother.approvalStatus ? (
-          <>
-            <Badge tone={approvalStatusTone(mother.approvalStatus)}>
-              {approvalStatusLabel(mother.approvalStatus)}
-            </Badge>
-            {mother.rejectionReason && (
-              <div className="table-subtext">{mother.rejectionReason}</div>
-            )}
-          </>
-        ) : (
-          EMPTY
-        ),
-    },
-    {
-      key: 'bookings',
-      header: 'Bookings',
-      align: 'right',
-      render: (mother) =>
-        mother.bookingCount > 0 ? (
-          <Badge tone="neutral">{mother.bookingCount}</Badge>
-        ) : (
-          EMPTY
-        ),
-    },
-    {
-      key: 'registered',
-      header: 'Registered',
-      nowrap: true,
-      render: (mother) => formatDate(mother.createdAt),
     },
   ];
 
@@ -145,17 +109,8 @@ export function MothersTab() {
           options={STATUS_FILTERS}
           onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
-        <FilterSelect
-          label="Sort"
-          value={sort}
-          options={ADMIN_SORT_OPTIONS}
-          onChange={(value) => {
-            setSort(value as AdminSortOrder);
-            reset();
-          }}
-        />
       </div>
-      {isLoading && <TableSkeleton columns={8} />}
+      {isLoading && <TableSkeleton columns={5} />}
       {error != null && !mothers && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -179,6 +134,8 @@ export function MothersTab() {
             rowKey={(mother) => mother.id}
             empty="No mommies with this status."
             onRowClick={(mother) => navigate(`/users/mothers/${mother.id}`)}
+            sort={sort}
+            onSortChange={onSortChange}
           />
           {meta && (
             <Pagination

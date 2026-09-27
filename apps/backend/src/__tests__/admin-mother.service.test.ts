@@ -8,6 +8,8 @@ jest.mock('@backend/db/prisma', () => ({
     },
     // The detail page carries her address book.
     address: { findMany: jest.fn().mockResolvedValue([]) },
+    // ...and the hours she has booked.
+    booking: { aggregate: jest.fn().mockResolvedValue({ _sum: { durationHours: null } }) },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
@@ -28,6 +30,8 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn().mockResolvedValue(undefined),
 }));
 
+import { Prisma } from '@prisma/client';
+
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
@@ -41,6 +45,7 @@ import {
 
 const mockPrisma = prisma as unknown as {
   user: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock; update: jest.Mock };
+  booking: { aggregate: jest.Mock };
 };
 const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
 
@@ -78,12 +83,12 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow()]);
 
-    const { meta } = await listAdminMothers('ALL', { page: 2, limit: 25, sort: 'newest' });
+    const { meta } = await listAdminMothers('ALL', { page: 2, limit: 25, sortBy: 'registered', sortDir: 'desc' });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { role: 'MOTHER', deletedAt: null },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: 25,
         take: 25,
       }),
@@ -91,22 +96,26 @@ describe('listAdminMothers', () => {
     expect(meta).toEqual({ page: 2, limit: 25, total: 1, totalPages: 1 });
   });
 
-  it('flips to oldest first when the caller asks for it', async () => {
+  it.each([
+    ['name', 'asc', [{ firstName: 'asc' }, { lastName: 'asc' }, { id: 'asc' }]],
+    ['email', 'desc', [{ email: 'desc' }, { id: 'desc' }]],
+    ['registered', 'asc', [{ createdAt: 'asc' }, { id: 'asc' }]],
+    // Ascending reads "Active" before "Deactivated", so isActive runs the other way.
+    ['status', 'asc', [{ isActive: 'desc' }, { id: 'asc' }]],
+  ] as const)('sorts by %s %s', async (sortBy, sortDir, orderBy) => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listAdminMothers('ALL', { page: 1, limit: 20, sort: 'oldest' });
+    await listAdminMothers('ALL', { page: 1, limit: 20, sortBy, sortDir });
 
-    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
-    );
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy }));
   });
 
   it('filters by verification status when not ALL', async () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listAdminMothers('PENDING_REVIEW', { page: 1, limit: 20, sort: 'newest' });
+    await listAdminMothers('PENDING_REVIEW', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -125,7 +134,7 @@ describe('listAdminMothers', () => {
       }),
     ]);
 
-    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sort: 'newest' });
+    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
 
     expect(mothers[0]).toEqual({
       id: 29,
@@ -152,7 +161,7 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow({ firstName: 'Mona', lastName: '-' })]);
 
-    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sort: 'newest' });
+    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
 
     expect(mothers[0]?.name).toBe('Mona');
   });
@@ -184,6 +193,33 @@ describe('getAdminMother', () => {
 
     expect(mother.firstName).toBe('Nour');
     expect(mother.lastName).toBe('Ibrahim');
+  });
+
+  it('sums the hours of her bookings, leaving out cancelled and refunded ones', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.booking.aggregate.mockResolvedValueOnce({
+      _sum: { durationHours: new Prisma.Decimal('7.5') },
+    });
+
+    const mother = await getAdminMother(29);
+
+    expect(mother.hoursBooked).toBe(7.5);
+    expect(mockPrisma.booking.aggregate).toHaveBeenCalledWith({
+      where: {
+        motherId: 29,
+        deletedAt: null,
+        status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      },
+      _sum: { durationHours: true },
+    });
+  });
+
+  it('reports zero hours when she has no counted bookings', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(makeRow());
+
+    const mother = await getAdminMother(29);
+
+    expect(mother.hoursBooked).toBe(0);
   });
 
   it('throws when the mother does not exist', async () => {
@@ -312,6 +348,7 @@ describe('updateAdminMother', () => {
       firstName: 'Salma',
       lastName: 'Adel',
       isActive: false,
+      hoursBooked: 0,
     });
   });
 

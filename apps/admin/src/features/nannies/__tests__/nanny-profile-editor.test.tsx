@@ -40,6 +40,7 @@ const NANNY: AdminNannyDetail = {
   yearsOfExperience: 4,
   certifications: [],
   skills: [],
+  camera: null,
   isEmailVerified: true,
   isPhoneVerified: false,
   approvalStatus: 'APPROVED',
