@@ -23,6 +23,7 @@ import {
 import { fetchNannies } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
+import { initials } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
 
 const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
@@ -35,15 +36,6 @@ const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
 }
 
 const EMPTY = <span className="table-empty">—</span>;

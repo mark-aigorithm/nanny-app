@@ -19,20 +19,12 @@ import {
 } from '@admin/components/ui';
 import { fetchRewardWallets } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { initials } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 
 import { GrantPointsModal } from './grant-points-modal';
 import { WalletHistoryModal } from './wallet-history-modal';
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
-}
 
 export function RewardWalletsTab() {
   const canManage = useCanManage('rewards');
