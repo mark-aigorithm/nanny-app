@@ -2,16 +2,19 @@
  * The table now carries every post type. What is worth pinning: a Q&A post
  * with no headline is still identifiable (by its question), an event shows
  * where and when, the decision goes to the community endpoint, and a live
- * post's menu says "Take down" rather than "Reject".
+ * post's menu says "Take down" rather than "Reject". An official listing is
+ * edited through the same modal the page header's "Add official listing"
+ * opens, and the list is sorted by the API, so the page sends the sort.
  */
 import type { AdminCommunityPost, AdminUser } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ToastProvider } from '@admin/components/ui';
 import { PostTable } from '@admin/features/community/post-table';
+import { CommunityPage } from '@admin/pages/community-page';
 import { PermissionsProvider } from '@admin/lib/permissions';
 import { renderWithProviders } from '@admin/test/render';
 import { server } from '@admin/test/server';
@@ -71,12 +74,28 @@ const EVENT: AdminCommunityPost = {
   price: null,
 };
 
-function renderTable(posts: AdminCommunityPost[]) {
+const OFFICIAL: AdminCommunityPost = {
+  ...BASE,
+  id: 47,
+  title: 'Convertible car seat',
+  body: 'Brand new, sealed box',
+  price: 3500,
+  imageUrls: ['https://cdn.example.com/seat.jpg'],
+  moderationStatus: 'approved',
+  isOfficial: true,
+  contactPhone: '+201001234567',
+  author: { id: 1, name: 'Ops Admin', avatarUrl: null },
+};
+
+function renderTable(
+  posts: AdminCommunityPost[],
+  sortProps: Pick<Parameters<typeof PostTable>[0], 'sort' | 'onSortChange'> = {},
+) {
   server.use(http.get('/api/admin/me', () => ok(ADMIN)));
   return renderWithProviders(
     <PermissionsProvider>
       <ToastProvider>
-        <PostTable posts={posts} />
+        <PostTable posts={posts} {...sortProps} />
       </ToastProvider>
     </PermissionsProvider>,
   );
@@ -129,5 +148,101 @@ describe('PostTable', () => {
 
     await waitFor(() => expect(body).toEqual({ reason: 'Off topic' }));
     expect(await screen.findByText('Post rejected')).toBeInTheDocument();
+  });
+
+  it('edits an official listing in the shared modal, never reviewing it', async () => {
+    let body: unknown = null;
+    server.use(
+      http.patch('/api/admin/marketplace/listings/:id', async ({ params, request }) => {
+        body = { id: String(params['id']), ...((await request.json()) as object) };
+        return ok({ ...OFFICIAL, price: 3200 });
+      }),
+    );
+    renderTable([OFFICIAL]);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Convertible car seat' }),
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Approve' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByLabelText('Product name')).toHaveValue('Convertible car seat');
+    const price = within(dialog).getByLabelText('Price (EGP)');
+    await userEvent.clear(price);
+    await userEvent.type(price, '3200');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        id: '47',
+        title: 'Convertible car seat',
+        body: 'Brand new, sealed box',
+        price: 3200,
+        imageUrls: ['https://cdn.example.com/seat.jpg'],
+        tags: [],
+        contactPhone: '+201001234567',
+      }),
+    );
+    expect(await screen.findByText('Listing updated')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('reports a header click as a server sort, dates newest first', async () => {
+    const onSortChange = vi.fn();
+    renderTable([BASE], { sort: { sortBy: 'submitted', sortDir: 'asc' }, onSortChange });
+
+    await userEvent.click(await screen.findByRole('button', { name: /Author/ }));
+    expect(onSortChange).toHaveBeenCalledWith({ sortBy: 'author', sortDir: 'asc' });
+  });
+});
+
+describe('CommunityPage', () => {
+  function renderPage() {
+    const queries: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/community/posts', ({ request }) => {
+        queries.push(new URL(request.url).searchParams);
+        return HttpResponse.json({
+          data: [BASE],
+          meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          error: null,
+        });
+      }),
+    );
+    renderWithProviders(
+      <PermissionsProvider>
+        <ToastProvider>
+          <CommunityPage />
+        </ToastProvider>
+      </PermissionsProvider>,
+    );
+    return queries;
+  }
+
+  it('opens the pending queue oldest first and re-sorts on the server', async () => {
+    const queries = renderPage();
+
+    await screen.findByText('Stroller');
+    expect(queries.at(-1)?.get('sortBy')).toBe('submitted');
+    expect(queries.at(-1)?.get('sortDir')).toBe('asc');
+
+    await userEvent.click(screen.getByRole('button', { name: /Submitted/ }));
+    await waitFor(() => expect(queries.at(-1)?.get('sortDir')).toBe('desc'));
+  });
+
+  it('adds an official listing from the header, checking it before it posts', async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Add official listing' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Product name'), 'Car seat');
+    await userEvent.type(within(dialog).getByLabelText('Price (EGP)'), '3500');
+    await userEvent.type(within(dialog).getByLabelText(/Contact number/), '+201001234567');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish listing' }));
+
+    // No photo yet — caught by the shared schema before any request is made.
+    expect(await within(dialog).findByText(/At least one image is required/)).toBeInTheDocument();
   });
 });

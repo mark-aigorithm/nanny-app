@@ -1,17 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 
 import {
   COMMUNITY_TAGS,
   CreateOfficialListingSchema,
   type AdminCommunityPost,
   type CommunityTag,
-  type CreateOfficialListingInput,
 } from '@nanny-app/shared';
 
-import { Button, Card, Feedback, Field, Modal, useToast } from '@admin/components/ui';
-import { createOfficialListing } from '@admin/lib/api';
+import { Field, FormModal, useToast } from '@admin/components/ui';
+import { createOfficialListing, updateOfficialListing } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { firstIssueMessage } from '@admin/lib/form-errors';
 import { uploadImageToFirebase } from '@admin/lib/storage';
 
 const MAX_IMAGES = 4;
@@ -42,56 +42,102 @@ function draftFromListing(listing: AdminCommunityPost): DraftState {
   };
 }
 
-/**
- * Validate a draft against the shared schema — the same one the API validates
- * with, so the console can't submit something the backend would reject.
- */
-function parseDraft(draft: DraftState):
-  | { ok: true; input: CreateOfficialListingInput }
-  | { ok: false; message: string } {
-  const parsed = CreateOfficialListingSchema.safeParse({
-    title: draft.title.trim(),
-    body: draft.body.trim() ? draft.body.trim() : undefined,
-    price: Number(draft.price),
-    imageUrls: draft.imageUrls,
-    tags: draft.tags,
-    contactPhone: draft.contactPhone,
-  });
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    return { ok: false, message: issue?.message ?? 'Invalid input' };
-  }
-  return { ok: true, input: parsed.data };
-}
+type OfficialListingFormModalProps = {
+  /** The official listing to edit; omit to publish a new one. */
+  listing?: AdminCommunityPost;
+  onClose: () => void;
+};
 
-/** Shared field set — used by both the create card and the edit modal. */
-function ListingFields({
-  draft,
-  setDraft,
-  uploading,
-  onImage,
-  idPrefix,
-}: {
-  draft: DraftState;
-  setDraft: (next: DraftState) => void;
-  uploading: boolean;
-  onImage: (event: ChangeEvent<HTMLInputElement>) => void;
-  idPrefix: string;
-}) {
-  const toggleTag = (tag: CommunityTag) =>
-    setDraft({
-      ...draft,
-      tags: draft.tags.includes(tag)
-        ? draft.tags.filter((t) => t !== tag)
-        : draft.tags.slice(0, 4).concat(tag),
+/**
+ * Publish an official ("Sold by NannyNow") listing, or edit one — the Community
+ * page's one dialog for both. A new listing goes live immediately (an admin
+ * authored it, so it never enters the review queue) and is pinned above seller
+ * listings in the app's marketplace feed; an edit never re-enters review either.
+ */
+export function OfficialListingFormModal({ listing, onClose }: OfficialListingFormModalProps) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [draft, setDraft] = useState<DraftState>(() =>
+    listing ? draftFromListing(listing) : emptyDraft(),
+  );
+  const [uploading, setUploading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const saveMutation = useMutation({
+    mutationFn: (save: () => Promise<AdminCommunityPost>) => save(),
+    onSuccess: (saved) => {
+      void queryClient.invalidateQueries({ queryKey: ['community-posts'] });
+      toast.success(listing ? 'Listing updated' : 'Official listing published', saved.title ?? '');
+      onClose();
+    },
+    onError: (err) => setFormError(apiErrorMessage(err)),
+  });
+
+  async function handleImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setFormError(null);
+    try {
+      const url = await uploadImageToFirebase(file, 'marketplace');
+      setDraft((current) => ({
+        ...current,
+        imageUrls: [...current.imageUrls, url].slice(0, MAX_IMAGES),
+      }));
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Image upload failed');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  }
+
+  /**
+   * Validated against the shared schema — the same one the API validates with,
+   * so the console can't submit something the backend would reject.
+   */
+  function submit() {
+    setFormError(null);
+    const parsed = CreateOfficialListingSchema.safeParse({
+      title: draft.title.trim(),
+      body: draft.body.trim() ? draft.body.trim() : undefined,
+      price: Number(draft.price),
+      imageUrls: draft.imageUrls,
+      tags: draft.tags,
+      contactPhone: draft.contactPhone,
     });
+    if (!parsed.success) return setFormError(firstIssueMessage(parsed.error));
+    const input = parsed.data;
+    saveMutation.mutate(() =>
+      listing ? updateOfficialListing(listing.id, input) : createOfficialListing(input),
+    );
+  }
+
+  const toggleTag = (tag: CommunityTag) =>
+    setDraft((current) => ({
+      ...current,
+      tags: current.tags.includes(tag)
+        ? current.tags.filter((t) => t !== tag)
+        : current.tags.slice(0, 4).concat(tag),
+    }));
+
+  const idPrefix = listing ? `listing-${listing.id}` : 'new-listing';
 
   return (
-    <>
+    <FormModal
+      title={listing ? 'Edit official listing' : 'Add official listing'}
+      submitLabel={listing ? 'Save changes' : 'Publish listing'}
+      busy={saveMutation.isPending}
+      submitDisabled={uploading}
+      error={formError}
+      onSubmit={submit}
+      onClose={onClose}
+    >
       <div className="form-grid">
         <Field label="Product name">
           <input
             value={draft.title}
+            autoFocus
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             placeholder="Convertible car seat"
             required
@@ -128,13 +174,17 @@ function ListingFields({
         </Field>
         <Field
           label="Photos"
-          hint={`${draft.imageUrls.length}/${MAX_IMAGES} uploaded. At least one is required.`}
+          hint={
+            uploading
+              ? 'Uploading…'
+              : `${draft.imageUrls.length}/${MAX_IMAGES} uploaded. At least one is required.`
+          }
         >
           <input
             type="file"
             accept="image/*"
             disabled={uploading || draft.imageUrls.length >= MAX_IMAGES}
-            onChange={onImage}
+            onChange={(e) => void handleImage(e)}
           />
         </Field>
       </div>
@@ -170,9 +220,8 @@ function ListingFields({
               type="button"
               key={tag}
               id={`${idPrefix}-tag-${tag}`}
-              className={
-                draft.tags.includes(tag) ? 'tag-toggle tag-toggle--on' : 'tag-toggle'
-              }
+              className={draft.tags.includes(tag) ? 'tag-toggle tag-toggle--on' : 'tag-toggle'}
+              aria-pressed={draft.tags.includes(tag)}
               onClick={() => toggleTag(tag)}
             >
               {tag}
@@ -180,153 +229,6 @@ function ListingFields({
           ))}
         </div>
       </div>
-    </>
-  );
-}
-
-/**
- * Publish an official ("Sold by NannyNow") listing. It goes live immediately —
- * an admin authored it, so it never enters the review queue — and is pinned
- * above seller listings in the app's marketplace feed.
- */
-export function OfficialListingForm() {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const [draft, setDraft] = useState<DraftState>(emptyDraft);
-  const [uploading, setUploading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const createMutation = useMutation({
-    mutationFn: createOfficialListing,
-    onSuccess: (listing) => {
-      void queryClient.invalidateQueries({ queryKey: ['community-posts'] });
-      setDraft(emptyDraft());
-      toast.success('Official listing published', listing.title ?? '');
-    },
-    onError: (err) => setFormError(apiErrorMessage(err)),
-  });
-
-  async function handleImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setFormError(null);
-    try {
-      const url = await uploadImageToFirebase(file, 'marketplace');
-      setDraft((current) => ({
-        ...current,
-        imageUrls: [...current.imageUrls, url].slice(0, MAX_IMAGES),
-      }));
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Image upload failed');
-    } finally {
-      setUploading(false);
-      event.target.value = '';
-    }
-  }
-
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const parsed = parseDraft(draft);
-    if (!parsed.ok) {
-      setFormError(parsed.message);
-      return;
-    }
-    setFormError(null);
-    createMutation.mutate(parsed.input);
-  }
-
-  return (
-    <Card title="Publish an official listing">
-      <form onSubmit={handleSubmit}>
-        <ListingFields
-          draft={draft}
-          setDraft={setDraft}
-          uploading={uploading}
-          onImage={(e) => void handleImage(e)}
-          idPrefix="new-listing"
-        />
-        {formError && <Feedback tone="error">{formError}</Feedback>}
-        <Button type="submit" disabled={createMutation.isPending || uploading}>
-          {uploading
-            ? 'Uploading…'
-            : createMutation.isPending
-              ? 'Publishing…'
-              : 'Publish listing'}
-        </Button>
-      </form>
-    </Card>
-  );
-}
-
-/** Edit an already-published official listing. Never re-enters review. */
-export function OfficialListingEditModal({
-  listing,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  listing: AdminCommunityPost;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (input: CreateOfficialListingInput) => void;
-}) {
-  const [draft, setDraft] = useState<DraftState>(() => draftFromListing(listing));
-  const [uploading, setUploading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  async function handleImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setFormError(null);
-    try {
-      const url = await uploadImageToFirebase(file, 'marketplace');
-      setDraft((current) => ({
-        ...current,
-        imageUrls: [...current.imageUrls, url].slice(0, MAX_IMAGES),
-      }));
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Image upload failed');
-    } finally {
-      setUploading(false);
-      event.target.value = '';
-    }
-  }
-
-  function handleSave() {
-    const parsed = parseDraft(draft);
-    if (!parsed.ok) {
-      setFormError(parsed.message);
-      return;
-    }
-    setFormError(null);
-    onSave(parsed.input);
-  }
-
-  return (
-    <Modal
-      title="Edit official listing"
-      onClose={onCancel}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
-          <Button disabled={busy || uploading} onClick={handleSave}>
-            {busy ? 'Saving…' : 'Save changes'}
-          </Button>
-        </>
-      }
-    >
-      <ListingFields
-        draft={draft}
-        setDraft={setDraft}
-        uploading={uploading}
-        onImage={(e) => void handleImage(e)}
-        idPrefix={`listing-${listing.id}`}
-      />
-      {formError && <Feedback tone="error">{formError}</Feedback>}
-    </Modal>
+    </FormModal>
   );
 }

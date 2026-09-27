@@ -15,6 +15,7 @@ import type {
   AdminIdReview,
   AdminApprovalStatusFilter,
   AdminCommunityPost,
+  AdminCommunitySortKey,
   AdminCommunityStatusFilter,
   AdminCommunityTypeFilter,
   AdminColumnSort,
@@ -695,11 +696,11 @@ export async function fetchPackagePurchaseDetail(
 export async function fetchCommunityPosts(
   type: AdminCommunityTypeFilter,
   status: AdminCommunityStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminCommunitySortKey>,
 ): Promise<Paged<AdminCommunityPost[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminCommunityPost[]>>(
     '/admin/community/posts',
-    { params: { type, status, page, limit } },
+    { params: { type, status, page, limit, sortBy, sortDir } },
   );
   return { data: res.data.data, meta: res.data.meta };
 }

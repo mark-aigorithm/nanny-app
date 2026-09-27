@@ -8,16 +8,15 @@ import {
 import type {
   AdminCommunityPost,
   AdminCommunityPostListQuery,
+  AdminCommunitySortKey,
+  AdminSortDir,
   PaginationMeta,
   RejectPostInput,
 } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import {
-  createInAppNotification,
-  dispatchPush,
-} from '@backend/services/notification.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 
 export const communityPostInclude = {
   author: {
@@ -159,16 +158,48 @@ async function notifyAuthor(
   });
 }
 
+/** Column sort → Prisma order for the community table. */
+function postOrderBy(
+  sortBy: AdminCommunitySortKey,
+  sortDir: AdminSortDir,
+): Prisma.CommunityPostOrderByWithRelationInput[] {
+  const orders: Record<AdminCommunitySortKey, Prisma.CommunityPostOrderByWithRelationInput[]> = {
+    // The row is named by its headline, or by its question when a Q&A post has
+    // none — so untitled posts sort by body, after every titled one.
+    title: [
+      { title: { sort: sortDir, nulls: 'last' } },
+      { body: { sort: sortDir, nulls: 'last' } },
+    ],
+    // Enum order: Q&A, Marketplace, Event.
+    type: [{ type: sortDir }],
+    // Official listings read "Official" rather than an admin's name, so they
+    // group together — first when ascending — ahead of mothers by name.
+    author: [
+      { isOfficial: sortDir === 'asc' ? 'desc' : 'asc' },
+      { author: { firstName: sortDir } },
+      { author: { lastName: sortDir } },
+    ],
+    // Enum order: Pending review, Live, Rejected.
+    status: [{ moderationStatus: sortDir }],
+    submitted: [{ createdAt: sortDir }],
+  };
+  // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
+  return [...orders[sortBy], { id: sortDir }];
+}
+
 /**
  * The moderation queue across every post type. Defaults (via the query
  * schema) to PENDING — the posts actually waiting on an admin — with the
- * oldest submission first so authors are served in the order they posted.
+ * oldest submission first so authors are served in the order they posted;
+ * the console re-sorts it by whichever column header was last clicked.
  */
 export async function listCommunityPosts({
   type,
   status,
   page,
   limit,
+  sortBy,
+  sortDir,
 }: AdminCommunityPostListQuery): Promise<{ posts: AdminCommunityPost[]; meta: PaginationMeta }> {
   const where: Prisma.CommunityPostWhereInput = {
     deletedAt: null,
@@ -181,10 +212,7 @@ export async function listCommunityPosts({
     prisma.communityPost.findMany({
       where,
       include: communityPostInclude,
-      orderBy:
-        status === 'PENDING'
-          ? { createdAt: 'asc' }
-          : [{ isOfficial: 'desc' }, { createdAt: 'desc' }],
+      orderBy: postOrderBy(sortBy, sortDir),
       skip: (page - 1) * limit,
       take: limit,
     }),

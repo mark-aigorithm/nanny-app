@@ -967,10 +967,25 @@ export const AdminCommunityPostSchema = z.object({
 });
 export type AdminCommunityPost = z.infer<typeof AdminCommunityPostSchema>;
 
-/** Paginated queue query (GET /admin/community/posts). */
+/** Columns the community table can be sorted by. `submitted` is the post's creation time. */
+export const AdminCommunitySortKeySchema = z.enum([
+  'title',
+  'type',
+  'author',
+  'status',
+  'submitted',
+]);
+export type AdminCommunitySortKey = z.infer<typeof AdminCommunitySortKeySchema>;
+
+/**
+ * Paginated queue query (GET /admin/community/posts). Oldest submission first by
+ * default — the pending queue is a work queue, so the longest wait is served first.
+ */
 export const AdminCommunityPostListQuerySchema = AdminListQuerySchema.extend({
   type: AdminCommunityTypeFilterSchema.catch('ALL').default('ALL'),
   status: AdminCommunityStatusFilterSchema.catch('PENDING').default('PENDING'),
+  sortBy: AdminCommunitySortKeySchema.catch('submitted').default('submitted'),
+  sortDir: AdminSortDirSchema.catch('asc').default('asc'),
 });
 export type AdminCommunityPostListQuery = z.infer<typeof AdminCommunityPostListQuerySchema>;
 

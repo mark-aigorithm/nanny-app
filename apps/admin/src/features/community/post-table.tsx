@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { AdminCommunityPost, CreateOfficialListingInput } from '@nanny-app/shared';
+import type { AdminCommunityPost, AdminCommunitySortKey } from '@nanny-app/shared';
 
 import {
   ActionMenu,
+  actionsColumn,
   Badge,
   Ban,
   Check,
@@ -16,16 +17,12 @@ import {
   Pencil,
   PromptDialog,
   Table,
+  type TableSort,
   Trash2,
   useToast,
 } from '@admin/components/ui';
-import { OfficialListingEditModal } from '@admin/features/marketplace/official-listing-form';
-import {
-  approvePost,
-  deleteOfficialListing,
-  rejectPost,
-  updateOfficialListing,
-} from '@admin/lib/api';
+import { OfficialListingFormModal } from '@admin/features/marketplace/official-listing-form';
+import { approvePost, deleteOfficialListing, rejectPost } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatDateTime, formatEgp } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
@@ -60,9 +57,12 @@ export function displayTitle(post: AdminCommunityPost): string {
 
 type PostTableProps = {
   posts: AdminCommunityPost[];
+  /** Server-side column sort — the list is paged, so the API orders it. */
+  sort?: TableSort<AdminCommunitySortKey>;
+  onSortChange?: (next: TableSort<AdminCommunitySortKey>) => void;
 };
 
-export function PostTable({ posts }: PostTableProps) {
+export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
   const canManage = useCanManage('marketplace');
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -91,17 +91,6 @@ export function PostTable({ posts }: PostTableProps) {
     onError: (err) => toast.error('Couldn’t reject post', apiErrorMessage(err)),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: number; input: CreateOfficialListingInput }) =>
-      updateOfficialListing(id, input),
-    onSuccess: (post) => {
-      invalidate();
-      setEditing(null);
-      toast.success('Listing updated', displayTitle(post));
-    },
-    onError: (err) => toast.error('Couldn’t update listing', apiErrorMessage(err)),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: deleteOfficialListing,
     onSuccess: () => {
@@ -112,10 +101,11 @@ export function PostTable({ posts }: PostTableProps) {
     onError: (err) => toast.error('Couldn’t delete listing', apiErrorMessage(err)),
   });
 
-  const columns: Column<AdminCommunityPost>[] = [
+  const columns: Column<AdminCommunityPost, AdminCommunitySortKey>[] = [
     {
       key: 'item',
       header: 'Post',
+      sortKey: 'title',
       render: (post) => (
         <div className="listing-cell">
           {post.imageUrls[0] ? (
@@ -133,6 +123,7 @@ export function PostTable({ posts }: PostTableProps) {
     {
       key: 'type',
       header: 'Type',
+      sortKey: 'type',
       render: (post) => <Badge>{TYPE_LABEL[post.type]}</Badge>,
     },
     {
@@ -160,11 +151,13 @@ export function PostTable({ posts }: PostTableProps) {
     {
       key: 'author',
       header: 'Author',
+      sortKey: 'author',
       render: (post) => (post.isOfficial ? <Badge>Official</Badge> : post.author.name),
     },
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (post) => (
         <div className="listing-status">
           <Badge tone={STATUS_TONE[post.moderationStatus]}>
@@ -177,50 +170,46 @@ export function PostTable({ posts }: PostTableProps) {
     {
       key: 'submitted',
       header: 'Submitted',
+      sortKey: 'submitted',
+      sortFirst: 'desc',
       render: (post) => formatDateTime(post.createdAt),
     },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      render: (post) => (
+    actionsColumn((post) =>
+      // Official listings are edited, never reviewed (approving or rejecting one
+      // is a 400 at the API); everything else is moderated, never edited here.
+      post.isOfficial ? (
         <ActionMenu label={`Actions for ${displayTitle(post)}`} disabled={!canManage}>
-          {!post.isOfficial && (
-            <MenuItem
-              icon={<Check size={ICON_SIZE.menu} />}
-              disabled={post.moderationStatus === 'approved' || approveMutation.isPending}
-              onSelect={() => approveMutation.mutate(post.id)}
-            >
-              Approve
-            </MenuItem>
-          )}
-          {!post.isOfficial && (
-            <MenuItem
-              icon={<Ban size={ICON_SIZE.menu} />}
-              disabled={post.moderationStatus === 'rejected'}
-              onSelect={() => setRejecting(post)}
-            >
-              {post.moderationStatus === 'approved' ? 'Take down' : 'Reject'}
-            </MenuItem>
-          )}
-          {post.isOfficial && (
-            <>
-              <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(post)}>
-                Edit
-              </MenuItem>
-              <MenuSeparator />
-              <MenuItem
-                danger
-                icon={<Trash2 size={ICON_SIZE.menu} />}
-                onSelect={() => setDeleting(post)}
-              >
-                Delete
-              </MenuItem>
-            </>
-          )}
+          <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(post)}>
+            Edit
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem
+            danger
+            icon={<Trash2 size={ICON_SIZE.menu} />}
+            onSelect={() => setDeleting(post)}
+          >
+            Delete
+          </MenuItem>
+        </ActionMenu>
+      ) : (
+        <ActionMenu label={`Actions for ${displayTitle(post)}`} disabled={!canManage}>
+          <MenuItem
+            icon={<Check size={ICON_SIZE.menu} />}
+            disabled={post.moderationStatus === 'approved' || approveMutation.isPending}
+            onSelect={() => approveMutation.mutate(post.id)}
+          >
+            Approve
+          </MenuItem>
+          <MenuItem
+            icon={<Ban size={ICON_SIZE.menu} />}
+            disabled={post.moderationStatus === 'rejected'}
+            onSelect={() => setRejecting(post)}
+          >
+            {post.moderationStatus === 'approved' ? 'Take down' : 'Reject'}
+          </MenuItem>
         </ActionMenu>
       ),
-    },
+    ),
   ];
 
   return (
@@ -230,6 +219,8 @@ export function PostTable({ posts }: PostTableProps) {
         rows={posts}
         rowKey={(post) => post.id}
         empty="No posts in this queue."
+        sort={sort}
+        onSortChange={onSortChange}
       />
 
       {rejecting && (
@@ -254,14 +245,7 @@ export function PostTable({ posts }: PostTableProps) {
         />
       )}
 
-      {editing && (
-        <OfficialListingEditModal
-          listing={editing}
-          busy={updateMutation.isPending}
-          onCancel={() => setEditing(null)}
-          onSave={(input) => updateMutation.mutate({ id: editing.id, input })}
-        />
-      )}
+      {editing && <OfficialListingFormModal listing={editing} onClose={() => setEditing(null)} />}
 
       {deleting && (
         <ConfirmDialog

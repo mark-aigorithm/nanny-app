@@ -75,10 +75,10 @@ async function openQueue(page: Page, queue: Queue = 'Pending review'): Promise<v
 /**
  * Walks the queue to whichever page holds a post, and returns its row.
  *
- * Neither "first page" nor "last page" is correct. The pending queue is
+ * Neither "first page" nor "last page" is correct. The pending queue opens
  * **oldest-first** — it is a work queue, so the longest wait is served first —
- * while every other filter is newest-first with official listings pinned above
- * the rest. The E2E database is never truncated, so both ends drift further from
+ * while every other filter opens newest-first (and any column header re-sorts
+ * it). The E2E database is never truncated, so both ends drift further from
  * "the post this spec just made" with every run that has ever executed.
  * Walking is the only answer that does not depend on which filter is showing.
  *
@@ -266,8 +266,8 @@ test('an official listing is published rather than reviewed', async ({ page }) =
   const admin = await superuserToken();
   const buyer = await seedMother();
 
-  // Published over HTTP rather than through the console's own form: that form
-  // uploads a photo to Firebase Storage, and the test stack runs an Auth
+  // Published over HTTP rather than through the console's "Add official listing"
+  // modal: that form uploads a photo to Firebase Storage, and the test stack runs an Auth
   // emulator only. The route is the same one the form posts to; what is left
   // untested is the file picker, which is noted in Docs/testing/e2e-flows.md.
   const official = await seedOfficialListing(admin);
