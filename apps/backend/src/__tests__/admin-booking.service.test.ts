@@ -115,9 +115,7 @@ beforeEach(() => {
 
 describe('approveBooking', () => {
   it('approves PENDING → APPROVED even when the nanny DECLINED', async () => {
-    mockPrisma.booking.findFirst.mockResolvedValue(
-      makeRow({ nannyDecision: 'DECLINED' }),
-    );
+    mockPrisma.booking.findFirst.mockResolvedValue(makeRow({ nannyDecision: 'DECLINED' }));
     mockPrisma.booking.update.mockResolvedValue(
       makeRow({ status: PrismaBookingStatus.APPROVED, nannyDecision: 'DECLINED' }),
     );
@@ -144,9 +142,7 @@ describe('approveBooking', () => {
       makeRow({ nannyProfileId: null, nannyProfile: null }),
     );
 
-    await expect(approveBooking(4, ADMIN_UID)).rejects.toThrow(
-      /Assign a nanny/i,
-    );
+    await expect(approveBooking(4, ADMIN_UID)).rejects.toThrow(/Assign a nanny/i);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 
@@ -163,9 +159,7 @@ describe('approveBooking', () => {
 describe('rejectBooking', () => {
   it('cancels the booking with a reason and notifies both parties', async () => {
     mockPrisma.booking.findFirst.mockResolvedValue(makeRow());
-    mockPrisma.booking.update.mockResolvedValue(
-      makeRow({ status: PrismaBookingStatus.CANCELLED }),
-    );
+    mockPrisma.booking.update.mockResolvedValue(makeRow({ status: PrismaBookingStatus.CANCELLED }));
 
     const result = await rejectBooking(4, ADMIN_UID, { reason: 'Fully booked' });
 
@@ -187,9 +181,7 @@ describe('setBookingStatus', () => {
       makeRow({ status: PrismaBookingStatus.COMPLETED }),
     );
 
-    await expect(
-      setBookingStatus(4, ADMIN_UID, { status: 'CANCELLED' }),
-    ).rejects.toThrow(AppError);
+    await expect(setBookingStatus(4, ADMIN_UID, { status: 'CANCELLED' })).rejects.toThrow(AppError);
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 
@@ -197,9 +189,7 @@ describe('setBookingStatus', () => {
     mockPrisma.booking.findFirst.mockResolvedValue(
       makeRow({ status: PrismaBookingStatus.APPROVED }),
     );
-    mockPrisma.booking.update.mockResolvedValue(
-      makeRow({ status: PrismaBookingStatus.CANCELLED }),
-    );
+    mockPrisma.booking.update.mockResolvedValue(makeRow({ status: PrismaBookingStatus.CANCELLED }));
 
     const result = await setBookingStatus(4, ADMIN_UID, { status: 'CANCELLED' });
 
@@ -218,9 +208,9 @@ describe('setBookingStatus', () => {
       makeRow({ status: PrismaBookingStatus.PENDING }),
     );
 
-    await expect(
-      setBookingStatus(4, ADMIN_UID, { status: 'IN_PROGRESS' }),
-    ).rejects.toThrow(AppError);
+    await expect(setBookingStatus(4, ADMIN_UID, { status: 'IN_PROGRESS' })).rejects.toThrow(
+      AppError,
+    );
     expect(mockPrisma.booking.update).not.toHaveBeenCalled();
   });
 });
@@ -251,9 +241,7 @@ describe('updateBookingTimes', () => {
     expect(updateData.nannyAmount).toBe(320);
     expect(updateData.platformAmount).toBe(80);
     expect(updateData.adminActionBy).toEqual({ connect: { id: ADMIN_ID } });
-    expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 10 }),
-    );
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ userId: 10 }));
   });
 
   it('rejects editing a COMPLETED booking (locked)', async () => {
@@ -284,13 +272,15 @@ describe('updateBookingTimes', () => {
 });
 
 describe('listAdminBookings (paginated)', () => {
+  const LIST_QUERY = { page: 1, limit: 20, sortBy: 'waiting', sortDir: 'asc' } as const;
+
   it('maps discountAmount and the applied promo code', async () => {
     mockPrisma.booking.count.mockResolvedValue(1);
     mockPrisma.booking.findMany.mockResolvedValue([
       makeRow({ discountAmount: dec(50), promoCode: { code: 'SAVE50' } }),
     ]);
 
-    const { bookings } = await listAdminBookings('ALL', { page: 1, limit: 20 });
+    const { bookings } = await listAdminBookings('ALL', LIST_QUERY);
 
     expect(bookings[0]?.discountAmount).toBe(50);
     expect(bookings[0]?.promoCode).toBe('SAVE50');
@@ -300,7 +290,7 @@ describe('listAdminBookings (paginated)', () => {
     mockPrisma.booking.count.mockResolvedValue(1);
     mockPrisma.booking.findMany.mockResolvedValue([makeRow()]);
 
-    const { bookings } = await listAdminBookings('ALL', { page: 1, limit: 20 });
+    const { bookings } = await listAdminBookings('ALL', LIST_QUERY);
 
     expect(bookings[0]?.discountAmount).toBe(0);
     expect(bookings[0]?.promoCode).toBeNull();
@@ -310,12 +300,54 @@ describe('listAdminBookings (paginated)', () => {
     mockPrisma.booking.count.mockResolvedValue(57);
     mockPrisma.booking.findMany.mockResolvedValue([makeRow()]);
 
-    const { meta } = await listAdminBookings('ALL', { page: 3, limit: 10 });
+    const { meta } = await listAdminBookings('ALL', { ...LIST_QUERY, page: 3, limit: 10 });
 
     expect(mockPrisma.booking.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 20, take: 10 }),
     );
     expect(meta).toEqual({ page: 3, limit: 10, total: 57, totalPages: 6 });
+  });
+
+  it('keeps the queue newest-first by default', async () => {
+    mockPrisma.booking.count.mockResolvedValue(0);
+    mockPrisma.booking.findMany.mockResolvedValue([]);
+
+    await listAdminBookings('ALL', LIST_QUERY);
+
+    expect(mockPrisma.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ createdAt: 'desc' }, { id: 'asc' }] }),
+    );
+  });
+
+  it.each([
+    [
+      'mother',
+      'asc',
+      [{ mother: { firstName: 'asc' } }, { mother: { lastName: 'asc' } }, { id: 'asc' }],
+    ],
+    [
+      'nanny',
+      'desc',
+      [
+        { nannyProfile: { user: { firstName: 'desc' } } },
+        { nannyProfile: { user: { lastName: 'desc' } } },
+        { id: 'desc' },
+      ],
+    ],
+    ['starts', 'desc', [{ startTime: 'desc' }, { id: 'desc' }]],
+    ['ends', 'asc', [{ endTime: 'asc' }, { id: 'asc' }]],
+    ['total', 'desc', [{ totalAmount: 'desc' }, { id: 'desc' }]],
+    ['promo', 'asc', [{ promoCode: { code: 'asc' } }, { id: 'asc' }]],
+    ['status', 'asc', [{ status: 'asc' }, { id: 'asc' }]],
+    // The longest wait is the oldest request, so createdAt runs the other way.
+    ['waiting', 'desc', [{ createdAt: 'asc' }, { id: 'desc' }]],
+  ] as const)('sorts by %s %s', async (sortBy, sortDir, orderBy) => {
+    mockPrisma.booking.count.mockResolvedValue(0);
+    mockPrisma.booking.findMany.mockResolvedValue([]);
+
+    await listAdminBookings('ALL', { page: 1, limit: 20, sortBy, sortDir });
+
+    expect(mockPrisma.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy }));
   });
 });
 

@@ -1,10 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { ADMIN_PAGE_SIZES, type RewardWalletSummary } from '@nanny-app/shared';
+import {
+  ADMIN_PAGE_SIZES,
+  type RewardWalletSortKey,
+  type RewardWalletSummary,
+} from '@nanny-app/shared';
 
 import {
   ActionMenu,
+  actionsColumn,
   type Column,
   ErrorState,
   Gift,
@@ -22,13 +27,22 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { initials } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
 
 import { GrantPointsModal } from './grant-points-modal';
 import { WalletHistoryModal } from './wallet-history-modal';
 
+/**
+ * Every parent's Care Points wallet. Newest sign-ups first by default — the
+ * order has no column of its own — and re-sorted by clicking a column header.
+ */
 export function RewardWalletsTab() {
   const canManage = useCanManage('rewards');
-  const { page, limit, setPage, setLimit } = usePagination();
+  const { page, limit, setPage, setLimit, reset } = usePagination();
+  const { sort, onSortChange } = useTableSort<RewardWalletSortKey>(
+    { sortBy: 'joined', sortDir: 'desc' },
+    reset,
+  );
   const [search, setSearch] = useState('');
   // Server-side search, debounced so we don't refetch on every keystroke.
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -44,16 +58,17 @@ export function RewardWalletsTab() {
   }, [search, setPage]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['reward-wallets', page, limit, appliedSearch],
-    queryFn: () => fetchRewardWallets({ page, limit, search: appliedSearch || undefined }),
+    queryKey: ['reward-wallets', sort, page, limit, appliedSearch],
+    queryFn: () => fetchRewardWallets({ page, limit, search: appliedSearch || undefined, ...sort }),
   });
   const wallets = data?.data;
   const meta = data?.meta;
 
-  const columns: Column<RewardWalletSummary>[] = [
+  const columns: Column<RewardWalletSummary, RewardWalletSortKey>[] = [
     {
       key: 'user',
       header: 'Parent',
+      sortKey: 'name',
       render: (w) => (
         <div className="nanny-cell">
           <span className="nanny-avatar" aria-hidden>
@@ -69,6 +84,8 @@ export function RewardWalletsTab() {
     {
       key: 'balance',
       header: 'Balance',
+      sortKey: 'balance',
+      sortFirst: 'desc',
       align: 'right',
       nowrap: true,
       render: (w) =>
@@ -81,6 +98,8 @@ export function RewardWalletsTab() {
     {
       key: 'earned',
       header: 'Lifetime earned',
+      sortKey: 'earned',
+      sortFirst: 'desc',
       align: 'right',
       nowrap: true,
       render: (w) => w.lifetimeEarned,
@@ -88,27 +107,24 @@ export function RewardWalletsTab() {
     {
       key: 'redeemed',
       header: 'Lifetime redeemed',
+      sortKey: 'redeemed',
+      sortFirst: 'desc',
       align: 'right',
       nowrap: true,
       render: (w) => w.lifetimeRedeemed,
     },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      render: (w) => (
-        <ActionMenu label={`Actions for ${w.name}`}>
-          <MenuItem icon={<History size={ICON_SIZE.menu} />} onSelect={() => setHistoryFor(w)}>
-            View history
+    actionsColumn((w) => (
+      <ActionMenu label={`Actions for ${w.name}`}>
+        <MenuItem icon={<History size={ICON_SIZE.menu} />} onSelect={() => setHistoryFor(w)}>
+          View history
+        </MenuItem>
+        {canManage && (
+          <MenuItem icon={<Gift size={ICON_SIZE.menu} />} onSelect={() => setGrantFor(w)}>
+            Grant / revoke points
           </MenuItem>
-          {canManage && (
-            <MenuItem icon={<Gift size={ICON_SIZE.menu} />} onSelect={() => setGrantFor(w)}>
-              Grant / revoke points
-            </MenuItem>
-          )}
-        </ActionMenu>
-      ),
-    },
+        )}
+      </ActionMenu>
+    )),
   ];
 
   return (
@@ -150,6 +166,8 @@ export function RewardWalletsTab() {
             rows={wallets}
             rowKey={(w) => w.userId}
             empty={appliedSearch ? 'No parents match your search.' : 'No parent wallets yet.'}
+            sort={sort}
+            onSortChange={onSortChange}
           />
           {meta && (
             <Pagination
@@ -166,9 +184,7 @@ export function RewardWalletsTab() {
         </>
       )}
 
-      {historyFor && (
-        <WalletHistoryModal wallet={historyFor} onClose={() => setHistoryFor(null)} />
-      )}
+      {historyFor && <WalletHistoryModal wallet={historyFor} onClose={() => setHistoryFor(null)} />}
       {grantFor && <GrantPointsModal wallet={grantFor} onClose={() => setGrantFor(null)} />}
     </>
   );

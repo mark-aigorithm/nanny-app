@@ -332,9 +332,30 @@ export const AdminBookingSchema = z.object({
 });
 export type AdminBooking = z.infer<typeof AdminBookingSchema>;
 
-/** Paginated booking list query (GET /admin/bookings). */
+/**
+ * Columns the admin Bookings list can be sorted by. `waiting` is how long the
+ * request has waited — the reverse of when it was made.
+ */
+export const AdminBookingSortKeySchema = z.enum([
+  'mother',
+  'nanny',
+  'starts',
+  'ends',
+  'total',
+  'promo',
+  'status',
+  'waiting',
+]);
+export type AdminBookingSortKey = z.infer<typeof AdminBookingSortKeySchema>;
+
+/**
+ * Paginated booking list query (GET /admin/bookings), with a column sort —
+ * newest requests (the shortest wait) first by default.
+ */
 export const AdminBookingListQuerySchema = AdminListQuerySchema.extend({
   status: AdminBookingStatusFilterSchema.catch('ALL').default('ALL'),
+  sortBy: AdminBookingSortKeySchema.catch('waiting').default('waiting'),
+  sortDir: AdminSortDirSchema.catch('asc').default('asc'),
 });
 export type AdminBookingListQuery = z.infer<typeof AdminBookingListQuerySchema>;
 

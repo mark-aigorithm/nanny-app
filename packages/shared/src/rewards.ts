@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AdminSortDirSchema } from './admin';
 import { PaginationMetaSchema } from './booking';
 
 // ──────────────────────────────────────────────────────────────
@@ -7,7 +8,8 @@ import { PaginationMetaSchema } from './booking';
 // hour and redeem them for free care hours (an auto-applied booking
 // credit). Admins configure the rates, grant/revoke points manually,
 // and browse any user's wallet + full ledger history. This module
-// imports only PaginationMetaSchema so it stays free of cycles.
+// imports only PaginationMetaSchema and AdminSortDirSchema, neither of
+// which imports it back, so it stays free of cycles.
 // ──────────────────────────────────────────────────────────────
 
 /** A single movement of points. Mirrors the DB `reward_entry_type` enum. */
@@ -116,11 +118,29 @@ export const RewardHistoryQuerySchema = z.object({
 });
 export type RewardHistoryQuery = z.infer<typeof RewardHistoryQuerySchema>;
 
-/** Paginated + searchable query for the admin User Wallets list. */
+/**
+ * Columns the admin User Wallets list can be sorted by. `joined` (when the
+ * parent signed up) has no column of its own — it is the list's default order.
+ */
+export const RewardWalletSortKeySchema = z.enum([
+  'name',
+  'balance',
+  'earned',
+  'redeemed',
+  'joined',
+]);
+export type RewardWalletSortKey = z.infer<typeof RewardWalletSortKeySchema>;
+
+/**
+ * Paginated + searchable query for the admin User Wallets list, with a column
+ * sort — newest sign-ups first by default.
+ */
 export const RewardWalletListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(200).default(20),
   /** Case-insensitive match against the parent's name or email. */
   search: z.string().trim().max(200).optional(),
+  sortBy: RewardWalletSortKeySchema.catch('joined').default('joined'),
+  sortDir: AdminSortDirSchema.catch('desc').default('desc'),
 });
 export type RewardWalletListQuery = z.infer<typeof RewardWalletListQuerySchema>;

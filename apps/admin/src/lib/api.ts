@@ -5,6 +5,7 @@ import type {
   AdminBookingCandidate,
   AdminBookingDetail,
   AdminBookingEditContext,
+  AdminBookingSortKey,
   AdminBookingStatusFilter,
   AdminEditBookingInput,
   AdminEditBookingCommitInput,
@@ -57,6 +58,7 @@ import type {
   QaChecklistState,
   RewardConfig,
   RewardLedgerEntry,
+  RewardWalletSortKey,
   RewardWalletSummary,
   SetBookingStatusInput,
   SetNannySkillsInput,
@@ -119,11 +121,17 @@ export async function updateRewardConfig(
   return res.data.data;
 }
 
-export async function fetchRewardWallets(
-  { page, limit, search }: { page: number; limit: number; search?: string },
-): Promise<Paged<RewardWalletSummary[]>> {
+export async function fetchRewardWallets({
+  page,
+  limit,
+  search,
+  sortBy,
+  sortDir,
+}: ColumnSortedListQuery<RewardWalletSortKey> & { search?: string }): Promise<
+  Paged<RewardWalletSummary[]>
+> {
   const res = await apiClient.get<PagedEnvelope<RewardWalletSummary[]>>('/admin/rewards/wallets', {
-    params: { page, limit, ...(search ? { search } : {}) },
+    params: { page, limit, ...(search ? { search } : {}), sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -401,10 +409,10 @@ export async function calculatePricePreview(
 
 export async function fetchBookings(
   status: AdminBookingStatusFilter,
-  { page, limit }: AdminListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminBookingSortKey>,
 ): Promise<Paged<AdminBooking[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminBooking[]>>('/admin/bookings', {
-    params: { status, page, limit },
+    params: { status, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }

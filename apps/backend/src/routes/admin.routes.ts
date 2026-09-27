@@ -220,8 +220,8 @@ adminRouter.get(
   validateQuery(AdminBookingListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, page, limit } = res.locals['validatedQuery'] as AdminBookingListQuery;
-      const { bookings, meta } = await listAdminBookings(status, { page, limit });
+      const { status, ...query } = res.locals['validatedQuery'] as AdminBookingListQuery;
+      const { bookings, meta } = await listAdminBookings(status, query);
       res.json(okPaged(bookings, meta));
     } catch (err) {
       next(err);
@@ -1178,8 +1178,8 @@ adminRouter.get(
   validateQuery(RewardWalletListQuerySchema),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { page, limit, search } = res.locals['validatedQuery'] as RewardWalletListQuery;
-      const { wallets, meta } = await listWallets({ page, limit, search });
+      const query = res.locals['validatedQuery'] as RewardWalletListQuery;
+      const { wallets, meta } = await listWallets(query);
       res.json(okPaged(wallets, meta));
     } catch (err) {
       next(err);
