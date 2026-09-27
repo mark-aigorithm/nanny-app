@@ -90,6 +90,7 @@ import {
 import {
   approveNanny,
   getAdminNanny,
+  invalidateNannyId,
   listAdminNannies,
   rejectNanny,
   setNannySkills,
@@ -117,6 +118,7 @@ import {
   deleteAdminUser,
   getAdminMother,
   getAdminProfile,
+  invalidateMotherId,
   listAdminMotherAddresses,
   listAdminMothers,
   listAdminUsers,
@@ -435,6 +437,18 @@ adminRouter.post(
   },
 );
 
+adminRouter.post(
+  '/nannies/:id/invalidate-id',
+  validateBody(RejectNannySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await invalidateNannyId(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 adminRouter.put(
   '/nannies/:id/skills',
   validateBody(SetNannySkillsSchema),
@@ -529,6 +543,18 @@ adminRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await rejectMother(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/mothers/:id/invalidate-id',
+  validateBody(RejectNannySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await invalidateMotherId(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }

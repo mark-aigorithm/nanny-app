@@ -23,6 +23,7 @@ import {
   dispatchPush,
 } from '@backend/services/notification.service';
 import { toAddressDto, upsertNannyAddress } from '@backend/services/address.service';
+import { invalidateIdDocument } from '@backend/services/id-document.service';
 import { writeNannyProfileFields } from '@backend/services/nanny.service';
 
 const nannyInclude = {
@@ -271,6 +272,13 @@ export async function rejectNanny(id: number, input: RejectNannyInput): Promise<
     data: { type: 'nanny_rejected', title },
   });
 
+  return toDto(await findReviewableNanny(id));
+}
+
+/** Admin sends a nanny's ID back for a new upload (any status with an ID on file). */
+export async function invalidateNannyId(id: number, input: RejectNannyInput): Promise<AdminNanny> {
+  const profile = await findReviewableNanny(id);
+  await invalidateIdDocument(profile.user, input, 'NANNY');
   return toDto(await findReviewableNanny(id));
 }
 

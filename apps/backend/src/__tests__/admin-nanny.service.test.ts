@@ -21,12 +21,18 @@ jest.mock('@backend/lib/storage', () => ({
   deleteStorageObjectByUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@backend/services/id-document.service', () => ({
+  invalidateIdDocument: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
+import { invalidateIdDocument } from '@backend/services/id-document.service';
 import {
   approveNanny,
   getAdminNanny,
+  invalidateNannyId,
   listAdminNannies,
   rejectNanny,
   setNannySkills,
@@ -332,6 +338,26 @@ describe('rejectNanny', () => {
     );
     await expect(rejectNanny(1, {})).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('invalidateNannyId', () => {
+  it('invalidates the ID of the nanny behind the profile id', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+
+    const result = await invalidateNannyId(1, { reason: 'Blurry' });
+
+    expect(invalidateIdDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 10, idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg' }),
+      { reason: 'Blurry' },
+      'NANNY',
+    );
+    expect(result.id).toBe(1);
+  });
+
+  it('404s for an unknown nanny', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(null);
+    await expect(invalidateNannyId(99, {})).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 

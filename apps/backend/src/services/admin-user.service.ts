@@ -23,6 +23,7 @@ import { errors } from '@backend/lib/errors';
 import { firebaseAuth } from '@backend/lib/firebase';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
 import { listAddresses } from '@backend/services/address.service';
+import { invalidateIdDocument } from '@backend/services/id-document.service';
 import {
   createInAppNotification,
   dispatchPush,
@@ -326,6 +327,13 @@ export async function rejectMother(id: number, input: RejectNannyInput): Promise
   await createInAppNotification({ userId: id, type: 'NANNY_REJECTED', title, body });
   await dispatchPush(id, { title, body, data: { type: 'id_rejected', title } });
 
+  return toMotherDto(await findReviewableMother(id));
+}
+
+/** Admin sends a mother's ID back for a new upload (any status with an ID on file). */
+export async function invalidateMotherId(id: number, input: RejectNannyInput): Promise<AdminMother> {
+  const mother = await findReviewableMother(id);
+  await invalidateIdDocument(mother, input, 'MOTHER');
   return toMotherDto(await findReviewableMother(id));
 }
 
