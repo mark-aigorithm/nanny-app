@@ -70,15 +70,21 @@ export function availabilityLabel(value: AvailabilityTypeValue): string {
 }
 
 /**
- * One-line summary of the weekly working hours for the read-only view, e.g.
- * "Monday 08:00–18:00, Tuesday 08:00–18:00". Returns null when nothing is set.
+ * Her week for the read-only view, Monday first: each day with its hours, or
+ * null when she doesn't work it. Returns null when no day is set at all.
  */
-export function formatWorkingHours(schedule: WeeklySchedule | null): string | null {
+export function workingDays(
+  schedule: WeeklySchedule | null,
+): { day: string; hours: string | null }[] | null {
   if (!schedule) return null;
-  const active = DAY_ORDER.map((day) => ({ day, slot: schedule[day] }))
-    .filter((d): d is { day: string; slot: DaySchedule } => Boolean(d.slot?.available))
-    .map(({ day, slot }) => `${DAY_NAMES[day] ?? day} ${slot.startTime}–${slot.endTime}`);
-  return active.length > 0 ? active.join(', ') : null;
+  const days = DAY_ORDER.map((day) => {
+    const slot = schedule[day];
+    return {
+      day: DAY_NAMES[day] ?? day,
+      hours: slot?.available ? `${slot.startTime}–${slot.endTime}` : null,
+    };
+  });
+  return days.some((d) => d.hours !== null) ? days : null;
 }
 
 export function NannyProfileEditor({ nanny, certifications, onDone }: NannyProfileEditorProps) {

@@ -45,8 +45,8 @@ test('rewrites her address and the console and the app both read the new one', a
   await expect(card).toContainText('Sidi Gaber, Alexandria');
   await expect(card).toContainText('Opposite the tram stop');
 
-  // The profile card's Location line is derived from the same row.
-  await expect(page.locator('.card', { hasText: 'Profile' }).first()).toContainText(
+  // The summary card's location line is derived from the same row.
+  await expect(page.locator('.nanny-summary')).toContainText(
     '5 Corniche, Sidi Gaber, Alexandria',
   );
 

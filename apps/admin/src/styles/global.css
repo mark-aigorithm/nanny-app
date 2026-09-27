@@ -707,6 +707,165 @@ input[type='number'] {
   gap: 0.5rem;
 }
 
+/* Two columns on wide screens: the record's substance on the left, its
+   application status and address on the right. Stacks below ~1100px. */
+.detail-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 0 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.detail-column {
+  min-width: 0;
+}
+
+/* ── Nanny detail ───────────────────────────────────────── */
+
+/* A fixed three-tile row stretches to fill instead of orphaning its last tile. */
+.stat-grid.stat-grid--fit {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+
+.nanny-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 1.5rem;
+}
+
+.nanny-summary-avatar {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  background: var(--color-surface-muted);
+  border: 3px solid var(--color-warm-subtle);
+}
+
+.nanny-summary-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.nanny-summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.nanny-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badge-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.nanny-summary-contact {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
+.nanny-summary-contact li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nanny-summary-contact svg {
+  flex: none;
+  color: var(--color-primary-dark);
+}
+
+/* The gallery's ID thumbnails, stretched to the Application card's width. */
+.nanny-id-photos {
+  width: 100%;
+  margin-top: 0.2rem;
+}
+
+.nanny-about {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.nanny-about-bio {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  border: 1px solid var(--color-warm-border);
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 75ch;
+}
+
+/* The week as a strip of day tiles; days off are dimmed, not hidden, so a
+   gap in her week reads at a glance. */
+.nanny-hours {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 0.5rem;
+}
+
+.nanny-hours li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary-dark);
+}
+
+.nanny-hours-day {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.nanny-hours li.nanny-hours-off {
+  background: var(--color-surface-muted);
+  color: var(--color-text-placeholder);
+  font-weight: 500;
+}
+
 /* ── Addresses ──────────────────────────────────────────── */
 
 /* A mother's address book on her detail page — read-only. */

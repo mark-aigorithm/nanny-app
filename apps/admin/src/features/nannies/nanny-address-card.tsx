@@ -71,7 +71,16 @@ export function NannyAddressCard({ nanny, canManage }: NannyAddressCardProps) {
   });
 
   return (
-    <Card title="Address">
+    <Card
+      title="Address"
+      action={
+        canManage && !editing ? (
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+            {nanny.address ? 'Edit address' : 'Add address'}
+          </Button>
+        ) : undefined
+      }
+    >
       {editing ? (
         <AddressEditor
           initial={nanny.address}
@@ -81,14 +90,7 @@ export function NannyAddressCard({ nanny, canManage }: NannyAddressCardProps) {
           error={saveMutation.error != null ? apiErrorMessage(saveMutation.error) : null}
         />
       ) : (
-        <div className="detail-skills">
-          <DescriptionList items={addressItems(nanny.address)} />
-          {canManage && (
-            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-              {nanny.address ? 'Edit address' : 'Add address'}
-            </Button>
-          )}
-        </div>
+        <DescriptionList items={addressItems(nanny.address)} />
       )}
     </Card>
   );

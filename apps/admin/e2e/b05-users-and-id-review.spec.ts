@@ -173,8 +173,8 @@ test('a nanny is approved from her own page, and the Nannies queue lets her go',
   await chooseOption(page, 'Status', 'Pending review');
   await rowFor(page, nanny.surname).click();
 
-  // Her ID is part of what is being decided, so it is reachable from here.
-  await expect(page.getByRole('button', { name: 'View ID' })).toBeVisible();
+  // Her ID is part of what is being decided, so it is shown right here.
+  await expect(page.getByRole('button', { name: /Front of .+'s ID/ })).toBeVisible();
   await page.getByRole('button', { name: 'Approve nanny' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Nanny approved' })).toBeVisible();
 
