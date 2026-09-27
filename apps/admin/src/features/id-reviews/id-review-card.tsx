@@ -22,18 +22,10 @@ import { approveMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
+import { initials } from '@admin/lib/format';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
 }
 
 const ID_TYPE_LABEL: Record<IdDocumentType, string> = {
