@@ -24,7 +24,8 @@ import {
 } from '@admin/components/ui';
 import { IdDocumentModal } from '@admin/features/nannies/id-document-modal';
 import { MotherEditForm } from '@admin/features/users/mother-edit-form';
-import { approveMother, fetchMother, rejectMother } from '@admin/lib/api';
+import { RequestNewIdButton } from '@admin/features/users/request-new-id-button';
+import { approveMother, fetchMother, invalidateMotherId, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { useCanManage } from '@admin/lib/permissions';
@@ -93,6 +94,14 @@ export function MotherDetailPage() {
         <Button variant="ghost" size="sm" onClick={() => setIdOpen(true)}>
           View ID
         </Button>
+      )}
+      {canManage && hasId && (
+        <RequestNewIdButton
+          name={mother.name}
+          consequence="Until it's approved she can't book care."
+          request={(reason) => invalidateMotherId(id, reason)}
+          onDone={invalidate}
+        />
       )}
       {canReview && (
         <Button size="sm" disabled={mutating} onClick={() => approveMutation.mutate()}>

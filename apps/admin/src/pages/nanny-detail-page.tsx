@@ -34,11 +34,13 @@ import {
   workingDays,
 } from '@admin/features/nannies/nanny-profile-editor';
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
+import { RequestNewIdButton } from '@admin/features/users/request-new-id-button';
 import {
   approveNanny,
   fetchCertifications,
   fetchNanny,
   fetchSkills,
+  invalidateNannyId,
   rejectNanny,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -234,7 +236,19 @@ export function NannyDetailPage() {
             </div>
 
             <div className="detail-column">
-              <Card title="Application">
+              <Card
+                title="Application"
+                action={
+                  canManage && (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) ? (
+                    <RequestNewIdButton
+                      name={nanny.name}
+                      consequence="Until it's approved she won't appear to parents or get new bookings."
+                      request={(reason) => invalidateNannyId(id, reason)}
+                      onDone={invalidate}
+                    />
+                  ) : undefined
+                }
+              >
                 <DescriptionList
                   items={[
                     {

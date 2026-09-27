@@ -206,3 +206,27 @@ test('rejecting a nanny records the reason she will be shown', async ({ page }) 
   expect(approval.approvalStatus).toBe('REJECTED');
   expect(approval.rejectionReason).toBe('Certificate could not be verified.');
 });
+
+test('requesting a new ID sends an approved nanny back to Awaiting ID', async ({ page }) => {
+  const admin = await superuserToken();
+  const nanny = await seedPendingNanny();
+
+  await openTab(page, 'Nannies');
+  await rowFor(page, nanny.surname).click();
+  await page.getByRole('button', { name: 'Approve nanny' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Nanny approved' })).toBeVisible();
+  const nannyProfileId = Number(page.url().split('/').pop());
+
+  await page.getByRole('button', { name: 'Request new ID' }).click();
+  await page.getByLabel(/^Reason/).fill('Photo is blurry.');
+  await page.getByRole('button', { name: 'Delete ID and ask again' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'New ID requested' })).toBeVisible();
+
+  // The page re-renders without a reload: no photos, no button to repeat it.
+  await expect(page.getByText('No ID uploaded yet.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Request new ID' })).toHaveCount(0);
+
+  const approval = await getNannyApproval(admin, nannyProfileId);
+  expect(approval.approvalStatus).toBe('PENDING_ID');
+  expect(approval.rejectionReason).toBe('Photo is blurry.');
+});
