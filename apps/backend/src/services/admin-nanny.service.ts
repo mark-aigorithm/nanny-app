@@ -18,11 +18,13 @@ import type {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
+import { ACTIVE_BOOKING_STATUSES } from '@backend/services/account-deletion.service';
 import {
   createInAppNotification,
   dispatchPush,
 } from '@backend/services/notification.service';
 import { toAddressDto, upsertNannyAddress } from '@backend/services/address.service';
+import { invalidateIdDocument } from '@backend/services/id-document.service';
 import { writeNannyProfileFields } from '@backend/services/nanny.service';
 
 const nannyInclude = {
@@ -202,6 +204,9 @@ export async function approveNanny(id: number): Promise<AdminNanny> {
   if (profile.user.approvalStatus === ApprovalStatus.APPROVED) {
     throw errors.badRequest('This nanny is already approved.');
   }
+  if (!profile.user.idDocumentFrontUrl && !profile.user.idDocumentBackUrl) {
+    throw errors.badRequest('There is no ID on file to approve.');
+  }
 
   await prisma.user.update({
     where: { id: profile.user.id },
@@ -271,6 +276,30 @@ export async function rejectNanny(id: number, input: RejectNannyInput): Promise<
     data: { type: 'nanny_rejected', title },
   });
 
+  return toDto(await findReviewableNanny(id));
+}
+
+/**
+ * Admin sends a nanny's ID back for a new upload (any status with an ID on
+ * file) — refused while she has active bookings, because the in-app guard
+ * that moves her out of the `(nanny)` screens as soon as she leaves APPROVED
+ * would lock her out of shifts she still holds.
+ */
+export async function invalidateNannyId(id: number, input: RejectNannyInput): Promise<AdminNanny> {
+  const profile = await findReviewableNanny(id);
+
+  const activeBookings = await prisma.booking.count({
+    where: {
+      deletedAt: null,
+      nannyProfileId: profile.id,
+      status: { in: ACTIVE_BOOKING_STATUSES },
+    },
+  });
+  if (activeBookings > 0) {
+    throw errors.conflict("She has active bookings. Request a new ID once they're finished or reassigned.");
+  }
+
+  await invalidateIdDocument(profile.user, input, 'NANNY');
   return toDto(await findReviewableNanny(id));
 }
 

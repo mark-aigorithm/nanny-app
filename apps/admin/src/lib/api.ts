@@ -598,6 +598,22 @@ export async function rejectMother(id: string, reason?: string): Promise<AdminMo
   return res.data.data;
 }
 
+export async function invalidateNannyId(id: string, reason?: string): Promise<AdminNanny> {
+  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
+    `/admin/nannies/${id}/invalidate-id`,
+    reason ? { reason } : {},
+  );
+  return res.data.data;
+}
+
+export async function invalidateMotherId(id: string, reason?: string): Promise<AdminMother> {
+  const res = await apiClient.post<ApiEnvelope<AdminMother>>(
+    `/admin/mothers/${id}/invalidate-id`,
+    reason ? { reason } : {},
+  );
+  return res.data.data;
+}
+
 // ── Parent ID review queue ─────────────────────────────────────
 
 export async function fetchIdReviews(

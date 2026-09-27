@@ -34,11 +34,13 @@ import {
   workingDays,
 } from '@admin/features/nannies/nanny-profile-editor';
 import { NannySkillsEditor } from '@admin/features/nannies/nanny-skills-editor';
+import { RequestNewIdButton } from '@admin/features/users/request-new-id-button';
 import {
   approveNanny,
   fetchCertifications,
   fetchNanny,
   fetchSkills,
+  invalidateNannyId,
   rejectNanny,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -110,15 +112,17 @@ export function NannyDetailPage() {
 
   const actions = nanny ? (
     <>
-      {canManage && nanny.approvalStatus !== 'APPROVED' && (
-        <Button
-          size="sm"
-          disabled={mutating}
-          onClick={() => approveMutation.mutate()}
-        >
-          Approve nanny
-        </Button>
-      )}
+      {canManage &&
+        nanny.approvalStatus !== 'APPROVED' &&
+        (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) && (
+          <Button
+            size="sm"
+            disabled={mutating}
+            onClick={() => approveMutation.mutate()}
+          >
+            Approve nanny
+          </Button>
+        )}
       {canManage && nanny.approvalStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
           Reject application
@@ -234,7 +238,19 @@ export function NannyDetailPage() {
             </div>
 
             <div className="detail-column">
-              <Card title="Application">
+              <Card
+                title="Application"
+                action={
+                  canManage && (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) ? (
+                    <RequestNewIdButton
+                      name={nanny.name}
+                      consequence="Until it's approved she won't appear to parents or get new bookings. This isn't possible while she has active bookings."
+                      request={(reason) => invalidateNannyId(id, reason)}
+                      onDone={invalidate}
+                    />
+                  ) : undefined
+                }
+              >
                 <DescriptionList
                   items={[
                     {
@@ -255,7 +271,16 @@ export function NannyDetailPage() {
                       value: nanny.reviewedAt ? formatDate(nanny.reviewedAt) : DASH,
                     },
                     ...(nanny.rejectionReason
-                      ? [{ label: 'Rejection reason', value: nanny.rejectionReason, wide: true }]
+                      ? [
+                          {
+                            label:
+                              nanny.approvalStatus === 'REJECTED'
+                                ? 'Rejection reason'
+                                : 'Reason for new ID',
+                            value: nanny.rejectionReason,
+                            wide: true,
+                          },
+                        ]
                       : []),
                     {
                       label: 'ID photos',

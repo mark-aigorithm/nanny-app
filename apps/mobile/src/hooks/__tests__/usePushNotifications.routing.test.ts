@@ -1,6 +1,7 @@
 jest.mock('@mobile/lib/firebase', () => ({ auth: () => ({ currentUser: null }) }));
 
 import {
+  isAccountStatusPush,
   isBookingCompletedPush,
   isExtensionDeclinedPush,
 } from '@mobile/hooks/usePushNotifications';
@@ -38,5 +39,23 @@ describe('isExtensionDeclinedPush', () => {
 
   it('is false for missing data', () => {
     expect(isExtensionDeclinedPush(undefined)).toBe(false);
+  });
+});
+
+describe('isAccountStatusPush', () => {
+  it.each(['id_reupload_requested', 'nanny_rejected', 'nanny_approved', 'id_rejected', 'id_approved'])(
+    'matches %s',
+    (type) => {
+      expect(isAccountStatusPush({ type })).toBe(true);
+    },
+  );
+
+  it('matches the enum-cased type defensively', () => {
+    expect(isAccountStatusPush({ type: 'NANNY_REJECTED' })).toBe(true);
+  });
+
+  it('is false for other types and missing data', () => {
+    expect(isAccountStatusPush({ type: 'booking_completed' })).toBe(false);
+    expect(isAccountStatusPush(undefined)).toBe(false);
   });
 });

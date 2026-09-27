@@ -5,12 +5,13 @@ import { useSignOut } from '@mobile/hooks/useAuth';
 import { useMe } from '@mobile/hooks/useMe';
 import { isNotFound } from '@mobile/lib/api';
 import { auth } from '@mobile/lib/firebase';
+import { nannyStatusRoute } from '@mobile/lib/nannyStatusRoute';
 import { seedDraftFromAccount } from '@mobile/lib/resumeSignUp';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useGuestStore } from '@mobile/store/guestStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
-import { ApprovalStatus, Role } from '@shared/auth';
+import { Role } from '@shared/auth';
 
 /**
  * What `app/index.tsx` renders: nothing yet (`wait`), a `Redirect`, or
@@ -75,19 +76,7 @@ export function useRootGate(): RootGate {
     if (!profile.isEmailVerified) return { kind: 'redirect', href: '/(auth)/verify-email' };
 
     if (profile.role === Role.NANNY) {
-      // Nannies are approved by an admin before they can use the app. If their
-      // ID is missing (PENDING_ID) or the application was rejected (REJECTED),
-      // force a re-upload; once uploaded (PENDING_REVIEW) they wait; APPROVED
-      // lets them in.
-      switch (profile.approvalStatus) {
-        case ApprovalStatus.APPROVED:
-          return { kind: 'redirect', href: '/(nanny)/dashboard' };
-        case ApprovalStatus.PENDING_ID:
-        case ApprovalStatus.REJECTED:
-          return { kind: 'redirect', href: '/(auth)/upload-id' };
-        default:
-          return { kind: 'redirect', href: '/(auth)/pending-review' };
-      }
+      return { kind: 'redirect', href: nannyStatusRoute(profile.approvalStatus) };
     }
     return { kind: 'redirect', href: '/(parent)/(tabs)/home' };
   }

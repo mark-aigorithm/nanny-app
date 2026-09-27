@@ -82,6 +82,7 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/nannies/:id', requires: section('users', 'MANAGE') },
   { method: 'POST', pattern: '/nannies/:id/approve', requires: section('users', 'MANAGE') },
   { method: 'POST', pattern: '/nannies/:id/reject', requires: section('users', 'MANAGE') },
+  { method: 'POST', pattern: '/nannies/:id/invalidate-id', requires: section('users', 'MANAGE') },
   { method: 'PUT', pattern: '/nannies/:id/skills', requires: section('users', 'MANAGE') },
   { method: 'PUT', pattern: '/nannies/:id/address', requires: section('users', 'MANAGE') },
   { method: 'GET', pattern: '/mothers', requires: section('users', 'VIEW') },
@@ -90,6 +91,7 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/mothers/:id', requires: section('users', 'MANAGE') },
   { method: 'POST', pattern: '/mothers/:id/approve', requires: section('users', 'MANAGE') },
   { method: 'POST', pattern: '/mothers/:id/reject', requires: section('users', 'MANAGE') },
+  { method: 'POST', pattern: '/mothers/:id/invalidate-id', requires: section('users', 'MANAGE') },
   { method: 'GET', pattern: '/id-reviews', requires: section('users', 'VIEW') },
 
   // ── Community moderation (every post type) + official listings ──

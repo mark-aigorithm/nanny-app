@@ -7,7 +7,7 @@ jest.mock('@backend/db/prisma', () => ({
       count: jest.fn(),
     },
     user: { update: jest.fn() },
-    booking: { aggregate: jest.fn() },
+    booking: { aggregate: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -21,12 +21,18 @@ jest.mock('@backend/lib/storage', () => ({
   deleteStorageObjectByUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@backend/services/id-document.service', () => ({
+  invalidateIdDocument: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { AppError } from '@backend/lib/errors';
 import { prisma } from '@backend/db/prisma';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
+import { invalidateIdDocument } from '@backend/services/id-document.service';
 import {
   approveNanny,
   getAdminNanny,
+  invalidateNannyId,
   listAdminNannies,
   rejectNanny,
   setNannySkills,
@@ -40,7 +46,7 @@ const mockPrisma = prisma as unknown as {
     count: jest.Mock;
   };
   user: { update: jest.Mock };
-  booking: { aggregate: jest.Mock };
+  booking: { aggregate: jest.Mock; count: jest.Mock };
   $transaction: jest.Mock;
 };
 const mockDeleteStorage = deleteStorageObjectByUrl as jest.Mock;
@@ -146,6 +152,7 @@ function stubProfileRow(skills: Array<{ id: number; name: string; isActive?: boo
 beforeEach(() => {
   jest.clearAllMocks();
   mockPrisma.nannyProfile.findFirst.mockResolvedValue({ id: 1 });
+  mockPrisma.booking.count.mockResolvedValue(0);
 });
 
 describe('listAdminNannies', () => {
@@ -289,6 +296,21 @@ describe('approveNanny', () => {
     await expect(approveNanny(1)).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
+
+  it('rejects approving a nanny with no ID on file', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(
+      makeRow(
+        {},
+        {
+          approvalStatus: 'PENDING_REVIEW',
+          idDocumentFrontUrl: null,
+          idDocumentBackUrl: null,
+        },
+      ),
+    );
+    await expect(approveNanny(1)).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('rejectNanny', () => {
@@ -332,6 +354,53 @@ describe('rejectNanny', () => {
     );
     await expect(rejectNanny(1, {})).rejects.toThrow(AppError);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('invalidateNannyId', () => {
+  it('invalidates the ID of the nanny behind the profile id', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+
+    const result = await invalidateNannyId(1, { reason: 'Blurry' });
+
+    expect(invalidateIdDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 10, idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg' }),
+      { reason: 'Blurry' },
+      'NANNY',
+    );
+    expect(result.id).toBe(1);
+  });
+
+  it('counts her active bookings by profile id, excluding soft-deleted rows', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+
+    await invalidateNannyId(1, {});
+
+    expect(mockPrisma.booking.count).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        nannyProfileId: 1,
+        status: {
+          in: ['PENDING', 'APPROVED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS'],
+        },
+      },
+    });
+  });
+
+  it('refuses with 409 when she has active bookings, without touching her ID', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(makeRow());
+    mockPrisma.booking.count.mockResolvedValue(2);
+
+    await expect(invalidateNannyId(1, {})).rejects.toMatchObject({
+      statusCode: 409,
+      message: "She has active bookings. Request a new ID once they're finished or reassigned.",
+    });
+    expect(invalidateIdDocument).not.toHaveBeenCalled();
+  });
+
+  it('404s for an unknown nanny', async () => {
+    mockPrisma.nannyProfile.findFirst.mockResolvedValue(null);
+    await expect(invalidateNannyId(99, {})).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 

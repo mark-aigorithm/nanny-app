@@ -183,6 +183,12 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
         backgroundColor: colors.errorLight,
         iconColor: colors.error,
       };
+    case 'nanny_rejected':
+      return {
+        name: 'id-card',
+        backgroundColor: colors.errorLight,
+        iconColor: colors.error,
+      };
     default:
       return {
         name: 'notifications',
