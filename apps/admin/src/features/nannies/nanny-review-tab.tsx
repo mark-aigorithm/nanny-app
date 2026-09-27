@@ -26,11 +26,11 @@ import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-sta
 import { usePagination } from '@admin/lib/use-pagination';
 
 const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
+  { value: 'ALL', label: 'All' },
   { value: 'PENDING_REVIEW', label: 'Pending review' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
   { value: 'PENDING_ID', label: 'Awaiting ID' },
-  { value: 'ALL', label: 'All' },
 ];
 
 function formatDate(iso: string): string {
@@ -49,12 +49,13 @@ function initials(name: string): string {
 const EMPTY = <span className="table-empty">—</span>;
 
 /**
- * The nanny directory. Newest-first by default — a directory is read from the
+ * The nanny directory. Opens on every status, so the tab is never an empty
+ * table while the review queue is clear. Newest-first by default — a directory is read from the
  * most recent registration — with the same Sort control the ID-review gallery
  * carries, so the two views of the same people never reorder without saying so.
  */
 export function NannyReviewTab() {
-  const [status, setStatus] = useState<AdminApprovalStatusFilter>('PENDING_REVIEW');
+  const [status, setStatus] = useState<AdminApprovalStatusFilter>('ALL');
   const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const navigate = useNavigate();
