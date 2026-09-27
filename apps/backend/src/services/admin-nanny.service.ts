@@ -48,8 +48,10 @@ const nannyInclude = {
       idDocumentBackUrl: true,
     },
   },
+  // A skill deleted from the catalog is gone from her profile too; a
+  // deactivated one stays, flagged, so the console can show and keep it.
   nannySkills: {
-    where: { deletedAt: null },
+    where: { deletedAt: null, skill: { deletedAt: null } },
     include: { skill: true },
   },
   nannyCertifications: {
@@ -83,6 +85,7 @@ function toDto(row: AdminNannyRow): AdminNanny {
       name: ns.skill.name,
       feeType: ns.skill.feeType,
       feeValue: Number(ns.skill.feeValue),
+      isActive: ns.skill.isActive,
     })),
     isEmailVerified: row.user.isEmailVerified,
     isPhoneVerified: row.user.isPhoneVerified,
@@ -275,12 +278,14 @@ export async function rejectNanny(id: number, input: RejectNannyInput): Promise<
  * Reconcile a nanny's skill links to exactly `skillIds`, run inside a
  * caller-provided transaction (the admin skill-editor and registration, which
  * populates the profile with the skills chosen during sign-up). Every desired
- * id must reference an active, non-deleted skill in the catalog — unlike
- * certifications, a stale/deactivated skill is never grandfathered in, since
- * skills carry the fee shown to parents. Rows no longer wanted are
- * soft-deleted; previously soft-deleted rows are reactivated because the
- * `@@unique([nannyProfileId, skillId])` constraint spans soft-deleted rows
- * too, so a plain create would collide.
+ * id must reference a non-deleted skill in the catalog, and a *new* assignment
+ * must be active. A skill she already holds may stay after it is deactivated —
+ * otherwise any edit to her skills would fail until the admin noticed and
+ * removed it — but once removed it can't be re-added while inactive. Parents
+ * never see inactive skills, so keeping one doesn't put its fee in front of
+ * them. Rows no longer wanted are soft-deleted; previously soft-deleted rows
+ * are reactivated because the `@@unique([nannyProfileId, skillId])` constraint
+ * spans soft-deleted rows too, so a plain create would collide.
  */
 export async function reconcileNannySkills(
   tx: Prisma.TransactionClient,
@@ -288,20 +293,25 @@ export async function reconcileNannySkills(
   skillIds: number[],
 ): Promise<void> {
   const desiredIds = [...new Set(skillIds)];
+  const existingRows = await tx.nannySkill.findMany({
+    where: { nannyProfileId },
+    select: { id: true, skillId: true, deletedAt: true },
+  });
+
   if (desiredIds.length > 0) {
+    const heldIds = existingRows.filter((r) => r.deletedAt === null).map((r) => r.skillId);
     const valid = await tx.skill.findMany({
-      where: { id: { in: desiredIds }, deletedAt: null, isActive: true },
+      where: {
+        id: { in: desiredIds },
+        deletedAt: null,
+        OR: [{ isActive: true }, { id: { in: heldIds } }],
+      },
       select: { id: true },
     });
     if (valid.length !== desiredIds.length) {
       throw errors.badRequest('One or more skills are invalid or inactive.');
     }
   }
-
-  const existingRows = await tx.nannySkill.findMany({
-    where: { nannyProfileId },
-    select: { id: true, skillId: true, deletedAt: true },
-  });
   const desired = new Set(desiredIds);
   const bySkillId = new Map(existingRows.map((r) => [r.skillId, r]));
 

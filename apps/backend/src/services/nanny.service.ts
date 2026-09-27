@@ -28,11 +28,13 @@ import { reconcileNannyCertifications } from '@backend/services/certification.se
 /**
  * Prisma `include` for a nanny's active skills, joined through the NannySkill
  * join table to the Skill catalog. Reused by every read path that returns a
- * nanny so responses always carry the `skills` array.
+ * nanny so responses always carry the `skills` array. A skill deactivated in
+ * the catalog is off the market: she keeps the link (reactivating restores
+ * it), but it isn't shown or priced here until then.
  */
 const nannySkillsInclude = {
   nannySkills: {
-    where: { deletedAt: null },
+    where: { deletedAt: null, skill: { deletedAt: null, isActive: true } },
     include: { skill: true },
   },
 } as const;

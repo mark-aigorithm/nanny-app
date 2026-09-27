@@ -27,6 +27,17 @@ export const PublicSkillSchema = z.object({
 });
 export type PublicSkill = z.infer<typeof PublicSkillSchema>;
 
+/**
+ * A skill as held by a nanny, seen from the admin console. A skill she holds
+ * stays on her profile after it is deactivated in the catalog (so reactivating
+ * it restores her), but parents no longer see it and it can't be newly
+ * assigned — `isActive` is how the console tells the two apart.
+ */
+export const AdminNannySkillSchema = PublicSkillSchema.extend({
+  isActive: z.boolean(),
+});
+export type AdminNannySkill = z.infer<typeof AdminNannySkillSchema>;
+
 /** Full admin DTO returned by the admin Skills endpoints. */
 export const SkillSchema = z.object({
   id: z.number().int(),
