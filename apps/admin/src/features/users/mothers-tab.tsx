@@ -4,10 +4,9 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   ADMIN_PAGE_SIZES,
-  ADMIN_SORT_OPTIONS,
   type AdminMother,
   type AdminApprovalStatusFilter,
-  type AdminSortOrder,
+  type AdminUserSortKey,
 } from '@nanny-app/shared';
 
 import {
@@ -23,6 +22,7 @@ import {
 import { fetchMothers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
 
 const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'ALL', label: 'All' },
@@ -32,21 +32,27 @@ const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
 const EMPTY = <span className="table-empty">—</span>;
 
 /**
- * The parent directory. Newest-first by default — a directory is read from the
- * most recent signup — with the same Sort control the ID-review gallery carries,
- * so the two views of the same people never reorder without saying so.
+ * The parent directory. Newest sign-ups first by default — a directory is read
+ * from the most recent — and re-sorted by clicking a column header.
  */
 export function MothersTab() {
   const [status, setStatus] = useState<AdminApprovalStatusFilter>('ALL');
-  const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
+  const { sort, onSortChange } = useTableSort<AdminUserSortKey>(
+    { sortBy: 'registered', sortDir: 'desc' },
+    reset,
+  );
   const navigate = useNavigate();
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-mothers', status, sort, page, limit],
-    queryFn: () => fetchMothers(status, { page, limit, sort }),
+    queryFn: () => fetchMothers(status, { page, limit, ...sort }),
   });
   const mothers = data?.data;
   const meta = data?.meta;
@@ -56,10 +62,11 @@ export function MothersTab() {
     reset();
   }
 
-  const columns: Column<AdminMother>[] = [
+  const columns: Column<AdminMother, AdminUserSortKey>[] = [
     {
       key: 'mother',
       header: 'Mommy',
+      sortKey: 'name',
       render: (mother) => <span className="nanny-name">{mother.name}</span>,
     },
     {
@@ -68,10 +75,19 @@ export function MothersTab() {
       nowrap: true,
       render: (mother) => mother.phone ?? EMPTY,
     },
-    { key: 'email', header: 'Email', render: (mother) => mother.email },
+    { key: 'email', header: 'Email', sortKey: 'email', render: (mother) => mother.email },
+    {
+      key: 'registered',
+      header: 'Registered',
+      sortKey: 'registered',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (mother) => formatDate(mother.createdAt),
+    },
     {
       key: 'active',
       header: 'Status',
+      sortKey: 'status',
       render: (mother) => (
         <Badge tone={mother.isActive ? 'success' : 'neutral'}>
           {mother.isActive ? 'Active' : 'Deactivated'}
@@ -93,17 +109,8 @@ export function MothersTab() {
           options={STATUS_FILTERS}
           onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
-        <FilterSelect
-          label="Sort"
-          value={sort}
-          options={ADMIN_SORT_OPTIONS}
-          onChange={(value) => {
-            setSort(value as AdminSortOrder);
-            reset();
-          }}
-        />
       </div>
-      {isLoading && <TableSkeleton columns={4} />}
+      {isLoading && <TableSkeleton columns={5} />}
       {error != null && !mothers && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -127,6 +134,8 @@ export function MothersTab() {
             rowKey={(mother) => mother.id}
             empty="No mommies with this status."
             onRowClick={(mother) => navigate(`/users/mothers/${mother.id}`)}
+            sort={sort}
+            onSortChange={onSortChange}
           />
           {meta && (
             <Pagination

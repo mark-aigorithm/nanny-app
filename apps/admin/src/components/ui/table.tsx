@@ -1,8 +1,12 @@
 import { Fragment, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Card } from './card';
+import { ArrowDown, ArrowUp, ChevronsUpDown } from './icon';
 
-export type Column<T> = {
+/** Which column a table is sorted by, and which way. Same shape as the API's sort params. */
+export type TableSort<K extends string = string> = { sortBy: K; sortDir: 'asc' | 'desc' };
+
+export type Column<T, K extends string = string> = {
   /** Stable key for the column. */
   key: string;
   header: ReactNode;
@@ -10,10 +14,17 @@ export type Column<T> = {
   align?: 'left' | 'right' | 'center';
   /** Keep the cell on one line (useful in the wrapping variant). */
   nowrap?: boolean;
+  /**
+   * Makes the header clickable to sort by this key (needs the table's `sort`
+   * and `onSortChange`). The first click sorts `sortFirst` — 'desc' suits
+   * dates and amounts, where the newest or biggest is what you want to see.
+   */
+  sortKey?: K;
+  sortFirst?: 'asc' | 'desc';
 };
 
-type TableProps<T> = {
-  columns: Column<T>[];
+type TableProps<T, K extends string = string> = {
+  columns: Column<T, K>[];
   rows: T[];
   rowKey: (row: T) => string | number;
   /** Shown (inside a Card) when there are no rows. */
@@ -41,13 +52,20 @@ type TableProps<T> = {
    * that need no extra styling.
    */
   rowClassName?: (row: T) => string | undefined;
+  /**
+   * The current column sort. Sorting is the caller's job — usually the API,
+   * since a paged table only holds one page — the table only shows it and
+   * reports header clicks through `onSortChange`. See `useTableSort`.
+   */
+  sort?: TableSort<K>;
+  onSortChange?: (next: TableSort<K>) => void;
 };
 
 /**
  * Generic data table. The single shared implementation behind every admin
  * table — pass a column config and rows instead of hand-rolling <table> markup.
  */
-export function Table<T>({
+export function Table<T, K extends string = string>({
   columns,
   rows,
   rowKey,
@@ -56,7 +74,9 @@ export function Table<T>({
   renderExpanded,
   onRowClick,
   rowClassName,
-}: TableProps<T>) {
+  sort,
+  onSortChange,
+}: TableProps<T, K>) {
   if (rows.length === 0) {
     return (
       <Card>
@@ -84,9 +104,12 @@ export function Table<T>({
           <thead>
             <tr>
               {columns.map((column) => (
-                <th key={column.key} style={column.align ? { textAlign: column.align } : undefined}>
-                  {column.header}
-                </th>
+                <HeaderCell
+                  key={column.key}
+                  column={column}
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
               ))}
             </tr>
           </thead>
@@ -124,5 +147,46 @@ export function Table<T>({
         </table>
       </div>
     </Card>
+  );
+}
+
+type HeaderCellProps<T, K extends string> = {
+  column: Column<T, K>;
+  sort: TableSort<K> | undefined;
+  onSortChange: ((next: TableSort<K>) => void) | undefined;
+};
+
+/** A column header — a sort button when the column is sortable. */
+function HeaderCell<T, K extends string>({ column, sort, onSortChange }: HeaderCellProps<T, K>) {
+  const style = column.align ? { textAlign: column.align } : undefined;
+  const { sortKey } = column;
+  if (sortKey === undefined || !onSortChange) {
+    return <th style={style}>{column.header}</th>;
+  }
+
+  const direction = sort?.sortBy === sortKey ? sort.sortDir : undefined;
+  const active = direction !== undefined;
+  const SortIcon = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ChevronsUpDown;
+
+  return (
+    <th
+      style={style}
+      aria-sort={direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none'}
+    >
+      <button
+        type="button"
+        className={`table-sort${active ? ' table-sort--active' : ''}`}
+        onClick={() =>
+          onSortChange({
+            sortBy: sortKey,
+            // A second click on the same column flips it; a new column starts its own way.
+            sortDir: direction ? (direction === 'asc' ? 'desc' : 'asc') : (column.sortFirst ?? 'asc'),
+          })
+        }
+      >
+        {column.header}
+        <SortIcon size={14} aria-hidden />
+      </button>
+    </th>
   );
 }

@@ -17,6 +17,7 @@ import type {
   AdminCommunityPost,
   AdminCommunityStatusFilter,
   AdminCommunityTypeFilter,
+  AdminColumnSort,
   AdminListQuery,
   AdminMother,
   AdminMotherDetail,
@@ -28,6 +29,7 @@ import type {
   AdminPackagePurchaseListQuery,
   AdminSortOrder,
   AdminUser,
+  AdminUserSortKey,
   Camera,
   Campaign,
   Certification,
@@ -95,6 +97,12 @@ export type Paged<T> = { data: T; meta: PaginationMeta };
  * the endpoint's own default.
  */
 type SortableListQuery = AdminListQuery & { sort?: AdminSortOrder };
+
+/**
+ * Page/limit for a directory sorted by column header. The sort is optional for
+ * the same reason as above.
+ */
+type ColumnSortedListQuery<K extends string> = AdminListQuery & Partial<AdminColumnSort<K>>;
 
 // ── Care Points (rewards) ──────────────────────────────────────
 
@@ -503,10 +511,10 @@ export async function refundBooking(
 
 export async function fetchNannies(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: SortableListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminUserSortKey>,
 ): Promise<Paged<AdminNanny[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminNanny[]>>('/admin/nannies', {
-    params: { status, page, limit, sort },
+    params: { status, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }
@@ -574,10 +582,10 @@ export async function fetchMotherAddresses(motherId: number): Promise<Address[]>
 
 export async function fetchMothers(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: SortableListQuery,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminUserSortKey>,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
-    params: { status, page, limit, sort },
+    params: { status, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }

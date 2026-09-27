@@ -21,7 +21,7 @@ export { Input } from './input';
 export { Switch } from './switch';
 
 // Data display
-export { Table, type Column } from './table';
+export { Table, type Column, type TableSort } from './table';
 export { Pagination } from './pagination';
 
 // Loading

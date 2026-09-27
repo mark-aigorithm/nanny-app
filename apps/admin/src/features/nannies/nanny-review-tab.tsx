@@ -4,10 +4,9 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   ADMIN_PAGE_SIZES,
-  ADMIN_SORT_OPTIONS,
   type AdminNanny,
   type AdminApprovalStatusFilter,
-  type AdminSortOrder,
+  type AdminUserSortKey,
 } from '@nanny-app/shared';
 
 import {
@@ -25,6 +24,7 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
 import { initials } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
 
 const STATUS_FILTERS: { value: AdminApprovalStatusFilter; label: string }[] = [
   { value: 'ALL', label: 'All' },
@@ -42,19 +42,22 @@ const EMPTY = <span className="table-empty">—</span>;
 
 /**
  * The nanny directory. Opens on every status, so the tab is never an empty
- * table while the review queue is clear. Newest-first by default — a directory is read from the
- * most recent registration — with the same Sort control the ID-review gallery
- * carries, so the two views of the same people never reorder without saying so.
+ * table while the review queue is clear. Newest registrations first by default
+ * — a directory is read from the most recent — and re-sorted by clicking a
+ * column header.
  */
 export function NannyReviewTab() {
   const [status, setStatus] = useState<AdminApprovalStatusFilter>('ALL');
-  const [sort, setSort] = useState<AdminSortOrder>('newest');
   const { page, limit, setPage, setLimit, reset } = usePagination();
+  const { sort, onSortChange } = useTableSort<AdminUserSortKey>(
+    { sortBy: 'registered', sortDir: 'desc' },
+    reset,
+  );
   const navigate = useNavigate();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-nannies', status, sort, page, limit],
-    queryFn: () => fetchNannies(status, { page, limit, sort }),
+    queryFn: () => fetchNannies(status, { page, limit, ...sort }),
   });
   const nannies = data?.data;
   const meta = data?.meta;
@@ -64,10 +67,11 @@ export function NannyReviewTab() {
     reset();
   }
 
-  const columns: Column<AdminNanny>[] = [
+  const columns: Column<AdminNanny, AdminUserSortKey>[] = [
     {
       key: 'nanny',
       header: 'Nanny',
+      sortKey: 'name',
       render: (nanny) => (
         <div className="nanny-cell">
           <span className="nanny-avatar" aria-hidden>
@@ -100,6 +104,7 @@ export function NannyReviewTab() {
         </>
       ),
     },
+    { key: 'email', header: 'Email', sortKey: 'email', render: (nanny) => nanny.email },
     {
       key: 'camera',
       header: 'Camera',
@@ -107,8 +112,17 @@ export function NannyReviewTab() {
         nanny.camera ? nanny.camera.name : <span className="table-subtext">Not assigned</span>,
     },
     {
+      key: 'registered',
+      header: 'Registered',
+      sortKey: 'registered',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (nanny) => formatDate(nanny.createdAt),
+    },
+    {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       render: (nanny) => (
         <>
           <Badge tone={approvalStatusTone(nanny.approvalStatus)}>
@@ -133,17 +147,8 @@ export function NannyReviewTab() {
           options={STATUS_FILTERS}
           onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
-        <FilterSelect
-          label="Sort"
-          value={sort}
-          options={ADMIN_SORT_OPTIONS}
-          onChange={(value) => {
-            setSort(value as AdminSortOrder);
-            reset();
-          }}
-        />
       </div>
-      {isLoading && <TableSkeleton columns={4} />}
+      {isLoading && <TableSkeleton columns={6} />}
       {error != null && !nannies && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -167,6 +172,8 @@ export function NannyReviewTab() {
             rowKey={(nanny) => nanny.id}
             empty="No nannies with this status."
             onRowClick={(nanny) => navigate(`/users/nannies/${nanny.id}`)}
+            sort={sort}
+            onSortChange={onSortChange}
           />
           {meta && (
             <Pagination

@@ -444,6 +444,50 @@ input[type='number'] {
   color: var(--color-text-secondary);
 }
 
+/* A sortable column's header: the whole label is the button. The arrow stays
+   faint until the column is the one sorting the table. */
+.table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.table-sort svg {
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.table-sort:hover {
+  color: var(--color-text-primary);
+}
+
+.table-sort:hover svg {
+  opacity: 0.8;
+}
+
+.table-sort:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.table-sort--active {
+  color: var(--color-primary-dark);
+}
+
+.table-sort--active svg {
+  opacity: 1;
+}
+
 /* Full-width table that wraps cell content instead of scrolling horizontally.
    Headers stay on one line; individual cells can opt back out with .cell-nowrap. */
 .table--full th,

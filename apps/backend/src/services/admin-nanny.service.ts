@@ -1,13 +1,14 @@
 import { BookingStatus, ApprovalStatus, Prisma } from '@prisma/client';
 
-import { sortDirection } from '@nanny-app/shared';
 import type {
   Address as AddressDto,
   AdminApprovalStatusFilter,
   AdminNanny,
   AdminNannyDetail,
-  AdminSortedListQuery,
+  AdminSortDir,
   AdminUpsertNannyAddressInput,
+  AdminUserDirectoryQuery,
+  AdminUserSortKey,
   PaginationMeta,
   RejectNannyInput,
   SetNannySkillsInput,
@@ -110,14 +111,29 @@ function toDto(row: AdminNannyRow): AdminNanny {
   };
 }
 
+/** Column sort → Prisma order for the Nannies directory. */
+function nannyOrderBy(
+  sortBy: AdminUserSortKey,
+  sortDir: AdminSortDir,
+): Prisma.NannyProfileOrderByWithRelationInput[] {
+  const orders: Record<AdminUserSortKey, Prisma.NannyProfileOrderByWithRelationInput[]> = {
+    name: [{ user: { firstName: sortDir } }, { user: { lastName: sortDir } }],
+    email: [{ user: { email: sortDir } }],
+    registered: [{ createdAt: sortDir }],
+    // The approval_status enum's own order: awaiting ID → in review → approved → rejected.
+    status: [{ user: { approvalStatus: sortDir } }],
+  };
+  // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
+  return [...orders[sortBy], { id: sortDir }];
+}
+
 /**
- * Paginated nanny directory for the admin Users page. Ordered by the caller's
- * `sort` — the console surfaces it as a control, so this tab and the ID-review
- * gallery can differ visibly instead of silently.
+ * Paginated nanny directory for the admin Users page, sorted by whichever
+ * column header the console last clicked (newest sign-ups first by default).
  */
 export async function listAdminNannies(
   status: AdminApprovalStatusFilter,
-  { page, limit, sort }: AdminSortedListQuery,
+  { page, limit, sortBy, sortDir }: AdminUserDirectoryQuery,
 ): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
   const where: Prisma.NannyProfileWhereInput = {
     deletedAt: null,
@@ -132,7 +148,7 @@ export async function listAdminNannies(
     prisma.nannyProfile.findMany({
       where,
       include: nannyInclude,
-      orderBy: { createdAt: sortDirection(sort) },
+      orderBy: nannyOrderBy(sortBy, sortDir),
       skip: (page - 1) * limit,
       take: limit,
     }),

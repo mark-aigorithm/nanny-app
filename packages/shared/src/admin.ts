@@ -81,6 +81,28 @@ export const AdminSortedListQuerySchema = AdminListQuerySchema.extend({
 });
 export type AdminSortedListQuery = z.infer<typeof AdminSortedListQuerySchema>;
 
+/** Direction of a sortable admin table column. */
+export const AdminSortDirSchema = z.enum(['asc', 'desc']);
+export type AdminSortDir = z.infer<typeof AdminSortDirSchema>;
+
+/**
+ * A column sort sent by a sortable console table: the column's key and a
+ * direction. Every list that sorts by column takes this pair as its query
+ * params, and declares which keys it accepts.
+ */
+export type AdminColumnSort<K extends string = string> = { sortBy: K; sortDir: AdminSortDir };
+
+/** Columns the Mommies and Nannies directories can be sorted by. */
+export const AdminUserSortKeySchema = z.enum(['name', 'email', 'registered', 'status']);
+export type AdminUserSortKey = z.infer<typeof AdminUserSortKeySchema>;
+
+/** Page/limit plus a column sort for the user directories — newest sign-ups first by default. */
+export const AdminUserDirectoryQuerySchema = AdminListQuerySchema.extend({
+  sortBy: AdminUserSortKeySchema.catch('registered').default('registered'),
+  sortDir: AdminSortDirSchema.catch('desc').default('desc'),
+});
+export type AdminUserDirectoryQuery = z.infer<typeof AdminUserDirectoryQuerySchema>;
+
 // ──────────────────────────────────────────────────────────────
 // Promo codes
 // ──────────────────────────────────────────────────────────────
@@ -709,7 +731,7 @@ export const AdminNannySchema = z.object({
 export type AdminNanny = z.infer<typeof AdminNannySchema>;
 
 /** Paginated nanny list query (GET /admin/nannies). A directory, so newest first. */
-export const AdminNannyListQuerySchema = AdminSortedListQuerySchema.extend({
+export const AdminNannyListQuerySchema = AdminUserDirectoryQuerySchema.extend({
   status: AdminApprovalStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
 });
 export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
@@ -790,7 +812,7 @@ export const AdminMotherSchema = z.object({
 export type AdminMother = z.infer<typeof AdminMotherSchema>;
 
 /** Paginated mother list query (GET /admin/mothers). A directory, so newest first. */
-export const AdminMotherListQuerySchema = AdminSortedListQuerySchema.extend({
+export const AdminMotherListQuerySchema = AdminUserDirectoryQuerySchema.extend({
   status: AdminApprovalStatusFilterSchema.catch('ALL').default('ALL'),
 });
 export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;

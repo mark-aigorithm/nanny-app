@@ -26,6 +26,8 @@ export {
   PanelLeftOpen,
   Bell,
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
