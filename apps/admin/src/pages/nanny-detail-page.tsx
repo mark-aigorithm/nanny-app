@@ -6,7 +6,6 @@ import type { AdminNannyDetail } from '@nanny-app/shared';
 
 import {
   Badge,
-  Briefcase,
   Button,
   Card,
   ClipboardList,
@@ -61,7 +60,13 @@ export function NannyDetailPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const { data: nanny, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: nanny,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['nanny', id],
     queryFn: () => fetchNanny(id),
     enabled: id !== '',
@@ -107,11 +112,7 @@ export function NannyDetailPage() {
       {canManage &&
         nanny.approvalStatus !== 'APPROVED' &&
         (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) && (
-          <Button
-            size="sm"
-            disabled={mutating}
-            onClick={() => approveMutation.mutate()}
-          >
+          <Button size="sm" disabled={mutating} onClick={() => approveMutation.mutate()}>
             Approve nanny
           </Button>
         )}
@@ -179,12 +180,6 @@ export function NannyDetailPage() {
               value={nanny.completedBookings}
               icon={<ClipboardList size={ICON_SIZE.stat} aria-hidden />}
               iconTone="gold"
-            />
-            <StatCard
-              label="Experience"
-              value={nanny.yearsOfExperience !== null ? `${nanny.yearsOfExperience} yrs` : '—'}
-              icon={<Briefcase size={ICON_SIZE.stat} aria-hidden />}
-              iconTone="bronze"
             />
           </div>
 
@@ -337,6 +332,13 @@ function AboutSection({ nanny }: { nanny: AdminNannyDetail }) {
           {
             label: 'Date of birth',
             value: nanny.dateOfBirth ? formatDate(nanny.dateOfBirth) : DASH,
+          },
+          {
+            label: 'Experience',
+            value:
+              nanny.yearsOfExperience === null
+                ? DASH
+                : `${nanny.yearsOfExperience} ${nanny.yearsOfExperience === 1 ? 'year' : 'years'}`,
           },
           { label: 'Availability', value: availabilityLabel(nanny.availabilityType) },
           {
