@@ -1,7 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
-import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
-import { PromoCodeForm } from '@admin/features/promo-codes/promo-code-form';
+import {
+  Button,
+  ErrorState,
+  ICON_SIZE,
+  PageHeader,
+  Plus,
+  StaleRefreshBanner,
+  TableSkeleton,
+} from '@admin/components/ui';
+import { PromoCodeFormModal } from '@admin/features/promo-codes/promo-code-form';
 import { PromoCodeTable } from '@admin/features/promo-codes/promo-code-table';
 import { fetchPromoCodes } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -9,7 +18,14 @@ import { useCanManage } from '@admin/lib/permissions';
 
 export function PromoCodesPage() {
   const canManage = useCanManage('promoCodes');
-  const { data: promoCodes, isLoading, error, refetch, isFetching } = useQuery({
+  const [adding, setAdding] = useState(false);
+  const {
+    data: promoCodes,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['promo-codes'],
     queryFn: fetchPromoCodes,
   });
@@ -19,9 +35,16 @@ export function PromoCodesPage() {
       <PageHeader
         title="Promo Codes"
         subtitle="Create discount codes and control how often they can be redeemed."
+        action={
+          canManage && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus size={ICON_SIZE.inline} aria-hidden />
+              Add promo code
+            </Button>
+          )
+        }
       />
-      {canManage && <PromoCodeForm />}
-      {isLoading && <TableSkeleton columns={8} />}
+      {isLoading && <TableSkeleton columns={9} />}
       {error != null && !promoCodes && (
         <ErrorState
           message={apiErrorMessage(error)}
@@ -41,6 +64,7 @@ export function PromoCodesPage() {
           <PromoCodeTable promoCodes={promoCodes} />
         </>
       )}
+      {adding && <PromoCodeFormModal onClose={() => setAdding(false)} />}
     </section>
   );
 }
