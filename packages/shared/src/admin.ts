@@ -22,7 +22,7 @@ import {
   WeeklyScheduleSchema,
 } from './nanny';
 import { AdminRoleSchema, OperatorPermissionsSchema } from './operator';
-import { PublicSkillSchema, SkillFeeTypeSchema } from './skill';
+import { AdminNannySkillSchema, PublicSkillSchema, SkillFeeTypeSchema } from './skill';
 import { PhoneNumberSchema } from './support';
 
 // Re-export the shared pagination meta so admin consumers can import it alongside
@@ -674,7 +674,7 @@ export const AdminNannySchema = z.object({
   location: z.string().nullable(),
   yearsOfExperience: z.number().int().nullable(),
   certifications: z.array(PublicCertificationSchema),
-  skills: z.array(PublicSkillSchema),
+  skills: z.array(AdminNannySkillSchema),
   isEmailVerified: z.boolean(),
   isPhoneVerified: z.boolean(),
   approvalStatus: ApprovalStatusSchema,

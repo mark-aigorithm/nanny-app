@@ -112,7 +112,7 @@ function makeTx(existingRows: Array<Record<string, unknown>>): TxMock {
   };
 }
 
-function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
+function stubProfileRow(skills: Array<{ id: number; name: string; isActive?: boolean }> = []) {
   return {
     id: 1,
     bio: null,
@@ -137,7 +137,9 @@ function stubProfileRow(skills: Array<{ id: number; name: string }> = []) {
       idDocumentFrontUrl: null,
       idDocumentBackUrl: null,
     },
-    nannySkills: skills.map((s) => ({ skill: { feeType: null, feeValue: 0, ...s } })),
+    nannySkills: skills.map((s) => ({
+      skill: { feeType: null, feeValue: 0, isActive: true, ...s },
+    })),
   };
 }
 
@@ -193,6 +195,32 @@ describe('listAdminNannies', () => {
     await listAdminNannies('ALL', { page: 1, limit: 20, sort: 'oldest' });
     expect(mockPrisma.nannyProfile.findMany).toHaveBeenLastCalledWith(
       expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
+    );
+  });
+
+  it('lists her skills with their active flag, skipping skills deleted from the catalog', async () => {
+    mockPrisma.nannyProfile.count.mockResolvedValue(1);
+    mockPrisma.nannyProfile.findMany.mockResolvedValue([
+      makeRow({
+        nannySkills: [
+          { skill: { id: 4, name: 'Old', feeType: null, feeValue: 0, isActive: false } },
+        ],
+      }),
+    ]);
+
+    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20, sort: 'newest' });
+
+    expect(nannies[0]?.skills).toEqual([
+      { id: 4, name: 'Old', feeType: null, feeValue: 0, isActive: false },
+    ]);
+    expect(mockPrisma.nannyProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          nannySkills: expect.objectContaining({
+            where: { deletedAt: null, skill: { deletedAt: null } },
+          }),
+        }),
+      }),
     );
   });
 });
@@ -364,10 +392,57 @@ describe('setNannySkills', () => {
     expect(tx.nannySkill.update).toHaveBeenCalledTimes(1);
 
     expect(result.skills).toEqual([
-      { id: 1, name: 'A', feeType: null, feeValue: 0 },
-      { id: 2, name: 'B', feeType: null, feeValue: 0 },
-      { id: 3, name: 'C', feeType: null, feeValue: 0 },
+      { id: 1, name: 'A', feeType: null, feeValue: 0, isActive: true },
+      { id: 2, name: 'B', feeType: null, feeValue: 0, isActive: true },
+      { id: 3, name: 'C', feeType: null, feeValue: 0, isActive: true },
     ]);
+  });
+
+  it('lets a nanny keep a skill she already holds after it was deactivated', async () => {
+    // She holds s4, which has since been deactivated; the admin adds s5.
+    const tx = makeTx([{ id: 17, skillId: 4, deletedAt: null }]);
+    tx.skill.findMany.mockResolvedValue([{ id: 4 }, { id: 5 }]);
+    mockPrisma.$transaction.mockImplementation((cb: (tx: TxMock) => unknown) => cb(tx));
+    mockPrisma.nannyProfile.findUniqueOrThrow.mockResolvedValue(
+      stubProfileRow([
+        { id: 4, name: 'Old', isActive: false },
+        { id: 5, name: 'New' },
+      ]),
+    );
+
+    const result = await setNannySkills(19, { skillIds: [4, 5] });
+
+    // Only skills she already holds may be inactive; anything new must be active.
+    expect(tx.skill.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: [4, 5] },
+        deletedAt: null,
+        OR: [{ isActive: true }, { id: { in: [4] } }],
+      },
+      select: { id: true },
+    });
+    expect(tx.nannySkill.create).toHaveBeenCalledWith({
+      data: { nannyProfileId: 19, skillId: 5 },
+    });
+    expect(result.skills.map((s) => [s.id, s.isActive])).toEqual([
+      [4, false],
+      [5, true],
+    ]);
+  });
+
+  it('does not grandfather a skill whose link was already removed', async () => {
+    // A soft-deleted link is not "held" — re-adding it counts as a new assignment.
+    const tx = makeTx([{ id: 17, skillId: 4, deletedAt: new Date() }]);
+    mockPrisma.$transaction.mockImplementation((cb: (tx: TxMock) => unknown) => cb(tx));
+
+    await expect(setNannySkills(19, { skillIds: [4] })).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    expect(tx.skill.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ OR: [{ isActive: true }, { id: { in: [] } }] }),
+      }),
+    );
   });
 
   it('clearing all skills soft-deletes every active link and creates none', async () => {

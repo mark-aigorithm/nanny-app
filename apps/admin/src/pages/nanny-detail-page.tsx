@@ -201,8 +201,8 @@ export function NannyDetailPage() {
                 {nanny.skills.length > 0 ? (
                   <div className="detail-skills-list">
                     {nanny.skills.map((skill) => (
-                      <Badge key={skill.id} tone="neutral">
-                        {skill.name}
+                      <Badge key={skill.id} tone={skill.isActive ? 'neutral' : 'warning'}>
+                        {skill.isActive ? skill.name : `${skill.name} · inactive`}
                       </Badge>
                     ))}
                   </div>
