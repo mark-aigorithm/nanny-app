@@ -1,7 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
-import { ErrorState, PageHeader, StaleRefreshBanner, TableSkeleton } from '@admin/components/ui';
-import { CertificationForm } from '@admin/features/certifications/certification-form';
+import {
+  Button,
+  ErrorState,
+  ICON_SIZE,
+  PageHeader,
+  Plus,
+  StaleRefreshBanner,
+  TableSkeleton,
+} from '@admin/components/ui';
+import { CertificationFormModal } from '@admin/features/certifications/certification-form';
 import { CertificationTable } from '@admin/features/certifications/certification-table';
 import { fetchCertifications } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -9,7 +18,14 @@ import { useCanManage } from '@admin/lib/permissions';
 
 export function CertificationsPage() {
   const canManage = useCanManage('certifications');
-  const { data: certifications, isLoading, error, refetch, isFetching } = useQuery({
+  const [adding, setAdding] = useState(false);
+  const {
+    data: certifications,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['certifications'],
     queryFn: fetchCertifications,
   });
@@ -19,8 +35,15 @@ export function CertificationsPage() {
       <PageHeader
         title="Certifications"
         subtitle="Curate the credentials nannies can add to their profile (e.g. CPR, First Aid). Nannies pick from the active list themselves."
+        action={
+          canManage && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus size={ICON_SIZE.inline} aria-hidden />
+              Add certification
+            </Button>
+          )
+        }
       />
-      {canManage && <CertificationForm />}
       {isLoading && <TableSkeleton columns={4} />}
       {error != null && !certifications && (
         <ErrorState
@@ -41,6 +64,7 @@ export function CertificationsPage() {
           <CertificationTable certifications={certifications} />
         </>
       )}
+      {adding && <CertificationFormModal onClose={() => setAdding(false)} />}
     </section>
   );
 }
