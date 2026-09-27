@@ -199,7 +199,9 @@ describe('approveMother', () => {
 
   it('marks the ID APPROVED and clears any rejection reason', async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce(makeRow({ approvalStatus: 'PENDING_REVIEW' }))
+      .mockResolvedValueOnce(
+        makeRow({ approvalStatus: 'PENDING_REVIEW', idDocumentFrontUrl: 'https://example.com/front.jpg' }),
+      )
       .mockResolvedValueOnce(makeRow({ approvalStatus: 'APPROVED' }));
     mockPrisma.user.update.mockResolvedValue(makeRow({ approvalStatus: 'APPROVED' }));
 
@@ -220,6 +222,18 @@ describe('approveMother', () => {
   it('rejects re-approving an already approved mother', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(makeRow({ approvalStatus: 'APPROVED' }));
     await expect(approveMother(29)).rejects.toThrow(AppError);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects approving a mother with no ID on file', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(
+      makeRow({
+        approvalStatus: 'PENDING_REVIEW',
+        idDocumentFrontUrl: null,
+        idDocumentBackUrl: null,
+      }),
+    );
+    await expect(approveMother(29)).rejects.toMatchObject({ statusCode: 400 });
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });

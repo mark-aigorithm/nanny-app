@@ -278,6 +278,9 @@ export async function approveMother(id: number): Promise<AdminMother> {
   if (mother.approvalStatus === ApprovalStatus.APPROVED) {
     throw errors.badRequest('This mother is already approved.');
   }
+  if (!mother.idDocumentFrontUrl && !mother.idDocumentBackUrl) {
+    throw errors.badRequest('There is no ID on file to approve.');
+  }
 
   await prisma.user.update({
     where: { id },

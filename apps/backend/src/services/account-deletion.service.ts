@@ -24,7 +24,7 @@ const HAS_BOOKINGS = 'Finish or cancel your upcoming bookings before deleting yo
 const STAFF = 'Staff accounts are removed from the admin console.';
 
 /** A booking in any of these still needs both of its parties. */
-const ACTIVE_BOOKING_STATUSES: BookingStatus[] = [
+export const ACTIVE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.PENDING,
   BookingStatus.APPROVED,
   BookingStatus.PENDING_CONFIRMATION,

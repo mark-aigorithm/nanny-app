@@ -65,7 +65,7 @@ This is one helper, in a new `services/id-document.service.ts`, used by both rol
 
 - `POST /auth/id` already moves any status to `PENDING_REVIEW` and clears the
   reason, which is exactly the re-upload path.
-- Existing bookings a nanny already holds are not touched, the same as reject.
+- A nanny with active bookings (the `ACTIVE_BOOKING_STATUSES` list used by account deletion) can't have her ID invalidated: 409, because the in-app guard would lock her out of shifts she holds. Approving now also requires an ID on file (400), so an invalidated account can't be re-approved before a new upload.
 
 ## Admin console
 

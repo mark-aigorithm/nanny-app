@@ -54,6 +54,9 @@ export function MotherDetailPage() {
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['mother', id] });
     void queryClient.invalidateQueries({ queryKey: ['admin-mothers'] });
+    // The ID-review gallery's own list query, so a card it already fetched
+    // can't still show "Approve" for an ID this just invalidated.
+    void queryClient.invalidateQueries({ queryKey: ['admin-id-reviews'] });
   };
 
   const approveMutation = useMutation({

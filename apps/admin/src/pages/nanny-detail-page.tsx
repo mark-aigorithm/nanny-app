@@ -112,15 +112,17 @@ export function NannyDetailPage() {
 
   const actions = nanny ? (
     <>
-      {canManage && nanny.approvalStatus !== 'APPROVED' && (
-        <Button
-          size="sm"
-          disabled={mutating}
-          onClick={() => approveMutation.mutate()}
-        >
-          Approve nanny
-        </Button>
-      )}
+      {canManage &&
+        nanny.approvalStatus !== 'APPROVED' &&
+        (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) && (
+          <Button
+            size="sm"
+            disabled={mutating}
+            onClick={() => approveMutation.mutate()}
+          >
+            Approve nanny
+          </Button>
+        )}
       {canManage && nanny.approvalStatus === 'PENDING_REVIEW' && (
         <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
           Reject application
@@ -242,7 +244,7 @@ export function NannyDetailPage() {
                   canManage && (nanny.idDocumentFrontUrl || nanny.idDocumentBackUrl) ? (
                     <RequestNewIdButton
                       name={nanny.name}
-                      consequence="Until it's approved she won't appear to parents or get new bookings."
+                      consequence="Until it's approved she won't appear to parents or get new bookings. This isn't possible while she has active bookings."
                       request={(reason) => invalidateNannyId(id, reason)}
                       onDone={invalidate}
                     />
@@ -269,7 +271,16 @@ export function NannyDetailPage() {
                       value: nanny.reviewedAt ? formatDate(nanny.reviewedAt) : DASH,
                     },
                     ...(nanny.rejectionReason
-                      ? [{ label: 'Rejection reason', value: nanny.rejectionReason, wide: true }]
+                      ? [
+                          {
+                            label:
+                              nanny.approvalStatus === 'REJECTED'
+                                ? 'Rejection reason'
+                                : 'Reason for new ID',
+                            value: nanny.rejectionReason,
+                            wide: true,
+                          },
+                        ]
                       : []),
                     {
                       label: 'ID photos',

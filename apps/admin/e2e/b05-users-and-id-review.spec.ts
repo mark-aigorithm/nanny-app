@@ -225,6 +225,8 @@ test('requesting a new ID sends an approved nanny back to Awaiting ID', async ({
   // The page re-renders without a reload: no photos, no button to repeat it.
   await expect(page.getByText('No ID uploaded yet.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Request new ID' })).toHaveCount(0);
+  // Nor can she be re-approved before a new upload.
+  await expect(page.getByRole('button', { name: 'Approve nanny' })).toHaveCount(0);
 
   const approval = await getNannyApproval(admin, nannyProfileId);
   expect(approval.approvalStatus).toBe('PENDING_ID');
