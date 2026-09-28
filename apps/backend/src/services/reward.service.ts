@@ -76,9 +76,7 @@ export async function getRewardConfig(db: Db = prisma): Promise<RewardConfig> {
 }
 
 /** Full-replace update of the singleton config (creates it on first save). */
-export async function updateRewardConfig(
-  input: UpdateRewardConfigInput,
-): Promise<RewardConfig> {
+export async function updateRewardConfig(input: UpdateRewardConfigInput): Promise<RewardConfig> {
   const existing = await getConfigRow();
   const row = existing
     ? await prisma.rewardConfig.update({ where: { id: existing.id }, data: input })
@@ -159,7 +157,11 @@ async function notifyPoints(
 ): Promise<void> {
   try {
     await createInAppNotification({ userId, type, title, body });
-    await dispatchPush(userId, { title, body, data: { type: PUSH_TYPE[type] ?? 'points_earned', title } });
+    await dispatchPush(userId, {
+      title,
+      body,
+      data: { type: PUSH_TYPE[type] ?? 'points_earned', title },
+    });
   } catch {
     // A reward notification must never block the surrounding action.
   }
@@ -264,7 +266,9 @@ export async function applyBookingRedemption(
 
   const pointsCost = hours * config.redemptionPointsPerHour;
   if (pointsCost < config.minRedemptionPoints) {
-    throw errors.badRequest(`You must redeem at least ${config.minRedemptionPoints} points at a time.`);
+    throw errors.badRequest(
+      `You must redeem at least ${config.minRedemptionPoints} points at a time.`,
+    );
   }
 
   const wallet = await getOrCreateWallet(params.userId, db);
@@ -375,7 +379,6 @@ export async function getMyHistory(
   return getWalletHistory(await resolveUserId(firebaseUid), query);
 }
 
-
 // ── Admin: manual grant / revoke ───────────────────────────────
 
 /** Admin credits (positive) or debits (negative) a user's points balance. */
@@ -450,7 +453,10 @@ export async function grantPoints(input: {
  * NULLs — ahead of the biggest balances when descending — instead of as zeros.
  */
 const WALLET_SORT_COLUMNS: Record<RewardWalletSortKey, Prisma.Sql[]> = {
+  // The ID column: the u.id tiebreak below is the whole order.
+  id: [],
   name: [Prisma.sql`u.first_name`, Prisma.sql`u.last_name`],
+  email: [Prisma.sql`u.email`],
   balance: [Prisma.sql`COALESCE(w.points_balance, 0)`],
   earned: [Prisma.sql`COALESCE(w.lifetime_earned, 0)`],
   redeemed: [Prisma.sql`COALESCE(w.lifetime_redeemed, 0)`],

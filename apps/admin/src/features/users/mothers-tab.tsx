@@ -12,6 +12,7 @@ import {
 import {
   Badge,
   type Column,
+  idColumn,
   ErrorState,
   FilterSelect,
   Pagination,
@@ -63,6 +64,7 @@ export function MothersTab() {
   }
 
   const columns: Column<AdminMother, AdminUserSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     {
       key: 'mother',
       header: 'Mommy',
@@ -110,7 +112,7 @@ export function MothersTab() {
           onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
       </div>
-      {isLoading && <TableSkeleton columns={5} />}
+      {isLoading && <TableSkeleton columns={6} />}
       {error != null && !mothers && (
         <ErrorState
           message={apiErrorMessage(error)}

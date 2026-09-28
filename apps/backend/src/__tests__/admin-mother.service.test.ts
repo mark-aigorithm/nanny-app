@@ -58,7 +58,24 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     phone: '+201000000000',
     avatarUrl: null,
     // Her default address row — where `location` now comes from.
-    addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
+    addresses: [
+      {
+        id: 1,
+        label: 'Home',
+        formattedAddress: 'Cairo',
+        governorate: null,
+        area: null,
+        street: null,
+        building: null,
+        floor: null,
+        apartment: null,
+        landmark: null,
+        latitude: 30.0444,
+        longitude: 31.2357,
+        isDefault: true,
+        createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      },
+    ],
     isEmailVerified: true,
     isPhoneVerified: false,
     isActive: true,
@@ -83,7 +100,12 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow()]);
 
-    const { meta } = await listAdminMothers('ALL', { page: 2, limit: 25, sortBy: 'registered', sortDir: 'desc' });
+    const { meta } = await listAdminMothers('ALL', {
+      page: 2,
+      limit: 25,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -97,6 +119,7 @@ describe('listAdminMothers', () => {
   });
 
   it.each([
+    ['id', 'desc', [{ id: 'desc' }]],
     ['name', 'asc', [{ firstName: 'asc' }, { lastName: 'asc' }, { id: 'asc' }]],
     ['email', 'desc', [{ email: 'desc' }, { id: 'desc' }]],
     ['registered', 'asc', [{ createdAt: 'asc' }, { id: 'asc' }]],
@@ -115,7 +138,12 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
 
-    await listAdminMothers('PENDING_REVIEW', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
+    await listAdminMothers('PENDING_REVIEW', {
+      page: 1,
+      limit: 20,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -134,7 +162,12 @@ describe('listAdminMothers', () => {
       }),
     ]);
 
-    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
+    const { mothers } = await listAdminMothers('ALL', {
+      page: 1,
+      limit: 20,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(mothers[0]).toEqual({
       id: 29,
@@ -161,7 +194,12 @@ describe('listAdminMothers', () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([makeRow({ firstName: 'Mona', lastName: '-' })]);
 
-    const { mothers } = await listAdminMothers('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
+    const { mothers } = await listAdminMothers('ALL', {
+      page: 1,
+      limit: 20,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(mothers[0]?.name).toBe('Mona');
   });
@@ -236,7 +274,10 @@ describe('approveMother', () => {
   it('marks the ID APPROVED and clears any rejection reason', async () => {
     mockPrisma.user.findFirst
       .mockResolvedValueOnce(
-        makeRow({ approvalStatus: 'PENDING_REVIEW', idDocumentFrontUrl: 'https://example.com/front.jpg' }),
+        makeRow({
+          approvalStatus: 'PENDING_REVIEW',
+          idDocumentFrontUrl: 'https://example.com/front.jpg',
+        }),
       )
       .mockResolvedValueOnce(makeRow({ approvalStatus: 'APPROVED' }));
     mockPrisma.user.update.mockResolvedValue(makeRow({ approvalStatus: 'APPROVED' }));

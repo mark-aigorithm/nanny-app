@@ -457,6 +457,8 @@ describe('listWallets (paginated)', () => {
   });
 
   it.each([
+    ['id', 'desc', 'u.id DESC'],
+    ['email', 'asc', 'u.email ASC, u.id ASC'],
     ['name', 'asc', 'u.first_name ASC, u.last_name ASC, u.id ASC'],
     // A missing wallet sorts as 0 pts, never as a NULL ahead of real balances.
     ['balance', 'desc', 'COALESCE(w.points_balance, 0) DESC, u.id DESC'],

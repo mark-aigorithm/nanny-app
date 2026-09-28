@@ -119,6 +119,7 @@ export type AdminPackagePurchase = z.infer<typeof AdminPackagePurchaseSchema>;
 
 /** Columns the admin Package Purchases list can be sorted by. */
 export const AdminPackagePurchaseSortKeySchema = z.enum([
+  'id',
   'buyer',
   'package',
   'hours',

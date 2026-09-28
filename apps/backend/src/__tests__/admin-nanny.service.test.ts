@@ -74,7 +74,24 @@ function makeRow(
       dateOfBirth: new Date('1998-05-10T00:00:00.000Z'),
       avatarUrl: null,
       // Her default address row — where `location` now comes from.
-      addresses: [{ id: 1, label: 'Home', formattedAddress: 'Cairo', governorate: null, area: null, street: null, building: null, floor: null, apartment: null, landmark: null, latitude: 30.0444, longitude: 31.2357, isDefault: true, createdAt: new Date('2026-07-01T00:00:00.000Z') }],
+      addresses: [
+        {
+          id: 1,
+          label: 'Home',
+          formattedAddress: 'Cairo',
+          governorate: null,
+          area: null,
+          street: null,
+          building: null,
+          floor: null,
+          apartment: null,
+          landmark: null,
+          latitude: 30.0444,
+          longitude: 31.2357,
+          isDefault: true,
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        },
+      ],
       isEmailVerified: true,
       isPhoneVerified: false,
       approvalStatus: 'PENDING_REVIEW',
@@ -187,7 +204,12 @@ describe('listAdminNannies', () => {
       makeRow({}, { idDocumentFrontUrl: null, idDocumentBackUrl: null }),
     ]);
 
-    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
+    const { nannies } = await listAdminNannies('ALL', {
+      page: 1,
+      limit: 20,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(nannies[0]?.idDocumentFrontUrl).toBeNull();
     expect(nannies[0]?.idDocumentBackUrl).toBeNull();
@@ -200,13 +222,19 @@ describe('listAdminNannies', () => {
       makeRow({ id: 2 }),
     ]);
 
-    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
+    const { nannies } = await listAdminNannies('ALL', {
+      page: 1,
+      limit: 20,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(nannies[0]?.camera).toEqual({ id: 7, name: 'Living room' });
     expect(nannies[1]?.camera).toBeNull();
   });
 
   it.each([
+    ['id', 'asc', [{ id: 'asc' }]],
     ['name', 'asc', [{ user: { firstName: 'asc' } }, { user: { lastName: 'asc' } }, { id: 'asc' }]],
     ['email', 'desc', [{ user: { email: 'desc' } }, { id: 'desc' }]],
     ['registered', 'desc', [{ createdAt: 'desc' }, { id: 'desc' }]],
@@ -222,6 +250,34 @@ describe('listAdminNannies', () => {
     );
   });
 
+  it('sorts by camera name — unassigned nannies last — and pages after ranking', async () => {
+    mockPrisma.nannyProfile.count.mockResolvedValue(0);
+    mockPrisma.nannyProfile.findMany
+      // Every matching nanny, ranked on her camera alone...
+      .mockResolvedValueOnce([
+        { id: 1, user: { cameras: [] } },
+        { id: 2, user: { cameras: [{ id: 9, name: 'Nursery 10' }] } },
+        { id: 3, user: { cameras: [{ id: 8, name: 'nursery 2' }] } },
+        { id: 4, user: { cameras: [{ id: 7, name: 'Hallway' }] } },
+      ])
+      // ...then the page in full, in whatever order the database returns it.
+      .mockResolvedValueOnce([makeRow({ id: 2 }), makeRow({ id: 3 })]);
+
+    const { nannies, meta } = await listAdminNannies('ALL', {
+      page: 2,
+      limit: 2,
+      sortBy: 'camera',
+      sortDir: 'asc',
+    });
+
+    // Hallway, nursery 2 | Nursery 10, (none) — page 2 holds the last two.
+    expect(mockPrisma.nannyProfile.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { id: { in: [2, 1] } } }),
+    );
+    expect(nannies.map((n) => n.id)).toEqual([2]);
+    expect(meta).toEqual({ page: 2, limit: 2, total: 4, totalPages: 2 });
+  });
+
   it('lists her skills with their active flag, skipping skills deleted from the catalog', async () => {
     mockPrisma.nannyProfile.count.mockResolvedValue(1);
     mockPrisma.nannyProfile.findMany.mockResolvedValue([
@@ -232,7 +288,12 @@ describe('listAdminNannies', () => {
       }),
     ]);
 
-    const { nannies } = await listAdminNannies('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc' });
+    const { nannies } = await listAdminNannies('ALL', {
+      page: 1,
+      limit: 20,
+      sortBy: 'registered',
+      sortDir: 'desc',
+    });
 
     expect(nannies[0]?.skills).toEqual([
       { id: 4, name: 'Old', feeType: null, feeValue: 0, isActive: false },
@@ -381,7 +442,10 @@ describe('invalidateNannyId', () => {
     const result = await invalidateNannyId(1, { reason: 'Blurry' });
 
     expect(invalidateIdDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 10, idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg' }),
+      expect.objectContaining({
+        id: 10,
+        idDocumentFrontUrl: 'https://storage.example/nanny-ids/front.jpg',
+      }),
       { reason: 'Blurry' },
       'NANNY',
     );

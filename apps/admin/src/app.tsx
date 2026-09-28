@@ -6,12 +6,7 @@ import type { AdminSection } from '@nanny-app/shared';
 import { AdminLayout } from './components/admin-layout';
 import { ToastProvider } from './components/ui';
 import { AuthProvider, RequireAuth } from './lib/auth';
-import {
-  NoAccess,
-  PermissionsProvider,
-  RequireSection,
-  usePermissions,
-} from './lib/permissions';
+import { NoAccess, PermissionsProvider, RequireSection, usePermissions } from './lib/permissions';
 import { AdminsPage } from './pages/admins-page';
 import { CamerasPage } from './pages/cameras-page';
 import { DashboardPage } from './pages/dashboard-page';
@@ -66,160 +61,160 @@ export function App() {
         <BrowserRouter>
           <AuthProvider>
             <Routes>
-            <Route path="login" element={<LoginPage />} />
-            {/* Public by design: the release-test checklist is walked by the
+              <Route path="login" element={<LoginPage />} />
+              {/* Public by design: the release-test checklist is walked by the
                 business team, who have no console account. Outside RequireAuth
                 and AdminLayout, so it renders with no sign-in and no sidebar. */}
-            <Route path="qa" element={<QaChecklistPage />} />
-            <Route
-              element={
-                <RequireAuth>
-                  <PermissionsProvider>
-                    <AdminLayout />
-                  </PermissionsProvider>
-                </RequireAuth>
-              }
-            >
+              <Route path="qa" element={<QaChecklistPage />} />
               <Route
-                index
                 element={
-                  <Guarded section="dashboard">
-                    <DashboardPage />
-                  </Guarded>
+                  <RequireAuth>
+                    <PermissionsProvider>
+                      <AdminLayout />
+                    </PermissionsProvider>
+                  </RequireAuth>
                 }
-              />
-              <Route
-                path="bookings"
-                element={
-                  <Guarded section="bookings">
-                    <BookingsPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="bookings/:id"
-                element={
-                  <Guarded section="bookings">
-                    <BookingDetailPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="users"
-                element={
-                  <Guarded section="users">
-                    <UsersPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="users/mothers/:id"
-                element={
-                  <Guarded section="users">
-                    <MotherDetailPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="users/nannies/:id"
-                element={
-                  <Guarded section="users">
-                    <NannyDetailPage />
-                  </Guarded>
-                }
-              />
-              {/* Legacy path — the Nannies page is now a tab under Users. */}
-              <Route path="nannies" element={<Navigate to="/users" replace />} />
-              <Route
-                path="admins"
-                element={
-                  <SuperuserOnly>
-                    <AdminsPage />
-                  </SuperuserOnly>
-                }
-              />
-              <Route
-                path="promo-codes"
-                element={
-                  <Guarded section="promoCodes">
-                    <PromoCodesPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="campaigns"
-                element={
-                  <Guarded section="campaigns">
-                    <CampaignsPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="community"
-                element={
-                  <Guarded section="marketplace">
-                    <CommunityPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="skills"
-                element={
-                  <Guarded section="skills">
-                    <SkillsPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="certifications"
-                element={
-                  <Guarded section="certifications">
-                    <CertificationsPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="packages"
-                element={
-                  <Guarded section="packages">
-                    <PackagesPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="rewards"
-                element={
-                  <Guarded section="rewards">
-                    <RewardsPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="pricing"
-                element={
-                  <Guarded section="pricing">
-                    <PricingFeesPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="cameras"
-                element={
-                  <Guarded section="cameras">
-                    <CamerasPage />
-                  </Guarded>
-                }
-              />
-              <Route
-                path="settings"
-                element={
-                  <Guarded section="settings">
-                    <SettingsPage />
-                  </Guarded>
-                }
-              />
-              <Route path="*" element={<LandingRedirect />} />
-            </Route>
+              >
+                <Route
+                  index
+                  element={
+                    <Guarded section="dashboard">
+                      <DashboardPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="bookings"
+                  element={
+                    <Guarded section="bookings">
+                      <BookingsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="bookings/:id"
+                  element={
+                    <Guarded section="bookings">
+                      <BookingDetailPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="users"
+                  element={
+                    <Guarded section="users">
+                      <UsersPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="users/mothers/:id"
+                  element={
+                    <Guarded section="users">
+                      <MotherDetailPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="users/nannies/:id"
+                  element={
+                    <Guarded section="users">
+                      <NannyDetailPage />
+                    </Guarded>
+                  }
+                />
+                {/* Legacy path — the Nannies page is now a tab under Users. */}
+                <Route path="nannies" element={<Navigate to="/users?tab=nannies" replace />} />
+                <Route
+                  path="admins"
+                  element={
+                    <SuperuserOnly>
+                      <AdminsPage />
+                    </SuperuserOnly>
+                  }
+                />
+                <Route
+                  path="promo-codes"
+                  element={
+                    <Guarded section="promoCodes">
+                      <PromoCodesPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="campaigns"
+                  element={
+                    <Guarded section="campaigns">
+                      <CampaignsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="community"
+                  element={
+                    <Guarded section="marketplace">
+                      <CommunityPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="skills"
+                  element={
+                    <Guarded section="skills">
+                      <SkillsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="certifications"
+                  element={
+                    <Guarded section="certifications">
+                      <CertificationsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="packages"
+                  element={
+                    <Guarded section="packages">
+                      <PackagesPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="rewards"
+                  element={
+                    <Guarded section="rewards">
+                      <RewardsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="pricing"
+                  element={
+                    <Guarded section="pricing">
+                      <PricingFeesPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="cameras"
+                  element={
+                    <Guarded section="cameras">
+                      <CamerasPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="settings"
+                  element={
+                    <Guarded section="settings">
+                      <SettingsPage />
+                    </Guarded>
+                  }
+                />
+                <Route path="*" element={<LandingRedirect />} />
+              </Route>
             </Routes>
           </AuthProvider>
         </BrowserRouter>

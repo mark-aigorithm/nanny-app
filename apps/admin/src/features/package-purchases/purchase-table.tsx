@@ -1,6 +1,6 @@
 import type { AdminPackagePurchase, AdminPackagePurchaseSortKey } from '@nanny-app/shared';
 
-import { Badge, type Column, Table, type TableSort } from '@admin/components/ui';
+import { Badge, type Column, idColumn, Table, type TableSort } from '@admin/components/ui';
 import { formatDateTime, formatEgp, formatHours } from '@admin/lib/format';
 
 type Props = {
@@ -34,6 +34,7 @@ function statusLabel(status: string): string {
  */
 export function PurchaseTable({ rows, onRowClick, hasActiveFilters, sort, onSortChange }: Props) {
   const columns: Column<AdminPackagePurchase, AdminPackagePurchaseSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     {
       key: 'buyer',
       header: 'Buyer',

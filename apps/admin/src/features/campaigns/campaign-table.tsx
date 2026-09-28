@@ -9,6 +9,7 @@ import {
   Badge,
   Check,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -25,7 +26,15 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-type CampaignSortKey = 'order' | 'title' | 'target' | 'status' | 'impressions' | 'taps' | 'usage';
+type CampaignSortKey =
+  | 'id'
+  | 'order'
+  | 'title'
+  | 'target'
+  | 'status'
+  | 'impressions'
+  | 'taps'
+  | 'usage';
 
 type CampaignTableProps = {
   campaigns: Campaign[];
@@ -57,6 +66,7 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
   const { rows, sort, onSortChange } = useClientSort<Campaign, CampaignSortKey>(
     campaigns,
     {
+      id: (row) => row.id,
       order: (c) => c.sortOrder,
       title: (c) => c.title,
       target: (c) => `${c.targetType === 'PACKAGE' ? 'Package' : 'Promo'} ${c.targetName}`,
@@ -88,6 +98,7 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
   });
 
   const columns: Column<Campaign, CampaignSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     {
       key: 'image',
       header: <span className="sr-only">Image</span>,

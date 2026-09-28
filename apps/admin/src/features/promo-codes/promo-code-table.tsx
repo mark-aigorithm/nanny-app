@@ -9,6 +9,7 @@ import {
   Badge,
   Check,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -26,6 +27,7 @@ import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
 type PromoCodeSortKey =
+  | 'id'
   | 'code'
   | 'discount'
   | 'used'
@@ -58,6 +60,7 @@ export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
   const { rows, sort, onSortChange } = useClientSort<PromoCode, PromoCodeSortKey>(
     promoCodes,
     {
+      id: (row) => row.id,
       code: (promo) => promo.code,
       discount: (promo) => `${promo.discountType} ${promo.value.toFixed(2).padStart(12, '0')}`,
       used: (promo) => promo.usageCount,
@@ -93,6 +96,7 @@ export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
   });
 
   const columns: Column<PromoCode, PromoCodeSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     { key: 'code', header: 'Code', sortKey: 'code', render: (promo) => <code>{promo.code}</code> },
     {
       key: 'discount',

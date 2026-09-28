@@ -16,11 +16,7 @@ import {
   CommunityTagSchema,
   PostModerationStatusSchema,
 } from './community';
-import {
-  AvailabilityTypeSchema,
-  IdDocumentTypeSchema,
-  WeeklyScheduleSchema,
-} from './nanny';
+import { AvailabilityTypeSchema, IdDocumentTypeSchema, WeeklyScheduleSchema } from './nanny';
 import { AdminRoleSchema, OperatorPermissionsSchema } from './operator';
 import { AdminNannySkillSchema, PublicSkillSchema, SkillFeeTypeSchema } from './skill';
 import { PhoneNumberSchema } from './support';
@@ -47,7 +43,12 @@ export const ADMIN_MAX_PAGE_SIZE = 200;
 /** Base page/limit query for any paginated admin list endpoint. */
 export const AdminListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(ADMIN_MAX_PAGE_SIZE).default(ADMIN_DEFAULT_PAGE_SIZE),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(ADMIN_MAX_PAGE_SIZE)
+    .default(ADMIN_DEFAULT_PAGE_SIZE),
 });
 export type AdminListQuery = z.infer<typeof AdminListQuerySchema>;
 
@@ -93,7 +94,7 @@ export type AdminSortDir = z.infer<typeof AdminSortDirSchema>;
 export type AdminColumnSort<K extends string = string> = { sortBy: K; sortDir: AdminSortDir };
 
 /** Columns the Mommies and Nannies directories can be sorted by. */
-export const AdminUserSortKeySchema = z.enum(['name', 'email', 'registered', 'status']);
+export const AdminUserSortKeySchema = z.enum(['id', 'name', 'email', 'registered', 'status']);
 export type AdminUserSortKey = z.infer<typeof AdminUserSortKeySchema>;
 
 /** Page/limit plus a column sort for the user directories — newest sign-ups first by default. */
@@ -142,10 +143,10 @@ export const UpdatePromoCodeSchema = z
     expiresAt: z.string().datetime().nullable().optional(),
     isActive: z.boolean().optional(),
   })
-  .refine(
-    (v) => v.discountType !== 'PERCENTAGE' || v.value === undefined || v.value <= 100,
-    { message: 'Percentage discount cannot exceed 100', path: ['value'] },
-  );
+  .refine((v) => v.discountType !== 'PERCENTAGE' || v.value === undefined || v.value <= 100, {
+    message: 'Percentage discount cannot exceed 100',
+    path: ['value'],
+  });
 export type UpdatePromoCodeInput = z.infer<typeof UpdatePromoCodeSchema>;
 
 export const PromoCodeSchema = z.object({
@@ -298,8 +299,15 @@ export type PricePreviewInput = z.infer<typeof PricePreviewSchema>;
 // ──────────────────────────────────────────────────────────────
 
 export const AdminBookingStatusFilterSchema = z.enum([
-  'ALL', 'PENDING', 'APPROVED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS',
-  'COMPLETED', 'CANCELLED', 'REFUNDED',
+  'ALL',
+  'PENDING',
+  'APPROVED',
+  'PENDING_CONFIRMATION',
+  'CONFIRMED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+  'REFUNDED',
 ]);
 export type AdminBookingStatusFilter = z.infer<typeof AdminBookingStatusFilterSchema>;
 
@@ -337,6 +345,7 @@ export type AdminBooking = z.infer<typeof AdminBookingSchema>;
  * request has waited — the reverse of when it was made.
  */
 export const AdminBookingSortKeySchema = z.enum([
+  'id',
   'mother',
   'nanny',
   'starts',
@@ -701,7 +710,11 @@ export type AdminRefundResponse = z.infer<typeof AdminRefundResponseSchema>;
  * parent ID-review gallery — the same four states plus ALL.
  */
 export const AdminApprovalStatusFilterSchema = z.enum([
-  'ALL', 'PENDING_ID', 'PENDING_REVIEW', 'APPROVED', 'REJECTED',
+  'ALL',
+  'PENDING_ID',
+  'PENDING_REVIEW',
+  'APPROVED',
+  'REJECTED',
 ]);
 export type AdminApprovalStatusFilter = z.infer<typeof AdminApprovalStatusFilterSchema>;
 
@@ -751,8 +764,13 @@ export const AdminNannySchema = z.object({
 });
 export type AdminNanny = z.infer<typeof AdminNannySchema>;
 
+/** The Nannies directory sorts by the user columns plus her camera. */
+export const AdminNannySortKeySchema = z.enum([...AdminUserSortKeySchema.options, 'camera']);
+export type AdminNannySortKey = z.infer<typeof AdminNannySortKeySchema>;
+
 /** Paginated nanny list query (GET /admin/nannies). A directory, so newest first. */
 export const AdminNannyListQuerySchema = AdminUserDirectoryQuerySchema.extend({
+  sortBy: AdminNannySortKeySchema.catch('registered').default('registered'),
   status: AdminApprovalStatusFilterSchema.catch('PENDING_REVIEW').default('PENDING_REVIEW'),
 });
 export type AdminNannyListQuery = z.infer<typeof AdminNannyListQuerySchema>;
@@ -794,7 +812,10 @@ export type AdminNannyDetail = z.infer<typeof AdminNannyDetailSchema>;
  * changes after registration. No label or default flag: she has exactly one,
  * and it is always "Home".
  */
-export const AdminUpsertNannyAddressSchema = AddressInputSchema.omit({ label: true, isDefault: true });
+export const AdminUpsertNannyAddressSchema = AddressInputSchema.omit({
+  label: true,
+  isDefault: true,
+});
 export type AdminUpsertNannyAddressInput = z.infer<typeof AdminUpsertNannyAddressSchema>;
 
 export const RejectNannySchema = z.object({
@@ -889,7 +910,10 @@ export const UpdateAdminNannySchema = z
     firstName: z.string().trim().min(1).max(80).optional(),
     lastName: z.string().trim().min(1).max(80).optional(),
     avatarUrl: z.string().url().nullable().optional(),
-    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD').optional(),
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD')
+      .optional(),
     // No location or pin here: her address is edited through
     // PUT /admin/nannies/:id/address so the line parents read and the pin
     // proximity matching uses can never drift apart.
@@ -945,9 +969,7 @@ export type AdminIdReviewListQuery = z.infer<typeof AdminIdReviewListQuerySchema
 // ──────────────────────────────────────────────────────────────
 
 /** Moderation filter for the queue. Defaults to the pending queue. */
-export const AdminCommunityStatusFilterSchema = z.enum([
-  'ALL', 'PENDING', 'APPROVED', 'REJECTED',
-]);
+export const AdminCommunityStatusFilterSchema = z.enum(['ALL', 'PENDING', 'APPROVED', 'REJECTED']);
 export type AdminCommunityStatusFilter = z.infer<typeof AdminCommunityStatusFilterSchema>;
 
 /** Post-type filter for the queue. `ALL` is the default: one queue, oldest first. */
@@ -990,6 +1012,7 @@ export type AdminCommunityPost = z.infer<typeof AdminCommunityPostSchema>;
 
 /** Columns the community table can be sorted by. `submitted` is the post's creation time. */
 export const AdminCommunitySortKeySchema = z.enum([
+  'id',
   'title',
   'type',
   'author',
@@ -1024,10 +1047,7 @@ export const CreateOfficialListingSchema = z.object({
   title: z.string().trim().min(1, 'Product name is required').max(200),
   body: z.string().trim().max(2000).optional(),
   price: z.number().positive('Price must be greater than 0'),
-  imageUrls: z
-    .array(z.string().url())
-    .min(1, 'At least one image is required')
-    .max(4),
+  imageUrls: z.array(z.string().url()).min(1, 'At least one image is required').max(4),
   tags: z.array(CommunityTagSchema).max(5).default([]),
   contactPhone: PhoneNumberSchema,
 });

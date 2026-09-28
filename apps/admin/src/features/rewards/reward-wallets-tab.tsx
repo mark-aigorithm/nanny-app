@@ -11,6 +11,7 @@ import {
   ActionMenu,
   actionsColumn,
   type Column,
+  idColumn,
   ErrorState,
   Gift,
   History,
@@ -24,7 +25,6 @@ import {
 } from '@admin/components/ui';
 import { fetchRewardWallets } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
-import { initials } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 import { useTableSort } from '@admin/lib/use-table-sort';
@@ -65,22 +65,14 @@ export function RewardWalletsTab() {
   const meta = data?.meta;
 
   const columns: Column<RewardWalletSummary, RewardWalletSortKey>[] = [
+    idColumn((row) => row.userId, 'id'),
     {
       key: 'user',
       header: 'Parent',
       sortKey: 'name',
-      render: (w) => (
-        <div className="nanny-cell">
-          <span className="nanny-avatar" aria-hidden>
-            {initials(w.name)}
-          </span>
-          <div>
-            <div className="nanny-name">{w.name}</div>
-            <div className="table-subtext">{w.email}</div>
-          </div>
-        </div>
-      ),
+      render: (w) => <span className="nanny-name">{w.name}</span>,
     },
+    { key: 'email', header: 'Email', sortKey: 'email', render: (w) => w.email },
     {
       key: 'balance',
       header: 'Balance',
@@ -144,7 +136,7 @@ export function RewardWalletsTab() {
         />
       </div>
 
-      {isLoading && <TableSkeleton columns={5} />}
+      {isLoading && <TableSkeleton columns={7} />}
       {error != null && !wallets && (
         <ErrorState
           message={apiErrorMessage(error)}

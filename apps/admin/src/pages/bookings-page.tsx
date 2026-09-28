@@ -23,6 +23,7 @@ import {
   Button,
   Check,
   type Column,
+  idColumn,
   ErrorState,
   FilterSelect,
   ICON_SIZE,
@@ -289,6 +290,7 @@ export function BookingsPage() {
   };
 
   const columns: Column<AdminBooking, AdminBookingSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     {
       key: 'mother',
       header: 'Mother',

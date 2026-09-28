@@ -164,6 +164,8 @@ function postOrderBy(
   sortDir: AdminSortDir,
 ): Prisma.CommunityPostOrderByWithRelationInput[] {
   const orders: Record<AdminCommunitySortKey, Prisma.CommunityPostOrderByWithRelationInput[]> = {
+    // The ID column: the id tiebreak below is the whole order.
+    id: [],
     // The row is named by its headline, or by its question when a Q&A post has
     // none — so untitled posts sort by body, after every titled one.
     title: [

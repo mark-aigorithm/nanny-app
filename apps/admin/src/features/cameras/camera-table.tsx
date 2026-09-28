@@ -8,6 +8,7 @@ import {
   actionsColumn,
   Badge,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -23,7 +24,7 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-type CameraSortKey = 'name' | 'stream' | 'nanny' | 'created';
+type CameraSortKey = 'id' | 'name' | 'stream' | 'nanny' | 'created';
 
 type CameraTableProps = {
   cameras: Camera[];
@@ -40,6 +41,7 @@ export function CameraTable({ cameras }: CameraTableProps) {
   const { rows, sort, onSortChange } = useClientSort<Camera, CameraSortKey>(
     cameras,
     {
+      id: (row) => row.id,
       name: (camera) => camera.name,
       stream: (camera) => camera.streamUrl,
       // Unassigned cameras have no name to sort by, so they go last either way.
@@ -60,6 +62,7 @@ export function CameraTable({ cameras }: CameraTableProps) {
   });
 
   const columns: Column<Camera, CameraSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     { key: 'name', header: 'Name', sortKey: 'name', render: (camera) => camera.name },
     {
       key: 'stream',

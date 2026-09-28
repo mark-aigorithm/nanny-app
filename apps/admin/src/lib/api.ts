@@ -25,6 +25,7 @@ import type {
   AdminMotherDetail,
   AdminNanny,
   AdminNannyCamera,
+  AdminNannySortKey,
   AdminNannyDetail,
   AdminPackagePurchase,
   AdminPackagePurchaseDetail,
@@ -114,9 +115,7 @@ export async function fetchRewardConfig(): Promise<RewardConfig> {
   return res.data.data;
 }
 
-export async function updateRewardConfig(
-  input: UpdateRewardConfigInput,
-): Promise<RewardConfig> {
+export async function updateRewardConfig(input: UpdateRewardConfigInput): Promise<RewardConfig> {
   const res = await apiClient.put<ApiEnvelope<RewardConfig>>('/admin/rewards/config', input);
   return res.data.data;
 }
@@ -165,14 +164,8 @@ export async function createPromoCode(input: CreatePromoCodeInput): Promise<Prom
   return res.data.data;
 }
 
-export async function updatePromoCode(
-  id: number,
-  input: UpdatePromoCodeInput,
-): Promise<PromoCode> {
-  const res = await apiClient.patch<ApiEnvelope<PromoCode>>(
-    `/admin/promo-codes/${id}`,
-    input,
-  );
+export async function updatePromoCode(id: number, input: UpdatePromoCodeInput): Promise<PromoCode> {
+  const res = await apiClient.patch<ApiEnvelope<PromoCode>>(`/admin/promo-codes/${id}`, input);
   return res.data.data;
 }
 
@@ -199,14 +192,8 @@ export async function deleteSkill(id: number): Promise<void> {
   await apiClient.delete(`/admin/skills/${id}`);
 }
 
-export async function setNannySkills(
-  id: number,
-  input: SetNannySkillsInput,
-): Promise<AdminNanny> {
-  const res = await apiClient.put<ApiEnvelope<AdminNanny>>(
-    `/admin/nannies/${id}/skills`,
-    input,
-  );
+export async function setNannySkills(id: number, input: SetNannySkillsInput): Promise<AdminNanny> {
+  const res = await apiClient.put<ApiEnvelope<AdminNanny>>(`/admin/nannies/${id}/skills`, input);
   return res.data.data;
 }
 
@@ -215,9 +202,7 @@ export async function fetchCertifications(): Promise<Certification[]> {
   return res.data.data;
 }
 
-export async function createCertification(
-  input: CreateCertificationInput,
-): Promise<Certification> {
+export async function createCertification(input: CreateCertificationInput): Promise<Certification> {
   const res = await apiClient.post<ApiEnvelope<Certification>>('/admin/certifications', input);
   return res.data.data;
 }
@@ -249,10 +234,7 @@ export async function createPackage(input: CreatePackageInput): Promise<Package>
   return res.data.data;
 }
 
-export async function updatePackage(
-  id: number,
-  input: UpdatePackageInput,
-): Promise<Package> {
+export async function updatePackage(id: number, input: UpdatePackageInput): Promise<Package> {
   const res = await apiClient.patch<ApiEnvelope<Package>>(`/admin/packages/${id}`, input);
   return res.data.data;
 }
@@ -288,9 +270,7 @@ export async function fetchCameras(): Promise<Camera[]> {
 }
 
 export async function fetchNannyOptions(): Promise<NannyOption[]> {
-  const res = await apiClient.get<ApiEnvelope<NannyOption[]>>(
-    '/admin/cameras/nanny-options',
-  );
+  const res = await apiClient.get<ApiEnvelope<NannyOption[]>>('/admin/cameras/nanny-options');
   return res.data.data;
 }
 
@@ -299,10 +279,7 @@ export async function createCamera(input: CreateCameraInput): Promise<Camera> {
   return res.data.data;
 }
 
-export async function updateCamera(
-  id: number,
-  input: UpdateCameraInput,
-): Promise<Camera> {
+export async function updateCamera(id: number, input: UpdateCameraInput): Promise<Camera> {
   const res = await apiClient.patch<ApiEnvelope<Camera>>(`/admin/cameras/${id}`, input);
   return res.data.data;
 }
@@ -357,7 +334,10 @@ export async function updateLegalDocument(
   key: LegalDocumentKey,
   input: UpdateLegalDocumentInput,
 ): Promise<LegalDocument> {
-  const res = await apiClient.put<ApiEnvelope<LegalDocument>>(`/admin/legal-documents/${key}`, input);
+  const res = await apiClient.put<ApiEnvelope<LegalDocument>>(
+    `/admin/legal-documents/${key}`,
+    input,
+  );
   return res.data.data;
 }
 
@@ -373,9 +353,7 @@ export async function fetchDurationRules(): Promise<DurationRule[]> {
   return res.data.data;
 }
 
-export async function createDurationRule(
-  input: CreateDurationRuleInput,
-): Promise<DurationRule> {
+export async function createDurationRule(input: CreateDurationRuleInput): Promise<DurationRule> {
   const res = await apiClient.post<ApiEnvelope<DurationRule>>('/admin/duration-rules', input);
   return res.data.data;
 }
@@ -397,13 +375,8 @@ export async function deleteDurationRule(id: number): Promise<void> {
 
 // ── Pricing calculator (authoritative preview) ─────────────────
 
-export async function calculatePricePreview(
-  input: PricePreviewInput,
-): Promise<PriceBreakdown> {
-  const res = await apiClient.post<ApiEnvelope<PriceBreakdown>>(
-    '/admin/pricing/calculate',
-    input,
-  );
+export async function calculatePricePreview(input: PricePreviewInput): Promise<PriceBreakdown> {
+  const res = await apiClient.post<ApiEnvelope<PriceBreakdown>>('/admin/pricing/calculate', input);
   return res.data.data;
 }
 
@@ -423,9 +396,7 @@ export async function fetchBooking(id: string): Promise<AdminBookingDetail> {
 }
 
 export async function approveBooking(id: number): Promise<AdminBooking> {
-  const res = await apiClient.post<ApiEnvelope<AdminBooking>>(
-    `/admin/bookings/${id}/approve`,
-  );
+  const res = await apiClient.post<ApiEnvelope<AdminBooking>>(`/admin/bookings/${id}/approve`);
   return res.data.data;
 }
 
@@ -441,10 +412,9 @@ export async function setBookingStatus(
   id: number,
   status: SetBookingStatusInput['status'],
 ): Promise<AdminBooking> {
-  const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(
-    `/admin/bookings/${id}/status`,
-    { status },
-  );
+  const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(`/admin/bookings/${id}/status`, {
+    status,
+  });
   return res.data.data;
 }
 
@@ -460,7 +430,10 @@ export async function fetchBookingCandidates(
   return res.data.data;
 }
 
-export async function assignBookingNanny(id: number, nannyProfileId: number): Promise<AdminBooking> {
+export async function assignBookingNanny(
+  id: number,
+  nannyProfileId: number,
+): Promise<AdminBooking> {
   const res = await apiClient.patch<ApiEnvelope<AdminBooking>>(`/admin/bookings/${id}/nanny`, {
     nannyProfileId,
   });
@@ -520,7 +493,7 @@ export async function refundBooking(
 
 export async function fetchNannies(
   status: AdminApprovalStatusFilter,
-  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminUserSortKey>,
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminNannySortKey>,
 ): Promise<Paged<AdminNanny[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminNanny[]>>('/admin/nannies', {
     params: { status, page, limit, sortBy, sortDir },
@@ -534,9 +507,7 @@ export async function fetchNanny(id: string): Promise<AdminNannyDetail> {
 }
 
 export async function approveNanny(id: string): Promise<AdminNanny> {
-  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(
-    `/admin/nannies/${id}/approve`,
-  );
+  const res = await apiClient.post<ApiEnvelope<AdminNanny>>(`/admin/nannies/${id}/approve`);
   return res.data.data;
 }
 
@@ -548,14 +519,8 @@ export async function rejectNanny(id: string, reason?: string): Promise<AdminNan
   return res.data.data;
 }
 
-export async function updateNanny(
-  id: number,
-  input: UpdateAdminNanny,
-): Promise<AdminNannyDetail> {
-  const res = await apiClient.patch<ApiEnvelope<AdminNannyDetail>>(
-    `/admin/nannies/${id}`,
-    input,
-  );
+export async function updateNanny(id: number, input: UpdateAdminNanny): Promise<AdminNannyDetail> {
+  const res = await apiClient.patch<ApiEnvelope<AdminNannyDetail>>(`/admin/nannies/${id}`, input);
   return res.data.data;
 }
 
@@ -608,10 +573,7 @@ export async function updateMother(
   id: string,
   input: UpdateAdminMotherInput,
 ): Promise<AdminMotherDetail> {
-  const res = await apiClient.patch<ApiEnvelope<AdminMotherDetail>>(
-    `/admin/mothers/${id}`,
-    input,
-  );
+  const res = await apiClient.patch<ApiEnvelope<AdminMotherDetail>>(`/admin/mothers/${id}`, input);
   return res.data.data;
 }
 
@@ -666,10 +628,7 @@ export async function createAdmin(input: CreateAdminInput): Promise<AdminUser> {
   return res.data.data;
 }
 
-export async function updateAdmin(
-  id: number,
-  input: UpdateAdminUserInput,
-): Promise<AdminUser> {
+export async function updateAdmin(id: number, input: UpdateAdminUserInput): Promise<AdminUser> {
   const res = await apiClient.patch<ApiEnvelope<AdminUser>>(`/admin/admins/${id}`, input);
   return res.data.data;
 }
@@ -690,9 +649,7 @@ export async function fetchPackagePurchases(
   return { data: res.data.data, meta: res.data.meta };
 }
 
-export async function fetchPackagePurchaseDetail(
-  id: number,
-): Promise<AdminPackagePurchaseDetail> {
+export async function fetchPackagePurchaseDetail(id: number): Promise<AdminPackagePurchaseDetail> {
   const res = await apiClient.get<ApiEnvelope<AdminPackagePurchaseDetail>>(
     `/admin/package-purchases/${id}`,
   );
@@ -706,10 +663,9 @@ export async function fetchCommunityPosts(
   status: AdminCommunityStatusFilter,
   { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminCommunitySortKey>,
 ): Promise<Paged<AdminCommunityPost[]>> {
-  const res = await apiClient.get<PagedEnvelope<AdminCommunityPost[]>>(
-    '/admin/community/posts',
-    { params: { type, status, page, limit, sortBy, sortDir } },
-  );
+  const res = await apiClient.get<PagedEnvelope<AdminCommunityPost[]>>('/admin/community/posts', {
+    params: { type, status, page, limit, sortBy, sortDir },
+  });
   return { data: res.data.data, meta: res.data.meta };
 }
 

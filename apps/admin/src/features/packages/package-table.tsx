@@ -9,6 +9,7 @@ import {
   Badge,
   Check,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -27,6 +28,7 @@ import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
 type PackageSortKey =
+  | 'id'
   | 'name'
   | 'hours'
   | 'price'
@@ -52,6 +54,7 @@ export function PackageTable({ packages }: PackageTableProps) {
   const { rows, sort, onSortChange } = useClientSort<Package, PackageSortKey>(
     packages,
     {
+      id: (row) => row.id,
       name: (pkg) => pkg.name,
       hours: (pkg) => pkg.hours,
       price: (pkg) => pkg.price,
@@ -84,6 +87,7 @@ export function PackageTable({ packages }: PackageTableProps) {
   });
 
   const columns: Column<Package, PackageSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     { key: 'name', header: 'Name', sortKey: 'name', render: (pkg) => pkg.name },
     {
       key: 'hours',

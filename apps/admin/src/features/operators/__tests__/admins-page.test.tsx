@@ -61,7 +61,8 @@ function renderPage() {
 /** The names in the table, top to bottom. */
 function names(): string[] {
   const rows = screen.getAllByRole('row').slice(1);
-  return rows.map((row) => within(row).getAllByRole('cell')[0]!.textContent ?? '');
+  // Cell 0 is the ID column every table opens with; the name comes next.
+  return rows.map((row) => within(row).getAllByRole('cell')[1]!.textContent ?? '');
 }
 
 describe('AdminsPage', () => {

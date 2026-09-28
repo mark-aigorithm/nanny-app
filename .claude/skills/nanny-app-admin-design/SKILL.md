@@ -91,6 +91,10 @@ Reference: **Nanny Skills** (`pages/skills-page.tsx`, `features/skills/skill-for
   `<FormModal>` — `x` omitted means create. It owns its mutation, invalidates the list, toasts the
   result, and shows validation (`firstIssueMessage`) and server errors (`apiErrorMessage`) in the
   modal. Wide forms lay a `.form-grid` inside it.
+- **The first column is the record's ID** — `idColumn(row => row.id, 'id')`, sortable (a paged
+  list's sort-key enum includes `id`, whose order is just the id tiebreak).
+- **Cells hold one value.** No secondary grey line under a name or phone number ("born …",
+  "email & phone verified") — that detail belongs on the record's own page.
 - **Row actions sit in the last column's kebab** — `actionsColumn(row => <ActionMenu>…)`: **Edit**
   first (opens the same modal), other actions next, destructive last after a `<MenuSeparator />`.
 - **Every meaningful column sorts** — give it a `sortKey` (`sortFirst: 'desc'` for dates and

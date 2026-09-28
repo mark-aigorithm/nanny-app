@@ -52,6 +52,8 @@ function purchaseOrderBy(
     AdminPackagePurchaseSortKey,
     Prisma.PackagePurchaseOrderByWithRelationInput[]
   > = {
+    // The ID column: the id tiebreak below is the whole order.
+    id: [],
     buyer: [{ user: { firstName: sortDir } }, { user: { lastName: sortDir } }],
     package: [{ nameSnapshot: sortDir }],
     // The Hours column reads "remaining / purchased".

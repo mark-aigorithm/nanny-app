@@ -108,7 +108,7 @@ export function CommunityPage() {
         />
       </div>
 
-      {isLoading && <TableSkeleton columns={7} />}
+      {isLoading && <TableSkeleton columns={8} />}
       {error != null && !posts && (
         <ErrorState
           message={apiErrorMessage(error)}

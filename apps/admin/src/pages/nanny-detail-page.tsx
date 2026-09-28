@@ -127,8 +127,8 @@ export function NannyDetailPage() {
   return (
     <section>
       <DetailHeader
-        backTo="/users"
-        backLabel="Back to users"
+        backTo="/users?tab=nannies"
+        backLabel="Back to nannies"
         title={nanny ? nanny.name : 'Nanny details'}
         subtitle={
           nanny ? `User ID ${nanny.userId} · Joined ${formatDate(nanny.createdAt)}` : undefined

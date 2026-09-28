@@ -44,7 +44,7 @@ export function CertificationsPage() {
           )
         }
       />
-      {isLoading && <TableSkeleton columns={4} />}
+      {isLoading && <TableSkeleton columns={5} />}
       {error != null && !certifications && (
         <ErrorState
           message={apiErrorMessage(error)}

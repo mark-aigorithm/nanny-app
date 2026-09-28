@@ -44,7 +44,7 @@ export function CamerasPage() {
           )
         }
       />
-      {isLoading && <TableSkeleton columns={5} />}
+      {isLoading && <TableSkeleton columns={6} />}
       {error != null && !cameras && (
         <ErrorState
           message={apiErrorMessage(error)}

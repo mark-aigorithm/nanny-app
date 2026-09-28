@@ -123,7 +123,9 @@ export type RewardHistoryQuery = z.infer<typeof RewardHistoryQuerySchema>;
  * parent signed up) has no column of its own — it is the list's default order.
  */
 export const RewardWalletSortKeySchema = z.enum([
+  'id',
   'name',
+  'email',
   'balance',
   'earned',
   'redeemed',
