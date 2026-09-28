@@ -36,7 +36,7 @@ edited and deleted from the table.
 | `type` | Fields |
 |---|---|
 | `marketplace` | Unchanged from `CreateOfficialListingSchema`: `title` (1–200), `body?` (≤2000), `price` (>0), `imageUrls` (1–4), `tags` (≤5), `contactPhone` |
-| `event` | `title` (1–200), `body?`, `eventStartsAt` (ISO datetime), `location` (1–500), `price?` (≥0; absent = free), `maxAttendees?` (int >0), `imageUrls` (0–4), `tags` |
+| `event` | `title` (1–200), `body?`, `eventStartsAt` (platform wall-clock `YYYY-MM-DDTHH:mm:ss`, converted to UTC by the backend), `location` (1–500), `price?` (≥0; absent = free), `maxAttendees?` (int >0), `imageUrls` (0–4), `tags` |
 | `qa` | `title?` (≤200), `body` (1–2000), `imageUrls` (0–4), `tags` |
 
 The field rules mirror the member-facing `CreateCommunityPostSchema`, plus

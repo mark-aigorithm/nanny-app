@@ -1056,6 +1056,67 @@ export type CreateOfficialListingInput = z.infer<typeof CreateOfficialListingSch
 export const UpdateOfficialListingSchema = CreateOfficialListingSchema.partial();
 export type UpdateOfficialListingInput = z.infer<typeof UpdateOfficialListingSchema>;
 
+// ── Official posts (events, Q&A and listings published as NannyNow) ──
+
+const officialTags = z.array(CommunityTagSchema).max(5, 'At most 5 tags allowed').default([]);
+const officialPhotos = z.array(z.string().url()).max(4).default([]);
+
+/**
+ * An official post, published by an admin and live at once. The fields mirror
+ * what a mother fills in for the same type (`CreateCommunityPostSchema`), plus a
+ * contact phone on listings. An event's start is platform wall-clock, like
+ * every other time the console sends; the backend converts it to UTC.
+ */
+export const CreateOfficialPostSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('marketplace'),
+    title: z.string().trim().min(1, 'Product name is required').max(200),
+    body: z.string().trim().max(2000).optional(),
+    price: z.number().positive('Price must be greater than 0'),
+    imageUrls: z.array(z.string().url()).min(1, 'At least one image is required').max(4),
+    tags: officialTags,
+    contactPhone: PhoneNumberSchema,
+  }),
+  z.object({
+    type: z.literal('event'),
+    title: z.string().trim().min(1, 'Event name is required').max(200),
+    body: z.string().trim().max(2000).optional(),
+    eventStartsAt: wallClockField('Event date and time'),
+    location: z.string().trim().min(1, 'Location is required').max(500),
+    price: z.number().nonnegative().optional(),
+    maxAttendees: z.number().int().positive().optional(),
+    imageUrls: officialPhotos,
+    tags: officialTags,
+  }),
+  z.object({
+    type: z.literal('qa'),
+    title: z.string().trim().max(200).optional(),
+    body: z.string().trim().min(1, 'Body is required').max(2000),
+    imageUrls: officialPhotos,
+    tags: officialTags,
+  }),
+]);
+export type CreateOfficialPostInput = z.infer<typeof CreateOfficialPostSchema>;
+
+/**
+ * An edit to an official post. A post never changes type, so this is flat; the
+ * service refuses fields that don't belong to the stored type and keeps each
+ * type's required fields. `null` clears: a Q&A title, a description, an event's
+ * price (free again) or its attendee cap.
+ */
+export const UpdateOfficialPostSchema = z.object({
+  title: z.string().trim().min(1).max(200).nullable().optional(),
+  body: z.string().trim().min(1).max(2000).nullable().optional(),
+  imageUrls: z.array(z.string().url()).max(4).optional(),
+  tags: z.array(CommunityTagSchema).max(5, 'At most 5 tags allowed').optional(),
+  price: z.number().nonnegative().nullable().optional(),
+  contactPhone: PhoneNumberSchema.optional(),
+  eventStartsAt: wallClockField('Event date and time').optional(),
+  location: z.string().trim().min(1).max(500).optional(),
+  maxAttendees: z.number().int().positive().nullable().optional(),
+});
+export type UpdateOfficialPostInput = z.infer<typeof UpdateOfficialPostSchema>;
+
 // ──────────────────────────────────────────────────────────────
 // Admin user management (superuser only)
 // ──────────────────────────────────────────────────────────────
