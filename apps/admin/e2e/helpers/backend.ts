@@ -779,16 +779,6 @@ export async function contactSeller(
 }
 
 /**
- * An official ("Sold by NannyNow") listing, created over HTTP rather than
- * through the console's own form.
- *
- * The form is deliberately not driven: it uploads a photo to Firebase Storage,
- * and the test stack runs an Auth emulator only. Publishing this way exercises
- * the same route the form posts to, and leaves the console half of the flow —
- * the moderation menu, and deleting — to be driven through the UI where it is
- * actually testable.
- */
-/**
  * Moderation decisions made over HTTP, for *setting up* a spec whose subject is
  * some later step — a post that is already live before the console takes it
  * down, or already rejected before the author fixes it. Never used to make the
@@ -806,11 +796,22 @@ export async function rejectPostAsAdmin(
   await call('POST', `/admin/community/posts/${id}/reject`, adminToken, { reason });
 }
 
+/**
+ * An official ("Sold by NannyNow") listing, created over HTTP rather than
+ * through the console's New post → Listing form.
+ *
+ * The form is deliberately not driven: it uploads a photo to Firebase Storage,
+ * and the test stack runs an Auth emulator only. Publishing this way exercises
+ * the same route the form posts to, and leaves the console half of the flow —
+ * the moderation menu, and deleting — to be driven through the UI where it is
+ * actually testable.
+ */
 export async function seedOfficialListing(adminToken: string): Promise<{ id: number; title: string }> {
   const { surname } = unique('official');
   const title = `NannyNow Cot ${surname}`;
 
-  const listing = (await call('POST', '/admin/marketplace/listings', adminToken, {
+  const listing = (await call('POST', '/admin/community/official-posts', adminToken, {
+    type: 'marketplace',
     title,
     body: 'Sold by NannyNow. Seeded by the admin E2E suite.',
     price: 2400,

@@ -75,6 +75,27 @@ export function formatHours(hours: number): string {
   return Number.isInteger(hours) ? String(hours) : hours.toFixed(2);
 }
 
+/**
+ * A stored UTC instant → "YYYY-MM-DDTHH:mm" for <input type="datetime-local">,
+ * read in the platform's timezone. The reverse trip is
+ * `fromDateTimeLocalInput`, which adds seconds and leaves the zone to the
+ * backend.
+ */
+export function toPlatformDateTimeInput(iso: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PLATFORM_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '00';
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+}
+
 /** Up to two initials for an avatar fallback, e.g. "Nanny Test" → "NT". */
 export function initials(name: string): string {
   return name

@@ -7,7 +7,7 @@
  * opens, and the list is sorted by the API, so the page sends the sort.
  */
 import type { AdminCommunityPost, AdminUser } from '@nanny-app/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -87,6 +87,22 @@ const OFFICIAL: AdminCommunityPost = {
   author: { id: 1, name: 'Ops Admin', avatarUrl: null },
 };
 
+const OFFICIAL_EVENT: AdminCommunityPost = {
+  ...BASE,
+  id: 52,
+  type: 'event',
+  title: 'Mommy & me picnic',
+  body: null,
+  price: 100,
+  imageUrls: [],
+  location: 'Merryland Park',
+  // 09:00 UTC is 11:00 in Cairo in January.
+  eventStartsAt: '2026-01-15T09:00:00.000Z',
+  maxAttendees: 20,
+  moderationStatus: 'approved',
+  isOfficial: true,
+};
+
 function renderTable(
   posts: AdminCommunityPost[],
   sortProps: Pick<Parameters<typeof PostTable>[0], 'sort' | 'onSortChange'> = {},
@@ -153,7 +169,7 @@ describe('PostTable', () => {
   it('edits an official listing in the shared modal, never reviewing it', async () => {
     let body: unknown = null;
     server.use(
-      http.patch('/api/admin/marketplace/listings/:id', async ({ params, request }) => {
+      http.patch('/api/admin/community/official-posts/:id', async ({ params, request }) => {
         body = { id: String(params['id']), ...((await request.json()) as object) };
         return ok({ ...OFFICIAL, price: 3200 });
       }),
@@ -186,6 +202,62 @@ describe('PostTable', () => {
     );
     expect(await screen.findByText('Listing updated')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('edits an official event, making it free and uncapped', async () => {
+    let body: unknown = null;
+    server.use(
+      http.patch('/api/admin/community/official-posts/:id', async ({ request }) => {
+        body = await request.json();
+        return ok({ ...OFFICIAL_EVENT, price: null, maxAttendees: null });
+      }),
+    );
+    renderTable([OFFICIAL_EVENT]);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Mommy & me picnic' }),
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Edit official event' });
+    expect(within(dialog).getByLabelText('Date and time')).toHaveValue('2026-01-15T11:00');
+    await userEvent.clear(within(dialog).getByLabelText(/Price \(EGP\)/));
+    await userEvent.clear(within(dialog).getByLabelText(/Max attendees/));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        title: 'Mommy & me picnic',
+        body: null,
+        eventStartsAt: '2026-01-15T11:00:00',
+        location: 'Merryland Park',
+        price: null,
+        maxAttendees: null,
+        imageUrls: [],
+        tags: [],
+      }),
+    );
+    expect(await screen.findByText('Event updated')).toBeInTheDocument();
+  });
+
+  it('deletes an official event by name', async () => {
+    let deleted: string | null = null;
+    server.use(
+      http.delete('/api/admin/community/official-posts/:id', ({ params }) => {
+        deleted = String(params['id']);
+        return ok({ deleted: true });
+      }),
+    );
+    renderTable([OFFICIAL_EVENT]);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Mommy & me picnic' }),
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+
+    await waitFor(() => expect(deleted).toBe('52'));
+    expect(await screen.findByText('Official event deleted')).toBeInTheDocument();
   });
 
   it('reports a header click as a server sort, dates newest first', async () => {
@@ -232,11 +304,12 @@ describe('CommunityPage', () => {
     await waitFor(() => expect(queries.at(-1)?.get('sortDir')).toBe('desc'));
   });
 
-  it('adds an official listing from the header, checking it before it posts', async () => {
+  it('opens the listing form from the New post menu, checking it before it posts', async () => {
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Add official listing' }));
-    const dialog = screen.getByRole('dialog');
+    await userEvent.click(await screen.findByRole('button', { name: 'New post' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Listing' }));
+    const dialog = screen.getByRole('dialog', { name: 'New official listing' });
     await userEvent.type(within(dialog).getByLabelText('Product name'), 'Car seat');
     await userEvent.type(within(dialog).getByLabelText('Price (EGP)'), '3500');
     await userEvent.type(within(dialog).getByLabelText(/Contact number/), '+201001234567');
@@ -244,5 +317,64 @@ describe('CommunityPage', () => {
 
     // No photo yet — caught by the shared schema before any request is made.
     expect(await within(dialog).findByText(/At least one image is required/)).toBeInTheDocument();
+  });
+
+  it('publishes an official event with no photo', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post('/api/admin/community/official-posts', async ({ request }) => {
+        body = await request.json();
+        return ok({ ...BASE, id: 60, type: 'event', title: 'Picnic', isOfficial: true });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'New post' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Event' }));
+    const dialog = screen.getByRole('dialog', { name: 'New official event' });
+    await userEvent.type(within(dialog).getByLabelText('Event name'), 'Picnic');
+    fireEvent.change(within(dialog).getByLabelText('Date and time'), {
+      target: { value: '2026-10-10T11:00' },
+    });
+    await userEvent.type(within(dialog).getByLabelText('Location'), 'Merryland Park');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish event' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        type: 'event',
+        title: 'Picnic',
+        eventStartsAt: '2026-10-10T11:00:00',
+        location: 'Merryland Park',
+        imageUrls: [],
+        tags: [],
+      }),
+    );
+    expect(await screen.findByText('Official event published')).toBeInTheDocument();
+  });
+
+  it('publishes an official Q&A from just its body', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post('/api/admin/community/official-posts', async ({ request }) => {
+        body = await request.json();
+        return ok({ ...BASE, id: 61, type: 'qa', title: null, body: 'Hi', isOfficial: true });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'New post' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Q&A' }));
+    const dialog = screen.getByRole('dialog', { name: 'New official Q&A' });
+    await userEvent.type(within(dialog).getByLabelText('Body'), 'Summer hours start Sunday.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish Q&A' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        type: 'qa',
+        body: 'Summer hours start Sunday.',
+        imageUrls: [],
+        tags: [],
+      }),
+    );
   });
 });

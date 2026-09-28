@@ -22,7 +22,7 @@ import {
   CreateCameraSchema,
   CreateCampaignSchema,
   CreateCertificationSchema,
-  CreateOfficialListingSchema,
+  CreateOfficialPostSchema,
   CreatePackageSchema,
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
@@ -50,7 +50,7 @@ import {
   UpdatePromoCodeSchema,
   UpdateCampaignSchema,
   UpdateCertificationSchema,
-  UpdateOfficialListingSchema,
+  UpdateOfficialPostSchema,
   UpdatePackageSchema,
   UpdateRewardConfigSchema,
   UpdateSkillSchema,
@@ -105,10 +105,10 @@ import {
   rejectPost,
 } from '@backend/services/admin-community.service';
 import {
-  createOfficialListing,
-  deleteOfficialListing,
-  updateOfficialListing,
-} from '@backend/services/admin-marketplace.service';
+  createOfficialPost,
+  deleteOfficialPost,
+  updateOfficialPost,
+} from '@backend/services/admin-official-post.service';
 import {
   getPackagePurchaseDetail,
   listPackagePurchases,
@@ -634,16 +634,16 @@ adminRouter.post(
   },
 );
 
-// ── Official marketplace listings ──────────────────────────────
+// ── Official posts (events, Q&A, listings) ─────────────────────
 
 adminRouter.post(
-  '/marketplace/listings',
-  validateBody(CreateOfficialListingSchema),
+  '/community/official-posts',
+  validateBody(CreateOfficialPostSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.firebaseUser) throw errors.unauthorized();
-      const listing = await createOfficialListing(req.body, req.firebaseUser.uid);
-      res.status(201).json(ok(listing));
+      const post = await createOfficialPost(req.body, req.firebaseUser.uid);
+      res.status(201).json(ok(post));
     } catch (err) {
       next(err);
     }
@@ -651,11 +651,11 @@ adminRouter.post(
 );
 
 adminRouter.patch(
-  '/marketplace/listings/:id',
-  validateBody(UpdateOfficialListingSchema),
+  '/community/official-posts/:id',
+  validateBody(UpdateOfficialPostSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(ok(await updateOfficialListing(routeIdParam(req.params.id), req.body)));
+      res.json(ok(await updateOfficialPost(routeIdParam(req.params.id), req.body)));
     } catch (err) {
       next(err);
     }
@@ -663,10 +663,10 @@ adminRouter.patch(
 );
 
 adminRouter.delete(
-  '/marketplace/listings/:id',
+  '/community/official-posts/:id',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await deleteOfficialListing(routeIdParam(req.params.id));
+      await deleteOfficialPost(routeIdParam(req.params.id));
       res.json(ok({ deleted: true }));
     } catch (err) {
       next(err);

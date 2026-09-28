@@ -266,8 +266,8 @@ test('an official listing is published rather than reviewed', async ({ page }) =
   const admin = await superuserToken();
   const buyer = await seedMother();
 
-  // Published over HTTP rather than through the console's "Add official listing"
-  // modal: that form uploads a photo to Firebase Storage, and the test stack runs an Auth
+  // Published over HTTP rather than through the console's New post → Listing form:
+  // that form uploads a photo to Firebase Storage, and the test stack runs an Auth
   // emulator only. The route is the same one the form posts to; what is left
   // untested is the file picker, which is noted in Docs/testing/e2e-flows.md.
   const official = await seedOfficialListing(admin);
@@ -295,6 +295,41 @@ test('an official listing is published rather than reviewed', async ({ page }) =
   await expect(toast(page, 'Official listing deleted')).toBeVisible();
 
   expect(await postVisibleTo(buyer.token, official.id)).toBe(false);
+});
+
+test('an official event is published from the console and lands in the event feed', async ({
+  page,
+}) => {
+  const mother = await seedMother();
+  const title = `NannyNow picnic ${Date.now()}`;
+
+  await gotoConsole(page, '/community');
+  await page.getByRole('button', { name: 'New post' }).click();
+  await page.getByRole('menuitem', { name: 'Event' }).click();
+
+  // No photo: an event doesn't need one, so the whole form is drivable here
+  // (the listing form is not — see the test above).
+  const dialog = page.getByRole('dialog', { name: 'New official event' });
+  await dialog.getByLabel('Event name').fill(title);
+  await dialog.getByLabel('Date and time').fill('2027-03-14T11:00');
+  await dialog.getByLabel('Location').fill('Merryland Park, Heliopolis');
+
+  const published = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/admin/community/official-posts') &&
+      response.request().method() === 'POST',
+  );
+  await dialog.getByRole('button', { name: 'Publish event' }).click();
+  const { data } = (await (await published).json()) as { data: { id: number } };
+  await expect(toast(page, 'Official event published')).toBeVisible();
+
+  // Live immediately, in the feed the app renders for events.
+  expect(await findInFeed(mother.token, 'event', data.id)).not.toBeNull();
+
+  await openQueue(page, 'Live');
+  const row = await findRow(page, title);
+  await expect(row).toContainText('Official');
+  await expect(row).toContainText('Event');
 });
 
 test('a question waits for review like a listing, and lands in the Q&A feed once approved', async ({

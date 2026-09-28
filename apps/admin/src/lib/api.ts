@@ -41,7 +41,7 @@ import type {
   CreateCampaignInput,
   CreateCertificationInput,
   CreateDurationRuleInput,
-  CreateOfficialListingInput,
+  CreateOfficialPostInput,
   CreatePromoCodeInput,
   CreateSkillInput,
   DurationRule,
@@ -79,7 +79,7 @@ import type {
   UpdateCampaignInput,
   UpdateCertificationInput,
   UpdateDurationRuleInput,
-  UpdateOfficialListingInput,
+  UpdateOfficialPostInput,
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
   UpdateRewardConfigInput,
@@ -684,31 +684,31 @@ export async function rejectPost(id: number, reason: string): Promise<AdminCommu
   return res.data.data;
 }
 
-// ── Official marketplace listings ──────────────────────────────
+// ── Official posts (events, Q&A, listings) ─────────────────────
 
-export async function createOfficialListing(
-  input: CreateOfficialListingInput,
+export async function createOfficialPost(
+  input: CreateOfficialPostInput,
 ): Promise<AdminCommunityPost> {
   const res = await apiClient.post<ApiEnvelope<AdminCommunityPost>>(
-    '/admin/marketplace/listings',
+    '/admin/community/official-posts',
     input,
   );
   return res.data.data;
 }
 
-export async function updateOfficialListing(
+export async function updateOfficialPost(
   id: number,
-  input: UpdateOfficialListingInput,
+  input: UpdateOfficialPostInput,
 ): Promise<AdminCommunityPost> {
   const res = await apiClient.patch<ApiEnvelope<AdminCommunityPost>>(
-    `/admin/marketplace/listings/${id}`,
+    `/admin/community/official-posts/${id}`,
     input,
   );
   return res.data.data;
 }
 
-export async function deleteOfficialListing(id: number): Promise<void> {
-  await apiClient.delete(`/admin/marketplace/listings/${id}`);
+export async function deleteOfficialPost(id: number): Promise<void> {
+  await apiClient.delete(`/admin/community/official-posts/${id}`);
 }
 
 // ── Manual release-test checklist (public /qa page) ────────────

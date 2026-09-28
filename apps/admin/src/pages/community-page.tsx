@@ -9,19 +9,27 @@ import {
 } from '@nanny-app/shared';
 
 import {
-  Button,
+  CalendarClock,
+  ChevronDown,
   ErrorState,
   FilterSelect,
   ICON_SIZE,
+  Menu,
+  MenuItem,
+  MessagesSquare,
   PageHeader,
   Pagination,
   Plus,
   StaleRefreshBanner,
+  Store,
   type TableSort,
   TableSkeleton,
 } from '@admin/components/ui';
 import { PostTable } from '@admin/features/community/post-table';
-import { OfficialListingFormModal } from '@admin/features/marketplace/official-listing-form';
+import {
+  OfficialPostFormModal,
+  type OfficialPostType,
+} from '@admin/features/community/official-post-form';
 import { fetchCommunityPosts } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
@@ -52,7 +60,7 @@ function defaultSort(status: AdminCommunityStatusFilter): TableSort<AdminCommuni
 
 export function CommunityPage() {
   const canManage = useCanManage('marketplace');
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<OfficialPostType | null>(null);
   const [type, setType] = useState<AdminCommunityTypeFilter>('ALL');
   const [status, setStatus] = useState<AdminCommunityStatusFilter>('PENDING');
   const { page, limit, setPage, setLimit, reset } = usePagination();
@@ -69,13 +77,36 @@ export function CommunityPage() {
     <section>
       <PageHeader
         title="Community"
-        subtitle="Review what mothers post — questions, events and listings — before it reaches the feed, and publish official listings of your own."
+        subtitle="Review what mothers post before it reaches the feed, and post events, Q&A and listings as NannyNow."
         action={
           canManage && (
-            <Button onClick={() => setAdding(true)}>
-              <Plus size={ICON_SIZE.inline} aria-hidden />
-              Add official listing
-            </Button>
+            <Menu
+              triggerLabel="New post"
+              triggerClassName="btn btn--primary"
+              trigger={
+                <>
+                  <Plus size={ICON_SIZE.inline} aria-hidden />
+                  New post
+                  <ChevronDown size={ICON_SIZE.inline} aria-hidden />
+                </>
+              }
+            >
+              <MenuItem
+                icon={<CalendarClock size={ICON_SIZE.menu} />}
+                onSelect={() => setAdding('event')}
+              >
+                Event
+              </MenuItem>
+              <MenuItem
+                icon={<MessagesSquare size={ICON_SIZE.menu} />}
+                onSelect={() => setAdding('qa')}
+              >
+                Q&amp;A
+              </MenuItem>
+              <MenuItem icon={<Store size={ICON_SIZE.menu} />} onSelect={() => setAdding('marketplace')}>
+                Listing
+              </MenuItem>
+            </Menu>
           )
         }
       />
@@ -83,6 +114,7 @@ export function CommunityPage() {
       <p className="panel-lead">
         New and edited posts wait here until you approve them. Rejecting one sends the author the
         reason so she can fix it and resubmit — and takes a live post straight out of the feed.
+        Posts you publish here go live at once as NannyNow.
       </p>
 
       <div className="filter-bar">
@@ -140,7 +172,7 @@ export function CommunityPage() {
           )}
         </>
       )}
-      {adding && <OfficialListingFormModal onClose={() => setAdding(false)} />}
+      {adding && <OfficialPostFormModal type={adding} onClose={() => setAdding(null)} />}
     </section>
   );
 }

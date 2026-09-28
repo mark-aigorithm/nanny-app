@@ -22,8 +22,8 @@ import {
   Trash2,
   useToast,
 } from '@admin/components/ui';
-import { OfficialListingFormModal } from '@admin/features/marketplace/official-listing-form';
-import { approvePost, deleteOfficialListing, rejectPost } from '@admin/lib/api';
+import { OfficialPostFormModal } from '@admin/features/community/official-post-form';
+import { approvePost, deleteOfficialPost, rejectPost } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatDateTime, formatEgp } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
@@ -93,13 +93,13 @@ export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteOfficialListing,
-    onSuccess: () => {
+    mutationFn: (post: AdminCommunityPost) => deleteOfficialPost(post.id),
+    onSuccess: (_result, post) => {
       invalidate();
       setDeleting(null);
-      toast.success('Official listing deleted');
+      toast.success(`Official ${nounFor(post)} deleted`);
     },
-    onError: (err) => toast.error('Couldn’t delete listing', apiErrorMessage(err)),
+    onError: (err, post) => toast.error(`Couldn’t delete ${nounFor(post)}`, apiErrorMessage(err)),
   });
 
   const columns: Column<AdminCommunityPost, AdminCommunitySortKey>[] = [
@@ -177,8 +177,8 @@ export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
       render: (post) => formatDateTime(post.createdAt),
     },
     actionsColumn((post) =>
-      // Official listings are edited, never reviewed (approving or rejecting one
-      // is a 400 at the API); everything else is moderated, never edited here.
+      // Official posts are edited, never reviewed (approving or rejecting one is a 400 at the
+      // API); everything else is moderated, never edited here.
       post.isOfficial ? (
         <ActionMenu label={`Actions for ${displayTitle(post)}`} disabled={!canManage}>
           <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(post)}>
@@ -247,16 +247,18 @@ export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
         />
       )}
 
-      {editing && <OfficialListingFormModal listing={editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <OfficialPostFormModal type={editing.type} post={editing} onClose={() => setEditing(null)} />
+      )}
 
       {deleting && (
         <ConfirmDialog
-          title="Delete official listing"
-          message={`Delete “${displayTitle(deleting)}”? It disappears from the marketplace immediately.`}
-          confirmLabel="Delete listing"
+          title={`Delete official ${nounFor(deleting)}`}
+          message={`Delete “${displayTitle(deleting)}”? It disappears from the app immediately.`}
+          confirmLabel={`Delete ${nounFor(deleting)}`}
           danger
           busy={deleteMutation.isPending}
-          onConfirm={() => deleteMutation.mutate(deleting.id)}
+          onConfirm={() => deleteMutation.mutate(deleting)}
           onCancel={() => setDeleting(null)}
         />
       )}
