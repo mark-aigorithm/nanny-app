@@ -46,8 +46,11 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 // The Requests tab shows the OPEN broadcast pool (unassigned requests any nanny
 // can claim), not the nanny's own bookings — so it uses a different endpoint.
+// Upcoming includes bookings she has claimed that the parent hasn't paid for
+// yet (APPROVED, plus legacy PENDING_CONFIRMATION) — otherwise a claimed
+// request vanishes from every tab until the payment lands.
 const STATUS_BY_FILTER: Record<Exclude<FilterKey, 'requests'>, string> = {
-  upcoming: 'CONFIRMED,IN_PROGRESS',
+  upcoming: 'APPROVED,PENDING_CONFIRMATION,CONFIRMED,IN_PROGRESS',
   past: 'COMPLETED',
   declined: 'CANCELLED',
 };
@@ -108,6 +111,8 @@ export default function NannyRequestsScreen() {
     const showBalanceBlocked =
       activeFilter === 'upcoming' && nearestBooking?.id === booking.id && blockedByBalanceDue;
     const isClaiming = acceptBooking.isPending && acceptBooking.variables === booking.id;
+    const isAwaitingPayment =
+      booking.status === 'APPROVED' || booking.status === 'PENDING_CONFIRMATION';
 
     return (
       <View key={booking.id} style={styles.requestCard}>
@@ -234,6 +239,12 @@ export default function NannyRequestsScreen() {
                 <Text style={styles.declineButtonText}>End shift</Text>
               </Pressable>
             ) : null}
+          </View>
+        ) : isAwaitingPayment ? (
+          <View style={[styles.statusBadge, styles.statusAwaitingPayment]}>
+            <Text style={[styles.statusText, styles.statusAwaitingPaymentText]}>
+              Awaiting parent payment
+            </Text>
           </View>
         ) : (
           <View style={[styles.statusBadge,
