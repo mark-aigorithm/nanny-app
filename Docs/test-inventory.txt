@@ -95,7 +95,7 @@ apps/backend/src/__tests__/admin-id-review.service.test.ts  (5 tests)
         - maps a row: id is the User id the mother endpoints are keyed by
         - drops the "-" placeholder last name from the display name
 
-apps/backend/src/__tests__/admin-marketplace.service.test.ts  (13 tests)
+apps/backend/src/__tests__/admin-official-post.service.test.ts  (13 tests)
     listMarketplaceListings
         - defaults the queue to pending, oldest submission first
         - drops the status filter for ALL
@@ -108,9 +108,9 @@ apps/backend/src/__tests__/admin-marketplace.service.test.ts  (13 tests)
         - stores the reason and tells the seller what to fix
         - takes down an already-approved listing
         - refuses to reject an official listing
-    createOfficialListing
+    createOfficialPost
         - publishes an approved, pinned listing authored by the admin
-    updateOfficialListing / deleteOfficialListing
+    updateOfficialPost / deleteOfficialPost
         - rejects editing a seller listing through the official endpoint
         - soft-deletes an official listing and its comments
         - refuses to delete a seller listing

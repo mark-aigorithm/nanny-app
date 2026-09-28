@@ -109,9 +109,17 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
     pattern: '/community/posts/:id/reject',
     requires: section('marketplace', 'MANAGE'),
   },
-  { method: 'POST', pattern: '/marketplace/listings', requires: section('marketplace', 'MANAGE') },
-  { method: 'PATCH', pattern: '/marketplace/listings/:id', requires: section('marketplace', 'MANAGE') },
-  { method: 'DELETE', pattern: '/marketplace/listings/:id', requires: section('marketplace', 'MANAGE') },
+  { method: 'POST', pattern: '/community/official-posts', requires: section('marketplace', 'MANAGE') },
+  {
+    method: 'PATCH',
+    pattern: '/community/official-posts/:id',
+    requires: section('marketplace', 'MANAGE'),
+  },
+  {
+    method: 'DELETE',
+    pattern: '/community/official-posts/:id',
+    requires: section('marketplace', 'MANAGE'),
+  },
 
   // ── Admin & operator accounts (root only) ───────────────────
   { method: 'GET', pattern: '/admins', requires: SUPERUSER },

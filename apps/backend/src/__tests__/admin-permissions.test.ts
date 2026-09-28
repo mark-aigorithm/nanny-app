@@ -123,7 +123,7 @@ describe('privilege evaluation', () => {
   it('keeps sections independent — Community access grants nothing else', () => {
     const perms: OperatorPermissions = { marketplace: 'MANAGE' };
     expect(allows('POST', '/community/posts/3/approve', 'OPERATOR', perms)).toBe(true);
-    expect(allows('POST', '/marketplace/listings', 'OPERATOR', perms)).toBe(true);
+    expect(allows('POST', '/community/official-posts', 'OPERATOR', perms)).toBe(true);
     expect(allows('GET', '/bookings', 'OPERATOR', perms)).toBe(false);
     expect(allows('GET', '/rewards/wallets', 'OPERATOR', perms)).toBe(false);
     expect(allows('PATCH', '/mothers/8', 'OPERATOR', perms)).toBe(false);
