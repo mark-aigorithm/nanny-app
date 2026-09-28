@@ -1021,6 +1021,200 @@ input[type='number'] {
   font-weight: 500;
 }
 
+/* ── Booking detail ─────────────────────────────────────── */
+
+/* The mommy or nanny on a booking: name links to their profile. */
+.booking-party {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.booking-party-name {
+  align-self: flex-start;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.booking-party-name:hover,
+.booking-party-name:focus-visible {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+.booking-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.booking-children li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
+.booking-reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.booking-reference .copy-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.booking-reference .copy-btn svg {
+  color: var(--color-text-muted);
+}
+
+.booking-reference .copy-btn:hover svg {
+  color: var(--color-primary-dark);
+}
+
+.detail-note {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  border: 1px solid var(--color-warm-border);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* The pricing breakdown as a receipt: labels left, amounts right-aligned in
+   tabular figures so the column of numbers lines up. */
+.receipt {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px dashed var(--color-warm-border);
+  font-size: 0.93rem;
+}
+
+.receipt-row:last-child {
+  border-bottom: none;
+}
+
+.receipt-row dt {
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.receipt-row dd {
+  margin: 0;
+  flex: none;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-row--sub dt,
+.receipt-row--sub dd {
+  font-weight: 700;
+}
+
+.receipt-row--discount dd {
+  color: var(--color-success-text);
+}
+
+.receipt-row--total {
+  margin-top: 0.35rem;
+  padding-top: 0.8rem;
+  border-top: 2px solid var(--color-warm-border);
+  border-bottom: none;
+  font-size: 1.05rem;
+}
+
+.receipt-row--total dt,
+.receipt-row--total dd {
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+/* What has happened so far: a vertical rail of dots, done steps filled sage,
+   steps still to come hollow and dimmed. */
+.booking-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.booking-timeline-step {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  padding: 0 0 1.1rem 1.6rem;
+}
+
+.booking-timeline-step:last-child {
+  padding-bottom: 0;
+}
+
+.booking-timeline-step::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.3rem;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-dark);
+  border: 2px solid var(--color-primary-dark);
+}
+
+.booking-timeline-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1.1rem;
+  bottom: 0.1rem;
+  width: 2px;
+  background: var(--color-warm-border);
+}
+
+.booking-timeline-label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.booking-timeline-time {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-timeline-step--pending::before {
+  background: var(--color-surface);
+  border-color: var(--color-warm-border);
+}
+
+.booking-timeline-step--pending .booking-timeline-label,
+.booking-timeline-step--pending .booking-timeline-time {
+  color: var(--color-text-placeholder);
+  font-weight: 500;
+}
+
 /* ── Addresses ──────────────────────────────────────────── */
 
 /* A mother's address book on her detail page — read-only. */

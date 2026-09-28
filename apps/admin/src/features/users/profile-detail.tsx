@@ -61,30 +61,47 @@ export function ProfileSummary({
           <VerifiedBadge label="Email" verified={isEmailVerified} />
           <VerifiedBadge label="Phone" verified={isPhoneVerified} />
         </div>
-        <ul className="profile-summary-contact">
-          <li>
-            <Mail size={ICON_SIZE.inline} aria-label="Email" />
+        <ContactLinks email={email} phone={phone} />
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Email and phone with an icon each: the email opens a new message, the phone
+ * starts a call, and each has a copy button beside it. Also used for the two
+ * parties on a booking.
+ */
+export function ContactLinks({ email, phone }: { email: string | null; phone: string | null }) {
+  return (
+    <ul className="profile-summary-contact">
+      <li>
+        <Mail size={ICON_SIZE.inline} aria-label="Email" />
+        {email ? (
+          <>
             <a className="profile-summary-link" href={`mailto:${email}`}>
               {email}
             </a>
             <CopyButton value={email} label="Email" />
-          </li>
-          <li>
-            <Phone size={ICON_SIZE.inline} aria-label="Phone" />
-            {phone ? (
-              <>
-                <a className="profile-summary-link" href={`tel:${telNumber(phone)}`}>
-                  {phone}
-                </a>
-                <CopyButton value={phone} label="Phone number" />
-              </>
-            ) : (
-              <span className="table-empty">—</span>
-            )}
-          </li>
-        </ul>
-      </div>
-    </Card>
+          </>
+        ) : (
+          <span className="table-empty">—</span>
+        )}
+      </li>
+      <li>
+        <Phone size={ICON_SIZE.inline} aria-label="Phone" />
+        {phone ? (
+          <>
+            <a className="profile-summary-link" href={`tel:${telNumber(phone)}`}>
+              {phone}
+            </a>
+            <CopyButton value={phone} label="Phone number" />
+          </>
+        ) : (
+          <span className="table-empty">—</span>
+        )}
+      </li>
+    </ul>
   );
 }
 

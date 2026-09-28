@@ -16,6 +16,29 @@ export function formatDateTime(iso: string): string {
 }
 
 /**
+ * A booking's time window on one line, in the platform's timezone:
+ * "Sat, 26 Sept 2026 · 14:00 – 17:00". An overnight booking spells out the end
+ * day too, so it never reads as ending before it starts.
+ */
+export function formatTimeRange(startIso: string, endIso: string): string {
+  const day = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: PLATFORM_TIMEZONE,
+    });
+  const time = (iso: string) =>
+    new Date(iso).toLocaleTimeString('en-GB', { timeStyle: 'short', timeZone: PLATFORM_TIMEZONE });
+  const startDay = day(startIso);
+  const endDay = day(endIso);
+  return startDay === endDay
+    ? `${startDay} · ${time(startIso)} – ${time(endIso)}`
+    : `${startDay} · ${time(startIso)} – ${endDay} · ${time(endIso)}`;
+}
+
+/**
  * Booking `startTime`/`endTime` → a value for <input type="datetime-local">.
  *
  * The API sends platform wall-clock plus its offset, and the input wants bare

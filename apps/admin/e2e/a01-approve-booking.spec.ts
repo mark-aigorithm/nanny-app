@@ -47,7 +47,7 @@ test('opens a booking by clicking its row', async ({ page }) => {
   await rowFor(page, booking.mother.surname).click();
 
   await expect(page).toHaveURL(new RegExp(`/bookings/${booking.id}$`));
-  await expect(page.getByRole('heading', { name: 'Booking details' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: `Booking #${booking.id}` })).toBeVisible();
   await expect(page.getByText('No payment has been made for this booking yet.')).toBeVisible();
 });
 
@@ -74,7 +74,8 @@ test('shows the money and both parties on the detail page', async ({ page }) => 
 
   await page.goto(`/bookings/${booking.id}`);
 
-  await expect(page.getByText(`${booking.mother.displayName} · confirmed`)).toBeVisible();
+  await expect(page.locator('.profile-summary')).toContainText('confirmed');
+  await expect(page.getByRole('link', { name: booking.mother.displayName })).toBeVisible();
   await expect(page.getByText(booking.nanny.displayName).first()).toBeVisible();
 
   // The 80/20 split the pricing engine produced, rendered for the operator.
