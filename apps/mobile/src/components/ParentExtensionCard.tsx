@@ -5,16 +5,11 @@ import { useRouter } from 'expo-router';
 import type { BookingResponse } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 
-import { Button, Chip } from '@mobile/components/ui';
-import {
-  useCancelExtension,
-  useEndBooking,
-  useRequestExtension,
-} from '@mobile/hooks/useBookings';
+import { Button } from '@mobile/components/ui';
+import { hourLabel, useShiftActions } from '@mobile/hooks/useShiftActions';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors, borderRadius, shadows, spacing, typeScale } from '@mobile/theme';
-import { confirmDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
 
 interface Props {
   booking: BookingResponse;
@@ -28,96 +23,36 @@ function formatRemaining(msLeft: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function hourLabel(hours: number): string {
-  return `+${hours} hour${hours === 1 ? '' : 's'}`;
-}
-
 /**
- * The parent's controls while a shift is actually running: end it early, or ask
- * the nanny for more hours.
+ * An extension the mother asked for that is still in flight: waiting on the
+ * nanny, or accepted and waiting on payment. Renders nothing otherwise — the
+ * idle "Extend / End" controls live on the live shift card above it.
  *
- * The card is a small state machine driven entirely by `booking.activeExtension`
- * — "is a request in flight" is never tracked locally, so the state survives
- * backgrounding the app and stays correct when the nanny's answer arrives while
- * the screen is already open.
+ * Driven entirely by `booking.activeExtension`; "is a request in flight" is
+ * never tracked locally, so the state survives backgrounding the app and stays
+ * correct when the nanny's answer arrives while the screen is already open.
  */
-export default function ParentShiftControlsCard({ booking }: Props) {
+export default function ParentExtensionCard({ booking }: Props) {
   const router = useRouter();
   const role = useUserProfileStore((s) => s.profile?.role);
-
-  const endBooking = useEndBooking();
-  const requestExtension = useRequestExtension();
-  const cancelExtension = useCancelExtension();
-
-  const [picking, setPicking] = useState(false);
+  const { nannyName, withdraw, isWithdrawing } = useShiftActions(booking);
   const [now, setNow] = useState(() => Date.now());
 
   const extension = booking.activeExtension;
-  const isRunning = booking.status === 'IN_PROGRESS';
 
-  // Tick only while a deadline is on screen — no reason to re-render once the
-  // card is just showing the two buttons.
+  // Tick only while a deadline is on screen.
   useEffect(() => {
     if (!extension) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [extension]);
 
-  const nannyName = booking.nanny?.firstName ?? 'your nanny';
   const msLeft = useMemo(
     () => (extension ? new Date(extension.expiresAt).getTime() - now : 0),
     [extension, now],
   );
 
-  if (role !== Role.MOTHER || !isRunning) return null;
-
-  const handleEnd = () => {
-    confirmDialog({
-      title: 'End this booking?',
-      message: `This ends the shift now and ${nannyName} will be told you're done. The hours you've already paid for aren't refunded.`,
-      confirmLabel: 'End booking',
-      cancelLabel: 'Keep going',
-      destructive: true,
-      onConfirm: () =>
-        endBooking.mutate(booking.id, {
-          onError: (err) =>
-            noticeDialog({ title: 'Could not end the booking', message: err.message }),
-        }),
-    });
-  };
-
-  const handlePickHours = (hours: number) => {
-    confirmDialog({
-      title: `Ask for ${hourLabel(hours).toLowerCase()}?`,
-      message: `We'll send a request to ${nannyName} to confirm she can stay. If she accepts, you'll be asked to pay for the extra time before it's added to your booking.`,
-      confirmLabel: 'Send request',
-      cancelLabel: 'Not now',
-      onConfirm: () =>
-        requestExtension.mutate(
-          { bookingId: booking.id, hours },
-          {
-            onSuccess: () => setPicking(false),
-            onError: (err) =>
-              noticeDialog({ title: 'Could not send the request', message: err.message }),
-          },
-        ),
-    });
-  };
-
-  const handleWithdraw = () => {
-    if (!extension) return;
-    confirmDialog({
-      title: 'Withdraw this request?',
-      message: `${nannyName} will no longer be asked to stay longer.`,
-      confirmLabel: 'Withdraw',
-      cancelLabel: 'Keep waiting',
-      destructive: true,
-      onConfirm: () =>
-        cancelExtension.mutate(extension.id, {
-          onError: (err) => noticeDialog({ title: 'Could not withdraw', message: err.message }),
-        }),
-    });
-  };
+  if (role !== Role.MOTHER || booking.status !== 'IN_PROGRESS' || !extension) return null;
 
   // ── Accepted: she owes money, and this is her route to checkout ───────────
   if (extension?.status === 'ACCEPTED') {
@@ -159,9 +94,9 @@ export default function ParentShiftControlsCard({ booking }: Props) {
         <Button
           title="Never mind"
           variant="text"
-          onPress={handleWithdraw}
-          loading={cancelExtension.isPending}
-          disabled={cancelExtension.isPending}
+          onPress={withdraw}
+          loading={isWithdrawing}
+          disabled={isWithdrawing}
         />
       </View>
     );
@@ -191,67 +126,15 @@ export default function ParentShiftControlsCard({ booking }: Props) {
         <Button
           title="Withdraw request"
           variant="outline"
-          onPress={handleWithdraw}
-          loading={cancelExtension.isPending}
-          disabled={cancelExtension.isPending}
+          onPress={withdraw}
+          loading={isWithdrawing}
+          disabled={isWithdrawing}
         />
       </View>
     );
   }
 
-  // ── Idle: end the shift, or start an extension ────────────────────────────
-  return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="time-outline" size={18} color={colors.primary} />
-        </View>
-        <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>SHIFT IN PROGRESS</Text>
-          <Text style={styles.title}>Need more time, or all done?</Text>
-        </View>
-      </View>
-
-      {picking ? (
-        <>
-          <Text style={styles.hint}>How much longer do you need?</Text>
-          <View style={styles.chipRow}>
-            {booking.extendableHours.map((hours) => (
-              <Chip key={hours} label={hourLabel(hours)} onPress={() => handlePickHours(hours)} />
-            ))}
-          </View>
-          <Button
-            title="Cancel"
-            variant="text"
-            onPress={() => setPicking(false)}
-            disabled={requestExtension.isPending}
-          />
-        </>
-      ) : (
-        <>
-          {booking.canExtend ? (
-            <Button
-              title="Extend booking"
-              variant="outline"
-              icon="add-circle-outline"
-              onPress={() => setPicking(true)}
-            />
-          ) : (
-            // The server decides what's extendable, so explain why nothing is
-            // on offer rather than showing a button that would only 400.
-            <Text style={styles.hint}>This booking can't be extended any further today.</Text>
-          )}
-          <Button
-            title="End booking"
-            variant="destructive"
-            onPress={handleEnd}
-            loading={endBooking.isPending}
-            disabled={endBooking.isPending}
-          />
-        </>
-      )}
-    </View>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -297,11 +180,6 @@ const styles = StyleSheet.create({
   hint: {
     ...typeScale.bodySm,
     color: colors.textSecondary,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   amountRow: {
     flexDirection: 'row',

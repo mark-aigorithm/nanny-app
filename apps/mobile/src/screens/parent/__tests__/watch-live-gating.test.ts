@@ -5,8 +5,9 @@ import type { BookingResponse } from '@nanny-app/shared';
  * wrong is user-visible: showing it without a camera dead-ends the parent, and
  * showing it outside the shift exposes a feed that the backend will refuse.
  *
- * This mirrors the expression in BookingDetailScreen. Kept as a pure predicate
- * so the rule is testable without mounting the screen.
+ * This mirrors LiveShiftCard, which only renders during the shift and shows the
+ * button when `hasCamera`. Kept as a pure predicate so the rule is testable
+ * without mounting the screen.
  */
 function canWatchLive(booking: Pick<BookingResponse, 'status' | 'hasCamera'>): boolean {
   return booking.status === 'IN_PROGRESS' && booking.hasCamera;

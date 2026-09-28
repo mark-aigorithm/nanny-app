@@ -3,7 +3,7 @@ import React from 'react';
 import { ScrollView, View } from 'react-native';
 import type { BookingExtensionResponse, BookingResponse } from '@nanny-app/shared';
 
-import ParentShiftControlsCard from '@mobile/components/ParentShiftControlsCard';
+import ParentExtensionCard from '@mobile/components/ParentExtensionCard';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors, spacing } from '@mobile/theme';
 import { mockBooking, PreviewProviders } from './harness';
@@ -66,16 +66,13 @@ export default function ShiftControlsPreview() {
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
       >
-        {/* Idle — the two controls */}
-        <ParentShiftControlsCard booking={running()} />
-
         {/* Waiting on the nanny */}
-        <ParentShiftControlsCard
+        <ParentExtensionCard
           booking={running({ activeExtension: mockExtension() })}
         />
 
         {/* Accepted — the one state that needs her to pay */}
-        <ParentShiftControlsCard
+        <ParentExtensionCard
           booking={running({ activeExtension: mockExtension({ status: 'ACCEPTED' }) })}
         />
 

@@ -1,364 +1,58 @@
 import { StyleSheet } from 'react-native';
-import {
-  colors,
-  fontFamily,
-  typeScale,
-  spacing,
-  screenPadding,
-  borderRadius,
-  shadows,
-  STATUS_BAR_HEIGHT,
-  HEADER_HEIGHT,
-} from '@mobile/theme';
+import { colors, typeScale, spacing, screenPadding, borderRadius, shadows } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
+  loading: {
     flex: 1,
-    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: HEADER_HEIGHT + spacing.lg,
+    paddingTop: spacing.sm,
     paddingHorizontal: screenPadding,
-    paddingBottom: 140,
-    gap: spacing['2xl'],
+    paddingBottom: spacing['4xl'],
+    gap: spacing['3xl'],
+  },
+  // The booking card and whatever it is waiting on (payment, PIN, extension)
+  // read as one group, so they sit closer than the sections below.
+  top: {
+    gap: spacing.md,
   },
 
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    zIndex: 100,
-  },
-  headerRow: {
+  // "Something wrong? Contact support"
+  support: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.md,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.warmSubtle,
+    ...shadows.sm,
   },
-  headerTitle: {
-    ...typeScale.headingLg,
-    color: colors.textPrimary,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
+  supportIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Status badge
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  statusConfirmed: {
-    backgroundColor: colors.successLight,
-  },
-  statusCompleted: {
-    backgroundColor: colors.taupe,
-  },
-  statusCancelled: {
-    backgroundColor: colors.errorLight,
-  },
-  statusPending: {
-    backgroundColor: colors.taupeLight,
-  },
-  statusText: {
-    ...typeScale.captionBold,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  statusTextConfirmed: {
-    color: colors.successDark,
-  },
-  statusTextCompleted: {
-    color: colors.textMuted,
-  },
-  statusTextCancelled: {
-    color: colors.error,
-  },
-  statusTextPending: {
-    color: colors.textTertiary,
-  },
-
-  // Nanny card
-  nannyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    ...shadows.sm,
-  },
-  nannyPhoto: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.surfaceMuted,
-  },
-  nannyInfo: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  nannyNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  nannyName: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  ratingText: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
-  },
-
-  // Details section
-  detailsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    gap: spacing.lg,
-    ...shadows.sm,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  detailLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  detailLabel: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
-  },
-  detailValue: {
-    ...typeScale.labelMd,
-    color: colors.textPrimary,
-  },
-
-  // Special instructions
-  instructionsCard: {
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  instructionsLabel: {
-    ...typeScale.labelSm,
-    color: colors.textTertiary,
-  },
-  instructionsText: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-  },
-
-  // Payment summary
-  paymentCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.warmBorder,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  paymentRowLabel: {
+  supportText: {
     flex: 1,
     gap: spacing.xxs,
   },
-  /** The arithmetic behind a row, e.g. "EGP 30/hr x 4h". */
-  paymentMath: {
-    ...typeScale.caption,
-    color: colors.textMuted,
+  supportTitle: {
+    ...typeScale.labelLg,
+    color: colors.textPrimary,
   },
-  paymentMutedValue: {
+  supportSub: {
     ...typeScale.bodySm,
     color: colors.textMuted,
-  },
-  paymentStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.taupeLight,
-  },
-  paymentStatusText: {
-    ...typeScale.captionBold,
-    color: colors.textTertiary,
-  },
-  paymentLabel: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-  },
-  paymentValue: {
-    ...typeScale.labelMd,
-    color: colors.textPrimary,
-  },
-  paymentDivider: {
-    borderTopWidth: 1,
-    borderTopColor: colors.taupeLight,
-  },
-  paymentTotalLabel: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-  },
-  paymentTotalValue: {
-    ...typeScale.headingSm,
-    color: colors.primary,
-  },
-
-  // Actions
-  actionsSection: {
-    gap: spacing.md,
-  },
-  payButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    height: 48,
-    borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
-    ...shadows.md,
-  },
-  payButtonText: {
-    ...typeScale.labelMd,
-    fontFamily: fontFamily.bold,
-    color: colors.white,
-  },
-  watchLiveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    height: 48,
-    borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
-    ...shadows.md,
-  },
-  watchLiveButtonText: {
-    ...typeScale.labelMd,
-    fontFamily: fontFamily.bold,
-    color: colors.white,
-  },
-  careLogSection: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
-    ...shadows.sm,
-  },
-  careLogSectionTitle: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-  },
-  careLogEmpty: {
-    ...typeScale.bodyMd,
-    color: colors.textMuted,
-  },
-  careLogList: {
-    gap: spacing.sm,
-  },
-  careLogEntry: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  careLogEntryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  careLogEntryType: {
-    ...typeScale.labelMd,
-    fontFamily: fontFamily.semiBold,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  careLogEntryTime: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
-  },
-  careLogEntryNotes: {
-    ...typeScale.bodySm,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  careLogLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.xs,
-  },
-  careLogLinkText: {
-    ...typeScale.labelMd,
-    fontFamily: fontFamily.semiBold,
-    color: colors.primaryDark,
-  },
-  cancelButton: {
-    height: 48,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1.5,
-    borderColor: colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    ...typeScale.labelMd,
-    color: colors.error,
-  },
-  rescheduleButton: {
-    height: 48,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rescheduleButtonText: {
-    ...typeScale.labelMd,
-    color: colors.primary,
-  },
-  messageButton: {
-    height: 48,
-    borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  messageButtonText: {
-    ...typeScale.labelMd,
-    fontFamily: fontFamily.bold,
-    color: colors.white,
   },
 });
