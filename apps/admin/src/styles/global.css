@@ -226,6 +226,12 @@ h3 {
   min-width: 0;
   max-width: 100%;
   padding: 2.5rem 3rem;
+  /* Backstop: nothing inside the content column may widen the page, or phones
+     let the whole console pan sideways. `clip` (unlike `hidden`) keeps the
+     sticky mobile app bar working; `relative` makes stray absolutely positioned
+     content (visually hidden labels/inputs) clip here too. */
+  position: relative;
+  overflow-x: clip;
 }
 
 /* Content fills the available width (no dead right-side gap). Wide tables scroll
@@ -428,7 +434,11 @@ input[type='number'] {
 
 /* ── Table ──────────────────────────────────────────────── */
 
+/* `position: relative` makes this the containing block for absolutely positioned
+   cell content (the actions column's `.sr-only` header). Without it that content
+   escapes the scroller and widens the whole page, which then pans sideways on phones. */
 .table-wrap {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -3654,6 +3664,7 @@ input[type='number'] {
 
 /* Toggle switch */
 .switch {
+  position: relative; /* anchors the visually hidden input below */
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
@@ -4425,6 +4436,7 @@ input[type='number'] {
 /* The radio itself is hidden — the label is the target, so the three levels
    read as one segmented control rather than a column of loose radios. */
 .perm-choice {
+  position: relative; /* anchors the visually hidden input below */
   display: inline-flex;
   align-items: center;
   padding: 0.3rem 0.7rem;
