@@ -12,6 +12,8 @@ export type Column<T, K extends string = string> = {
   header: ReactNode;
   render: (row: T) => ReactNode;
   align?: 'left' | 'right' | 'center';
+  /** The column's share of the table, e.g. '60%' — for the one column that should get the room. */
+  width?: string;
   /** Keep the cell on one line (useful in the wrapping variant). */
   nowrap?: boolean;
   /**
@@ -191,7 +193,13 @@ type HeaderCellProps<T, K extends string> = {
 
 /** A column header — a sort button when the column is sortable. */
 function HeaderCell<T, K extends string>({ column, sort, onSortChange }: HeaderCellProps<T, K>) {
-  const style = column.align ? { textAlign: column.align } : undefined;
+  const style =
+    column.align || column.width
+      ? {
+          ...(column.align && { textAlign: column.align }),
+          ...(column.width && { width: column.width }),
+        }
+      : undefined;
   const { sortKey } = column;
   if (sortKey === undefined || !onSortChange) {
     return <th style={style}>{column.header}</th>;

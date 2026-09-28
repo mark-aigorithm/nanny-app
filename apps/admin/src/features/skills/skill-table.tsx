@@ -26,7 +26,7 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-type SkillSortKey = 'id' | 'name' | 'description' | 'status';
+type SkillSortKey = 'id' | 'name' | 'status';
 
 type SkillTableProps = {
   skills: Skill[];
@@ -46,7 +46,6 @@ export function SkillTable({ skills }: SkillTableProps) {
     {
       id: (row) => row.id,
       name: (skill) => skill.name,
-      description: (skill) => skill.description,
       status: (skill) => (skill.isActive ? 'Active' : 'Inactive'),
     },
     { sortBy: 'name', sortDir: 'asc' },
@@ -73,13 +72,8 @@ export function SkillTable({ skills }: SkillTableProps) {
 
   const columns: Column<Skill, SkillSortKey>[] = [
     idColumn((row) => row.id, 'id'),
-    { key: 'name', header: 'Name', sortKey: 'name', render: (skill) => skill.name },
-    {
-      key: 'description',
-      header: 'Description',
-      sortKey: 'description',
-      render: (skill) => skill.description ?? <span className="table-empty">—</span>,
-    },
+    // The name gets the room; a skill's description lives in its edit dialog.
+    { key: 'name', header: 'Name', sortKey: 'name', width: '60%', render: (skill) => skill.name },
     {
       key: 'status',
       header: 'Status',

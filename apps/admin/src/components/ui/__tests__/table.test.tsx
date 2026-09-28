@@ -55,6 +55,18 @@ describe('Table sorting', () => {
     expect(onSortChange).toHaveBeenCalledWith({ sortBy: 'joined', sortDir: 'desc' });
   });
 
+  it('gives a column the width it asks for', () => {
+    render(
+      <Table
+        columns={[{ key: 'name', header: 'Name', width: '60%', render: (row: Row) => row.name }]}
+        rows={rows}
+        rowKey={(row) => row.id}
+      />,
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '60%' });
+  });
+
   it('renders plain headers when the table is not sortable', () => {
     render(<Table columns={columns} rows={rows} rowKey={(row) => row.id} />);
 

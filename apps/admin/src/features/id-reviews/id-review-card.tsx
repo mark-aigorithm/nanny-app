@@ -1,11 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import {
-  idTypeRequiresBack,
-  type AdminIdReview,
-  type IdDocumentType,
-} from '@nanny-app/shared';
+import { idTypeRequiresBack, type AdminIdReview, type IdDocumentType } from '@nanny-app/shared';
 
 import {
   Badge,
@@ -22,7 +18,6 @@ import { approveMother, rejectMother } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
-import { initials } from '@admin/lib/format';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
@@ -81,18 +76,15 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
   const canReview = canManage && review.approvalStatus === 'PENDING_REVIEW';
   const hasImages = Boolean(review.idDocumentFrontUrl || review.idDocumentBackUrl);
   const showBack = review.idDocumentType != null && idTypeRequiresBack(review.idDocumentType);
-  const idTypeLabel = review.idDocumentType ? ID_TYPE_LABEL[review.idDocumentType] : 'No ID on file';
+  const idTypeLabel = review.idDocumentType
+    ? ID_TYPE_LABEL[review.idDocumentType]
+    : 'No ID on file';
 
   return (
     <div className="id-review-card">
       <div className="id-review-card-head">
-        {review.avatarUrl ? (
-          <img className="id-review-avatar" src={review.avatarUrl} alt="" />
-        ) : (
-          <span className="id-review-avatar id-review-avatar--fallback" aria-hidden>
-            {initials(review.name) || '?'}
-          </span>
-        )}
+        {/* Her own photo, to hold up against the ID's — no initials stand-in without one. */}
+        {review.avatarUrl && <img className="id-review-avatar" src={review.avatarUrl} alt="" />}
         <div className="id-review-identity">
           <span className="id-review-name">{review.name}</span>
           <span className="id-review-sub">{idTypeLabel}</span>
@@ -150,12 +142,7 @@ export function IdReviewCard({ review }: { review: AdminIdReview }) {
             <Check size={ICON_SIZE.inline} aria-hidden />
             Approve
           </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            disabled={mutating}
-            onClick={() => setRejecting(true)}
-          >
+          <Button variant="danger" size="sm" disabled={mutating} onClick={() => setRejecting(true)}>
             <Ban size={ICON_SIZE.inline} aria-hidden />
             Reject
           </Button>
