@@ -1042,20 +1042,6 @@ export const RejectPostSchema = z.object({
 });
 export type RejectPostInput = z.infer<typeof RejectPostSchema>;
 
-/** Official ("Sold by NannyNow") listing an admin publishes directly. */
-export const CreateOfficialListingSchema = z.object({
-  title: z.string().trim().min(1, 'Product name is required').max(200),
-  body: z.string().trim().max(2000).optional(),
-  price: z.number().positive('Price must be greater than 0'),
-  imageUrls: z.array(z.string().url()).min(1, 'At least one image is required').max(4),
-  tags: z.array(CommunityTagSchema).max(5).default([]),
-  contactPhone: PhoneNumberSchema,
-});
-export type CreateOfficialListingInput = z.infer<typeof CreateOfficialListingSchema>;
-
-export const UpdateOfficialListingSchema = CreateOfficialListingSchema.partial();
-export type UpdateOfficialListingInput = z.infer<typeof UpdateOfficialListingSchema>;
-
 // ── Official posts (events, Q&A and listings published as NannyNow) ──
 
 const officialTags = z.array(CommunityTagSchema).max(5, 'At most 5 tags allowed').default([]);

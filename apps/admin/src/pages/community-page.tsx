@@ -21,7 +21,7 @@ import {
   TableSkeleton,
 } from '@admin/components/ui';
 import { PostTable } from '@admin/features/community/post-table';
-import { OfficialListingFormModal } from '@admin/features/marketplace/official-listing-form';
+import { OfficialPostFormModal } from '@admin/features/community/official-post-form';
 import { fetchCommunityPosts } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
@@ -140,7 +140,7 @@ export function CommunityPage() {
           )}
         </>
       )}
-      {adding && <OfficialListingFormModal onClose={() => setAdding(false)} />}
+      {adding && <OfficialPostFormModal type="marketplace" onClose={() => setAdding(false)} />}
     </section>
   );
 }
