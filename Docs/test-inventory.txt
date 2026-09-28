@@ -95,25 +95,21 @@ apps/backend/src/__tests__/admin-id-review.service.test.ts  (5 tests)
         - maps a row: id is the User id the mother endpoints are keyed by
         - drops the "-" placeholder last name from the display name
 
-apps/backend/src/__tests__/admin-official-post.service.test.ts  (13 tests)
-    listMarketplaceListings
-        - defaults the queue to pending, oldest submission first
-        - drops the status filter for ALL
-    approveListing
-        - publishes the listing, stamps the reviewer and notifies the seller
-        - is idempotent on an already-approved listing
-        - refuses a non-admin caller
-        - 404s on a listing that does not exist
-    rejectListing
-        - stores the reason and tells the seller what to fix
-        - takes down an already-approved listing
-        - refuses to reject an official listing
+apps/backend/src/__tests__/admin-official-post.service.test.ts  (11 tests)
     createOfficialPost
-        - publishes an approved, pinned listing authored by the admin
-    updateOfficialPost / deleteOfficialPost
-        - rejects editing a seller listing through the official endpoint
-        - soft-deletes an official listing and its comments
-        - refuses to delete a seller listing
+        - publishes a live, official listing with a normalised contact phone
+        - publishes an event, converting Cairo wall-clock to UTC and leaving it free
+        - publishes a Q&A with no title
+    updateOfficialPost
+        - refuses a field that belongs to another type
+        - keeps a listing priced and pictured
+        - keeps a Q&A body and an event name
+        - makes an event free and uncapped again, and moves its time
+        - refuses to edit a member’s post
+        - answers 404 for a missing post
+    deleteOfficialPost
+        - soft-deletes an official event and its comments
+        - refuses to delete a member’s post
 
 apps/backend/src/__tests__/admin-mother.service.test.ts  (16 tests)
     listAdminMothers
@@ -1737,7 +1733,7 @@ apps/admin/e2e/b05-users-and-id-review.spec.ts  (9 tests)
     - a nanny is approved from her own page, and the Nannies queue lets her go
     - rejecting a nanny records the reason she will be shown
 
-apps/admin/e2e/b06-community-moderation.spec.ts  (9 tests)
+apps/admin/e2e/b06-community-moderation.spec.ts  (10 tests)
     - a new listing waits for review and reaches nobody meanwhile
     - approving publishes it and opens the seller’s inbox
     - rejecting sends the seller the reason
@@ -1745,6 +1741,7 @@ apps/admin/e2e/b06-community-moderation.spec.ts  (9 tests)
     - taking down a live listing pulls it out of the feed
     - editing a live listing sends it back through review
     - an official listing is published rather than reviewed
+    - an official event is published from the console and lands in the event feed
     - a question waits for review like a listing, and lands in the Q&A feed once approved
     - taking down a live event closes RSVP with it
 

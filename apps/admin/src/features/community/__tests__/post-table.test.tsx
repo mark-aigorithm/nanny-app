@@ -2,9 +2,8 @@
  * The table now carries every post type. What is worth pinning: a Q&A post
  * with no headline is still identifiable (by its question), an event shows
  * where and when, the decision goes to the community endpoint, and a live
- * post's menu says "Take down" rather than "Reject". An official listing is
- * edited through the same modal the page header's "Add official listing"
- * opens, and the list is sorted by the API, so the page sends the sort.
+ * post's menu says "Take down" rather than "Reject". An official post is
+ * edited through the same form the page header's "New post" menu opens, and the list is sorted by the API, so the page sends the sort.
  */
 import type { AdminCommunityPost, AdminUser } from '@nanny-app/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';

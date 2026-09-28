@@ -319,6 +319,10 @@ form posts to; the console half — the Official badge, the Edit/Delete menu in 
 Approve/Reject, and deleting — is still driven through the UI. A Storage emulator would close the
 gap.
 
+An official **event** needs no photo, so its form is driven end to end: New post → Event, fill in
+the name, date and location, publish, then find it in a mother's event feed and as Official in the
+Live queue.
+
 The queue is walked rather than paged to either end. Pending is oldest-first (a work queue serves the
 longest wait first) while every other filter is newest-first with official listings pinned above the
 rest, and the E2E database is never truncated — so both ends drift with every run that has ever

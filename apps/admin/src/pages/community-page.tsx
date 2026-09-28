@@ -103,7 +103,10 @@ export function CommunityPage() {
               >
                 Q&amp;A
               </MenuItem>
-              <MenuItem icon={<Store size={ICON_SIZE.menu} />} onSelect={() => setAdding('marketplace')}>
+              <MenuItem
+                icon={<Store size={ICON_SIZE.menu} />}
+                onSelect={() => setAdding('marketplace')}
+              >
                 Listing
               </MenuItem>
             </Menu>
