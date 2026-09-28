@@ -331,7 +331,9 @@ h3 {
   color: var(--color-text-secondary);
 }
 
-.field input,
+/* Text-box styling only — a range slider inside a Field keeps its native box,
+   or the padding stops its thumb short of both ends. */
+.field input:not([type='range']),
 .field select {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--color-warm-border);
@@ -347,7 +349,7 @@ h3 {
   color: var(--color-text-placeholder);
 }
 
-.field input:focus,
+.field input:not([type='range']):focus,
 .field select:focus {
   outline: none;
   border-color: var(--color-primary);
