@@ -51,6 +51,11 @@ function nounFor(post: AdminCommunityPost): string {
   return post.type === 'marketplace' ? 'listing' : post.type === 'event' ? 'event' : 'post';
 }
 
+/** What an official post is called when deleting it — the form's own names. */
+function officialNounFor(post: AdminCommunityPost): string {
+  return post.type === 'qa' ? 'Q&A' : nounFor(post);
+}
+
 /** A Q&A post may have no headline; its question is what identifies it. */
 export function displayTitle(post: AdminCommunityPost): string {
   return post.title ?? post.body ?? `Post #${post.id}`;
@@ -97,9 +102,10 @@ export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
     onSuccess: (_result, post) => {
       invalidate();
       setDeleting(null);
-      toast.success(`Official ${nounFor(post)} deleted`);
+      toast.success(`Official ${officialNounFor(post)} deleted`);
     },
-    onError: (err, post) => toast.error(`Couldn’t delete ${nounFor(post)}`, apiErrorMessage(err)),
+    onError: (err, post) =>
+      toast.error(`Couldn’t delete ${officialNounFor(post)}`, apiErrorMessage(err)),
   });
 
   const columns: Column<AdminCommunityPost, AdminCommunitySortKey>[] = [
@@ -248,14 +254,18 @@ export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
       )}
 
       {editing && (
-        <OfficialPostFormModal type={editing.type} post={editing} onClose={() => setEditing(null)} />
+        <OfficialPostFormModal
+          type={editing.type}
+          post={editing}
+          onClose={() => setEditing(null)}
+        />
       )}
 
       {deleting && (
         <ConfirmDialog
-          title={`Delete official ${nounFor(deleting)}`}
+          title={`Delete official ${officialNounFor(deleting)}`}
           message={`Delete “${displayTitle(deleting)}”? It disappears from the app immediately.`}
-          confirmLabel={`Delete ${nounFor(deleting)}`}
+          confirmLabel={`Delete ${officialNounFor(deleting)}`}
           danger
           busy={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate(deleting)}

@@ -376,7 +376,7 @@ export async function updatePost(
     throw errors.forbidden('You can only edit your own posts.');
   }
   if (existing.isOfficial) {
-    throw errors.forbidden('Official listings are managed from the admin console.');
+    throw errors.forbidden('Official posts are managed from the admin console.');
   }
 
   // Any edit sends the post back through review — including an edit to an

@@ -266,7 +266,7 @@ function adminApproveNannyRegistration() {
  * Two notifications for the mother, with nothing left unread behind them.
  *
  * Moderating a marketplace listing is the cheapest way to make one: it notifies
- * the seller directly (admin-marketplace.service) and, unlike every booking
+ * the seller directly (admin-community.service) and, unlike every booking
  * event that notifies a mother, it does not depend on the clock — NANNY_CHECKIN
  * and BOOKING_COMPLETED both need a shift that has actually started.
  *

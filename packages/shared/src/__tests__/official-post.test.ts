@@ -31,7 +31,10 @@ describe('CreateOfficialPostSchema', () => {
   });
 
   it('accepts a Q&A with only a body', () => {
-    const parsed = CreateOfficialPostSchema.parse({ type: 'qa', body: 'Summer hours start Sunday.' });
+    const parsed = CreateOfficialPostSchema.parse({
+      type: 'qa',
+      body: 'Summer hours start Sunday.',
+    });
     expect(parsed).toMatchObject({ type: 'qa', body: 'Summer hours start Sunday.', imageUrls: [] });
   });
 
@@ -40,7 +43,12 @@ describe('CreateOfficialPostSchema', () => {
   });
 
   it('keeps the listing rules: a photo and a contact phone are required', () => {
-    const base = { type: 'marketplace', title: 'Car seat', price: 3500, contactPhone: '+201001234567' };
+    const base = {
+      type: 'marketplace',
+      title: 'Car seat',
+      price: 3500,
+      contactPhone: '+201001234567',
+    };
     expect(CreateOfficialPostSchema.safeParse({ ...base, imageUrls: [] }).success).toBe(false);
     expect(
       CreateOfficialPostSchema.safeParse({ ...base, imageUrls: ['https://cdn.example.com/a.jpg'] })

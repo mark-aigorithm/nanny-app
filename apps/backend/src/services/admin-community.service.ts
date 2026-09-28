@@ -267,7 +267,7 @@ export async function rejectPost(
   const post = await loadPost(id);
 
   if (post.isOfficial) {
-    throw errors.badRequest('Official listings are not reviewed. Delete it instead.');
+    throw errors.badRequest('Official posts are not reviewed. Delete it instead.');
   }
 
   const updated = await prisma.communityPost.update({
