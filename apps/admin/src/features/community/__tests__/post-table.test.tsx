@@ -7,7 +7,7 @@
  * opens, and the list is sorted by the API, so the page sends the sort.
  */
 import type { AdminCommunityPost, AdminUser } from '@nanny-app/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -304,11 +304,12 @@ describe('CommunityPage', () => {
     await waitFor(() => expect(queries.at(-1)?.get('sortDir')).toBe('desc'));
   });
 
-  it('adds an official listing from the header, checking it before it posts', async () => {
+  it('opens the listing form from the New post menu, checking it before it posts', async () => {
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Add official listing' }));
-    const dialog = screen.getByRole('dialog');
+    await userEvent.click(await screen.findByRole('button', { name: 'New post' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Listing' }));
+    const dialog = screen.getByRole('dialog', { name: 'New official listing' });
     await userEvent.type(within(dialog).getByLabelText('Product name'), 'Car seat');
     await userEvent.type(within(dialog).getByLabelText('Price (EGP)'), '3500');
     await userEvent.type(within(dialog).getByLabelText(/Contact number/), '+201001234567');
@@ -316,5 +317,64 @@ describe('CommunityPage', () => {
 
     // No photo yet — caught by the shared schema before any request is made.
     expect(await within(dialog).findByText(/At least one image is required/)).toBeInTheDocument();
+  });
+
+  it('publishes an official event with no photo', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post('/api/admin/community/official-posts', async ({ request }) => {
+        body = await request.json();
+        return ok({ ...BASE, id: 60, type: 'event', title: 'Picnic', isOfficial: true });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'New post' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Event' }));
+    const dialog = screen.getByRole('dialog', { name: 'New official event' });
+    await userEvent.type(within(dialog).getByLabelText('Event name'), 'Picnic');
+    fireEvent.change(within(dialog).getByLabelText('Date and time'), {
+      target: { value: '2026-10-10T11:00' },
+    });
+    await userEvent.type(within(dialog).getByLabelText('Location'), 'Merryland Park');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish event' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        type: 'event',
+        title: 'Picnic',
+        eventStartsAt: '2026-10-10T11:00:00',
+        location: 'Merryland Park',
+        imageUrls: [],
+        tags: [],
+      }),
+    );
+    expect(await screen.findByText('Official event published')).toBeInTheDocument();
+  });
+
+  it('publishes an official Q&A from just its body', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post('/api/admin/community/official-posts', async ({ request }) => {
+        body = await request.json();
+        return ok({ ...BASE, id: 61, type: 'qa', title: null, body: 'Hi', isOfficial: true });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'New post' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Q&A' }));
+    const dialog = screen.getByRole('dialog', { name: 'New official Q&A' });
+    await userEvent.type(within(dialog).getByLabelText('Body'), 'Summer hours start Sunday.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish Q&A' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        type: 'qa',
+        body: 'Summer hours start Sunday.',
+        imageUrls: [],
+        tags: [],
+      }),
+    );
   });
 });
