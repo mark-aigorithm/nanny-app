@@ -330,11 +330,14 @@ async function buildEditPlan(
       const hours = Math.min(Math.floor(carePointsHours), Math.floor(durationHours));
       const pointsCost = hours * rewardConfig.redemptionPointsPerHour;
       const wallet = await getOrCreateWallet(booking.mother.id, db);
+      // The commit releases this booking's current redemption before re-applying,
+      // so those points are spendable again (mirrors availableWithReleased above).
+      const spendablePoints = wallet.pointsBalance + booking.rewardCreditPoints;
       if (hours < 1) {
         warnings.push(block('POINTS_MIN', 'Choose at least one hour of Care Points to redeem.', 'carePointsHours'));
       } else if (pointsCost < rewardConfig.minRedemptionPoints) {
         warnings.push(block('POINTS_MIN', `At least ${rewardConfig.minRedemptionPoints} points must be redeemed at a time.`, 'carePointsHours'));
-      } else if (wallet.pointsBalance < pointsCost) {
+      } else if (spendablePoints < pointsCost) {
         warnings.push(block('POINTS_BALANCE', 'The mother does not have enough Care Points for this redemption.', 'carePointsHours'));
       } else {
         simPointsHours = hours;
@@ -456,7 +459,8 @@ export async function getBookingEditContext(id: number): Promise<AdminBookingEdi
     bookingWindowStartHour: config.bookingWindowStartHour,
     bookingWindowEndHour: config.bookingWindowEndHour,
     carePoints: {
-      pointsBalance: wallet.pointsBalance,
+      // Like package hours below: the points this booking holds are spendable again on edit.
+      pointsBalance: wallet.pointsBalance + booking.rewardCreditPoints,
       redemptionPointsPerHour: rewardConfig.redemptionPointsPerHour,
       minRedemptionPoints: rewardConfig.minRedemptionPoints,
     },

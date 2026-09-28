@@ -87,7 +87,13 @@ import { buildBreakdown, getPricingInputs } from '@backend/services/pricing-conf
 import { getAdminBooking } from '@backend/services/admin-booking.service';
 import { createInAppNotification } from '@backend/services/notification.service';
 import {
+  applyBookingRedemption,
+  getOrCreateWallet,
+  refundBookingRedemption,
+} from '@backend/services/reward.service';
+import {
   applyBookingEdit,
+  getBookingEditContext,
   previewBookingEdit,
 } from '@backend/services/admin-booking-edit.service';
 
@@ -261,5 +267,63 @@ describe('previewBookingEdit — balance-due amount', () => {
     expect(preview.delta).toBe(300);
     expect(preview.balanceDueAmount).toBe(300);
     expect(preview.balanceDueAmount).not.toBe(150); // not the per-hour rate
+  });
+});
+
+/**
+ * A booking that already redeemed Care Points holds them — they left the wallet
+ * at checkout. An edit releases them before re-applying, so the balance check
+ * must count them back in, or re-keeping the booking's own redemption is
+ * refused as "not enough Care Points" (the reported bug: an empty wallet
+ * because every point went into this booking).
+ */
+describe('booking edit — Care Points the booking already holds', () => {
+  const heldBooking = () =>
+    makeEditBooking({
+      rewardCreditHoursApplied: dec(2),
+      rewardCreditPoints: 200,
+      rewardCreditAmount: dec(200),
+    });
+  const keepPoints = { ...editInput, carePointsHours: 2 };
+
+  beforeEach(() => {
+    (getOrCreateWallet as jest.Mock).mockResolvedValue({ pointsBalance: 0 });
+  });
+
+  it('previews re-keeping the redemption instead of blocking it', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(heldBooking());
+
+    const preview = await previewBookingEdit(4, ADMIN_UID, keepPoints);
+
+    expect(preview.warnings.map((w) => w.code)).not.toContain('POINTS_BALANCE');
+    expect(preview.new.rewardCreditPoints).toBe(200);
+    expect(preview.new.rewardCreditAmount).toBe(300); // 2 h × EGP 150
+    expect(preview.new.totalAmount).toBe(300);
+  });
+
+  it('commits the edit with the redemption re-applied', async () => {
+    tx.booking.findFirst.mockResolvedValue(heldBooking());
+    (applyBookingRedemption as jest.Mock).mockResolvedValue({ hours: 2, pointsCost: 200, discount: 300 });
+
+    await applyBookingEdit(4, ADMIN_UID, { ...commitInput, carePointsHours: 2 });
+
+    expect(refundBookingRedemption).toHaveBeenCalledWith(tx, expect.objectContaining({ points: 200 }));
+    expect(applyBookingRedemption).toHaveBeenCalledWith(tx, expect.objectContaining({ redeemHours: 2 }));
+  });
+
+  it('still blocks redeeming more than the wallet plus the held points', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(heldBooking());
+
+    const preview = await previewBookingEdit(4, ADMIN_UID, { ...editInput, carePointsHours: 3 });
+
+    expect(preview.warnings.map((w) => w.code)).toContain('POINTS_BALANCE');
+  });
+
+  it('offers the held points in the editor context', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(heldBooking());
+
+    const context = await getBookingEditContext(4);
+
+    expect(context.carePoints.pointsBalance).toBe(200);
   });
 });
