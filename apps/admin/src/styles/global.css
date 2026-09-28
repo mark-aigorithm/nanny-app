@@ -3877,16 +3877,6 @@ input[type='number'] {
   background: var(--color-surface-muted);
 }
 
-.id-review-avatar--fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary-muted);
-  color: var(--color-primary-dark);
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-
 .id-review-identity {
   display: flex;
   flex-direction: column;

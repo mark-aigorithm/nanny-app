@@ -44,7 +44,7 @@ export function SkillsPage() {
           )
         }
       />
-      {isLoading && <TableSkeleton columns={5} />}
+      {isLoading && <TableSkeleton columns={4} />}
       {error != null && !skills && (
         <ErrorState
           message={apiErrorMessage(error)}
