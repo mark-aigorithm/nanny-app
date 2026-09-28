@@ -2170,6 +2170,11 @@ input[type='number'] {
   margin-left: auto;
 }
 
+/* The wordmark in the mobile app bar — hidden on desktop, where the sidebar shows it. */
+.topbar-brand {
+  display: none;
+}
+
 /* Desktop: the topbar carries only the notification bell (the hamburger is
    hidden above 1024px), so letting it hold a full row leaves an empty band
    above the page title. Pin it into the content's top-right corner instead so
@@ -3332,12 +3337,51 @@ input[type='number'] {
   .admin-content {
     padding: 1.5rem 1.5rem;
   }
+
+  /* The top bar becomes a sticky app bar, so the menu button stays a tap away
+     however far down the page you've scrolled. It runs edge to edge — its
+     negative margins cancel the content's padding — and clears a phone's notch. */
+  .admin-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin: -1.5rem -1.5rem 1.25rem;
+    padding: max(0.6rem, env(safe-area-inset-top)) 1.5rem 0.6rem;
+    background: var(--color-background);
+    border-bottom: 1px solid var(--color-warm-border);
+    box-shadow: var(--shadow-card);
+  }
+
+  .topbar-brand {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-align: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--color-primary-dark);
+  }
+
+  .topbar-brand span {
+    color: var(--color-bronze);
+  }
+
+  .admin-topbar .notif {
+    margin-left: 0;
+  }
 }
 
 /* Phones. */
 @media (max-width: 640px) {
   .admin-content {
     padding: 1.15rem 1rem;
+  }
+  .admin-topbar {
+    margin: -1.15rem -1rem 1rem;
+    padding-inline: 1rem;
   }
   .page-header h2 {
     font-size: 1.35rem;

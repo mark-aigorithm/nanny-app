@@ -114,7 +114,11 @@ export function AdminLayout() {
   return (
     <div className="admin-layout">
       {mobileOpen && (
-        <div className="sidebar-backdrop" role="presentation" onClick={() => setMobileOpen(false)} />
+        <div
+          className="sidebar-backdrop"
+          role="presentation"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
       <aside
         className={`admin-sidebar${collapsed ? ' admin-sidebar--collapsed' : ''}${
@@ -194,6 +198,10 @@ export function AdminLayout() {
           >
             <MenuIcon size={ICON_SIZE.nav} />
           </button>
+          {/* Shown only in the mobile app bar, where the sidebar's logo is off-canvas. */}
+          <span className="topbar-brand" aria-hidden>
+            NannyNow <span>Admin</span>
+          </span>
           <NotificationBell />
         </header>
         <div className="page-container">
