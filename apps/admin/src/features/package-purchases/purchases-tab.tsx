@@ -92,7 +92,7 @@ export function PurchasesTab() {
         />
       </div>
 
-      {isLoading && <TableSkeleton columns={8} />}
+      {isLoading && <TableSkeleton columns={9} />}
 
       {/* Full-page error only when there's nothing to fall back on. */}
       {error != null && !purchases && (

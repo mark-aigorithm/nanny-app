@@ -2,7 +2,16 @@ import type { ReactNode } from 'react';
 
 import { idTypeRequiresBack, type IdDocumentType } from '@nanny-app/shared';
 
-import { Badge, Card, CircleCheck, CircleOff, ICON_SIZE, Mail, Phone } from '@admin/components/ui';
+import {
+  Badge,
+  Card,
+  CircleCheck,
+  CircleOff,
+  CopyButton,
+  ICON_SIZE,
+  Mail,
+  Phone,
+} from '@admin/components/ui';
 import { initials } from '@admin/lib/format';
 
 /**
@@ -55,16 +64,33 @@ export function ProfileSummary({
         <ul className="profile-summary-contact">
           <li>
             <Mail size={ICON_SIZE.inline} aria-label="Email" />
-            {email}
+            <a className="profile-summary-link" href={`mailto:${email}`}>
+              {email}
+            </a>
+            <CopyButton value={email} label="Email" />
           </li>
           <li>
             <Phone size={ICON_SIZE.inline} aria-label="Phone" />
-            {phone ?? <span className="table-empty">—</span>}
+            {phone ? (
+              <>
+                <a className="profile-summary-link" href={`tel:${telNumber(phone)}`}>
+                  {phone}
+                </a>
+                <CopyButton value={phone} label="Phone number" />
+              </>
+            ) : (
+              <span className="table-empty">—</span>
+            )}
           </li>
         </ul>
       </div>
     </Card>
   );
+}
+
+/** A dialable `tel:` target: digits and a leading +, without spaces or dashes. */
+function telNumber(phone: string): string {
+  return phone.replace(/[^\d+]/g, '');
 }
 
 function VerifiedBadge({ label, verified }: { label: string; verified: boolean }) {

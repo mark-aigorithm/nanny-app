@@ -6,12 +6,13 @@ import {
   ADMIN_PAGE_SIZES,
   type AdminNanny,
   type AdminApprovalStatusFilter,
-  type AdminUserSortKey,
+  type AdminNannySortKey,
 } from '@nanny-app/shared';
 
 import {
   Badge,
   type Column,
+  idColumn,
   ErrorState,
   FilterSelect,
   Pagination,
@@ -22,7 +23,6 @@ import {
 import { fetchNannies } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { approvalStatusLabel, approvalStatusTone } from '@admin/lib/approval-status';
-import { initials } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
 import { useTableSort } from '@admin/lib/use-table-sort';
 
@@ -49,7 +49,7 @@ const EMPTY = <span className="table-empty">—</span>;
 export function NannyReviewTab() {
   const [status, setStatus] = useState<AdminApprovalStatusFilter>('ALL');
   const { page, limit, setPage, setLimit, reset } = usePagination();
-  const { sort, onSortChange } = useTableSort<AdminUserSortKey>(
+  const { sort, onSortChange } = useTableSort<AdminNannySortKey>(
     { sortBy: 'registered', sortDir: 'desc' },
     reset,
   );
@@ -67,47 +67,25 @@ export function NannyReviewTab() {
     reset();
   }
 
-  const columns: Column<AdminNanny, AdminUserSortKey>[] = [
+  const columns: Column<AdminNanny, AdminNannySortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     {
       key: 'nanny',
       header: 'Nanny',
       sortKey: 'name',
-      render: (nanny) => (
-        <div className="nanny-cell">
-          <span className="nanny-avatar" aria-hidden>
-            {initials(nanny.name)}
-          </span>
-          <div>
-            <div className="nanny-name">{nanny.name}</div>
-            {nanny.dateOfBirth && (
-              <div className="table-subtext">Born {formatDate(nanny.dateOfBirth)}</div>
-            )}
-          </div>
-        </div>
-      ),
+      render: (nanny) => <span className="nanny-name">{nanny.name}</span>,
     },
     {
       key: 'phone',
       header: 'Phone number',
       nowrap: true,
-      render: (nanny) => (
-        <>
-          {nanny.phone ?? EMPTY}
-          {(nanny.isEmailVerified || nanny.isPhoneVerified) && (
-            <div className="table-subtext">
-              {[nanny.isEmailVerified ? 'email' : null, nanny.isPhoneVerified ? 'phone' : null]
-                .filter(Boolean)
-                .join(' & ')}{' '}
-              verified
-            </div>
-          )}
-        </>
-      ),
+      render: (nanny) => nanny.phone ?? EMPTY,
     },
     { key: 'email', header: 'Email', sortKey: 'email', render: (nanny) => nanny.email },
     {
       key: 'camera',
       header: 'Camera',
+      sortKey: 'camera',
       render: (nanny) =>
         nanny.camera ? nanny.camera.name : <span className="table-subtext">Not assigned</span>,
     },
@@ -148,7 +126,7 @@ export function NannyReviewTab() {
           onChange={(value) => changeStatus(value as AdminApprovalStatusFilter)}
         />
       </div>
-      {isLoading && <TableSkeleton columns={6} />}
+      {isLoading && <TableSkeleton columns={7} />}
       {error != null && !nannies && (
         <ErrorState
           message={apiErrorMessage(error)}

@@ -34,7 +34,7 @@ auth, Zod. Shared types come from `@nanny-app/shared`. Icons: `lucide-react`. Ch
 - **No `window.confirm` / `window.prompt` / `alert`.** Use `ConfirmDialog` / `PromptDialog` / toasts.
 - **No hand-rolled `<table>`, `<select>`, or popover** when the shared component fits.
 - **Table pages follow one layout** (reference: the Nanny Skills page): the table is the page;
-  `PageHeader`'s `action` holds the "Add …" button; add and edit share one `FormModal`; row actions
+  the first column is the ID (`idColumn`); `PageHeader`'s `action` holds the "Add …" button; add and edit share one `FormModal`; row actions
   sit in the last column's `ActionMenu` (`actionsColumn`), Edit first; every meaningful column has a
   `sortKey`. Lists loaded in full sort with `useClientSort`; paged lists sort on the server via
   `useTableSort` + `sortBy`/`sortDir` query params. No inline create cards, no "Sort" dropdowns.

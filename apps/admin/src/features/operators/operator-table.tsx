@@ -9,6 +9,7 @@ import {
   actionsColumn,
   Badge,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -23,7 +24,7 @@ import { deleteAdmin } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-type OperatorSortKey = 'name' | 'email' | 'role' | 'access' | 'status' | 'created';
+type OperatorSortKey = 'id' | 'name' | 'email' | 'role' | 'access' | 'status' | 'created';
 
 const ROLE_LABELS: Record<AdminUser['role'], string> = {
   SUPERUSER: 'superuser',
@@ -60,6 +61,7 @@ export function OperatorTable({ admins }: OperatorTableProps) {
   const { rows, sort, onSortChange } = useClientSort<AdminUser, OperatorSortKey>(
     admins,
     {
+      id: (row) => row.id,
       name: (admin) => admin.name,
       email: (admin) => admin.email,
       role: (admin) => ROLE_LABELS[admin.role],
@@ -81,6 +83,7 @@ export function OperatorTable({ admins }: OperatorTableProps) {
   });
 
   const columns: Column<AdminUser, OperatorSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     { key: 'name', header: 'Name', sortKey: 'name', render: (admin) => admin.name },
     { key: 'email', header: 'Email', sortKey: 'email', render: (admin) => admin.email },
     {

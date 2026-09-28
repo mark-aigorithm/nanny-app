@@ -19,20 +19,13 @@ import type {
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import {
-  toPlatformDateColumn,
-  toPlatformIso,
-  wallClockToUtc,
-} from '@backend/lib/platform-time';
+import { toPlatformDateColumn, toPlatformIso, wallClockToUtc } from '@backend/lib/platform-time';
 import {
   assertNoConflict,
   computeDurationHours,
   validateStatusTransition,
 } from '@backend/services/booking.service';
-import {
-  createInAppNotification,
-  dispatchPush,
-} from '@backend/services/notification.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 import { getRevenueSplit } from '@backend/services/app-settings.service';
 import { convertReferralForBooking } from '@backend/services/referral.service';
 import { awardPointsForBooking } from '@backend/services/reward.service';
@@ -291,6 +284,8 @@ function bookingOrderBy(
   sortDir: AdminSortDir,
 ): Prisma.BookingOrderByWithRelationInput[] {
   const orders: Record<AdminBookingSortKey, Prisma.BookingOrderByWithRelationInput[]> = {
+    // The ID column: the id tiebreak below is the whole order.
+    id: [],
     mother: [{ mother: { firstName: sortDir } }, { mother: { lastName: sortDir } }],
     // An unclaimed request has no nanny: Postgres puts it after every named
     // nanny A→Z and before them Z→A.
@@ -360,10 +355,7 @@ export async function getAdminBooking(id: number): Promise<AdminBookingDetail> {
  * Stamps the approving admin, then prompts the mother to pay and informs the
  * nanny.
  */
-export async function approveBooking(
-  id: number,
-  adminFirebaseUid: string,
-): Promise<AdminBooking> {
+export async function approveBooking(id: number, adminFirebaseUid: string): Promise<AdminBooking> {
   const adminId = await resolveAdminId(adminFirebaseUid);
   const booking = await findAdminBooking(id);
 
@@ -377,9 +369,7 @@ export async function approveBooking(
   // can claim it (claiming requires PENDING), trapping it in APPROVED forever.
   // This mirrors the invariant enforced by the payment paths.
   if (!booking.nannyProfileId) {
-    throw errors.badRequest(
-      'Assign a nanny to this unclaimed request before approving it.',
-    );
+    throw errors.badRequest('Assign a nanny to this unclaimed request before approving it.');
   }
   validateStatusTransition(booking.status, BookingStatus.APPROVED);
 
@@ -490,9 +480,7 @@ export async function setBookingStatus(
 
   // Same invariant as approveBooking: never approve a booking with no nanny.
   if (next === BookingStatus.APPROVED && !booking.nannyProfileId) {
-    throw errors.badRequest(
-      'Assign a nanny to this unclaimed request before approving it.',
-    );
+    throw errors.badRequest('Assign a nanny to this unclaimed request before approving it.');
   }
 
   const now = new Date();
@@ -647,10 +635,7 @@ export async function updateBookingTimes(
   // times doesn't change who the booking is for, and the child fee is already
   // inside this per-hour figure, so no children input is passed below.
   // Legacy bookings created before effectiveHourlyRate fall back to baseRate.
-  const [split, durationRules] = await Promise.all([
-    getRevenueSplit(),
-    listActiveDurationRules(),
-  ]);
+  const [split, durationRules] = await Promise.all([getRevenueSplit(), listActiveDurationRules()]);
   const perHour = booking.effectiveHourlyRate.toNumber() || booking.baseRate.toNumber();
   const durationMultiplier = resolveDurationMultiplier(durationHours, durationRules);
   const breakdown = calculatePriceBreakdown({

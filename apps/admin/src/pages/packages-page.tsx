@@ -73,7 +73,7 @@ export function PackagesPage() {
       <div className="subtab-panel">
         {tab === 'packages' && (
           <>
-            {isLoading && <TableSkeleton columns={6} />}
+            {isLoading && <TableSkeleton columns={7} />}
             {error != null && !packages && (
               <ErrorState
                 message={apiErrorMessage(error)}

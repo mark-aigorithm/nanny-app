@@ -37,6 +37,7 @@ export {
   X,
   // Row actions
   Check,
+  Copy,
   Ban,
   Pencil,
   Trash2,

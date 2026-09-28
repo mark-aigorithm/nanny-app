@@ -26,10 +26,7 @@ import { firebaseAuth } from '@backend/lib/firebase';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
 import { listAddresses } from '@backend/services/address.service';
 import { invalidateIdDocument } from '@backend/services/id-document.service';
-import {
-  createInAppNotification,
-  dispatchPush,
-} from '@backend/services/notification.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 
 const motherSelect = {
   id: true,
@@ -143,10 +140,9 @@ const adminUserSelect = {
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
-type AdminUserRow = Omit<
-  Prisma.UserGetPayload<{ select: typeof adminUserSelect }>,
-  'role'
-> & { role: AdminRole };
+type AdminUserRow = Omit<Prisma.UserGetPayload<{ select: typeof adminUserSelect }>, 'role'> & {
+  role: AdminRole;
+};
 
 function toDto(row: AdminUserRow): AdminUser {
   return {
@@ -196,7 +192,12 @@ export async function listConsoleUserIdsForSection(section: AdminSection): Promi
   return rows
     .filter((row) => {
       const role = row.role as AdminRole;
-      return hasSectionAccess(role, effectivePermissions(role, row.adminPermissions), section, 'VIEW');
+      return hasSectionAccess(
+        role,
+        effectivePermissions(role, row.adminPermissions),
+        section,
+        'VIEW',
+      );
     })
     .map((row) => row.id);
 }
@@ -220,17 +221,17 @@ async function findManageableAdmin(id: number): Promise<AdminUserRow> {
  * sending them for a full ADMIN is a no-op rather than an error, so the console
  * can submit one payload shape.
  */
-export async function updateAdminUser(
-  id: number,
-  input: UpdateAdminUserInput,
-): Promise<AdminUser> {
+export async function updateAdminUser(id: number, input: UpdateAdminUserInput): Promise<AdminUser> {
   const existing = await findManageableAdmin(id);
 
   const [firstName, ...rest] = (input.name ?? '').trim().split(/\s+/);
   const row = await prisma.user.update({
     where: { id },
     data: {
-      ...(input.name !== undefined && { firstName: firstName ?? '', lastName: rest.join(' ') || '-' }),
+      ...(input.name !== undefined && {
+        firstName: firstName ?? '',
+        lastName: rest.join(' ') || '-',
+      }),
       ...(input.permissions !== undefined &&
         existing.role === 'OPERATOR' && { adminPermissions: input.permissions }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
@@ -263,6 +264,8 @@ function motherOrderBy(
   sortDir: AdminSortDir,
 ): Prisma.UserOrderByWithRelationInput[] {
   const orders: Record<AdminUserSortKey, Prisma.UserOrderByWithRelationInput[]> = {
+    // The ID column: the id tiebreak below is the whole order.
+    id: [],
     name: [{ firstName: sortDir }, { lastName: sortDir }],
     email: [{ email: sortDir }],
     registered: [{ createdAt: sortDir }],
@@ -381,7 +384,10 @@ export async function rejectMother(id: number, input: RejectNannyInput): Promise
 }
 
 /** Admin sends a mother's ID back for a new upload (any status with an ID on file). */
-export async function invalidateMotherId(id: number, input: RejectNannyInput): Promise<AdminMother> {
+export async function invalidateMotherId(
+  id: number,
+  input: RejectNannyInput,
+): Promise<AdminMother> {
   const mother = await findReviewableMother(id);
   await invalidateIdDocument(mother, input, 'MOTHER');
   return toMotherDto(await findReviewableMother(id));

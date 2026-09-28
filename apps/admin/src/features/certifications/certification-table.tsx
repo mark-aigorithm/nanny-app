@@ -9,6 +9,7 @@ import {
   Badge,
   Check,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -25,7 +26,7 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-type CertificationSortKey = 'name' | 'description' | 'status';
+type CertificationSortKey = 'id' | 'name' | 'description' | 'status';
 
 type CertificationTableProps = {
   certifications: Certification[];
@@ -44,6 +45,7 @@ export function CertificationTable({ certifications }: CertificationTableProps) 
   const { rows, sort, onSortChange } = useClientSort<Certification, CertificationSortKey>(
     certifications,
     {
+      id: (row) => row.id,
       name: (cert) => cert.name,
       description: (cert) => cert.description,
       status: (cert) => (cert.isActive ? 'Active' : 'Inactive'),
@@ -72,6 +74,7 @@ export function CertificationTable({ certifications }: CertificationTableProps) 
   });
 
   const columns: Column<Certification, CertificationSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     { key: 'name', header: 'Name', sortKey: 'name', render: (cert) => cert.name },
     {
       key: 'description',

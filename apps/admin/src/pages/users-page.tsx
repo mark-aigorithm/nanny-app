@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { PageHeader } from '@admin/components/ui';
 import { IdReviewTab } from '@admin/features/id-reviews/id-review-tab';
@@ -13,8 +13,20 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
+function isTabId(value: string | null): value is TabId {
+  return TABS.some((t) => t.id === value);
+}
+
+/**
+ * The open tab lives in the URL (`/users?tab=nannies`), so a detail page's back
+ * link, a refresh or a shared link returns to the same tab.
+ */
 export function UsersPage() {
-  const [tab, setTab] = useState<TabId>('mommies');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const tab: TabId = isTabId(requested) ? requested : 'mommies';
+  // Replace, not push: flipping tabs shouldn't pile up Back-button steps.
+  const setTab = (next: TabId) => setSearchParams({ tab: next }, { replace: true });
 
   return (
     <section>

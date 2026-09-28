@@ -151,6 +151,24 @@ export function Table<T, K extends string = string>({
 }
 
 /**
+ * The standard first column of a table page: the record's ID, in a muted
+ * monospace-width style. Pass the list's `id` sort key to make it sortable
+ * (the first click shows the newest records).
+ */
+export function idColumn<T, K extends string = string>(
+  getId: (row: T) => number | string,
+  sortKey?: K,
+): Column<T, K> {
+  return {
+    key: 'id',
+    header: 'ID',
+    ...(sortKey !== undefined && { sortKey, sortFirst: 'desc' as const }),
+    nowrap: true,
+    render: (row) => <span className="table-id">{getId(row)}</span>,
+  };
+}
+
+/**
  * The standard last column of a table page: a row's actions in a kebab menu
  * (`<ActionMenu>` with Edit first, destructive items last behind a separator).
  */

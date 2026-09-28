@@ -320,6 +320,7 @@ describe('listAdminBookings (paginated)', () => {
   });
 
   it.each([
+    ['id', 'desc', [{ id: 'desc' }]],
     [
       'mother',
       'asc',

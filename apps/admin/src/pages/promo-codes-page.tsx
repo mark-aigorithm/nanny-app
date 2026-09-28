@@ -44,7 +44,7 @@ export function PromoCodesPage() {
           )
         }
       />
-      {isLoading && <TableSkeleton columns={9} />}
+      {isLoading && <TableSkeleton columns={10} />}
       {error != null && !promoCodes && (
         <ErrorState
           message={apiErrorMessage(error)}

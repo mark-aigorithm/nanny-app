@@ -163,6 +163,7 @@ describe('listCommunityPosts', () => {
   });
 
   it.each([
+    ['id', 'asc', [{ id: 'asc' }]],
     [
       'title',
       'asc',

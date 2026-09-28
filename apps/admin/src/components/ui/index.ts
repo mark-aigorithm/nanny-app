@@ -1,4 +1,5 @@
 export { Badge } from './badge';
+export { CopyButton } from './copy-button';
 export { Button } from './button';
 export { Card } from './card';
 export { Feedback } from './feedback';
@@ -21,7 +22,7 @@ export { Input } from './input';
 export { Switch } from './switch';
 
 // Data display
-export { Table, actionsColumn, type Column, type TableSort } from './table';
+export { Table, actionsColumn, idColumn, type Column, type TableSort } from './table';
 export { Pagination } from './pagination';
 
 // Loading

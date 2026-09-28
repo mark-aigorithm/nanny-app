@@ -44,7 +44,7 @@ export function AdminsPage() {
           </Button>
         }
       />
-      {isLoading && <TableSkeleton columns={7} />}
+      {isLoading && <TableSkeleton columns={8} />}
       {error != null && !admins && (
         <ErrorState
           message={apiErrorMessage(error)}

@@ -7,7 +7,7 @@ import type {
   AdminNannyDetail,
   AdminSortDir,
   AdminUpsertNannyAddressInput,
-  AdminUserDirectoryQuery,
+  AdminNannyListQuery,
   AdminUserSortKey,
   PaginationMeta,
   RejectNannyInput,
@@ -20,10 +20,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { deleteStorageObjectByUrl } from '@backend/lib/storage';
 import { ACTIVE_BOOKING_STATUSES } from '@backend/services/account-deletion.service';
-import {
-  createInAppNotification,
-  dispatchPush,
-} from '@backend/services/notification.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 import { toAddressDto, upsertNannyAddress } from '@backend/services/address.service';
 import { invalidateIdDocument } from '@backend/services/id-document.service';
 import { writeNannyProfileFields } from '@backend/services/nanny.service';
@@ -79,9 +76,7 @@ function toDto(row: AdminNannyRow): AdminNanny {
     name: `${row.user.firstName} ${row.user.lastName}`.trim(),
     email: row.user.email,
     phone: row.user.phone,
-    dateOfBirth: row.user.dateOfBirth
-      ? row.user.dateOfBirth.toISOString().slice(0, 10)
-      : null,
+    dateOfBirth: row.user.dateOfBirth ? row.user.dateOfBirth.toISOString().slice(0, 10) : null,
     avatarUrl: row.user.avatarUrl,
     bio: row.bio,
     // Home location is her address row (single source of truth).
@@ -117,6 +112,8 @@ function nannyOrderBy(
   sortDir: AdminSortDir,
 ): Prisma.NannyProfileOrderByWithRelationInput[] {
   const orders: Record<AdminUserSortKey, Prisma.NannyProfileOrderByWithRelationInput[]> = {
+    // The ID column: the id tiebreak below is the whole order.
+    id: [],
     name: [{ user: { firstName: sortDir } }, { user: { lastName: sortDir } }],
     email: [{ user: { email: sortDir } }],
     registered: [{ createdAt: sortDir }],
@@ -133,7 +130,7 @@ function nannyOrderBy(
  */
 export async function listAdminNannies(
   status: AdminApprovalStatusFilter,
-  { page, limit, sortBy, sortDir }: AdminUserDirectoryQuery,
+  { page, limit, sortBy, sortDir }: Omit<AdminNannyListQuery, 'status'>,
 ): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
   const where: Prisma.NannyProfileWhereInput = {
     deletedAt: null,
@@ -142,6 +139,8 @@ export async function listAdminNannies(
       ...(status !== 'ALL' ? { approvalStatus: status as ApprovalStatus } : {}),
     },
   };
+
+  if (sortBy === 'camera') return listNanniesByCamera(where, { page, limit, sortDir });
 
   const [total, rows] = await prisma.$transaction([
     prisma.nannyProfile.count({ where }),
@@ -158,6 +157,50 @@ export async function listAdminNannies(
     nannies: rows.map(toDto),
     meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
+}
+
+/**
+ * One page of the directory ordered by camera name. Her camera sits across a
+ * to-many relation, which Prisma can't order by, so every matching nanny is
+ * ranked here on just her id and camera name, and only the page is loaded in
+ * full. Nannies without a camera come last whichever way it runs.
+ */
+async function listNanniesByCamera(
+  where: Prisma.NannyProfileWhereInput,
+  { page, limit, sortDir }: { page: number; limit: number; sortDir: AdminSortDir },
+): Promise<{ nannies: AdminNanny[]; meta: PaginationMeta }> {
+  const candidates = await prisma.nannyProfile.findMany({
+    where,
+    select: { id: true, user: { select: { cameras: nannyInclude.user.select.cameras } } },
+  });
+  const sign = sortDir === 'asc' ? 1 : -1;
+  const ranked = candidates
+    .map((row) => ({ id: row.id, camera: row.user.cameras[0]?.name ?? null }))
+    .sort((a, b) => {
+      if (a.camera === null || b.camera === null) {
+        if (a.camera !== b.camera) return a.camera === null ? 1 : -1;
+      } else {
+        const byName = a.camera.localeCompare(b.camera, undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        });
+        if (byName !== 0) return sign * byName;
+      }
+      return sign * (a.id - b.id);
+    });
+
+  const pageIds = ranked.slice((page - 1) * limit, page * limit).map((row) => row.id);
+  const rows = await prisma.nannyProfile.findMany({
+    where: { id: { in: pageIds } },
+    include: nannyInclude,
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const nannies = pageIds.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [toDto(row)] : [];
+  });
+  const total = ranked.length;
+  return { nannies, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
 /**
@@ -321,7 +364,9 @@ export async function invalidateNannyId(id: number, input: RejectNannyInput): Pr
     },
   });
   if (activeBookings > 0) {
-    throw errors.conflict("She has active bookings. Request a new ID once they're finished or reassigned.");
+    throw errors.conflict(
+      "She has active bookings. Request a new ID once they're finished or reassigned.",
+    );
   }
 
   await invalidateIdDocument(profile.user, input, 'NANNY');

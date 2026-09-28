@@ -80,6 +80,7 @@ it('builds the where clause from status + search, and reuses it for count', asyn
 it.each([
   // The default — the order the list has always shown.
   ['purchased', 'desc', [{ createdAt: 'desc' }, { id: 'desc' }]],
+  ['id', 'asc', [{ id: 'asc' }]],
   ['buyer', 'asc', [{ user: { firstName: 'asc' } }, { user: { lastName: 'asc' } }, { id: 'asc' }]],
   ['package', 'asc', [{ nameSnapshot: 'asc' }, { id: 'asc' }]],
   ['hours', 'desc', [{ hoursRemaining: 'desc' }, { hoursPurchased: 'desc' }, { id: 'desc' }]],

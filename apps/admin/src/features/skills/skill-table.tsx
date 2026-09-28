@@ -9,6 +9,7 @@ import {
   Badge,
   Check,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -25,7 +26,7 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-type SkillSortKey = 'name' | 'description' | 'status';
+type SkillSortKey = 'id' | 'name' | 'description' | 'status';
 
 type SkillTableProps = {
   skills: Skill[];
@@ -43,6 +44,7 @@ export function SkillTable({ skills }: SkillTableProps) {
   const { rows, sort, onSortChange } = useClientSort<Skill, SkillSortKey>(
     skills,
     {
+      id: (row) => row.id,
       name: (skill) => skill.name,
       description: (skill) => skill.description,
       status: (skill) => (skill.isActive ? 'Active' : 'Inactive'),
@@ -70,6 +72,7 @@ export function SkillTable({ skills }: SkillTableProps) {
   });
 
   const columns: Column<Skill, SkillSortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     { key: 'name', header: 'Name', sortKey: 'name', render: (skill) => skill.name },
     {
       key: 'description',

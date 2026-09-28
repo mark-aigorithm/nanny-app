@@ -10,6 +10,7 @@ import {
   Ban,
   Check,
   type Column,
+  idColumn,
   ConfirmDialog,
   ICON_SIZE,
   MenuItem,
@@ -102,6 +103,7 @@ export function PostTable({ posts, sort, onSortChange }: PostTableProps) {
   });
 
   const columns: Column<AdminCommunityPost, AdminCommunitySortKey>[] = [
+    idColumn((row) => row.id, 'id'),
     {
       key: 'item',
       header: 'Post',

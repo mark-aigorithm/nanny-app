@@ -46,7 +46,13 @@ export function MotherDetailPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const { data: mother, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: mother,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['mother', id],
     queryFn: () => fetchMother(id),
     enabled: id !== '',
@@ -107,8 +113,8 @@ export function MotherDetailPage() {
   return (
     <section>
       <DetailHeader
-        backTo="/users"
-        backLabel="Back to users"
+        backTo="/users?tab=mommies"
+        backLabel="Back to mommies"
         title={mother ? mother.name : 'Mommy details'}
         subtitle={
           mother ? `User ID ${mother.id} · Joined ${formatDate(mother.createdAt)}` : undefined
@@ -261,9 +267,7 @@ export function MotherDetailPage() {
         </>
       )}
 
-      {editing && mother && (
-        <MotherEditForm mother={mother} onClose={() => setEditing(false)} />
-      )}
+      {editing && mother && <MotherEditForm mother={mother} onClose={() => setEditing(false)} />}
 
       {rejecting && mother && (
         <PromptDialog

@@ -466,6 +466,12 @@ input[type='number'] {
 
 /* A sortable column's header: the whole label is the button. The arrow stays
    faint until the column is the one sorting the table. */
+/* The ID column every table page opens with: quiet, digits aligned. */
+.table-id {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .table-sort {
   display: inline-flex;
   align-items: center;
@@ -565,27 +571,6 @@ input[type='number'] {
   flex-basis: 100%;
   font-size: 0.75rem;
   color: var(--color-text-muted);
-}
-
-.nanny-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 180px;
-}
-
-.nanny-avatar {
-  flex: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--color-primary-muted);
-  color: var(--color-primary-dark);
-  font-weight: 700;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .nanny-name {
@@ -942,6 +927,32 @@ input[type='number'] {
 
 .profile-summary-contact svg {
   flex: none;
+  color: var(--color-primary-dark);
+}
+
+/* Email opens a new message, phone starts a call; the copy button sits beside. */
+.profile-summary-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.profile-summary-link:hover,
+.profile-summary-link:focus-visible {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+.profile-summary-contact .copy-btn {
+  width: 28px;
+  height: 28px;
+  margin-left: -0.2rem;
+}
+
+.profile-summary-contact .copy-btn svg {
+  color: var(--color-text-muted);
+}
+
+.profile-summary-contact .copy-btn:hover svg {
   color: var(--color-primary-dark);
 }
 

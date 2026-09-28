@@ -44,7 +44,7 @@ export function CampaignsPage() {
           )
         }
       />
-      {isLoading && <TableSkeleton columns={9} />}
+      {isLoading && <TableSkeleton columns={10} />}
       {error != null && !campaigns && (
         <ErrorState
           message={apiErrorMessage(error)}
