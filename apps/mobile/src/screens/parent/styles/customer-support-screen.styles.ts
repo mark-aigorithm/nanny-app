@@ -98,11 +98,11 @@ export const styles = StyleSheet.create({
     color: colors.textDark,
   },
 
-  // Other Ways to Reach Us
-  otherWaysSection: {
+  // Section (contact, FAQ)
+  section: {
     gap: spacing.lg,
   },
-  otherWaysHeader: {
+  sectionHeader: {
     fontFamily: fontFamily.bold,
     fontSize: 13,
     lineHeight: 18,

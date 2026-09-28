@@ -61,58 +61,8 @@ export default function CustomerSupportScreen() {
       >
         <Text style={styles.pageTitle}>Help &amp; support</Text>
 
-        <View style={styles.searchBar}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={colors.textMuted}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            testID="customerSupport.search"
-            style={styles.searchInput}
-            placeholder="Search FAQ..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        <View style={styles.faqList}>
-          {filteredFaqs.map((faq) => {
-            const isExpanded = expandedFaq === faq.id;
-            return (
-              <View key={faq.id} style={styles.faqItem}>
-                <Pressable
-                  style={styles.faqHeader}
-                  onPress={() => setExpandedFaq(isExpanded ? null : faq.id)}
-                >
-                  <Text
-                    style={[
-                      styles.faqQuestion,
-                      isExpanded ? styles.faqQuestionExpanded : styles.faqQuestionCollapsed,
-                    ]}
-                  >
-                    {faq.question}
-                  </Text>
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color={colors.textDark}
-                  />
-                </Pressable>
-                {isExpanded && (
-                  <View style={styles.faqBody}>
-                    <Text style={styles.faqAnswer}>{faq.answer}</Text>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={styles.otherWaysSection}>
-          <Text style={styles.otherWaysHeader}>OTHER WAYS TO REACH US</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>CONTACT US</Text>
           <View style={styles.contactGrid}>
             {support?.whatsappNumber ? (
               <Pressable
@@ -169,6 +119,60 @@ export default function CustomerSupportScreen() {
         <View style={styles.emergencyCard}>
           <Text style={styles.emergencyTitle}>Emergency assistance</Text>
           <Text style={styles.emergencySubtitle}>24/7 safety hotline</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>FREQUENTLY ASKED QUESTIONS</Text>
+
+          <View style={styles.searchBar}>
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={colors.textMuted}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              testID="customerSupport.search"
+              style={styles.searchInput}
+              placeholder="Search FAQ..."
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
+          <View style={styles.faqList}>
+            {filteredFaqs.map((faq) => {
+              const isExpanded = expandedFaq === faq.id;
+              return (
+                <View key={faq.id} style={styles.faqItem}>
+                  <Pressable
+                    style={styles.faqHeader}
+                    onPress={() => setExpandedFaq(isExpanded ? null : faq.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.faqQuestion,
+                        isExpanded ? styles.faqQuestionExpanded : styles.faqQuestionCollapsed,
+                      ]}
+                    >
+                      {faq.question}
+                    </Text>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={colors.textDark}
+                    />
+                  </Pressable>
+                  {isExpanded && (
+                    <View style={styles.faqBody}>
+                      <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
         </View>
       </ScrollView>
 

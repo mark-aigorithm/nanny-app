@@ -58,17 +58,29 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Ask the community'
 
 # ── The FAQ ────────────────────────────────────────────────────────────────
+# The FAQ sits below the contact cards, so every step down there scrolls to its
+# target first — on a short screen it starts below the fold.
+#
 # The first question is expanded on arrival, so its answer is the assertion
 # that the accordion rendered rather than that it opened.
 #
 # Every question mark is escaped: a Maestro text selector is a full-match
 # regex, so a bare `?` makes the preceding letter optional and then fails
 # against a node whose text really does end in one.
-- extendedWaitUntil:
-    visible: 'Is this FAQ written from the console\?'
+- scrollUntilVisible:
+    element:
+      text: 'Yes\. An operator wrote this answer in Settings.*'
+    direction: DOWN
+    centerElement: true
     timeout: 30000
-- assertVisible: 'Yes\. An operator wrote this answer in Settings.*'
+- assertVisible: 'Is this FAQ written from the console\?'
 
+- scrollUntilVisible:
+    element:
+      text: 'What is the cancellation policy\?'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
 - tapOn: 'What is the cancellation policy\?'
 - extendedWaitUntil:
     visible: 'Cancel up to 24 hours ahead for a full refund.*'
@@ -78,12 +90,19 @@ appId: com.nannyapp.mobile
 - assertNotVisible: 'Yes\. An operator wrote this answer in Settings.*'
 
 # ── Search ─────────────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: 'customerSupport.search'
+    direction: UP
+    timeout: 20000
 - tapOn:
     id: 'customerSupport.search'
 - inputText: 'refund'
 - hideKeyboard
-- extendedWaitUntil:
-    visible: 'How long does a refund take\?'
+- scrollUntilVisible:
+    element:
+      text: 'How long does a refund take\?'
+    direction: DOWN
     timeout: 30000
 - assertNotVisible: 'Is this FAQ written from the console\?'
 
@@ -92,6 +111,12 @@ appId: com.nannyapp.mobile
 - assertVisible: 'What is the cancellation policy\?'
 
 # ── Out through the community door ─────────────────────────────────────────
+# Back up to the contact cards at the top of the screen.
+- scrollUntilVisible:
+    element:
+      text: 'Ask the community'
+    direction: UP
+    timeout: 20000
 - tapOn: 'Ask the community'
 - extendedWaitUntil:
     visible: 'Q&A'
