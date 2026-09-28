@@ -183,7 +183,7 @@ const config: ExpoConfig = {
     // machine is 10.0.2.2, so typically PAYMOB_CHECKOUT_ORIGIN=http://10.0.2.2:4010.
     paymobCheckoutOrigin: process.env['PAYMOB_CHECKOUT_ORIGIN'] ?? '',
     eas: {
-      projectId: 'cd5987c1-9302-4742-b278-97926265980c',
+      projectId: '3dc2f181-fc47-4895-bdce-78d2eeeb3564',
     },
   },
 };
