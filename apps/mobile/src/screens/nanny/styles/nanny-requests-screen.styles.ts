@@ -230,6 +230,9 @@ export const styles = StyleSheet.create({
   statusDeclined: {
     backgroundColor: colors.errorLight,
   },
+  statusAwaitingPayment: {
+    backgroundColor: colors.warmLight,
+  },
   statusText: {
     ...typeScale.captionBold,
     letterSpacing: 0.5,
@@ -240,6 +243,9 @@ export const styles = StyleSheet.create({
   },
   statusDeclinedText: {
     color: colors.error,
+  },
+  statusAwaitingPaymentText: {
+    color: colors.goldWarm,
   },
 
   // Review block (past bookings)

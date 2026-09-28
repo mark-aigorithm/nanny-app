@@ -41,12 +41,17 @@ export default function NannyDashboardScreen() {
     data: shiftBookings = [],
     isLoading: loadingShift,
     refetch: refetchShift,
-  } = useBookingList('CONFIRMED,IN_PROGRESS', { sortBy: 'startTime', sortDir: 'asc' });
+  } = useBookingList('APPROVED,PENDING_CONFIRMATION,CONFIRMED,IN_PROGRESS', {
+    sortBy: 'startTime',
+    sortDir: 'asc',
+  });
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(() =>
     Promise.all([refetchDashboard(), refetchShift()]),
   );
+  // Claimed-but-unpaid bookings (APPROVED, legacy PENDING_CONFIRMATION) are
+  // upcoming too; the shift banner only ever picks CONFIRMED/IN_PROGRESS.
   const upcomingBookings = sortBookingsByStartTime(
-    shiftBookings.filter((b) => b.status === 'CONFIRMED'),
+    shiftBookings.filter((b) => b.status !== 'IN_PROGRESS'),
   );
   const loadingBookings = loadingShift;
 
@@ -139,6 +144,9 @@ export default function NannyDashboardScreen() {
                     </Text>
                     <Text style={styles.bookingMeta}>{fmtBookingDate(booking.date)}</Text>
                     <Text style={styles.bookingMeta}>{fmtBookingTime(booking.startTime, booking.endTime)}</Text>
+                    {booking.status === 'APPROVED' || booking.status === 'PENDING_CONFIRMATION' ? (
+                      <Text style={styles.bookingAwaitingPayment}>Awaiting parent payment</Text>
+                    ) : null}
                   </View>
                   <Text style={styles.bookingAmount}>{formatMoney(booking.nannyAmount)}</Text>
                 </View>

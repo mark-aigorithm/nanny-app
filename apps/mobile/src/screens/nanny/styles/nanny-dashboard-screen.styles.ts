@@ -115,6 +115,10 @@ export const styles = StyleSheet.create({
     ...typeScale.bodySm,
     color: colors.textMuted,
   },
+  bookingAwaitingPayment: {
+    ...typeScale.captionBold,
+    color: colors.goldWarm,
+  },
   bookingAmount: {
     ...typeScale.labelMd,
     color: colors.primary,
