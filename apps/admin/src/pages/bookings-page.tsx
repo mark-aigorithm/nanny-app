@@ -12,7 +12,6 @@ import {
   type AdminBooking,
   type AdminBookingSortKey,
   type AdminBookingStatusFilter,
-  type NannyBookingDecision,
 } from '@nanny-app/shared';
 
 import {
@@ -49,6 +48,7 @@ import {
   updateBookingTimes,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { bookingStatusLabel, bookingStatusTone, nannyDecisionLabel } from '@admin/lib/booking-status';
 import { useCanManage } from '@admin/lib/permissions';
 import { formatDateTime, fromDateTimeLocalInput, toDateTimeLocalInput } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
@@ -103,23 +103,7 @@ function reachableStatuses(booking: AdminBooking): string[] {
 /** Why the override is disabled: a terminal status has nowhere left to go. */
 function lockedReason(status: string): string {
   if (status === 'COMPLETED') return 'Completed bookings are locked';
-  return `A ${statusLabel(status)} booking can’t be changed`;
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
-}
-
-function statusTone(status: string): 'neutral' | 'success' | 'danger' {
-  if (status === 'CONFIRMED' || status === 'COMPLETED' || status === 'APPROVED') return 'success';
-  if (status === 'CANCELLED' || status === 'REFUNDED') return 'danger';
-  return 'neutral';
-}
-
-function nannyDecisionLabel(decision: NannyBookingDecision): string {
-  if (decision === 'ACCEPTED') return 'Accepted';
-  if (decision === 'DECLINED') return 'Declined';
-  return 'No response';
+  return `A ${bookingStatusLabel(status)} booking can’t be changed`;
 }
 
 /** Whole minutes elapsed since an ISO timestamp (never negative). */
@@ -216,7 +200,7 @@ export function BookingsPage() {
     },
     onSuccess: (updated) => {
       invalidate();
-      toast.success('Status updated', statusLabel(updated.status));
+      toast.success('Status updated', bookingStatusLabel(updated.status));
     },
     onError: (err) => toast.error('Couldn’t update status', apiErrorMessage(err)),
   });
@@ -279,7 +263,7 @@ export function BookingsPage() {
             disabled={mutating || locked}
             title={locked ? lockedReason(booking.status) : 'Override booking status'}
             aria-label={`Override status for ${booking.mother.name}'s booking`}
-            options={options.map((option) => ({ value: option, label: statusLabel(option) }))}
+            options={options.map((option) => ({ value: option, label: bookingStatusLabel(option) }))}
             onChange={(next) =>
               statusMutation.mutate({ id: booking.id, status: next as AdminBooking['status'] })
             }
@@ -352,13 +336,13 @@ export function BookingsPage() {
       key: 'payment',
       header: 'Payment',
       render: (b) =>
-        b.paymentStatus ? statusLabel(b.paymentStatus) : <span className="table-empty">—</span>,
+        b.paymentStatus ? bookingStatusLabel(b.paymentStatus) : <span className="table-empty">—</span>,
     },
     {
       key: 'status',
       header: 'Status',
       sortKey: 'status',
-      render: (b) => <Badge tone={statusTone(b.status)}>{statusLabel(b.status)}</Badge>,
+      render: (b) => <Badge tone={bookingStatusTone(b.status)}>{bookingStatusLabel(b.status)}</Badge>,
     },
     {
       key: 'waiting',

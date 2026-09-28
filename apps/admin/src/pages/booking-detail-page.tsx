@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 import { canAssignBookingNanny, formatAddressArea, formatChildAge } from '@nanny-app/shared';
 import type { AdminBookingDetail } from '@nanny-app/shared';
@@ -8,41 +8,56 @@ import type { AdminBookingDetail } from '@nanny-app/shared';
 import {
   Badge,
   Button,
+  CalendarClock,
   Card,
+  Clock,
+  Coins,
+  CopyButton,
   DescriptionList,
   type DescriptionItem,
   DetailHeader,
   ErrorState,
+  ICON_SIZE,
   LoadingState,
+  MapPin,
   StaleRefreshBanner,
+  StatCard,
+  Store,
+  TriangleAlert,
   useToast,
+  Users,
+  Wallet,
 } from '@admin/components/ui';
-import { fetchBooking } from '@admin/lib/api';
-import { apiErrorMessage } from '@admin/lib/api-error';
-import { useCanManage } from '@admin/lib/permissions';
-import { formatDateTime, formatEgp } from '@admin/lib/format';
 import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
 import { BookingEditor } from '@admin/features/bookings/booking-editor';
 import { RefundModal } from '@admin/features/bookings/refund-modal';
+import { ContactLinks } from '@admin/features/users/profile-detail';
+import { apiErrorMessage } from '@admin/lib/api-error';
+import { fetchBooking } from '@admin/lib/api';
+import {
+  bookingStatusLabel,
+  bookingStatusTone,
+  nannyDecisionLabel,
+  nannyDecisionTone,
+  paymentStatusTone,
+} from '@admin/lib/booking-status';
+import { formatDateTime, formatEgp, formatHours, formatTimeRange } from '@admin/lib/format';
+import { useCanManage } from '@admin/lib/permissions';
 
 /** Statuses in which the booking's details are still editable (pre-service). */
 const EDITABLE_STATUSES = new Set(['PENDING', 'APPROVED', 'CONFIRMED']);
 
-function money(n: number): string {
-  return `EGP ${n.toFixed(2)}`;
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase();
-}
-
-function statusTone(status: string): 'neutral' | 'success' | 'danger' {
-  if (status === 'CONFIRMED' || status === 'COMPLETED' || status === 'APPROVED') return 'success';
-  if (status === 'CANCELLED' || status === 'REFUNDED') return 'danger';
-  return 'neutral';
-}
-
 const DASH = <span className="table-empty">—</span>;
+
+/** "STANDARD" → "Standard". */
+function typeLabel(type: string): string {
+  const words = bookingStatusLabel(type);
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function childrenLabel(count: number): string {
+  return count === 1 ? '1 child' : `${count} children`;
+}
 
 export function BookingDetailPage() {
   const canManage = useCanManage('bookings');
@@ -65,33 +80,25 @@ export function BookingDetailPage() {
   // keeps it reachable if that follow-up was cancelled or the refund failed.
   const canRefund = canManage && booking != null && booking.refundableAmount > 0;
 
-  const actions =
-    editing && canEdit ? (
+  const actions = canEdit ? (
+    editing ? (
       <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
         Cancel
       </Button>
-    ) : canEdit || canAssign ? (
-      <>
-        {canAssign && (
-          <Button variant="ghost" size="sm" onClick={() => setAssigning(true)}>
-            {booking?.nanny ? 'Change nanny' : 'Assign nanny'}
-          </Button>
-        )}
-        {canEdit && (
-          <Button size="sm" onClick={() => setEditing(true)}>
-            Edit booking
-          </Button>
-        )}
-      </>
-    ) : undefined;
+    ) : (
+      <Button size="sm" onClick={() => setEditing(true)}>
+        Edit booking
+      </Button>
+    )
+  ) : undefined;
 
   return (
     <section>
       <DetailHeader
         backTo="/bookings"
         backLabel="Back to bookings"
-        title="Booking details"
-        subtitle={booking ? `${booking.mother.name} · ${statusLabel(booking.status)}` : undefined}
+        title={booking ? `Booking #${booking.id}` : 'Booking details'}
+        subtitle={booking ? `Created ${formatDateTime(booking.createdAt)}` : undefined}
         actions={actions}
       />
 
@@ -128,7 +135,18 @@ export function BookingDetailPage() {
                   </Button>
                 </div>
               )}
-              <BookingSections booking={booking} />
+              <BookingSummary booking={booking} />
+              <BookingStats booking={booking} />
+              <BookingSections
+                booking={booking}
+                nannyAction={
+                  canAssign ? (
+                    <Button variant="ghost" size="sm" onClick={() => setAssigning(true)}>
+                      {booking.nanny ? 'Change nanny' : 'Assign nanny'}
+                    </Button>
+                  ) : undefined
+                }
+              />
             </>
           )}
           {assigning && canAssign && (
@@ -158,42 +176,90 @@ export function BookingDetailPage() {
   );
 }
 
-function BookingSections({ booking }: { booking: AdminBookingDetail }) {
-  const overview: DescriptionItem[] = [
-    { label: 'Status', value: <Badge tone={statusTone(booking.status)}>{statusLabel(booking.status)}</Badge> },
-    { label: 'Nanny response', value: statusLabel(booking.nannyDecision) },
-    { label: 'Type', value: booking.type },
-    { label: 'Created', value: formatDateTime(booking.createdAt) },
-    { label: 'Booking ID', value: <code>{booking.id}</code> },
-  ];
+/**
+ * The booking at a glance: where it stands, when and where it happens, and
+ * for how many children. The cards below hold the detail.
+ */
+function BookingSummary({ booking }: { booking: AdminBookingDetail }) {
+  return (
+    <Card className="profile-summary">
+      <span className="profile-summary-avatar profile-summary-avatar--fallback" aria-hidden>
+        <CalendarClock size={34} />
+      </span>
+      <div className="profile-summary-body">
+        <div className="profile-summary-badges">
+          <Badge tone={bookingStatusTone(booking.status)}>
+            {bookingStatusLabel(booking.status)}
+          </Badge>
+          <Badge tone={nannyDecisionTone(booking.nannyDecision)}>
+            Nanny: {nannyDecisionLabel(booking.nannyDecision).toLowerCase()}
+          </Badge>
+          {booking.payment ? (
+            <Badge tone={paymentStatusTone(booking.payment.status)}>
+              Payment: {bookingStatusLabel(booking.payment.status)}
+            </Badge>
+          ) : (
+            <Badge>Not paid</Badge>
+          )}
+          <Badge>{typeLabel(booking.type)}</Badge>
+        </div>
+        <ul className="profile-summary-contact">
+          <li>
+            <Clock size={ICON_SIZE.inline} aria-label="When" />
+            {formatTimeRange(booking.startTime, booking.endTime)} ·{' '}
+            {formatHours(booking.durationHours)} h
+          </li>
+          <li>
+            <MapPin size={ICON_SIZE.inline} aria-label="Where" />
+            {booking.address ? formatAddressArea(booking.address) || booking.address.label : DASH}
+          </li>
+          <li>
+            <Users size={ICON_SIZE.inline} aria-label="Children" />
+            {childrenLabel(booking.children.length || booking.childrenCount)}
+          </li>
+        </ul>
+      </div>
+    </Card>
+  );
+}
 
-  const parties: DescriptionItem[] = [
-    { label: 'Mother', value: booking.mother.name },
-    { label: 'Mother email', value: booking.mother.email ?? DASH },
-    { label: 'Mother phone', value: booking.mother.phone ?? DASH },
-    { label: 'Nanny', value: booking.nanny?.name ?? DASH },
-    { label: 'Nanny email', value: booking.nanny?.email ?? DASH },
-    { label: 'Nanny phone', value: booking.nanny?.phone ?? DASH },
-  ];
+/** The money split the pricing engine produced, where an operator looks first. */
+function BookingStats({ booking }: { booking: AdminBookingDetail }) {
+  return (
+    <div className="stat-grid stat-grid--fit">
+      <StatCard
+        label="Total"
+        value={formatEgp(booking.totalAmount)}
+        icon={<Wallet size={ICON_SIZE.stat} aria-hidden />}
+        hint={booking.amountPaid > 0 ? `Paid ${formatEgp(booking.amountPaid)}` : 'Nothing paid yet'}
+      />
+      <StatCard
+        label="Nanny earns"
+        value={formatEgp(booking.nannyAmount)}
+        icon={<Coins size={ICON_SIZE.stat} aria-hidden />}
+        iconTone="gold"
+      />
+      <StatCard
+        label="Platform keeps"
+        value={formatEgp(booking.platformAmount)}
+        icon={<Store size={ICON_SIZE.stat} aria-hidden />}
+        iconTone="bronze"
+      />
+    </div>
+  );
+}
 
+function BookingSections({
+  booking,
+  nannyAction,
+}: {
+  booking: AdminBookingDetail;
+  nannyAction?: ReactNode;
+}) {
   const schedule: DescriptionItem[] = [
     { label: 'Starts', value: formatDateTime(booking.startTime) },
     { label: 'Ends', value: formatDateTime(booking.endTime) },
-    { label: 'Duration', value: `${booking.durationHours} h` },
-    {
-      label: 'Children',
-      value:
-        booking.children.length > 0
-          ? booking.children
-              .map((c) => {
-                const who = c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears);
-                // Support needs to see the allergy the nanny was warned about.
-                return c.allergies ? `${who} — allergies: ${c.allergies}` : who;
-              })
-              .join(', ')
-          : `${booking.childrenCount}`,
-      wide: true,
-    },
+    { label: 'Duration', value: `${formatHours(booking.durationHours)} h` },
     {
       // Only present while the PIN the parent is reading out is still good;
       // the API nulls it otherwise, so a dash covers "not started", "expired"
@@ -208,77 +274,39 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
         DASH
       ),
     },
-    { label: 'Checked in', value: booking.nannyCheckedInAt ? formatDateTime(booking.nannyCheckedInAt) : DASH },
-    { label: 'Checked out', value: booking.nannyCheckedOutAt ? formatDateTime(booking.nannyCheckedOutAt) : DASH },
-    { label: 'Approved at', value: booking.adminApprovedAt ? formatDateTime(booking.adminApprovedAt) : DASH },
-  ];
-
-  const pricing: DescriptionItem[] = [
-    { label: 'Base rate / h', value: money(booking.baseRate) },
-    { label: 'Effective rate / h', value: money(booking.effectiveHourlyRate) },
     {
-      label: 'Extra children',
-      value:
-        booking.extraChildren > 0
-          ? `${booking.extraChildren} (+${money(booking.extraChildFeePerHour)}/h)`
-          : DASH,
-    },
-    {
-      label: 'Skill add-ons',
-      value:
-        booking.skillAddOns.length > 0
-          ? booking.skillAddOns.map((s) => `${s.name} (+${s.amountPerHour}/h)`).join(', ')
-          : DASH,
+      label: 'Children',
       wide: true,
+      value:
+        booking.children.length > 0 ? (
+          <ul className="booking-children">
+            {booking.children.map((child, index) => (
+              <li key={index}>
+                <span>
+                  {child.name ? (
+                    <>
+                      <strong>{child.name}</strong> · {formatChildAge(child.ageYears)}
+                    </>
+                  ) : (
+                    formatChildAge(child.ageYears)
+                  )}
+                </span>
+                {/* Support needs to see the allergy the nanny was warned about. */}
+                {child.allergies && (
+                  <Badge tone="warning">
+                    <span className="badge-with-icon">
+                      <TriangleAlert size={12} aria-hidden />
+                      Allergies: {child.allergies}
+                    </span>
+                  </Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          childrenLabel(booking.childrenCount)
+        ),
     },
-    { label: 'Subtotal', value: money(booking.subtotal) },
-    { label: 'Duration multiplier', value: `×${booking.durationMultiplier}` },
-    { label: 'Discount', value: booking.discountAmount > 0 ? `−${money(booking.discountAmount)}` : DASH },
-    // Legacy service fee: the nanny/platform split replaced it, so current bookings are
-    // always 0. Only surface the row for old bookings that actually charged one.
-    ...(booking.serviceFeeAmount > 0
-      ? [{ label: 'Service fee', value: money(booking.serviceFeeAmount) }]
-      : []),
-    { label: 'Total', value: <strong>{money(booking.totalAmount)}</strong> },
-    { label: 'Nanny earns', value: money(booking.nannyAmount) },
-    { label: 'Platform keeps', value: money(booking.platformAmount) },
-  ];
-
-  const payment: DescriptionItem[] = booking.payment
-    ? [
-        { label: 'Status', value: statusLabel(booking.payment.status) },
-        { label: 'Method', value: booking.payment.method ? statusLabel(booking.payment.method) : DASH },
-        {
-          label: 'Amount',
-          value: booking.payment.amount != null ? money(booking.payment.amount) : DASH,
-        },
-        { label: 'Currency', value: booking.payment.currency ?? DASH },
-        { label: 'Paymob order', value: booking.payment.paymobOrderId ?? DASH },
-        { label: 'Paymob transaction', value: booking.payment.paymobTransactionId ?? DASH },
-        { label: 'Paymob intention', value: booking.payment.paymobIntentionId ?? DASH },
-        {
-          label: 'Refunded',
-          value:
-            booking.payment.refundedAmount > 0
-              ? `${money(booking.payment.refundedAmount)}${booking.payment.refundedAt ? ` on ${formatDateTime(booking.payment.refundedAt)}` : ''}`
-              : DASH,
-        },
-        { label: 'Failure reason', value: booking.payment.failureReason ?? DASH, wide: true },
-      ]
-    : [];
-
-  const rewards: DescriptionItem[] = [
-    { label: 'Promo code', value: booking.promoCode ? <code>{booking.promoCode}</code> : DASH },
-    { label: 'Discount applied', value: booking.discountAmount > 0 ? money(booking.discountAmount) : DASH },
-    // Loyalty points aren't implemented yet — this row is future-ready.
-    { label: 'Points redeemed', value: booking.pointsRedeemed ?? DASH },
-  ];
-
-  const notes: DescriptionItem[] = [
-    { label: 'Special instructions', value: booking.specialInstructions ?? DASH, wide: true },
-    ...(booking.cancellationReason
-      ? [{ label: 'Cancellation reason', value: booking.cancellationReason, wide: true }]
-      : []),
   ];
 
   // The address as it was when the mother booked — a snapshot, so it reads the
@@ -286,7 +314,7 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
   const where: DescriptionItem[] = booking.address
     ? [
         { label: booking.address.label, value: booking.address.formattedAddress, wide: true },
-        { label: 'Area', value: formatAddressArea(booking.address) },
+        { label: 'Area', value: formatAddressArea(booking.address) || DASH },
         {
           label: 'Door',
           value:
@@ -308,38 +336,257 @@ function BookingSections({ booking }: { booking: AdminBookingDetail }) {
           ),
         },
       ]
-    : [{ label: 'Address', value: 'No address on this booking.', wide: true }];
+    : [];
 
   return (
-    <>
-      <Card title="Overview">
-        <DescriptionList items={overview} />
+    <div className="detail-grid">
+      <Card title="Mommy">
+        <Party
+          name={booking.mother.name}
+          to={`/users/mothers/${booking.mother.id}`}
+          email={booking.mother.email}
+          phone={booking.mother.phone}
+        />
       </Card>
-      <Card title="Parties">
-        <DescriptionList items={parties} />
+
+      <Card title="Nanny" action={nannyAction}>
+        {booking.nanny ? (
+          <Party
+            name={booking.nanny.name}
+            to={`/users/nannies/${booking.nanny.id}`}
+            email={booking.nanny.email}
+            phone={booking.nanny.phone}
+          />
+        ) : (
+          <p className="table-subtext">No nanny assigned yet.</p>
+        )}
       </Card>
-      <Card title="Where">
-        <DescriptionList items={where} />
-      </Card>
+
       <Card title="Schedule">
         <DescriptionList items={schedule} />
       </Card>
-      <Card title="Pricing breakdown">
-        <DescriptionList items={pricing} />
-      </Card>
-      <Card title="Payment details">
-        {booking.payment ? (
-          <DescriptionList items={payment} />
+
+      <Card title="Where">
+        {booking.address ? (
+          <DescriptionList items={where} />
         ) : (
-          <p className="empty-state">No payment has been made for this booking yet.</p>
+          <p className="table-subtext">No address on this booking.</p>
         )}
       </Card>
-      <Card title="Promo & rewards">
-        <DescriptionList items={rewards} />
+
+      <Card title="Pricing breakdown">
+        <PriceReceipt booking={booking} />
       </Card>
+
+      <Card title="Payment details">
+        <PaymentDetails booking={booking} />
+      </Card>
+
+      <Card title="Timeline">
+        <BookingTimeline booking={booking} />
+      </Card>
+
       <Card title="Notes">
-        <DescriptionList items={notes} />
+        <DescriptionList
+          items={[
+            {
+              label: 'Special instructions',
+              wide: true,
+              value: booking.specialInstructions ? (
+                <p className="detail-note">{booking.specialInstructions}</p>
+              ) : (
+                DASH
+              ),
+            },
+            ...(booking.cancellationReason
+              ? [{ label: 'Cancellation reason', value: booking.cancellationReason, wide: true }]
+              : []),
+          ]}
+        />
       </Card>
-    </>
+    </div>
+  );
+}
+
+/** One side of the booking: a link to their profile and how to reach them. */
+function Party({
+  name,
+  to,
+  email,
+  phone,
+}: {
+  name: string;
+  to: string;
+  email: string | null;
+  phone: string | null;
+}) {
+  return (
+    <div className="booking-party">
+      <Link className="booking-party-name" to={to}>
+        {name}
+      </Link>
+      <ContactLinks email={email} phone={phone} />
+    </div>
+  );
+}
+
+type ReceiptLine = { label: ReactNode; value: string; kind?: 'sub' | 'discount' | 'total' };
+
+/** How the hourly rate was built up and what it came to, read top to bottom. */
+function PriceReceipt({ booking }: { booking: AdminBookingDetail }) {
+  const lines: ReceiptLine[] = [
+    { label: 'Base rate', value: `${formatEgp(booking.baseRate)} / h` },
+    ...(booking.extraChildren > 0
+      ? [
+          {
+            label: `Extra children (${booking.extraChildren})`,
+            value: `+${formatEgp(booking.extraChildFeePerHour)} / h`,
+          },
+        ]
+      : []),
+    ...booking.skillAddOns.map((skill) => ({
+      label: skill.name,
+      value: `+${formatEgp(skill.amountPerHour)} / h`,
+    })),
+    { label: 'Hourly rate', value: `${formatEgp(booking.effectiveHourlyRate)} / h`, kind: 'sub' },
+    {
+      label: `Subtotal · ${formatHours(booking.durationHours)} h`,
+      value: formatEgp(booking.subtotal),
+    },
+    ...(booking.durationMultiplier !== 1
+      ? [{ label: 'Duration multiplier', value: `×${booking.durationMultiplier}` }]
+      : []),
+    ...(booking.discountAmount > 0
+      ? [
+          {
+            label: booking.promoCode ? (
+              <>
+                Discount <code>{booking.promoCode}</code>
+              </>
+            ) : (
+              'Discount'
+            ),
+            value: `−${formatEgp(booking.discountAmount)}`,
+            kind: 'discount' as const,
+          },
+        ]
+      : []),
+    // Legacy service fee: the nanny/platform split replaced it, so current bookings are
+    // always 0. Only surface the row for old bookings that actually charged one.
+    ...(booking.serviceFeeAmount > 0
+      ? [{ label: 'Service fee', value: formatEgp(booking.serviceFeeAmount) }]
+      : []),
+    // Loyalty points aren't implemented yet — this row is future-ready.
+    ...(booking.pointsRedeemed != null
+      ? [{ label: 'Points redeemed', value: String(booking.pointsRedeemed) }]
+      : []),
+    { label: 'Total', value: formatEgp(booking.totalAmount), kind: 'total' },
+  ];
+
+  return (
+    <dl className="receipt">
+      {lines.map((line, index) => (
+        <div
+          key={index}
+          className={line.kind ? `receipt-row receipt-row--${line.kind}` : 'receipt-row'}
+        >
+          <dt>{line.label}</dt>
+          <dd>{line.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function PaymentDetails({ booking }: { booking: AdminBookingDetail }) {
+  const payment = booking.payment;
+  if (!payment) {
+    return <p className="table-subtext">No payment has been made for this booking yet.</p>;
+  }
+
+  const reference = (value: string | null, label: string) =>
+    value ? (
+      <span className="booking-reference">
+        <code>{value}</code>
+        <CopyButton value={value} label={label} />
+      </span>
+    ) : (
+      DASH
+    );
+
+  const items: DescriptionItem[] = [
+    {
+      label: 'Status',
+      value: (
+        <Badge tone={paymentStatusTone(payment.status)}>{bookingStatusLabel(payment.status)}</Badge>
+      ),
+    },
+    { label: 'Method', value: payment.method ? bookingStatusLabel(payment.method) : DASH },
+    {
+      label: 'Amount',
+      value:
+        payment.amount != null
+          ? payment.currency && payment.currency !== 'EGP'
+            ? `${payment.amount.toFixed(2)} ${payment.currency}`
+            : formatEgp(payment.amount)
+          : DASH,
+    },
+    {
+      label: 'Refunded',
+      value:
+        payment.refundedAmount > 0
+          ? `${formatEgp(payment.refundedAmount)}${payment.refundedAt ? ` on ${formatDateTime(payment.refundedAt)}` : ''}`
+          : DASH,
+    },
+    { label: 'Paymob order', value: reference(payment.paymobOrderId, 'Paymob order') },
+    {
+      label: 'Paymob transaction',
+      value: reference(payment.paymobTransactionId, 'Paymob transaction'),
+    },
+    {
+      label: 'Paymob intention',
+      value: reference(payment.paymobIntentionId, 'Paymob intention'),
+      wide: true,
+    },
+    ...(payment.failureReason
+      ? [{ label: 'Failure reason', value: payment.failureReason, wide: true }]
+      : []),
+  ];
+
+  return <DescriptionList items={items} />;
+}
+
+/**
+ * What has happened to the booking so far, oldest first. Steps still to come
+ * stay listed but dimmed, so a gap — no check-in on a past booking — shows.
+ */
+function BookingTimeline({ booking }: { booking: AdminBookingDetail }) {
+  const decided = booking.nannyDecision !== 'PENDING';
+  const steps: { label: string; at: string | null }[] = [
+    { label: 'Requested', at: booking.createdAt },
+    {
+      label: decided ? `Nanny ${nannyDecisionLabel(booking.nannyDecision).toLowerCase()}` : 'Nanny response',
+      at: decided ? booking.nannyDecidedAt : null,
+    },
+    { label: 'Approved', at: booking.adminApprovedAt },
+    { label: 'Checked in', at: booking.nannyCheckedInAt },
+    { label: 'Checked out', at: booking.nannyCheckedOutAt },
+    ...(booking.cancelledAt ? [{ label: 'Cancelled', at: booking.cancelledAt }] : []),
+  ];
+
+  return (
+    <ol className="booking-timeline">
+      {steps.map((step) => (
+        <li
+          key={step.label}
+          className={step.at ? 'booking-timeline-step' : 'booking-timeline-step booking-timeline-step--pending'}
+        >
+          <span className="booking-timeline-label">{step.label}</span>
+          <span className="booking-timeline-time">
+            {step.at ? formatDateTime(step.at) : 'Not yet'}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
