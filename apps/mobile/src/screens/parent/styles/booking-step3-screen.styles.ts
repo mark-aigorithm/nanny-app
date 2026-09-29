@@ -323,6 +323,48 @@ export const styles = StyleSheet.create({
     ...typeScale.bodyMd,
     color: colors.textSecondary,
   },
+
+  // Nothing to pay — a fully covered booking is confirmed here, no checkout.
+  freeWrap: {
+    flex: 1,
+    paddingHorizontal: screenPadding,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing['4xl'],
+    gap: spacing.lg,
+  },
+  freeCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  freeTitle: {
+    ...typeScale.headingMd,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  freeText: {
+    ...typeScale.bodyMd,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  freePriceRows: {
+    alignSelf: 'stretch',
+    marginTop: spacing.sm,
+    gap: spacing.md,
+  },
+  freeTotalLabel: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  freeTotalValue: {
+    ...typeScale.headingSm,
+    color: colors.primary,
+  },
   errorText: {
     ...typeScale.bodyMd,
     color: colors.error,

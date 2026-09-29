@@ -43,11 +43,17 @@ export function useBookingList(
   });
 }
 
-export function useBooking(id: number | undefined, pollWhilePending = false) {
+export function useBooking(
+  id: number | undefined,
+  pollWhilePending = false,
+  /** Read the server on mount even when the cached copy is still fresh. */
+  { alwaysRefetchOnMount = false }: { alwaysRefetchOnMount?: boolean } = {},
+) {
   return useQuery<BookingResponse>({
     queryKey: [BOOKINGS_KEY, id],
     queryFn: () => unwrap(api.get(`/bookings/${id}`)),
     enabled: !!id,
+    ...(alwaysRefetchOnMount ? { refetchOnMount: 'always' as const } : {}),
     // While a broadcast request is unclaimed, poll so the screen advances on its
     // own the moment a nanny accepts (PENDING → APPROVED).
     refetchInterval: pollWhilePending
@@ -162,6 +168,22 @@ export function usePaymobCheckout() {
     mutationFn: ({ bookingId, method = PaymentMethod.CARD }) =>
       unwrap(api.post(`/bookings/${bookingId}/pay/paymob`, { method })),
     onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+  });
+}
+
+/**
+ * Confirm a booking whose total was fully covered (promo, Care Points, package
+ * hours). There is nothing to charge, so no checkout opens — the server
+ * confirms it outright and returns the confirmed booking.
+ */
+export function useConfirmFreeBooking() {
+  const qc = useQueryClient();
+  return useMutation<BookingResponse, Error, number>({
+    mutationFn: (bookingId) => unwrap(api.post(`/bookings/${bookingId}/confirm-free`)),
+    onSuccess: (booking) => {
+      qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
+      qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+    },
   });
 }
 
