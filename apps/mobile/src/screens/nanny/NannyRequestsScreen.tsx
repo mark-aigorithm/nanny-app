@@ -27,7 +27,7 @@ import {
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
-import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import NannyExtensionRequestCard from '@mobile/components/NannyExtensionRequestCard';
@@ -81,9 +81,10 @@ export default function NannyRequestsScreen() {
 
   const requests = (isRequestsTab ? available.data : owned.data) ?? [];
   const isLoading = isRequestsTab ? available.isLoading : owned.isLoading;
-  const refetch = isRequestsTab ? available.refetch : owned.refetch;
 
-  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
+  // A pull refreshes the banners above the chips (ongoing visit, extension
+  // request) as well as the list under them.
+  const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
   const checkOut = useCheckOut();
   const acceptBooking = useAcceptBooking();
   const { nearestBooking, canCheckIn, canCheckOut, blockedByBalanceDue } = useBookingShiftTimer(

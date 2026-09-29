@@ -17,7 +17,7 @@ import { colors, STATUS_BAR_HEIGHT } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
-import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { isNothingToPay } from '@mobile/lib/nothingToPay';
@@ -40,11 +40,12 @@ export default function BookingHistoryScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
 
-  const { data: bookings = [], isLoading, refetch } = useBookingList(
+  const { data: bookings = [], isLoading } = useBookingList(
     STATUS_BY_TAB[activeTab],
     activeTab === 'upcoming' ? { sortBy: 'startTime', sortDir: 'asc' } : undefined,
   );
-  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
+  // A pull refreshes the ongoing-visit banner as well as the list under the tabs.
+  const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
 
   const handleViewDetails = (bookingId: string) => {
     router.push({

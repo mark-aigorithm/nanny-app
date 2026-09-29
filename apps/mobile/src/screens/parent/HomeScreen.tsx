@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import CampaignCarousel from '@mobile/components/CampaignCarousel';
@@ -10,7 +9,7 @@ import { Button, FadeInView, PressableScale, ScreenContainer } from '@mobile/com
 import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
-import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { colors } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
@@ -47,15 +46,8 @@ export default function HomeScreen() {
   const clearPendingPromo = usePendingPromoStore((s) => s.clear);
 
   // Home's data lives in its cards (the live order, the campaigns, the
-  // header's unread count), each with its own query. A pull refetches every
-  // query mounted on this screen rather than naming them here, so a card
-  // added later is covered without touching Home.
-  const queryClient = useQueryClient();
-  const refreshEverything = useCallback(
-    () => queryClient.refetchQueries({ type: 'active' }),
-    [queryClient],
-  );
-  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refreshEverything);
+  // header's unread count), each with its own query — a pull refetches them all.
+  const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
 
   // A promo code from an abandoned campaign tap must never leak into a later,
   // unrelated booking. Home is where every new booking starts, so clear any
