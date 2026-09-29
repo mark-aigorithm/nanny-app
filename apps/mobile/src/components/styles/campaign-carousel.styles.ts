@@ -2,46 +2,61 @@ import { StyleSheet } from 'react-native';
 
 import { borderRadius, colors, screenPadding, shadows, spacing, typeScale } from '@mobile/theme';
 
-const CARD_WIDTH = 280;
-
-export const CARD_WIDTH_PX = CARD_WIDTH;
+export const CARD_GAP = spacing.md;
 
 export const styles = StyleSheet.create({
   section: {
-    marginTop: spacing.lg,
+    gap: spacing.md,
   },
-  sectionTitle: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: screenPadding,
+  // Home's scroll view already pads by screenPadding. Pull the rail back out to
+  // the screen edge and pad its content in, so the first banner lines up with
+  // the cards above and the last one can scroll fully into view.
+  list: {
+    marginHorizontal: -screenPadding,
   },
   listContent: {
     paddingHorizontal: screenPadding,
-    gap: spacing.md,
+    gap: CARD_GAP,
   },
   card: {
-    width: CARD_WIDTH,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     backgroundColor: colors.surface,
     overflow: 'hidden',
     ...shadows.sm,
   },
+  // Its aspectRatio comes from the upload size, set in CampaignCarousel.
   image: {
     width: '100%',
-    height: 140,
     backgroundColor: colors.neutralLight,
   },
-  body: {
-    padding: spacing.md,
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  title: {
-    ...typeScale.labelLg,
-    color: colors.textPrimary,
+  pill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
   },
-  subtitle: {
-    ...typeScale.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
+  pillText: {
+    ...typeScale.captionBold,
+    color: colors.primaryDark,
+  },
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.taupe,
+  },
+  dotActive: {
+    width: 18,
+    backgroundColor: colors.primaryDark,
   },
 });

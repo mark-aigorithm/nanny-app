@@ -9,6 +9,13 @@ import { z } from 'zod';
 // target's own usage, not from campaign attribution.
 // ──────────────────────────────────────────────────────────────
 
+/**
+ * The banner size admins are asked to upload. The app draws every banner in a
+ * box of this shape, so artwork made at any other ratio loses its edges.
+ */
+export const CAMPAIGN_IMAGE_WIDTH = 1200;
+export const CAMPAIGN_IMAGE_HEIGHT = 675;
+
 export const CampaignTargetTypeSchema = z.enum(['PACKAGE', 'PROMO_CODE']);
 export type CampaignTargetType = z.infer<typeof CampaignTargetTypeSchema>;
 

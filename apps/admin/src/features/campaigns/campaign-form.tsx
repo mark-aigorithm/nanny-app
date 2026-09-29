@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ChangeEvent } from 'react';
 
 import {
+  CAMPAIGN_IMAGE_HEIGHT,
+  CAMPAIGN_IMAGE_WIDTH,
   CreateCampaignSchema,
   UpdateCampaignSchema,
   type Campaign,
@@ -152,18 +154,23 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
         </Field>
         <Field
           label="Image"
-          hint={
-            campaign
-              ? 'Upload to replace the current image.'
-              : 'Required. Uploaded to Firebase Storage.'
-          }
+          hint={`${campaign ? 'Upload to replace the current image.' : 'Required.'} Use ${CAMPAIGN_IMAGE_WIDTH} × ${CAMPAIGN_IMAGE_HEIGHT} px. Other shapes are cropped in the app.`}
         >
           <Input type="file" accept="image/*" onChange={handleImage} />
         </Field>
         {imageUrl && (
           <div className="field">
-            <span className="field-label">Preview</span>
-            <img src={imageUrl} alt="Campaign preview" style={{ maxWidth: 160, borderRadius: 8 }} />
+            <span className="field-label">Preview (as shown in the app)</span>
+            <img
+              src={imageUrl}
+              alt="Campaign preview"
+              style={{
+                width: 240,
+                aspectRatio: `${CAMPAIGN_IMAGE_WIDTH} / ${CAMPAIGN_IMAGE_HEIGHT}`,
+                objectFit: 'cover',
+                borderRadius: 8,
+              }}
+            />
           </div>
         )}
         <Field label="Links to">

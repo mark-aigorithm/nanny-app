@@ -11,6 +11,8 @@ import {
   PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
+const STEP_NUMBER_SIZE = 28;
+
 export const styles = StyleSheet.create({
   // Scroll
   scrollView: {
@@ -72,38 +74,56 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // How it works
-  stepsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    ...shadows.sm,
+  // How booking works: numbered timeline
+  howSection: {
+    gap: spacing.lg,
+  },
+  howLabel: {
+    ...typeScale.overline,
+    color: colors.textMuted,
   },
   stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.lg,
+    paddingBottom: spacing.xl,
   },
-  stepRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.warmBorder,
+  stepRowLast: {
+    paddingBottom: 0,
   },
-  stepIcon: {
-    width: 44,
-    height: 44,
+  // Joins this step's number to the next one's; runs through the row's
+  // bottom padding, under the next number.
+  stepLine: {
+    position: 'absolute',
+    left: STEP_NUMBER_SIZE / 2,
+    top: STEP_NUMBER_SIZE,
+    bottom: 0,
+    width: 1,
+    backgroundColor: colors.warmBorder,
+  },
+  stepNumber: {
+    width: STEP_NUMBER_SIZE,
+    height: STEP_NUMBER_SIZE,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryMuted,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepNumberText: {
+    ...typeScale.captionBold,
+    color: colors.primaryDark,
+  },
+  stepText: {
+    flex: 1,
+    gap: spacing.xxs,
   },
   stepTitle: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
-    marginBottom: 2,
   },
   stepBody: {
-    ...typeScale.bodyMd,
+    ...typeScale.bodySm,
     color: colors.textSecondary,
   },
 
