@@ -29,6 +29,7 @@ import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { confirmDialog } from '@mobile/store/confirmDialogStore';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { isNothingToPay } from '@mobile/lib/nothingToPay';
 import { styles } from './styles/booking-confirmation-screen.styles';
 
 /**
@@ -202,6 +203,7 @@ export default function BookingConfirmationScreen() {
     booking.status === BookingStatus.COMPLETED ||
     booking.payment?.status === PaymentStatus.CAPTURED;
   const isApproved = booking.status === BookingStatus.APPROVED;
+  const nothingToPay = isNothingToPay(booking);
   const isPending = !isPaid && !isApproved;
 
   let heading: string;
@@ -211,7 +213,9 @@ export default function BookingConfirmationScreen() {
     subtitle = `${nannyFirstName} is confirmed for ${dateDisplay}.`;
   } else if (isApproved) {
     heading = 'A nanny accepted!';
-    subtitle = `${nannyFirstName} is ready for ${dateDisplay}. Complete payment to confirm.`;
+    subtitle = nothingToPay
+      ? `${nannyFirstName} is ready for ${dateDisplay}. Nothing to pay — just confirm.`
+      : `${nannyFirstName} is ready for ${dateDisplay}. Complete payment to confirm.`;
   } else {
     heading = 'Finding a nanny';
     subtitle = SEARCH_MESSAGES[messageIndex] ?? SEARCH_MESSAGES[0];
@@ -398,8 +402,8 @@ export default function BookingConfirmationScreen() {
         {isApproved && (
           <>
             <Button
-              title="Complete payment"
-              icon="card-outline"
+              title={nothingToPay ? 'Confirm booking' : 'Complete payment'}
+              icon={nothingToPay ? 'checkmark-circle-outline' : 'card-outline'}
               onPress={handleCompletePayment}
             />
             <Button

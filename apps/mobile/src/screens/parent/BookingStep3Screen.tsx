@@ -30,7 +30,9 @@ import BookingStepProgress from '@mobile/components/BookingStepProgress';
 
 import { colors } from '@mobile/theme';
 
-import { usePaymobCheckout } from '@mobile/hooks/useBookings';
+import { Button, IconCircle } from '@mobile/components/ui';
+
+import { useBooking, useConfirmFreeBooking, usePaymobCheckout } from '@mobile/hooks/useBookings';
 
 import {
 
@@ -47,6 +49,8 @@ import {
 } from '@mobile/lib/bookingDraft';
 
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { formatMoney } from '@mobile/lib/formatMoney';
+import { coveredInFullSentence, isNothingToPay } from '@mobile/lib/nothingToPay';
 import {
   buildPaymobCheckoutUrl,
   PAYMOB_CHECKOUT_VIEWPORT_FIX,
@@ -103,11 +107,26 @@ export default function BookingStep3Screen() {
 
 
   const paymobCheckout = usePaymobCheckout();
+  const confirmFree = useConfirmFreeBooking();
 
   const retryMode = isRetryCheckout(params);
 
   // Payment-only screen — it never creates a booking, so it needs an existing one.
   const draftReady = retryMode;
+
+  // The total decides whether there is a checkout at all, and it can change
+  // right before arriving here (a promo, Care Points), so wait for a read made
+  // on this mount rather than trusting whatever the cache held. A failed read
+  // falls through to the checkout, which settles a zero total on its own.
+  const {
+    data: booking,
+    isFetchedAfterMount: bookingFresh,
+    isError: bookingLoadFailed,
+  } = useBooking(draftReady ? Number(params.bookingId) : undefined, false, {
+    alwaysRefetchOnMount: true,
+  });
+  const totalKnown = bookingFresh || bookingLoadFailed;
+  const nothingToPay = bookingFresh && !!booking && isNothingToPay(booking);
 
 
 
@@ -199,15 +218,33 @@ export default function BookingStep3Screen() {
 
   useEffect(() => {
 
-    if (!draftReady || startedRef.current) return;
+    if (!draftReady || !totalKnown || startedRef.current) return;
 
     startedRef.current = true;
+
+    // Fully covered: no checkout — the mother confirms below instead.
+    if (nothingToPay) {
+      setIsStarting(false);
+      return;
+    }
 
     redirectHandledRef.current = false;
 
     void resumeCheckout();
 
-  }, [draftReady, resumeCheckout]);
+  }, [draftReady, nothingToPay, resumeCheckout, totalKnown]);
+
+  const handleConfirmFree = useCallback(() => {
+    if (!booking) return;
+    confirmFree.mutate(booking.id, {
+      onSuccess: (confirmed) => {
+        router.replace({
+          pathname: '/(parent)/book/booking-confirmation',
+          params: { bookingId: String(confirmed.id) },
+        } as never);
+      },
+    });
+  }, [booking, confirmFree, router]);
 
 
 
@@ -323,7 +360,7 @@ export default function BookingStep3Screen() {
 
           </Pressable>
 
-          <Text style={styles.headerTitle}>Payment</Text>
+          <Text style={styles.headerTitle}>{nothingToPay ? 'Confirm booking' : 'Payment'}</Text>
 
           <View style={styles.headerIconBtn} />
 
@@ -347,6 +384,51 @@ export default function BookingStep3Screen() {
 
 
 
+      {nothingToPay && booking ? (
+        <View style={styles.freeWrap}>
+          <View style={styles.freeCard}>
+            <IconCircle icon="checkmark" size="lg" />
+            <Text style={styles.freeTitle}>Nothing to pay</Text>
+            <Text style={styles.freeText}>
+              {coveredInFullSentence(booking)}{' '}
+              {booking.nanny
+                ? `Confirm and ${booking.nanny.firstName} is booked.`
+                : 'Confirm and you’re booked.'}
+            </Text>
+
+            <View style={styles.freePriceRows}>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Booking total</Text>
+                <Text style={styles.priceValue}>
+                  {formatMoney(booking.totalAmount + booking.discountAmount)}
+                </Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.promoLabel}>Covered</Text>
+                <Text style={styles.promoValue}>−{formatMoney(booking.discountAmount)}</Text>
+              </View>
+              <View style={styles.priceDivider} />
+              <View style={styles.priceRow}>
+                <Text style={styles.freeTotalLabel}>To pay</Text>
+                <Text style={styles.freeTotalValue}>{formatMoney(0)}</Text>
+              </View>
+            </View>
+          </View>
+
+          {confirmFree.isError ? (
+            <Text style={styles.errorText}>
+              {getApiErrorMessage(confirmFree.error, 'Could not confirm your booking. Please try again.')}
+            </Text>
+          ) : null}
+
+          <Button
+            title="Confirm booking"
+            icon="checkmark-circle-outline"
+            onPress={handleConfirmFree}
+            loading={confirmFree.isPending}
+          />
+        </View>
+      ) : (
       <View
         style={styles.webviewWrap}
         onLayout={(e) => {
@@ -473,6 +555,7 @@ export default function BookingStep3Screen() {
         )}
 
       </View>
+      )}
 
     </View>
 

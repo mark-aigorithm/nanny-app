@@ -47,7 +47,10 @@ import { prisma } from '@backend/db/prisma';
 import { createPaymobApiClient } from '@backend/lib/paymob/client';
 import { notifyNannyBookingConfirmed } from '@backend/services/booking.service';
 import { sendReceiptEmail } from '@backend/services/email.service';
-import { createPaymobIntentionForBooking } from '@backend/services/paymob.service';
+import {
+  confirmBookingWithoutPayment,
+  createPaymobIntentionForBooking,
+} from '@backend/services/paymob.service';
 import { redeemBookingPromoCodeOnCapture } from '@backend/services/promo-code.service';
 
 const mockPrisma = prisma as unknown as {
@@ -126,5 +129,54 @@ describe('createPaymobIntentionForBooking — nothing owed', () => {
     expect(createIntention).toHaveBeenCalledTimes(1);
     expect(result.clientSecret).toBe('s');
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('confirmBookingWithoutPayment', () => {
+  it('confirms a fully covered booking through the capture path, without Paymob', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(approvedBooking(0));
+
+    await confirmBookingWithoutPayment(decoded, 52);
+
+    expect(createPaymobApiClient).not.toHaveBeenCalled();
+    expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ bookingId: 52, motherId: 10, amount: 0, method: 'CARD' }),
+      }),
+    );
+    expect(tx.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 52 }, data: { status: BookingStatus.CONFIRMED } }),
+    );
+    expect(redeemBookingPromoCodeOnCapture).toHaveBeenCalledWith(tx, 52);
+    expect(notifyNannyBookingConfirmed).toHaveBeenCalled();
+  });
+
+  it('needs no phone number — nothing is being charged', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...mother, phone: null });
+    mockPrisma.booking.findUnique.mockResolvedValue(approvedBooking(0));
+
+    await expect(confirmBookingWithoutPayment(decoded, 52)).resolves.toBeUndefined();
+  });
+
+  it('refuses a booking that still owes money', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(approvedBooking(318));
+
+    await expect(confirmBookingWithoutPayment(decoded, 52)).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a booking that is not awaiting payment', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue({ ...approvedBooking(0), status: BookingStatus.PENDING });
+
+    await expect(confirmBookingWithoutPayment(decoded, 52)).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses someone else's booking", async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue({ ...approvedBooking(0), motherId: 99 });
+
+    await expect(confirmBookingWithoutPayment(decoded, 52)).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
 });

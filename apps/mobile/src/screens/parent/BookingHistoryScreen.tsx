@@ -20,6 +20,7 @@ import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/us
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { isNothingToPay } from '@mobile/lib/nothingToPay';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
 import { styles } from './styles/booking-history-screen.styles';
 
@@ -286,8 +287,14 @@ function BookingCard({
           haptic="tap"
           onPress={() => onCompletePayment(booking)}
         >
-          <Ionicons name="card-outline" size={16} color={colors.white} />
-          <Text style={styles.payButtonText}>Complete payment</Text>
+          <Ionicons
+            name={isNothingToPay(booking) ? 'checkmark-circle-outline' : 'card-outline'}
+            size={16}
+            color={colors.white}
+          />
+          <Text style={styles.payButtonText}>
+            {isNothingToPay(booking) ? 'Confirm booking' : 'Complete payment'}
+          </Text>
         </PressableScale>
       ) : null}
 

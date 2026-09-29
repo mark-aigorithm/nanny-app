@@ -1,4 +1,11 @@
-import { BookingExtensionStatus, BookingStatus, PaymentPurpose, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  BookingExtensionStatus,
+  BookingStatus,
+  PaymentMethod,
+  PaymentPurpose,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import type { CreatePaymobIntentionRequest } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
 
@@ -194,33 +201,14 @@ export async function createPaymobIntentionForBooking(
     throw errors.badRequest('Add a phone number to your profile before paying.');
   }
 
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId, deletedAt: null },
-    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
-  });
-  if (!booking) throw errors.notFound('Booking not found.');
-  if (booking.motherId !== user.id) throw errors.forbidden('Access denied.');
-  // Pay-after-approval: payment may only be initiated once an admin has
-  // approved the booking (status APPROVED).
-  if (booking.status !== BookingStatus.APPROVED) {
-    throw errors.badRequest(`Cannot pay for a booking in status ${booking.status}. It must be approved by an admin first.`);
-  }
-  if (!booking.nannyProfileId) {
-    throw errors.badRequest('Booking has no assigned nanny yet.');
-  }
-
+  const booking = await findPayableBooking(user.id, bookingId);
   const attempts = booking.payments;
-  if (attempts.some((p) => p.status === PaymentStatus.CAPTURED)) {
-    throw errors.badRequest('This booking is already paid.');
-  }
 
-  // Nothing owed — a promo or credit covered the whole price. Paymob refuses
-  // an intention for 0 ("amount ≥ 1") and there is nothing to collect, so
-  // settle it here: a zero CAPTURED payment keeps "CONFIRMED ⟹ a captured
-  // payment" true and walks the same confirm path as a real capture (promo
-  // spent, nanny told, receipt sent). The 400 is what stops the app opening a
-  // checkout for it; the message says what happened instead.
-  if (Number(booking.totalAmount) <= 0) {
+  // Nothing owed. The app confirms these through confirmBookingWithoutPayment
+  // and never reaches here, but builds released before that endpoint still
+  // call this one — so settle it here too. The 400 is what stops those builds
+  // opening a checkout Paymob would refuse ("amount ≥ 1").
+  if (isFullyCovered(booking.totalAmount)) {
     await settleWithoutCharge({ bookingId }, user.id, body.method);
     throw errors.badRequest('Nothing to pay — this booking is confirmed.');
   }
@@ -234,6 +222,60 @@ export async function createPaymobIntentionForBooking(
     redirectionQuery: `bookingId=${encodeURIComponent(bookingId)}`,
     method: body.method,
   });
+}
+
+/**
+ * Confirm a booking whose whole price was covered — a 100% promo, Care Points,
+ * prepaid package hours — without sending the mother to a checkout. Records a
+ * zero CAPTURED payment so "CONFIRMED ⟹ a captured payment" stays true, and
+ * walks the same confirm path as a real capture (promo spent, nanny told,
+ * receipt sent). Refuses a booking that still owes money: that one must pay.
+ */
+export async function confirmBookingWithoutPayment(
+  decoded: DecodedIdToken,
+  bookingId: number,
+): Promise<void> {
+  const user = await getUserByUid(decoded.uid);
+  if (user.role !== Role.MOTHER) throw errors.forbidden('Only mothers can confirm bookings.');
+
+  const booking = await findPayableBooking(user.id, bookingId);
+  if (!isFullyCovered(booking.totalAmount)) {
+    throw errors.badRequest('This booking has an amount due. Complete payment to confirm it.');
+  }
+
+  // No method was chosen — nothing was charged. CARD is what the app has
+  // always sent for a booking checkout, so the row reads like any other.
+  await settleWithoutCharge({ bookingId }, user.id, PaymentMethod.CARD);
+}
+
+/**
+ * The booking a mother may settle right now: hers, approved, with a nanny, and
+ * not already paid. Shared by the checkout and the nothing-owed confirm so the
+ * two can never disagree about what is payable.
+ */
+async function findPayableBooking(motherId: number, bookingId: number) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
+  });
+  if (!booking) throw errors.notFound('Booking not found.');
+  if (booking.motherId !== motherId) throw errors.forbidden('Access denied.');
+  // Pay-after-approval: payment may only be initiated once an admin has
+  // approved the booking (status APPROVED).
+  if (booking.status !== BookingStatus.APPROVED) {
+    throw errors.badRequest(`Cannot pay for a booking in status ${booking.status}. It must be approved by an admin first.`);
+  }
+  if (!booking.nannyProfileId) {
+    throw errors.badRequest('Booking has no assigned nanny yet.');
+  }
+  if (booking.payments.some((p) => p.status === PaymentStatus.CAPTURED)) {
+    throw errors.badRequest('This booking is already paid.');
+  }
+  return booking;
+}
+
+function isFullyCovered(totalAmount: Prisma.Decimal): boolean {
+  return Number(totalAmount) <= 0;
 }
 
 /**

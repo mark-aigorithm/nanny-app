@@ -56,6 +56,7 @@ import {
 import { listBookingAdjustments } from '@backend/services/booking-adjustment.service';
 import { createCareLog, listCareLogs } from '@backend/services/care-log.service';
 import {
+  confirmBookingWithoutPayment,
   createPaymobIntentionForBooking,
   createPaymobIntentionForAdjustment,
   createPaymobIntentionForExtension,
@@ -232,6 +233,21 @@ bookingRouter.post(
         req.body,
       );
       res.status(201).json(ok(result));
+    } catch (err) { next(err); }
+  },
+);
+
+/** Confirm a booking that owes nothing (fully covered by a promo, points or package hours). */
+bookingRouter.post(
+  '/:id/confirm-free',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const bookingId = routeIdParam(req.params['id']);
+      await confirmBookingWithoutPayment(req.firebaseUser, bookingId);
+      const booking = await getBooking(req.firebaseUser, bookingId);
+      res.json(ok(booking));
     } catch (err) { next(err); }
   },
 );

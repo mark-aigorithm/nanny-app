@@ -9,6 +9,7 @@ import { BookingNannyAvatar } from '@mobile/components/booking/BookingNannyAvata
 import { formatCountdown, useNannyPhone } from '@mobile/hooks/useNannyPhone';
 import { childrenPhrase, formatSpan } from '@mobile/lib/bookingDetail';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { isNothingToPay } from '@mobile/lib/nothingToPay';
 import { colors, borderRadius, shadows, spacing, typeScale } from '@mobile/theme';
 
 interface Props {
@@ -82,6 +83,18 @@ export function BookingStatusCard({ booking, onRefresh, onPay, onCancel, isCance
       break;
 
     case 'APPROVED':
+      if (isNothingToPay(booking)) {
+        status = 'Nanny found · nothing to pay';
+        body = (
+          <>
+            <Text style={styles.text}>
+              Your booking is covered in full. Confirm to book {nanny?.firstName ?? 'your nanny'}.
+            </Text>
+            <Button title="Confirm booking" icon="checkmark-circle-outline" onPress={onPay} />
+          </>
+        );
+        break;
+      }
       status = 'Nanny found · payment due';
       body = (
         <>
