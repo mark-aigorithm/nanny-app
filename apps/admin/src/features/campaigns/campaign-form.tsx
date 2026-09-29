@@ -13,6 +13,8 @@ import {
 import { Field, FormModal, Input, Select, useToast } from '@admin/components/ui';
 import { createCampaign, fetchPackages, fetchPromoCodes, updateCampaign } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { CampaignImageCropper } from '@admin/features/campaigns/campaign-image-cropper';
+import { cropImageToFile, type PixelArea } from '@admin/lib/crop-image';
 import { firstIssueMessage } from '@admin/lib/form-errors';
 import { uploadImageToFirebase } from '@admin/lib/storage';
 
@@ -49,6 +51,8 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
   const [subtitle, setSubtitle] = useState(campaign?.subtitle ?? '');
   const [imageUrl, setImageUrl] = useState(campaign?.imageUrl ?? '');
   const [uploading, setUploading] = useState(false);
+  // A picked file waiting to be framed: its object URL and original name.
+  const [pending, setPending] = useState<{ src: string; name: string } | null>(null);
   const [targetType, setTargetType] = useState<CampaignTargetType>(
     campaign?.targetType ?? 'PACKAGE',
   );
@@ -70,18 +74,39 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
     onError: (err) => setFormError(apiErrorMessage(err)),
   });
 
-  async function handleImage(event: ChangeEvent<HTMLInputElement>) {
+  function handleImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    // Reset so picking the same file again still fires a change.
+    event.target.value = '';
     if (!file) return;
+    setFormError(null);
+    setPending({ src: URL.createObjectURL(file), name: file.name });
+  }
+
+  function discardPending() {
+    if (pending) URL.revokeObjectURL(pending.src);
+    setPending(null);
+  }
+
+  async function handleCropConfirm(area: PixelArea) {
+    if (!pending) return;
     setUploading(true);
     setFormError(null);
     try {
+      const file = await cropImageToFile(
+        pending.src,
+        area,
+        CAMPAIGN_IMAGE_WIDTH,
+        CAMPAIGN_IMAGE_HEIGHT,
+        pending.name,
+      );
       const url = await uploadImageToFirebase(file, 'campaigns');
       setImageUrl(url);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Image upload failed');
     } finally {
       setUploading(false);
+      discardPending();
     }
   }
 
@@ -123,6 +148,7 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
   }
 
   const packageOptions = (packages.data ?? []).map((p) => ({ value: p.id, label: p.name }));
+  const imageHint = `${campaign ? 'Upload to replace the current image.' : 'Required.'} You'll crop it to the Home-screen banner shape (16:9).`;
   const promoOptions = (promoCodes.data ?? []).map((c) => ({ value: c.id, label: c.code }));
 
   return (
@@ -130,7 +156,7 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
       title={campaign ? 'Edit campaign' : 'Add campaign'}
       submitLabel={uploading ? 'Uploading…' : campaign ? 'Save changes' : 'Add campaign'}
       busy={saveMutation.isPending}
-      submitDisabled={uploading || !imageUrl || title.trim() === ''}
+      submitDisabled={uploading || pending !== null || !imageUrl || title.trim() === ''}
       error={formError}
       onSubmit={submit}
       onClose={onClose}
@@ -152,12 +178,24 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
             placeholder="Save on prepaid hours"
           />
         </Field>
-        <Field
-          label="Image"
-          hint={`${campaign ? 'Upload to replace the current image.' : 'Required.'} Use ${CAMPAIGN_IMAGE_WIDTH} × ${CAMPAIGN_IMAGE_HEIGHT} px. Other shapes are cropped in the app.`}
-        >
-          <Input type="file" accept="image/*" onChange={handleImage} />
-        </Field>
+        {pending ? (
+          // Not a <Field>: that renders a <label>, which would rename the cropper's first
+          // button and forward clicks on the crop stage to it (i.e. Cancel).
+          <div className="field">
+            <span className="field-label">Image</span>
+            <CampaignImageCropper
+              src={pending.src}
+              busy={uploading}
+              onCancel={discardPending}
+              onConfirm={(area) => void handleCropConfirm(area)}
+            />
+            <span className="field-hint">{imageHint}</span>
+          </div>
+        ) : (
+          <Field label="Image" hint={imageHint}>
+            <Input type="file" accept="image/*" onChange={handleImage} />
+          </Field>
+        )}
         {imageUrl && (
           <div className="field">
             <span className="field-label">Preview (as shown in the app)</span>
