@@ -17,23 +17,16 @@ import { styles } from './styles/home-screen.styles';
 // Uber-style flow: the parent orders care without picking a nanny. Home is a
 // single clear call to action plus a short explanation of what happens next —
 // no nanny cards, no browsing.
-const STEPS: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  title: string;
-  body: string;
-}[] = [
+const STEPS: { title: string; body: string }[] = [
   {
-    icon: 'paper-plane-outline',
     title: 'Request care',
     body: 'Tell us the day, time and how long. No need to choose a nanny.',
   },
   {
-    icon: 'people-outline',
     title: 'We find a nanny',
     body: 'Your request goes to every available nanny. The first to accept is yours.',
   },
   {
-    icon: 'card-outline',
     title: 'Pay & relax',
     body: 'Pay once a nanny accepts, then track the visit from start to finish.',
   },
@@ -80,8 +73,8 @@ export default function HomeScreen() {
           <View style={styles.guestWelcomeCard}>
             <Text style={styles.guestWelcomeTitle}>Welcome to {APP_NAME}</Text>
             <Text style={styles.guestWelcomeBody}>
-              You&apos;re browsing as a guest. See how care works, explore the community —
-              then create a free account to book a trusted, vetted nanny.
+              You&apos;re browsing as a guest. See how care works, explore the community — then
+              create a free account to book a trusted, vetted nanny.
             </Text>
             <Button
               title="Create free account"
@@ -121,24 +114,26 @@ export default function HomeScreen() {
 
         <CampaignCarousel />
 
-        {/* How it works */}
-        <FadeInView index={1} style={styles.section}>
-          <Text style={styles.sectionTitle}>How it works</Text>
-          <View style={styles.stepsCard}>
-            {STEPS.map((step, i) => (
-              <View
-                key={step.title}
-                style={[styles.stepRow, i < STEPS.length - 1 && styles.stepRowBorder]}
-              >
-                <View style={styles.stepIcon}>
-                  <Ionicons name={step.icon} size={20} color={colors.primary} />
+        {/* How booking works: a plain numbered timeline, deliberately not a
+            card, so it can't be read as part of the offer above it. */}
+        <FadeInView index={1} style={styles.howSection}>
+          <Text style={styles.howLabel}>How booking works</Text>
+          <View>
+            {STEPS.map((step, i) => {
+              const isLast = i === STEPS.length - 1;
+              return (
+                <View key={step.title} style={[styles.stepRow, isLast && styles.stepRowLast]}>
+                  {isLast ? null : <View style={styles.stepLine} />}
+                  <View style={styles.stepNumber}>
+                    <Text style={styles.stepNumberText}>{i + 1}</Text>
+                  </View>
+                  <View style={styles.stepText}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <Text style={styles.stepBody}>{step.body}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>{step.title}</Text>
-                  <Text style={styles.stepBody}>{step.body}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </FadeInView>
       </ScrollView>
