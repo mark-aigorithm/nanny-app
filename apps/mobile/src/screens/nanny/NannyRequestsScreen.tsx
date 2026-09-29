@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@mobile/components/ui';
-import { colors, HEADER_HEIGHT } from '@mobile/theme';
+import { colors } from '@mobile/theme';
 import {
   formatAllergySummary,
   formatChildrenSummary,
@@ -285,7 +285,6 @@ export default function NannyRequestsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            progressViewOffset={HEADER_HEIGHT}
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
             tintColor={colors.primary}

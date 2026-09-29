@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshControl } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -27,6 +27,7 @@ jest.mock('@mobile/components/NannyBottomNav', () => () => null);
 jest.mock('@mobile/components/NannyTabHeader', () => () => null);
 
 import { api, unwrap } from '@mobile/lib/api';
+import { HEADER_HEIGHT } from '@mobile/theme';
 import NannyRequestsScreen from '@mobile/screens/nanny/NannyRequestsScreen';
 
 const mockUnwrap = unwrap as jest.Mock;
@@ -59,6 +60,17 @@ beforeEach(() => {
 });
 
 describe('NannyRequestsScreen', () => {
+  it('starts the list below the header, where the pull spinner can be seen', async () => {
+    const { findByText, UNSAFE_getByType } = renderScreen();
+    await findByText('No open requests right now');
+
+    // iOS draws the spinner at the list's top edge — under the solid header it
+    // was hidden — and Android draws it there too once there is no offset.
+    const list = UNSAFE_getByType(ScrollView);
+    expect(StyleSheet.flatten(list.props.style).marginTop).toBe(HEADER_HEIGHT);
+    expect(list.props.refreshControl.props.progressViewOffset).toBeUndefined();
+  });
+
   it('asks the server again for the open requests and the ongoing-visit banner when pulled down', async () => {
     const { findByText, UNSAFE_getByType } = renderScreen();
     await findByText('No open requests right now');

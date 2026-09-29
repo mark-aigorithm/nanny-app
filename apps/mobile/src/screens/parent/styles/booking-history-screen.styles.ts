@@ -8,7 +8,6 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  STATUS_BAR_HEIGHT,
   FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
@@ -24,7 +23,7 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.xl,
+    paddingTop: spacing.xl,
     paddingBottom: FLOATING_NAV_CLEARANCE + screenPadding,
   },
 

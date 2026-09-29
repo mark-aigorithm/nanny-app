@@ -11,11 +11,14 @@ import {
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
+  // The list starts below NannyTabHeader rather than under it: iOS draws the
+  // pull-to-refresh spinner at the list's top edge, which the solid header hid.
   scrollView: {
     flex: 1,
+    marginTop: HEADER_HEIGHT,
   },
   scrollContent: {
-    paddingTop: HEADER_HEIGHT + spacing.lg,
+    paddingTop: spacing.lg,
     paddingHorizontal: screenPadding,
     paddingBottom: BOTTOM_NAV_HEIGHT + spacing.lg,
     gap: spacing['2xl'],

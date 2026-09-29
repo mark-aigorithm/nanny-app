@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import { FadeInView, PressableScale } from '@mobile/components/ui';
-import { colors, STATUS_BAR_HEIGHT } from '@mobile/theme';
+import { colors } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -68,8 +69,11 @@ export default function BookingHistoryScreen() {
     } as never);
   };
 
+  // The list starts below the status bar rather than under it: iOS draws the
+  // pull-to-refresh spinner at the list's top edge, so under the notch it was
+  // never seen.
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
 
       <ScrollView
@@ -78,7 +82,6 @@ export default function BookingHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            progressViewOffset={STATUS_BAR_HEIGHT}
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
             tintColor={colors.primary}
@@ -163,7 +166,7 @@ export default function BookingHistoryScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
