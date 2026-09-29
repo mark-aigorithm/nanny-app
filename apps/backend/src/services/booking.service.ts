@@ -1412,10 +1412,8 @@ export async function cancelBooking(
 
   // Return any Care Points the parent applied to this (still unpaid) booking.
   // Best-effort — a reward hiccup must not block a cancellation.
-  // Both reversals rewrite the booking's money fields from ABSOLUTE values read
-  // off the row they were handed, so the second must see the first's result.
-  // Passing the same stale snapshot to both silently discards one reversal when
-  // a booking carries Care Points and package hours at once.
+  // Each reversal returns the row as it now stands; hand that to the next one
+  // so its own checks (status, what is still applied) read current values.
   let reversed = booking;
   try {
     reversed = (await refundBookingIfApplied(reversed)) ?? reversed;
@@ -1781,24 +1779,36 @@ async function refundBookingIfApplied(
   if (points <= 0 || amount <= 0 || booking.status !== BookingStatus.APPROVED) return null;
 
   const updated = await prisma.$transaction(async (tx) => {
+    // Conditional on the booking still being unpaid with these points on it, and
+    // relative to the row as it is now, not as it was read: a concurrent
+    // confirm-without-payment (or a second refund) that lands first makes this
+    // match nothing, so the points are never handed back on a booking that was
+    // just confirmed at the discounted total.
+    const { count } = await tx.booking.updateMany({
+      where: {
+        id: booking.id,
+        status: BookingStatus.APPROVED,
+        rewardCreditPoints: points,
+        deletedAt: null,
+      },
+      data: {
+        discountAmount: { decrement: amount },
+        totalAmount: { increment: amount },
+        platformAmount: { increment: amount },
+        rewardCreditHoursApplied: 0,
+        rewardCreditPoints: 0,
+        rewardCreditAmount: 0,
+      },
+    });
+    if (count === 0) return null;
     await refundBookingRedemption(tx, {
       userId: booking.motherId,
       scope: { bookingId: booking.id },
       points,
     });
-    return tx.booking.update({
-      where: { id: booking.id },
-      data: {
-        discountAmount: round2(Number(booking.discountAmount) - amount),
-        totalAmount: round2(Number(booking.totalAmount) + amount),
-        platformAmount: round2(Number(booking.platformAmount) + amount),
-        rewardCreditHoursApplied: 0,
-        rewardCreditPoints: 0,
-        rewardCreditAmount: 0,
-      },
-      include: bookingInclude,
-    });
+    return tx.booking.findUnique({ where: { id: booking.id }, include: bookingInclude });
   });
+  if (!updated) return null;
   await notifyPointsRefunded(booking.motherId, points);
   return updated;
 }
@@ -1827,19 +1837,27 @@ async function refundPackageHoursIfApplied(
   }
 
   return prisma.$transaction(async (tx) => {
-    await refundPackageHours(tx, { bookingId: booking.id });
-    return tx.booking.update({
-      where: { id: booking.id },
+    // Same guard as refundBookingIfApplied: only while still unpaid with the
+    // hours on it, relative to the row as it is now.
+    const { count } = await tx.booking.updateMany({
+      where: {
+        id: booking.id,
+        status: { in: [BookingStatus.PENDING, BookingStatus.APPROVED] },
+        packageHoursApplied: { gt: 0 },
+        deletedAt: null,
+      },
       data: {
-        discountAmount: round2(Number(booking.discountAmount) - amount),
-        totalAmount: round2(Number(booking.totalAmount) + amount),
-        platformAmount: round2(Number(booking.platformAmount) + amount),
+        discountAmount: { decrement: amount },
+        totalAmount: { increment: amount },
+        platformAmount: { increment: amount },
         packageHoursApplied: 0,
         packageSkillsCovered: 0,
         packageCreditAmount: 0,
       },
-      include: bookingInclude,
     });
+    if (count === 0) return null;
+    await refundPackageHours(tx, { bookingId: booking.id });
+    return tx.booking.findUnique({ where: { id: booking.id }, include: bookingInclude });
   });
 }
 
