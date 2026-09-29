@@ -15,7 +15,13 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus, type BookingResponse } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
-import { Button, PulseRings, Stepper } from '@mobile/components/ui';
+import {
+  Button,
+  PressableScale,
+  PulseRings,
+  ScreenContainer,
+  Stepper,
+} from '@mobile/components/ui';
 import {
   useBooking,
   useCancelBooking,
@@ -213,204 +219,201 @@ export default function BookingConfirmationScreen() {
   const activeStep = isPaid ? 2 : isApproved ? 1 : 0;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ── Hero ── */}
-      <View style={styles.hero}>
-        {isPending ? (
-          <PulseRings size={104} maxScale={2.2} active>
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroCore}
+    <ScreenContainer useSafeArea={false}>
+      <View style={styles.topBar}>
+        <PressableScale
+          style={styles.homeButton}
+          onPress={handleBackToHome}
+          haptic="tap"
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to home"
+        >
+          <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
+          <Text style={styles.homeButtonText}>Home</Text>
+        </PressableScale>
+      </View>
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Hero ── */}
+        <View style={styles.hero}>
+          {isPending ? (
+            <PulseRings size={104} maxScale={2.2} active>
+              <LinearGradient
+                colors={[colors.primary, colors.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCore}
+              >
+                <Ionicons name="radio-outline" size={34} color={colors.white} />
+              </LinearGradient>
+            </PulseRings>
+          ) : (
+            <Animated.View
+              style={[
+                styles.revealWrap,
+                {
+                  opacity: reveal,
+                  transform: [
+                    { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                  ],
+                },
+              ]}
             >
-              <Ionicons name="radio-outline" size={34} color={colors.white} />
-            </LinearGradient>
-          </PulseRings>
-        ) : (
-          <Animated.View
-            style={[
-              styles.revealWrap,
-              {
-                opacity: reveal,
-                transform: [
-                  { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
-                ],
-              },
-            ]}
-          >
-            {nannyPhoto ? (
-              <Image source={{ uri: nannyPhoto }} style={styles.heroAvatar} resizeMode="cover" />
-            ) : (
-              <View style={[styles.heroAvatar, styles.heroAvatarPlaceholder]}>
-                <Ionicons name="person" size={40} color={colors.primary} />
+              {nannyPhoto ? (
+                <Image source={{ uri: nannyPhoto }} style={styles.heroAvatar} resizeMode="cover" />
+              ) : (
+                <View style={[styles.heroAvatar, styles.heroAvatarPlaceholder]}>
+                  <Ionicons name="person" size={40} color={colors.primary} />
+                </View>
+              )}
+              <View style={styles.heroBadge}>
+                <Ionicons name={isPaid ? 'checkmark' : 'sparkles'} size={14} color={colors.white} />
               </View>
-            )}
-            <View style={styles.heroBadge}>
-              <Ionicons
-                name={isPaid ? 'checkmark' : 'sparkles'}
-                size={14}
-                color={colors.white}
-              />
+            </Animated.View>
+          )}
+
+          <Text style={styles.heading}>{heading}</Text>
+          {isPending ? (
+            <Animated.Text style={[styles.subtitle, { opacity: messageFade }]}>
+              {subtitle}
+            </Animated.Text>
+          ) : (
+            <Text style={styles.subtitle}>{subtitle}</Text>
+          )}
+
+          {isPending && (
+            <View style={styles.elapsedPill}>
+              <View style={styles.liveDot} />
+              <Text style={styles.elapsedText}>Searching for {formatElapsed(elapsed)}</Text>
             </View>
-          </Animated.View>
-        )}
+          )}
+        </View>
 
-        <Text style={styles.heading}>{heading}</Text>
-        {isPending ? (
-          <Animated.Text style={[styles.subtitle, { opacity: messageFade }]}>
-            {subtitle}
-          </Animated.Text>
-        ) : (
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        )}
+        {/* ── Booking card ── */}
+        <View style={styles.card}>
+          <View style={styles.nannyHeader}>
+            <View style={styles.photoWrapper}>
+              {nannyPhoto ? (
+                <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
+              ) : (
+                <View style={[styles.nannyPhoto, styles.nannyPhotoPlaceholder]}>
+                  <Ionicons
+                    name={isPending ? 'search' : 'person'}
+                    size={24}
+                    color={colors.primary}
+                  />
+                </View>
+              )}
+            </View>
+            <View style={styles.nannyHeaderBody}>
+              <Text style={styles.nannyName}>
+                {booking.nanny
+                  ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
+                  : 'Searching for a nanny…'}
+              </Text>
+              <Text style={styles.nannyMeta}>
+                {isPending ? 'Your request is out to every available nanny' : 'Your nanny'}
+              </Text>
+            </View>
+          </View>
 
+          <View style={styles.divider} />
+
+          <View style={styles.detailsList}>
+            <DetailRow iconName="calendar-outline" label="Date" value={dateDisplay} />
+            <DetailRow iconName="time-outline" label="Time" value={timeDisplay} />
+            <DetailRow
+              iconName="wallet-outline"
+              label={isPaid ? 'Charged' : 'Total'}
+              value={totalDisplay}
+            />
+          </View>
+        </View>
+
+        {/* ── What happens next ── */}
         {isPending && (
-          <View style={styles.elapsedPill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.elapsedText}>Searching for {formatElapsed(elapsed)}</Text>
+          <View style={styles.timeline}>
+            <Text style={styles.timelineTitle}>What happens next</Text>
+            {(nothingToPay ? FREE_NEXT_STEPS : NEXT_STEPS).map((step, index) => {
+              const done = index < activeStep;
+              const active = index === activeStep;
+              return (
+                <View key={step.title} style={styles.timelineRow}>
+                  <View style={styles.timelineRail}>
+                    <View
+                      style={[styles.timelineDot, (done || active) && styles.timelineDotReached]}
+                    >
+                      {done && <Ionicons name="checkmark" size={11} color={colors.white} />}
+                    </View>
+                    {index < NEXT_STEPS.length - 1 && <View style={styles.timelineLine} />}
+                  </View>
+                  <View style={styles.timelineBody}>
+                    <Text style={[styles.timelineStep, active && styles.timelineStepActive]}>
+                      {step.title}
+                    </Text>
+                    <Text style={styles.timelineDetail}>{step.detail}</Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
-      </View>
 
-      {/* ── Booking card ── */}
-      <View style={styles.card}>
-        <View style={styles.nannyHeader}>
-          <View style={styles.photoWrapper}>
-            {nannyPhoto ? (
-              <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
-            ) : (
-              <View style={[styles.nannyPhoto, styles.nannyPhotoPlaceholder]}>
-                <Ionicons
-                  name={isPending ? 'search' : 'person'}
-                  size={24}
-                  color={colors.primary}
-                />
-              </View>
-            )}
-          </View>
-          <View style={styles.nannyHeaderBody}>
-            <Text style={styles.nannyName}>
-              {booking.nanny
-                ? `${booking.nanny.firstName} ${booking.nanny.lastName}`
-                : 'Searching for a nanny…'}
-            </Text>
-            <Text style={styles.nannyMeta}>
-              {isPending ? 'Your request is out to every available nanny' : 'Your nanny'}
-            </Text>
-          </View>
-        </View>
+        {/* ── Care Points redemption (before payment) ── */}
+        {isApproved && <CarePointsCard booking={booking} />}
 
-        <View style={styles.divider} />
-
-        <View style={styles.detailsList}>
-          <DetailRow iconName="calendar-outline" label="Date" value={dateDisplay} />
-          <DetailRow iconName="time-outline" label="Time" value={timeDisplay} />
-          <DetailRow
-            iconName="wallet-outline"
-            label={isPaid ? 'Charged' : 'Total'}
-            value={totalDisplay}
-          />
-        </View>
-      </View>
-
-      {/* ── What happens next ── */}
-      {isPending && (
-        <View style={styles.timeline}>
-          <Text style={styles.timelineTitle}>What happens next</Text>
-          {(nothingToPay ? FREE_NEXT_STEPS : NEXT_STEPS).map((step, index) => {
-            const done = index < activeStep;
-            const active = index === activeStep;
-            return (
-              <View key={step.title} style={styles.timelineRow}>
-                <View style={styles.timelineRail}>
-                  <View
-                    style={[
-                      styles.timelineDot,
-                      (done || active) && styles.timelineDotReached,
-                    ]}
-                  >
-                    {done && <Ionicons name="checkmark" size={11} color={colors.white} />}
-                  </View>
-                  {index < NEXT_STEPS.length - 1 && <View style={styles.timelineLine} />}
-                </View>
-                <View style={styles.timelineBody}>
-                  <Text
-                    style={[styles.timelineStep, active && styles.timelineStepActive]}
-                  >
-                    {step.title}
-                  </Text>
-                  <Text style={styles.timelineDetail}>{step.detail}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {/* ── Care Points redemption (before payment) ── */}
-      {isApproved && (
-        <CarePointsCard booking={booking} />
-      )}
-
-      {/* ── Actions ──
+        {/* ── Actions ──
           Ranked by what is actually useful in each state. While the request is
           out there is nothing to do but wait, so leaving is the honest primary
           — pointing a sage CTA at "View booking details" put the emphasis on a
           screen she is already looking at. */}
-      <View style={styles.actions}>
-        {isPending && (
-          <>
-            <Text style={styles.actionsHint}>
-              We’ll notify you the moment a nanny accepts — you don’t need to wait here.
-            </Text>
-            <Button title="Back to home" onPress={handleBackToHome} />
-            <Button
-              title="View booking details"
-              variant="outline"
-              onPress={handleViewDetails}
-            />
-            <TouchableOpacity
-              style={styles.cancelLink}
-              activeOpacity={0.7}
-              onPress={handleCancelRequest}
-              disabled={cancelBooking.isPending}
-            >
-              <Text style={styles.cancelLinkText}>
-                {cancelBooking.isPending ? 'Cancelling…' : 'Cancel request'}
+        <View style={styles.actions}>
+          {isPending && (
+            <>
+              <Text style={styles.actionsHint}>
+                We’ll notify you the moment a nanny accepts — you don’t need to wait here.
               </Text>
-            </TouchableOpacity>
-          </>
-        )}
+              <Button title="Back to home" onPress={handleBackToHome} />
+              <Button title="View booking details" variant="outline" onPress={handleViewDetails} />
+              <TouchableOpacity
+                style={styles.cancelLink}
+                activeOpacity={0.7}
+                onPress={handleCancelRequest}
+                disabled={cancelBooking.isPending}
+              >
+                <Text style={styles.cancelLinkText}>
+                  {cancelBooking.isPending ? 'Cancelling…' : 'Cancel request'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
 
-        {isApproved && (
-          <>
-            <Button
-              title={nothingToPay ? 'Confirm booking' : 'Complete payment'}
-              icon={nothingToPay ? 'checkmark-circle-outline' : 'card-outline'}
-              onPress={handleCompletePayment}
-            />
-            <Button
-              title="View booking details"
-              variant="outline"
-              onPress={handleViewDetails}
-            />
-            <Button title="Back to home" variant="text" onPress={handleBackToHome} />
-          </>
-        )}
+          {isApproved && (
+            <>
+              <Button
+                title={nothingToPay ? 'Confirm booking' : 'Complete payment'}
+                icon={nothingToPay ? 'checkmark-circle-outline' : 'card-outline'}
+                onPress={handleCompletePayment}
+              />
+              <Button title="View booking details" variant="outline" onPress={handleViewDetails} />
+              <Button title="Back to home" variant="text" onPress={handleBackToHome} />
+            </>
+          )}
 
-        {isPaid && (
-          <>
-            <Button title="View booking details" onPress={handleViewDetails} />
-            <Button title="Back to home" variant="text" onPress={handleBackToHome} />
-          </>
-        )}
-      </View>
-    </ScrollView>
+          {isPaid && (
+            <>
+              <Button title="View booking details" onPress={handleViewDetails} />
+              <Button title="Back to home" variant="text" onPress={handleBackToHome} />
+            </>
+          )}
+        </View>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 

@@ -7,6 +7,7 @@ import {
   screenPadding,
   borderRadius,
   shadows,
+  STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -21,6 +22,27 @@ export const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingVertical: spacing['4xl'],
     gap: spacing.lg,
+  },
+  // Top bar — owns the status-bar inset, like StackHeader does
+  topBar: {
+    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
+    paddingHorizontal: screenPadding,
+    alignItems: 'flex-start',
+  },
+  homeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    paddingVertical: spacing.sm,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
+  },
+  homeButtonText: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
   },
   loadingState: {
     flex: 1,
