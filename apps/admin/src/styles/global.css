@@ -4815,3 +4815,29 @@ input[type='number'] {
     background: none;
   }
 }
+
+/* Campaign image cropper — inline in the campaign form. */
+.crop-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crop-stage-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1f1f1f;
+}
+
+.crop-stage-zoom {
+  width: 100%;
+}
+
+.crop-stage-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
