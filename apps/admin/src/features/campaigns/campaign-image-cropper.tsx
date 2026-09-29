@@ -47,6 +47,7 @@ export function CampaignImageCropper({
           minZoom={MIN_ZOOM}
           maxZoom={MAX_ZOOM}
           aspect={ASPECT}
+          objectFit="cover"
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={handleCropComplete}

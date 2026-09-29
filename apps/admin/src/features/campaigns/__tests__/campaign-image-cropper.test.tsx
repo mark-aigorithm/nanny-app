@@ -35,7 +35,11 @@ describe('CampaignImageCropper', () => {
     render(<CampaignImageCropper src="blob:pick" onCancel={vi.fn()} onConfirm={onConfirm} />);
 
     expect(cropperProps).toHaveBeenCalledWith(
-      expect.objectContaining({ aspect: CAMPAIGN_IMAGE_WIDTH / CAMPAIGN_IMAGE_HEIGHT }),
+      expect.objectContaining({
+        aspect: CAMPAIGN_IMAGE_WIDTH / CAMPAIGN_IMAGE_HEIGHT,
+        // The image fills the frame; 'contain' would shrink the frame to a tall image's width.
+        objectFit: 'cover',
+      }),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Use image' }));
     expect(onConfirm).toHaveBeenCalledWith(AREA);
