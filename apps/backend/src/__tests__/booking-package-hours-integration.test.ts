@@ -16,6 +16,7 @@ jest.mock('@backend/db/prisma', () => {
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   };
   const packagePurchase = { findMany: jest.fn() };
   const promoCode = { findFirst: jest.fn(), update: jest.fn() };
@@ -126,7 +127,13 @@ const m = prisma as unknown as {
   user: { findUnique: jest.Mock; findMany: jest.Mock };
   address: { findFirst: jest.Mock };
   nannyProfile: { findUnique: jest.Mock; findMany: jest.Mock };
-  booking: { findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+  booking: {
+    findFirst: jest.Mock;
+    findUnique: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    updateMany: jest.Mock;
+  };
   packagePurchase: { findMany: jest.Mock };
   promoCode: { findFirst: jest.Mock; update: jest.Mock };
   promoCodeRedemption: { count: jest.Mock; create: jest.Mock };
@@ -242,6 +249,50 @@ function setBooking(overrides: Record<string, unknown> = {}) {
   return currentBooking;
 }
 
+type Where = Record<string, unknown>;
+type Data = Record<string, unknown>;
+
+function matches(row: Record<string, unknown>, where: Where): boolean {
+  return Object.entries(where).every(([key, cond]) => {
+    if (key === 'id' || key === 'deletedAt') return true;
+    const value = row[key];
+    if (cond && typeof cond === 'object') {
+      const c = cond as { in?: unknown[]; gt?: number };
+      if (c.in) return c.in.includes(value);
+      if (c.gt !== undefined) return Number(value) > c.gt;
+    }
+    return value === cond;
+  });
+}
+
+function applied(row: Record<string, unknown>, data: Data): Record<string, unknown> {
+  const next = { ...row };
+  for (const [key, change] of Object.entries(data)) {
+    if (change && typeof change === 'object') {
+      const c = change as { increment?: number; decrement?: number };
+      if (c.increment !== undefined) next[key] = Number(row[key]) + c.increment;
+      if (c.decrement !== undefined) next[key] = Number(row[key]) - c.decrement;
+    } else {
+      next[key] = change;
+    }
+  }
+  return next;
+}
+
+/**
+ * Stand in for Postgres on the conditional reversal writes: an updateMany
+ * matches the row as it is NOW (not as the service read it) and applies its
+ * increments to it, so a test sees the booking the database would hold.
+ */
+function writeThroughConditionalUpdates() {
+  m.booking.updateMany.mockImplementation(async ({ where, data }: { where: Where; data: Data }) => {
+    if (!matches(currentBooking, where)) return { count: 0 };
+    currentBooking = applied(currentBooking, data);
+    m.booking.findUnique.mockResolvedValue(currentBooking);
+    return { count: 1 };
+  });
+}
+
 /** The `data` from the booking.update that wrote the package credit, if any. */
 function creditUpdate() {
   return m.booking.update.mock.calls.find(
@@ -249,15 +300,10 @@ function creditUpdate() {
   )?.[0]?.data;
 }
 
-/** The `data` from the booking.update that reversed Care Points, if any. */
-function pointsUpdate() {
-  return m.booking.update.mock.calls.find(
-    (c) => c[0]?.data?.rewardCreditAmount !== undefined,
-  )?.[0]?.data;
-}
 
 beforeEach(() => {
   jest.clearAllMocks();
+  writeThroughConditionalUpdates();
   m.address.findFirst.mockResolvedValue(HOME_ADDRESS);
   m.user.findUnique.mockResolvedValue({
     id: 10,
@@ -432,12 +478,13 @@ describe('cancelBooking — reversing prepaid package hours', () => {
     await cancelBooking(DECODED, 4, CANCEL);
 
     expect(mockRefundHours).toHaveBeenCalledWith(expect.anything(), { bookingId: 4 });
-    const data = creditUpdate();
-    expect(data.discountAmount).toBe(0);
-    expect(data.totalAmount).toBe(400);
-    expect(data.platformAmount).toBe(80);
-    expect(data.packageHoursApplied).toBe(0);
-    expect(data.packageCreditAmount).toBe(0);
+    expect(currentBooking).toMatchObject({
+      discountAmount: 0,
+      totalAmount: 400,
+      platformAmount: 80,
+      packageHoursApplied: 0,
+      packageCreditAmount: 0,
+    });
   });
 
   it('leaves a paid booking alone — the hours stay spent', async () => {
@@ -446,7 +493,7 @@ describe('cancelBooking — reversing prepaid package hours', () => {
     await cancelBooking(DECODED, 4, CANCEL);
 
     expect(mockRefundHours).not.toHaveBeenCalled();
-    expect(creditUpdate()).toBeUndefined();
+    expect(m.booking.updateMany).not.toHaveBeenCalled();
   });
 
   it('does nothing when no hours were applied', async () => {
@@ -457,11 +504,49 @@ describe('cancelBooking — reversing prepaid package hours', () => {
     expect(mockRefundHours).not.toHaveBeenCalled();
   });
 
+  it('keeps the hours spent when the booking was confirmed after it was read', async () => {
+    // Read as APPROVED; by the time the reversal writes, a confirm has landed.
+    setBooking({ status: 'APPROVED', totalAmount: 0, packageHoursApplied: 4, packageCreditAmount: 400 });
+    m.booking.updateMany.mockImplementation(async ({ where }: { where: Where }) =>
+      matches({ ...currentBooking, status: 'CONFIRMED' }, where) ? { count: 1 } : { count: 0 },
+    );
+
+    await cancelBooking(DECODED, 4, CANCEL);
+
+    expect(m.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { in: ['PENDING', 'APPROVED'] } }),
+      }),
+    );
+    expect(mockRefundHours).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Care Points spent when the booking was confirmed after it was read', async () => {
+    setBooking({
+      status: 'APPROVED',
+      totalAmount: 0,
+      rewardCreditPoints: 50,
+      rewardCreditAmount: 400,
+      rewardCreditHoursApplied: 4,
+    });
+    m.booking.updateMany.mockImplementation(async ({ where }: { where: Where }) =>
+      matches({ ...currentBooking, status: 'CONFIRMED' }, where) ? { count: 1 } : { count: 0 },
+    );
+
+    await cancelBooking(DECODED, 4, CANCEL);
+
+    expect(m.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'APPROVED', rewardCreditPoints: 50 }),
+      }),
+    );
+    expect(mockRefundPoints).not.toHaveBeenCalled();
+  });
+
   it('applies BOTH reversals when a booking carries points and package hours', async () => {
-    // REGRESSION: both helpers rewrite the money fields from ABSOLUTE values
-    // read off the booking they are handed, so handing both the same stale
-    // snapshot silently discarded one reversal. Start from a 400 booking with
-    // 100 of Care Points and 400 of package credit already applied.
+    // REGRESSION: the two reversals once rewrote the money fields from values
+    // read off one stale snapshot, so the second silently discarded the first.
+    // Start from a 400 booking with 100 of Care Points and 400 of package credit.
     setBooking({
       status: 'APPROVED',
       discountAmount: 500,
@@ -477,19 +562,13 @@ describe('cancelBooking — reversing prepaid package hours', () => {
 
     await cancelBooking(DECODED, 4, CANCEL);
 
-    // Points reversal runs first, off the original row: 500−100, 0+100, −420+100.
-    expect(pointsUpdate()).toMatchObject({
-      discountAmount: 400,
-      totalAmount: 100,
-      platformAmount: -320,
-      rewardCreditAmount: 0,
-    });
-    // The hours reversal must build on THAT result. From the stale snapshot it
-    // would have written 100 / 400 / −20, losing the points reversal entirely.
-    expect(creditUpdate()).toMatchObject({
+    expect(mockRefundPoints).toHaveBeenCalled();
+    expect(mockRefundHours).toHaveBeenCalled();
+    expect(currentBooking).toMatchObject({
       discountAmount: 0,
       totalAmount: 500,
       platformAmount: 80,
+      rewardCreditAmount: 0,
       packageHoursApplied: 0,
       packageCreditAmount: 0,
     });

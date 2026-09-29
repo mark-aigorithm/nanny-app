@@ -1,6 +1,7 @@
 import {
   BookingExtensionStatus,
   BookingStatus,
+  type Payment,
   PaymentMethod,
   PaymentPurpose,
   PaymentStatus,
@@ -73,90 +74,124 @@ function failureReasonFromTxn(txn: PaymobTransactionDto): string {
 }
 
 async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: string | null) {
+  const confirmedBooking = await prisma.$transaction((tx) =>
+    captureAndConfirmBooking(tx, paymentId, paymobTransactionId),
+  );
+  if (confirmedBooking) await announceBookingConfirmed(confirmedBooking, paymobTransactionId);
+}
+
+/**
+ * Mark a PENDING booking payment CAPTURED and confirm its booking, inside the
+ * caller's transaction. Returns the confirmed booking, or null when there was
+ * nothing to do (already settled, or the booking isn't confirmable).
+ *
+ * `onlyIfNothingOwed` is for a zero payment: the booking is confirmed only if
+ * its total is still zero at the moment of the write. The check and the write
+ * are one conditional UPDATE, so a concurrent request that puts money back on
+ * the total (removing Care Points, returning package hours, an admin edit)
+ * either lands first and makes this match nothing, or lands after and finds
+ * the booking no longer APPROVED.
+ */
+async function captureAndConfirmBooking(
+  tx: Prisma.TransactionClient,
+  paymentId: number,
+  paymobTransactionId: string | null,
+  { onlyIfNothingOwed = false }: { onlyIfNothingOwed?: boolean } = {},
+) {
   // Pay-after-approval: the admin already approved (status APPROVED), so a
   // successful capture is the FINAL step and confirms the booking outright.
-  const confirmedBooking = await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.findFirst({
-      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
-    });
-    if (!payment) return null;
+  const payment = await tx.payment.findFirst({
+    where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
+  });
+  if (!payment) return null;
 
-    await tx.payment.update({
-      where: { id: paymentId },
-      data: {
-        status: PaymentStatus.CAPTURED,
-        paymobTransactionId: paymobTransactionId ?? undefined,
-        failureReason: null,
-        paymobNextReconcileAt: null,
-        paymobClientSecret: null,
-      },
-    });
-
-    // This webhook path only ever finalizes booking payments (package-purchase
-    // payments, once introduced, are settled by a separate handler) — but
-    // guard defensively rather than crash, since bookingId is now nullable.
-    if (!payment.bookingId) {
-      // eslint-disable-next-line no-console
-      console.warn('[paymob] captured payment has no bookingId', { paymentId });
-      return null;
-    }
-
-    const booking = await tx.booking.findUnique({
-      where: { id: payment.bookingId },
-      include: bookingInclude,
-    });
-    if (!booking) return null;
-
-    // APPROVED → CONFIRMED (the transition table is the single source of
-    // truth). If the booking isn't in a confirmable state — e.g. an admin
-    // cancelled it between payment initiation and capture — record the money
-    // but leave the status untouched rather than crashing the webhook.
-    if (!canTransitionBookingStatus(booking.status, BookingStatus.CONFIRMED)) {
-      // eslint-disable-next-line no-console
-      console.warn('[paymob] captured payment for a non-confirmable booking', {
-        paymentId,
-        bookingId: booking.id,
-        bookingStatus: booking.status,
-      });
-      return null;
-    }
-
-    // Defensive gate: a booking is only ever CONFIRMED off a genuinely captured
-    // payment. The capture above satisfies this on the normal path; the explicit
-    // check keeps "CONFIRMED ⟹ a payment was captured" enforced even if capture
-    // and confirm are ever split apart.
-    const capturedPayment = await tx.payment.findFirst({
-      where: { bookingId: booking.id, status: PaymentStatus.CAPTURED, deletedAt: null },
-      select: { id: true },
-    });
-    if (!capturedPayment) {
-      // eslint-disable-next-line no-console
-      console.warn('[paymob] refusing to confirm a booking with no captured payment', {
-        paymentId,
-        bookingId: booking.id,
-      });
-      return null;
-    }
-
-    // The money is captured and the booking is about to be confirmed — this is
-    // the only moment a reserved promo code is actually spent. Idempotent, so a
-    // replayed webhook can't increment the code's usage twice.
-    await redeemBookingPromoCodeOnCapture(tx, booking.id);
-
-    return tx.booking.update({
-      where: { id: booking.id },
-      data: { status: BookingStatus.CONFIRMED },
-      include: bookingInclude,
-    });
+  await tx.payment.update({
+    where: { id: paymentId },
+    data: {
+      status: PaymentStatus.CAPTURED,
+      paymobTransactionId: paymobTransactionId ?? undefined,
+      failureReason: null,
+      paymobNextReconcileAt: null,
+      paymobClientSecret: null,
+    },
   });
 
-  if (confirmedBooking) {
-    await notifyNannyBookingConfirmed(confirmedBooking);
-    // Email the paying parent their receipt. Best-effort inside — gated by the
-    // same non-null `confirmedBooking`, so the PENDING-status transaction guard
-    // above means a replayed webhook can't send it twice.
-    await sendReceiptEmail({ booking: confirmedBooking, paymobTransactionId });
+  // This webhook path only ever finalizes booking payments (package-purchase
+  // payments, once introduced, are settled by a separate handler) — but
+  // guard defensively rather than crash, since bookingId is now nullable.
+  if (!payment.bookingId) {
+    // eslint-disable-next-line no-console
+    console.warn('[paymob] captured payment has no bookingId', { paymentId });
+    return null;
   }
+
+  const booking = await tx.booking.findUnique({
+    where: { id: payment.bookingId },
+    include: bookingInclude,
+  });
+  if (!booking) return null;
+
+  // APPROVED → CONFIRMED (the transition table is the single source of
+  // truth). If the booking isn't in a confirmable state — e.g. an admin
+  // cancelled it between payment initiation and capture — record the money
+  // but leave the status untouched rather than crashing the webhook.
+  if (!canTransitionBookingStatus(booking.status, BookingStatus.CONFIRMED)) {
+    // eslint-disable-next-line no-console
+    console.warn('[paymob] captured payment for a non-confirmable booking', {
+      paymentId,
+      bookingId: booking.id,
+      bookingStatus: booking.status,
+    });
+    return null;
+  }
+
+  // Defensive gate: a booking is only ever CONFIRMED off a genuinely captured
+  // payment. The capture above satisfies this on the normal path; the explicit
+  // check keeps "CONFIRMED ⟹ a payment was captured" enforced even if capture
+  // and confirm are ever split apart.
+  const capturedPayment = await tx.payment.findFirst({
+    where: { bookingId: booking.id, status: PaymentStatus.CAPTURED, deletedAt: null },
+    select: { id: true },
+  });
+  if (!capturedPayment) {
+    // eslint-disable-next-line no-console
+    console.warn('[paymob] refusing to confirm a booking with no captured payment', {
+      paymentId,
+      bookingId: booking.id,
+    });
+    return null;
+  }
+
+  // The money is captured and the booking is about to be confirmed — this is
+  // the only moment a reserved promo code is actually spent. Idempotent, so a
+  // replayed webhook can't increment the code's usage twice.
+  await redeemBookingPromoCodeOnCapture(tx, booking.id);
+
+  if (onlyIfNothingOwed) {
+    const { count } = await tx.booking.updateMany({
+      where: { id: booking.id, status: booking.status, totalAmount: { lte: 0 }, deletedAt: null },
+      data: { status: BookingStatus.CONFIRMED },
+    });
+    if (count === 0) return null;
+    return tx.booking.findUnique({ where: { id: booking.id }, include: bookingInclude });
+  }
+
+  return tx.booking.update({
+    where: { id: booking.id },
+    data: { status: BookingStatus.CONFIRMED },
+    include: bookingInclude,
+  });
+}
+
+async function announceBookingConfirmed(
+  confirmedBooking: Prisma.BookingGetPayload<{ include: typeof bookingInclude }>,
+  paymobTransactionId: string | null,
+) {
+  await notifyNannyBookingConfirmed(confirmedBooking);
+  // Email the paying parent their receipt. Best-effort inside — only reached
+  // for a booking this call just confirmed, so the PENDING-status guard in
+  // captureAndConfirmBooking means a replayed webhook can't send it twice.
+  await sendReceiptEmail({ booking: confirmedBooking, paymobTransactionId });
 }
 
 async function finalizePaymentFailed(paymentId: number, reason: string) {
@@ -209,7 +244,7 @@ export async function createPaymobIntentionForBooking(
   // call this one — so settle it here too. The 400 is what stops those builds
   // opening a checkout Paymob would refuse ("amount ≥ 1").
   if (isFullyCovered(booking.totalAmount)) {
-    await settleWithoutCharge({ bookingId }, user.id, body.method);
+    await settleWithoutCharge({ bookingId }, user.id, body.method, attempts);
     throw errors.badRequest('Nothing to pay — this booking is confirmed.');
   }
 
@@ -245,7 +280,7 @@ export async function confirmBookingWithoutPayment(
 
   // No method was chosen — nothing was charged. CARD is what the app has
   // always sent for a booking checkout, so the row reads like any other.
-  await settleWithoutCharge({ bookingId }, user.id, PaymentMethod.CARD);
+  await settleWithoutCharge({ bookingId }, user.id, PaymentMethod.CARD, booking.payments);
 }
 
 /**
@@ -279,38 +314,60 @@ function isFullyCovered(totalAmount: Prisma.Decimal): boolean {
 }
 
 /**
- * Settle a booking that owes nothing: retire any pending attempt, record a
- * zero payment and capture it through the ordinary confirm path — no Paymob
- * call, no transaction id.
+ * Settle a booking that owes nothing: record a zero payment and capture it
+ * through the ordinary confirm path — no Paymob call, no transaction id.
+ *
+ * A Paymob checkout opened earlier (before a discount brought the total to
+ * zero) may already have taken her money, so each open attempt is checked with
+ * Paymob first. A paid one confirms the booking the ordinary way and this
+ * refuses; one still unpaid is left PENDING, so the reconciler and webhook keep
+ * watching it and a late payment is recorded (and refundable) rather than
+ * dropped.
  */
 async function settleWithoutCharge(
   owner: { bookingId: number },
   motherId: number,
   method: CreatePaymobIntentionRequest['method'],
+  attempts: Pick<Payment, 'id' | 'status' | 'paymobClientSecret'>[],
 ): Promise<void> {
-  await prisma.payment.updateMany({
-    where: { ...owner, status: PaymentStatus.PENDING, deletedAt: null },
-    data: {
-      status: PaymentStatus.FAILED,
-      failureReason: 'Superseded by a new payment attempt.',
-      paymobNextReconcileAt: null,
-      paymobClientSecret: null,
-    },
+  for (const attempt of attempts) {
+    if (attempt.status !== PaymentStatus.PENDING || !attempt.paymobClientSecret) continue;
+    const outcome = await syncBookingAttemptWithPaymob(attempt.id, attempt.paymobClientSecret);
+    if (outcome === 'captured') throw errors.badRequest('This booking is already paid.');
+  }
+
+  const confirmed = await prisma.$transaction(async (tx) => {
+    // An attempt with no Paymob intention behind it can never be paid.
+    await tx.payment.updateMany({
+      where: { ...owner, status: PaymentStatus.PENDING, paymobClientSecret: null, deletedAt: null },
+      data: {
+        status: PaymentStatus.FAILED,
+        failureReason: 'Superseded by a new payment attempt.',
+        paymobNextReconcileAt: null,
+      },
+    });
+    const payment = await tx.payment.create({
+      data: {
+        ...owner,
+        purpose: PaymentPurpose.BOOKING,
+        motherId,
+        amount: 0,
+        currency: 'EGP',
+        method,
+        status: PaymentStatus.PENDING,
+        paymobIntentionAttempt: 1,
+        paymobReconcileAttempt: 0,
+      },
+    });
+    const booking = await captureAndConfirmBooking(tx, payment.id, null, { onlyIfNothingOwed: true });
+    // Throwing rolls the zero payment back with everything else.
+    if (!booking) {
+      throw errors.conflict('This booking changed before it could be confirmed. Check the total and try again.');
+    }
+    return booking;
   });
-  const payment = await prisma.payment.create({
-    data: {
-      ...owner,
-      purpose: PaymentPurpose.BOOKING,
-      motherId,
-      amount: 0,
-      currency: 'EGP',
-      method,
-      status: PaymentStatus.PENDING,
-      paymobIntentionAttempt: 1,
-      paymobReconcileAttempt: 0,
-    },
-  });
-  await finalizePaymentCaptured(payment.id, null);
+
+  await announceBookingConfirmed(confirmed, null);
 }
 
 /**
@@ -698,18 +755,28 @@ export async function syncPaymobPaymentForBooking(
   if (!payment || payment.status !== PaymentStatus.PENDING) return;
   if (!payment.paymobClientSecret) return;
 
-  const api = createPaymobApiClient(config.paymob.secretKey, config.paymob.apiBaseUrl);
-  const element = await api.getIntentionElement(config.paymob.publicKey, payment.paymobClientSecret);
+  await syncBookingAttemptWithPaymob(payment.id, payment.paymobClientSecret);
+}
+
+/** Ask Paymob how a booking payment attempt stands and settle it to match. */
+async function syncBookingAttemptWithPaymob(
+  paymentId: number,
+  clientSecret: string,
+): Promise<'pending' | 'captured' | 'failed'> {
+  const paymob = config.paymob;
+  if (!paymob.enabled) {
+    throw errors.badRequest('Paymob is not configured on this server.');
+  }
+  const api = createPaymobApiClient(paymob.secretKey, paymob.apiBaseUrl);
+  const element = await api.getIntentionElement(paymob.publicKey, clientSecret);
   const mapped = mapIntentionElement(element);
 
   if (mapped === 'captured') {
-    await finalizePaymentCaptured(payment.id, extractLatestTransactionId(element));
-    return;
+    await finalizePaymentCaptured(paymentId, extractLatestTransactionId(element));
+  } else if (mapped === 'failed') {
+    await finalizePaymentFailed(paymentId, 'Paymob reported a failed payment.');
   }
-
-  if (mapped === 'failed') {
-    await finalizePaymentFailed(payment.id, 'Paymob reported a failed payment.');
-  }
+  return mapped;
 }
 
 /**
