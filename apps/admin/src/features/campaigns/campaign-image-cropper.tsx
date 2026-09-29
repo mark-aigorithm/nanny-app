@@ -17,6 +17,8 @@ type CampaignImageCropperProps = {
   busy?: boolean;
   onCancel: () => void;
   onConfirm: (area: PixelArea) => void;
+  /** The browser couldn't decode the picked file (HEIC in Chrome, a corrupt file). */
+  onError: () => void;
 };
 
 /**
@@ -30,6 +32,7 @@ export function CampaignImageCropper({
   busy = false,
   onCancel,
   onConfirm,
+  onError,
 }: CampaignImageCropperProps) {
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(MIN_ZOOM);
@@ -39,7 +42,10 @@ export function CampaignImageCropper({
 
   return (
     <div className="crop-stage">
-      <div className="crop-stage-frame">
+      <div
+        className="crop-stage-frame"
+        style={{ aspectRatio: `${CAMPAIGN_IMAGE_WIDTH} / ${CAMPAIGN_IMAGE_HEIGHT}` }}
+      >
         <Cropper
           image={src}
           crop={crop}
@@ -48,6 +54,7 @@ export function CampaignImageCropper({
           maxZoom={MAX_ZOOM}
           aspect={ASPECT}
           objectFit="cover"
+          mediaProps={{ onError }}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={handleCropComplete}

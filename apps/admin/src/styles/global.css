@@ -4826,7 +4826,6 @@ input[type='number'] {
 .crop-stage-frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
   border-radius: 8px;
   overflow: hidden;
   background: #1f1f1f;

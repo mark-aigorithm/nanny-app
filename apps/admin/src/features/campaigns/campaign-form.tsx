@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useState, type ChangeEvent } from 'react';
 
 import {
   CAMPAIGN_IMAGE_HEIGHT,
@@ -11,9 +11,9 @@ import {
 } from '@nanny-app/shared';
 
 import { Field, FormModal, Input, Select, useToast } from '@admin/components/ui';
+import { CampaignImageCropper } from '@admin/features/campaigns/campaign-image-cropper';
 import { createCampaign, fetchPackages, fetchPromoCodes, updateCampaign } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
-import { CampaignImageCropper } from '@admin/features/campaigns/campaign-image-cropper';
 import { cropImageToFile, type PixelArea } from '@admin/lib/crop-image';
 import { firstIssueMessage } from '@admin/lib/form-errors';
 import { uploadImageToFirebase } from '@admin/lib/storage';
@@ -63,6 +63,16 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
   const [sortOrder, setSortOrder] = useState(campaign ? String(campaign.sortOrder) : '0');
   const [isActive, setIsActive] = useState(campaign?.isActive ?? true);
   const [formError, setFormError] = useState<string | null>(null);
+  const imageLabelId = useId();
+  const imageHintId = useId();
+
+  // The object URL lives exactly as long as the crop it backs: revoked when the crop
+  // is discarded, confirmed, or the modal closes mid-crop.
+  const pendingSrc = pending?.src;
+  useEffect(() => {
+    if (!pendingSrc) return;
+    return () => URL.revokeObjectURL(pendingSrc);
+  }, [pendingSrc]);
 
   const saveMutation = useMutation({
     mutationFn: (save: () => Promise<Campaign>) => save(),
@@ -84,8 +94,12 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
   }
 
   function discardPending() {
-    if (pending) URL.revokeObjectURL(pending.src);
     setPending(null);
+  }
+
+  function handleCropperError() {
+    setFormError("Couldn't read that image.");
+    discardPending();
   }
 
   async function handleCropConfirm(area: PixelArea) {
@@ -147,8 +161,8 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
     }
   }
 
+  const imageHint = `${campaign ? 'Upload to replace the current image.' : 'Required.'} You'll crop it to the Home-screen banner shape (16:9); use at least ${CAMPAIGN_IMAGE_WIDTH} × ${CAMPAIGN_IMAGE_HEIGHT} px for a sharp banner.`;
   const packageOptions = (packages.data ?? []).map((p) => ({ value: p.id, label: p.name }));
-  const imageHint = `${campaign ? 'Upload to replace the current image.' : 'Required.'} You'll crop it to the Home-screen banner shape (16:9).`;
   const promoOptions = (promoCodes.data ?? []).map((c) => ({ value: c.id, label: c.code }));
 
   return (
@@ -179,17 +193,27 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
           />
         </Field>
         {pending ? (
-          // Not a <Field>: that renders a <label>, which would rename the cropper's first
-          // button and forward clicks on the crop stage to it (i.e. Cancel).
-          <div className="field">
-            <span className="field-label">Image</span>
+          // Not a <Field>: that renders a <label>, which would hand its activation and
+          // accessible name to the cropper's first control (the Zoom slider).
+          <div
+            className="field"
+            role="group"
+            aria-labelledby={imageLabelId}
+            aria-describedby={imageHintId}
+          >
+            <span className="field-label" id={imageLabelId}>
+              Image
+            </span>
             <CampaignImageCropper
               src={pending.src}
               busy={uploading}
               onCancel={discardPending}
               onConfirm={(area) => void handleCropConfirm(area)}
+              onError={handleCropperError}
             />
-            <span className="field-hint">{imageHint}</span>
+            <span className="field-hint" id={imageHintId}>
+              {imageHint}
+            </span>
           </div>
         ) : (
           <Field label="Image" hint={imageHint}>

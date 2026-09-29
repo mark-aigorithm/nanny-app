@@ -7,7 +7,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CAMPAIGN_IMAGE_HEIGHT, CAMPAIGN_IMAGE_WIDTH } from '@nanny-app/shared';
 
@@ -15,24 +15,41 @@ import { CampaignImageCropper } from '@admin/features/campaigns/campaign-image-c
 
 const AREA = { x: 10, y: 20, width: 800, height: 450 };
 const cropperProps = vi.fn();
+// The stub reports a crop area on mount unless a test turns this off.
+let reportArea = true;
 
 vi.mock('react-easy-crop', () => ({
   default: (props: {
     aspect: number;
     zoom: number;
+    mediaProps: { onError: () => void };
     onCropComplete: (area: typeof AREA, areaPixels: typeof AREA) => void;
   }) => {
     cropperProps(props);
     const { onCropComplete } = props;
-    useEffect(() => onCropComplete(AREA, AREA), [onCropComplete]);
+    useEffect(() => {
+      if (reportArea) onCropComplete(AREA, AREA);
+    }, [onCropComplete]);
     return <div data-testid="easy-crop" />;
   },
 }));
 
+beforeEach(() => {
+  cropperProps.mockClear();
+  reportArea = true;
+});
+
 describe('CampaignImageCropper', () => {
   it('frames the banner ratio and confirms the chosen pixel area', async () => {
     const onConfirm = vi.fn();
-    render(<CampaignImageCropper src="blob:pick" onCancel={vi.fn()} onConfirm={onConfirm} />);
+    render(
+      <CampaignImageCropper
+        src="blob:pick"
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+        onError={vi.fn()}
+      />,
+    );
 
     expect(cropperProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -48,7 +65,14 @@ describe('CampaignImageCropper', () => {
   it('cancels without confirming', async () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();
-    render(<CampaignImageCropper src="blob:pick" onCancel={onCancel} onConfirm={onConfirm} />);
+    render(
+      <CampaignImageCropper
+        src="blob:pick"
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+        onError={vi.fn()}
+      />,
+    );
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalled();
@@ -56,8 +80,44 @@ describe('CampaignImageCropper', () => {
   });
 
   it('locks both buttons while busy', () => {
-    render(<CampaignImageCropper src="blob:pick" busy onCancel={vi.fn()} onConfirm={vi.fn()} />);
+    render(
+      <CampaignImageCropper
+        src="blob:pick"
+        busy
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Use image' })).toBeDisabled();
+  });
+
+  it('cannot confirm before the cropper has reported an area', () => {
+    reportArea = false;
+    render(
+      <CampaignImageCropper
+        src="blob:pick"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Use image' })).toBeDisabled();
+  });
+
+  it("passes the image-decode failure handler to the cropper's <img>", () => {
+    const onError = vi.fn();
+    render(
+      <CampaignImageCropper
+        src="blob:pick"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onError={onError}
+      />,
+    );
+    const props = cropperProps.mock.calls[0]?.[0] as { mediaProps: { onError: () => void } };
+    props.mediaProps.onError();
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });

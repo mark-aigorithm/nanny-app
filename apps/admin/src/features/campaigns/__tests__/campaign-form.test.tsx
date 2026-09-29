@@ -32,9 +32,11 @@ vi.mock('@admin/features/campaigns/campaign-image-cropper', () => ({
   CampaignImageCropper: ({
     onCancel,
     onConfirm,
+    onError,
   }: {
     onCancel: () => void;
     onConfirm: (area: typeof AREA) => void;
+    onError: () => void;
   }) => (
     <div>
       <button type="button" onClick={onCancel}>
@@ -42,6 +44,9 @@ vi.mock('@admin/features/campaigns/campaign-image-cropper', () => ({
       </button>
       <button type="button" onClick={() => onConfirm(AREA)}>
         Use image
+      </button>
+      <button type="button" onClick={onError}>
+        Break image
       </button>
     </div>
   ),
@@ -119,5 +124,31 @@ describe('CampaignFormModal image', () => {
 
     expect(await screen.findByText("Couldn't read that image.")).toBeInTheDocument();
     expect(uploadImageToFirebase).not.toHaveBeenCalled();
+  });
+
+  it("shows an error and returns the file input when the browser can't decode the image", async () => {
+    renderForm();
+    await pickFile();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Break image' }));
+
+    expect(await screen.findByText("Couldn't read that image.")).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).not.toBeNull();
+    expect(uploadImageToFirebase).not.toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:picked');
+  });
+
+  it('revokes the object URL when the form closes mid-crop', async () => {
+    const { unmount } = renderWithProviders(
+      <ToastProvider>
+        <CampaignFormModal onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+    await pickFile();
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:picked');
   });
 });
