@@ -141,7 +141,6 @@ describe('bookingFlowRetryParams — carry the draft back into checkout', () => 
       endTimeWall: '2026-08-02T13:00:00',
       durationHours: '4',
       promoCode: 'WELCOME10',
-      pointsHours: '2',
       addressId: '7',
     };
     const retry = bookingFlowRetryParams(params, 42);
@@ -149,7 +148,6 @@ describe('bookingFlowRetryParams — carry the draft back into checkout', () => 
     expect(retry.addressId).toBe('7');
     expect(retry.retry).toBe('1');
     expect(retry.promoCode).toBe('WELCOME10');
-    expect(retry.pointsHours).toBe('2');
     expect(retry.startTimeWall).toBe('2026-08-02T09:00:00');
   });
 });

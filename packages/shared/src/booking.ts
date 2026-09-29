@@ -513,6 +513,14 @@ export const CreateBookingSchema = z.object({
    * aren't forced to send it — the service treats undefined as "apply".
    */
   usePackageHours: z.boolean().optional(),
+  /**
+   * Care Points hours to spend on this booking, taken when the request is
+   * created (after any promo and package hours). Spending them up front means
+   * a fully covered request is confirmed the moment a nanny accepts it, with no
+   * payment step; they are returned if the request is cancelled unpaid.
+   * Builds that predate this apply points after acceptance instead.
+   */
+  redeemPointsHours: z.number().int().min(1).optional(),
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
 

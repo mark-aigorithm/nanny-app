@@ -272,14 +272,19 @@ export async function applyBookingRedemption(
   }
 
   const wallet = await getOrCreateWallet(params.userId, db);
-  if (wallet.pointsBalance < pointsCost) {
+  // Debit only if the balance still covers it at the moment of the write, and
+  // relative to the balance as it is now: two redemptions racing for the same
+  // points (two requests sent at once) can't both spend them.
+  const debit = await db.rewardWallet.updateMany({
+    where: { id: wallet.id, pointsBalance: { gte: pointsCost } },
+    data: { pointsBalance: { decrement: pointsCost }, lifetimeRedeemed: { increment: pointsCost } },
+  });
+  if (debit.count === 0) {
     throw errors.badRequest('You do not have enough Care Points for this redemption.');
   }
-
-  const balanceAfter = wallet.pointsBalance - pointsCost;
-  await db.rewardWallet.update({
+  const { pointsBalance: balanceAfter } = await db.rewardWallet.findUniqueOrThrow({
     where: { id: wallet.id },
-    data: { pointsBalance: balanceAfter, lifetimeRedeemed: { increment: pointsCost } },
+    select: { pointsBalance: true },
   });
   await db.rewardLedgerEntry.create({
     data: {
@@ -322,10 +327,9 @@ export async function refundBookingRedemption(
 ): Promise<void> {
   if (params.points <= 0) return;
   const wallet = await getOrCreateWallet(params.userId, db);
-  const balanceAfter = wallet.pointsBalance + params.points;
-  await db.rewardWallet.update({
+  const { pointsBalance: balanceAfter } = await db.rewardWallet.update({
     where: { id: wallet.id },
-    data: { pointsBalance: balanceAfter, lifetimeRedeemed: { decrement: params.points } },
+    data: { pointsBalance: { increment: params.points }, lifetimeRedeemed: { decrement: params.points } },
   });
   await db.rewardLedgerEntry.create({
     data: {

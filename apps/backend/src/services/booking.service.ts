@@ -88,6 +88,25 @@ import {
   refundBookingRedemption,
 } from './reward.service';
 
+/**
+ * A booking nobody has paid for yet: a request waiting for a nanny, or one a
+ * nanny accepted that is waiting on payment. Credits spent on it (Care Points,
+ * package hours) can still be given back.
+ */
+const UNPAID_STATUSES: BookingStatus[] = [BookingStatus.PENDING, BookingStatus.APPROVED];
+
+/** What the credit reversals read off a booking — any booking row carries it. */
+type CreditedBooking = Pick<
+  Prisma.BookingGetPayload<object>,
+  | 'id'
+  | 'motherId'
+  | 'status'
+  | 'rewardCreditPoints'
+  | 'rewardCreditAmount'
+  | 'packageHoursApplied'
+  | 'packageCreditAmount'
+>;
+
 /** Minutes before scheduled start when nanny may check in. */
 export const CHECK_IN_EARLY_MINUTES = 15;
 
@@ -702,12 +721,37 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
  */
 async function notifyMotherNannyClaimed(booking: BookingWithRelations): Promise<void> {
   const dateLabel = booking.date.toISOString().slice(0, 10);
+  // A fully covered booking is normally confirmed on the spot instead; if that
+  // didn't go through, don't ask her to pay what she doesn't owe.
+  const nextStep =
+    Number(booking.totalAmount) <= 0
+      ? 'There is nothing to pay — open the app to confirm it.'
+      : 'Complete payment to confirm it.';
   await notifyUserBookingEvent(
     booking.motherId,
     'BOOKING_APPROVED' as NotificationType,
     'booking_approved',
     'A nanny accepted your request',
-    `A nanny is ready for your ${dateLabel} booking. Complete payment to confirm it.`,
+    `A nanny is ready for your ${dateLabel} booking. ${nextStep}`,
+    booking.id,
+  );
+}
+
+/**
+ * Tell the mother a booking she owes nothing for is confirmed. Sent in place
+ * of the "complete payment" prompt, so she is never asked to pay EGP 0.
+ */
+export async function notifyMotherBookingConfirmedFree(
+  booking: BookingWithRelations,
+): Promise<void> {
+  const dateLabel = booking.date.toISOString().slice(0, 10);
+  const nannyName = booking.nannyProfile?.user.firstName;
+  await notifyUserBookingEvent(
+    booking.motherId,
+    'BOOKING_CONFIRMED' as NotificationType,
+    'booking_confirmed',
+    'Booking confirmed — nothing to pay',
+    `${nannyName ? `${nannyName} is` : 'Your nanny is'} booked for ${dateLabel}. It's fully covered, so there's nothing to pay.`,
     booking.id,
   );
 }
@@ -1174,14 +1218,24 @@ export async function createBooking(
   // "Save for next booking" runs in the same transaction as the create, so a
   // failed booking never silently rewrites her saved family.
   const wantsSaveChildren = body.saveChildren === true;
+  // Care Points chosen with the request are spent now, after the promo and any
+  // package hours, so a fully covered request needs no payment step once a
+  // nanny accepts it. Skipped when nothing is left to cover — spending points
+  // on a zero total would take them for no discount. Returned if the request
+  // is cancelled unpaid (returnUnpaidCredits).
+  const pointsHours = body.redeemPointsHours ?? 0;
   let booking: BookingWithRelations;
-  if (willApplyPackageHours || wantsSaveChildren) {
+  if (willApplyPackageHours || wantsSaveChildren || pointsHours > 0) {
     booking = await prisma.$transaction(async (tx) => {
-      const created = await tx.booking.create({ data, include: bookingInclude });
+      let created = await tx.booking.create({ data, include: bookingInclude });
       if (wantsSaveChildren) await saveChildren(user.id, children, tx);
-      return willApplyPackageHours
-        ? applyPackageHoursToBooking(tx, created, breakdown.skillAddOns)
-        : created;
+      if (willApplyPackageHours) {
+        created = await applyPackageHoursToBooking(tx, created, breakdown.skillAddOns);
+      }
+      if (pointsHours > 0 && Number(created.totalAmount) > 0) {
+        created = await applyPointsToBooking(tx, created, pointsHours);
+      }
+      return created;
     });
   } else {
     booking = await prisma.booking.create({ data, include: bookingInclude });
@@ -1410,26 +1464,7 @@ export async function cancelBooking(
   }
   validateStatusTransition(booking.status, BookingStatus.CANCELLED);
 
-  // Return any Care Points the parent applied to this (still unpaid) booking.
-  // Best-effort — a reward hiccup must not block a cancellation.
-  // Each reversal returns the row as it now stands; hand that to the next one
-  // so its own checks (status, what is still applied) read current values.
-  let reversed = booking;
-  try {
-    reversed = (await refundBookingIfApplied(reversed)) ?? reversed;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[rewards] failed to refund points on cancel', { bookingId, err });
-  }
-
-  // Same for any prepaid package hours applied to this (still unpaid) booking —
-  // best-effort, so an hours-ledger hiccup can't block the cancellation.
-  try {
-    reversed = (await refundPackageHoursIfApplied(reversed)) ?? reversed;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[packages] failed to refund package hours on cancel', { bookingId, err });
-  }
+  await returnUnpaidCredits(booking);
 
   // Full refund when the nanny cancels, or when the parent cancels outside
   // the console's cancellation window (0 = always free); half inside it. The
@@ -1604,8 +1639,14 @@ async function applyNannyDecision(
     });
   });
 
-  // A fresh claim makes the booking payable — prompt the mother to pay.
   if (claimed) {
+    // Nothing owed (a promo, package hours or Care Points covered it): confirm
+    // it now — the mother is told it's confirmed, and there is no pay step.
+    const confirmed = await confirmIfNothingOwed(updated.id);
+    if (confirmed) {
+      return toBookingResponse(confirmed, await getBookingResponseContext(), viewerFor(user));
+    }
+    // Otherwise the claim made it payable — prompt the mother to pay.
     await notifyMotherNannyClaimed(updated);
   }
 
@@ -1729,54 +1770,120 @@ export async function redeemBookingPoints(
     throw errors.badRequest('Points are already applied. Remove them first to change the amount.');
   }
 
-  const perHour = Number(booking.effectiveHourlyRate) || Number(booking.baseRate);
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const { hours, pointsCost, discount: rawDiscount } = await applyBookingRedemption(tx, {
-      userId: user.id,
-      scope: { bookingId },
-      redeemHours: body.hours,
-      perHour,
-      durationHours: Number(booking.durationHours),
-    });
-    // Never discount below zero owed. The platform funds the reward — the
-    // nanny's earnings (nannyAmount) are never touched.
-    const discount = Math.min(rawDiscount, Number(booking.totalAmount));
-    return tx.booking.update({
-      where: { id: bookingId },
-      data: {
-        discountAmount: round2(Number(booking.discountAmount) + discount),
-        totalAmount: round2(Number(booking.totalAmount) - discount),
-        platformAmount: round2(Number(booking.platformAmount) - discount),
-        rewardCreditHoursApplied: hours,
-        rewardCreditPoints: pointsCost,
-        rewardCreditAmount: discount,
-      },
-      include: bookingInclude,
-    });
-  });
+  const updated = await prisma.$transaction((tx) => applyPointsToBooking(tx, booking, body.hours));
 
   await notifyPointsRedeemed(
     user.id,
     updated.rewardCreditPoints,
     Number(updated.rewardCreditHoursApplied),
   );
-  return toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user));
+
+  // Points that cover the whole price leave nothing to pay: confirm it now
+  // rather than sending her through a checkout for EGP 0.
+  const confirmed = await confirmIfNothingOwed(updated.id);
+  return toBookingResponse(confirmed ?? updated, await getBookingResponseContext(), viewerFor(user));
+}
+
+/**
+ * Spend Care Points on a booking inside the caller's transaction: debit the
+ * wallet and take their value off the total — never below zero owed. The
+ * platform funds the reward; the nanny's earnings (nannyAmount) are never
+ * touched.
+ *
+ * The write is conditional on the row being exactly as read — same status,
+ * same total, no points yet — so two concurrent redemptions can't both land
+ * and the discount is always worked out against the real total. On a miss it
+ * throws, which rolls the wallet debit back with it.
+ */
+async function applyPointsToBooking(
+  tx: Prisma.TransactionClient,
+  booking: BookingWithRelations,
+  redeemHours: number,
+): Promise<BookingWithRelations> {
+  const perHour = Number(booking.effectiveHourlyRate) || Number(booking.baseRate);
+  const { hours, pointsCost, discount: rawDiscount } = await applyBookingRedemption(tx, {
+    userId: booking.motherId,
+    scope: { bookingId: booking.id },
+    redeemHours,
+    perHour,
+    durationHours: Number(booking.durationHours),
+  });
+  const discount = Math.min(rawDiscount, Number(booking.totalAmount));
+
+  const { count } = await tx.booking.updateMany({
+    where: {
+      id: booking.id,
+      status: booking.status,
+      totalAmount: booking.totalAmount,
+      rewardCreditPoints: 0,
+      deletedAt: null,
+    },
+    data: {
+      discountAmount: { increment: discount },
+      totalAmount: { decrement: discount },
+      platformAmount: { decrement: discount },
+      rewardCreditHoursApplied: hours,
+      rewardCreditPoints: pointsCost,
+      rewardCreditAmount: discount,
+    },
+  });
+  if (count === 0) {
+    throw errors.conflict('This booking changed while your points were being applied. Please try again.');
+  }
+  return tx.booking.findUniqueOrThrow({ where: { id: booking.id }, include: bookingInclude });
+}
+
+/**
+ * Confirm an APPROVED booking on the spot when nothing is owed, so the mother
+ * never sees a payment step (see confirmBookingIfNothingOwed). Loaded lazily:
+ * paymob.service imports this module, and a static import back would make the
+ * two depend on each other at load time.
+ */
+async function confirmIfNothingOwed(bookingId: number): Promise<BookingWithRelations | null> {
+  const { confirmBookingIfNothingOwed } = await import('./paymob.service');
+  return confirmBookingIfNothingOwed(bookingId);
+}
+
+/**
+ * Give back the Care Points and prepaid package hours spent on a booking that
+ * is being cancelled before it was paid for. Call it BEFORE the status moves to
+ * CANCELLED — both reversals only act on an unpaid (PENDING/APPROVED) booking,
+ * so on a confirmed one they do nothing and the credit stays spent.
+ *
+ * Best-effort, one reversal at a time: a reward or hours-ledger hiccup must not
+ * block a cancellation. Each reversal returns the row as it now stands and the
+ * next one is handed that, so its own checks read current values.
+ */
+export async function returnUnpaidCredits(booking: CreditedBooking): Promise<void> {
+  let reversed: CreditedBooking = booking;
+  try {
+    reversed = (await refundBookingIfApplied(reversed)) ?? reversed;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[rewards] failed to refund points on cancel', { bookingId: booking.id, err });
+  }
+  try {
+    await refundPackageHoursIfApplied(reversed);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[packages] failed to refund package hours on cancel', { bookingId: booking.id, err });
+  }
 }
 
 /**
  * Restore a booking's applied Care Points (points back to the wallet, amount
- * back onto the total). Only valid while the booking is still unpaid (APPROVED);
- * a no-op if nothing is applied. Used by the parent (to change their mind), and
- * internally when a payment fails or the booking is cancelled.
+ * back onto the total). Only valid while the booking is still unpaid (PENDING
+ * — points chosen with the request — or APPROVED); a no-op if nothing is
+ * applied. Used by the parent (to change their mind), and when the booking is
+ * cancelled unpaid.
  */
 async function refundBookingIfApplied(
-  booking: BookingWithRelations,
+  booking: CreditedBooking,
 ): Promise<BookingWithRelations | null> {
   const points = booking.rewardCreditPoints;
   const amount = Number(booking.rewardCreditAmount);
   // Only reverse while unpaid — a CONFIRMED/paid booking keeps its discount.
-  if (points <= 0 || amount <= 0 || booking.status !== BookingStatus.APPROVED) return null;
+  if (points <= 0 || amount <= 0 || !UNPAID_STATUSES.includes(booking.status)) return null;
 
   const updated = await prisma.$transaction(async (tx) => {
     // Conditional on the booking still being unpaid with these points on it, and
@@ -1787,7 +1894,7 @@ async function refundBookingIfApplied(
     const { count } = await tx.booking.updateMany({
       where: {
         id: booking.id,
-        status: BookingStatus.APPROVED,
+        status: { in: UNPAID_STATUSES },
         rewardCreditPoints: points,
         deletedAt: null,
       },
@@ -1824,17 +1931,12 @@ async function refundBookingIfApplied(
  * cannot return the hours twice.
  */
 async function refundPackageHoursIfApplied(
-  booking: BookingWithRelations,
+  booking: CreditedBooking,
 ): Promise<BookingWithRelations | null> {
   const hours = Number(booking.packageHoursApplied);
   const amount = Number(booking.packageCreditAmount);
   if (hours <= 0) return null;
-  if (
-    booking.status !== BookingStatus.PENDING &&
-    booking.status !== BookingStatus.APPROVED
-  ) {
-    return null;
-  }
+  if (!UNPAID_STATUSES.includes(booking.status)) return null;
 
   return prisma.$transaction(async (tx) => {
     // Same guard as refundBookingIfApplied: only while still unpaid with the
@@ -1842,7 +1944,7 @@ async function refundPackageHoursIfApplied(
     const { count } = await tx.booking.updateMany({
       where: {
         id: booking.id,
-        status: { in: [BookingStatus.PENDING, BookingStatus.APPROVED] },
+        status: { in: UNPAID_STATUSES },
         packageHoursApplied: { gt: 0 },
         deletedAt: null,
       },

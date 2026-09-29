@@ -38,6 +38,7 @@ jest.mock('@backend/lib/config', () => ({
 jest.mock('@backend/services/booking.service', () => ({
   bookingInclude: {},
   canTransitionBookingStatus: jest.fn(() => true),
+  notifyMotherBookingConfirmedFree: jest.fn(),
   notifyNannyBookingConfirmed: jest.fn(),
 }));
 jest.mock('@backend/services/booking-extension.service', () => ({ applyPaidExtension: jest.fn() }));
@@ -47,9 +48,13 @@ jest.mock('@backend/lib/paymob/client', () => ({ createPaymobApiClient: jest.fn(
 
 import { prisma } from '@backend/db/prisma';
 import { createPaymobApiClient } from '@backend/lib/paymob/client';
-import { notifyNannyBookingConfirmed } from '@backend/services/booking.service';
+import {
+  notifyMotherBookingConfirmedFree,
+  notifyNannyBookingConfirmed,
+} from '@backend/services/booking.service';
 import { sendReceiptEmail } from '@backend/services/email.service';
 import {
+  confirmBookingIfNothingOwed,
   confirmBookingWithoutPayment,
   createPaymobIntentionForBooking,
 } from '@backend/services/paymob.service';
@@ -167,6 +172,8 @@ describe('confirmBookingWithoutPayment', () => {
     );
     expect(redeemBookingPromoCodeOnCapture).toHaveBeenCalledWith(tx, 52);
     expect(notifyNannyBookingConfirmed).toHaveBeenCalled();
+    // She was never asked to pay — she is told it's confirmed.
+    expect(notifyMotherBookingConfirmedFree).toHaveBeenCalled();
     expect(sendReceiptEmail).toHaveBeenCalledWith(expect.objectContaining({ paymobTransactionId: null }));
   });
 
@@ -196,6 +203,7 @@ describe('confirmBookingWithoutPayment', () => {
     // roll back with it — and nobody is told the booking is confirmed.
     await expect(mockPrisma.$transaction.mock.results[0]?.value).rejects.toMatchObject({ statusCode: 409 });
     expect(notifyNannyBookingConfirmed).not.toHaveBeenCalled();
+    expect(notifyMotherBookingConfirmedFree).not.toHaveBeenCalled();
     expect(sendReceiptEmail).not.toHaveBeenCalled();
   });
 
@@ -257,5 +265,43 @@ describe('confirmBookingWithoutPayment — a checkout opened earlier', () => {
 
     await expect(confirmBookingWithoutPayment(decoded, 52)).rejects.toThrow('Paymob unreachable');
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('confirmBookingIfNothingOwed — no pay step at all', () => {
+  it('confirms an approved booking that owes nothing and tells the mother', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(approvedBooking(0));
+
+    const confirmed = await confirmBookingIfNothingOwed(52);
+
+    expect(confirmed).toMatchObject({ id: 52 });
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ totalAmount: { lte: 0 } }) }),
+    );
+    expect(notifyNannyBookingConfirmed).toHaveBeenCalled();
+    expect(notifyMotherBookingConfirmedFree).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['owes money', approvedBooking(318)],
+    ['is still waiting for a nanny', { ...approvedBooking(0), status: BookingStatus.PENDING }],
+    ['has no nanny', { ...approvedBooking(0), nannyProfileId: null }],
+    ['is already paid', approvedBooking(0, [{ id: 3, status: PaymentStatus.CAPTURED, paymobClientSecret: null }])],
+  ])('leaves a booking that %s alone', async (_label, booking) => {
+    mockPrisma.booking.findUnique.mockResolvedValue(booking);
+
+    await expect(confirmBookingIfNothingOwed(52)).resolves.toBeNull();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(notifyMotherBookingConfirmedFree).not.toHaveBeenCalled();
+  });
+
+  it('never throws — a failed confirm leaves the booking APPROVED for the app to finish', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(approvedBooking(0));
+    tx.booking.updateMany.mockResolvedValue({ count: 0 }); // the total changed under it
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(confirmBookingIfNothingOwed(52)).resolves.toBeNull();
+    expect(notifyMotherBookingConfirmedFree).not.toHaveBeenCalled();
+    errSpy.mockRestore();
   });
 });

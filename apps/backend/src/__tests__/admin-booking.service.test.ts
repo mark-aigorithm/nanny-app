@@ -28,8 +28,19 @@ jest.mock('@backend/services/duration-rule.service', () => ({
   listActiveDurationRules: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock('@backend/services/paymob.service', () => ({
+  confirmBookingIfNothingOwed: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('@backend/services/booking.service', () => ({
+  ...jest.requireActual('@backend/services/booking.service'),
+  returnUnpaidCredits: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from '@backend/db/prisma';
+import { returnUnpaidCredits } from '@backend/services/booking.service';
 import { createInAppNotification } from '@backend/services/notification.service';
+import { confirmBookingIfNothingOwed } from '@backend/services/paymob.service';
 import {
   approveBooking,
   getAdminBooking,
@@ -49,6 +60,8 @@ const mockPrisma = prisma as unknown as {
   };
 };
 const mockNotify = createInAppNotification as jest.Mock;
+const mockConfirmFree = confirmBookingIfNothingOwed as jest.Mock;
+const mockReturnCredits = returnUnpaidCredits as jest.Mock;
 
 const ADMIN_UID = 'fb-admin';
 const ADMIN_ID = 3;
@@ -137,6 +150,21 @@ describe('approveBooking', () => {
     );
   });
 
+  it('confirms a booking that owes nothing instead of asking the mother to pay', async () => {
+    mockPrisma.booking.findFirst
+      .mockResolvedValueOnce(makeRow())
+      .mockResolvedValueOnce(makeRow({ status: PrismaBookingStatus.CONFIRMED }));
+    mockPrisma.booking.update.mockResolvedValue(makeRow({ status: PrismaBookingStatus.APPROVED }));
+    mockConfirmFree.mockResolvedValueOnce({ id: 4 });
+
+    const result = await approveBooking(4, ADMIN_UID);
+
+    expect(mockConfirmFree).toHaveBeenCalledWith(4);
+    expect(result.status).toBe('CONFIRMED');
+    // The confirm tells both parties itself — no "complete payment" prompt.
+    expect(mockNotify).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'BOOKING_APPROVED' }));
+  });
+
   it('rejects approving an unclaimed booking (no nanny assigned)', async () => {
     mockPrisma.booking.findFirst.mockResolvedValue(
       makeRow({ nannyProfileId: null, nannyProfile: null }),
@@ -164,6 +192,12 @@ describe('rejectBooking', () => {
     const result = await rejectBooking(4, ADMIN_UID, { reason: 'Fully booked' });
 
     expect(result.status).toBe('CANCELLED');
+    // Care Points / package hours spent on the request go back — before the
+    // status change, while the reversals still see an unpaid booking.
+    expect(mockReturnCredits).toHaveBeenCalledWith(expect.objectContaining({ id: 4 }));
+    expect(mockReturnCredits.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPrisma.booking.update.mock.invocationCallOrder[0]!,
+    );
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
     expect(updateData.status).toBe('CANCELLED');
     expect(updateData.cancellationReason).toBe('Fully booked');
@@ -194,6 +228,7 @@ describe('setBookingStatus', () => {
     const result = await setBookingStatus(4, ADMIN_UID, { status: 'CANCELLED' });
 
     expect(result.status).toBe('CANCELLED');
+    expect(mockReturnCredits).toHaveBeenCalledWith(expect.objectContaining({ id: 4 }));
     const updateData = mockPrisma.booking.update.mock.calls[0][0].data;
     expect(updateData.status).toBe('CANCELLED');
     expect(updateData.adminActionBy).toEqual({ connect: { id: ADMIN_ID } });

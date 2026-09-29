@@ -3,9 +3,9 @@
 # The wallet's own rules (the ledger, the caps, returning points when a booking
 # is cancelled) are settled over HTTP in a05-care-points.test.ts. What only the
 # app can show is the round trip a mother actually sees: a balance, hours
-# reserved before a nanny even exists, those hours applied on her behalf the
-# moment one accepts, a smaller amount on the checkout page, and a balance that
-# has gone down by exactly what she spent.
+# chosen before a nanny even exists and spent with the request, those hours
+# already applied when one accepts, a smaller amount on the checkout page, and a
+# balance that has gone down by exactly what she spent.
 #
 # The arithmetic is the assertion. Four hours at 120 is 480; two free hours at
 # 100 points each is 200 points off the balance and 240 off the bill, leaving
@@ -51,15 +51,15 @@ appId: com.nannyapp.mobile
       - tapOn:
           id: 'booking.points.increment'
 
-# Reserved, not yet spent: there is no booking to redeem against until the
-# request exists, so the review step only promises the reduction.
+# Chosen here; spent when the request is sent, so the review step shows the
+# reduced total she will pay.
 - assertVisible: 'EGP 240.00'
 - assertVisible: '2 free hours .* Care Points'
 
 - tapOn:
     id: 'booking.cta'
 
-# ── Applied on acceptance, before the card is charged ──────────────────────
+# ── Already applied when a nanny accepts, before the card is charged ───────
 - extendedWaitUntil:
     visible: 'Finding a nanny'
     timeout: 30000
@@ -74,8 +74,8 @@ appId: com.nannyapp.mobile
     visible: 'A nanny accepted!'
     timeout: 30000
 
-# The screen redeems the reserved hours by itself here — the mother never taps
-# Apply. This card is the only place that shows it happened.
+# The hours were spent with the request — the mother never taps Apply. This
+# card is the only place that shows it happened.
 - extendedWaitUntil:
     visible: '2 free hours applied'
     timeout: 30000

@@ -16,6 +16,7 @@ import { AppError, errors } from '@backend/lib/errors';
 import {
   bookingInclude,
   canTransitionBookingStatus,
+  notifyMotherBookingConfirmedFree,
   notifyNannyBookingConfirmed,
 } from '@backend/services/booking.service';
 import { createPaymobApiClient } from '@backend/lib/paymob/client';
@@ -183,8 +184,10 @@ async function captureAndConfirmBooking(
   });
 }
 
+type ConfirmedBooking = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
+
 async function announceBookingConfirmed(
-  confirmedBooking: Prisma.BookingGetPayload<{ include: typeof bookingInclude }>,
+  confirmedBooking: ConfirmedBooking,
   paymobTransactionId: string | null,
 ) {
   await notifyNannyBookingConfirmed(confirmedBooking);
@@ -284,6 +287,36 @@ export async function confirmBookingWithoutPayment(
 }
 
 /**
+ * Confirm an APPROVED booking on the spot when nothing is owed, so the mother
+ * never sees a payment step. Called the moment a booking becomes payable (a
+ * nanny accepts it, an admin approves it) and when Care Points bring an
+ * approved booking to zero. Returns the confirmed booking, or null when it
+ * isn't one to confirm.
+ *
+ * Best-effort: whatever goes wrong, the booking just stays APPROVED — it is
+ * never confirmed with money owed (settleWithoutCharge re-checks the total in
+ * the confirming write) — and the app's "Confirm booking" step
+ * (confirmBookingWithoutPayment) is still there to finish it.
+ */
+export async function confirmBookingIfNothingOwed(bookingId: number): Promise<ConfirmedBooking | null> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId, deletedAt: null },
+    include: { payments: { where: { deletedAt: null }, orderBy: { id: 'desc' } } },
+  });
+  if (!booking || booking.status !== BookingStatus.APPROVED || !booking.nannyProfileId) return null;
+  if (!isFullyCovered(booking.totalAmount)) return null;
+  if (booking.payments.some((p) => p.status === PaymentStatus.CAPTURED)) return null;
+
+  try {
+    return await settleWithoutCharge({ bookingId }, booking.motherId, PaymentMethod.CARD, booking.payments);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[payments] could not confirm a fully covered booking', { bookingId, err });
+    return null;
+  }
+}
+
+/**
  * The booking a mother may settle right now: hers, approved, with a nanny, and
  * not already paid. Shared by the checkout and the nothing-owed confirm so the
  * two can never disagree about what is payable.
@@ -329,7 +362,7 @@ async function settleWithoutCharge(
   motherId: number,
   method: CreatePaymobIntentionRequest['method'],
   attempts: Pick<Payment, 'id' | 'status' | 'paymobClientSecret'>[],
-): Promise<void> {
+): Promise<ConfirmedBooking> {
   for (const attempt of attempts) {
     if (attempt.status !== PaymentStatus.PENDING || !attempt.paymobClientSecret) continue;
     const outcome = await syncBookingAttemptWithPaymob(attempt.id, attempt.paymobClientSecret);
@@ -368,6 +401,10 @@ async function settleWithoutCharge(
   });
 
   await announceBookingConfirmed(confirmed, null);
+  // She was never asked to pay, so tell her it's done — this replaces the
+  // "complete payment" prompt she would otherwise have been sent.
+  await notifyMotherBookingConfirmedFree(confirmed);
+  return confirmed;
 }
 
 /**
