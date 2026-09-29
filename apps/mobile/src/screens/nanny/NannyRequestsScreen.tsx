@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@mobile/components/ui';
-import { colors, HEADER_HEIGHT } from '@mobile/theme';
+import { colors } from '@mobile/theme';
 import {
   formatAllergySummary,
   formatChildrenSummary,
@@ -27,7 +27,7 @@ import {
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
-import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import NannyExtensionRequestCard from '@mobile/components/NannyExtensionRequestCard';
@@ -81,9 +81,10 @@ export default function NannyRequestsScreen() {
 
   const requests = (isRequestsTab ? available.data : owned.data) ?? [];
   const isLoading = isRequestsTab ? available.isLoading : owned.isLoading;
-  const refetch = isRequestsTab ? available.refetch : owned.refetch;
 
-  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
+  // A pull refreshes the banners above the chips (ongoing visit, extension
+  // request) as well as the list under them.
+  const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
   const checkOut = useCheckOut();
   const acceptBooking = useAcceptBooking();
   const { nearestBooking, canCheckIn, canCheckOut, blockedByBalanceDue } = useBookingShiftTimer(
@@ -284,7 +285,6 @@ export default function NannyRequestsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            progressViewOffset={HEADER_HEIGHT}
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
             tintColor={colors.primary}

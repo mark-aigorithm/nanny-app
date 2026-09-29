@@ -11,13 +11,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import { FadeInView, PressableScale } from '@mobile/components/ui';
-import { colors, STATUS_BAR_HEIGHT } from '@mobile/theme';
+import { colors } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
-import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { isNothingToPay } from '@mobile/lib/nothingToPay';
@@ -40,11 +41,12 @@ export default function BookingHistoryScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
 
-  const { data: bookings = [], isLoading, refetch } = useBookingList(
+  const { data: bookings = [], isLoading } = useBookingList(
     STATUS_BY_TAB[activeTab],
     activeTab === 'upcoming' ? { sortBy: 'startTime', sortDir: 'asc' } : undefined,
   );
-  const { isRefreshingByUser, refreshByUser } = useRefreshByUser(refetch);
+  // A pull refreshes the ongoing-visit banner as well as the list under the tabs.
+  const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
 
   const handleViewDetails = (bookingId: string) => {
     router.push({
@@ -67,8 +69,11 @@ export default function BookingHistoryScreen() {
     } as never);
   };
 
+  // The list starts below the status bar rather than under it: iOS draws the
+  // pull-to-refresh spinner at the list's top edge, so under the notch it was
+  // never seen.
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
 
       <ScrollView
@@ -77,7 +82,6 @@ export default function BookingHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            progressViewOffset={STATUS_BAR_HEIGHT}
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
             tintColor={colors.primary}
@@ -162,7 +166,7 @@ export default function BookingHistoryScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
