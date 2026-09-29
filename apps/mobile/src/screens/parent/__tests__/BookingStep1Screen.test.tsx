@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Router is the only per-file mock this screen needs — firebase, the API layer,
@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
+import { api } from '@mobile/lib/api';
 import BookingStep1Screen from '@mobile/screens/parent/BookingStep1Screen';
 
 // Deliberately plain fixtures — EGP 100/h flat, no duration tiers, no extra-child
@@ -134,5 +135,28 @@ describe('BookingStep1Screen — Care Points redemption', () => {
     // She now pays EGP 100, and the old total is gone from the CTA.
     expect(getByText('Request care · EGP 100.00')).toBeTruthy();
     expect(queryByText('Request care · EGP 200.00')).toBeNull();
+  });
+
+  it('spends the chosen hours with the request — and says there is nothing to pay when they cover it', async () => {
+    (api.post as jest.Mock).mockResolvedValueOnce({ data: { data: { id: 9 }, error: null } });
+    const { getByText, getByLabelText } = renderScreen({ pointsBalance: 200 });
+
+    // Two free hours cover the whole 2h booking.
+    fireEvent.press(getByLabelText('Increase'));
+    fireEvent.press(getByLabelText('Increase'));
+    getByText('Nothing to pay — your booking is confirmed as soon as a nanny accepts.');
+
+    fireEvent.press(getByText('Request care · EGP 0.00'));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/bookings', expect.objectContaining({ redeemPointsHours: 2 })),
+    );
+    // Nothing rides along to be applied later — the server already has them.
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: '/(parent)/book/booking-confirmation',
+        params: { bookingId: '9' },
+      }),
+    );
   });
 });

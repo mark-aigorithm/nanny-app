@@ -45,6 +45,12 @@ jest.mock('@backend/services/notification.service', () => ({
   dispatchPush: jest.fn().mockResolvedValue(undefined),
 }));
 
+// The zero-total confirm is paymob.service's own suite; here it only matters
+// whether the claim asks for it and what the mother is told either way.
+jest.mock('@backend/services/paymob.service', () => ({
+  confirmBookingIfNothingOwed: jest.fn().mockResolvedValue(null),
+}));
+
 jest.mock('@backend/services/app-settings.service', () => ({
   getServiceFeePercent: jest.fn().mockResolvedValue(6),
   getStandardHourlyRate: jest.fn().mockResolvedValue(100),
@@ -72,6 +78,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
 
 import { prisma } from '@backend/db/prisma';
 import { createInAppNotification } from '@backend/services/notification.service';
+import { confirmBookingIfNothingOwed } from '@backend/services/paymob.service';
 import {
   acceptBooking,
   canTransitionBookingStatus,
@@ -334,6 +341,46 @@ describe('claim (unassigned request)', () => {
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({ userId: motherUser.id, type: 'BOOKING_APPROVED' }),
     );
+  });
+
+  it('confirms a fully covered request on the spot — no pay step, no "complete payment" prompt', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(
+      makeBooking({ nannyProfileId: null, nannyProfile: null, type: 'STANDARD' }),
+    );
+    mockPrisma.booking.findFirst.mockResolvedValue(null);
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.booking.findUniqueOrThrow.mockResolvedValue(
+      makeBooking({ status: PrismaBookingStatus.APPROVED, totalAmount: 0 }),
+    );
+    (confirmBookingIfNothingOwed as jest.Mock).mockResolvedValueOnce(
+      makeBooking({ status: PrismaBookingStatus.CONFIRMED, totalAmount: 0 }),
+    );
+
+    const result = await acceptBooking({ uid: 'fb-nanny' } as never, 4);
+
+    expect(confirmBookingIfNothingOwed).toHaveBeenCalledWith(4);
+    expect(result.status).toBe(BookingStatus.CONFIRMED);
+    // The confirm tells her it's booked; she is never asked to pay.
+    expect(mockNotify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ userId: motherUser.id, type: 'BOOKING_APPROVED' }),
+    );
+  });
+
+  it('never asks her to pay EGP 0 if the on-the-spot confirm did not go through', async () => {
+    mockPrisma.booking.findUnique.mockResolvedValue(
+      makeBooking({ nannyProfileId: null, nannyProfile: null, type: 'STANDARD' }),
+    );
+    mockPrisma.booking.findFirst.mockResolvedValue(null);
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.booking.findUniqueOrThrow.mockResolvedValue(
+      makeBooking({ status: PrismaBookingStatus.APPROVED, totalAmount: 0 }),
+    );
+
+    await acceptBooking({ uid: 'fb-nanny' } as never, 4);
+
+    const told = mockNotify.mock.calls.find((c) => c[0].userId === motherUser.id)?.[0];
+    expect(told?.body).toMatch(/nothing to pay/i);
+    expect(told?.body).not.toMatch(/complete payment/i);
   });
 
   it('rejects the loser of a simultaneous claim race (updateMany matched no row)', async () => {

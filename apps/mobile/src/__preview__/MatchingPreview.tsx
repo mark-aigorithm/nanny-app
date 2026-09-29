@@ -4,7 +4,7 @@ import React from 'react';
 import BookingConfirmationScreen from '@mobile/screens/parent/BookingConfirmationScreen';
 import { PreviewProviders, mockBooking, setPreviewParams } from './harness';
 
-setPreviewParams({ bookingId: '1', pointsHours: '2' });
+setPreviewParams({ bookingId: '1' });
 
 export default function MatchingPreview() {
   return (

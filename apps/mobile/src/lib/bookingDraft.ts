@@ -36,12 +36,6 @@ export type BookingFlowParams = {
    * the broadcast radius from.
    */
   addressId?: string;
-  /**
-   * Free hours the parent reserved with Care Points on the review step. Points
-   * can only be redeemed against a booking that exists, so this rides through
-   * the flow and is applied on the confirmation screen once a nanny accepts.
-   */
-  pointsHours?: string;
   bookingId?: string;
   retry?: string;
 };
@@ -122,7 +116,6 @@ export function bookingFlowRetryParams(
     nannyPhoto: params.nannyPhoto,
     instructions: params.instructions,
     promoCode: params.promoCode,
-    pointsHours: params.pointsHours,
     addressId: params.addressId,
   };
 }

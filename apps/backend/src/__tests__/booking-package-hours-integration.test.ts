@@ -17,6 +17,7 @@ jest.mock('@backend/db/prisma', () => {
     create: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    findUniqueOrThrow: jest.fn(),
   };
   const packagePurchase = { findMany: jest.fn() };
   const promoCode = { findFirst: jest.fn(), update: jest.fn() };
@@ -70,6 +71,10 @@ jest.mock('@backend/services/package-hours.service', () => ({
   refundPackageHours: jest.fn(),
 }));
 
+jest.mock('@backend/services/paymob.service', () => ({
+  confirmBookingIfNothingOwed: jest.fn().mockResolvedValue(null),
+}));
+
 jest.mock('@backend/services/reward.service', () => ({
   applyBookingRedemption: jest.fn(),
   awardPointsForBooking: jest.fn(),
@@ -98,10 +103,16 @@ import {
   refundPackageHours,
 } from '@backend/services/package-hours.service';
 import {
+  applyBookingRedemption,
   notifyPointsRefunded,
   refundBookingRedemption,
 } from '@backend/services/reward.service';
-import { cancelBooking, createBooking } from '@backend/services/booking.service';
+import { confirmBookingIfNothingOwed } from '@backend/services/paymob.service';
+import {
+  cancelBooking,
+  createBooking,
+  redeemBookingPoints,
+} from '@backend/services/booking.service';
 
 
 /** The address the mother books at; createBooking looks it up and snapshots it. */
@@ -133,6 +144,7 @@ const m = prisma as unknown as {
     create: jest.Mock;
     update: jest.Mock;
     updateMany: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
   };
   packagePurchase: { findMany: jest.Mock };
   promoCode: { findFirst: jest.Mock; update: jest.Mock };
@@ -146,6 +158,7 @@ const mockSummary = getRedeemableSummary as jest.Mock;
 const mockRedeem = redeemPackageHours as jest.Mock;
 const mockRefundHours = refundPackageHours as jest.Mock;
 const mockRefundPoints = refundBookingRedemption as jest.Mock;
+const mockSpendPoints = applyBookingRedemption as jest.Mock;
 
 const DECODED = { uid: 'fb-mother' } as never;
 const CANCEL = { reason: 'changed plans' } as never;
@@ -291,6 +304,7 @@ function writeThroughConditionalUpdates() {
     m.booking.findUnique.mockResolvedValue(currentBooking);
     return { count: 1 };
   });
+  m.booking.findUniqueOrThrow.mockImplementation(async () => currentBooking);
 }
 
 /** The `data` from the booking.update that wrote the package credit, if any. */
@@ -463,6 +477,106 @@ describe('createBooking — applying prepaid package hours', () => {
   });
 });
 
+describe('createBooking — Care Points chosen with the request', () => {
+  beforeEach(() => mockAvailable.mockResolvedValue(0));
+
+  it('spends them when the request is created, so a covered request owes nothing', async () => {
+    setBooking({ status: 'PENDING', totalAmount: 400, discountAmount: 0, platformAmount: 80 });
+    mockSpendPoints.mockResolvedValue({ hours: 4, pointsCost: 400, discount: 400 });
+
+    await createBooking(DECODED, { ...baseBody, redeemPointsHours: 4 } as never);
+
+    // Inside the creation transaction, against the new booking.
+    expect(m.$transaction).toHaveBeenCalled();
+    expect(mockSpendPoints).toHaveBeenCalledWith(expect.anything(), {
+      userId: 10,
+      scope: { bookingId: 4 },
+      redeemHours: 4,
+      perHour: 100,
+      durationHours: 4,
+    });
+    // Written only against the row as read: same status, same total, no points yet.
+    expect(m.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'PENDING', totalAmount: 400, rewardCreditPoints: 0 }),
+      }),
+    );
+    expect(currentBooking).toMatchObject({
+      totalAmount: 0,
+      discountAmount: 400,
+      platformAmount: -320,
+      rewardCreditPoints: 400,
+      rewardCreditAmount: 400,
+    });
+  });
+
+  it('never takes points for a request that already owes nothing', async () => {
+    // A 100% promo left nothing for the points to cover.
+    setBooking({ status: 'PENDING', totalAmount: 0, discountAmount: 400 });
+
+    await createBooking(DECODED, { ...baseBody, redeemPointsHours: 4 } as never);
+
+    expect(mockSpendPoints).not.toHaveBeenCalled();
+  });
+
+  it('refuses the request when her points no longer cover what she chose', async () => {
+    setBooking({ status: 'PENDING', totalAmount: 400 });
+    mockSpendPoints.mockRejectedValue(
+      Object.assign(new Error('You do not have enough Care Points for this redemption.'), { statusCode: 400 }),
+    );
+
+    await expect(
+      createBooking(DECODED, { ...baseBody, redeemPointsHours: 4 } as never),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('gives them back when the request is cancelled before a nanny accepts', async () => {
+    setBooking({
+      status: 'PENDING',
+      totalAmount: 0,
+      discountAmount: 400,
+      platformAmount: -320,
+      rewardCreditPoints: 400,
+      rewardCreditAmount: 400,
+      rewardCreditHoursApplied: 4,
+    });
+
+    await cancelBooking(DECODED, 4, CANCEL);
+
+    expect(mockRefundPoints).toHaveBeenCalledWith(expect.anything(), {
+      userId: 10,
+      scope: { bookingId: 4 },
+      points: 400,
+    });
+    expect(currentBooking).toMatchObject({ totalAmount: 400, discountAmount: 0, rewardCreditPoints: 0 });
+  });
+});
+
+describe('redeemBookingPoints — points applied after a nanny accepted (older app builds)', () => {
+  it('confirms the booking on the spot when the points cover the rest', async () => {
+    setBooking({ status: 'APPROVED', nannyProfileId: 19, totalAmount: 400, platformAmount: 80 });
+    mockSpendPoints.mockResolvedValue({ hours: 4, pointsCost: 400, discount: 400 });
+    (confirmBookingIfNothingOwed as jest.Mock).mockResolvedValueOnce(
+      bookingRow({ status: 'CONFIRMED', nannyProfileId: 19, totalAmount: 0 }),
+    );
+
+    const result = await redeemBookingPoints(DECODED, 4, { hours: 4 });
+
+    expect(confirmBookingIfNothingOwed).toHaveBeenCalledWith(4);
+    expect(result.status).toBe('CONFIRMED');
+  });
+
+  it('leaves it payable when money is still owed', async () => {
+    setBooking({ status: 'APPROVED', nannyProfileId: 19, totalAmount: 400, platformAmount: 80 });
+    mockSpendPoints.mockResolvedValue({ hours: 1, pointsCost: 100, discount: 100 });
+
+    const result = await redeemBookingPoints(DECODED, 4, { hours: 1 });
+
+    expect(result.status).toBe('APPROVED');
+    expect(result.totalAmount).toBe(300);
+  });
+});
+
 describe('cancelBooking — reversing prepaid package hours', () => {
   it('returns the hours and undoes the credit on the booking', async () => {
     setBooking({
@@ -537,7 +651,10 @@ describe('cancelBooking — reversing prepaid package hours', () => {
 
     expect(m.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: 'APPROVED', rewardCreditPoints: 50 }),
+        where: expect.objectContaining({
+          status: { in: ['PENDING', 'APPROVED'] },
+          rewardCreditPoints: 50,
+        }),
       }),
     );
     expect(mockRefundPoints).not.toHaveBeenCalled();

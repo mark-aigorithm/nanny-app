@@ -48,6 +48,13 @@ const NEXT_STEPS = [
   { title: 'Pay & confirm', detail: 'Your card is charged only then' },
 ] as const;
 
+/** A request covered in full has no payment step — it's confirmed on acceptance. */
+const FREE_NEXT_STEPS = [
+  NEXT_STEPS[0],
+  NEXT_STEPS[1],
+  { title: 'You’re booked', detail: 'Nothing to pay — confirmed right away' },
+] as const;
+
 /** "4m 12s" since the request was created. */
 function formatElapsed(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -57,16 +64,12 @@ function formatElapsed(seconds: number): string {
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
-  const { bookingId, pointsHours } = useLocalSearchParams<{
-    bookingId: string;
-    pointsHours?: string;
-  }>();
+  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
 
   // Poll while the request is still unclaimed so the screen flips to
   // "nanny accepted — pay" on its own the moment a nanny claims it.
   const { data: booking, isLoading } = useBooking(Number(bookingId), true);
   const cancelBooking = useCancelBooking();
-  const redeem = useRedeemBookingPoints();
 
   const isSearching = booking?.status === BookingStatus.PENDING;
 
@@ -122,21 +125,6 @@ export default function BookingConfirmationScreen() {
       tension: 60,
     }).start();
   }, [isSearching, booking, reveal]);
-
-  // ── Auto-apply the Care Points reserved back on the review step ──
-  const autoAppliedRef = useRef(false);
-  const reservedHours = Number(pointsHours ?? 0);
-  useEffect(() => {
-    if (autoAppliedRef.current || !booking) return;
-    if (booking.status !== BookingStatus.APPROVED) return;
-    if (booking.rewardCreditAmount > 0) return;
-    if (!Number.isFinite(reservedHours) || reservedHours < 1) return;
-    // Guarded by a ref rather than state: the 5s poll re-runs this effect on
-    // every refetch, and a second redeem would spend the points twice.
-    autoAppliedRef.current = true;
-    const hours = Math.min(Math.floor(reservedHours), Math.floor(booking.durationHours));
-    if (hours >= 1) redeem.mutate({ id: booking.id, hours });
-  }, [booking, reservedHours, redeem]);
 
   const handleViewDetails = () => {
     router.push({
@@ -334,7 +322,7 @@ export default function BookingConfirmationScreen() {
       {isPending && (
         <View style={styles.timeline}>
           <Text style={styles.timelineTitle}>What happens next</Text>
-          {NEXT_STEPS.map((step, index) => {
+          {(nothingToPay ? FREE_NEXT_STEPS : NEXT_STEPS).map((step, index) => {
             const done = index < activeStep;
             const active = index === activeStep;
             return (
@@ -366,7 +354,7 @@ export default function BookingConfirmationScreen() {
 
       {/* ── Care Points redemption (before payment) ── */}
       {isApproved && (
-        <CarePointsCard booking={booking} autoApplying={redeem.isPending} />
+        <CarePointsCard booking={booking} />
       )}
 
       {/* ── Actions ──
@@ -433,16 +421,11 @@ export default function BookingConfirmationScreen() {
  * server lowers the booking total; whatever provider then charges bills the
  * reduced amount. Points are refunded via "Remove" or on cancellation.
  *
- * Hours reserved back on the review step are applied for her automatically —
- * `autoApplying` keeps this card quiet while that request is in flight.
+ * Points chosen on the review step were already spent with the request and
+ * show here as applied. If they cover what's left the booking is confirmed on
+ * the spot, so this card is only ever seen with money still owed.
  */
-function CarePointsCard({
-  booking,
-  autoApplying = false,
-}: {
-  booking: BookingResponse;
-  autoApplying?: boolean;
-}) {
+function CarePointsCard({ booking }: { booking: BookingResponse }) {
   const wallet = useRewardWallet();
   const config = useRewardConfig();
   const redeem = useRedeemBookingPoints();
@@ -475,15 +458,6 @@ function CarePointsCard({
         <TouchableOpacity onPress={() => refund.mutate(booking.id)} disabled={refund.isPending}>
           <Text style={styles.rewardRemove}>{refund.isPending ? '…' : 'Remove'}</Text>
         </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (autoApplying) {
-    return (
-      <View style={[styles.rewardCard, styles.rewardCardApplied]}>
-        <ActivityIndicator color={colors.successDark} />
-        <Text style={styles.rewardSub}>Applying your reserved Care Points…</Text>
       </View>
     );
   }

@@ -339,6 +339,22 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
+  // Nothing owed, shown just above the sticky CTA
+  freeNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.successLight,
+  },
+  freeNoteText: {
+    ...typeScale.caption,
+    color: colors.successDark,
+    flex: 1,
+  },
+
   // Submit failure, shown just above the sticky CTA
   submitErrorRow: {
     flexDirection: 'row',

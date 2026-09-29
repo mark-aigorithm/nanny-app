@@ -1,7 +1,13 @@
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
     rewardConfig: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
-    rewardWallet: { upsert: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
+    rewardWallet: {
+      upsert: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+    },
     rewardLedgerEntry: {
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -35,7 +41,13 @@ import {
 
 const mockPrisma = prisma as unknown as {
   rewardConfig: { findFirst: jest.Mock; update: jest.Mock; create: jest.Mock };
-  rewardWallet: { upsert: jest.Mock; update: jest.Mock; findUnique: jest.Mock };
+  rewardWallet: {
+    upsert: jest.Mock;
+    update: jest.Mock;
+    updateMany: jest.Mock;
+    findUnique: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
+  };
   rewardLedgerEntry: {
     findFirst: jest.Mock;
     create: jest.Mock;
@@ -268,16 +280,18 @@ describe('applyBookingRedemption', () => {
   it('deducts points, records a REDEEM entry, and returns the discount', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
     mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 300 }));
-    mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet({ pointsBalance: 100 }));
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.rewardWallet.findUniqueOrThrow.mockResolvedValue({ pointsBalance: 100 });
     mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
 
     // 2h * 100 pts = 200 spent; discount = 2h * 50/hr = 100.
     const result = await applyBookingRedemption(mockPrisma as never, params);
 
     expect(result).toEqual({ hours: 2, pointsCost: 200, discount: 100 });
-    expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
-      where: { id: 30 },
-      data: { pointsBalance: 100, lifetimeRedeemed: { increment: 200 } },
+    // Debited only if the balance still covers it when the write lands.
+    expect(mockPrisma.rewardWallet.updateMany).toHaveBeenCalledWith({
+      where: { id: 30, pointsBalance: { gte: 200 } },
+      data: { pointsBalance: { decrement: 200 }, lifetimeRedeemed: { increment: 200 } },
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -294,7 +308,8 @@ describe('applyBookingRedemption', () => {
   it('caps redeemed hours at the booking duration', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
     mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 500 }));
-    mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet({ pointsBalance: 200 }));
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.rewardWallet.findUniqueOrThrow.mockResolvedValue({ pointsBalance: 200 });
     mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
 
     // Asks for 5h but the booking is only 3h → 3h * 100 = 300 spent.
@@ -306,10 +321,24 @@ describe('applyBookingRedemption', () => {
   it('throws 400 when the balance is insufficient', async () => {
     mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
     mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 50 }));
+    // The conditional debit matches nothing — the balance can't cover 200.
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 0 });
     await expect(applyBookingRedemption(mockPrisma as never, params)).rejects.toMatchObject({
       statusCode: 400,
     });
-    expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
+    expect(mockPrisma.rewardLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses when a concurrent redemption spent the points after the wallet was read', async () => {
+    // Read as 300 — enough — but by the write another request has taken them.
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 300 }));
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(applyBookingRedemption(mockPrisma as never, params)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    expect(mockPrisma.rewardLedgerEntry.create).not.toHaveBeenCalled();
   });
 
   it('throws 400 when below the minimum redemption', async () => {
@@ -347,7 +376,7 @@ describe('refundBookingRedemption', () => {
 
     expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
       where: { id: 30 },
-      data: { pointsBalance: 300, lifetimeRedeemed: { decrement: 200 } },
+      data: { pointsBalance: { increment: 200 }, lifetimeRedeemed: { decrement: 200 } },
     });
     expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({

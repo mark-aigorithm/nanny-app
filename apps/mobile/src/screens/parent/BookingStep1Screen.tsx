@@ -151,11 +151,10 @@ export default function BookingStep1Screen() {
   const total = breakdown?.totalAmount ?? 0;
 
   // ── Care Points ─────────────────────────────────────────────────────────
-  // Points can only be redeemed against a booking that exists, so here they are
-  // *reserved*: the choice rides through the flow and is applied automatically
-  // on the confirmation screen the moment a nanny accepts — which is still
-  // BEFORE her card is charged. So the amount she actually pays is the total net
-  // of the reserved hours; that net figure is what the price card and CTA show.
+  // The hours chosen here are spent when the request is sent (returned if it is
+  // cancelled before a nanny accepts). So the amount she actually pays is the
+  // total net of those hours; that net figure is what the price card and CTA
+  // show — and when it is zero there is no payment step at all.
   const pointsPerHour = rewardConfig?.redemptionPointsPerHour ?? 0;
   const pointsBalance = wallet?.pointsBalance ?? 0;
   const maxPointHours =
@@ -250,13 +249,13 @@ export default function BookingStep1Screen() {
         skillIds: selectedSkillIds,
         children,
         ...(params.saveChildren === '1' ? { saveChildren: true } : {}),
+        // Spent with the request, so a request they fully cover is confirmed
+        // the moment a nanny accepts — no payment step.
+        ...(pointsHours > 0 ? { redeemPointsHours: pointsHours } : {}),
       });
       router.replace({
         pathname: '/(parent)/book/booking-confirmation',
-        params: {
-          bookingId: String(created.id),
-          ...(pointsHours > 0 ? { pointsHours: String(pointsHours) } : {}),
-        },
+        params: { bookingId: String(created.id) },
       } as never);
     } catch (err) {
       const message = getApiErrorMessage(err, 'Could not submit your request. Please try again.');
@@ -426,12 +425,12 @@ export default function BookingStep1Screen() {
                 size="sm"
               />
               <Text style={styles.pointsSaving}>
-                {pointsHours > 0 ? `−${formatMoney(pointsSaving)}` : 'None reserved'}
+                {pointsHours > 0 ? `−${formatMoney(pointsSaving)}` : 'None used'}
               </Text>
             </View>
             {pointsHours > 0 && (
               <Text style={styles.pointsNote}>
-                Applied automatically once a nanny accepts — you’ll pay the reduced amount.
+                Taken from your balance when you send the request — returned if you cancel before a nanny accepts.
               </Text>
             )}
           </View>
@@ -500,7 +499,7 @@ export default function BookingStep1Screen() {
 
             {pointsHours > 0 && (
               <Text style={styles.savingsFootnote}>
-                Care Points come off once a nanny accepts, before you pay.
+                Care Points come off when you send the request.
               </Text>
             )}
           </View>
@@ -588,7 +587,7 @@ export default function BookingStep1Screen() {
                   <Text style={styles.promoLabel}>
                     {pointsHours} free hour{pointsHours === 1 ? '' : 's'} · Care Points
                   </Text>
-                  <Text style={styles.priceMath}>applied when a nanny accepts</Text>
+                  <Text style={styles.priceMath}>from your balance</Text>
                 </View>
                 <Text style={styles.promoValue}>–{formatMoney(pointsSaving)}</Text>
               </View>
@@ -600,7 +599,8 @@ export default function BookingStep1Screen() {
             </View>
             {pointsHours > 0 && (
               <Text style={styles.pendingCreditNote}>
-                Care Points are applied the moment a nanny accepts — before your card is charged.
+                Care Points are taken when you send the request, and returned if you cancel before
+                a nanny accepts.
               </Text>
             )}
           </CollapsibleCard>
@@ -648,6 +648,16 @@ export default function BookingStep1Screen() {
         disabled={!canProceed}
         loading={isPricingLoading || createBooking.isPending}
       >
+        {/* Covered in full: say up front there will be no payment step, so the
+            EGP 0 on the button reads as intended rather than as a glitch. */}
+        {breakdown && netTotal <= 0 && !submitError && (
+          <View style={styles.freeNoteRow}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.successDark} />
+            <Text style={styles.freeNoteText}>
+              Nothing to pay — your booking is confirmed as soon as a nanny accepts.
+            </Text>
+          </View>
+        )}
         {submitError && (
           <View style={styles.submitErrorRow}>
             <Ionicons name="alert-circle-outline" size={16} color={colors.error} />

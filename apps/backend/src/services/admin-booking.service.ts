@@ -23,8 +23,10 @@ import { toPlatformDateColumn, toPlatformIso, wallClockToUtc } from '@backend/li
 import {
   assertNoConflict,
   computeDurationHours,
+  returnUnpaidCredits,
   validateStatusTransition,
 } from '@backend/services/booking.service';
+import { confirmBookingIfNothingOwed } from '@backend/services/paymob.service';
 import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 import { getRevenueSplit } from '@backend/services/app-settings.service';
 import { convertReferralForBooking } from '@backend/services/referral.service';
@@ -383,6 +385,16 @@ export async function approveBooking(id: number, adminFirebaseUid: string): Prom
     include: bookingInclude,
   });
 
+  // Nothing owed: confirmed on the spot, and both parties are told it's
+  // confirmed instead of being asked for / waiting on a payment.
+  if (await confirmBookingIfNothingOwed(id)) return toDto(await findAdminBooking(id));
+
+  await notifyApprovedAwaitingPayment(updated);
+  return toDto(updated);
+}
+
+/** Prompt the mother to pay an approved booking, and tell the nanny it's waiting on her. */
+async function notifyApprovedAwaitingPayment(updated: AdminBookingRow): Promise<void> {
   const dateLabel = updated.date.toISOString().slice(0, 10);
   await notifyBookingParty(
     updated.mother.id,
@@ -402,8 +414,6 @@ export async function approveBooking(id: number, adminFirebaseUid: string): Prom
       updated.id,
     );
   }
-
-  return toDto(updated);
 }
 
 /**
@@ -419,6 +429,8 @@ export async function rejectBooking(
   const booking = await findAdminBooking(id);
 
   validateStatusTransition(booking.status, BookingStatus.CANCELLED);
+  // Care Points and package hours spent on an unpaid request go back to her.
+  await returnUnpaidCredits(booking);
 
   const reason = input.reason ?? 'Rejected by admin.';
   const updated = await prisma.booking.update({
@@ -483,6 +495,8 @@ export async function setBookingStatus(
     throw errors.badRequest('Assign a nanny to this unclaimed request before approving it.');
   }
 
+  if (next === BookingStatus.CANCELLED) await returnUnpaidCredits(booking);
+
   const now = new Date();
   const data: Prisma.BookingUpdateInput = {
     status: next,
@@ -528,25 +542,8 @@ export async function setBookingStatus(
   }
 
   if (next === BookingStatus.APPROVED) {
-    const dateLabel = updated.date.toISOString().slice(0, 10);
-    await notifyBookingParty(
-      updated.mother.id,
-      'BOOKING_APPROVED',
-      'booking_approved',
-      'Booking approved — complete payment',
-      `Your booking for ${dateLabel} was approved. Pay now to confirm it.`,
-      updated.id,
-    );
-    if (updated.nannyProfile) {
-      await notifyBookingParty(
-        updated.nannyProfile.user.id,
-        'BOOKING_APPROVED',
-        'booking_approved',
-        'Booking approved',
-        `A booking for ${dateLabel} was approved and is awaiting the parent's payment.`,
-        updated.id,
-      );
-    }
+    if (await confirmBookingIfNothingOwed(id)) return toDto(await findAdminBooking(id));
+    await notifyApprovedAwaitingPayment(updated);
   }
 
   // An admin force-completing a booking earns the parent Care Points too.
