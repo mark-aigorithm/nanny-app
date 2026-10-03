@@ -23,9 +23,8 @@ export function GrantPointsModal({ wallet, onClose }: Props) {
     mutationFn: (input: { points: number; reason: string }) =>
       grantWalletPoints(wallet.userId, input),
     onSuccess: (updated) => {
-      queryClient.setQueryData<RewardWalletSummary[]>(['reward-wallets'], (prev) =>
-        prev?.map((w) => (w.userId === updated.userId ? updated : w)),
-      );
+      // Prefix match: the list is cached per sort/page/search, and a balance sort may reorder it.
+      void queryClient.invalidateQueries({ queryKey: ['reward-wallets'] });
       void queryClient.invalidateQueries({ queryKey: ['reward-history', wallet.userId] });
       toast.success('Points updated', `${wallet.name}’s balance is now ${updated.pointsBalance}.`);
       onClose();
