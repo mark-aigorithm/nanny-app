@@ -49,7 +49,10 @@ test('shows the rejection reason on the detail page', async ({ page }) => {
 
   await page.goto(`/bookings/${booking.id}`);
 
-  await expect(page.getByText(`${booking.mother.displayName} · cancelled`)).toBeVisible();
+  await expect(page.getByRole('heading', { name: `Booking #${booking.id}` })).toBeVisible();
+  // `exact` keeps the status badge apart from the timeline's "Cancelled" entry.
+  await expect(page.getByText('cancelled', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: booking.mother.displayName })).toBeVisible();
   await expect(page.getByText(REASON)).toBeVisible();
   // Nothing was ever charged for a request that died before approval.
   await expect(page.getByText('No payment has been made for this booking yet.')).toBeVisible();
