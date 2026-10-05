@@ -79,10 +79,11 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Pay now'
 - tapOn: 'Pay now'
 
-- extendedWaitUntil:
-    visible: 'Payment successful'
-    timeout: 60000
+# Not 'Payment successful': BookingPaymentResultScreen shows it for 1.2s before
+# replacing itself with the confirmation, and a loaded emulator can take longer
+# than that to read one hierarchy. The confirmation is only reachable on a
+# success outcome, so it carries the same proof.
 - extendedWaitUntil:
     visible: "You're booked."
-    timeout: 30000
+    timeout: 90000
 - assertVisible: 'EGP 432.00'

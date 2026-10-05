@@ -80,12 +80,19 @@ appId: com.nannyapp.mobile
 
 # ── Copying it ─────────────────────────────────────────────────────────────
 # The confirmation is the assertion; the clipboard itself is Android's and not
-# ours to check. It clears itself after two seconds, so this must not wait.
+# ours to check. It clears itself after two seconds, so this must not wait —
+# tapOn's default settle wait alone can outlast it on a loaded emulator, hence
+# the short one. Tapping again re-arms it, which is what makes a retry honest.
 - scrollUntilVisible:
     element:
       text: 'Your code'
     direction: UP
     centerElement: true
     timeout: 30000
-- tapOn: ${output.code}
-- assertVisible: 'Copied to clipboard'
+- retry:
+    maxRetries: 2
+    commands:
+      - tapOn:
+          text: ${output.code}
+          waitToSettleTimeoutMs: 300
+      - assertVisible: 'Copied to clipboard'

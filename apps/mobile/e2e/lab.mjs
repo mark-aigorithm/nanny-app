@@ -273,9 +273,13 @@ export function quietDeviceChrome(adb, device) {
  * and with a shell the argv array is *concatenated*, not passed through, so a
  * package name like "E2E Starter" arrives as two arguments and the second is
  * read as a flow path. Values here are ours and never contain quotes.
+ *
+ * Windows only: elsewhere Maestro is spawned without a shell, so the argv array
+ * is passed through as-is and the quotes would reach Maestro literally —
+ * `"PACKAGE_NAME=E2E Starter"` fails its KEY=VALUE check.
  */
 function quoteArg(value) {
-  return value.includes(' ') ? `"${value}"` : value;
+  return process.platform === 'win32' && value.includes(' ') ? `"${value}"` : value;
 }
 
 /**
