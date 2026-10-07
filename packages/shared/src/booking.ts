@@ -507,15 +507,10 @@ export const CreateBookingSchema = z.object({
    */
   saveChildren: z.boolean().optional(),
   /**
-   * Apply the mother's prepaid package hours to this booking. Omitted or true
-   * means apply them; set false to save the hours for a later booking and pay
-   * cash instead. Optional rather than `.default(true)` so existing callers
-   * aren't forced to send it — the service treats undefined as "apply".
-   */
-  usePackageHours: z.boolean().optional(),
-  /**
    * Care Points hours to spend on this booking, taken when the request is
-   * created (after any promo and package hours). Spending them up front means
+   * created (after any promo and package hours). A valid package is always
+   * used first and cannot be skipped, so points only ever cover the hours it
+   * leaves owed — a larger request is trimmed to those hours. Spending them up front means
    * a fully covered request is confirmed the moment a nanny accepts it, with no
    * payment step; they are returned if the request is cancelled unpaid.
    * Builds that predate this apply points after acceptance instead.

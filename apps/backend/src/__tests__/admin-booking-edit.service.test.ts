@@ -91,6 +91,7 @@ import {
   getOrCreateWallet,
   refundBookingRedemption,
 } from '@backend/services/reward.service';
+import { getAvailableHours, reapplyPackageHoursForBooking } from '@backend/services/package-hours.service';
 import {
   applyBookingEdit,
   getBookingEditContext,
@@ -325,5 +326,75 @@ describe('booking edit — Care Points the booking already holds', () => {
     const context = await getBookingEditContext(4);
 
     expect(context.carePoints.pointsBalance).toBe(200);
+  });
+});
+
+/**
+ * Package hours come before Care Points, and points only ever buy the hours the
+ * package leaves owed. The preview tells the admin when a request is trimmed or
+ * not needed at all; the commit never spends points on a covered booking.
+ */
+describe('booking edit — Care Points after package hours', () => {
+  const withPackage = { ...editInput, usePackageHours: true };
+
+  beforeEach(() => {
+    (getOrCreateWallet as jest.Mock).mockResolvedValue({ pointsBalance: 1000 });
+  });
+
+  it('trims a points request to the hours the package leaves owed', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(makeEditBooking());
+    // 3 package hours × EGP 150 of a 600 total → 150 (one hour) still owed.
+    (getAvailableHours as jest.Mock).mockResolvedValueOnce(3);
+
+    const preview = await previewBookingEdit(4, ADMIN_UID, { ...withPackage, carePointsHours: 3 });
+
+    expect(preview.warnings.map((w) => w.code)).toContain('POINTS_TRIMMED');
+    expect(preview.new.rewardCreditPoints).toBe(100);
+    expect(preview.new.totalAmount).toBe(0);
+  });
+
+  it('uses no points when the package already covers everything', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(makeEditBooking());
+    (getAvailableHours as jest.Mock).mockResolvedValueOnce(10);
+
+    const preview = await previewBookingEdit(4, ADMIN_UID, { ...withPackage, carePointsHours: 2 });
+
+    expect(preview.warnings.map((w) => w.code)).toContain('POINTS_NOT_NEEDED');
+    expect(preview.warnings.filter((w) => w.severity === 'block')).toEqual([]);
+    expect(preview.new.rewardCreditPoints).toBe(0);
+  });
+
+  it('does not redeem points on commit when the package covers the booking', async () => {
+    tx.booking.findFirst.mockResolvedValue(makeEditBooking());
+    (getAvailableHours as jest.Mock).mockResolvedValue(10);
+    (reapplyPackageHoursForBooking as jest.Mock).mockResolvedValueOnce({
+      hoursApplied: 4,
+      skillsCovered: 0,
+      creditAmount: 600,
+    });
+
+    await applyBookingEdit(4, ADMIN_UID, { ...commitInput, usePackageHours: true, carePointsHours: 2 });
+
+    expect(applyBookingRedemption).not.toHaveBeenCalled();
+    (getAvailableHours as jest.Mock).mockResolvedValue(0);
+  });
+
+  it('tells the redemption what the package left owed', async () => {
+    tx.booking.findFirst.mockResolvedValue(makeEditBooking());
+    (getAvailableHours as jest.Mock).mockResolvedValue(3);
+    (reapplyPackageHoursForBooking as jest.Mock).mockResolvedValueOnce({
+      hoursApplied: 3,
+      skillsCovered: 0,
+      creditAmount: 450,
+    });
+    (applyBookingRedemption as jest.Mock).mockResolvedValue({ hours: 1, pointsCost: 100, discount: 150 });
+
+    await applyBookingEdit(4, ADMIN_UID, { ...commitInput, usePackageHours: true, carePointsHours: 1 });
+
+    expect(applyBookingRedemption).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ redeemHours: 1, owedAmount: 150 }),
+    );
+    (getAvailableHours as jest.Mock).mockResolvedValue(0);
   });
 });

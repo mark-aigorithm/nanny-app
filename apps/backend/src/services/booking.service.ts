@@ -1200,15 +1200,17 @@ export async function createBooking(
     ...(body.specialInstructions ? { specialInstructions: body.specialInstructions } : {}),
   };
 
+  // A valid package is always used first — the mother cannot skip it to save
+  // hours and pay cash or spend Care Points instead (points only ever cover
+  // what the package leaves owed).
+  //
   // Prepaid package hours are applied inside the same transaction as creation so
   // a failure can never leave hours debited against a booking that doesn't exist.
   // Only take the transactional path when there is actually a balance to spend,
   // so the common no-package booking keeps its original single-insert path.
   // A balance change between this check and the redeem is harmless: the redeem
   // re-reads inside the transaction and applies whatever is really there.
-  const wantsPackageHours = body.usePackageHours !== false;
-  const willApplyPackageHours =
-    wantsPackageHours && (await getAvailableHours(user.id)) > 0;
+  const willApplyPackageHours = (await getAvailableHours(user.id)) > 0;
 
   // The promo code is only RESERVED here — `promoCodeId` on the booking records
   // the claim and the discount is already in the total, but the code is not
@@ -1807,6 +1809,7 @@ async function applyPointsToBooking(
     redeemHours,
     perHour,
     durationHours: Number(booking.durationHours),
+    owedAmount: Number(booking.totalAmount),
   });
   const discount = Math.min(rawDiscount, Number(booking.totalAmount));
 

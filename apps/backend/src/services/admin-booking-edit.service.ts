@@ -1,6 +1,6 @@
 import { BookingStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
 
-import { isBookingWithinDailyWindow } from '@nanny-app/shared';
+import { isBookingWithinDailyWindow, pointHoursToCover } from '@nanny-app/shared';
 import type {
   AdminBookingDetail,
   AdminBookingEditContext,
@@ -327,13 +327,24 @@ async function buildEditPlan(
     if (!rewardConfig.enabled) {
       warnings.push(block('POINTS_DISABLED', 'Care Points redemption is currently unavailable.', 'carePointsHours'));
     } else {
-      const hours = Math.min(Math.floor(carePointsHours), Math.floor(durationHours));
+      // Points come last: they only buy the hours still owed after the promo and
+      // package, exactly as the commit (applyBookingRedemption) trims them.
+      const owedHours = pointHoursToCover(afterPackageTotal, breakdown.effectiveHourlyRate);
+      const requestedHours = Math.min(Math.floor(carePointsHours), Math.floor(durationHours));
+      const hours = Math.min(requestedHours, owedHours);
+      if (owedHours < 1) {
+        warnings.push(warn('POINTS_NOT_NEEDED', 'Nothing is left to pay after package hours, so no Care Points will be used.', 'carePointsHours'));
+      } else if (hours < requestedHours) {
+        warnings.push(warn('POINTS_TRIMMED', `Only ${hours} hour${hours === 1 ? '' : 's'} of Care Points ${hours === 1 ? 'is' : 'are'} needed to cover what is left; the rest stay in her wallet.`, 'carePointsHours'));
+      }
       const pointsCost = hours * rewardConfig.redemptionPointsPerHour;
       const wallet = await getOrCreateWallet(booking.mother.id, db);
       // The commit releases this booking's current redemption before re-applying,
       // so those points are spendable again (mirrors availableWithReleased above).
       const spendablePoints = wallet.pointsBalance + booking.rewardCreditPoints;
-      if (hours < 1) {
+      if (owedHours < 1) {
+        // Already explained above — nothing to redeem against.
+      } else if (hours < 1) {
         warnings.push(block('POINTS_MIN', 'Choose at least one hour of Care Points to redeem.', 'carePointsHours'));
       } else if (pointsCost < rewardConfig.minRedemptionPoints) {
         warnings.push(block('POINTS_MIN', `At least ${rewardConfig.minRedemptionPoints} points must be redeemed at a time.`, 'carePointsHours'));
@@ -609,13 +620,16 @@ export async function applyBookingEdit(
     let pointsHours = 0;
     let pointsCost = 0;
     let pointsDiscount = 0;
-    if (plan.carePointsHours > 0) {
+    // Points only ever buy hours still owed; when the package (or promo)
+    // already covers everything there is nothing for them to pay.
+    if (plan.carePointsHours > 0 && afterPackageTotal > 0) {
       const redemption = await applyBookingRedemption(tx, {
         userId: booking.mother.id,
         scope: { bookingId: id },
         redeemHours: plan.carePointsHours,
         perHour: bd.effectiveHourlyRate,
         durationHours: bd.durationHours,
+        owedAmount: afterPackageTotal,
       });
       pointsHours = redemption.hours;
       pointsCost = redemption.pointsCost;
