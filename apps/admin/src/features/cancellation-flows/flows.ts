@@ -130,15 +130,18 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
   },
   {
     id: 'mother-fully-covered',
-    title: 'Mother cancels a booking her package or points paid for in full',
+    title: 'Mother cancels a booking her package, points or a 100% promo paid for in full',
     who: 'Mother',
     when: 'CONFIRMED with a total of 0 (confirmed automatically when a nanny accepted)',
     packageHours: { tone: 'lost', text: 'Lost — the booking counts as paid, so they stay spent.' },
     carePoints: { tone: 'lost', text: 'Lost — the booking counts as paid, so they stay spent.' },
-    promoCode: PROMO_USED,
+    promoCode: {
+      tone: 'lost',
+      text: 'Spent when the booking confirmed itself, and stays used.',
+    },
     money: { tone: 'none', text: 'Nothing was charged; the refund quote is 0.' },
     notifications: { tone: 'none', text: 'The nanny is told. The mother gets nothing.' },
-    gap: 'The whole value of the booking is lost, however early she cancels.',
+    gap: 'The whole value of the booking is lost, however early she cancels. The same happens when the nanny or an admin cancels it.',
     source: 'paymob.service.ts → confirmBookingIfNothingOwed; booking.service.ts → returnUnpaidCredits',
   },
   {

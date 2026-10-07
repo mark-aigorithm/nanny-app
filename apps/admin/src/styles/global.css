@@ -4894,6 +4894,134 @@ input[type='number'] {
   overflow-wrap: anywhere;
 }
 
+.flows-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+}
+
+.flows-jump a {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.flows-section-title {
+  margin: 1rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  scroll-margin-top: 1rem;
+}
+
+.flows-section-lead {
+  margin: 0;
+  max-width: 80ch;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* Six columns of prose: the grid scrolls inside its card on narrow screens
+   rather than squeezing every cell to a word per line. */
+.flows-matrix .table {
+  min-width: 960px;
+}
+
+.flows-matrix td {
+  vertical-align: top;
+}
+
+.flows-mix {
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.flows-mix strong {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.flows-question {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.flows-context {
+  margin: 0 0 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.flows-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 0.75rem;
+}
+
+.flows-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.flows-option--proposed {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+
+.flows-option p {
+  margin: 0;
+}
+
+.flows-option-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.flows-option-head h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.flows-option-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.6rem;
+  margin: 0;
+}
+
+.flows-option-facts dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  padding-top: 0.15rem;
+}
+
+.flows-option-facts dd {
+  margin: 0;
+}
+
 /* Campaign image cropper — inline in the campaign form. */
 .crop-stage {
   display: flex;
