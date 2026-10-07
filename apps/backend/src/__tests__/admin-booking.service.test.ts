@@ -22,6 +22,9 @@ jest.mock('@backend/services/notification.service', () => ({
 
 jest.mock('@backend/services/app-settings.service', () => ({
   getRevenueSplit: jest.fn().mockResolvedValue({ nannyPercent: 80, platformPercent: 20 }),
+  getPlatformConfig: jest
+    .fn()
+    .mockResolvedValue({ cancellationWindowHours: 24, cancellationFeePercent: 50 }),
 }));
 
 jest.mock('@backend/services/duration-rule.service', () => ({
@@ -45,6 +48,7 @@ import {
   approveBooking,
   getAdminBooking,
   listAdminBookings,
+  refundPosition,
   rejectBooking,
   setBookingStatus,
   updateBookingTimes,
@@ -541,5 +545,64 @@ describe('getAdminBooking (detail)', () => {
 
     expect(dto.startPin).toBeNull();
     expect(dto.startPinExpiresAt).toBeNull();
+  });
+});
+
+describe('refundPosition', () => {
+  const POLICY = { cancellationWindowHours: 24, cancellationFeePercent: 30 };
+  const START = new Date('2026-10-20T10:00:00Z');
+  const MOTHER = 7;
+  const ADMIN = 99;
+
+  function cancelled(over: { cancelledById: number; hoursBeforeStart: number }) {
+    return {
+      status: PrismaBookingStatus.CANCELLED,
+      totalAmount: dec(480) as never,
+      motherId: MOTHER,
+      cancelledById: over.cancelledById,
+      cancelledAt: new Date(START.getTime() - over.hoursBeforeStart * 3_600_000),
+      startTime: START,
+    };
+  }
+
+  it('makes everything she paid refundable once a paid booking is cancelled', () => {
+    const position = refundPosition(cancelled({ cancelledById: MOTHER, hoursBeforeStart: 48 }), 480, POLICY);
+    expect(position).toEqual({ kind: 'CANCELLED', refundable: 480, suggested: 480, feePercent: null });
+  });
+
+  it('suggests keeping the late-cancellation fee when she cancelled inside the window', () => {
+    const position = refundPosition(cancelled({ cancelledById: MOTHER, hoursBeforeStart: 5 }), 480, POLICY);
+    expect(position).toEqual({ kind: 'CANCELLED', refundable: 480, suggested: 336, feePercent: 30 });
+  });
+
+  it('suggests the full amount when an admin cancelled, however late', () => {
+    const position = refundPosition(cancelled({ cancelledById: ADMIN, hoursBeforeStart: 1 }), 480, POLICY);
+    expect(position.suggested).toBe(480);
+    expect(position.feePercent).toBeNull();
+  });
+
+  it('has nothing to refund on a cancelled booking that was never paid', () => {
+    const position = refundPosition(cancelled({ cancelledById: MOTHER, hoursBeforeStart: 48 }), 0, POLICY);
+    expect(position).toEqual({ kind: null, refundable: 0, suggested: 0, feePercent: null });
+  });
+
+  it('has nothing left once the booking is refunded', () => {
+    const position = refundPosition(
+      { ...cancelled({ cancelledById: MOTHER, hoursBeforeStart: 48 }), status: PrismaBookingStatus.REFUNDED },
+      480,
+      POLICY,
+    );
+    expect(position.refundable).toBe(0);
+  });
+
+  it('still only refunds an overpayment on a live booking', () => {
+    const live = { ...cancelled({ cancelledById: MOTHER, hoursBeforeStart: 48 }), status: PrismaBookingStatus.CONFIRMED };
+    expect(refundPosition(live, 480, POLICY).refundable).toBe(0);
+    expect(refundPosition(live, 600, POLICY)).toEqual({
+      kind: 'OVERPAID',
+      refundable: 120,
+      suggested: 120,
+      feePercent: null,
+    });
   });
 });

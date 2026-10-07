@@ -75,9 +75,9 @@ export function BookingDetailPage() {
 
   const canEdit = canManage && booking != null && EDITABLE_STATUSES.has(booking.status);
   const canAssign = canManage && booking != null && canAssignBookingNanny(booking.status);
-  // An edit that lowered the price leaves the mother overpaid until someone
-  // returns the difference. The editor offers that right after saving; this
-  // keeps it reachable if that follow-up was cancelled or the refund failed.
+  // Money owed back: an edit that lowered the price leaves the mother overpaid
+  // (the editor offers the refund right after saving; this keeps it reachable),
+  // and a booking cancelled after payment waits here for an admin to decide.
   const canRefund = canManage && booking != null && booking.refundableAmount > 0;
 
   const actions = canEdit ? (
@@ -123,7 +123,22 @@ export function BookingDetailPage() {
             <BookingEditor booking={booking} onDone={() => setEditing(false)} />
           ) : (
             <>
-              {canRefund && (
+              {canRefund && booking.refundKind === 'CANCELLED' && (
+                <div className="overpaid-banner" role="note">
+                  <span>
+                    Cancelled after the mother paid <strong>{formatEgp(booking.refundableAmount)}</strong>.
+                    Suggested refund: {formatEgp(booking.suggestedRefundAmount)}
+                    {booking.refundFeePercent !== null && (
+                      <> (keeping the {booking.refundFeePercent}% late-cancellation fee)</>
+                    )}
+                    . Nothing is refunded until you decide.
+                  </span>
+                  <Button size="sm" onClick={() => setRefunding(true)}>
+                    Refund or give Care Points
+                  </Button>
+                </div>
+              )}
+              {canRefund && booking.refundKind !== 'CANCELLED' && (
                 <div className="overpaid-banner" role="note">
                   <span>
                     The mother is overpaid by <strong>{formatEgp(booking.refundableAmount)}</strong> —
@@ -156,6 +171,9 @@ export function BookingDetailPage() {
             <RefundModal
               bookingId={booking.id}
               refundableAmount={booking.refundableAmount}
+              kind={booking.refundKind ?? 'OVERPAID'}
+              suggestedAmount={booking.suggestedRefundAmount}
+              feePercent={booking.refundFeePercent}
               onClose={() => setRefunding(false)}
               onRefunded={(result) => {
                 queryClient.setQueryData(['booking', id], result.booking);

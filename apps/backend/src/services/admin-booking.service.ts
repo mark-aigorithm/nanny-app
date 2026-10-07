@@ -28,7 +28,7 @@ import {
 } from '@backend/services/booking.service';
 import { confirmBookingIfNothingOwed } from '@backend/services/paymob.service';
 import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
-import { getRevenueSplit } from '@backend/services/app-settings.service';
+import { getPlatformConfig, getRevenueSplit } from '@backend/services/app-settings.service';
 import { convertReferralForBooking } from '@backend/services/referral.service';
 import { awardPointsForBooking } from '@backend/services/reward.service';
 import { listActiveDurationRules } from '@backend/services/duration-rule.service';
@@ -111,10 +111,81 @@ function parseBookedAddress(raw: Prisma.JsonValue | null | undefined): BookingAd
   return parsed.success ? parsed.data : null;
 }
 
-function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
+type CancellationPolicy = { cancellationWindowHours: number; cancellationFeePercent: number };
+
+export type RefundPosition = {
+  /** Why money is owed back: an edit lowered the price, or the booking was cancelled after payment. */
+  kind: 'OVERPAID' | 'CANCELLED' | null;
+  /** The most an admin may still give back, in EGP. */
+  refundable: number;
+  /** What the policy suggests — the console's starting point, never a promise to the mother. */
+  suggested: number;
+  /** The late-cancellation fee % kept in `suggested`, when one applies. */
+  feePercent: number | null;
+};
+
+/**
+ * What can still be refunded on a booking, and what the policy suggests.
+ *
+ * - Cancelled after paying: everything she paid and still has is refundable.
+ *   The suggestion keeps the console's late-cancellation fee when she herself
+ *   cancelled inside the window — the same rule cancelBooking quotes — and is
+ *   the full amount otherwise (an admin cancelled it).
+ * - Refunded: settled, nothing more.
+ * - Anything else: only an overpayment (an edit lowered the price below what
+ *   she paid) is refundable.
+ *
+ * The suggestion reads today's settings, not those at cancellation time.
+ */
+export function refundPosition(
+  booking: {
+    status: BookingStatus;
+    totalAmount: Prisma.Decimal;
+    motherId: number;
+    cancelledById: number | null;
+    cancelledAt: Date | null;
+    startTime: Date;
+  },
+  amountPaid: number,
+  policy: CancellationPolicy,
+): RefundPosition {
+  if (booking.status === BookingStatus.REFUNDED) {
+    return { kind: null, refundable: 0, suggested: 0, feePercent: null };
+  }
+
+  if (booking.status === BookingStatus.CANCELLED) {
+    const refundable = Math.max(0, round2(amountPaid));
+    if (refundable <= 0) return { kind: null, refundable: 0, suggested: 0, feePercent: null };
+
+    const cancelledAt = booking.cancelledAt ?? new Date();
+    const hoursBeforeStart = (booking.startTime.getTime() - cancelledAt.getTime()) / 3_600_000;
+    const lateByMother =
+      booking.cancelledById === booking.motherId &&
+      policy.cancellationWindowHours > 0 &&
+      policy.cancellationFeePercent > 0 &&
+      hoursBeforeStart <= policy.cancellationWindowHours;
+
+    return lateByMother
+      ? {
+          kind: 'CANCELLED',
+          refundable,
+          suggested: round2(refundable * (1 - policy.cancellationFeePercent / 100)),
+          feePercent: policy.cancellationFeePercent,
+        }
+      : { kind: 'CANCELLED', refundable, suggested: refundable, feePercent: null };
+  }
+
+  const overpaid = Math.max(0, round2(amountPaid - booking.totalAmount.toNumber()));
+  return overpaid > 0
+    ? { kind: 'OVERPAID', refundable: overpaid, suggested: overpaid, feePercent: null }
+    : { kind: null, refundable: 0, suggested: 0, feePercent: null };
+}
+
+function toDetailDto(row: AdminBookingDetailRow, policy: CancellationPolicy): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
   const amountPaid = sumCapturedPaid(row.payments);
-  const refundableAmount = Math.max(0, round2(amountPaid - row.totalAmount.toNumber()));
+  const refund = refundPosition(row, amountPaid, policy);
+  const refundableAmount = refund.refundable;
   // Decided here, not in the browser: the admin's clock must not be what says
   // whether the code the parent is reading out is still good.
   const livePinExpiresAt =
@@ -185,6 +256,9 @@ function toDetailDto(row: AdminBookingDetailRow): AdminBookingDetail {
       : null,
     amountPaid,
     refundableAmount,
+    refundKind: refund.kind,
+    suggestedRefundAmount: refund.suggested,
+    refundFeePercent: refund.feePercent,
     specialInstructions: row.specialInstructions,
     cancellationReason: row.cancellationReason,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
@@ -348,7 +422,7 @@ export async function getAdminBooking(id: number): Promise<AdminBookingDetail> {
     include: bookingDetailInclude,
   });
   if (!row) throw errors.notFound('Booking not found');
-  return toDetailDto(row);
+  return toDetailDto(row, await getPlatformConfig());
 }
 
 /**

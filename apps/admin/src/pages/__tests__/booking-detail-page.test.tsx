@@ -69,6 +69,9 @@ const BOOKING: AdminBookingDetail = {
   payment: null,
   amountPaid: 318,
   refundableAmount: 0,
+  refundKind: null,
+  suggestedRefundAmount: 0,
+  refundFeePercent: null,
   specialInstructions: null,
   cancellationReason: null,
   cancelledAt: null,
@@ -95,6 +98,8 @@ const OVERPAID: AdminBookingDetail = {
   totalAmount: 212,
   amountPaid: 318,
   refundableAmount: 106,
+  refundKind: 'OVERPAID',
+  suggestedRefundAmount: 106,
 };
 
 /** An operator who can open bookings but not change them. */
@@ -193,6 +198,59 @@ describe('BookingDetailPage', () => {
     // Settled: the banner goes away without a refetch.
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Refund overpayment' })).not.toBeInTheDocument(),
+    );
+  });
+
+  it('offers a cancelled, paid booking for refund with the suggestion pre-filled and editable', async () => {
+    const CANCELLED: AdminBookingDetail = {
+      ...BOOKING,
+      status: 'CANCELLED',
+      totalAmount: 480,
+      amountPaid: 480,
+      refundableAmount: 480,
+      refundKind: 'CANCELLED',
+      suggestedRefundAmount: 240,
+      refundFeePercent: 50,
+    };
+    backend(CANCELLED);
+    const posted: unknown[] = [];
+    server.use(
+      http.post('/api/admin/bookings/4/refund', async ({ request }) => {
+        posted.push(await request.json());
+        return ok({
+          method: 'PAYMOB',
+          refundedAmount: 300,
+          grantedPoints: null,
+          booking: { ...CANCELLED, refundableAmount: 180 },
+        } satisfies AdminRefundResponse);
+      }),
+    );
+    renderPage();
+    const user = userEvent.setup();
+
+    const banner = await screen.findByRole('note');
+    expect(banner).toHaveTextContent('Cancelled after the mother paid EGP 480.00');
+    expect(banner).toHaveTextContent('Suggested refund: EGP 240.00');
+    expect(banner).toHaveTextContent('50% late-cancellation fee');
+
+    await user.click(screen.getByRole('button', { name: 'Refund or give Care Points' }));
+    expect(await screen.findByText('Refund the cancelled booking')).toBeInTheDocument();
+    const amount = screen.getByLabelText(/^Amount to refund/);
+    expect(amount).toHaveValue(240);
+
+    // The admin decides: more than suggested is fine, more than she paid is not.
+    await user.clear(amount);
+    await user.type(amount, '500');
+    await user.type(screen.getByLabelText(/^Reason/), 'Goodwill.');
+    await user.click(screen.getByRole('button', { name: 'Refund' }));
+    expect(await screen.findByText(/can't exceed what the mother paid/)).toBeInTheDocument();
+    expect(posted).toEqual([]);
+
+    await user.clear(amount);
+    await user.type(amount, '300');
+    await user.click(screen.getByRole('button', { name: 'Refund' }));
+    await waitFor(() =>
+      expect(posted).toEqual([{ method: 'PAYMOB', amount: 300, reason: 'Goodwill.' }]),
     );
   });
 

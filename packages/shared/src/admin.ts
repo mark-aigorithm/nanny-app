@@ -437,11 +437,21 @@ export const AdminBookingDetailSchema = AdminBookingSchema.extend({
   /** Money the mother has paid and kept, across every captured payment (amount − refunded). */
   amountPaid: z.number(),
   /**
-   * How much of `amountPaid` exceeds the current total — what an admin can still
-   * give back (POST .../refund). Non-zero after an edit lowered the price and the
-   * refund follow-up was skipped or failed; 0 otherwise.
+   * What an admin can still give back (POST .../refund). After an edit lowered
+   * the price: the part of `amountPaid` above the new total. After the booking
+   * was cancelled: everything she paid and still has. 0 once settled.
    */
   refundableAmount: z.number(),
+  /** Why there is something to refund — null when there isn't. */
+  refundKind: z.enum(['OVERPAID', 'CANCELLED']).nullable(),
+  /**
+   * The refund the policy suggests, which the console pre-fills: the whole
+   * amount, less the late-cancellation fee when the mother cancelled inside the
+   * window. A starting point for the admin, never a promise to the mother.
+   */
+  suggestedRefundAmount: z.number(),
+  /** The late-cancellation fee % kept in that suggestion, when one applies. */
+  refundFeePercent: z.number().nullable(),
   // Notes & lifecycle.
   specialInstructions: z.string().nullable(),
   cancellationReason: z.string().nullable(),

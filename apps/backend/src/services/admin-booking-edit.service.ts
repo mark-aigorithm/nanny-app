@@ -29,7 +29,11 @@ import {
   assertNoConflict,
   computeDurationHours,
 } from '@backend/services/booking.service';
-import { getAdminBooking, sumCapturedPaid } from '@backend/services/admin-booking.service';
+import {
+  getAdminBooking,
+  refundPosition,
+  sumCapturedPaid,
+} from '@backend/services/admin-booking.service';
 import {
   buildBreakdown,
   getPricingInputs,
@@ -746,7 +750,20 @@ export async function applyBookingEdit(
   };
 }
 
-/** Refund a booking overpayment as money (Paymob) or custom Care Points (POST .../refund). */
+/**
+ * Give money back on a booking (POST .../refund) — to the card through Paymob,
+ * or as a custom number of Care Points. Two situations reach it:
+ *
+ * - An overpayment: an edit lowered the price below what the mother paid.
+ * - A cancellation after payment: everything she paid is refundable, and the
+ *   admin decides how much and how — the policy's suggestion (refundPosition)
+ *   is only the console's starting point.
+ *
+ * A cancelled booking moves to REFUNDED once it is settled: when a card refund
+ * returns the last of what she paid, or straight away when the admin gives
+ * Care Points instead (points have no EGP value to subtract, so they settle
+ * the refund in one go). That status is what stops a second payout.
+ */
 export async function refundBooking(
   id: number,
   adminFirebaseUid: string,
@@ -756,17 +773,29 @@ export async function refundBooking(
   const booking = await loadEditBooking(id);
 
   const amountPaid = sumCapturedPaid(booking.payments);
-  const refundable = round2(amountPaid - num(booking.totalAmount));
-  if (refundable <= EPSILON) {
-    throw errors.badRequest('There is no overpayment to refund on this booking.');
+  const { kind, refundable } = refundPosition(booking, amountPaid, await getPlatformConfig());
+  if (kind === null || refundable <= EPSILON) {
+    throw errors.badRequest(
+      booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.REFUNDED
+        ? 'There is nothing left to refund on this booking.'
+        : 'There is no overpayment to refund on this booking.',
+    );
   }
+  const cancelled = kind === 'CANCELLED';
 
   if (input.method === 'PAYMOB') {
     const amount = round2(input.amount ?? refundable);
     if (amount > refundable + EPSILON) {
-      throw errors.badRequest(`The refund cannot exceed the overpaid amount (${money(refundable)}).`);
+      throw errors.badRequest(
+        cancelled
+          ? `The refund cannot exceed what the mother paid (${money(refundable)}).`
+          : `The refund cannot exceed the overpaid amount (${money(refundable)}).`,
+      );
     }
     await refundBookingPayment({ bookingId: id, amountEgp: amount });
+    // The last of her money is back: the cancelled booking is settled. The money
+    // has already moved, so losing a race here must not surface as an error.
+    if (cancelled && refundable - amount <= EPSILON) await markRefunded(id, { strict: false });
     await notifyBookingParty(
       booking.mother.id,
       NotificationType.BOOKING_REFUNDED,
@@ -781,10 +810,13 @@ export async function refundBooking(
 
   // CARE_POINTS — admin-entered custom points (no fixed EGP→points conversion).
   const points = input.points!;
+  // Settle first: a second admin (or a double click) loses here instead of
+  // granting the points twice.
+  if (cancelled) await markRefunded(id, { strict: true });
   await grantPoints({
     userId: booking.mother.id,
     points,
-    reason: `Booking refund: ${input.reason}`,
+    reason: cancelled ? `Cancelled booking: ${input.reason}` : `Booking refund: ${input.reason}`,
     adminId,
   });
   await notifyBookingParty(
@@ -792,9 +824,25 @@ export async function refundBooking(
     NotificationType.BOOKING_REFUNDED,
     'booking_refunded',
     'You received Care Points',
-    `${points} Care Points were added to your balance for a booking adjustment: ${input.reason}`,
+    cancelled
+      ? `${points} Care Points were added to your balance for your cancelled booking: ${input.reason}`
+      : `${points} Care Points were added to your balance for a booking adjustment: ${input.reason}`,
     id,
   );
   const detail = await getAdminBooking(id);
   return { method: 'CARE_POINTS', refundedAmount: null, grantedPoints: points, booking: detail };
+}
+
+/**
+ * CANCELLED → REFUNDED, the terminal state the payments domain owns (not in the
+ * shared transition table, which the console's status menu is built from).
+ * Guarded on the status so only one settlement can win; `strict` makes losing
+ * that race an error, for callers that haven't paid anything out yet.
+ */
+async function markRefunded(id: number, { strict }: { strict: boolean }): Promise<void> {
+  const { count } = await prisma.booking.updateMany({
+    where: { id, status: BookingStatus.CANCELLED, deletedAt: null },
+    data: { status: BookingStatus.REFUNDED },
+  });
+  if (count === 0 && strict) throw errors.conflict('This booking has already been settled.');
 }

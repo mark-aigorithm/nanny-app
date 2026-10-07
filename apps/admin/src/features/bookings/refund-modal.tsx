@@ -12,22 +12,41 @@ type RefundMethod = 'PAYMOB' | 'CARE_POINTS';
 
 type RefundModalProps = {
   bookingId: number;
-  /** The overpaid amount (EGP) available to refund. */
+  /** The most that can be given back (EGP): the overpayment, or all she paid on a cancelled booking. */
   refundableAmount: number;
+  /** Why: an edit lowered the price, or the booking was cancelled after payment. */
+  kind?: 'OVERPAID' | 'CANCELLED';
+  /** What the policy suggests — pre-filled, and the admin may change it. Defaults to the whole refundable amount. */
+  suggestedAmount?: number;
+  /** The late-cancellation fee % kept in that suggestion, when one applies. */
+  feePercent?: number | null;
   onClose: () => void;
   onRefunded: (result: AdminRefundResponse) => void;
 };
 
 /**
- * Settle a booking overpayment — an edit lowered the total below what the
- * mother paid: refund the money to the card via Paymob, or grant her a custom
- * number of Care Points (the EGP difference is shown for reference — there's
- * no fixed conversion). Opened right after the edit, or later from the detail
- * page if that follow-up was skipped.
+ * Give money back on a booking: refund it to the card via Paymob, or grant her
+ * a custom number of Care Points (the EGP amount is shown for reference —
+ * there's no fixed conversion).
+ *
+ * Two situations open it. An overpayment — an edit lowered the total below what
+ * the mother paid — right after the edit, or later from the detail page. And a
+ * booking cancelled after payment, from its detail page: the policy's suggested
+ * amount is pre-filled, and the admin can change it up to everything she paid.
+ * Care Points settle a cancelled booking in one go.
  */
-export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }: RefundModalProps) {
+export function RefundModal({
+  bookingId,
+  refundableAmount,
+  kind = 'OVERPAID',
+  suggestedAmount,
+  feePercent = null,
+  onClose,
+  onRefunded,
+}: RefundModalProps) {
+  const cancelled = kind === 'CANCELLED';
   const [method, setMethod] = useState<RefundMethod>('PAYMOB');
-  const [amount, setAmount] = useState(refundableAmount.toFixed(2));
+  const [amount, setAmount] = useState((suggestedAmount ?? refundableAmount).toFixed(2));
   const [points, setPoints] = useState('');
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -56,7 +75,11 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
         return;
       }
       if (value > refundableAmount + 0.005) {
-        setFormError(`The refund can't exceed the overpaid amount (${formatEgp(refundableAmount)}).`);
+        setFormError(
+          cancelled
+            ? `The refund can't exceed what the mother paid (${formatEgp(refundableAmount)}).`
+            : `The refund can't exceed the overpaid amount (${formatEgp(refundableAmount)}).`,
+        );
         return;
       }
     } else {
@@ -71,7 +94,7 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
 
   return (
     <Modal
-      title="Refund the overpayment"
+      title={cancelled ? 'Refund the cancelled booking' : 'Refund the overpayment'}
       onClose={onClose}
       footer={
         <>
@@ -84,10 +107,24 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
         </>
       }
     >
-      <p className="panel-lead">
-        The mother is overpaid by <strong>{formatEgp(refundableAmount)}</strong> on this booking. Choose
-        how to return it.
-      </p>
+      {cancelled ? (
+        <p className="panel-lead">
+          The mother paid <strong>{formatEgp(refundableAmount)}</strong> for this cancelled booking.
+          {suggestedAmount !== undefined && (
+            <>
+              {' '}
+              The policy suggests refunding <strong>{formatEgp(suggestedAmount)}</strong>
+              {feePercent !== null && <> (keeping the {feePercent}% late-cancellation fee)</>}.
+            </>
+          )}{' '}
+          You decide the amount and how to return it.
+        </p>
+      ) : (
+        <p className="panel-lead">
+          The mother is overpaid by <strong>{formatEgp(refundableAmount)}</strong> on this booking.
+          Choose how to return it.
+        </p>
+      )}
 
       <div className="refund-methods">
         <button
@@ -109,7 +146,14 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
       </div>
 
       {method === 'PAYMOB' ? (
-        <Field label="Amount to refund" hint={`Up to ${formatEgp(refundableAmount)}.`}>
+        <Field
+          label="Amount to refund"
+          hint={
+            cancelled
+              ? `Any amount up to ${formatEgp(refundableAmount)}, everything she paid. Refunding all of it settles the booking.`
+              : `Up to ${formatEgp(refundableAmount)}.`
+          }
+        >
           <span className="unit-input">
             <input
               type="number"
@@ -125,7 +169,11 @@ export function RefundModal({ bookingId, refundableAmount, onClose, onRefunded }
       ) : (
         <Field
           label="Care Points to grant"
-          hint={`For reference, the overpayment is ${formatEgp(refundableAmount)}.`}
+          hint={
+            cancelled
+              ? `Settles this booking — no card refund can follow. For reference, she paid ${formatEgp(refundableAmount)}.`
+              : `For reference, the overpayment is ${formatEgp(refundableAmount)}.`
+          }
         >
           <span className="unit-input">
             <input

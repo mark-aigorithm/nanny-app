@@ -148,3 +148,105 @@ describe('A3 — refund a paid booking', () => {
     expect(wallet.body.data).toMatchObject({ pointsBalance: 250, lifetimeEarned: 250 });
   });
 });
+
+/**
+ * A booking cancelled after the mother paid: the money stays captured until an
+ * admin settles it from the booking's page — any amount up to what she paid,
+ * to the card or as Care Points — and the settlement closes it as REFUNDED.
+ */
+describe('A3 — refund a booking cancelled after payment', () => {
+  async function cancelledAfterPayment(hoursAhead: number) {
+    const mother = await makeMother();
+    const nanny = await makeNanny();
+    const admin = await makeSuperuser();
+    const booking = await createBookingViaApi(mother.token, { startHour: START_HOUR, durationHours: 4 });
+    await claimBooking(nanny.token, booking.id);
+    const session = await payViaPaymob(mother.token, 'booking', booking.id);
+    const start = Date.now() + hoursAhead * 3_600_000;
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { startTime: new Date(start), endTime: new Date(start + 4 * 3_600_000) },
+    });
+    await request(app)
+      .post(`/bookings/${booking.id}/cancel`)
+      .set(...authHeader(mother.token))
+      .send({ reason: 'Plans changed.' })
+      .expect(200);
+    return { mother, admin, booking, session, paid: Number(booking.totalAmount) };
+  }
+
+  it('offers everything she paid, suggesting the full amount when she cancelled early', async () => {
+    const { admin, booking, paid } = await cancelledAfterPayment(72);
+
+    const detail = await getAdminBookingDetail(admin.token, booking.id);
+    expect(detail.refundKind).toBe('CANCELLED');
+    expect(detail.refundableAmount).toBe(paid);
+    expect(detail.suggestedRefundAmount).toBe(paid);
+    expect(detail.refundFeePercent).toBeNull();
+  });
+
+  it('suggests keeping the late-cancellation fee when she cancelled inside the window', async () => {
+    const { admin, booking, paid } = await cancelledAfterPayment(6);
+
+    const detail = await getAdminBookingDetail(admin.token, booking.id);
+    expect(detail.refundableAmount).toBe(paid);
+    expect(detail.refundFeePercent).toBe(50);
+    expect(detail.suggestedRefundAmount).toBe(Math.round(paid * 50) / 100);
+  });
+
+  it('lets the admin choose the amount, capped at what she paid', async () => {
+    const { admin, booking, paid } = await cancelledAfterPayment(72);
+
+    await expect(
+      refundBooking(admin.token, booking.id, { method: 'PAYMOB', amount: paid + 1, reason: 'Too much.' }),
+    ).rejects.toThrow(/400/);
+
+    await refundBooking(admin.token, booking.id, { method: 'PAYMOB', amount: 100, reason: 'Part now.' });
+    const partly = await getAdminBookingDetail(admin.token, booking.id);
+    expect(partly.status).toBe('CANCELLED');
+    expect(partly.refundableAmount).toBe(Math.round((paid - 100) * 100) / 100);
+
+    await refundBooking(admin.token, booking.id, { method: 'PAYMOB', reason: 'The rest.' });
+    const settled = await getAdminBookingDetail(admin.token, booking.id);
+    expect(settled.status).toBe('REFUNDED');
+    expect(settled.refundableAmount).toBe(0);
+  });
+
+  it('can be settled with Care Points instead, which closes it — no second payout', async () => {
+    const { mother, admin, booking, session } = await cancelledAfterPayment(72);
+
+    await refundBooking(admin.token, booking.id, {
+      method: 'CARE_POINTS',
+      points: 300,
+      reason: 'Points instead of a card refund.',
+    });
+
+    const detail = await getAdminBookingDetail(admin.token, booking.id);
+    expect(detail.status).toBe('REFUNDED');
+    expect(detail.refundableAmount).toBe(0);
+
+    const payment = await prisma.payment.findUniqueOrThrow({ where: { id: session.paymentId } });
+    expect(Number(payment.refundedAmount)).toBe(0);
+    const wallet = await request(app).get('/rewards/wallet').set(...authHeader(mother.token));
+    expect(wallet.body.data.pointsBalance).toBe(300);
+
+    await expect(
+      refundBooking(admin.token, booking.id, { method: 'CARE_POINTS', points: 300, reason: 'Again.' }),
+    ).rejects.toThrow(/400/);
+  });
+
+  it('has nothing to refund on a request cancelled before payment', async () => {
+    const mother = await makeMother();
+    const admin = await makeSuperuser();
+    const booking = await createBookingViaApi(mother.token);
+    await request(app)
+      .post(`/bookings/${booking.id}/cancel`)
+      .set(...authHeader(mother.token))
+      .send({ reason: 'Plans changed.' })
+      .expect(200);
+
+    const detail = await getAdminBookingDetail(admin.token, booking.id);
+    expect(detail.refundKind).toBeNull();
+    expect(detail.refundableAmount).toBe(0);
+  });
+});
