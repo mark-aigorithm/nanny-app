@@ -47,6 +47,9 @@ export default defineConfig({
       // native modules (JSX in .js files, no web build), and `useAuth` pulls
       // it into every auth screen.
       '@mobile/lib/socialAuth': path.resolve(__dirname, 'src/mocks/social-auth-web.tsx'),
+      // SocialAuthButtons imports Apple's button component directly (JSX in
+      // .js files, no web build).
+      'expo-apple-authentication': path.resolve(__dirname, 'src/mocks/expo-apple-authentication-web.tsx'),
     },
     // Prefer .web.* extensions, then TypeScript, then JS
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],
