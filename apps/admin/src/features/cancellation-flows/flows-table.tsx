@@ -22,7 +22,7 @@ const PHASE_LABEL: Record<CancellationFlow['phase'], string> = {
   other: 'Any time',
 };
 
-const ACTORS: readonly CancellationActor[] = ['Mother', 'Nanny', 'Mother or nanny', 'Admin', 'System'];
+const ACTORS: readonly CancellationActor[] = ['Mother', 'Mother or nanny', 'Admin', 'System'];
 
 /**
  * Every cancellation flow in one table, re-read for whichever payment method is

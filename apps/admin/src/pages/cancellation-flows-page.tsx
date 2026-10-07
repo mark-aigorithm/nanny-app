@@ -2,7 +2,7 @@ import { isAxiosError } from 'axios';
 
 import { CANCELLATION_DECISIONS, CANCELLATION_EXAMPLE_BOOKING } from '@nanny-app/shared';
 
-import { Badge, Card, ICON_SIZE, TriangleAlert, useToast } from '@admin/components/ui';
+import { Badge, Card, ICON_SIZE, Info, TriangleAlert, useToast } from '@admin/components/ui';
 import { DecisionCard, type RecordingState } from '@admin/features/cancellation-flows/decision-card';
 import { CANCELLATION_FLOWS } from '@admin/features/cancellation-flows/flows';
 import { TONE_BADGE } from '@admin/features/cancellation-flows/outcome-value';
@@ -87,6 +87,13 @@ export function CancellationFlowsPage() {
           One row per way a booking can be cancelled. Pick how it was paid to see exactly what
           the mother keeps or loses. A promo code can sit on top of any payment: it comes off
           first, then package hours, then Care Points, and the card pays the rest.
+        </p>
+        <p className="flows-design-note">
+          <Info size={ICON_SIZE.inline} aria-hidden />
+          <span>
+            <strong>Nannies can&rsquo;t cancel bookings.</strong> This is by design: a nanny who
+            can&rsquo;t make a booking contacts support, and an admin handles it.
+          </span>
         </p>
         <FlowsTable />
 

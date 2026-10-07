@@ -50,15 +50,14 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     title: 'Who triggers a cash refund',
     question: 'When a paid booking is cancelled, how does card money get back to the mother?',
     context:
-      'Today no refund happens at all, and the console cannot issue one for a cancelled booking — only the Paymob dashboard can.',
+      'A cancelled, paid booking now shows on its page with the policy’s suggested refund; an admin decides the amount and pays it to the card or as Care Points. Nothing is refunded until they do.',
     options: [
       {
         id: 'nothing',
         label: 'Nothing',
-        description: 'No refund is issued; an admin can only act in the Paymob dashboard.',
+        description: 'No refund is issued.',
         mother: 'Waits, or chases support, with no idea what she is owed.',
-        business: 'Manual work outside the console, no record on the booking, high risk of complaints and chargebacks.',
-        status: 'today',
+        business: 'High risk of complaints and chargebacks.',
       },
       {
         id: 'admin-approves-every-refund',
@@ -67,7 +66,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
           'The console shows a suggested amount on the cancelled booking; an admin confirms, adjusts or declines it.',
         mother: 'A refund arrives once reviewed; she is not promised an amount up front.',
         business: 'Full control and an audit trail; needs someone watching a "refunds to review" queue.',
-        status: 'proposed',
+        status: 'today',
       },
       {
         id: 'automatic-outside-the-window-admin-inside',
@@ -202,7 +201,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
       {
         id: 'also-restore-when-it-isnt-her-doing',
         label: 'Also restore when it isn’t her doing',
-        description: 'Restore on a nanny or admin cancellation as well.',
+        description: 'Restore on an admin cancellation as well.',
         mother: 'Never penalised for someone else’s cancellation.',
         business: 'Slightly more restored codes.',
       },
@@ -212,96 +211,6 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         description: 'Every cancellation returns the code.',
         mother: 'Best for her.',
         business: 'Codes can be held and re-used through late cancellations.',
-      },
-    ],
-  },
-  {
-    id: 'nanny-cancels',
-    title: 'When the nanny cancels a paid booking',
-    question: 'What does the mother get back, and how fast?',
-    context:
-      'If the booking isn’t paid yet, it now goes back to the pool and she is told another nanny is being found. Once paid, she is told the team will review her payment — no refund is promised — and any hours, points and promo code stay spent until an admin decides.',
-    options: [
-      {
-        id: 'admin-reviews-everything',
-        label: 'Admin reviews everything',
-        description: 'Credits stay spent and no money moves until an admin decides — money or Care Points.',
-        mother: 'Told her payment is being reviewed; waits for the team.',
-        business: 'Full control; every nanny cancellation becomes an admin task.',
-        status: 'today',
-      },
-      {
-        id: 'everything-back-admin-approves-the-cash',
-        label: 'Everything back, admin approves the cash',
-        description: 'Hours, points and promo restored at once; the card refund follows the admin review.',
-        mother: 'Credits back instantly; money after review.',
-        business: 'Same review flow as every other refund.',
-        example: '2 hours back now; EGP 240 after approval.',
-      },
-      {
-        id: 'everything-back-automatically',
-        label: 'Everything back automatically',
-        description: 'Full card refund plus credits and code, immediately.',
-        mother: 'Best — it was not her fault.',
-        business: 'No review, but the platform carries the whole cost of the nanny’s cancellation.',
-      },
-      {
-        id: 'find-a-replacement-nanny-first',
-        label: 'Find a replacement nanny first',
-        description: 'The request goes back to the pool; refund only if no one accepts in time.',
-        mother: 'Keeps her childcare, which is usually what she wants.',
-        business: 'Saves the booking; needs a deadline rule and a re-broadcast.',
-      },
-      {
-        id: 'full-refund-plus-goodwill-points',
-        label: 'Full refund plus goodwill points',
-        description: 'Everything back, with bonus Care Points for the trouble.',
-        mother: 'Feels looked after.',
-        business: 'Costs a little; good retention.',
-      },
-    ],
-  },
-  {
-    id: 'nanny-consequences',
-    title: 'Consequences for a nanny who cancels',
-    question: 'Should cancelling a confirmed booking cost the nanny anything?',
-    context: 'Today there is no consequence and nothing records how often a nanny cancels.',
-    options: [
-      {
-        id: 'none',
-        label: 'None',
-        description: 'No record, no penalty.',
-        mother: 'No protection from unreliable nannies.',
-        business: 'No signal to act on.',
-        status: 'today',
-      },
-      {
-        id: 'track-and-show-it',
-        label: 'Track and show it',
-        description: 'Count cancellations on the nanny’s profile in the console.',
-        mother: 'Indirect benefit.',
-        business: 'Cheap; lets ops spot patterns.',
-      },
-      {
-        id: 'strikes',
-        label: 'Strikes',
-        description: 'Late cancellations add strikes; enough strikes suspend her.',
-        mother: 'More reliable nannies.',
-        business: 'Needs clear rules and an appeal path.',
-      },
-      {
-        id: 'lower-in-the-pool',
-        label: 'Lower in the pool',
-        description: 'Frequent cancellers see new requests later or less often.',
-        mother: 'Reliable nannies reach her first.',
-        business: 'Quiet, automatic; harder to explain to nannies.',
-      },
-      {
-        id: 'fee-from-future-earnings',
-        label: 'Fee from future earnings',
-        description: 'A late cancellation deducts from her next payout.',
-        mother: 'Strongest deterrent.',
-        business: 'Contentious; needs a payout ledger that does not exist yet.',
       },
     ],
   },
@@ -340,7 +249,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     id: 'refund-method',
     title: 'How the refund is paid',
     question: 'Does refunded money go back to the card or into Care Points?',
-    context: 'The console can already pay an overpayment either way; neither is available for a cancelled booking.',
+    context: 'The admin now picks per refund — to the card, or Care Points (which settle the booking in one go). The question is whether that needs a rule.',
     options: [
       {
         id: 'back-to-the-card',
@@ -369,6 +278,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         description: 'Decided per refund in the review.',
         mother: 'Depends on the case.',
         business: 'Flexible; inconsistent if there is no guideline.',
+        status: 'today',
       },
     ],
   },
@@ -376,14 +286,14 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     id: 'admin-cancels',
     title: 'When an admin cancels a paid booking',
     question: 'What does the mother get back?',
-    context: 'Admins cancel for very different reasons — a no-show nanny, a safety concern, a mother’s request — and today she gets nothing back.',
+    context: 'Admins cancel for very different reasons — a no-show nanny, a safety concern, a mother’s request — and today her hours, points and promo code stay spent while the cash waits for an admin’s refund decision.',
     options: [
       {
         id: 'nothing',
-        label: 'Nothing',
-        description: 'Credits and promo stay spent; no refund possible in the console.',
-        mother: 'Loses everything.',
-        business: 'Manual Paymob work for every case.',
+        label: 'Credits kept, cash reviewed',
+        description: 'Credits and promo stay spent; the cash is refunded only if an admin decides to.',
+        mother: 'Loses her prepaid value; money after review.',
+        business: 'One refund decision per case.',
         status: 'today',
       },
       {
@@ -445,13 +355,13 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     title: 'What the mother is told',
     question: 'What does the cancellation notification say about money and credits?',
     context:
-      'A mother who cancels still hears nothing. When a nanny cancels a paid booking she is now told the team will review her payment, with no refund promised; before payment, that another nanny is being found.',
+      'A mother who cancels hears nothing about her hours, points, promo code or money.',
     options: [
       {
         id: 'today',
         label: 'Today',
-        description: 'Silence when she cancels; “our team will review your payment” when the nanny does.',
-        mother: 'Not misled, but unsure where her hours, points and code are when she cancels.',
+        description: 'No notice when she cancels.',
+        mother: 'Unsure where her hours, points, code and money are.',
         business: 'Support questions from mothers who cancelled.',
         status: 'today',
       },

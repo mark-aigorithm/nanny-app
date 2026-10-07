@@ -60,6 +60,14 @@ describe('CancellationFlowsPage — what happens today', () => {
     expect(within(paidCancel).getAllByText('Not used.')).toHaveLength(3);
   });
 
+  it('says nannies cannot cancel, and lists no nanny cancellation', () => {
+    server.use(decisions());
+    renderPage();
+
+    expect(screen.getByText('Nannies can’t cancel bookings.')).toBeInTheDocument();
+    expect(CANCELLATION_FLOWS.some((flow) => (flow.who as string) === 'Nanny')).toBe(false);
+  });
+
   it('says when a flow cannot happen with the payment picked', async () => {
     server.use(decisions());
     renderPage();
@@ -79,12 +87,12 @@ describe('CancellationFlowsPage — what happens today', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByLabelText('Who cancels'));
-    await user.click(screen.getByRole('option', { name: 'Nanny' }));
+    await user.click(screen.getByRole('option', { name: 'Admin' }));
 
     const table = screen.getByRole('table');
     for (const flow of CANCELLATION_FLOWS) {
       const shown = within(table).queryByText(new RegExp(`^\\d+\\. ${flow.title}$`)) !== null;
-      expect(shown, flow.id).toBe(flow.who === 'Nanny');
+      expect(shown, flow.id).toBe(flow.who === 'Admin');
     }
   });
 

@@ -17,7 +17,8 @@ export type OutcomeTone = 'ok' | 'lost' | 'none' | 'warn' | 'na';
 
 export type Outcome = { tone: OutcomeTone; text: string };
 
-export type CancellationActor = 'Mother' | 'Nanny' | 'Mother or nanny' | 'Admin' | 'System';
+/** Nannies never cancel a booking — by design — so they are not an actor here. */
+export type CancellationActor = 'Mother' | 'Mother or nanny' | 'Admin' | 'System';
 
 export type CancellationFlow = {
   id: string;
@@ -117,13 +118,13 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     promoCode: PROMO_USED,
     money: {
       tone: 'lost',
-      text: 'Nothing is refunded. The server works out a 100% refund quote, but the app never shows it and no money moves.',
+      text: 'Nothing is refunded automatically. The console suggests the full amount; An admin settles it from the booking’s page — any amount up to what she paid, to the card or as Care Points.',
     },
     notifications: {
       tone: 'none',
       text: 'The nanny is told. The mother gets no notice of what happens to her money or credits.',
     },
-    gap: 'A free cancellation still loses the mother her hours, points, promo code and payment unless an admin steps in — and the console has no tool to refund a cancelled booking. A booking paid entirely with hours, points or a 100% promo counts as paid the moment a nanny accepts, so its whole value is lost however early she cancels.',
+    gap: 'A free cancellation still loses the mother her hours, points, promo code and payment unless an admin steps in. A booking paid entirely with hours, points or a 100% promo counts as paid the moment a nanny accepts, so its whole value is lost however early she cancels.',
     source: 'booking.service.ts → cancelBooking (refundAmount quote only)',
   },
   {
@@ -137,59 +138,15 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     promoCode: PROMO_USED,
     money: {
       tone: 'lost',
-      text: 'Nothing is refunded. The suggested refund keeps the late-cancellation fee set under Booking options (50% by default), and the app warns of that same fee.',
+      text: 'Nothing is refunded automatically. The console suggests the amount less the late-cancellation fee (Booking options, 50% by default) — the fee the app warns of. An admin settles it from the booking’s page — any amount up to what she paid, to the card or as Care Points.',
     },
     notifications: { tone: 'none', text: 'The nanny is told. The mother gets nothing.' },
     source: 'booking.service.ts → cancelBooking; mobile lib/cancellationWarning.ts',
   },
   {
-    id: 'nanny-unpaid',
-    title: 'Nanny drops an accepted booking that is not paid yet',
-    who: 'Nanny',
-    when: 'APPROVED — goes back to PENDING with no nanny',
-    phase: 'before',
-    needsAcceptedUnpaid: true,
-    packageHours: {
-      tone: 'ok',
-      text: 'Stay set aside on the request, which goes back to the pool for another nanny.',
-    },
-    carePoints: {
-      tone: 'ok',
-      text: 'Stay set aside on the request, which goes back to the pool for another nanny.',
-    },
-    promoCode: { tone: 'ok', text: 'Stays reserved on the request.' },
-    money: NOTHING_PAID,
-    notifications: {
-      tone: 'ok',
-      text: 'The mother: "Finding you another nanny". Nearby nannies — not the one who dropped it — and the console are told it is open again.',
-    },
-    gap: 'Nannies can’t cancel from the app by design, and the console has no action for it either — so today nothing can trigger this. A nanny who can’t make it has to call support.',
-    source: 'booking.service.ts → cancelBooking, releaseBookingToPool',
-  },
-  {
-    id: 'nanny-paid',
-    title: 'Nanny cancels a paid booking',
-    who: 'Nanny',
-    when: 'CONFIRMED',
-    phase: 'after',
-    packageHours: HOURS_KEPT,
-    carePoints: POINTS_KEPT,
-    promoCode: PROMO_USED,
-    money: {
-      tone: 'lost',
-      text: 'Nothing is refunded automatically. The suggested refund is 100%; an admin decides between money and Care Points.',
-    },
-    notifications: {
-      tone: 'none',
-      text: 'The mother: "Your nanny had to cancel… Our team will review your payment and contact you about it." No refund is promised.',
-    },
-    gap: 'She loses any hours, points and promo code, and the console has no tool yet to refund a cancelled booking — an admin’s decision can only be carried out in the Paymob dashboard.',
-    source: 'booking.service.ts → cancelBooking, notifyOtherPartyOfCancellation',
-  },
-  {
     id: 'shift-running',
-    title: 'Mother or nanny tries to cancel a shift that has started',
-    who: 'Mother or nanny',
+    title: 'Mother tries to cancel a shift that has started',
+    who: 'Mother',
     when: 'IN_PROGRESS',
     phase: 'other',
     packageHours: { tone: 'none', text: 'Unchanged — the cancellation is refused.' },
@@ -204,9 +161,9 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
   },
   {
     id: 'admin-reject',
-    title: 'Admin rejects a request',
+    title: 'Admin cancels a request no nanny has accepted yet',
     who: 'Admin',
-    when: 'PENDING or APPROVED',
+    when: 'PENDING — the “Reject” action in the Bookings menu',
     phase: 'before',
     packageHours: RETURNED_HOURS,
     carePoints: RETURNED_POINTS,
@@ -229,13 +186,12 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     promoCode: PROMO_USED,
     money: {
       tone: 'lost',
-      text: 'Nothing is refunded, and the console refund button cannot help: it only refunds an overpayment, and cancelling leaves the total unchanged.',
+      text: 'Nothing is refunded automatically. The console suggests the full amount; An admin settles it from the booking’s page — any amount up to what she paid, to the card or as Care Points.',
     },
     notifications: {
       tone: 'ok',
       text: 'Both parties: "Your booking … was cancelled by an admin."',
     },
-    gap: 'Refunding a cancelled booking can only be done by hand in the Paymob dashboard.',
     source: 'admin-booking.service.ts → setBookingStatus; admin-booking-edit.service.ts → refundBooking',
   },
   {
@@ -249,7 +205,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     promoCode: { tone: 'ok', text: 'Not redeemed — the booking is never confirmed.' },
     money: {
       tone: 'lost',
-      text: 'The payment is recorded as captured, but the booking stays cancelled and nothing refunds it.',
+      text: 'The payment is recorded as captured and the booking stays cancelled. Its page offers the refund, but nothing prompts anyone to look.',
     },
     notifications: { tone: 'warn', text: 'Nobody — only a warning in the server logs.' },
     gap: 'Money is taken for a cancelled booking and no one in operations is told.',
