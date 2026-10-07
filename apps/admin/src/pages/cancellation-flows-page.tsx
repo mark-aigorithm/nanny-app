@@ -3,6 +3,7 @@ import { DecisionCard } from '@admin/features/cancellation-flows/decision-card';
 import { DECISIONS, EXAMPLE_BOOKING } from '@admin/features/cancellation-flows/decisions';
 import { CANCELLATION_FLOWS, OUTCOME_ROWS } from '@admin/features/cancellation-flows/flows';
 import { OutcomeValue, TONE_BADGE } from '@admin/features/cancellation-flows/outcome-value';
+import { PROMO_STACKING_NOTE } from '@admin/features/cancellation-flows/payment-matrix';
 import { PaymentMatrixTable } from '@admin/features/cancellation-flows/payment-matrix-table';
 
 /**
@@ -53,6 +54,7 @@ export function CancellationFlowsPage() {
         <h2 id="by-payment" className="flows-section-title">
           By payment method — today
         </h2>
+        <p className="flows-section-lead">{PROMO_STACKING_NOTE}</p>
         <PaymentMatrixTable />
 
         <h2 id="decisions" className="flows-section-title">

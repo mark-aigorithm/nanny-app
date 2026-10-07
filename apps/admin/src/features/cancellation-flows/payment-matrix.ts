@@ -113,4 +113,32 @@ export const PAYMENT_MIXES: readonly PaymentMix[] = [
       admin: { tone: 'lost', text: 'Points lost. No cash moves.' },
     },
   },
+  {
+    id: 'package-points',
+    label: 'Package hours + Care Points cover it all',
+    detail: 'The package is always used first; points chosen with the request cover what it leaves. With nothing left to pay, the booking confirms itself when a nanny accepts.',
+    cells: {
+      beforePayment: { tone: 'ok', text: 'Hours and points returned (only while no nanny has accepted).' },
+      motherOutside: { tone: 'lost', text: 'Hours and points lost.' },
+      motherInside: { tone: 'lost', text: 'Hours and points lost.' },
+      nanny: { tone: 'warn', text: 'Hours and points lost, though she is told "refunded in full".' },
+      admin: { tone: 'lost', text: 'Hours and points lost.' },
+    },
+  },
+  {
+    id: 'package-points-card',
+    label: 'Package hours + Care Points + card',
+    detail: 'Package first, then points, and the card pays whatever is still owed.',
+    cells: {
+      beforePayment: { tone: 'ok', text: 'Hours and points returned; nothing was paid.' },
+      motherOutside: { tone: 'lost', text: 'Hours and points lost. No cash moves; the quote covers the card part only.' },
+      motherInside: { tone: 'lost', text: 'Hours and points lost. No cash moves; the quote is 50% of the card part.' },
+      nanny: { tone: 'warn', text: 'Hours and points lost. No cash moves, though she is told "refunded in full".' },
+      admin: { tone: 'lost', text: 'Hours and points lost. No cash moves.' },
+    },
+  },
 ];
+
+/** A promo code can sit on top of any mix above; it comes off before anything else. */
+export const PROMO_STACKING_NOTE =
+  'A promo code can be added to any of these. It comes off the price first, then package hours, then Care Points, and the card pays the rest. Whatever the mix, the code follows its own row: free again if the booking is cancelled before payment, used for good after.';
