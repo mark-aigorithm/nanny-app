@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -194,4 +195,32 @@ it('shows no Apple hint where Apple is unavailable', async () => {
   render(<SocialAuthButtons context="sign-up" disabled />);
   await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
   expect(screen.queryByText(APPLE_HINT)).toBeNull();
+});
+
+describe('as a row of logo tiles', () => {
+  it('starts Google and Apple from their labelled tiles, beside the tiles passed in', async () => {
+    mockAppleAvailable.mockResolvedValue(true);
+    mockOutcome = 'signed-in';
+    render(
+      <SocialAuthButtons context="sign-in" layout="icons">
+        <Text>Email tile</Text>
+      </SocialAuthButtons>,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Continue with Apple'));
+    expect(mockMutateAsync).toHaveBeenCalledWith({ provider: 'apple', role: undefined });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+
+    fireEvent.press(screen.getByLabelText('Continue with Google'));
+    expect(mockMutateAsync).toHaveBeenCalledWith({ provider: 'google', role: undefined });
+    expect(screen.getByText('Email tile')).toBeTruthy();
+    // The labelled text buttons are the stacked layout's, not this one's.
+    expect(screen.queryByText('Continue with Google')).toBeNull();
+  });
+
+  it('leaves the Apple tile out where Apple is unavailable', async () => {
+    render(<SocialAuthButtons context="sign-in" layout="icons" />);
+    await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
+    expect(screen.queryByLabelText('Continue with Apple')).toBeNull();
+  });
 });

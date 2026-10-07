@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
 import { Button } from '@mobile/components/ui';
+import AuthIconButton from '@mobile/components/AuthIconButton';
 import { useSocialSignIn, type SocialSignInOutcome } from '@mobile/hooks/useSocialSignIn';
 import { isMappedAuthError } from '@mobile/lib/authErrors';
 import { firstStep } from '@mobile/lib/registrationSteps';
@@ -24,16 +26,31 @@ type SocialAuthButtonsProps = {
   role?: Role;
   /** Set by "Create your account" until a role is picked. */
   disabled?: boolean;
+  /**
+   * `stacked` (default): full-width labelled buttons. `icons`: one row of
+   * logo tiles, for the sign-in screen, which keeps the phone door as its
+   * only full-size button.
+   */
+  layout?: 'stacked' | 'icons';
+  /** Extra tiles appended to the `icons` row (the sign-in screen's email door). */
+  children?: ReactNode;
 };
 
 const SIGN_IN_FAILED = 'Sign-in failed. Please try again.';
 
 /**
- * "Continue with Google" on both platforms, and Apple's own button on iOS when
- * the device supports it. What an outcome means is decided in useSocialSignIn;
+ * "Continue with Google" on both platforms, and Apple on iOS when the device
+ * supports it — Apple's own button when stacked, an Apple-logo tile in the
+ * icon row. What an outcome means is decided in useSocialSignIn;
  * this only turns it into a destination.
  */
-export default function SocialAuthButtons({ context, role, disabled = false }: SocialAuthButtonsProps) {
+export default function SocialAuthButtons({
+  context,
+  role,
+  disabled = false,
+  layout = 'stacked',
+  children,
+}: SocialAuthButtonsProps) {
   const router = useRouter();
   const socialSignIn = useSocialSignIn();
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -90,6 +107,31 @@ export default function SocialAuthButtons({ context, role, disabled = false }: S
       case 'cancelled':
         break;
     }
+  }
+
+  if (layout === 'icons') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.iconRow}>
+          <AuthIconButton
+            icon="logo-google"
+            label="Continue with Google"
+            onPress={() => void start('google')}
+            disabled={busy}
+          />
+          {appleAvailable && (
+            <AuthIconButton
+              icon="logo-apple"
+              label="Continue with Apple"
+              onPress={() => void start('apple')}
+              disabled={busy}
+            />
+          )}
+          {children}
+        </View>
+        {error && <Text style={styles.error}>{error}</Text>}
+      </View>
+    );
   }
 
   return (

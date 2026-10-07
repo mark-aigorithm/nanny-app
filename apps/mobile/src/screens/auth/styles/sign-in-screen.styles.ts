@@ -1,51 +1,72 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, fontFamily, typeScale, spacing, borderRadius } from '@mobile/theme';
+import { colors, fontFamily, typeScale, spacing, borderRadius, screenPadding, shadows } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
   keyboardAvoid: {
     flex: 1,
   },
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
 
-  // Blobs
-  blobTopLeft: {
+  // Soft background shapes — a sage one off the top-right corner and a warm
+  // one behind the headline.
+  blobTopRight: {
     position: 'absolute',
-    top: -80,
-    left: -80,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: colors.warmBorder,
-    opacity: 0.35,
-  },
-  blobBottomRight: {
-    position: 'absolute',
-    bottom: -80,
-    right: -80,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    top: -160,
+    right: -90,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
     backgroundColor: colors.primary,
-    opacity: 0.15,
+    opacity: 0.13,
+  },
+  blobLeft: {
+    position: 'absolute',
+    top: 120,
+    left: -140,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: colors.warmBorder,
+    opacity: 0.45,
   },
 
-  // Scroll
+  // Scroll — grows to the screen so the sign-up line can sit at the foot.
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing['2xl'],
-    paddingTop: 80,
-    paddingBottom: spacing['4xl'],
-    gap: spacing['3xl'],
+    flexGrow: 1,
+    paddingHorizontal: screenPadding,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+
+  // Brand + "Skip for now"
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandName: {
+    ...typeScale.headingMd,
+    letterSpacing: -0.3,
+    color: colors.primaryDark,
+  },
+  // Guest browsing — deliberately quieter than every sign-in route.
+  skipLink: {
+    ...typeScale.labelMd,
+    color: colors.textSecondary,
+    paddingVertical: spacing.sm,
   },
 
   // Header
   header: {
+    marginTop: spacing['4xl'],
     gap: spacing.sm,
   },
   headline: {
@@ -56,15 +77,27 @@ export const styles = StyleSheet.create({
     ...typeScale.bodyLg,
     color: colors.textSecondary,
   },
+  subtitleStrong: {
+    fontFamily: fontFamily.semiBold,
+    color: colors.textPrimary,
+  },
+  // "Change" — inline in the code-phase subtitle.
+  inlineLink: {
+    fontFamily: fontFamily.bold,
+    color: colors.primaryDark,
+  },
+  linkDisabled: {
+    color: colors.textPlaceholder,
+  },
 
   // Collision banner — a Google/Apple identity waiting to be connected.
   linkBanner: {
+    marginTop: spacing['2xl'],
     backgroundColor: colors.primaryMuted,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    marginBottom: spacing.lg,
   },
   linkBannerText: {
     ...typeScale.bodyMd,
@@ -76,40 +109,9 @@ export const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
 
-  // "or" + Google/Apple, under the phone door.
-  socialSection: {
-    marginTop: spacing.lg,
-    gap: spacing.lg,
-  },
-
-  // "Forgot password?" — reset works for every door, so it sits on this one
-  forgotRow: {
-    alignItems: 'center',
-  },
-  forgotLink: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
-    color: colors.primaryDark,
-  },
-
-  // "New to NannyNow?" + Sign up
-  signUpSection: {
-    gap: spacing.md,
-  },
-
-  // Guest browsing — deliberately quieter than every sign-in route above it
-  guestRow: {
-    alignItems: 'center',
-    paddingBottom: spacing.lg,
-  },
-  guestLink: {
-    fontFamily: fontFamily.medium,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-
-  // Form
+  // Form — the field (or code boxes), any error, and the one primary button.
   form: {
+    marginTop: spacing['3xl'],
     gap: spacing.xl,
   },
   fieldGroup: {
@@ -120,21 +122,32 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // Phone row
+  // Phone field — one white field with the country code inside it.
   phoneRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    height: 56,
-  },
-  countryCodeBox: {
-    width: 64,
-    height: 56,
-    backgroundColor: colors.taupeLight,
+    alignItems: 'center',
+    height: 58,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
+    borderWidth: 1.5,
+    borderColor: colors.borderSubtle,
+    ...shadows.sm,
+  },
+  phoneRowFocused: {
+    borderColor: colors.primary,
+  },
+  phoneRowError: {
+    borderColor: colors.error,
+  },
+  countryCode: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.xs,
+    height: 30,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: colors.warmBorder,
   },
   countryCodeText: {
     ...typeScale.labelLg,
@@ -142,12 +155,10 @@ export const styles = StyleSheet.create({
   },
   phoneInput: {
     flex: 1,
-    height: 56,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.regular,
-    fontSize: 16,
+    height: '100%',
+    paddingHorizontal: spacing.md,
+    fontFamily: fontFamily.medium,
+    fontSize: 17,
     color: colors.textPrimary,
   },
   fieldError: {
@@ -155,36 +166,50 @@ export const styles = StyleSheet.create({
     color: colors.error,
   },
 
-  // Resend row — verbatim from forgot-password-screen.styles.ts so the two
-  // OTP panes (sign-in, password reset) look identical.
+  // "Didn't get it? Resend in 24s"
   resendRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.xs,
   },
-  resendLink: {
-    ...typeScale.labelMd,
-    color: colors.primary,
-  },
-  resendLinkDisabled: {
-    color: colors.textPlaceholder,
-  },
-  timerText: {
+  resendText: {
     fontFamily: fontFamily.medium,
     fontSize: 14,
     color: colors.textMuted,
   },
+  resendLink: {
+    ...typeScale.labelMd,
+    color: colors.primaryDark,
+  },
 
-  // "Use a different number" — the only way out of the code phase, since
-  // sign-in is the stack root and there is no back button to fall back on.
-  useDifferentNumberRow: {
+  // "or continue with" + the logo tiles.
+  socialSection: {
+    marginTop: spacing['3xl'],
+    gap: spacing.xl,
+  },
+
+  // "New to NannyNow? Create an account" — pinned to the foot.
+  signUpRow: {
+    marginTop: 'auto',
+    paddingTop: spacing['3xl'],
+    paddingVertical: spacing.md,
     alignItems: 'center',
+  },
+  signUpText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  signUpLink: {
+    fontFamily: fontFamily.bold,
+    color: colors.primaryDark,
   },
 
   // Form-level error banner
   formErrorBanner: {
     backgroundColor: colors.errorLight,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },

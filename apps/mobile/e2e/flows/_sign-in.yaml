@@ -8,7 +8,7 @@
 # the SMS door would have to read a verification code on every single flow.
 appId: com.nannyapp.mobile
 ---
-- assertVisible: 'Welcome to NannyNow'
+- assertVisible: 'Welcome back'
 - tapOn: 'Sign in with email'
 
 - extendedWaitUntil:

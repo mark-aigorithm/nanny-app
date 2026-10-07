@@ -41,9 +41,12 @@ appId: com.nannyapp.mobile
     timeout: 60000
 
 # ── Prove ownership through the email door instead ──────────────────────────
+# The sign-in screen's email tile carries this label too, so wait on the
+# email screen's own field rather than its title.
 - tapOn: 'Sign in with email'
 - extendedWaitUntil:
-    visible: 'Sign in with email'
+    visible:
+      id: 'emailSignIn.email'
     timeout: 30000
 - tapOn:
     id: 'emailSignIn.email'

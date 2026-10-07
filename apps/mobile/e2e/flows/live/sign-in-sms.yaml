@@ -7,19 +7,19 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: ../_launch.yaml
 
-- assertVisible: 'Welcome to NannyNow'
+- assertVisible: 'Welcome back'
 
 - tapOn:
     id: 'signIn.phone'
 - inputText: ${MANAGED_PHONE}
 - hideKeyboard
-- tapOn: 'Send code'
+- tapOn: 'Continue'
 
 # The code phase only renders once Firebase has handed back a confirmation, so
 # this line appearing is the proof the send went through. `?` is escaped: a
 # text selector is a regex over the node's whole text.
 - extendedWaitUntil:
-    visible: "Didn't get a code\\?"
+    visible: "Didn't get it\\?"
     timeout: 60000
 
 # The real input is offscreen; the visible boxes carry `.boxes` and focus it.

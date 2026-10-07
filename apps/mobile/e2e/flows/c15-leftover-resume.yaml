@@ -26,9 +26,9 @@ appId: com.nannyapp.mobile
     id: 'signIn.phone'
 - inputText: ${LEFTOVER_PHONE}
 - hideKeyboard
-- tapOn: 'Send code'
+- tapOn: 'Continue'
 - extendedWaitUntil:
-    visible: "Didn't get a code?"
+    visible: "Didn't get it?"
     timeout: 60000
 - runScript:
     file: ../scripts/advance.js

@@ -15,7 +15,7 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
 
-- tapOn: 'Sign up'
+- tapOn: 'Create an account'
 - extendedWaitUntil:
     visible: 'Create your account'
     timeout: 30000
@@ -114,7 +114,7 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn: 'Sign out'
 - extendedWaitUntil:
-    visible: 'Welcome to NannyNow'
+    visible: 'Welcome back'
     timeout: 30000
 
 - tapOn: 'Continue with Google'
@@ -145,7 +145,7 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn: 'Sign out'
 - extendedWaitUntil:
-    visible: 'Welcome to NannyNow'
+    visible: 'Welcome back'
     timeout: 30000
 
 - tapOn: 'Sign in with email'
@@ -200,7 +200,7 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn: 'Sign out'
 - extendedWaitUntil:
-    visible: 'Welcome to NannyNow'
+    visible: 'Welcome back'
     timeout: 30000
 - runFlow:
     file: _sign-in.yaml

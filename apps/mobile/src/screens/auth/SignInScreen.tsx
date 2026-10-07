@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import { APP_NAME, OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, Divider, OtpCodeInput } from '@mobile/components/ui';
+import { Button, Divider, IconCircle, OtpCodeInput, ScreenContainer } from '@mobile/components/ui';
+import AuthIconButton from '@mobile/components/AuthIconButton';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useSendSignInCode, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
@@ -17,9 +18,11 @@ import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { styles } from './styles/sign-in-screen.styles';
 
 /**
- * The signed-out landing and front door. The phone door signs in by SMS code;
- * Google/Apple, the email door, Forgot password, Sign up and "Continue as
- * guest" sit under it.
+ * The signed-out landing and front door. The phone door is the one full-size
+ * button; Google/Apple and the email door sit under it as a row of logo
+ * tiles, "Create an account" is a line at the foot, and "Skip for now"
+ * (guest browsing) sits top right. Forgot password lives on the email door —
+ * the only door with a password.
  *
  * Two phases, gated on whether Firebase has handed back a confirmation for the
  * SMS: the phone field, then the code (which hides everything below the CTA).
@@ -46,6 +49,7 @@ export default function SignInScreen() {
   const [code, setCode] = useState('');
   const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  const [phoneFocused, setPhoneFocused] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -147,14 +151,13 @@ export default function SignInScreen() {
   const resendDisabled = secondsLeft > 0 || sendOtp.isPending;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" />
-        <View style={styles.blobTopLeft} />
-        <View style={styles.blobBottomRight} />
+    <ScreenContainer>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.blobTopRight} />
+        <View style={styles.blobLeft} />
 
         <ScrollView
           style={styles.scroll}
@@ -162,13 +165,46 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.topBar}>
+            <View style={styles.brand}>
+              <IconCircle icon="heart-outline" size="md" iconColor={colors.primaryDark} />
+              <Text style={styles.brandName}>{APP_NAME}</Text>
+            </View>
+            {/* A pending connection means she has an account to finish signing
+                in to — browsing as a guest would quietly drop it. */}
+            {!isCodePhase && !pending && (
+              <Pressable onPress={continueAsGuest} hitSlop={12} accessibilityRole="button">
+                <Text style={styles.skipLink}>Skip for now</Text>
+              </Pressable>
+            )}
+          </View>
+
           <View style={styles.header}>
-            <Text style={styles.headline}>{`Welcome to ${APP_NAME}`}</Text>
-            <Text style={styles.subtitle}>
-              {isCodePhase
-                ? `Enter the ${OTP_LENGTH}-digit code we sent to ${countryCode} ${phone}.`
-                : 'Sign in to continue your childcare journey.'}
+            <Text style={styles.headline}>
+              {isCodePhase ? 'Check your messages' : 'Welcome back'}
             </Text>
+            {isCodePhase ? (
+              <Text style={styles.subtitle}>
+                {`We sent a ${OTP_LENGTH}-digit code to `}
+                <Text style={styles.subtitleStrong}>{`${countryCode} ${phone}`}</Text>
+                {'. '}
+                {/* Sign-in is the stack root, so there is no back button to
+                    escape a mistyped number — this link is the only way out
+                    of the code phase and back to the phone field. */}
+                <Text
+                  style={[styles.inlineLink, confirmSignIn.isPending && styles.linkDisabled]}
+                  onPress={confirmSignIn.isPending ? undefined : useDifferentNumber}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change number"
+                >
+                  Change
+                </Text>
+              </Text>
+            ) : (
+              <Text style={styles.subtitle}>
+                Enter your phone number and we&apos;ll text you a sign-in code.
+              </Text>
+            )}
           </View>
 
           {pending && (
@@ -182,12 +218,18 @@ export default function SignInScreen() {
             </View>
           )}
 
-          {!isCodePhase ? (
-            <View style={styles.form}>
+          <View style={styles.form}>
+            {!isCodePhase ? (
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Phone</Text>
-                <View style={styles.phoneRow}>
-                  <View style={styles.countryCodeBox}>
+                <Text style={styles.fieldLabel}>Phone number</Text>
+                <View
+                  style={[
+                    styles.phoneRow,
+                    phoneFocused && styles.phoneRowFocused,
+                    phoneError !== null && styles.phoneRowError,
+                  ]}
+                >
+                  <View style={styles.countryCode}>
                     <Text style={styles.countryCodeText}>{countryCode}</Text>
                     <Ionicons name="chevron-down" size={14} color={colors.textTertiary} />
                   </View>
@@ -200,17 +242,18 @@ export default function SignInScreen() {
                       if (phoneError) setPhoneError(null);
                       if (formError) setFormError(null);
                     }}
+                    onFocus={() => setPhoneFocused(true)}
+                    onBlur={() => setPhoneFocused(false)}
                     placeholder="100 000 0000"
                     placeholderTextColor={colors.textPlaceholder}
                     keyboardType="phone-pad"
                     autoCorrect={false}
+                    accessibilityLabel="Phone number"
                   />
                 </View>
                 {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
               </View>
-            </View>
-          ) : (
-            <View style={styles.form}>
+            ) : (
               <OtpCodeInput
                 testID="signIn.code"
                 value={code}
@@ -220,100 +263,73 @@ export default function SignInScreen() {
                 }}
                 disabled={confirmSignIn.isPending}
               />
+            )}
+
+            {formError && (
+              <View style={styles.formErrorBanner}>
+                <Text style={styles.formErrorText}>{formError}</Text>
+              </View>
+            )}
+
+            <Button
+              title={
+                isCodePhase
+                  ? confirmSignIn.isPending
+                    ? 'Signing in…'
+                    : 'Sign in'
+                  : sendOtp.isPending
+                    ? 'Sending…'
+                    : 'Continue'
+              }
+              onPress={isCodePhase ? handleSignIn : () => sendCode()}
+              variant="primary"
+              fullWidth
+              disabled={isCodePhase ? confirmSignIn.isPending : sendOtp.isPending}
+            />
+
+            {isCodePhase && (
               <View style={styles.resendRow}>
-                <Text style={styles.timerText}>
-                  {sendOtp.isPending ? 'Sending code…' : "Didn't get a code?"}
+                <Text style={styles.resendText}>
+                  {sendOtp.isPending ? 'Sending code…' : "Didn't get it?"}
                 </Text>
                 <Pressable onPress={() => sendCode(true)} disabled={resendDisabled} hitSlop={8}>
-                  <Text style={[styles.resendLink, resendDisabled && styles.resendLinkDisabled]}>
+                  <Text style={[styles.resendLink, resendDisabled && styles.linkDisabled]}>
                     {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : 'Resend code'}
                   </Text>
                 </Pressable>
               </View>
-
-              {/* Sign-in is the stack root, so there is no back button to
-                  escape a mistyped number — this link is the only way out
-                  of the code phase and back to the phone field. */}
-              <Pressable
-                style={styles.useDifferentNumberRow}
-                onPress={useDifferentNumber}
-                disabled={confirmSignIn.isPending}
-                hitSlop={8}
-              >
-                <Text
-                  style={[styles.resendLink, confirmSignIn.isPending && styles.resendLinkDisabled]}
-                >
-                  Use a different number
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {formError && (
-            <View style={styles.formErrorBanner}>
-              <Text style={styles.formErrorText}>{formError}</Text>
-            </View>
-          )}
-
-          <Button
-            title={
-              isCodePhase
-                ? confirmSignIn.isPending
-                  ? 'Signing in…'
-                  : 'Sign in'
-                : sendOtp.isPending
-                  ? 'Sending…'
-                  : 'Send code'
-            }
-            onPress={isCodePhase ? handleSignIn : () => sendCode()}
-            variant="primary"
-            fullWidth
-            disabled={isCodePhase ? confirmSignIn.isPending : sendOtp.isPending}
-          />
+            )}
+          </View>
 
           {!isCodePhase && (
             <>
               <View style={styles.socialSection}>
-                <Divider label="or" />
-                <SocialAuthButtons context="sign-in" />
-                <Button
-                  title="Sign in with email"
-                  icon="mail-outline"
-                  onPress={() => router.push('/(auth)/sign-in-email')}
-                  variant="outline"
-                  fullWidth
-                />
+                <Divider label="or continue with" />
+                <SocialAuthButtons context="sign-in" layout="icons">
+                  <AuthIconButton
+                    icon="mail-outline"
+                    label="Sign in with email"
+                    onPress={() => router.push('/(auth)/sign-in-email')}
+                  />
+                </SocialAuthButtons>
               </View>
 
+              {/* The whole line is the target, not just the bold words. */}
               <Pressable
-                style={styles.forgotRow}
-                onPress={() => router.push('/(auth)/forgot-password')}
-                hitSlop={8}
+                style={styles.signUpRow}
+                onPress={() => router.push('/(auth)/role-selection')}
+                accessibilityRole="button"
+                accessibilityLabel="Create an account"
               >
-                <Text style={styles.forgotLink}>Forgot password?</Text>
+                <Text style={styles.signUpText}>
+                  {`New to ${APP_NAME}? `}
+                  <Text style={styles.signUpLink}>Create an account</Text>
+                </Text>
               </Pressable>
-
-              <View style={styles.signUpSection}>
-                <Divider label={`New to ${APP_NAME}?`} />
-                <Button
-                  title="Sign up"
-                  onPress={() => router.push('/(auth)/role-selection')}
-                  variant="outline"
-                  fullWidth
-                />
-              </View>
-
-              {/* A pending connection means she has an account to finish signing
-                  in to — browsing as a guest would quietly drop it. */}
-              {!pending && (
-                <Pressable style={styles.guestRow} onPress={continueAsGuest} hitSlop={8}>
-                  <Text style={styles.guestLink}>Continue as guest</Text>
-                </Pressable>
-              )}
             </>
           )}
         </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }

@@ -55,7 +55,7 @@ appId: com.nannyapp.mobile
 - assertVisible: 'Your account has been deleted.'
 - tapOn: 'Got it'
 - extendedWaitUntil:
-    visible: 'Welcome to NannyNow'
+    visible: 'Welcome back'
     timeout: 30000
 
 # ── Same number now finds no account, before any SMS: /auth/phone-account
@@ -65,8 +65,8 @@ appId: com.nannyapp.mobile
     id: 'signIn.phone'
 - inputText: ${DELETABLE_PHONE}
 - hideKeyboard
-- tapOn: 'Send code'
+- tapOn: 'Continue'
 - extendedWaitUntil:
     visible: "We couldn't find an account for that number. Sign up first."
     timeout: 30000
-- assertNotVisible: "Didn't get a code\\?"
+- assertNotVisible: "Didn't get it\\?"
