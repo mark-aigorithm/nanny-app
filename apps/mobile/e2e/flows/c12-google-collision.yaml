@@ -13,7 +13,7 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: _launch.yaml
 
-- tapOn: 'Sign up'
+- tapOn: 'Create an account'
 - extendedWaitUntil:
     visible: 'Create your account'
     timeout: 30000
@@ -44,9 +44,9 @@ appId: com.nannyapp.mobile
 - extendedWaitUntil:
     visible: 'You already have an account. Sign in with your phone once to connect Google.'
     timeout: 60000
-- tapOn: 'Send code'
+- tapOn: 'Continue'
 - extendedWaitUntil:
-    visible: "Didn't get a code?"
+    visible: "Didn't get it?"
     timeout: 60000
 - runScript:
     file: ../scripts/advance.js

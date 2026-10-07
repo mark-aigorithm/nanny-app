@@ -92,7 +92,7 @@ it('texts a code and signs in when the number has an account', async () => {
   renderScreen();
 
   fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
 
   await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalledWith('+201234567891', undefined));
 
@@ -112,7 +112,7 @@ it('deletes the account Firebase just minted when the number has no profile', as
   renderScreen();
 
   fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567892');
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
   await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
 
   fireEvent.changeText(screen.getByTestId('signIn.code'), '222222');
@@ -136,7 +136,7 @@ it('signs out if delete fails when no profile exists', async () => {
   renderScreen();
 
   fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567893');
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
   await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
 
   fireEvent.changeText(screen.getByTestId('signIn.code'), '333333');
@@ -166,7 +166,7 @@ it('resumes an unfinished sign-up that also holds a Google identity, deleting no
   renderScreen();
 
   fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567894');
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
   await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
 
   fireEvent.changeText(screen.getByTestId('signIn.code'), '444444');
@@ -184,7 +184,7 @@ it("says it couldn't connect when /auth/me fails for another reason", async () =
   renderScreen();
 
   fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567895');
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
   await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalled());
 
   fireEvent.changeText(screen.getByTestId('signIn.code'), '555555');
@@ -201,9 +201,9 @@ const PENDING_GOOGLE = {
   phoneHint: '+201234567891',
 };
 
-it('offers Google beside the phone door', () => {
+it('offers Google under the phone door', () => {
   renderScreen();
-  expect(screen.getByText('Continue with Google')).toBeTruthy();
+  expect(screen.getByLabelText('Continue with Google')).toBeTruthy();
 });
 
 it('explains a pending connection, prefills the number, and links after the SMS sign-in', async () => {
@@ -215,7 +215,7 @@ it('explains a pending connection, prefills the number, and links after the SMS 
   ).toBeTruthy();
   expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
 
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
   await waitFor(() => expect(mockSignInWithPhoneNumber).toHaveBeenCalledWith('+201234567891', undefined));
   fireEvent.changeText(screen.getByTestId('signIn.code'), '111111');
   fireEvent.press(screen.getByText('Sign in'));
@@ -238,34 +238,33 @@ it('drops the pending connection on "Not now"', () => {
 });
 
 describe('the front door', () => {
-  it('welcomes by the app name', () => {
+  it('welcomes back under the app name', () => {
     renderScreen();
-    expect(screen.getByText('Welcome to NannyNow')).toBeTruthy();
+    expect(screen.getByText('NannyNow')).toBeTruthy();
+    expect(screen.getByText('Welcome back')).toBeTruthy();
   });
 
-  it('opens the email door from its button', () => {
+  it('opens the email door from its tile', () => {
     renderScreen();
-    fireEvent.press(screen.getByText('Sign in with email'));
+    fireEvent.press(screen.getByLabelText('Sign in with email'));
     expect(mockPush).toHaveBeenCalledWith('/(auth)/sign-in-email');
   });
 
-  it('opens password reset from "Forgot password?"', () => {
+  it('leaves "Forgot password?" to the email door, the only one with a password', () => {
     renderScreen();
-    fireEvent.press(screen.getByText('Forgot password?'));
-    expect(mockPush).toHaveBeenCalledWith('/(auth)/forgot-password');
+    expect(screen.queryByText('Forgot password?')).toBeNull();
   });
 
-  it('opens sign-up from "Sign up"', () => {
+  it('opens sign-up from "Create an account"', () => {
     renderScreen();
-    expect(screen.getByText('New to NannyNow?')).toBeTruthy();
-    fireEvent.press(screen.getByText('Sign up'));
+    fireEvent.press(screen.getByLabelText('Create an account'));
     expect(mockPush).toHaveBeenCalledWith('/(auth)/role-selection');
   });
 
   it('lets a visitor browse as a guest', () => {
     mockCanGoBack = false;
     renderScreen();
-    fireEvent.press(screen.getByText('Continue as guest'));
+    fireEvent.press(screen.getByText('Skip for now'));
     expect(useGuestStore.getState().isGuest).toBe(true);
     expect(mockReplace).toHaveBeenCalledWith('/(parent)/(tabs)/home');
   });
@@ -273,7 +272,7 @@ describe('the front door', () => {
   it('returns a guest to the screen the register prompt was opened over', () => {
     mockCanGoBack = true;
     renderScreen();
-    fireEvent.press(screen.getByText('Continue as guest'));
+    fireEvent.press(screen.getByText('Skip for now'));
     expect(mockBack).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
     mockCanGoBack = false;
@@ -282,18 +281,19 @@ describe('the front door', () => {
   it('hides the guest link while a Google connection is waiting to be linked', () => {
     usePendingLinkStore.getState().set(PENDING_GOOGLE);
     renderScreen();
-    expect(screen.queryByText('Continue as guest')).toBeNull();
+    expect(screen.queryByText('Skip for now')).toBeNull();
   });
 
   it('shows only the code UI once a code is on its way', async () => {
     renderScreen();
     fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
-    fireEvent.press(screen.getByText('Send code'));
+    fireEvent.press(screen.getByText('Continue'));
     await waitFor(() => expect(screen.getByTestId('signIn.code')).toBeTruthy());
-    expect(screen.queryByText('Sign in with email')).toBeNull();
-    expect(screen.queryByText('Forgot password?')).toBeNull();
-    expect(screen.queryByText('Sign up')).toBeNull();
-    expect(screen.queryByText('Continue as guest')).toBeNull();
+    expect(screen.getByText('Check your messages')).toBeTruthy();
+    expect(screen.queryByLabelText('Sign in with email')).toBeNull();
+    expect(screen.queryByLabelText('Continue with Google')).toBeNull();
+    expect(screen.queryByLabelText('Create an account')).toBeNull();
+    expect(screen.queryByText('Skip for now')).toBeNull();
   });
 
   it('prefills the number when a connection is parked after the screen mounted', () => {
@@ -307,15 +307,15 @@ describe('the front door', () => {
   it('lets her fix a mistyped number from the code phase', async () => {
     renderScreen();
     fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
-    fireEvent.press(screen.getByText('Send code'));
+    fireEvent.press(screen.getByText('Continue'));
     await waitFor(() => expect(screen.getByTestId('signIn.code')).toBeTruthy());
 
-    fireEvent.press(screen.getByText('Use a different number'));
+    fireEvent.press(screen.getByText('Change'));
 
     expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
-    expect(screen.getByText('Send code')).toBeTruthy();
-    expect(screen.getByText('Continue as guest')).toBeTruthy();
-    expect(screen.getByText('Sign up')).toBeTruthy();
+    expect(screen.getByText('Continue')).toBeTruthy();
+    expect(screen.getByText('Skip for now')).toBeTruthy();
+    expect(screen.getByLabelText('Create an account')).toBeTruthy();
   });
 });
 
@@ -324,7 +324,7 @@ it('says a number has no account before any SMS is sent', async () => {
   renderScreen();
 
   fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567893');
-  fireEvent.press(screen.getByText('Send code'));
+  fireEvent.press(screen.getByText('Continue'));
 
   expect(
     await screen.findByText("We couldn't find an account for that number. Sign up first."),

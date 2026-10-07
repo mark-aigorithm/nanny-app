@@ -10,19 +10,19 @@ appId: com.nannyapp.mobile
 ---
 - runFlow: ../_launch.yaml
 
-- assertVisible: 'Welcome to NannyNow'
+- assertVisible: 'Welcome back'
 
 - tapOn:
     id: 'signIn.phone'
 - inputText: ${ABSENT_PHONE}
 - hideKeyboard
-- tapOn: 'Send code'
+- tapOn: 'Continue'
 
 # Shown under the phone field straight away — no code screen, no SMS.
 - extendedWaitUntil:
     visible: "We couldn't find an account for that number. Sign up first."
     timeout: 30000
-- assertNotVisible: "Didn't get a code\\?"
+- assertNotVisible: "Didn't get it\\?"
 - assertNotVisible: 'Book care'
 
 # Nothing may be left squatting on the number.

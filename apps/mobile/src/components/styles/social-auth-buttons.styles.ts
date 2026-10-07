@@ -6,6 +6,11 @@ export const styles = StyleSheet.create({
   container: {
     gap: spacing.md,
   },
+  // The sign-in screen's logo tiles, sharing the width equally.
+  iconRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
   // Matches Button's md height, so the two stack as a pair.
   appleButton: {
     width: '100%',

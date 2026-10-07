@@ -31,10 +31,13 @@ src/
 - Connectivity: `src/lib/network.ts` is the only importer of `expo-network`. `OfflineGate` (mounted
   once in `app/_layout.tsx`) covers the app with `screens/OfflineScreen` while the device is offline;
   `bindOnlineManager` keeps React Query's pause/resume in step. Never read `expo-network` elsewhere.
-- The signed-out landing is `/(auth)/sign-in` (`SignInScreen`) — the phone door, Google/Apple,
-  the email-door button, Forgot password, Sign up and Continue as guest all live there; the
-  "Get Started" splash screen is gone. A screen returning to it (a cancelled registration, a
-  finished social collision hand-off) uses `router.dismissTo('/(auth)/sign-in')`, not `push`/`replace`.
+- The signed-out landing is `/(auth)/sign-in` (`SignInScreen`) — the phone door is its only
+  full-size button; Google/Apple and the email door sit under it as logo tiles
+  (`SocialAuthButtons layout="icons"` + `AuthIconButton`, labelled for screen readers and
+  Maestro), "Create an account" is a line at the foot and "Skip for now" (guest) is top right.
+  Forgot password lives only on the email door. The "Get Started" splash screen is gone. A screen
+  returning to it (a cancelled registration, a finished social collision hand-off) uses
+  `router.dismissTo('/(auth)/sign-in')`, not `push`/`replace`.
 - The root gate (`app/index.tsx` → `hooks/useRootGate.ts`) **never signs anyone out**. A signed-in
   account with no row (`/auth/me` 404) is an unfinished sign-up: the draft is seeded from it
   (`lib/resumeSignUp.ts`) and role selection opens as "Finish setting up your account". Any other
