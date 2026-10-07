@@ -9,12 +9,15 @@
  * commit — `source` names the code each row describes.
  */
 
-/** How an outcome reads to the mother: kept whole, lost, nothing at stake, or a caveat. */
-export type OutcomeTone = 'ok' | 'lost' | 'none' | 'warn';
+/**
+ * How an outcome reads to the mother: kept whole, lost, nothing at stake, or a
+ * caveat — or `na` when the thing simply isn't involved (no badge, just text).
+ */
+export type OutcomeTone = 'ok' | 'lost' | 'none' | 'warn' | 'na';
 
 export type Outcome = { tone: OutcomeTone; text: string };
 
-export type CancellationActor = 'Mother' | 'Nanny' | 'Admin' | 'System';
+export type CancellationActor = 'Mother' | 'Nanny' | 'Mother or nanny' | 'Admin' | 'System';
 
 export type CancellationFlow = {
   id: string;
@@ -22,6 +25,13 @@ export type CancellationFlow = {
   who: CancellationActor;
   /** The booking statuses the flow starts from. */
   when: string;
+  /** Before or after payment; 'other' for flows the payment method doesn't change. */
+  phase: 'before' | 'after' | 'other';
+  /**
+   * Starts from an accepted but unpaid booking — a state a booking with nothing
+   * to pay never reaches, since it confirms itself when a nanny accepts.
+   */
+  needsAcceptedUnpaid?: boolean;
   packageHours: Outcome;
   carePoints: Outcome;
   promoCode: Outcome;
@@ -68,6 +78,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Mother withdraws a request no nanny has accepted',
     who: 'Mother',
     when: 'PENDING, no nanny',
+    phase: 'before',
     packageHours: RETURNED_HOURS,
     carePoints: RETURNED_POINTS,
     promoCode: PROMO_RELEASED,
@@ -83,6 +94,8 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Mother cancels an accepted booking she has not paid for yet',
     who: 'Mother',
     when: 'APPROVED',
+    phase: 'before',
+    needsAcceptedUnpaid: true,
     packageHours: RETURNED_HOURS,
     carePoints: RETURNED_POINTS,
     promoCode: PROMO_RELEASED,
@@ -98,6 +111,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Mother cancels a paid booking outside the cancellation window',
     who: 'Mother',
     when: 'CONFIRMED, more than the window ahead',
+    phase: 'after',
     packageHours: HOURS_KEPT,
     carePoints: POINTS_KEPT,
     promoCode: PROMO_USED,
@@ -109,7 +123,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
       tone: 'none',
       text: 'The nanny is told. The mother gets no notice of what happens to her money or credits.',
     },
-    gap: 'A free cancellation still loses the mother her hours, points, promo code and payment unless an admin steps in — and the console has no tool to refund a cancelled booking.',
+    gap: 'A free cancellation still loses the mother her hours, points, promo code and payment unless an admin steps in — and the console has no tool to refund a cancelled booking. A booking paid entirely with hours, points or a 100% promo counts as paid the moment a nanny accepts, so its whole value is lost however early she cancels.',
     source: 'booking.service.ts → cancelBooking (refundAmount quote only)',
   },
   {
@@ -117,6 +131,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Mother cancels a paid booking inside the cancellation window',
     who: 'Mother',
     when: 'CONFIRMED, within the window',
+    phase: 'after',
     packageHours: HOURS_KEPT,
     carePoints: POINTS_KEPT,
     promoCode: PROMO_USED,
@@ -129,26 +144,12 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     source: 'booking.service.ts → cancelBooking; mobile lib/cancellationWarning.ts',
   },
   {
-    id: 'mother-fully-covered',
-    title: 'Mother cancels a booking her package, points or a 100% promo paid for in full',
-    who: 'Mother',
-    when: 'CONFIRMED with a total of 0 (confirmed automatically when a nanny accepted)',
-    packageHours: { tone: 'lost', text: 'Lost — the booking counts as paid, so they stay spent.' },
-    carePoints: { tone: 'lost', text: 'Lost — the booking counts as paid, so they stay spent.' },
-    promoCode: {
-      tone: 'lost',
-      text: 'Spent when the booking confirmed itself, and stays used.',
-    },
-    money: { tone: 'none', text: 'Nothing was charged; the refund quote is 0.' },
-    notifications: { tone: 'none', text: 'The nanny is told. The mother gets nothing.' },
-    gap: 'The whole value of the booking is lost, however early she cancels. The same happens when the nanny or an admin cancels it.',
-    source: 'paymob.service.ts → confirmBookingIfNothingOwed; booking.service.ts → returnUnpaidCredits',
-  },
-  {
     id: 'nanny-unpaid',
     title: 'Nanny cancels an accepted booking that is not paid yet',
     who: 'Nanny',
     when: 'APPROVED',
+    phase: 'before',
+    needsAcceptedUnpaid: true,
     packageHours: RETURNED_HOURS,
     carePoints: RETURNED_POINTS,
     promoCode: PROMO_RELEASED,
@@ -164,6 +165,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Nanny cancels a paid booking',
     who: 'Nanny',
     when: 'CONFIRMED',
+    phase: 'after',
     packageHours: HOURS_KEPT,
     carePoints: POINTS_KEPT,
     promoCode: PROMO_USED,
@@ -181,8 +183,9 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
   {
     id: 'shift-running',
     title: 'Mother or nanny tries to cancel a shift that has started',
-    who: 'Mother',
+    who: 'Mother or nanny',
     when: 'IN_PROGRESS',
+    phase: 'other',
     packageHours: { tone: 'none', text: 'Unchanged — the cancellation is refused.' },
     carePoints: { tone: 'none', text: 'Unchanged — the cancellation is refused.' },
     promoCode: { tone: 'none', text: 'Unchanged — the cancellation is refused.' },
@@ -198,6 +201,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Admin rejects a request',
     who: 'Admin',
     when: 'PENDING or APPROVED',
+    phase: 'before',
     packageHours: RETURNED_HOURS,
     carePoints: RETURNED_POINTS,
     promoCode: PROMO_RELEASED,
@@ -213,6 +217,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Admin changes a paid or running booking to Cancelled',
     who: 'Admin',
     when: 'CONFIRMED or IN_PROGRESS',
+    phase: 'after',
     packageHours: HOURS_KEPT,
     carePoints: POINTS_KEPT,
     promoCode: PROMO_USED,
@@ -232,6 +237,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Payment goes through after the booking was cancelled',
     who: 'System',
     when: 'CANCELLED while the mother was in checkout',
+    phase: 'other',
     packageHours: NOT_APPLICABLE,
     carePoints: NOT_APPLICABLE,
     promoCode: { tone: 'ok', text: 'Not redeemed — the booking is never confirmed.' },
@@ -248,6 +254,7 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
     title: 'Mother withdraws an extension request before paying for it',
     who: 'Mother',
     when: 'Extension requested or accepted, not paid',
+    phase: 'other',
     packageHours: { tone: 'ok', text: 'Any hours applied to the extension are returned.' },
     carePoints: RETURNED_POINTS,
     promoCode: NOT_APPLICABLE,
@@ -258,8 +265,9 @@ export const CANCELLATION_FLOWS: readonly CancellationFlow[] = [
   {
     id: 'account-deletion',
     title: 'Mother or nanny deletes their account with live bookings',
-    who: 'Mother',
+    who: 'Mother or nanny',
     when: 'Any of PENDING, APPROVED, CONFIRMED, IN_PROGRESS',
+    phase: 'other',
     packageHours: { tone: 'none', text: 'Unchanged — deletion is refused.' },
     carePoints: { tone: 'none', text: 'Unchanged — deletion is refused.' },
     promoCode: { tone: 'none', text: 'Unchanged — deletion is refused.' },

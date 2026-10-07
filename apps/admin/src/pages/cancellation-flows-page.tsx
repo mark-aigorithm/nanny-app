@@ -2,19 +2,11 @@ import { isAxiosError } from 'axios';
 
 import { CANCELLATION_DECISIONS, CANCELLATION_EXAMPLE_BOOKING } from '@nanny-app/shared';
 
-import {
-  Badge,
-  Card,
-  DescriptionList,
-  ICON_SIZE,
-  TriangleAlert,
-  useToast,
-} from '@admin/components/ui';
+import { Badge, Card, ICON_SIZE, TriangleAlert, useToast } from '@admin/components/ui';
 import { DecisionCard, type RecordingState } from '@admin/features/cancellation-flows/decision-card';
-import { CANCELLATION_FLOWS, OUTCOME_ROWS } from '@admin/features/cancellation-flows/flows';
-import { OutcomeValue, TONE_BADGE } from '@admin/features/cancellation-flows/outcome-value';
-import { PROMO_STACKING_NOTE } from '@admin/features/cancellation-flows/payment-matrix';
-import { PaymentMatrixTable } from '@admin/features/cancellation-flows/payment-matrix-table';
+import { CANCELLATION_FLOWS } from '@admin/features/cancellation-flows/flows';
+import { TONE_BADGE } from '@admin/features/cancellation-flows/outcome-value';
+import { FlowsTable } from '@admin/features/cancellation-flows/flows-table';
 import {
   useCancellationDecisions,
   useClearCancellationDecision,
@@ -75,10 +67,9 @@ export function CancellationFlowsPage() {
         </header>
 
         <nav className="flows-jump" aria-label="On this page">
-          <a href="#by-payment">By payment method</a>
-          <a href="#decisions">Decisions to make ({CANCELLATION_DECISIONS.length})</a>
+          <a href="#today">What happens today</a>
           <a href="#gaps">Known gaps ({gaps.length})</a>
-          <a href="#flows">Every flow today ({CANCELLATION_FLOWS.length})</a>
+          <a href="#decisions">Decisions to make ({CANCELLATION_DECISIONS.length})</a>
         </nav>
 
         <div className="flows-legend" aria-label="Legend">
@@ -89,11 +80,28 @@ export function CancellationFlowsPage() {
           ))}
         </div>
 
-        <h2 id="by-payment" className="flows-section-title">
-          By payment method — today
+        <h2 id="today" className="flows-section-title">
+          What happens today
         </h2>
-        <p className="flows-section-lead">{PROMO_STACKING_NOTE}</p>
-        <PaymentMatrixTable />
+        <p className="flows-section-lead">
+          One row per way a booking can be cancelled. Pick how it was paid to see exactly what
+          the mother keeps or loses. A promo code can sit on top of any payment: it comes off
+          first, then package hours, then Care Points, and the card pays the rest.
+        </p>
+        <FlowsTable />
+
+        <section id="gaps" className="flows-flow" aria-label="Known gaps">
+          <Card title={`Known gaps (${gaps.length})`}>
+            <ul className="flows-gap-list">
+              {gaps.map((flow) => (
+                <li key={flow.id}>
+                  <a href={`#${flow.id}`}>{flow.title}</a> — {flow.gap}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+
 
         <h2 id="decisions" className="flows-section-title">
           Decisions to make
@@ -149,44 +157,6 @@ export function CancellationFlowsPage() {
           />
         ))}
 
-        <section id="gaps" className="flows-flow" aria-label="Known gaps">
-          <Card title={`Known gaps (${gaps.length})`}>
-            <ul className="flows-gap-list">
-              {gaps.map((flow) => (
-                <li key={flow.id}>
-                  <a href={`#${flow.id}`}>{flow.title}</a> — {flow.gap}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </section>
-
-        <h2 id="flows" className="flows-section-title">
-          Every flow today
-        </h2>
-        {CANCELLATION_FLOWS.map((flow, index) => (
-          <section key={flow.id} id={flow.id} className="flows-flow" aria-label={flow.title}>
-            <Card title={`${index + 1}. ${flow.title}`}>
-              <div className="flows-meta">
-                <Badge>{flow.who}</Badge>
-                <span className="flows-when">{flow.when}</span>
-              </div>
-              <DescriptionList
-                items={OUTCOME_ROWS.map((row) => ({
-                  label: row.label,
-                  value: <OutcomeValue outcome={flow[row.key]} />,
-                }))}
-              />
-              {flow.gap && (
-                <p className="flows-gap">
-                  <TriangleAlert size={ICON_SIZE.inline} aria-hidden />
-                  <span>{flow.gap}</span>
-                </p>
-              )}
-              <p className="flows-source">{flow.source}</p>
-            </Card>
-          </section>
-        ))}
       </div>
     </div>
   );

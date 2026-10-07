@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 import { ToastProvider } from '@admin/components/ui';
 import { CANCELLATION_FLOWS } from '@admin/features/cancellation-flows/flows';
-import { MATRIX_COLUMNS, PAYMENT_MIXES } from '@admin/features/cancellation-flows/payment-matrix';
 import { CancellationFlowsPage } from '@admin/pages/cancellation-flows-page';
 import { renderWithProviders } from '@admin/test/render';
 import { server } from '@admin/test/server';
@@ -30,29 +29,62 @@ function renderPage() {
   );
 }
 
-describe('CancellationFlowsPage — content', () => {
-  it('lists every cancellation flow with its five outcomes', () => {
-    server.use(decisions());
-    renderPage();
+describe('CancellationFlowsPage — what happens today', () => {
+  function rowFor(title: string) {
+    return screen.getByText(new RegExp(`^\\d+\\. ${title}$`)).closest('tr')!;
+  }
 
-    for (const flow of CANCELLATION_FLOWS) {
-      const section = screen.getByRole('region', { name: flow.title });
-      for (const label of ['Package hours', 'Care Points', 'Promo code', 'Money', 'Notifications']) {
-        expect(within(section).getByText(label)).toBeInTheDocument();
-      }
-    }
-  });
-
-  it('crosses every payment method with every way of cancelling', () => {
+  it('puts every flow in one table, with its five outcomes as columns', () => {
     server.use(decisions());
     renderPage();
 
     const table = screen.getByRole('table');
-    for (const column of MATRIX_COLUMNS) {
-      expect(within(table).getByRole('columnheader', { name: column.label })).toBeInTheDocument();
+    for (const label of ['Scenario', 'Package hours', 'Care Points', 'Promo code', 'Money', 'Notifications']) {
+      expect(within(table).getByRole('columnheader', { name: label })).toBeInTheDocument();
     }
-    for (const mix of PAYMENT_MIXES) {
-      expect(within(table).getByText(mix.label)).toBeInTheDocument();
+    for (const flow of CANCELLATION_FLOWS) {
+      expect(within(table).getByText(new RegExp(`^\\d+\\. ${flow.title}$`))).toBeInTheDocument();
+    }
+  });
+
+  it('re-reads every flow for the payment picked', async () => {
+    server.use(decisions());
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByLabelText('Paid with'));
+    await user.click(screen.getByRole('option', { name: 'Card only' }));
+
+    // Paid by card alone, there were no hours to lose.
+    const paidCancel = rowFor('Mother cancels a paid booking outside the cancellation window');
+    expect(within(paidCancel).getAllByText('Not used.')).toHaveLength(3);
+  });
+
+  it('says when a flow cannot happen with the payment picked', async () => {
+    server.use(decisions());
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByLabelText('Paid with'));
+    await user.click(screen.getByRole('option', { name: 'Package hours cover it all' }));
+
+    // A booking with nothing to pay confirms itself on accept — never accepted-but-unpaid.
+    const unpaid = rowFor('Mother cancels an accepted booking she has not paid for yet');
+    expect(unpaid.nextElementSibling).toHaveTextContent(/Can’t happen with this payment/);
+  });
+
+  it('narrows to who cancels', async () => {
+    server.use(decisions());
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByLabelText('Who cancels'));
+    await user.click(screen.getByRole('option', { name: 'Nanny' }));
+
+    const table = screen.getByRole('table');
+    for (const flow of CANCELLATION_FLOWS) {
+      const shown = within(table).queryByText(new RegExp(`^\\d+\\. ${flow.title}$`)) !== null;
+      expect(shown, flow.id).toBe(flow.who === 'Nanny');
     }
   });
 
