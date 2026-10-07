@@ -176,48 +176,6 @@ export const styles = StyleSheet.create({
     color: colors.error,
   },
 
-  // Care Points
-  pointsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  pointsBalance: {
-    ...typeScale.labelSm,
-    color: colors.goldWarm,
-    marginLeft: 'auto',
-  },
-  pointsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-  },
-  pointsSaving: {
-    ...typeScale.labelMd,
-    color: colors.successDark,
-  },
-  pointsNote: {
-    ...typeScale.caption,
-    color: colors.textMuted,
-  },
-
-  // Prepaid hours
-  prepaidRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.successLight,
-  },
-  prepaidText: {
-    ...typeScale.caption,
-    color: colors.successText,
-    flex: 1,
-  },
-
   // Prepaid-package nudge
   packageNudge: {
     flexDirection: 'row',
@@ -276,10 +234,6 @@ export const styles = StyleSheet.create({
     ...typeScale.labelSm,
     color: colors.successDark,
   },
-  savingsFootnote: {
-    ...typeScale.caption,
-    color: colors.textMuted,
-  },
 
   // Price breakdown
   priceRow: {
@@ -333,10 +287,6 @@ export const styles = StyleSheet.create({
   totalValue: {
     ...typeScale.headingSm,
     color: colors.primaryDark,
-  },
-  pendingCreditNote: {
-    ...typeScale.caption,
-    color: colors.textMuted,
   },
 
   // Nothing owed, shown just above the sticky CTA

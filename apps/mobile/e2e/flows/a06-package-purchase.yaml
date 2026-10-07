@@ -110,10 +110,12 @@ appId: com.nannyapp.mobile
 
 - runFlow: _book-to-review.yaml
 
-# The review step's estimate is still the pay-as-you-go price: the credit is
-# applied server-side when the request is created, so all the app can promise
-# here is that it will be.
-- assertVisible: '10h from your package will be applied to this booking'
+# The review step prices the package in, the same way the server applies it
+# when the request is created: used first, all four hours covered, nothing to
+# pay.
+- assertVisible: 'Used first'
+- assertVisible: '4h of your 10h · 6h left after this'
+- assertVisible: 'Request care · Covered'
 - tapOn:
     id: 'booking.cta'
 
