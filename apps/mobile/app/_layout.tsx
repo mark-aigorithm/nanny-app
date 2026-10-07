@@ -16,7 +16,12 @@ import {
 } from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { queryClient, bindOnlineManager } from '@mobile/lib/queryClient';
+import {
+  queryClient,
+  bindFocusManager,
+  bindOnlineManager,
+  subscribeAppActive,
+} from '@mobile/lib/queryClient';
 import { subscribeIsOffline } from '@mobile/lib/network';
 import OfflineGate from '@mobile/components/OfflineGate';
 import { auth } from '@mobile/lib/firebase';
@@ -31,6 +36,9 @@ SplashScreen.preventAutoHideAsync();
 // Let React Query pause/resume on real device connectivity rather than
 // `navigator.onLine`. Module level: once per app process, before any query.
 bindOnlineManager(subscribeIsOffline);
+// …and treat the app returning to the foreground as focus, so stale data on a
+// still-mounted screen (the wallet on the Account tab) refetches by itself.
+bindFocusManager(subscribeAppActive);
 
 /**
  * Side-effect-only component that fetches the application user profile
