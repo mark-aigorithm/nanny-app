@@ -89,7 +89,8 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     id: 'late-fee',
     title: 'Late-cancellation fee',
     question: 'How much does the mother lose for cancelling inside the cancellation window?',
-    context: 'Today it is 50%, fixed in both the server and the app. The window length is already a setting.',
+    context:
+      'The fee is now a percentage set under Booking options (50% by default), next to the window. What is still open is whether a single percentage is the right shape.',
     options: [
       {
         id: 'fixed-50',
@@ -98,7 +99,6 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         mother: 'Simple to understand.',
         business: 'Changing it needs a new app build.',
         example: 'Card part EGP 240 → EGP 120 refunded.',
-        status: 'today',
       },
       {
         id: 'a-percentage-set-in-the-console',
@@ -107,7 +107,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         mother: 'The app always shows the current %.',
         business: 'Tune it without a release.',
         example: 'At 30%: EGP 240 → EGP 168 refunded.',
-        status: 'proposed',
+        status: 'today',
       },
       {
         id: 'tiered-by-notice',
@@ -220,14 +220,14 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     title: 'When the nanny cancels a paid booking',
     question: 'What does the mother get back, and how fast?',
     context:
-      'Today she is told “You will be refunded in full”, but nothing is refunded, and any hours, points and promo code are lost.',
+      'If the booking isn’t paid yet, it now goes back to the pool and she is told another nanny is being found. Once paid, she is told the team will review her payment — no refund is promised — and any hours, points and promo code stay spent until an admin decides.',
     options: [
       {
-        id: 'promise-only',
-        label: 'Promise only',
-        description: 'A full-refund message with no refund behind it.',
-        mother: 'Misled; has to chase support.',
-        business: 'Trust and chargeback risk.',
+        id: 'admin-reviews-everything',
+        label: 'Admin reviews everything',
+        description: 'Credits stay spent and no money moves until an admin decides — money or Care Points.',
+        mother: 'Told her payment is being reviewed; waits for the team.',
+        business: 'Full control; every nanny cancellation becomes an admin task.',
         status: 'today',
       },
       {
@@ -445,14 +445,14 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     title: 'What the mother is told',
     question: 'What does the cancellation notification say about money and credits?',
     context:
-      'Today a mother who cancels hears nothing; a nanny cancellation promises a full refund that never comes.',
+      'A mother who cancels still hears nothing. When a nanny cancels a paid booking she is now told the team will review her payment, with no refund promised; before payment, that another nanny is being found.',
     options: [
       {
         id: 'today',
         label: 'Today',
-        description: 'Silence when she cancels; “refunded in full” when the nanny does.',
-        mother: 'Confused or misled.',
-        business: 'Support load and trust risk.',
+        description: 'Silence when she cancels; “our team will review your payment” when the nanny does.',
+        mother: 'Not misled, but unsure where her hours, points and code are when she cancels.',
+        business: 'Support questions from mothers who cancelled.',
         status: 'today',
       },
       {
