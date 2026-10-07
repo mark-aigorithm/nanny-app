@@ -4816,6 +4816,84 @@ input[type='number'] {
   }
 }
 
+/* ── Cancellation flows (public /cancellation-flows page) ── */
+
+/* Borrows the /qa page frame (.qa-page, .qa-shell, .qa-header); these are
+   only the pieces inside each flow card. */
+.flows-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.flows-gap-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.flows-gap-list a {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+/* Anchored from the gap list; keep the card off the very top edge. */
+.flows-flow {
+  scroll-margin-top: 1rem;
+}
+
+.flows-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.flows-when {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.flows-outcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.flows-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.flows-gap svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.flows-source {
+  margin: 0.75rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
 /* Campaign image cropper — inline in the campaign form. */
 .crop-stage {
   display: flex;

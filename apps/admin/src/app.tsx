@@ -26,6 +26,7 @@ import { SkillsPage } from './pages/skills-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
 import { QaChecklistPage } from './pages/qa-checklist-page';
+import { CancellationFlowsPage } from './pages/cancellation-flows-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,9 @@ export function App() {
                 business team, who have no console account. Outside RequireAuth
                 and AdminLayout, so it renders with no sign-in and no sidebar. */}
               <Route path="qa" element={<QaChecklistPage />} />
+              {/* Public for the same reason: the cancellation policy is decided
+                with the business team. Static content, no API calls. */}
+              <Route path="cancellation-flows" element={<CancellationFlowsPage />} />
               <Route
                 element={
                   <RequireAuth>
