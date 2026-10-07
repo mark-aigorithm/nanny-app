@@ -229,13 +229,13 @@ export default function BookingDatePickerScreen() {
   /**
    * Falls back when the chosen length no longer fits — picking a late start with
    * "8 hours" already selected would otherwise just disable Continue with no
-   * explanation. Prefers 4 hours, as the old picker defaulted to.
+   * explanation. Defaults to the minimum booking length the admin configured.
    */
   const durationMinutes = useMemo(() => {
     if (selectedDurationMinutes !== null && availableDurations.includes(selectedDurationMinutes)) {
       return selectedDurationMinutes;
     }
-    return availableDurations.find((m) => m === 240) ?? availableDurations[0] ?? null;
+    return availableDurations[0] ?? null;
   }, [selectedDurationMinutes, availableDurations]);
 
   const minDuration = availableDurations[0] ?? 0;

@@ -45,6 +45,16 @@ appId: com.nannyapp.mobile
       - tapOn:
           id: 'booking.startTime.increment'
 
+# The length opens on the admin's minimum booking, so step it up to the four
+# hours every P0 flow prices against.
+- repeat:
+    while:
+      notVisible: '4h'
+    times: 12
+    commands:
+      - tapOn:
+          id: 'booking.duration.increment'
+
 - tapOn:
     id: 'booking.cta'
 

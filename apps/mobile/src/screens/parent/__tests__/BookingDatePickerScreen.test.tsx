@@ -89,3 +89,14 @@ describe('BookingDatePickerScreen — late-evening availability', () => {
     expect(getByText('10:45 PM')).toBeTruthy();
   });
 });
+
+describe('BookingDatePickerScreen — default length', () => {
+  it('opens on the minimum booking length the admin configured', () => {
+    const { getByText, getAllByText, queryByText } = renderScreen();
+
+    fireEvent.press(getByText('Today'));
+
+    expect(getAllByText('2h').length).toBeGreaterThan(0);
+    expect(queryByText('4h')).toBeNull();
+  });
+});
