@@ -32,7 +32,9 @@ export type CreateBookingOptions = {
   startHour?: number;
   durationHours?: number;
   promoCode?: string;
+  /** Sent as an older build would; the server ignores it (package always first). */
   usePackageHours?: boolean;
+  redeemPointsHours?: number;
   skillIds?: number[];
   children?: Array<{ name: string | null; ageYears: number; allergies: string | null }>;
   /** Which saved address to book at. Omitted → her default, as the picker preselects it. */

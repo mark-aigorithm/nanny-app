@@ -31,6 +31,8 @@ const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn() }),
   useLocalSearchParams: () => ({}),
+  // The wallet re-reads its balances when the tab regains focus.
+  useFocusEffect: jest.fn(),
 }));
 
 const mockSignOutMutate = jest.fn();

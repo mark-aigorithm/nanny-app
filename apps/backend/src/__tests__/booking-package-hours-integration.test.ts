@@ -359,14 +359,16 @@ describe('createBooking — applying prepaid package hours', () => {
     expect(m.booking.create).toHaveBeenCalled();
   });
 
-  it('does not touch the balance when the mother opts out', async () => {
+  it('spends package hours first even when an old client asks to skip them', async () => {
+    // Older builds could send usePackageHours: false. The rule is now that a
+    // valid package is always used first, so the flag no longer opts out.
     mockAvailable.mockResolvedValue(10);
+    mockSummary.mockResolvedValue({ availableHours: 10, maxSkillsAllowed: 0 });
+    mockRedeem.mockResolvedValue({ hoursApplied: 4, maxSkillsAllowed: 0, purchaseIds: [1] });
 
     await createBooking(DECODED, { ...baseBody, usePackageHours: false } as never);
 
-    expect(mockAvailable).not.toHaveBeenCalled();
-    expect(mockRedeem).not.toHaveBeenCalled();
-    expect(m.$transaction).not.toHaveBeenCalled();
+    expect(mockRedeem).toHaveBeenCalled();
   });
 
   it('credits the booking and leaves the nanny paid in full', async () => {
@@ -494,6 +496,7 @@ describe('createBooking — Care Points chosen with the request', () => {
       redeemHours: 4,
       perHour: 100,
       durationHours: 4,
+      owedAmount: 400,
     });
     // Written only against the row as read: same status, same total, no points yet.
     expect(m.booking.updateMany).toHaveBeenCalledWith(
@@ -508,6 +511,26 @@ describe('createBooking — Care Points chosen with the request', () => {
       rewardCreditPoints: 400,
       rewardCreditAmount: 400,
     });
+  });
+
+  it('spends package hours first and lets points pay only what they leave owed', async () => {
+    // 2 package hours on a 4h booking at 100/h leave 200 owed.
+    mockAvailable.mockResolvedValue(2);
+    mockSummary.mockResolvedValue({ availableHours: 2, maxSkillsAllowed: 0 });
+    mockRedeem.mockResolvedValue({ hoursApplied: 2, maxSkillsAllowed: 0, purchaseIds: [1] });
+    setBooking({ status: 'PENDING', totalAmount: 400, discountAmount: 0, platformAmount: 80 });
+    mockSpendPoints.mockResolvedValue({ hours: 2, pointsCost: 200, discount: 200 });
+
+    await createBooking(DECODED, { ...baseBody, redeemPointsHours: 4 } as never);
+
+    // Package before points, and the points told what is really still owed.
+    expect(mockRedeem.mock.invocationCallOrder[0]!).toBeLessThan(
+      mockSpendPoints.mock.invocationCallOrder[0]!,
+    );
+    expect(mockSpendPoints).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ redeemHours: 4, owedAmount: 200 }),
+    );
   });
 
   it('never takes points for a request that already owes nothing', async () => {

@@ -16,6 +16,7 @@ import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
 import { usePackageHours } from '@mobile/hooks/usePackages';
+import { useRefetchOnFocus } from '@mobile/hooks/useRefetchOnFocus';
 import { useRewardWallet } from '@mobile/hooks/useRewards';
 import { currentPackageLabel } from '@mobile/lib/currentPackage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -43,8 +44,11 @@ export default function MotherProfileWalletScreen() {
   const { isGuest } = useGuestGate();
   const { data: unreadData } = useUnreadMessageCount(!isGuest);
   const hasUnread = (unreadData?.unreadCount ?? 0) > 0;
-  const { data: packageHours } = usePackageHours(!isGuest);
-  const { data: rewardWallet } = useRewardWallet(!isGuest);
+  const { data: packageHours, refetch: refetchPackageHours } = usePackageHours(!isGuest);
+  const { data: rewardWallet, refetch: refetchRewardWallet } = useRewardWallet(!isGuest);
+  // The Account tab stays mounted: re-read both balances whenever she comes
+  // back to it, so hours and points spent or earned elsewhere show at once.
+  useRefetchOnFocus([refetchPackageHours, refetchRewardWallet], !isGuest);
   const hoursValue = packageHours ? `${packageHours.availableHours}h` : '—';
   // Which package those hours come from — or that there isn't one.
   const hoursCaption = packageHours ? currentPackageLabel(packageHours) : 'available';

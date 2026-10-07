@@ -19,12 +19,13 @@ import {
 } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
-import { Chip, CollapsibleCard, Stepper } from '@mobile/components/ui';
+import { Chip, CollapsibleCard } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useCreateBooking, usePricingConfig, useValidatePromo } from '@mobile/hooks/useBookings';
 import { usePackageHours, usePackages } from '@mobile/hooks/usePackages';
 import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { getApiErrorMessage } from '@mobile/lib/api';
+import { planBookingCredits } from '@mobile/lib/bookingCredits';
 import { formatHourlyRate, formatMoney } from '@mobile/lib/formatMoney';
 import { formatDurationHours } from '@mobile/lib/formatTime';
 import {
@@ -41,6 +42,7 @@ import { useIdGateStore } from '@mobile/store/idGateStore';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
+import { PayingWithCard } from '@mobile/components/booking/PayingWithCard';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
 import { styles } from './styles/booking-step1-screen.styles';
 
@@ -150,27 +152,40 @@ export default function BookingStep1Screen() {
   const durationDiscount = breakdown ? rawSubtotal - breakdown.subtotal : 0;
   const total = breakdown?.totalAmount ?? 0;
 
-  // ── Care Points ─────────────────────────────────────────────────────────
-  // The hours chosen here are spent when the request is sent (returned if it is
-  // cancelled before a nanny accepts). So the amount she actually pays is the
-  // total net of those hours; that net figure is what the price card and CTA
-  // show — and when it is zero there is no payment step at all.
-  const pointsPerHour = rewardConfig?.redemptionPointsPerHour ?? 0;
+  // ── Package hours & Care Points ─────────────────────────────────────────
+  // Applied in the server's order: a usable package is always used first, and
+  // Care Points can only buy the hours it leaves owed. Both are taken when the
+  // request is sent (and returned if it is cancelled before a nanny accepts),
+  // so the amount she actually pays is the total net of both — that net figure
+  // is what the price card and CTA show, and at zero there is no payment step.
   const pointsBalance = wallet?.pointsBalance ?? 0;
-  const maxPointHours =
-    pointsPerHour > 0 ? Math.min(Math.floor(pointsBalance / pointsPerHour), Math.floor(hours)) : 0;
-  const minPointHours =
-    pointsPerHour > 0
-      ? Math.max(1, Math.ceil((rewardConfig?.minRedemptionPoints ?? 0) / pointsPerHour))
-      : 1;
-  const canUsePoints =
-    (rewardConfig?.enabled ?? false) && maxPointHours >= minPointHours && hours > 0;
-  // Mirror the server cap: the credit funds free hours, it never drives what is
-  // owed below zero.
-  const pointsSaving = breakdown ? Math.min(pointsHours * breakdown.effectiveHourlyRate, total) : 0;
-  const netTotal = Math.max(0, total - pointsSaving);
+  const credits = planBookingCredits({
+    baseRate: breakdown?.baseRate ?? 0,
+    effectiveHourlyRate: breakdown?.effectiveHourlyRate ?? 0,
+    durationMultiplier: breakdown?.durationMultiplier ?? 1,
+    durationHours: hours,
+    totalAmount: total,
+    skillFeesPerHour: breakdown?.skillAddOns.map((s) => s.amountPerHour) ?? [],
+    packageBalance: packageHours,
+    pointsBalance,
+    rewardConfig,
+    pointsHours,
+  });
+  // Keep the stepper honest when the cap drops under it (a promo applied, the
+  // booking shortened): the choice snaps to what can still be spent, rather
+  // than reappearing later as a number she never re-picked.
+  const pointsCap = credits.points.maxHours;
+  useEffect(() => {
+    if (pointsHours > pointsCap) setPointsHours(credits.points.hoursApplied);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsCap]);
 
-  const totalSaved = durationDiscount + promoDiscount + pointsSaving;
+  const packageCredit = credits.package?.creditAmount ?? 0;
+  const appliedPointHours = credits.points.hoursApplied;
+  const pointsSaving = credits.points.saving;
+  const netTotal = breakdown ? credits.netTotal : 0;
+
+  const totalSaved = durationDiscount + promoDiscount + packageCredit + pointsSaving;
 
   // ── Prepaid packages ────────────────────────────────────────────────────
   // Buying hours in bulk is the single biggest lever on what care costs, and it
@@ -196,11 +211,12 @@ export default function BookingStep1Screen() {
    * redemption. Snap past the dead zone in whichever direction the mother moved.
    */
   const handlePointsChange = (next: number) => {
-    if (next === 0 || next >= minPointHours) {
+    const { minHours, maxHours } = credits.points;
+    if (next === 0 || next >= minHours) {
       setPointsHours(next);
       return;
     }
-    setPointsHours(next > pointsHours ? Math.min(minPointHours, maxPointHours) : 0);
+    setPointsHours(next > appliedPointHours ? Math.min(minHours, maxHours) : 0);
   };
 
   const appendInstructionTag = (tag: string) => {
@@ -251,7 +267,9 @@ export default function BookingStep1Screen() {
         ...(params.saveChildren === '1' ? { saveChildren: true } : {}),
         // Spent with the request, so a request they fully cover is confirmed
         // the moment a nanny accepts — no payment step.
-        ...(pointsHours > 0 ? { redeemPointsHours: pointsHours } : {}),
+        // Only what is still owed after the package — the server trims to the
+        // same figure, so a stale choice can never cost extra points.
+        ...(appliedPointHours > 0 ? { redeemPointsHours: appliedPointHours } : {}),
       });
       router.replace({
         pathname: '/(parent)/book/booking-confirmation',
@@ -403,65 +421,35 @@ export default function BookingStep1Screen() {
           )}
         </View>
 
-        {/* ── Care Points ── */}
-        {canUsePoints && (
-          <View style={styles.section}>
-            <View style={styles.pointsHeader}>
-              <Ionicons name="gift-outline" size={16} color={colors.goldWarm} />
-              <Text style={styles.sectionTitle}>Care Points</Text>
-              <Text style={styles.pointsBalance}>{pointsBalance} pts</Text>
-            </View>
-            <Text style={styles.sectionHint}>
-              Swap {pointsPerHour} points for a free hour — up to {maxPointHours} on this booking.
-            </Text>
-            <View style={styles.pointsRow}>
-              <Stepper
-                testID="booking.points"
-                value={pointsHours}
-                onChange={handlePointsChange}
-                min={0}
-                max={maxPointHours}
-                suffix="h free"
-                size="sm"
-              />
-              <Text style={styles.pointsSaving}>
-                {pointsHours > 0 ? `−${formatMoney(pointsSaving)}` : 'None used'}
-              </Text>
-            </View>
-            {pointsHours > 0 && (
-              <Text style={styles.pointsNote}>
-                Taken from your balance when you send the request — returned if you cancel before a nanny accepts.
-              </Text>
-            )}
-          </View>
+        {/* ── Paying with ── package first, then Care Points for the rest. */}
+        {breakdown && (
+          <PayingWithCard
+            plan={credits}
+            totalBeforeCredits={total}
+            pointsBalance={pointsBalance}
+            pointsHours={pointsHours}
+            onPointsChange={handlePointsChange}
+          />
         )}
 
-        {/* ── Prepaid hours ── */}
-        {prepaidHours > 0 ? (
-          <View style={styles.prepaidRow}>
-            <Ionicons name="time-outline" size={16} color={colors.successDark} />
-            <Text style={styles.prepaidText}>
-              {prepaidHours}h from your package will be applied to this booking
-            </Text>
-          </View>
-        ) : (
-          bestPackagePercentOff > 0 && (
-            <Pressable
-              style={styles.packageNudge}
-              onPress={() => router.push('/(parent)/packages' as never)}
-            >
-              <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
-              <View style={styles.packageNudgeBody}>
-                <Text style={styles.packageNudgeTitle}>
-                  Save up to {bestPackagePercentOff}% with packages
-                </Text>
-                <Text style={styles.packageNudgeSub}>
-                  Buy a bundle once — it applies to your bookings automatically.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </Pressable>
-          )
+        {/* No package yet: buying hours in bulk is the biggest lever on what care
+            costs, so surface it while the price is on screen. */}
+        {prepaidHours <= 0 && bestPackagePercentOff > 0 && (
+          <Pressable
+            style={styles.packageNudge}
+            onPress={() => router.push('/(parent)/packages' as never)}
+          >
+            <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
+            <View style={styles.packageNudgeBody}>
+              <Text style={styles.packageNudgeTitle}>
+                Save up to {bestPackagePercentOff}% with packages
+              </Text>
+              <Text style={styles.packageNudgeSub}>
+                Buy a bundle once — it applies to your bookings automatically.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </Pressable>
         )}
 
         {/* ── What you saved ──
@@ -488,19 +476,21 @@ export default function BookingStep1Screen() {
                 <Text style={styles.savingsLineValue}>−{formatMoney(promoDiscount)}</Text>
               </View>
             )}
-            {pointsHours > 0 && (
+            {credits.package && (
               <View style={styles.savingsLine}>
                 <Text style={styles.savingsLineLabel}>
-                  {pointsHours} free hour{pointsHours === 1 ? '' : 's'} · Care Points
+                  {formatDurationHours(credits.package.hoursApplied)} from your package
+                </Text>
+                <Text style={styles.savingsLineValue}>−{formatMoney(packageCredit)}</Text>
+              </View>
+            )}
+            {appliedPointHours > 0 && (
+              <View style={styles.savingsLine}>
+                <Text style={styles.savingsLineLabel}>
+                  {appliedPointHours} free hour{appliedPointHours === 1 ? '' : 's'} · Care Points
                 </Text>
                 <Text style={styles.savingsLineValue}>−{formatMoney(pointsSaving)}</Text>
               </View>
-            )}
-
-            {pointsHours > 0 && (
-              <Text style={styles.savingsFootnote}>
-                Care Points come off when you send the request.
-              </Text>
             )}
           </View>
         )}
@@ -581,11 +571,22 @@ export default function BookingStep1Screen() {
                 <Text style={styles.promoValue}>–{formatMoney(promoDiscount)}</Text>
               </View>
             )}
-            {pointsHours > 0 && (
+            {credits.package && (
+              <View style={styles.priceRow}>
+                <View style={styles.priceRowLabel}>
+                  <Text style={styles.promoLabel}>Package hours</Text>
+                  <Text style={styles.priceMath}>
+                    {formatDurationHours(credits.package.hoursApplied)} from {credits.package.packageName}
+                  </Text>
+                </View>
+                <Text style={styles.promoValue}>–{formatMoney(packageCredit)}</Text>
+              </View>
+            )}
+            {appliedPointHours > 0 && (
               <View style={styles.priceRow}>
                 <View style={styles.priceRowLabel}>
                   <Text style={styles.promoLabel}>
-                    {pointsHours} free hour{pointsHours === 1 ? '' : 's'} · Care Points
+                    {appliedPointHours} free hour{appliedPointHours === 1 ? '' : 's'} · Care Points
                   </Text>
                   <Text style={styles.priceMath}>from your balance</Text>
                 </View>
@@ -597,12 +598,6 @@ export default function BookingStep1Screen() {
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>{formatMoney(netTotal)}</Text>
             </View>
-            {pointsHours > 0 && (
-              <Text style={styles.pendingCreditNote}>
-                Care Points are taken when you send the request, and returned if you cancel before
-                a nanny accepts.
-              </Text>
-            )}
           </CollapsibleCard>
         )}
 
@@ -643,7 +638,9 @@ export default function BookingStep1Screen() {
         summary={summaryLine}
         total={formatMoney(netTotal)}
         totalLabel="You’ll pay"
-        ctaLabel={`Request care · ${formatMoney(netTotal)}`}
+        ctaLabel={
+          breakdown && netTotal <= 0 ? 'Request care · Covered' : `Request care · ${formatMoney(netTotal)}`
+        }
         onPress={() => void handleProceed()}
         disabled={!canProceed}
         loading={isPricingLoading || createBooking.isPending}

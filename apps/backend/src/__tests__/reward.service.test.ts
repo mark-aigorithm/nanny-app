@@ -275,6 +275,7 @@ describe('applyBookingRedemption', () => {
     redeemHours: 2,
     perHour: 50,
     durationHours: 3,
+    owedAmount: 150,
   };
 
   it('deducts points, records a REDEEM entry, and returns the discount', async () => {
@@ -316,6 +317,54 @@ describe('applyBookingRedemption', () => {
     const result = await applyBookingRedemption(mockPrisma as never, { ...params, redeemHours: 5 });
     expect(result.hours).toBe(3);
     expect(result.pointsCost).toBe(300);
+  });
+
+  it('caps redeemed hours at the hours still owed after other credits', async () => {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 500 }));
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.rewardWallet.findUniqueOrThrow.mockResolvedValue({ pointsBalance: 400 });
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+
+    // Package hours already paid for 2 of the 3 hours: 50 is left. Asking for
+    // 3h must spend only the one hour that is still owed.
+    const result = await applyBookingRedemption(mockPrisma as never, {
+      ...params,
+      redeemHours: 3,
+      owedAmount: 50,
+    });
+
+    expect(result).toEqual({ hours: 1, pointsCost: 100, discount: 50 });
+    expect(mockPrisma.rewardWallet.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 30, pointsBalance: { gte: 100 } } }),
+    );
+  });
+
+  it('lets one point-hour clear a part-hour balance, discounting only what is owed', async () => {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 500 }));
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.rewardWallet.findUniqueOrThrow.mockResolvedValue({ pointsBalance: 400 });
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+
+    const result = await applyBookingRedemption(mockPrisma as never, {
+      ...params,
+      redeemHours: 2,
+      owedAmount: 20,
+    });
+
+    expect(result).toEqual({ hours: 1, pointsCost: 100, discount: 20 });
+  });
+
+  it('refuses without touching the wallet when nothing is left to pay', async () => {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig());
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 500 }));
+
+    await expect(
+      applyBookingRedemption(mockPrisma as never, { ...params, owedAmount: 0 }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockPrisma.rewardWallet.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.rewardLedgerEntry.create).not.toHaveBeenCalled();
   });
 
   it('throws 400 when the balance is insufficient', async () => {

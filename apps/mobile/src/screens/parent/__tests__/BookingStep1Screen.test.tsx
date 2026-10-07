@@ -54,7 +54,21 @@ const BASE_PARAMS = {
   addressId: '7',
 };
 
-function renderScreen({ pointsBalance = 200 } = {}) {
+function packageBucket(hoursRemaining: number) {
+  return {
+    id: 1,
+    packageId: 1,
+    packageName: 'Starter Pack',
+    hoursPurchased: 20,
+    hoursRemaining,
+    maxSkills: 0,
+    status: 'ACTIVE',
+    purchasedAt: '2026-08-01T00:00:00.000Z',
+    expiresAt: '2099-01-01T00:00:00.000Z',
+  };
+}
+
+function renderScreen({ pointsBalance = 200, packageHoursLeft = 0 } = {}) {
   const queryClient = new QueryClient({
     // staleTime Infinity keeps the seeded cache from refetching, so nothing
     // hits the (globally mocked) API — the screen renders straight from these
@@ -69,7 +83,10 @@ function renderScreen({ pointsBalance = 200 } = {}) {
     lifetimeEarned: pointsBalance,
     lifetimeRedeemed: 0,
   });
-  queryClient.setQueryData(['package-hours'], { availableHours: 0 });
+  queryClient.setQueryData(['package-hours'], {
+    availableHours: packageHoursLeft,
+    buckets: packageHoursLeft > 0 ? [packageBucket(packageHoursLeft)] : [],
+  });
   queryClient.setQueryData(['packages', 'list'], []);
   return render(
     <QueryClientProvider client={queryClient}>
@@ -146,7 +163,7 @@ describe('BookingStep1Screen — Care Points redemption', () => {
     fireEvent.press(getByLabelText('Increase'));
     getByText('Nothing to pay — your booking is confirmed as soon as a nanny accepts.');
 
-    fireEvent.press(getByText('Request care · EGP 0.00'));
+    fireEvent.press(getByText('Request care · Covered'));
 
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/bookings', expect.objectContaining({ redeemPointsHours: 2 })),
@@ -158,5 +175,67 @@ describe('BookingStep1Screen — Care Points redemption', () => {
         params: { bookingId: '9' },
       }),
     );
+  });
+});
+
+describe('BookingStep1Screen — prepaid package used first', () => {
+  it('shows the package covering the booking before any payment', () => {
+    // 2h booking, 18 package hours: the package pays for all of it.
+    const { getByText } = renderScreen({ packageHoursLeft: 18 });
+
+    getByText('Paying with');
+    getByText('Starter Pack');
+    getByText('Used first');
+    getByText('2h of your 18h · 16h left after this');
+    getByText('Fully covered');
+    // The estimate reflects the package — this was EGP 200.00 before.
+    getByText('Request care · Covered');
+    getByText('Nothing to pay — your booking is confirmed as soon as a nanny accepts.');
+  });
+
+  it('says Care Points are not needed and offers no stepper when the package covers everything', () => {
+    const { getByText, queryByLabelText } = renderScreen({ packageHoursLeft: 18, pointsBalance: 227 });
+
+    getByText('Not needed — your package covers this booking. Your points stay in your wallet.');
+    expect(queryByLabelText('Increase')).toBeNull();
+  });
+
+  it('lets Care Points cover only the hours the package leaves owed', () => {
+    // 1 package hour of 2 → EGP 100 owed, so at most 1 point-hour.
+    const { getByText, getByLabelText } = renderScreen({ packageHoursLeft: 1, pointsBalance: 500 });
+
+    getByText('Request care · EGP 100.00');
+    getByText(/up to 1\./);
+
+    fireEvent.press(getByLabelText('Increase'));
+    fireEvent.press(getByLabelText('Increase')); // already at the cap
+
+    getByText('Request care · Covered');
+    getByText('1 free hour');
+  });
+
+  it('sends only the points still needed, and never an opt-out of the package', async () => {
+    (api.post as jest.Mock).mockResolvedValueOnce({ data: { data: { id: 9 }, error: null } });
+    const { getByText, getByLabelText } = renderScreen({ packageHoursLeft: 1, pointsBalance: 500 });
+
+    fireEvent.press(getByLabelText('Increase'));
+    fireEvent.press(getByText('Request care · Covered'));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const body = (api.post as jest.Mock).mock.calls[0][1];
+    expect(body.redeemPointsHours).toBe(1);
+    expect(body).not.toHaveProperty('usePackageHours');
+  });
+
+  it('says when the booking uses the last of the package', () => {
+    const { getByText } = renderScreen({ packageHoursLeft: 2 });
+    getByText('2h of your 2h · uses the last of your package');
+  });
+
+  it('itemises the package in the savings tally', () => {
+    const { getByText } = renderScreen({ packageHoursLeft: 18 });
+
+    getByText('You’re saving');
+    getByText('2h from your package');
   });
 });

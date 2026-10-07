@@ -54,7 +54,11 @@ appId: com.nannyapp.mobile
 # Chosen here; spent when the request is sent, so the review step shows the
 # reduced total she will pay.
 - assertVisible: 'EGP 240.00'
-- assertVisible: '2 free hours .* Care Points'
+# The savings tally sits below the "Paying with" card, past the fold.
+- scrollUntilVisible:
+    element:
+      text: '2 free hours .* Care Points'
+    direction: DOWN
 
 - tapOn:
     id: 'booking.cta'

@@ -14,6 +14,7 @@ import type {
   UpdateRewardConfigInput,
 } from '@nanny-app/shared';
 import type { PaginationMeta } from '@nanny-app/shared';
+import { pointHoursToCover } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -256,12 +257,29 @@ export async function applyBookingRedemption(
     redeemHours: number;
     perHour: number;
     durationHours: number;
+    /**
+     * What is still owed before the points — after the promo and any package
+     * hours. Points are the last credit applied, so they only ever buy the
+     * hours this leaves unpaid.
+     */
+    owedAmount: number;
   },
 ): Promise<{ hours: number; pointsCost: number; discount: number }> {
   const config = await getRewardConfig(db);
   if (!config.enabled) throw errors.badRequest('Care Points redemption is currently unavailable.');
 
-  const hours = Math.min(Math.floor(params.redeemHours), Math.floor(params.durationHours));
+  // A request for more hours than are still owed is trimmed, not refused: the
+  // app's estimate can be a moment behind (a package hour landing, a promo),
+  // and charging points for hours already paid for would simply burn them.
+  const owedHours = pointHoursToCover(params.owedAmount, params.perHour);
+  if (owedHours < 1) {
+    throw errors.badRequest('There is nothing left to pay on this booking, so no points are needed.');
+  }
+  const hours = Math.min(
+    Math.floor(params.redeemHours),
+    Math.floor(params.durationHours),
+    owedHours,
+  );
   if (hours < 1) throw errors.badRequest('Choose at least one hour to redeem.');
 
   const pointsCost = hours * config.redemptionPointsPerHour;
@@ -298,7 +316,7 @@ export async function applyBookingRedemption(
     },
   });
 
-  const discount = round2(hours * params.perHour);
+  const discount = Math.min(round2(hours * params.perHour), round2(params.owedAmount));
   return { hours, pointsCost, discount };
 }
 

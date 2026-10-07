@@ -188,6 +188,76 @@ export function packageHoursCreditFor(params: {
 }
 
 /**
+ * What a mother's prepaid package hours will take off a booking, worked out
+ * exactly as the backend applies them at creation: sized against her best
+ * free-skill allowance (planPackageHoursRedemption), drawn from her buckets in
+ * the order given — soonest-expiring first, as the server draws them — and
+ * priced at the allowance of the buckets actually drawn from. Lets the app show
+ * the real amount owed before the request is sent.
+ */
+export function previewPackageHours(params: {
+  baseRate: number;
+  durationMultiplier: number;
+  /** What is still owed before any package credit (after the promo). */
+  totalAmount: number;
+  durationHours: number;
+  /** Usable buckets in redemption order (soonest-expiring first). */
+  buckets: { hoursRemaining: number; maxSkills: number }[];
+  skillFeesPerHour: number[];
+}): { hoursApplied: number; creditAmount: number; skillsCovered: number } {
+  const none = { hoursApplied: 0, creditAmount: 0, skillsCovered: 0 };
+  const buckets = params.buckets.filter((b) => b.hoursRemaining > 0);
+
+  const plan = planPackageHoursRedemption({
+    baseRate: params.baseRate,
+    durationMultiplier: params.durationMultiplier,
+    totalAmount: params.totalAmount,
+    durationHours: params.durationHours,
+    availableHours: round2(buckets.reduce((sum, b) => sum + b.hoursRemaining, 0)),
+    maxSkillsAllowed: buckets.reduce((max, b) => Math.max(max, b.maxSkills), 0),
+    skillFeesPerHour: params.skillFeesPerHour,
+  });
+  if (plan.hoursToRedeem <= 0) return none;
+
+  let remaining = plan.hoursToRedeem;
+  let drawnAllowance = 0;
+  for (const b of buckets) {
+    if (remaining <= 0) break;
+    remaining = round2(remaining - Math.min(b.hoursRemaining, remaining));
+    drawnAllowance = Math.max(drawnAllowance, b.maxSkills);
+  }
+  const hoursApplied = round2(plan.hoursToRedeem - remaining);
+
+  const actual = resolvePackageHourValue({
+    baseRate: params.baseRate,
+    durationMultiplier: params.durationMultiplier,
+    maxSkillsAllowed: drawnAllowance,
+    skillFeesPerHour: params.skillFeesPerHour,
+  });
+  return {
+    hoursApplied,
+    creditAmount: packageHoursCreditFor({
+      hoursApplied,
+      creditPerHour: actual.creditPerHour,
+      totalAmount: params.totalAmount,
+    }),
+    skillsCovered: actual.skillsCovered,
+  };
+}
+
+/**
+ * How many Care Points hours it takes to pay off what is still owed on a
+ * booking, after its promo and package hours. Points are the last credit
+ * applied, so this is the most a mother can spend on it: a part-hour rounds UP
+ * (one more point-hour clears the balance), and nothing owed means no points at
+ * all. A tiny epsilon keeps float noise in an exact multiple from adding an hour.
+ */
+export function pointHoursToCover(owedAmount: number, perHour: number): number {
+  if (!(owedAmount > 0) || !(perHour > 0)) return 0;
+  return Math.ceil(owedAmount / perHour - 1e-9);
+}
+
+/**
  * Picks the duration multiplier for a booking length: the highest tier whose
  * minHours is ≤ durationHours wins. With no matching tier the multiplier is 1
  * (no adjustment). E.g. a 3-hour booking against a "≥2h → 0.90" tier gets 0.90.

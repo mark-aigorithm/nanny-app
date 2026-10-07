@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
   BookingAdjustmentResponse,
   BookingExtensionResponse,
@@ -17,8 +17,21 @@ import { PaymentMethod } from '@nanny-app/shared';
 import { api, unwrap } from '@mobile/lib/api';
 import { formatBookingTimeRange } from '@mobile/lib/formatTime';
 import { NANNIES_KEY } from '@mobile/hooks/useNannies';
+import { PACKAGE_HOURS_KEY } from '@mobile/hooks/usePackages';
 
 const BOOKINGS_KEY = 'bookings';
+const REWARDS_KEY = 'rewards';
+
+/**
+ * A booking spends, returns or earns Care Points and package hours on the
+ * server. The wallet those balances show in lives on a tab that stays mounted,
+ * so every mutation that moves them marks both stale — otherwise the old
+ * balances linger until the app restarts.
+ */
+function refreshWallet(qc: QueryClient): void {
+  void qc.invalidateQueries({ queryKey: [REWARDS_KEY] });
+  void qc.invalidateQueries({ queryKey: [PACKAGE_HOURS_KEY] });
+}
 
 export type BookingListOptions = Pick<BookingListQuery, 'sortBy' | 'sortDir'>;
 
@@ -69,7 +82,7 @@ export function useRedeemBookingPoints() {
     mutationFn: ({ id, hours }) => unwrap(api.post(`/bookings/${id}/redeem-points`, { hours })),
     onSuccess: (booking) => {
       queryClient.setQueryData([BOOKINGS_KEY, booking.id], booking);
-      void queryClient.invalidateQueries({ queryKey: ['rewards'] });
+      refreshWallet(queryClient);
     },
   });
 }
@@ -81,7 +94,7 @@ export function useRefundBookingPoints() {
     mutationFn: (id) => unwrap(api.post(`/bookings/${id}/redeem-points/refund`)),
     onSuccess: (booking) => {
       queryClient.setQueryData([BOOKINGS_KEY, booking.id], booking);
-      void queryClient.invalidateQueries({ queryKey: ['rewards'] });
+      refreshWallet(queryClient);
     },
   });
 }
@@ -141,6 +154,8 @@ export function useCreateBooking() {
       // before its own fetch resolved.
       qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
       void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+      // Package hours and any Care Points chosen are spent with the request.
+      refreshWallet(qc);
     },
   });
 }
@@ -183,6 +198,7 @@ export function useConfirmFreeBooking() {
     onSuccess: (booking) => {
       qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
       qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+      refreshWallet(qc);
     },
   });
 }
@@ -220,7 +236,11 @@ export function useCancelBooking() {
   >({
     mutationFn: ({ id, reason }) =>
       unwrap(api.post(`/bookings/${id}/cancel`, { reason })),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+      // An unpaid booking hands its package hours and Care Points back.
+      refreshWallet(qc);
+    },
   });
 }
 
@@ -282,6 +302,8 @@ export function useEndBooking() {
     onSuccess: (booking) => {
       qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
       void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+      // Completing a booking earns Care Points.
+      refreshWallet(qc);
     },
   });
 }

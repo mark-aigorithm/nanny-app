@@ -420,6 +420,7 @@ export async function redeemExtensionPoints(
       redeemHours: body.hours,
       perHour: Number(ext.hourlyRate),
       durationHours: Number(ext.hours),
+      owedAmount: Number(ext.totalAmount),
     });
     // Never discount below zero owed. The platform funds the reward — the
     // nanny's share of the extension is never touched.

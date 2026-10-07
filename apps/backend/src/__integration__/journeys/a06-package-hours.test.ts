@@ -15,11 +15,20 @@ import { prisma } from '@backend/db/prisma';
 
 import { authHeader } from '../../../test/auth';
 import { makeMother, makePackage, makeSuperuser } from '../../../test/factories';
+import { grantCarePoints } from '../../../test/journeys/admin';
 import { createBookingViaApi } from '../../../test/journeys/booking';
 import { purchasePackage, settleCheckout } from '../../../test/journeys/payment';
 
 const PACKAGE_HOURS = 10;
 const PACKAGE_PRICE = 1000;
+
+async function pointsBalance(token: string): Promise<number> {
+  const response = await request(app)
+    .get('/rewards/wallet')
+    .set(...authHeader(token));
+  expect(response.status).toBe(200);
+  return response.body.data.pointsBalance as number;
+}
 
 async function availableHours(token: string): Promise<number> {
   const response = await request(app)
@@ -85,7 +94,7 @@ describe('A6 — package hours', () => {
     expect(Number(bucket.hoursRemaining)).toBe(PACKAGE_HOURS - 4);
   });
 
-  it('lets a mother save her hours and pay cash instead', async () => {
+  it('always spends the package first, even if an old build asks to skip it', async () => {
     const { mother } = await motherWithHours();
 
     const booking = await createBookingViaApi(mother.token, {
@@ -94,10 +103,50 @@ describe('A6 — package hours', () => {
     });
 
     const created = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
-    expect(Number(created.packageHoursApplied)).toBe(0);
-    expect(Number(created.totalAmount)).toBeGreaterThan(0);
+    expect(Number(created.packageHoursApplied)).toBe(4);
+    expect(Number(created.totalAmount)).toBe(0);
+    expect(await availableHours(mother.token)).toBe(PACKAGE_HOURS - 4);
+  });
 
-    expect(await availableHours(mother.token)).toBe(PACKAGE_HOURS);
+  it('takes no Care Points when the package already covers the booking', async () => {
+    const { mother } = await motherWithHours();
+    const admin = await makeSuperuser();
+    await grantCarePoints(admin.token, mother.id, 500, 'Welcome bonus');
+
+    const booking = await createBookingViaApi(mother.token, {
+      durationHours: 4,
+      redeemPointsHours: 2,
+    });
+
+    const created = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    expect(Number(created.packageHoursApplied)).toBe(4);
+    expect(created.rewardCreditPoints).toBe(0);
+    expect(Number(created.totalAmount)).toBe(0);
+    expect(await pointsBalance(mother.token)).toBe(500);
+  });
+
+  it('lets Care Points cover only the hours the package leaves owed', async () => {
+    const mother = await makeMother();
+    const admin = await makeSuperuser();
+    // 2 package hours against a 4-hour booking: 2 hours are still owed.
+    const pkg = await makePackage({ hours: 2, price: 200 });
+    const session = await purchasePackage(mother.token, pkg.id);
+    await settleCheckout(session.clientSecret);
+    await grantCarePoints(admin.token, mother.id, 500, 'Welcome bonus');
+
+    // She asks for 4 point-hours; only the 2 owed ones are spent.
+    const booking = await createBookingViaApi(mother.token, {
+      durationHours: 4,
+      redeemPointsHours: 4,
+    });
+
+    const created = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    expect(Number(created.packageHoursApplied)).toBe(2);
+    expect(Number(created.rewardCreditHoursApplied)).toBe(2);
+    expect(created.rewardCreditPoints).toBe(200);
+    expect(Number(created.totalAmount)).toBe(0);
+    expect(await availableHours(mother.token)).toBe(0);
+    expect(await pointsBalance(mother.token)).toBe(300);
   });
 
   it('covers what it can and charges for the rest', async () => {
