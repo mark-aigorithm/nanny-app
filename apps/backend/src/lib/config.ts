@@ -68,6 +68,15 @@ const ConfigSchema = z.object({
     .optional()
     .transform((v) => v?.trim().toLowerCase() === 'true'),
 
+  // Recording the business team's cancellation-policy choices on the console's
+  // public /cancellation-flows page. Off unless turned on, for the same reason
+  // as the QA checklist: its endpoints are unauthenticated by design. Set to
+  // "true" while the policy is being decided.
+  CANCELLATION_POLICY_BOARD_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim().toLowerCase() === 'true'),
+
   // The live-Firebase E2E harness. Off unless explicitly turned on: its
   // endpoints are unauthenticated and they delete Firebase accounts.
   E2E_LIVE_AUTH_ENABLED: z
@@ -207,6 +216,7 @@ export const config = {
   paymob: buildPaymobConfig(),
   email: buildEmailConfig(),
   qaChecklistEnabled: raw.QA_CHECKLIST_ENABLED,
+  cancellationPolicyBoardEnabled: raw.CANCELLATION_POLICY_BOARD_ENABLED,
   e2eLiveAuthEnabled: raw.E2E_LIVE_AUTH_ENABLED,
 } as const;
 

@@ -55,6 +55,8 @@ import type {
   PriceBreakdown,
   PricePreviewInput,
   PromoCode,
+  CancellationDecisionEntry,
+  CancellationDecisionsState,
   QaChecklistEntry,
   QaChecklistState,
   RewardConfig,
@@ -63,6 +65,7 @@ import type {
   RewardWalletSummary,
   SetBookingStatusInput,
   SetNannySkillsInput,
+  SetCancellationDecisionInput,
   SetQaScenarioStatusInput,
   Skill,
   SupportContact,
@@ -739,4 +742,24 @@ export async function setQaScenarioStatus(
 export async function resetQaChecklist(): Promise<number> {
   const res = await apiClient.post<ApiEnvelope<{ cleared: number }>>('/qa-checklist/reset');
   return res.data.data.cleared;
+}
+
+export async function fetchCancellationDecisions(): Promise<CancellationDecisionsState> {
+  const res = await apiClient.get<ApiEnvelope<CancellationDecisionsState>>('/cancellation-policy');
+  return res.data.data;
+}
+
+export async function setCancellationDecision(
+  decisionId: string,
+  input: SetCancellationDecisionInput,
+): Promise<CancellationDecisionEntry> {
+  const res = await apiClient.put<ApiEnvelope<CancellationDecisionEntry>>(
+    `/cancellation-policy/${decisionId}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function clearCancellationDecision(decisionId: string): Promise<void> {
+  await apiClient.delete(`/cancellation-policy/${decisionId}`);
 }

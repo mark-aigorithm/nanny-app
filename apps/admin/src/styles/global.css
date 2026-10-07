@@ -5022,6 +5022,66 @@ input[type='number'] {
   margin: 0;
 }
 
+.flows-option--chosen {
+  border: 2px solid var(--color-primary-dark);
+}
+
+.flows-option-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+/* Pinned to the foot of the tile so the buttons line up across a row. */
+.flows-option-pick {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.flows-decided {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-success-light);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.flows-decided-meta {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.flows-decided-note {
+  color: var(--color-text-secondary);
+}
+
+.flows-progress {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.flows-record {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 0.75rem 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-warm-border);
+}
+
+.flows-record-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* Campaign image cropper — inline in the campaign form. */
 .crop-stage {
   display: flex;

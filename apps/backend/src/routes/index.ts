@@ -17,6 +17,7 @@ import { notificationRouter } from './notification.routes';
 import { packageRouter } from './package.routes';
 import { paymobRouter } from './paymob.routes';
 import { qaRouter } from './qa.routes';
+import { cancellationPolicyRouter } from './cancellation-policy.routes';
 import { referralRouter } from './referral.routes';
 import { resetPasswordPageRouter } from './reset-password-page.routes';
 import { rewardRouter } from './reward.routes';
@@ -53,6 +54,12 @@ apiRouter.use('/support', supportRouter);
 // on, so an environment that is not running a release test never exposes it.
 if (config.qaChecklistEnabled) {
   apiRouter.use('/qa-checklist', qaRouter);
+}
+
+// Unauthenticated by design — see cancellation-policy.routes.ts. Mounted only
+// while the policy is being decided.
+if (config.cancellationPolicyBoardEnabled) {
+  apiRouter.use('/cancellation-policy', cancellationPolicyRouter);
 }
 
 // Unauthenticated and destructive by design — see e2e-auth.routes.ts. Mounted

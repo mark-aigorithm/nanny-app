@@ -23,3 +23,4 @@ export * from './referrals';
 export * from './support';
 export * from './legal';
 export * from './qa-scenarios';
+export * from './cancellation-decisions';
