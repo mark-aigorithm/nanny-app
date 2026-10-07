@@ -80,7 +80,7 @@ export default function BookingDetailScreen() {
     if (!bookingId) return;
     confirmDialog({
       title: 'Cancel this booking?',
-      message: cancellationWarning(bookingOptions?.cancellationWindowHours),
+      message: cancellationWarning(bookingOptions),
       confirmLabel: 'Cancel booking',
       cancelLabel: 'Keep booking',
       destructive: true,

@@ -83,6 +83,7 @@ const BASE_CONFIG = {
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
+  cancellationFeePercent: 50,
   includedChildrenPerBooking: 2,
   maxChildrenPerBooking: 4,
   extraChildFeeType: 'FLAT' as const,

@@ -56,6 +56,7 @@ const NUMBER_KEYS = [
   'maxChildrenPerBooking',
   'minAdvanceBookingHours',
   'cancellationWindowHours',
+  'cancellationFeePercent',
   'broadcastRadiusKm',
   'pendingWarningMinutes',
   'pendingCriticalMinutes',
@@ -155,6 +156,13 @@ const BOOKING_GROUPS: ConfigGroup[] = [
         unit: 'hours',
         hint: 'Cancelling inside it incurs a fee.',
         max: '168',
+      },
+      {
+        key: 'cancellationFeePercent',
+        label: 'Late-cancellation fee',
+        unit: '%',
+        hint: 'Of the card payment, when the parent cancels inside the window. Shown in the app’s cancel warning and used for the refund the console suggests — admins still decide the actual refund.',
+        max: '100',
       },
     ],
   },
@@ -309,9 +317,9 @@ function buildSummary(v: SettingsValues): SummaryLine[] {
     {
       icon: CalendarX2,
       title:
-        v.cancellationWindowHours === 0
+        v.cancellationWindowHours === 0 || v.cancellationFeePercent === 0
           ? 'Cancelling is always free'
-          : `Cancelling within ${formatHours(v.cancellationWindowHours)} of the start incurs a fee`,
+          : `Cancelling within ${formatHours(v.cancellationWindowHours)} of the start costs ${v.cancellationFeePercent}%`,
     },
     {
       icon: MapPin,

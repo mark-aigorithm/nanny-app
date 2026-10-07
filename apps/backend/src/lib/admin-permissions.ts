@@ -228,6 +228,7 @@ export const CONFIG_KEY_SECTIONS: Record<keyof PlatformConfig, AdminSection> = {
   minBookingHours: 'settings',
   minAdvanceBookingHours: 'settings',
   cancellationWindowHours: 'settings',
+  cancellationFeePercent: 'settings',
   broadcastRadiusKm: 'settings',
   skillMatchingEnabled: 'settings',
   pendingWarningMinutes: 'settings',

@@ -643,7 +643,15 @@ async function notifyUserBookingEvent(
  * matching is on — holding every skill add-on the request was priced for.
  * No payment has been taken; the mother pays once a nanny claims the request.
  */
-async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<void> {
+/**
+ * Tell nearby matching nannies (and the console) about an open request. Also
+ * used when a nanny gives a booking back: `reopenedBy` leaves her out and tells
+ * the console what happened instead of announcing a new request.
+ */
+async function notifyBookingBroadcast(
+  booking: BookingWithRelations,
+  { reopenedBy }: { reopenedBy?: number } = {},
+): Promise<void> {
   const dateLabel = booking.date.toISOString().slice(0, 10);
 
   const [radiusKm, skillMatching, candidates] = await Promise.all([
@@ -679,6 +687,7 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
   const required = requiredSkillIds(booking);
   const nannies = candidates.filter(
     (n) =>
+      n.userId !== reopenedBy &&
       isWithinRadius(bookingPoint, nannyHomePoint(n.user), radiusKm) &&
       matchesSkills(required, heldSkillIds(n.nannySkills), skillMatching),
   );
@@ -693,11 +702,19 @@ async function notifyBookingBroadcast(booking: BookingWithRelations): Promise<vo
       title: 'New care request',
       body: `A parent needs care on ${dateLabel}. Accept to claim it — first to accept gets the booking.`,
     })),
-    ...adminIds.map((id) => ({
-      userId: id,
-      title: 'New booking request',
-      body: `A new booking request for ${dateLabel} was created.`,
-    })),
+    ...adminIds.map((id) =>
+      reopenedBy === undefined
+        ? {
+            userId: id,
+            title: 'New booking request',
+            body: `A new booking request for ${dateLabel} was created.`,
+          }
+        : {
+            userId: id,
+            title: 'Booking back in the pool',
+            body: `The nanny cancelled the ${dateLabel} booking before it was paid. It is open for other nannies again.`,
+          },
+    ),
   ];
 
   await Promise.all(
@@ -1280,6 +1297,7 @@ export async function getBookingOptions(): Promise<BookingOptions> {
     maxBookingHours: config.maxBookingHours,
     minAdvanceBookingHours: config.minAdvanceBookingHours,
     cancellationWindowHours: config.cancellationWindowHours,
+    cancellationFeePercent: config.cancellationFeePercent,
     timezone: PLATFORM_TIMEZONE,
     nowWallClock: toPlatformWallClock(now),
     earliestStartWallClock: toPlatformWallClock(
@@ -1464,21 +1482,32 @@ export async function cancelBooking(
       'A booking that is under way cannot be cancelled. The parent can end the shift instead.',
     );
   }
+  // A nanny dropping a booking nobody has paid for yet doesn't end it: the
+  // request goes back to the open pool so another nanny can take it.
+  if (isNanny && UNPAID_STATUSES.includes(booking.status)) {
+    const released = await releaseBookingToPool(booking, user.id);
+    return {
+      booking: toBookingResponse(released, await getBookingResponseContext(), viewerFor(user)),
+      refundAmount: 0,
+    };
+  }
+
   validateStatusTransition(booking.status, BookingStatus.CANCELLED);
 
   await returnUnpaidCredits(booking);
 
-  // Full refund when the nanny cancels, or when the parent cancels outside
-  // the console's cancellation window (0 = always free); half inside it. The
-  // same number is published on /bookings/options so the app's warning and
-  // this charge cannot disagree.
-  const { cancellationWindowHours } = await getPlatformConfig();
+  // The policy's suggested refund, for the console — not a promise to the
+  // mother: an admin decides what is actually refunded, and how. Full when the
+  // nanny cancels or the parent cancels outside the console's window (0 =
+  // always free); minus the console's fee % inside it. Both settings are
+  // published on /bookings/options so the app's warning matches this number.
+  const { cancellationWindowHours, cancellationFeePercent } = await getPlatformConfig();
   const hoursUntilStart = (booking.startTime.getTime() - Date.now()) / 3_600_000;
   const outsideWindow = cancellationWindowHours <= 0 || hoursUntilStart > cancellationWindowHours;
   const refundAmount =
     isNanny || outsideWindow
       ? Number(booking.totalAmount)
-      : Math.round(Number(booking.totalAmount) * 0.5 * 100) / 100;
+      : Math.round(Number(booking.totalAmount) * (1 - cancellationFeePercent / 100) * 100) / 100;
 
   const updated = await prisma.booking.update({
     where: { id: bookingId },
@@ -1519,14 +1548,72 @@ async function notifyOtherPartyOfCancellation(
     return;
   }
 
+  // No refund is promised: an admin decides whether it is returned as money
+  // or Care Points, and the mother hears from the team when they do.
   await notifyUserBookingEvent(
     booking.motherId,
     NotificationType.BOOKING_CANCELLED,
     'booking_cancelled',
     'Booking cancelled',
-    `Your nanny had to cancel the ${dateLabel} booking. You will be refunded in full.`,
+    `Your nanny had to cancel the ${dateLabel} booking. Our team will review your payment and contact you about it.`,
     booking.id,
   );
+}
+
+/**
+ * The nanny drops a booking that hasn't been paid for: it becomes an open
+ * request again rather than a cancellation. Everything the mother set aside
+ * stays as it is — package hours, Care Points and the promo code are all still
+ * held for the request — and the nanny pool is told about it afresh.
+ *
+ * Deliberately not a transition in the shared table: an admin must never be
+ * offered "back to Pending" on a booking that still has a nanny on it, which is
+ * what adding APPROVED → PENDING there would do. Guarded on the row as read, so
+ * a mother paying (or a second cancel) at the same moment makes this a no-op
+ * conflict instead of unassigning a booking that just got confirmed.
+ */
+async function releaseBookingToPool(
+  booking: BookingWithRelations,
+  nannyUserId: number,
+): Promise<BookingWithRelations> {
+  const { count } = await prisma.booking.updateMany({
+    where: {
+      id: booking.id,
+      status: booking.status,
+      nannyProfileId: booking.nannyProfileId,
+      deletedAt: null,
+    },
+    data: {
+      status: BookingStatus.PENDING,
+      nannyProfileId: null,
+      nannyDecision: NannyBookingDecision.PENDING,
+      nannyDecidedAt: null,
+      adminApprovedById: null,
+      adminApprovedAt: null,
+    },
+  });
+  if (count === 0) {
+    throw errors.conflict('This booking changed while you were cancelling it. Please try again.');
+  }
+
+  const released = await prisma.booking.findUniqueOrThrow({
+    where: { id: booking.id },
+    include: bookingInclude,
+  });
+
+  const dateLabel = released.date.toISOString().slice(0, 10);
+  await notifyUserBookingEvent(
+    released.motherId,
+    NotificationType.BOOKING_REQUESTED,
+    'booking_requested',
+    'Finding you another nanny',
+    `Your nanny can no longer make your ${dateLabel} booking. We're looking for another nanny for you and will let you know as soon as one accepts.`,
+    released.id,
+  );
+  // She just gave it up — don't offer it straight back to her.
+  await notifyBookingBroadcast(released, { reopenedBy: nannyUserId });
+
+  return released;
 }
 
 /**

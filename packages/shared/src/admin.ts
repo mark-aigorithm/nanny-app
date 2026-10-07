@@ -204,6 +204,11 @@ export const PlatformConfigSchema = z.object({
   /** Hours before start time after which cancellation incurs a fee. */
   cancellationWindowHours: z.number().int().min(0).max(168),
   /**
+   * Share of the card payment kept when the mother cancels inside the
+   * cancellation window. 0 makes a late cancellation free; 100 keeps it all.
+   */
+  cancellationFeePercent: z.number().int().min(0).max(100),
+  /**
    * Radius (km) around the booking's location within which nannies are
    * notified of a new request (and see it in their Requests pool). 0 disables
    * distance filtering — every eligible nanny is notified.

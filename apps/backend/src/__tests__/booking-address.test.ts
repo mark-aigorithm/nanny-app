@@ -71,6 +71,7 @@ const CONFIG = {
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
+  cancellationFeePercent: 50,
   bookingWindowStartHour: 8,
   bookingWindowEndHour: 22,
   includedChildrenPerBooking: 2,

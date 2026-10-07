@@ -51,6 +51,7 @@ const CONFIG: PlatformConfig = {
   minBookingHours: 2,
   minAdvanceBookingHours: 2,
   cancellationWindowHours: 24,
+  cancellationFeePercent: 50,
   broadcastRadiusKm: 10,
   skillMatchingEnabled: true,
   pendingWarningMinutes: 15,

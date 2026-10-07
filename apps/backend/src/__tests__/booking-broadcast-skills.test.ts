@@ -60,6 +60,7 @@ jest.mock('@backend/services/app-settings.service', () => ({
     minBookingHours: 1,
     minAdvanceBookingHours: 0,
     cancellationWindowHours: 24,
+    cancellationFeePercent: 50,
     broadcastRadiusKm: 0,
     pendingWarningMinutes: 15,
     pendingCriticalMinutes: 30,

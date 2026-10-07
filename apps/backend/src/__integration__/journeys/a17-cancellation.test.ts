@@ -4,12 +4,19 @@
  * Either party may cancel a booking that has not started. The refund the
  * service quotes follows one rule: a parent cancelling outside the platform's
  * cancellation window, or a nanny cancelling at any point, is owed the full
- * amount; a parent cancelling inside the window is owed half. The window is
+ * amount; a parent cancelling inside the window loses the console's
+ * cancellation fee (`cancellation_fee_percent`, 50 by default). The window is
  * the console's `cancellation_window_hours` (24 by default; 0 makes cancelling
- * always free), and the app reads it off `/bookings/options` so the fee it
- * warns about is the fee the server charges. The quote is advisory — nothing
- * is paid back here. Money moves only through the admin refund flow (A3), so
- * a paid booking's payment row must be untouched by the cancellation itself.
+ * always free), and the app reads both off `/bookings/options` so the fee it
+ * warns about is the policy the server applies. The quote is advisory —
+ * nothing is paid back here, and the mother is never promised a refund: an
+ * admin decides, as money or Care Points. Money moves only through the admin
+ * refund flow (A3), so a paid booking's payment row must be untouched by the
+ * cancellation itself.
+ *
+ * A nanny dropping a booking that isn't paid yet doesn't cancel it: the request
+ * goes back to the open pool, still holding whatever the mother set aside, and
+ * she is told another nanny is being found.
  *
  * Whoever cancels, the other party is told. A shift that is under way cannot
  * be cancelled at all — the parent ends it (A18) instead.
@@ -65,12 +72,16 @@ async function startIn(bookingId: number, hoursAhead: number): Promise<void> {
  * reader falls back to its 24 h default until a row exists — and the reset's
  * truncate removes the row again after each test.
  */
-async function setCancellationWindowHours(hours: number): Promise<void> {
+async function setSetting(key: string, value: number): Promise<void> {
   await prisma.appSettings.upsert({
-    where: { key: 'cancellation_window_hours' },
-    create: { key: 'cancellation_window_hours', value: String(hours) },
-    update: { value: String(hours) },
+    where: { key },
+    create: { key, value: String(value) },
+    update: { value: String(value) },
   });
+}
+
+async function setCancellationWindowHours(hours: number): Promise<void> {
+  await setSetting('cancellation_window_hours', hours);
 }
 
 async function wasToldOfCancellation(userId: number, bookingId: number): Promise<boolean> {
@@ -168,12 +179,19 @@ describe('A17 — the other party is told', () => {
     expect(await wasToldOfCancellation(mother.id, booking.id)).toBe(false);
   });
 
-  it('tells the mother when the nanny cancels', async () => {
+  it('tells the mother when the nanny cancels, without promising her a refund', async () => {
     const { mother, nanny, booking } = await paidBooking();
     await cancel(nanny.token, booking.id).expect(200);
 
     expect(await wasToldOfCancellation(mother.id, booking.id)).toBe(true);
     expect(await wasToldOfCancellation(nanny.id, booking.id)).toBe(false);
+
+    // An admin decides between money and Care Points; the message must not pre-empt that.
+    const told = await prisma.notification.findFirstOrThrow({
+      where: { userId: mother.id, type: 'BOOKING_CANCELLED', referenceId: booking.id },
+    });
+    expect(told.body).not.toMatch(/refund/i);
+    expect(told.body).toMatch(/our team will review your payment/i);
   });
 
   it('tells nobody when an unclaimed request is withdrawn', async () => {
@@ -237,6 +255,26 @@ describe('A17 — the refund quote', () => {
     expect(half.body.data.refundAmount).toBe(Number(inside.booking.totalAmount) / 2);
   });
 
+  it('keeps the fee the console sets, not a fixed half', async () => {
+    await setSetting('cancellation_fee_percent', 30);
+
+    const { mother, booking } = await paidBooking();
+    await startIn(booking.id, 6);
+    const response = await cancel(mother.token, booking.id);
+    expect(response.body.data.refundAmount).toBe(
+      Math.round(Number(booking.totalAmount) * 0.7 * 100) / 100,
+    );
+  });
+
+  it('is the full amount inside the window when the fee is zero', async () => {
+    await setSetting('cancellation_fee_percent', 0);
+
+    const { mother, booking } = await paidBooking();
+    await startIn(booking.id, 6);
+    const response = await cancel(mother.token, booking.id);
+    expect(response.body.data.refundAmount).toBe(Number(booking.totalAmount));
+  });
+
   it('is always the full amount when the window is zero', async () => {
     await setCancellationWindowHours(0);
 
@@ -253,5 +291,82 @@ describe('A17 — the refund quote', () => {
     const response = await request(app).get('/bookings/options').set(...authHeader(mother.token));
     expect(response.status).toBe(200);
     expect(response.body.data.cancellationWindowHours).toBe(12);
+  });
+
+  it('publishes the fee to the app too', async () => {
+    await setSetting('cancellation_fee_percent', 30);
+    const mother = await makeMother();
+
+    const response = await request(app).get('/bookings/options').set(...authHeader(mother.token));
+    expect(response.body.data.cancellationFeePercent).toBe(30);
+  });
+});
+
+describe('A17 — a nanny dropping a booking that is not paid yet', () => {
+  async function acceptedUnpaid() {
+    const mother = await makeMother();
+    const nanny = await makeNanny();
+    const booking = await createBookingViaApi(mother.token);
+    await claimBooking(nanny.token, booking.id);
+    expect((await reload(booking.id)).status).toBe('APPROVED');
+    return { mother, nanny, booking };
+  }
+
+  it('puts the request back in the pool instead of cancelling it', async () => {
+    const { nanny, booking } = await acceptedUnpaid();
+
+    const response = await cancel(nanny.token, booking.id);
+    expect(response.status).toBe(200);
+    expect(response.body.data.refundAmount).toBe(0);
+
+    const row = await reload(booking.id);
+    expect(row.status).toBe('PENDING');
+    expect(row.nannyProfileId).toBeNull();
+    expect(row.cancelledAt).toBeNull();
+    expect(row.cancelledById).toBeNull();
+  });
+
+  it('keeps everything the mother set aside on the request', async () => {
+    const { nanny, booking } = await acceptedUnpaid();
+    const before = await reload(booking.id);
+
+    await cancel(nanny.token, booking.id).expect(200);
+
+    const after = await reload(booking.id);
+    expect(after.totalAmount).toEqual(before.totalAmount);
+    expect(after.discountAmount).toEqual(before.discountAmount);
+    expect(after.promoCodeId).toEqual(before.promoCodeId);
+    expect(after.packageHoursApplied).toEqual(before.packageHoursApplied);
+    expect(after.rewardCreditPoints).toEqual(before.rewardCreditPoints);
+  });
+
+  it('tells the mother another nanny is being found — not that it was cancelled', async () => {
+    const { mother, nanny, booking } = await acceptedUnpaid();
+    await cancel(nanny.token, booking.id).expect(200);
+
+    expect(await wasToldOfCancellation(mother.id, booking.id)).toBe(false);
+    const told = await prisma.notification.findFirst({
+      where: { userId: mother.id, type: 'BOOKING_REQUESTED', referenceId: booking.id },
+    });
+    expect(told?.title).toBe('Finding you another nanny');
+  });
+
+  it('lets another nanny accept it, and does not offer it back to the one who dropped it', async () => {
+    const { nanny, booking } = await acceptedUnpaid();
+    const other = await makeNanny();
+    await prisma.notification.deleteMany({});
+
+    await cancel(nanny.token, booking.id).expect(200);
+
+    expect(
+      await prisma.notification.count({
+        where: { userId: nanny.id, type: 'BOOKING_REQUESTED', referenceId: booking.id },
+      }),
+    ).toBe(0);
+
+    await claimBooking(other.token, booking.id);
+    const row = await reload(booking.id);
+    expect(row.status).toBe('APPROVED');
+    expect(row.nannyProfileId).not.toBeNull();
   });
 });

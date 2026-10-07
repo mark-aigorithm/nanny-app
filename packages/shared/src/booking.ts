@@ -571,11 +571,13 @@ export const BookingOptionsSchema = z.object({
   maxBookingHours: z.number().int(),
   minAdvanceBookingHours: z.number().int(),
   /**
-   * Hours before the start inside which a parent's cancellation forfeits half
-   * the amount. 0 means cancelling is always free. Published so the fee the
-   * app warns about is the fee the server charges.
+   * Hours before the start inside which a parent's cancellation carries the
+   * fee below. 0 means cancelling is always free. Published so the fee the app
+   * warns about is the fee the server charges.
    */
   cancellationWindowHours: z.number().int().min(0),
+  /** Percentage kept when she cancels inside that window — the fee the app warns about. */
+  cancellationFeePercent: z.number().int().min(0).max(100),
   /** IANA zone every wall-clock time on this payload is expressed in. */
   timezone: z.string(),
   /** Server "now" as a wall-clock time, e.g. "2026-07-15T14:32:07". */

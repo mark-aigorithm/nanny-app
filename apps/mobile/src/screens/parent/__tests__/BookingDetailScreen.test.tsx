@@ -103,7 +103,7 @@ function renderScreen(b: BookingResponse, careLogs: CareLogResponse[] = []) {
   const routes: Record<string, unknown> = {
     '/bookings/1': b,
     '/bookings/1/care-logs': careLogs,
-    '/bookings/options': { cancellationWindowHours: 24 },
+    '/bookings/options': { cancellationWindowHours: 24, cancellationFeePercent: 50 },
   };
   (api.get as jest.Mock).mockImplementation((url: string) =>
     Promise.resolve({ data: { data: routes[url] ?? null, error: null } }),
