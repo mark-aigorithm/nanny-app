@@ -658,7 +658,9 @@ export default function BookingDatePickerScreen() {
               <View style={styles.durationCard}>
                 <View style={styles.durationTopRow}>
                   <View style={styles.durationReadout}>
-                    <Text style={styles.durationValue}>
+                    {/* testID: "4h" also appears in the stepper and the deal banner, so a
+                        flow reading the chosen length needs this one by id. */}
+                    <Text style={styles.durationValue} testID="booking.duration.value">
                       {durationMinutes !== null ? formatMinutes(durationMinutes) : '—'}
                     </Text>
                     <Text style={styles.durationCaption}>

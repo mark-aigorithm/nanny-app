@@ -47,13 +47,25 @@ appId: com.nannyapp.mobile
 
 # The length opens on the admin's minimum booking, so step it up to the four
 # hours every P0 flow prices against.
+# The stepper sits at the foot of the screen, under the sticky summary bar —
+# bring it up first or the taps land on the bar.
+- scrollUntilVisible:
+    element:
+      id: 'booking.duration.increment'
+    direction: DOWN
+    centerElement: true
 - repeat:
     while:
-      notVisible: '4h'
+      notVisible:
+        id: 'booking.duration.value'
+        text: '4h'
     times: 12
     commands:
       - tapOn:
           id: 'booking.duration.increment'
+- assertVisible:
+    id: 'booking.duration.value'
+    text: '4h'
 
 - tapOn:
     id: 'booking.cta'
