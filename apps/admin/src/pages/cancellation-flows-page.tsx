@@ -99,13 +99,20 @@ export function CancellationFlowsPage() {
 
         <section id="gaps" className="flows-flow" aria-label="Known gaps">
           <Card title={`Known gaps (${gaps.length})`}>
-            <ul className="flows-gap-list">
-              {gaps.map((flow) => (
-                <li key={flow.id}>
-                  <a href={`#${flow.id}`}>{flow.title}</a> — {flow.gap}
-                </li>
-              ))}
-            </ul>
+            {gaps.length === 0 ? (
+              <p className="flows-section-lead">
+                None — every flow above works as designed. What is still open is in the decisions
+                below.
+              </p>
+            ) : (
+              <ul className="flows-gap-list">
+                {gaps.map((flow) => (
+                  <li key={flow.id}>
+                    <a href={`#${flow.id}`}>{flow.title}</a> — {flow.gap}
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         </section>
 

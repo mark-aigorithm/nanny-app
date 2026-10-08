@@ -138,7 +138,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     title: 'Package hours and Care Points on a paid booking',
     question: 'When the mother or an admin cancels a booking she paid for with hours or points, does she get them back?',
     context:
-      'Today they come back only before payment. A booking paid entirely with them counts as paid the moment a nanny accepts, so she loses all of it however early she cancels.',
+      'Today they always come back before payment, and after payment when the mother cancels outside the window. Inside the window, or when an admin cancels a paid booking, they stay spent.',
     options: [
       {
         id: 'forfeit',
@@ -147,7 +147,6 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         mother: 'Loses prepaid value even on a free cancellation.',
         business: 'Keeps the value; likely support complaints.',
         example: 'She loses the 2 hours (EGP 240) even cancelling a week ahead.',
-        status: 'today',
       },
       {
         id: 'always-return-in-full',
@@ -156,7 +155,6 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         mother: 'Never loses prepaid value.',
         business: 'A late cancel carries no penalty on the credit part — the fee only touches card money.',
         example: '2 hours back, whenever she cancels.',
-        status: 'proposed',
       },
       {
         id: 'return-minus-the-fee-inside-the-window',
@@ -173,6 +171,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         mother: 'Clear, but harsh for a credits-paid late cancel.',
         business: 'Simple to explain and build.',
         example: 'Inside the window: nothing back.',
+        status: 'today',
       },
     ],
   },
@@ -180,7 +179,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     id: 'promo',
     title: 'Promo code',
     question: 'When a paid booking is cancelled, can the mother use the code again?',
-    context: 'Today a code is spent the moment the booking is paid, and never given back.',
+    context: 'Today a paid booking’s code is given back when the mother cancels outside the window, and stays spent otherwise.',
     options: [
       {
         id: 'stays-used',
@@ -188,7 +187,6 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         description: 'Once paid, the code is gone.',
         mother: 'Loses a one-time code on any cancellation.',
         business: 'Protects campaign budgets.',
-        status: 'today',
       },
       {
         id: 'restore-when-she-cancels-outside-the-window',
@@ -196,7 +194,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         description: 'A free cancellation gives the code back; a late one keeps it spent.',
         mother: 'Fair for an early change of plans.',
         business: 'Small, predictable cost.',
-        status: 'proposed',
+        status: 'today',
       },
       {
         id: 'also-restore-when-it-isnt-her-doing',
@@ -317,7 +315,8 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     id: 'paid-after-cancel',
     title: 'A payment that arrives after the booking was cancelled',
     question: 'What happens when a card payment goes through for a booking that is already cancelled?',
-    context: 'Today the money is kept, the booking stays cancelled, and only a server log notices.',
+    context:
+      'Now rare: a booking can’t be cancelled while her checkout is open, and checkout links expire after 90 minutes. If money still lands, the admins and the mother are notified and the booking’s page offers the refund.',
     options: [
       {
         id: 'kept-silently',
@@ -325,7 +324,6 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
         description: 'Money held with no alert.',
         mother: 'Charged for nothing.',
         business: 'Chargeback risk; no one knows to act.',
-        status: 'today',
       },
       {
         id: 'refund-automatically',
@@ -337,9 +335,10 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
       {
         id: 'flag-it-for-an-admin',
         label: 'Flag it for an admin',
-        description: 'Show it in the refund review queue.',
-        mother: 'Refunded after review.',
+        description: 'Notify the admins, and offer the refund on the booking’s page.',
+        mother: 'Told the team will review it; refunded after review.',
         business: 'Consistent with admin-approved refunds.',
+        status: 'today',
       },
       {
         id: 'restore-the-booking',
@@ -355,15 +354,14 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
     title: 'What the mother is told',
     question: 'What does the cancellation notification say about money and credits?',
     context:
-      'A mother who cancels hears nothing about her hours, points, promo code or money.',
+      'A mother who cancels a paid booking is told what came back and that the team will review any card payment. Cancelling an unpaid request still sends no notice.',
     options: [
       {
         id: 'today',
-        label: 'Today',
+        label: 'Say nothing',
         description: 'No notice when she cancels.',
         mother: 'Unsure where her hours, points, code and money are.',
         business: 'Support questions from mothers who cancelled.',
-        status: 'today',
       },
       {
         id: 'state-what-came-back-promise-no-money',
@@ -372,7 +370,7 @@ export const CANCELLATION_DECISIONS: readonly CancellationDecision[] = [
           'e.g. “Your 2 package hours were returned and your promo code can be used again. Our team will review your payment.”',
         mother: 'Knows exactly where her credits are; no false expectations.',
         business: 'Safe wording while refunds are reviewed.',
-        status: 'proposed',
+        status: 'today',
       },
       {
         id: 'also-show-the-expected-refund',
