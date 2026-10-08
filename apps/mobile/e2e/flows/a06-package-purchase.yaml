@@ -78,17 +78,24 @@ appId: com.nannyapp.mobile
     timeout: 30000
 
 - extendedWaitUntil:
-    visible: 'EGP 900.00'
+    visible: '.*900\.00.*'
     timeout: 60000
-- assertVisible: 'Pay now'
-- tapOn: 'Pay now'
-
-- extendedWaitUntil:
-    visible: 'Payment successful'
-    timeout: 60000
+- runFlow: _pay-checkout.yaml
 
 # ── The hours ──────────────────────────────────────────────────────────────
-- tapOn: 'View my hours'
+# Not 'Payment successful': PackagePaymentResultScreen shows it for 1.2s and
+# then replaces itself with My Hours, and the checkout step waits for the
+# WebView to hand back, which can take longer than that. My Hours is only
+# reached on a success outcome, so it carries the same proof. The button is
+# tapped only if the flow got there first.
+- extendedWaitUntil:
+    visible: 'Package Hours|View my hours'
+    timeout: 60000
+- runFlow:
+    when:
+      visible: 'View my hours'
+    commands:
+      - tapOn: 'View my hours'
 - extendedWaitUntil:
     visible: 'Package Hours'
     timeout: 30000

@@ -28,7 +28,7 @@
  * `-e` values passed to `maestro test` arrive as globals — the accounts
  * (MOTHER_EMAIL, NANNY_EMAIL, GATED_MOTHER_EMAIL, PENDING_NANNY_EMAIL,
  * PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD) and where to reach things
- * (BACKEND_URL, AUTH_EMULATOR_URL). See run.mjs for the full list.
+ * (BACKEND_URL, AUTH_EMULATOR_URL, PAYER_URL). See run.mjs for the full list.
  *
  * The live-Firebase suite (live.mjs) passes a much shorter list — BACKEND_URL,
  * MAILPIT_URL and its own MANAGED_* / ABSENT_* values — and deliberately no
@@ -437,11 +437,16 @@ function motherBook() {
 /**
  * The mother pays, so the shift can start.
  *
- * The whole way round: the backend mints the intention, the fake settles it and
- * signs a callback, and the callback goes back to the backend's own webhook. A
- * status written straight into the database would skip the two things that
- * actually gate a check-in — a Payment row that reached CAPTURED, and a booking
- * the webhook moved to CONFIRMED.
+ * The whole way round, and the same way in both Paymob modes: the backend mints
+ * the intention, and the payer (e2e/payer.mjs) types the approved test card
+ * into whichever checkout run.mjs's PAYMOB_MODE names. Then Paymob, or the
+ * fake, delivers the signed webhook to the backend itself. A status written
+ * straight into the database would skip the two things that actually gate a
+ * check-in: a Payment row that reached CAPTURED, and a booking the webhook
+ * moved to CONFIRMED.
+ *
+ * The fake delivers the webhook before it redirects. Paymob races the two, so
+ * the booking is polled until it confirms.
  */
 function motherPay() {
   var motherToken = signIn(MOTHER_EMAIL);
@@ -451,24 +456,24 @@ function motherPay() {
     method: 'CARD',
   });
 
-  var settled = http.post(PAYMOB_FAKE_URL + '/__test__/pay', {
+  var paid = http.post(PAYER_URL + '/pay', {
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clientSecret: intention.clientSecret, success: true }),
+    body: JSON.stringify({
+      publicKey: intention.publicKey,
+      clientSecret: intention.clientSecret,
+      card: 'approved',
+    }),
   });
-  if (settled.status !== 200) {
-    throw new Error('The Paymob fake refused to settle: ' + settled.status + ' ' + settled.body);
-  }
-  var callback = json(settled.body);
-
-  var delivered = http.post(BACKEND_URL + '/webhooks/paymob?hmac=' + callback.hmac, {
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(callback.body),
-  });
-  if (delivered.status < 200 || delivered.status >= 300) {
-    throw new Error('The webhook was refused: ' + delivered.status + ' ' + delivered.body);
+  if (paid.status !== 200 || !json(paid.body).success) {
+    throw new Error('The checkout did not succeed: ' + paid.status + ' ' + paid.body);
   }
 
-  record(call('GET', motherToken, '/bookings/' + booking.id));
+  var current = call('GET', motherToken, '/bookings/' + booking.id);
+  for (var attempt = 0; current.status !== 'CONFIRMED' && attempt < 60; attempt++) {
+    http.get(PAYER_URL + '/wait?ms=1000');
+    current = call('GET', motherToken, '/bookings/' + booking.id);
+  }
+  record(current);
 }
 
 /**

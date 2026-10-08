@@ -31,14 +31,10 @@ appId: com.nannyapp.mobile
 
 - tapOn: 'Complete payment'
 
-# The Paymob fake serves this page at the very path the app builds, so the
-# WebView, the redirect and the webhook are all the production ones. Android
-# exposes WebView content to the accessibility tree, which is why a plain HTML
-# button can be tapped by its text.
-- extendedWaitUntil:
-    visible: 'Pay now'
-    timeout: 60000
-- tapOn: 'Pay now'
+# The checkout is served at the very path the app builds, by the Paymob fake
+# or by Paymob's sandbox (PAYMOB_MODE), so the WebView, the redirect and the
+# webhook are all the production ones.
+- runFlow: _pay-checkout.yaml
 
 # Not 'Payment successful': BookingPaymentResultScreen shows it for 1.2s before
 # replacing itself with the confirmation, and a loaded emulator can take longer

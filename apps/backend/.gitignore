@@ -4,3 +4,6 @@
 # throwaway container, so there is nothing secret to leak — and the integration
 # suite cannot run without it. Never add a real credential to this file.
 !.env.test
+# Committed on purpose. It has blank values only; the TEST keys go in
+# .env.paymob-sandbox.local, which the rule above keeps out.
+!.env.paymob-sandbox.example

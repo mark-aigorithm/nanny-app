@@ -49,10 +49,7 @@ appId: com.nannyapp.mobile
 - extendedWaitUntil:
     visible: 'Amount due'
     timeout: 30000
-- extendedWaitUntil:
-    visible: 'Pay now'
-    timeout: 60000
-- tapOn: 'Pay now'
+- runFlow: _pay-checkout.yaml
 
 # ── Paid: reopen and the card is gone from Home ────────────────────────────
 - runFlow:

@@ -7,9 +7,10 @@
 # The mother is advanced over HTTP for the three things only she can do — book,
 # pay, and read out the start PIN — and each goes through the route her own tap
 # would call. The payment is the whole round trip: the backend mints the
-# intention, the fake settles it and signs a callback, and the callback comes
-# back to the backend's webhook. Writing CONFIRMED into the database directly
-# would skip the two things that actually gate a check-in.
+# intention, a headless browser pays it with the test card (e2e/payer.mjs), and
+# the Paymob fake or the sandbox delivers the webhook itself. Writing CONFIRMED
+# into the database directly would skip the two things that actually gate a
+# check-in.
 #
 # ── Why this one is not at the mercy of the clock ──────────────────────────
 # A1 and A7 are unrunnable in the last hours before midnight, because

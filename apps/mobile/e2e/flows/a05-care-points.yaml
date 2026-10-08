@@ -88,10 +88,9 @@ appId: com.nannyapp.mobile
 - tapOn: 'Complete payment'
 
 - extendedWaitUntil:
-    visible: 'EGP 240.00'
+    visible: '.*240\.00.*'
     timeout: 60000
-- assertVisible: 'Pay now'
-- tapOn: 'Pay now'
+- runFlow: _pay-checkout.yaml
 
 # Not 'Payment successful': BookingPaymentResultScreen shows it for 1.2s before
 # replacing itself with the confirmation, and a loaded emulator can take longer

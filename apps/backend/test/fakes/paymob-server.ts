@@ -12,8 +12,13 @@
  * verifier agree on a format Paymob doesn't use".
  *
  * Beyond impersonating Paymob it exposes a small control surface under
- * `/__test__` that tests drive directly — see the route comments below.
+ * `/__test__` that the backend's Jest suites drive directly — see the route
+ * comments below. The E2E suites stay off it, so they can run against Paymob's
+ * real sandbox as well (PAYMOB_MODE, test-support/paymob).
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import express, { type Express, type Request, type Response } from 'express';
 
 import { buildTransactionHmacPlaintext, computePaymobHmacHex } from '@backend/lib/paymob/hmac';
@@ -21,6 +26,39 @@ import type { PaymobTransactionHmacPayload } from '@backend/lib/paymob/types';
 import { routeParam } from '@backend/lib/route-param';
 
 const DEFAULT_PORT = 4010;
+
+type TestCard = { number: string; expiry: string; cvv: string; name: string; outcome: 'approved' | 'declined' };
+
+/**
+ * The labels and test cards shared with every E2E driver. They are read, not
+ * imported, because the file sits outside the backend's rootDir. See the
+ * comment at its top.
+ */
+const CHECKOUT = JSON.parse(
+  readFileSync(path.join(__dirname, '..', '..', '..', '..', 'test-support', 'paymob', 'checkout.json'), 'utf8'),
+) as {
+  labels: Record<'cardNumber' | 'expiry' | 'cvv' | 'name' | 'pay' | 'threeDsTitle' | 'threeDsSubmit', string>;
+  cards: Record<string, TestCard>;
+};
+
+const CARD_FIELDS = ['cardNumber', 'expiry', 'cvv', 'name'] as const;
+type CardField = (typeof CARD_FIELDS)[number];
+
+/**
+ * What the submitted card settles as. Spaces are ignored in the number and the
+ * expiry, the way a card form formats them. The name is not compared, since
+ * Paymob's test cards do not depend on it.
+ */
+export function cardOutcome(card: Partial<Record<CardField, string>>): 'approved' | 'declined' {
+  const squash = (value: string | undefined) => (value ?? '').replace(/\s+/g, '');
+  const match = Object.values(CHECKOUT.cards).find(
+    (known) =>
+      known.number === squash(card.cardNumber) &&
+      known.expiry === squash(card.expiry) &&
+      known.cvv === squash(card.cvv),
+  );
+  return match?.outcome ?? 'declined';
+}
 
 type Intention = {
   id: string;
@@ -160,9 +198,14 @@ export function buildPaymobFake(): Express {
    * The path and query (`publicKey`, `clientSecret`) are exactly what
    * `buildPaymobCheckoutUrl` produces on mobile, so pointing the app's checkout
    * origin at this fake is the only change needed to complete a payment without
-   * Paymob. What renders is deliberately plain HTML: Android exposes WebView
-   * content to the accessibility tree, so a UI driver taps the buttons by their
-   * visible text.
+   * Paymob.
+   *
+   * It is a card form, as Paymob's is, and its labels come from the same
+   * test-support/paymob/checkout.json that the Maestro subflow and the
+   * Playwright driver type into. A flow therefore pays the same way here and on
+   * Paymob's sandbox, and which card it types decides the outcome on both. The
+   * HTML is deliberately plain: Android exposes WebView content to the
+   * accessibility tree, so a UI driver finds every control by its visible text.
    */
   app.get('/unifiedcheckout/', (req: Request, res: Response) => {
     const clientSecret = String(req.query['clientSecret'] ?? '');
@@ -173,22 +216,64 @@ export function buildPaymobFake(): Express {
       return;
     }
 
+    const { labels } = CHECKOUT;
+    const field = (name: CardField, label: string, placeholder: string, inputmode: string) =>
+      `<label for="${name}">${escapeHtml(label)}</label>
+       <input id="${name}" name="${name}" aria-label="${escapeHtml(label)}"
+              placeholder="${escapeHtml(placeholder)}" inputmode="${inputmode}" autocomplete="off" />`;
+
     res.send(
       page(
         'Test checkout',
         `<p class="amount">EGP ${(intention.amountCents / 100).toFixed(2)}</p>
          <p class="ref">Reference ${escapeHtml(intention.merchantOrderId ?? intention.id)}</p>
-         <form method="post" action="/unifiedcheckout/complete">
+         <form method="post" action="/unifiedcheckout/pay">
            <input type="hidden" name="clientSecret" value="${escapeHtml(intention.clientSecret)}" />
-           <button type="submit" name="outcome" value="pay" class="pay">Pay now</button>
-           <button type="submit" name="outcome" value="decline" class="decline">Decline</button>
+           ${field('cardNumber', labels.cardNumber, '1234 5678 9012 3456', 'numeric')}
+           ${field('expiry', labels.expiry, 'MM/YY', 'numeric')}
+           ${field('cvv', labels.cvv, '123', 'numeric')}
+           ${field('name', labels.name, 'Name on card', 'text')}
+           <button type="submit" class="pay">${escapeHtml(labels.pay)}</button>
          </form>`,
       ),
     );
   });
 
   /**
-   * POST /unifiedcheckout/complete — what the Pay / Decline buttons submit.
+   * POST /unifiedcheckout/pay — the card form's submit. It answers with the
+   * issuer's 3-D Secure challenge, as Paymob's test integrations do, carrying
+   * the card forward. The decision is taken when the challenge is submitted.
+   */
+  app.post('/unifiedcheckout/pay', (req: Request, res: Response) => {
+    const body = req.body as Partial<Record<CardField | 'clientSecret', string>>;
+    const intention = findByClientSecret(String(body.clientSecret ?? ''));
+
+    if (!intention) {
+      res.status(404).send(page('Unknown checkout', '<p>No intention matches that client secret.</p>'));
+      return;
+    }
+
+    const carried = (['clientSecret', ...CARD_FIELDS] as const)
+      .map((name) => `<input type="hidden" name="${name}" value="${escapeHtml(String(body[name] ?? ''))}" />`)
+      .join('');
+
+    res.send(
+      page(
+        CHECKOUT.labels.threeDsTitle,
+        `<p>Test issuer authentication for EGP ${(intention.amountCents / 100).toFixed(2)}.</p>
+         <form method="post" action="/unifiedcheckout/complete">
+           ${carried}
+           <button type="submit" class="pay">${escapeHtml(CHECKOUT.labels.threeDsSubmit)}</button>
+         </form>`,
+      ),
+    );
+  });
+
+  /**
+   * POST /unifiedcheckout/complete — the 3-D Secure submit, where the card is
+   * judged. A card listed in checkout.json settles the way its `outcome` says.
+   * Any other card is declined, as a real gateway declines a card it does not
+   * know.
    *
    * Mirrors the order real Paymob works in, with one deliberate difference: the
    * webhook is delivered *and awaited* before the redirect. Paymob races the
@@ -198,7 +283,7 @@ export function buildPaymobFake(): Express {
    */
   app.post('/unifiedcheckout/complete', (req: Request, res: Response) => {
     void (async () => {
-      const body = req.body as { clientSecret?: string; outcome?: string };
+      const body = req.body as Partial<Record<CardField | 'clientSecret', string>>;
       const intention = findByClientSecret(String(body.clientSecret ?? ''));
 
       if (!intention) {
@@ -206,7 +291,7 @@ export function buildPaymobFake(): Express {
         return;
       }
 
-      const success = body.outcome !== 'decline';
+      const success = cardOutcome(body) === 'approved';
       const callback = settleIntention(intention, success);
 
       try {
@@ -312,6 +397,10 @@ type SignedCallback = { hmac: string; body: { type: 'TRANSACTION'; obj: unknown 
  * Shared by `/__test__/pay` and the checkout page so a payment made through the
  * UI and one made through the control surface are indistinguishable to the
  * backend — the difference is only who posts the webhook.
+ *
+ * The control surface is for the backend's own Jest suites. The E2E suites
+ * (mobile, admin) never call it: they pay through the checkout page, which is
+ * what lets them run unchanged against Paymob's sandbox.
  */
 function settleIntention(intention: Intention, success: boolean): SignedCallback {
   intention.confirmed = success;
@@ -381,7 +470,10 @@ function page(title: string, body: string): string {
   button { display: block; width: 100%; padding: 16px; margin-bottom: 12px;
            font-size: 18px; border: 0; border-radius: 8px; }
   .pay { background: #1f9d55; color: #fff; }
-  .decline { background: #eee; color: #333; }
+  label { display: block; font-size: 14px; color: #444; margin: 12px 0 4px; }
+  input { display: block; width: 100%; box-sizing: border-box; padding: 12px;
+          font-size: 18px; border: 1px solid #ccc; border-radius: 8px; }
+  form .pay { margin-top: 24px; }
   pre { white-space: pre-wrap; color: #a00; }
 </style>
 </head>

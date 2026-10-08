@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { resolvePaymobMode } from '../../test-support/paymob/mode.mjs';
+
 /**
  * End-to-end configuration for the admin console.
  *
@@ -8,7 +10,12 @@ import { defineConfig, devices } from '@playwright/test';
  * `pnpm test:env`, plus a backend on :3001. Nothing is stubbed; the only
  * substitutions are the local database, the local Auth issuer and the Paymob
  * fake, all of which the backend already treats as ordinary dependencies.
+ *
+ * PAYMOB_MODE=sandbox swaps the fake for Paymob's real TEST-mode sandbox. The
+ * console then talks to the sandbox backend on :3002, and seeded payments go
+ * through Paymob's checkout (test-support/paymob/mode.mjs). Specs do not change.
  */
+const PAYMOB = resolvePaymobMode([], process.env);
 const PORT = 5174;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
@@ -65,7 +72,7 @@ export default defineConfig({
     env: {
       // Talk to the test backend directly rather than through Vite's proxy, so
       // the target is explicit in one place.
-      VITE_API_BASE_URL: process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:3001',
+      VITE_API_BASE_URL: process.env['E2E_API_BASE_URL'] ?? PAYMOB.backendUrl,
       VITE_FIREBASE_AUTH_EMULATOR_HOST:
         process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '127.0.0.1:9099',
       // Must match the emulator's --project and the backend's FIREBASE_PROJECT_ID:

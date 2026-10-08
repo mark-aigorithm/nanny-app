@@ -34,6 +34,10 @@ Thumbs.db
 
 # Testing
 coverage
+# The Paymob sandbox tunnel's current URL, written by scripts/paymob-tunnel.mjs.
+# (Its TEST keys go in apps/backend/.env.paymob-sandbox.local, which
+# apps/backend/.gitignore keeps out.)
+apps/backend/.paymob-sandbox-tunnel
 # Snapshot of the seeded app_settings, written by test/db/global-setup.ts and
 # restored after each truncate. Regenerated on every integration run.
 apps/backend/test/.baseline-settings.json

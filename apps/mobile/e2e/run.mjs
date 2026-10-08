@@ -14,6 +14,14 @@
  *
  *   node e2e/run.mjs            # every flow in e2e/flows
  *   node e2e/run.mjs smoke      # just e2e/flows/smoke.yaml
+ *   node e2e/run.mjs --paymob=sandbox a01
+ *                               # paying through Paymob's real TEST-mode
+ *                               # sandbox instead of the fake (or set
+ *                               # PAYMOB_MODE=sandbox)
+ *
+ * The flows are the same in both Paymob modes. Each pays by typing a test card
+ * into whichever checkout page Metro points the app at; see
+ * test-support/paymob/mode.mjs for what the flag changes.
  */
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
@@ -33,6 +41,8 @@ import {
   SOCIAL_REGISTRATION,
   localDigits,
 } from './accounts.mjs';
+import { CHECKOUT, resolvePaymobMode, withoutPaymobFlag } from '../../../test-support/paymob/mode.mjs';
+
 import { fail, isBooted, requireBootedDevice, resolveAdb } from './android.mjs';
 import { CARE_POINTS, PACKAGE, PLATFORM_SETTINGS, PROMO_CODES } from './fixtures.mjs';
 import {
@@ -40,24 +50,37 @@ import {
   requireAppInstalled,
   requireMetro,
   requireMetroFor,
+  requireMetroPaymob,
   resolveMaestro,
   reverseMetroPort,
   runMaestro,
 } from './lab.mjs';
+import { PAYER_PORT, startPayer } from './payer.mjs';
 
 const E2E_DIR = dirname(fileURLToPath(import.meta.url));
 const MOBILE_DIR = resolve(E2E_DIR, '..');
 const REPO_ROOT = resolve(MOBILE_DIR, '..', '..');
 const FLOWS_DIR = join(E2E_DIR, 'flows');
 
-/** Where the backend under test listens; the app reaches it at 10.0.2.2 from the emulator. */
-const BACKEND_URL = 'http://127.0.0.1:3001';
+/**
+ * Which Paymob this run pays through, and so which backend it talks to: the
+ * fake-mode backend on :3001 or the sandbox one on :3002. The app reaches
+ * either at 10.0.2.2 from the emulator.
+ */
+const PAYMOB = (() => {
+  try {
+    return resolvePaymobMode();
+  } catch (err) {
+    fail(err.message);
+  }
+})();
+const BACKEND_URL = PAYMOB.backendUrl;
 
 /** Where the Firebase Auth emulator listens, for the same reason. */
 const AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
 
-/** The Paymob fake, for the flows whose *other* side has to pay over HTTP. */
-const PAYMOB_FAKE_URL = 'http://127.0.0.1:4010';
+/** payer.mjs, for the flows whose *other* side has to pay (advance.js mother-pay). */
+const PAYER_URL = `http://127.0.0.1:${PAYER_PORT}`;
 
 /** Mailpit's HTTP API, where the backend's email OTPs land for the email-otp step. */
 const MAILPIT_URL = 'http://127.0.0.1:8025';
@@ -112,9 +135,10 @@ async function requireBackend() {
   const response = await fetch(`${BACKEND_URL}/health`).catch(() => null);
   if (!response?.ok) {
     fail(
-      `No backend answering at ${BACKEND_URL}. Start the stack and the test backend:\n` +
+      `No backend answering at ${BACKEND_URL} (PAYMOB_MODE=${PAYMOB.mode}). Start the stack and ` +
+        'the test backend:\n' +
         '  pnpm test:env\n' +
-        '  pnpm --filter @nanny-app/backend start:test',
+        `  ${PAYMOB.backendScript}`,
     );
   }
 }
@@ -267,7 +291,20 @@ function runFlow(maestro, flow) {
     BACKEND_URL,
     AUTH_EMULATOR_URL,
     AUTH_PROJECT_ID,
-    PAYMOB_FAKE_URL,
+    PAYER_URL,
+    // The hosted checkout, as _pay-checkout.yaml types into it. The same values
+    // in both Paymob modes; see test-support/paymob/checkout.json.
+    CHECKOUT_CARD_NUMBER_LABEL: CHECKOUT.labels.cardNumber,
+    CHECKOUT_EXPIRY_LABEL: CHECKOUT.labels.expiry,
+    CHECKOUT_CVV_LABEL: CHECKOUT.labels.cvv,
+    CHECKOUT_NAME_LABEL: CHECKOUT.labels.name,
+    CHECKOUT_PAY_LABEL: CHECKOUT.labels.pay,
+    CHECKOUT_3DS_TITLE: CHECKOUT.labels.threeDsTitle,
+    CHECKOUT_3DS_SUBMIT: CHECKOUT.labels.threeDsSubmit,
+    CARD_NUMBER: CHECKOUT.cards.approved.number,
+    CARD_EXPIRY: CHECKOUT.cards.approved.expiry,
+    CARD_CVV: CHECKOUT.cards.approved.cvv,
+    CARD_NAME: CHECKOUT.cards.approved.name,
     // Ten minutes out, which is inside the fifteen-minute check-in window — so
     // a flow that seeds a booking over HTTP can start the shift immediately,
     // without the date picker that A1 and A7 have to walk.
@@ -296,12 +333,16 @@ async function main() {
   // The seeder and every advance.js step talk to the Auth emulator; a live
   // Metro would point the app at the real project instead.
   await requireMetroFor('emulator');
+  await requireMetroPaymob(PAYMOB);
   reverseMetroPort(adb, device);
   quietDeviceChrome(adb, device);
 
-  console.log(`[e2e] device ${device}, maestro ${maestro}`);
+  console.log(`[e2e] device ${device}, maestro ${maestro}, Paymob ${PAYMOB.mode}`);
 
-  const flows = flowsToRun(process.argv.slice(2));
+  const flows = flowsToRun(withoutPaymobFlag(process.argv.slice(2)));
+  const stopPayer = await startPayer({ checkoutOrigin: PAYMOB.checkoutOrigin }).catch((err) =>
+    fail(`Could not start the checkout payer on :${PAYER_PORT}: ${err.message}`),
+  );
   // Re-seeded before every flow, not once per run. Each flow books the same
   // nanny for the next few hours, and the second one to try would be refused
   // for double-booking her — so without this the suite would only pass in the
@@ -312,6 +353,7 @@ async function main() {
     seedLab();
     return !runFlow(maestro, flow);
   });
+  await stopPayer();
 
   console.log(`\n[e2e] ${flows.length - failed.length}/${flows.length} flows passed.`);
   if (failed.length > 0) {

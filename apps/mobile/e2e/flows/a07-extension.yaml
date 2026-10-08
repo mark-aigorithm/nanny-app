@@ -76,10 +76,7 @@ appId: com.nannyapp.mobile
     timeout: 30000
 
 # The extension's own checkout, a separate intention from the booking's.
-- extendedWaitUntil:
-    visible: 'Pay now'
-    timeout: 60000
-- tapOn: 'Pay now'
+- runFlow: _pay-checkout.yaml
 
 # ── The booking is longer ──────────────────────────────────────────────────
 - runFlow: _open-running-booking.yaml

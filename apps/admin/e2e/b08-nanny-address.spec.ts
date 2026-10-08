@@ -15,7 +15,7 @@
  */
 import { expect, test } from '@playwright/test';
 
-import { seedApprovedNanny, signIn, superuserToken } from './helpers/backend';
+import { API_BASE_URL, seedApprovedNanny, signIn, superuserToken } from './helpers/backend';
 import { gotoConsole } from './helpers/locators';
 import { storageStatePath } from './roles';
 
@@ -47,7 +47,7 @@ test('rewrites her address and the console and the app both read the new one', a
 
   // And so is what the nanny's own app reads.
   const appToken = await signIn(nanny.email);
-  const response = await fetch(`${process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:3001'}/addresses`, {
+  const response = await fetch(`${API_BASE_URL}/addresses`, {
     headers: { Authorization: `Bearer ${appToken}` },
   });
   const body = (await response.json()) as { data: Array<{ formattedAddress: string; latitude: number }> };

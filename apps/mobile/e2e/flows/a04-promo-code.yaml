@@ -71,13 +71,14 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn: 'Complete payment'
 
-# The fake renders the amount off the intention the backend created, so this is
-# the figure Paymob would be asked to charge — not something the app drew.
+# The checkout renders the amount off the intention the backend created, so
+# this is the figure Paymob is asked to charge, not something the app drew.
+# Matched loosely, because the fake and Paymob's own page lay out the currency
+# differently.
 - extendedWaitUntil:
-    visible: 'EGP 432.00'
+    visible: '.*432\.00.*'
     timeout: 60000
-- assertVisible: 'Pay now'
-- tapOn: 'Pay now'
+- runFlow: _pay-checkout.yaml
 
 # Not 'Payment successful': BookingPaymentResultScreen shows it for 1.2s before
 # replacing itself with the confirmation, and a loaded emulator can take longer

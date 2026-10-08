@@ -210,9 +210,13 @@ setup (Maestro CLI, an AVD, a debug build). All of it is in
 [apps/mobile/e2e/README.md](../apps/mobile/e2e/README.md).
 
 **Payment is exercised for real on both E2E tiers.** The Paymob fake serves the same
-`/unifiedcheckout/` page the app opens, signs its webhooks with the production HMAC helpers and
-delivers them itself — so a WebView completing a checkout is the production path with a local
-issuer, not a mock.
+`/unifiedcheckout/` page the app opens (a card form and then 3-D Secure, judged by the test card
+typed), signs its webhooks with the production HMAC helpers and delivers them itself. So a WebView
+completing a checkout is the production path with a local issuer, not a mock. Neither E2E tier
+touches the fake's `/__test__` routes, so both can run unchanged against Paymob's real TEST-mode
+sandbox. `PAYMOB_MODE=sandbox` (or `--paymob=sandbox`) switches them; the shared labels, cards and
+ports are in `test-support/paymob/`, and the setup (test keys in an untracked file, a cloudflared
+tunnel) is in the mobile E2E README under "Paymob: fake or sandbox".
 
 - **Coverage threshold**: 80% across lines/branches/functions (planned; the CI gate is not yet wired).
 

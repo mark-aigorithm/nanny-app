@@ -3,7 +3,7 @@
  *
  * Every other payment test posts the webhook from inside the test process. That
  * proves the backend's half, but skips the part a mobile payment depends on:
- * the customer opens a page in a WebView, presses a button there, and the
+ * the customer opens a page in a WebView, pays with a test card there, and the
  * *payment provider* delivers the callback server-side before bouncing the
  * browser back to a return URL the app recognises.
  *
@@ -16,7 +16,9 @@
  * to be reachable at `PUBLIC_API_URL` — so unlike its siblings this file starts
  * a real listener instead of relying on supertest alone.
  */
+import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
+import path from 'node:path';
 
 import { PaymentStatus } from '@prisma/client';
 
@@ -43,12 +45,27 @@ function checkoutUrl(publicKey: string, clientSecret: string): string {
   return `${paymob.apiBaseUrl}/unifiedcheckout/?${params.toString()}`;
 }
 
-/** Presses one of the checkout page's buttons, without following the redirect. */
-async function pressCheckoutButton(clientSecret: string, outcome: 'pay' | 'decline') {
+/**
+ * The test cards every E2E driver types, read from the same file the fake
+ * judges them by (test-support/paymob/checkout.json).
+ */
+const CHECKOUT = JSON.parse(
+  readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', 'test-support', 'paymob', 'checkout.json'), 'utf8'),
+) as {
+  labels: Record<string, string>;
+  cards: Record<'approved' | 'declined', { number: string; expiry: string; cvv: string; name: string }>;
+};
+
+/**
+ * Submits a card through 3-D Secure (the form the challenge page posts),
+ * without following the redirect.
+ */
+async function payWithCard(clientSecret: string, card: 'approved' | 'declined') {
+  const { number, expiry, cvv, name } = CHECKOUT.cards[card];
   const response = await fetch(`${paymob.apiBaseUrl}/unifiedcheckout/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ clientSecret, outcome }),
+    body: new URLSearchParams({ clientSecret, cardNumber: number, expiry, cvv, name }),
     // The redirect target is the assertion — following it would hide it, and
     // would also hit the return page for no reason.
     redirect: 'manual',
@@ -131,10 +148,31 @@ describe('A13 — hosted checkout loop', () => {
 
     expect(response.status).toBe(200);
     // The amount is the customer's confirmation they are paying the right
-    // thing; the buttons are what a UI driver taps by visible text.
+    // thing; the labels are what every UI driver types and taps by.
     expect(html).toContain('480.00');
-    expect(html).toContain('Pay now');
-    expect(html).toContain('Decline');
+    for (const key of ['cardNumber', 'expiry', 'cvv', 'name', 'pay'] as const) {
+      expect(html).toContain(CHECKOUT.labels[key]);
+    }
+  });
+
+  it('answers a submitted card with a 3-D Secure challenge', async () => {
+    const { mother, booking } = await bookingAwaitingPayment();
+    const session = await createCheckoutSession(mother.token, 'booking', booking.id);
+    const { number, expiry, cvv, name } = CHECKOUT.cards.approved;
+
+    const response = await fetch(`${paymob.apiBaseUrl}/unifiedcheckout/pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ clientSecret: session.clientSecret, cardNumber: number, expiry, cvv, name }),
+    });
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain(CHECKOUT.labels['threeDsTitle']);
+    expect(html).toContain(CHECKOUT.labels['threeDsSubmit']);
+    // Nothing is decided until the challenge is submitted.
+    const untouched = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    expect(untouched.status).toBe('APPROVED');
   });
 
   it('404s a checkout for an unknown client secret', async () => {
@@ -147,7 +185,7 @@ describe('A13 — hosted checkout loop', () => {
     const { mother, booking } = await bookingAwaitingPayment();
     const session = await createCheckoutSession(mother.token, 'booking', booking.id);
 
-    const response = await pressCheckoutButton(session.clientSecret, 'pay');
+    const response = await payWithCard(session.clientSecret, 'approved');
 
     // ── The redirect the WebView follows ──────────────────────────
     expect(response.status).toBe(302);
@@ -172,11 +210,11 @@ describe('A13 — hosted checkout loop', () => {
     expect(payment.status).toBe(PaymentStatus.CAPTURED);
   });
 
-  it('leaves the booking unpaid when the customer declines', async () => {
+  it('leaves the booking unpaid when the card is declined', async () => {
     const { mother, booking } = await bookingAwaitingPayment();
     const session = await createCheckoutSession(mother.token, 'booking', booking.id);
 
-    const response = await pressCheckoutButton(session.clientSecret, 'decline');
+    const response = await payWithCard(session.clientSecret, 'declined');
 
     expect(response.status).toBe(302);
     const landing = new URL(response.headers.get('location') ?? '');

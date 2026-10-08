@@ -1,0 +1,30 @@
+{
+  "$comment": "One source of truth for the hosted checkout the E2E suites drive, in both PAYMOB_MODE=fake and PAYMOB_MODE=sandbox. The Paymob fake (apps/backend/test/fakes/paymob-server.ts) renders its card form from `labels` and settles each payment by looking the submitted card up in `cards`. The Maestro subflow (apps/mobile/e2e/flows/_pay-checkout.yaml) and the Playwright driver (checkout-driver.mjs) type and tap by the same `labels`. So the fake behaves as Paymob does, and a flow cannot tell which one it is on. Once real test keys are in place, open a sandbox checkout once and copy Paymob's visible field labels into `labels`. The fake then follows on its own.",
+  "labels": {
+    "cardNumber": "Card number",
+    "expiry": "Expiry date",
+    "cvv": "CVV",
+    "name": "Name on card",
+    "pay": "Pay",
+    "threeDsTitle": "3D Secure",
+    "threeDsSubmit": "Submit"
+  },
+  "cards": {
+    "approved": {
+      "number": "5123456789012346",
+      "expiry": "01/39",
+      "cvv": "123",
+      "name": "Test Account",
+      "outcome": "approved",
+      "source": "Paymob test credentials (developers.paymob.com, setup guides > test credentials)."
+    },
+    "declined": {
+      "number": "5123456789012346",
+      "expiry": "05/39",
+      "cvv": "123",
+      "name": "Test Account",
+      "outcome": "declined",
+      "source": "The Mastercard gateway's test convention: the expiry date picks the response. NOT yet confirmed against Paymob's sandbox. Confirm it on the first sandbox run."
+    }
+  }
+}

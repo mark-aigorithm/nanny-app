@@ -6,15 +6,25 @@
  * same public API the mobile app calls. That keeps the two-driver problem out
  * of the suite: only one surface is ever driven through a UI.
  *
- * Nothing is truncated between specs (the backend on :3001 owns the database
+ * Nothing is truncated between specs (the backend under test owns the database
  * for the whole run), so every fixture creates its own accounts under unique
  * emails and a unique surname. A spec finds its own row by that surname.
  */
+import { chromium, type Browser } from '@playwright/test';
+
+import { payCheckout } from '../../../../test-support/paymob/checkout-driver.mjs';
+import { resolvePaymobMode } from '../../../../test-support/paymob/mode.mjs';
+
 import { waitForOtp } from './mailpit';
 
-const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:3001';
+/**
+ * Which Paymob seeded payments go through (PAYMOB_MODE, default the fake), and
+ * so which backend the suite talks to. See test-support/paymob/mode.mjs.
+ */
+const PAYMOB = resolvePaymobMode([], process.env);
+
+export const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? PAYMOB.backendUrl;
 const EMULATOR_HOST = process.env['FIREBASE_AUTH_EMULATOR_HOST'] ?? '127.0.0.1:9099';
-const PAYMOB_FAKE_URL = process.env['E2E_PAYMOB_FAKE_URL'] ?? 'http://127.0.0.1:4010';
 
 /** The emulator ignores the key but still requires the parameter to be present. */
 const IDENTITY_TOOLKIT = `http://${EMULATOR_HOST}/identitytoolkit.googleapis.com/v1`;
@@ -150,7 +160,7 @@ async function call(method: Method, path: string, token: string, body?: Json): P
   if (status < 200 || status >= 300) {
     throw new Error(
       `${method} ${path} failed with ${status}: ${payload?.error ?? '(no body)'}. ` +
-        `Is the test backend running on ${API_BASE_URL} (pnpm --filter=@nanny-app/backend start:test)?`,
+        `Is the test backend running on ${API_BASE_URL} (${PAYMOB.backendScript})?`,
     );
   }
 
@@ -420,8 +430,9 @@ export async function seedPendingBooking(
 
 /**
  * A CONFIRMED, fully-paid booking: a nanny claims the request (which is what
- * makes it payable) and the mother pays through the Paymob fake, whose signed
- * webhook the backend verifies for real.
+ * makes it payable) and the mother pays with the approved test card on the
+ * hosted checkout. The Paymob fake or the sandbox then delivers the signed
+ * webhook, which the backend verifies for real.
  */
 export async function seedPaidBooking(
   adminToken: string,
@@ -434,37 +445,55 @@ export async function seedPaidBooking(
 
   const session = (await call('POST', `/bookings/${booking.id}/pay/paymob`, booking.mother.token, {
     method: 'CARD',
-  })) as { clientSecret: string };
+  })) as { clientSecret: string; publicKey: string };
 
-  await settleCheckout(session.clientSecret);
+  await payThroughCheckout(session);
+  await waitForBookingStatus(booking.id, booking.mother.token, 'CONFIRMED');
 
   return { ...booking, nanny };
 }
 
-/** Marks an intention paid on the fake and delivers its signed webhook. */
-async function settleCheckout(clientSecret: string): Promise<void> {
-  const paid = await fetch(`${PAYMOB_FAKE_URL}/__test__/pay`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clientSecret }),
-  });
+/**
+ * A browser of its own for paying, apart from the one the spec drives. It is
+ * launched on first use, and Playwright closes it with the worker.
+ */
+let checkoutBrowser: Browser | null = null;
 
-  if (!paid.ok) {
-    throw new Error(
-      `Paymob fake returned ${paid.status}. Is it running (pnpm test:env)?`,
-    );
+/**
+ * Pays the session's hosted checkout with the approved test card, as the
+ * mother would in the app's WebView. The same page and the same card work
+ * against the fake and Paymob's sandbox; nothing here posts a webhook.
+ */
+async function payThroughCheckout(session: { clientSecret: string; publicKey: string }): Promise<void> {
+  checkoutBrowser ??= await chromium.launch();
+  const context = await checkoutBrowser.newContext();
+  try {
+    const result = await payCheckout(await context.newPage(), {
+      origin: PAYMOB.checkoutOrigin,
+      publicKey: session.publicKey,
+      clientSecret: session.clientSecret,
+    });
+    if (!result.success) {
+      throw new Error(`The checkout did not succeed (PAYMOB_MODE=${PAYMOB.mode}): ${result.returnUrl}`);
+    }
+  } finally {
+    await context.close();
   }
+}
 
-  const { hmac, body } = (await paid.json()) as { hmac: string; body: unknown };
-
-  const webhook = await fetch(`${API_BASE_URL}/webhooks/paymob?hmac=${hmac}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!webhook.ok) {
-    throw new Error(`The backend rejected the fake's webhook with ${webhook.status}.`);
+/**
+ * Waits for the webhook to land. The fake delivers it before redirecting, but
+ * Paymob races the two, so the redirect alone does not mean the booking moved.
+ */
+async function waitForBookingStatus(bookingId: number, token: string, status: string): Promise<void> {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const booking = (await call('GET', `/bookings/${bookingId}`, token)) as { status: string };
+    if (booking.status === status) return;
+    if (Date.now() > deadline) {
+      throw new Error(`Booking ${bookingId} is ${booking.status}, not ${status}, a minute after paying.`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
 }
 

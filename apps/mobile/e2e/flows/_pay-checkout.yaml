@@ -1,0 +1,71 @@
+# Pays the hosted checkout that is open in the app's WebView, with the
+# approved test card, through 3-D Secure.
+#
+# Not a test — the leading underscore keeps run.mjs from treating it as one.
+# This is the one place a flow touches the checkout page, and it is the same
+# against the Paymob fake and Paymob's TEST-mode sandbox (run.mjs
+# --paymob=sandbox): both show a card form with the labels in
+# test-support/paymob/checkout.json, and on both the card typed decides the
+# outcome. run.mjs passes those labels and the card in as CHECKOUT_* and CARD_*.
+#
+# Android exposes WebView content to the accessibility tree, so each field is
+# found by its visible label. Tapping a <label> focuses its input.
+appId: com.nannyapp.mobile
+---
+- extendedWaitUntil:
+    visible: ${CHECKOUT_CARD_NUMBER_LABEL}
+    timeout: 60000
+
+# Each field is tapped, cleared, typed into, and the keyboard closed again.
+# Closing it matters: where the checkout sits below the app's own header (the
+# adjustment screen), the open keyboard covers the next label. The tap then
+# lands on the keyboard, focus stays put, and the next value overwrites the
+# last field. Clearing first means a field the WebView has filled in already
+# is replaced rather than appended to.
+- tapOn: ${CHECKOUT_CARD_NUMBER_LABEL}
+- eraseText
+- inputText: ${CARD_NUMBER}
+- hideKeyboard
+- tapOn: ${CHECKOUT_EXPIRY_LABEL}
+- eraseText
+- inputText: ${CARD_EXPIRY}
+- hideKeyboard
+- tapOn: ${CHECKOUT_CVV_LABEL}
+- eraseText
+- inputText: ${CARD_CVV}
+- hideKeyboard
+- tapOn: ${CHECKOUT_NAME_LABEL}
+- eraseText
+- inputText: ${CARD_NAME}
+- hideKeyboard
+- tapOn: ${CHECKOUT_PAY_LABEL}
+
+# 3-D Secure is the issuer's call, so a checkout may skip it. The wait is
+# optional, and the tap only runs if the challenge actually came.
+- extendedWaitUntil:
+    visible: ${CHECKOUT_3DS_TITLE}
+    timeout: 30000
+    optional: true
+- runFlow:
+    when:
+      visible: ${CHECKOUT_3DS_TITLE}
+    commands:
+      # Below the fold where the checkout sits under the app's header.
+      - scrollUntilVisible:
+          element:
+            text: ${CHECKOUT_3DS_SUBMIT}
+          direction: DOWN
+          timeout: 15000
+      - tapOn: ${CHECKOUT_3DS_SUBMIT}
+
+# Done only when the checkout has handed back to the app. Until the provider
+# answers, the WebView keeps showing the page whose button was pressed. With
+# the fake, that answer comes after the webhook has been delivered. A flow that
+# relaunched the app straight after the tap would kill the request in flight,
+# and the payment would never land.
+- extendedWaitUntil:
+    notVisible: ${CHECKOUT_3DS_SUBMIT}
+    timeout: 90000
+- extendedWaitUntil:
+    notVisible: ${CHECKOUT_PAY_LABEL}
+    timeout: 90000

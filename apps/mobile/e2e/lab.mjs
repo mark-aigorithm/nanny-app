@@ -210,6 +210,39 @@ export async function requireMetroFor(suite) {
 }
 
 /**
+ * Refuses a Metro whose Paymob wiring belongs to the other PAYMOB_MODE.
+ * `profile` is one of test-support/paymob/mode.mjs's PAYMOB_PROFILES.
+ *
+ * Both values are checked, as Metro is serving them right now: where the app
+ * opens checkout, and which backend it calls. A fake-mode run under a sandbox
+ * Metro would send the app to Paymob and to a backend this run did not seed
+ * against. The reverse would open a fake checkout for an intention the fake
+ * never created. An unreadable manifest refuses too, because which Paymob a
+ * payment goes to is not something to guess.
+ */
+export async function requireMetroPaymob(profile) {
+  const response = await fetch('http://127.0.0.1:8081/', {
+    headers: { 'expo-platform': 'android', accept: 'application/expo+json,application/json' },
+    signal: AbortSignal.timeout(60_000),
+  }).catch(() => null);
+  const manifest = response?.ok ? await response.text().catch(() => '') : '';
+
+  const origin = manifest.match(/"paymobCheckoutOrigin"\s*:\s*"([^"]*)"/)?.[1];
+  const apiBaseUrl = manifest.match(/"apiBaseUrl"\s*:\s*"([^"]*)"/)?.[1];
+  const restart = `Stop it and start the ${profile.mode} one:\n  ${profile.metroScript}`;
+
+  if (origin === undefined || apiBaseUrl === undefined) {
+    fail(`Could not read the app's Paymob config from Metro's manifest. ${restart}`);
+  }
+  if (origin !== profile.emulatorCheckoutOrigin || apiBaseUrl !== profile.emulatorApiBaseUrl) {
+    fail(
+      `Metro is serving checkout "${origin || "Paymob's own host"}" and API "${apiBaseUrl}", which is not ` +
+        `PAYMOB_MODE=${profile.mode}. ${restart}`,
+    );
+  }
+}
+
+/**
  * Maps :8081 inside the emulator to Metro on the host.
  *
  * Without this the dev-client link would have to name `10.0.2.2`, which works

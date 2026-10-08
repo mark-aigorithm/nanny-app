@@ -10,8 +10,10 @@
  * what the running app sees: change a value here and restart Metro, not just
  * the app.
  */
+import { PAYMOB_PROFILES } from '../../../test-support/paymob/mode.mjs';
+
 export const EMULATOR_ENV = {
-  API_BASE_URL: 'http://10.0.2.2:3001',
+  API_BASE_URL: PAYMOB_PROFILES.fake.emulatorApiBaseUrl,
   FIREBASE_AUTH_EMULATOR_HOST: '10.0.2.2:9099',
   // Points native Storage (lib/storage.ts) at the local Storage emulator so
   // registration (nanny ID/avatar) and marketplace listing uploads work in E2E.
@@ -19,7 +21,19 @@ export const EMULATOR_ENV = {
   FIREBASE_STORAGE_EMULATOR_HOST: '10.0.2.2:9199',
   // Points the checkout WebView at the Paymob fake instead of Paymob. Empty in
   // every real build — see apps/mobile/src/lib/paymobCheckout.ts.
-  PAYMOB_CHECKOUT_ORIGIN: 'http://10.0.2.2:4010',
+  PAYMOB_CHECKOUT_ORIGIN: PAYMOB_PROFILES.fake.emulatorCheckoutOrigin,
+};
+
+/**
+ * PAYMOB_MODE=sandbox (`e2e:metro:paymob-sandbox`): the same lab, but checkout
+ * opens Paymob's real TEST-mode page, and the app talks to the sandbox backend
+ * on :3002. Auth and Storage stay on the emulators, so seeding and sign-in are
+ * unchanged. See test-support/paymob/mode.mjs.
+ */
+export const PAYMOB_SANDBOX_ENV = {
+  ...EMULATOR_ENV,
+  API_BASE_URL: PAYMOB_PROFILES.sandbox.emulatorApiBaseUrl,
+  PAYMOB_CHECKOUT_ORIGIN: PAYMOB_PROFILES.sandbox.emulatorCheckoutOrigin,
 };
 
 /** The one key the live variant must never carry — see LIVE_AUTH_ENV. */
