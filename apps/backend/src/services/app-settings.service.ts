@@ -255,6 +255,11 @@ function assertCoherentConfig(next: PlatformConfig): void {
       'The children included at the base rate cannot exceed the maximum children per booking.',
     );
   }
+  // The request schema checks this only when both sides are sent; a change to
+  // one side must still leave the stored split adding up.
+  if (Math.abs(next.nannyPercent + next.platformPercent - 100) > 0.001) {
+    throw errors.badRequest('Nanny and platform percentages must add up to 100');
+  }
 }
 
 /** Upserts the provided settings and returns the resulting full config. */

@@ -408,13 +408,9 @@ describe('revenue split request rule', () => {
     expect(r.error?.issues[0]?.message).toBe('Nanny and platform percentages must add up to 100');
   });
 
-  // BUG: the sum-to-100 rule is a refine on the .partial() request schema, so it
-  // only runs when BOTH sides are sent. Sending { nannyPercent: 70 } alone passes
-  // the schema and assertCoherentConfig (app-settings.service.ts:240) has no split
-  // check, so the stored split becomes 70/20. Pricing derives platformAmount as
-  // total − nannyAmount, so no money goes missing, but getRevenueSplit then
-  // reports a platformPercent that no longer matches what the platform earns.
-  it.skip('rejects a one-sided split change that leaves the merged split off 100', async () => {
+  // The request schema only checks the sum when both sides are sent, so the
+  // merged config is checked too.
+  it('rejects a one-sided split change that leaves the merged split off 100', async () => {
     await expect(updatePlatformConfig({ nannyPercent: 70 })).rejects.toThrow(AppError);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
