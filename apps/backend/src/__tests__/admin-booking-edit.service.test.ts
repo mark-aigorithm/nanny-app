@@ -178,6 +178,7 @@ function makeEditBooking(overrides: Record<string, unknown> = {}) {
     platformAmount: dec(60),
     packageHoursApplied: dec(0),
     packageCreditAmount: dec(0),
+    refundSettledAmount: dec(0),
     rewardCreditHoursApplied: dec(0),
     rewardCreditPoints: 0,
     rewardCreditAmount: dec(0),
@@ -681,11 +682,7 @@ describe('previewBookingEdit — validation', () => {
     );
   });
 
-  // BUG: admin-booking-edit.service.ts:298 calls buildBreakdown a second time,
-  // outside the try/catch at :252. The real buildBreakdown throws on an unknown
-  // skill both times, so the preview rejects with a bare 400 instead of
-  // returning the UNKNOWN_SKILL block warning built at :256 (dead code in practice).
-  it.skip('BUG: reports an unknown skill as a warning instead of failing the preview', async () => {
+  it('reports an unknown skill as a warning instead of failing the preview', async () => {
     mockBuildBreakdown.mockImplementation((_inputs: unknown, opts: { skillIds: number[] }) => {
       if (opts.skillIds.includes(99)) throw new AppError('Unknown or inactive skill: 99', 400);
       return newBreakdown();

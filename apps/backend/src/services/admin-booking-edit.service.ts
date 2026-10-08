@@ -31,8 +31,8 @@ import {
 } from '@backend/services/booking.service';
 import {
   getAdminBooking,
+  netAmountPaid,
   refundPosition,
-  sumCapturedPaid,
 } from '@backend/services/admin-booking.service';
 import {
   buildBreakdown,
@@ -245,15 +245,19 @@ async function buildEditPlan(
     );
   }
   const pricing: PricingInputs = { ...pricingInputs, baseRate: baseRateForPricing };
-  const skillIds = input.skillIds ?? [];
-
-  // Subtotal first (rejecting unknown/inactive skills as a hard block).
+  // Subtotal first (rejecting unknown/inactive skills as a hard block). Once
+  // blocked, the rest of the preview is priced without the add-ons — the block
+  // already stops the edit being saved, and pricing them again would only throw
+  // the same error and lose the warning.
+  let skillIds = input.skillIds ?? [];
   let preSubtotal = 0;
   try {
     preSubtotal = buildBreakdown(pricing, { durationHours, skillIds, childrenCount }).subtotal;
   } catch (err) {
     const message = err instanceof AppError ? err.message : 'One of the selected skills is unavailable.';
     warnings.push(block('UNKNOWN_SKILL', message, 'skillIds'));
+    skillIds = [];
+    preSubtotal = buildBreakdown(pricing, { durationHours, skillIds, childrenCount }).subtotal;
   }
 
   // ── Promo ──
@@ -494,7 +498,7 @@ export async function previewBookingEdit(
   const booking = await loadEditBooking(id);
   const plan = await buildEditPlan(prisma, booking, input);
 
-  const amountPaid = sumCapturedPaid(booking.payments);
+  const amountPaid = netAmountPaid(booking);
   const rawDelta = round2(plan.simFinalTotal - amountPaid);
   const delta = Math.abs(rawDelta) < 0.01 ? 0 : rawDelta;
 
@@ -659,7 +663,7 @@ export async function applyBookingEdit(
       },
     });
 
-    const amountPaid = sumCapturedPaid(booking.payments);
+    const amountPaid = netAmountPaid(booking);
     const rawDelta = round2(finalTotal - amountPaid);
     const delta = Math.abs(rawDelta) < 0.01 ? 0 : rawDelta;
 
@@ -772,7 +776,7 @@ export async function refundBooking(
   const adminId = await resolveAdminId(adminFirebaseUid);
   const booking = await loadEditBooking(id);
 
-  const amountPaid = sumCapturedPaid(booking.payments);
+  const amountPaid = netAmountPaid(booking);
   const { kind, refundable } = refundPosition(booking, amountPaid, await getPlatformConfig());
   if (kind === null || refundable <= EPSILON) {
     throw errors.badRequest(
@@ -811,8 +815,14 @@ export async function refundBooking(
   // CARE_POINTS — admin-entered custom points (no fixed EGP→points conversion).
   const points = input.points!;
   // Settle first: a second admin (or a double click) loses here instead of
-  // granting the points twice.
-  if (cancelled) await markRefunded(id, { strict: true });
+  // granting the points twice. A cancelled booking closes as REFUNDED; an
+  // overpayment records the EGP it settled, since points carry no EGP value
+  // that would otherwise take it off what is still owed back.
+  if (cancelled) {
+    await markRefunded(id, { strict: true });
+  } else {
+    await settleOverpaymentWithPoints(id, booking.refundSettledAmount, refundable);
+  }
   await grantPoints({
     userId: booking.mother.id,
     points,
@@ -831,6 +841,22 @@ export async function refundBooking(
   );
   const detail = await getAdminBooking(id);
   return { method: 'CARE_POINTS', refundedAmount: null, grantedPoints: points, booking: detail };
+}
+
+/**
+ * Records an overpayment as settled in Care Points. Guarded on the amount
+ * already settled as it was read, so two settlements racing can't both land.
+ */
+async function settleOverpaymentWithPoints(
+  id: number,
+  settledBefore: Prisma.Decimal,
+  amount: number,
+): Promise<void> {
+  const { count } = await prisma.booking.updateMany({
+    where: { id, refundSettledAmount: settledBefore, deletedAt: null },
+    data: { refundSettledAmount: { increment: amount } },
+  });
+  if (count === 0) throw errors.conflict('This overpayment has already been settled.');
 }
 
 /**

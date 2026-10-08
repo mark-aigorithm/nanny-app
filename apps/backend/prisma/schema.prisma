@@ -862,6 +862,11 @@ model Booking {
   packageHoursApplied      Decimal              @default(0) @map("package_hours_applied") @db.Decimal(6, 2)
   packageSkillsCovered     Int                  @default(0) @map("package_skills_covered")
   packageCreditAmount      Decimal              @default(0) @map("package_credit_amount") @db.Decimal(10, 2)
+  /// EGP of a refund the console settled outside the card — an overpayment
+  /// given back as Care Points, which have no EGP value of their own. Counted
+  /// as money returned wherever "what she has paid" is worked out, so the same
+  /// overpayment can't be paid out twice.
+  refundSettledAmount      Decimal              @default(0) @map("refund_settled_amount") @db.Decimal(10, 2)
   /// Legacy platform service-fee snapshot. Superseded by the nanny/platform
   /// revenue split (nannyAmount / platformAmount); retained for old bookings.
   serviceFeePercent        Decimal              @map("service_fee_percent") @db.Decimal(5, 2)

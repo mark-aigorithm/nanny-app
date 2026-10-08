@@ -147,6 +147,30 @@ describe('A3 — refund a paid booking', () => {
     expect(wallet.status).toBe(200);
     expect(wallet.body.data).toMatchObject({ pointsBalance: 250, lifetimeEarned: 250 });
   });
+
+  it('settles the overpayment with the points, so it cannot be paid out a second time', async () => {
+    const { admin, booking, settlement } = await paidBookingWithOverpayment();
+
+    await refundBooking(admin.token, booking.id, {
+      method: 'CARE_POINTS',
+      points: 250,
+      reason: 'Goodwill for the change.',
+    });
+
+    const after = await getAdminBookingDetail(admin.token, booking.id);
+    expect(after.refundableAmount).toBe(0);
+    expect(after.refundKind).toBeNull();
+    // What she "has paid" now nets out what was given back as points.
+    expect(after.amountPaid).toBe(after.totalAmount);
+    expect(settlement.refundableAmount).toBeGreaterThan(0);
+
+    await expect(
+      refundBooking(admin.token, booking.id, { method: 'PAYMOB', reason: 'Again to the card.' }),
+    ).rejects.toThrow(/400/);
+    await expect(
+      refundBooking(admin.token, booking.id, { method: 'CARE_POINTS', points: 250, reason: 'Again.' }),
+    ).rejects.toThrow(/400/);
+  });
 });
 
 /**

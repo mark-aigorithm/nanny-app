@@ -107,6 +107,7 @@ function overpaidBooking(overrides: Record<string, unknown> = {}) {
     motherId: MOTHER_ID,
     mother: { id: MOTHER_ID },
     totalAmount: dec(600),
+    refundSettledAmount: dec(0),
     cancelledById: null,
     cancelledAt: null,
     startTime: START,
@@ -464,10 +465,15 @@ describe('refundBooking — Care Points', () => {
     expect(mockNotify).not.toHaveBeenCalled();
   });
 
-  it('grants points for an overpayment without touching the booking status', async () => {
+  it('settles an overpayment given as points, so it cannot be paid out again', async () => {
     await refundBooking(4, ADMIN_UID, { method: 'CARE_POINTS', points: 200, reason: 'Shorter booking' });
 
-    expect(mockPrisma.booking.updateMany).not.toHaveBeenCalled();
+    // The whole EGP 200 is recorded as settled, guarded on what was settled
+    // before — the booking's status is left alone.
+    expect(mockPrisma.booking.updateMany).toHaveBeenCalledWith({
+      where: { id: 4, refundSettledAmount: expect.anything(), deletedAt: null },
+      data: { refundSettledAmount: { increment: 200 } },
+    });
     expect(mockRefundPayment).not.toHaveBeenCalled();
     expect(mockGrantPoints).toHaveBeenCalledWith(
       expect.objectContaining({ points: 200, reason: 'Booking refund: Shorter booking' }),
@@ -477,5 +483,28 @@ describe('refundBooking — Care Points', () => {
         body: '200 Care Points were added to your balance for a booking adjustment: Shorter booking',
       }),
     );
+  });
+
+  it('grants nothing when another settlement of the same overpayment landed first', async () => {
+    mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      refundBooking(4, ADMIN_UID, { method: 'CARE_POINTS', points: 200, reason: 'x' }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockGrantPoints).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('has nothing left to refund once the overpayment was settled in points', async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue(overpaidBooking({ refundSettledAmount: dec(200) }));
+
+    await expect(
+      refundBooking(4, ADMIN_UID, { method: 'PAYMOB', reason: 'again' }),
+    ).rejects.toThrow('There is no overpayment to refund on this booking.');
+    await expect(
+      refundBooking(4, ADMIN_UID, { method: 'CARE_POINTS', points: 200, reason: 'again' }),
+    ).rejects.toThrow('There is no overpayment to refund on this booking.');
+    expect(mockRefundPayment).not.toHaveBeenCalled();
+    expect(mockGrantPoints).not.toHaveBeenCalled();
   });
 });

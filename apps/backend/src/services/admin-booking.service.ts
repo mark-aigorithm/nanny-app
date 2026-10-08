@@ -94,6 +94,23 @@ export function sumCapturedPaid(
   return round2(paid);
 }
 
+/**
+ * What she has paid and still has, net of everything given back: card money
+ * captured, less card refunds (sumCapturedPaid), less any refund the console
+ * settled as Care Points (`refundSettledAmount`). The figure every "what is
+ * owed back" and every re-price works from.
+ */
+export function netAmountPaid(booking: {
+  payments: { amount: Prisma.Decimal; refundedAmount: Prisma.Decimal; status: PaymentStatus }[];
+  refundSettledAmount: Prisma.Decimal | number;
+}): number {
+  const settled =
+    typeof booking.refundSettledAmount === 'number'
+      ? booking.refundSettledAmount
+      : booking.refundSettledAmount.toNumber();
+  return round2(sumCapturedPaid(booking.payments) - settled);
+}
+
 export function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkillFee[] {
   return Array.isArray(raw) ? (raw as unknown as AppliedSkillFee[]) : [];
 }
@@ -184,7 +201,7 @@ export function refundPosition(
 
 function toDetailDto(row: AdminBookingDetailRow, policy: CancellationPolicy): AdminBookingDetail {
   const payment = row.payments[0] ?? null;
-  const amountPaid = sumCapturedPaid(row.payments);
+  const amountPaid = netAmountPaid(row);
   const refund = refundPosition(row, amountPaid, policy);
   const refundableAmount = refund.refundable;
   // Decided here, not in the browser: the admin's clock must not be what says

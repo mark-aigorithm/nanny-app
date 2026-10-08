@@ -87,6 +87,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     durationHours: dec(3),
     baseRate: dec(100),
     effectiveHourlyRate: dec(100),
+    refundSettledAmount: dec(0),
     childrenCount: 1,
     extraChildren: 0,
     extraChildFeePerHour: dec(0),
