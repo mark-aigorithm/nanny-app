@@ -1,3 +1,5 @@
+import { PaymentStatus } from '@prisma/client';
+
 /** Staggered delays from intention anchor (T0) for polling when webhooks are slow or dropped. */
 export const PAYMOB_RECONCILE_OFFSETS_MS = [30_000, 60_000, 120_000, 180_000, 300_000] as const;
 
@@ -31,3 +33,16 @@ export const PAYMOB_WEBHOOK_PATH = '/webhooks/paymob';
 
 /** Browser/WebView return URL after Paymob checkout (must be HTTPS/HTTP, not app scheme). */
 export const PAYMOB_RETURN_PATH = '/paymob/return';
+
+/**
+ * The payment rows a Paymob-confirmed success may still settle.
+ *
+ * FAILED is in here on purpose. We give up on a checkout well before Paymob
+ * does — the reconciler times an attempt out after a few minutes, and a newer
+ * attempt supersedes an older one — but the hosted link keeps taking money for
+ * up to PAYMOB_INTENTION_TTL_MS. A success that arrives after we gave up is
+ * still money taken from the mother; dropping it would lose it without trace.
+ * CAPTURED and REFUNDED stay out, which is what keeps a replayed webhook a
+ * no-op.
+ */
+export const CAPTURABLE_PAYMENT_STATUSES = [PaymentStatus.PENDING, PaymentStatus.FAILED];

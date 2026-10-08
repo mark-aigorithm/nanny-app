@@ -52,11 +52,18 @@ type PaymobWebhookDto = {
  * - raw transaction object
  */
 export function extractPaymobTransactionObject(body: unknown): Record<string, unknown> | null {
+  if (body === null || typeof body !== 'object') return null;
   const payload = body as Partial<PaymobWebhookDto & PaymobTransactionDto>;
-  if (payload.type === 'TRANSACTION' && payload.obj) {
-    return payload.obj as unknown as Record<string, unknown>;
+  const txn: unknown = payload.type === 'TRANSACTION' && payload.obj ? payload.obj : payload;
+  // Everything after this reads `order.id` (it is part of the signed payload),
+  // so a body without one is rejected here rather than crashing the handler —
+  // this runs before the signature is checked, on whatever anyone posts.
+  if (txn === null || typeof txn !== 'object') return null;
+  const order = (txn as { order?: unknown }).order;
+  if (order === null || typeof order !== 'object' || (order as { id?: unknown }).id == null) {
+    return null;
   }
-  return payload as Record<string, unknown>;
+  return txn as Record<string, unknown>;
 }
 
 export function coerceTransactionHmacPayload(obj: Record<string, unknown>): PaymobTransactionHmacPayload {

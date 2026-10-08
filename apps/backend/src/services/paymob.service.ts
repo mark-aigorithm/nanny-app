@@ -26,6 +26,7 @@ import {
   mapIntentionElement,
 } from '@backend/lib/paymob/intention';
 import {
+  CAPTURABLE_PAYMENT_STATUSES,
   PAYMOB_INTENTION_TTL_MS,
   PAYMOB_RECONCILE_OFFSETS_MS,
   PAYMOB_RETURN_PATH,
@@ -75,8 +76,18 @@ function failureReasonFromTxn(txn: PaymobTransactionDto): string {
   return txn.data?.message || 'Payment declined';
 }
 
-/** A payment that landed on a booking already cancelled — money with nothing to confirm. */
-type StrandedPayment = { bookingId: number; motherId: number; amount: number; date: Date };
+/**
+ * A payment that landed on a booking it can't confirm — money with nothing to
+ * pay for: the booking was cancelled while she paid, or it was already paid (a
+ * second checkout that went through too).
+ */
+type StrandedPayment = {
+  bookingId: number;
+  motherId: number;
+  amount: number;
+  date: Date;
+  reason: 'CANCELLED' | 'ALREADY_PAID';
+};
 
 async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: string | null) {
   let stranded: StrandedPayment | null = null;
@@ -119,7 +130,7 @@ async function captureAndConfirmBooking(
   // Pay-after-approval: the admin already approved (status APPROVED), so a
   // successful capture is the FINAL step and confirms the booking outright.
   const payment = await tx.payment.findFirst({
-    where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
+    where: { id: paymentId, deletedAt: null, status: { in: CAPTURABLE_PAYMENT_STATUSES } },
   });
   if (!payment) return null;
 
@@ -160,14 +171,19 @@ async function captureAndConfirmBooking(
       bookingId: booking.id,
       bookingStatus: booking.status,
     });
-    // Cancelled while she was paying: the money is kept on the booking, where
-    // the console offers the refund, and the caller tells the team and her.
-    if (booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.REFUNDED) {
+    // The money is kept on the booking, whose console page offers the refund,
+    // and the caller tells the team and her. A zero settlement moves no money,
+    // so there is nothing to report.
+    if (Number(payment.amount) > 0) {
       onStranded?.({
         bookingId: booking.id,
         motherId: booking.motherId,
         amount: Number(payment.amount),
         date: booking.date,
+        reason:
+          booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.REFUNDED
+            ? 'CANCELLED'
+            : 'ALREADY_PAID',
       });
     }
     return null;
@@ -667,7 +683,7 @@ async function finalizeExtensionPaymentCaptured(
 ) {
   const extensionId = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findFirst({
-      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
+      where: { id: paymentId, deletedAt: null, status: { in: CAPTURABLE_PAYMENT_STATUSES } },
     });
     if (!payment) return null;
 
@@ -774,7 +790,7 @@ async function finalizeAdjustmentPaymentCaptured(
 ) {
   await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findFirst({
-      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING },
+      where: { id: paymentId, deletedAt: null, status: { in: CAPTURABLE_PAYMENT_STATUSES } },
     });
     if (!payment) return;
 
@@ -918,6 +934,30 @@ export async function processPaymobWebhook(params: {
 
   const paymentId = extractMerchantPaymentId(txn);
   if (!paymentId) {
+    return { accepted: false };
+  }
+
+  // The signature covers the amount and Paymob's order id, but not the fields
+  // that name our payment row (extras / merchant order id / special reference).
+  // So a genuine signed callback for one payment could be replayed with another
+  // payment's id. Holding the signed amount to the named payment's amount is
+  // what binds the two: a mismatch is refused, never settled.
+  // A still-pending callback writes nothing, so only a settling one is checked.
+  const named =
+    transactionSuccess(txn) || transactionFailed(txn)
+      ? await prisma.payment.findFirst({
+          where: { id: paymentId, deletedAt: null },
+          select: { amount: true },
+        })
+      : null;
+  // A payment we have no row for is acknowledged as before — nothing is
+  // written for it, and refusing would only make Paymob retry it forever.
+  if (named && Math.round(Number(named.amount) * 100) !== Number(txn.amount_cents)) {
+    // eslint-disable-next-line no-console
+    console.warn('[paymob] webhook amount does not match the payment it names', {
+      paymentId,
+      amountCents: txn.amount_cents,
+    });
     return { accepted: false };
   }
 

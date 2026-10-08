@@ -13,7 +13,7 @@ import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
 
 import { authHeader } from '../../../test/auth';
-import { makeMother, makeNanny } from '../../../test/factories';
+import { makeMother, makeNanny, makeSuperuser } from '../../../test/factories';
 import { claimBooking, createBookingViaApi } from '../../../test/journeys/booking';
 import {
   createCheckoutSession,
@@ -104,5 +104,109 @@ describe('A9 — payment webhook resilience', () => {
     expect(await statusOf(booking.id)).toBe('APPROVED');
     const payment = await prisma.payment.findUniqueOrThrow({ where: { id: session.paymentId } });
     expect(payment.status).toBe(PaymentStatus.FAILED);
+  });
+
+  it('records a payment that arrives after we gave up on the checkout', async () => {
+    const { booking, session } = await bookingAwaitingCallback();
+    const { hmac, body } = await settleCheckout(session.clientSecret, { deliverWebhook: false });
+
+    // The reconciler timed the attempt out a few minutes in — but its Paymob
+    // link was still payable, and she paid on it.
+    await prisma.payment.update({
+      where: { id: session.paymentId },
+      data: {
+        status: PaymentStatus.FAILED,
+        failureReason: 'Payment timed out waiting for Paymob confirmation.',
+        paymobClientSecret: null,
+        paymobNextReconcileAt: null,
+      },
+    });
+
+    expect(await deliverPaymobWebhook(hmac, body)).toBe(200);
+
+    const payment = await prisma.payment.findUniqueOrThrow({ where: { id: session.paymentId } });
+    expect(payment.status).toBe(PaymentStatus.CAPTURED);
+    expect(await statusOf(booking.id)).toBe('CONFIRMED');
+  });
+
+  it('records a second payment on a booking that is already paid, and tells the team and her', async () => {
+    const { mother, booking, session: first } = await bookingAwaitingCallback();
+    const admin = await makeSuperuser();
+
+    // The first checkout goes stale, so opening it again starts a new attempt
+    // and retires the old one — whose link is still payable.
+    await prisma.payment.update({
+      where: { id: first.paymentId },
+      data: { paymobReconcileAnchorAt: new Date(Date.now() - 2 * 3_600_000) },
+    });
+    const second = await createCheckoutSession(mother.token, 'booking', booking.id);
+    expect(second.paymentId).not.toBe(first.paymentId);
+
+    await settleCheckout(second.clientSecret);
+    expect(await statusOf(booking.id)).toBe('CONFIRMED');
+
+    // She pays on the old link too.
+    await settleCheckout(first.clientSecret);
+
+    const captured = await prisma.payment.count({
+      where: { bookingId: booking.id, status: PaymentStatus.CAPTURED },
+    });
+    expect(captured).toBe(2);
+    expect(await statusOf(booking.id)).toBe('CONFIRMED');
+
+    expect(
+      await prisma.notification.count({
+        where: { userId: admin.id, referenceId: booking.id, title: 'Duplicate payment on a booking' },
+      }),
+    ).toBe(1);
+    const toMother = await prisma.notification.findFirst({
+      where: { userId: mother.id, referenceId: booking.id, title: 'A second payment was received' },
+    });
+    expect(toMother?.body).not.toMatch(/refund/i);
+
+    // The console sees the extra money as an overpayment it can give back.
+    const detail = await request(app)
+      .get(`/admin/bookings/${booking.id}`)
+      .set(...authHeader(admin.token));
+    expect(detail.body.data.refundKind).toBe('OVERPAID');
+    expect(detail.body.data.refundableAmount).toBe(Number(booking.totalAmount));
+  });
+
+  it('refuses a genuine signed callback pointed at a different payment', async () => {
+    const cheap = await bookingAwaitingCallback();
+    // A longer booking, so its payment is for a different amount.
+    const mother = await makeMother();
+    const nanny = await makeNanny();
+    const dear = await createBookingViaApi(mother.token, { durationHours: 6 });
+    await claimBooking(nanny.token, dear.id);
+    const dearSession = await createCheckoutSession(mother.token, 'booking', dear.id);
+
+    const { hmac, body } = await settleCheckout(cheap.session.clientSecret, { deliverWebhook: false });
+
+    // Every field that names our payment is outside the signature — point them
+    // all at the other payment and replay the genuine signature.
+    const swapped = JSON.parse(JSON.stringify(body)) as Record<string, unknown>;
+    const txn = (swapped['obj'] ?? swapped) as Record<string, unknown>;
+    const ref = String(dearSession.paymentId);
+    txn['special_reference'] = ref;
+    txn['extras'] = { payment_id: ref };
+    (txn['order'] as Record<string, unknown>)['merchant_order_id'] = ref;
+
+    expect(await deliverPaymobWebhook(hmac, swapped)).toBe(401);
+
+    const target = await prisma.payment.findUniqueOrThrow({ where: { id: dearSession.paymentId } });
+    expect(target.status).toBe(PaymentStatus.PENDING);
+    expect(await statusOf(dear.id)).toBe('APPROVED');
+  });
+
+  it('answers a malformed body with a refusal, not a server error', async () => {
+    const empty = await request(app).post('/webhooks/paymob').query({ hmac: 'a'.repeat(128) }).send({});
+    expect(empty.status).toBe(401);
+
+    const noOrder = await request(app)
+      .post('/webhooks/paymob')
+      .query({ hmac: 'a'.repeat(128) })
+      .send({ type: 'TRANSACTION', obj: { id: 1, success: true, pending: false } });
+    expect(noOrder.status).toBe(401);
   });
 });

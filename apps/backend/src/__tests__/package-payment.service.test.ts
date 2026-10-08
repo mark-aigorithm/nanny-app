@@ -225,6 +225,36 @@ describe('finalizePackagePaymentCaptured idempotency', () => {
     expect(mockPrisma.payment.update).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves the transaction id untouched when Paymob reported none', async () => {
+    mockPrisma.payment.findFirst.mockResolvedValue({
+      id: 100,
+      purpose: 'PACKAGE',
+      bookingId: null,
+      packagePurchaseId: 77,
+      deletedAt: null,
+      status: PaymentStatus.PENDING,
+    });
+    mockPrisma.payment.update.mockResolvedValue({});
+    mockCreditPurchaseHours.mockResolvedValue('CREDITED');
+
+    await finalizePackagePaymentCaptured(100, null);
+
+    expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+      where: { id: 100 },
+      data: {
+        status: PaymentStatus.CAPTURED,
+        paymobTransactionId: undefined,
+        failureReason: null,
+        paymobNextReconcileAt: null,
+        paymobClientSecret: null,
+      },
+    });
+    // Only a live, PENDING, PACKAGE-purpose row is ever settled here.
+    expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith({
+      where: { id: 100, deletedAt: null, status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] }, purpose: 'PACKAGE' },
+    });
+  });
+
   it('does nothing when the payment has no linked purchase', async () => {
     mockPrisma.payment.findFirst.mockResolvedValue({
       id: 100,

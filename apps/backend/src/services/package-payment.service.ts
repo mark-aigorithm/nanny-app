@@ -9,6 +9,7 @@ import {
   mapIntentionElement,
 } from '@backend/lib/paymob/intention';
 import {
+  CAPTURABLE_PAYMENT_STATUSES,
   PACKAGE_CHECKOUT_TTL_MS,
   PAYMOB_RECONCILE_OFFSETS_MS,
   PAYMOB_RETURN_PATH,
@@ -51,7 +52,12 @@ export async function finalizePackagePaymentCaptured(
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findFirst({
-      where: { id: paymentId, deletedAt: null, status: PaymentStatus.PENDING, purpose: PaymentPurpose.PACKAGE },
+      where: {
+        id: paymentId,
+        deletedAt: null,
+        status: { in: CAPTURABLE_PAYMENT_STATUSES },
+        purpose: PaymentPurpose.PACKAGE,
+      },
     });
     if (!payment || !payment.packagePurchaseId) return; // idempotent: already settled or not ours
 

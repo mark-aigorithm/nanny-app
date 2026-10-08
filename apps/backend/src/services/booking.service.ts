@@ -779,20 +779,23 @@ export async function notifyMotherBookingConfirmedFree(
 
 /** Notify the assigned nanny that a booking is fully confirmed (post-payment). */
 /**
- * A card payment went through for a booking that had already been cancelled —
- * she was paying while it was cancelled. The money stays on the booking, whose
- * console page offers the refund; this makes sure someone goes to look. The
- * mother hears that it is being reviewed, not that she will be refunded: the
- * admin decides between money and Care Points.
+ * A card payment went through for a booking that can't use it: one cancelled
+ * while she was paying, or one already paid (a second checkout went through
+ * too). The money stays on the booking, whose console page offers the refund;
+ * this makes sure someone goes to look. The mother hears that it is being
+ * reviewed, not that she will be refunded: the admin decides between money and
+ * Care Points.
  */
 export async function notifyPaymentOnCancelledBooking(payment: {
   bookingId: number;
   motherId: number;
   amount: number;
   date: Date;
+  reason?: 'CANCELLED' | 'ALREADY_PAID';
 }): Promise<void> {
   const amount = `EGP ${payment.amount.toFixed(2)}`;
   const dateLabel = payment.date.toISOString().slice(0, 10);
+  const alreadyPaid = payment.reason === 'ALREADY_PAID';
   const adminIds = await listConsoleUserIdsForSection('bookings');
 
   await Promise.all([
@@ -800,8 +803,10 @@ export async function notifyPaymentOnCancelledBooking(payment: {
       payment.motherId,
       NotificationType.BOOKING_CANCELLED,
       'booking_cancelled',
-      'Payment received for a cancelled booking',
-      `We received your payment of ${amount} for the ${dateLabel} booking, which had already been cancelled. Our team will review it and contact you.`,
+      alreadyPaid ? 'A second payment was received' : 'Payment received for a cancelled booking',
+      alreadyPaid
+        ? `We received a second payment of ${amount} for the ${dateLabel} booking, which was already paid. Our team will review it and contact you.`
+        : `We received your payment of ${amount} for the ${dateLabel} booking, which had already been cancelled. Our team will review it and contact you.`,
       payment.bookingId,
     ),
     ...adminIds.map((id) =>
@@ -809,8 +814,10 @@ export async function notifyPaymentOnCancelledBooking(payment: {
         id,
         NotificationType.BOOKING_CANCELLED,
         'booking_cancelled',
-        'Payment on a cancelled booking',
-        `A payment of ${amount} arrived for booking #${payment.bookingId} after it was cancelled. Open the booking to refund it.`,
+        alreadyPaid ? 'Duplicate payment on a booking' : 'Payment on a cancelled booking',
+        alreadyPaid
+          ? `A second payment of ${amount} arrived for booking #${payment.bookingId}, which was already paid. Open the booking to refund the overpayment.`
+          : `A payment of ${amount} arrived for booking #${payment.bookingId} after it was cancelled. Open the booking to refund it.`,
         payment.bookingId,
       ),
     ),
