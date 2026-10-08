@@ -3,9 +3,10 @@ import { useMutation } from '@tanstack/react-query';
 import { api, getApiErrorMessage, isNotFound } from '@mobile/lib/api';
 import { authErrorCode, mapFirebaseAuthError, type MappedAuthError } from '@mobile/lib/authErrors';
 import { auth } from '@mobile/lib/firebase';
+import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { seedDraftFromAccount } from '@mobile/lib/resumeSignUp';
 import { getSocialCredential, signOutOfGoogle, SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
-import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
+import { usePendingLinkStore, type PendingLink } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import type { Role, SocialProvider } from '@mobile/types';
 
@@ -49,11 +50,28 @@ async function signOutAndForget(): Promise<void> {
 }
 
 /**
+ * Completes collision A through the other provider: a Google/Apple credential
+ * was parked because its email belongs to an existing account, and the user
+ * has now signed in to an existing account with the other one. That sign-in
+ * proves they own the account, the parked credential proves they own its
+ * identity, so it is linked — the same proof the phone and email doors give.
+ */
+async function linkParkedCredential(parked: PendingLink | null): Promise<void> {
+  if (!parked) return;
+  usePendingLinkStore.getState().set(parked);
+  await linkPendingCredential();
+}
+
+/**
  * "Continue with Google / Apple". Signs in with the provider's credential, then
  * asks the backend whether this uid has an account.
  *
  * A 404 here is a new person, not an orphan: unlike the SMS guards, the
  * Firebase account is kept, because the wizard is about to finish it.
+ *
+ * A credential parked by collision A for the *other* provider is linked when
+ * this sign-in reaches an existing account (see linkParkedCredential); a
+ * brand-new account is someone else's identity, so it is dropped there.
  *
  * Any outcome other than a new person resets the registration draft: a social
  * draft left by an earlier attempt belongs to an account that is no longer the
@@ -63,13 +81,20 @@ async function signOutAndForget(): Promise<void> {
 export function useSocialSignIn() {
   return useMutation<SocialSignInOutcome, MappedAuthError, { provider: SocialProvider; role?: Role }>({
     mutationFn: async ({ provider, role }) => {
+      // Taken off the store before anything else, so a cancelled or failed
+      // attempt leaves nothing parked. The same provider again is a retry of
+      // the collision, not a way to prove the account.
+      const pending = usePendingLinkStore.getState().pending;
+      const parked = pending && pending.provider !== provider ? pending : null;
       usePendingLinkStore.getState().clear();
 
       const result = await getSocialCredential(provider);
       if (!result) return 'cancelled';
 
+      let isNewUser: boolean;
       try {
-        await auth().signInWithCredential(result.credential);
+        const signedIn = await auth().signInWithCredential(result.credential);
+        isNewUser = signedIn.additionalUserInfo?.isNewUser ?? true;
       } catch (error) {
         if (authErrorCode(error) === 'auth/account-exists-with-different-credential') {
           usePendingLinkStore.getState().set({ provider, credential: result.credential, phoneHint: null });
@@ -82,6 +107,7 @@ export function useSocialSignIn() {
       try {
         await api.get('/auth/me');
         useRegistrationDraftStore.getState().reset();
+        await linkParkedCredential(parked);
         return 'signed-in';
       } catch (error) {
         if (!isNotFound(error)) {
@@ -114,6 +140,10 @@ export function useSocialSignIn() {
         await signOutAndForget();
         throw unverifiedEmailError(provider);
       }
+
+      // An account that existed before this sign-in, with no row: a sign-up
+      // that stalled. Signing in to it still proves it is hers.
+      if (!isNewUser) await linkParkedCredential(parked);
 
       // The account itself seeds the draft (its uid, and a phone already
       // linked to it), then what this sign-in adds goes on top.

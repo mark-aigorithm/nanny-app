@@ -211,7 +211,7 @@ it('explains a pending connection, prefills the number, and links after the SMS 
   renderScreen();
 
   expect(
-    screen.getByText('You already have an account. Sign in with your phone once to connect Google.'),
+    screen.getByText('You already have an account. Sign in to it once to connect Google.'),
   ).toBeTruthy();
   expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
 
@@ -233,7 +233,7 @@ it('drops the pending connection on "Not now"', () => {
 
   expect(usePendingLinkStore.getState().pending).toBeNull();
   expect(
-    screen.queryByText('You already have an account. Sign in with your phone once to connect Google.'),
+    screen.queryByText('You already have an account. Sign in to it once to connect Google.'),
   ).toBeNull();
 });
 

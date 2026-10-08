@@ -210,7 +210,7 @@ export default function SignInScreen() {
           {pending && (
             <View style={styles.linkBanner}>
               <Text style={styles.linkBannerText}>
-                {`You already have an account. Sign in with your phone once to connect ${SOCIAL_PROVIDER_LABEL[pending.provider]}.`}
+                {`You already have an account. Sign in to it once to connect ${SOCIAL_PROVIDER_LABEL[pending.provider]}.`}
               </Text>
               <Pressable onPress={clearPending} hitSlop={8}>
                 <Text style={styles.linkBannerDismiss}>Not now</Text>

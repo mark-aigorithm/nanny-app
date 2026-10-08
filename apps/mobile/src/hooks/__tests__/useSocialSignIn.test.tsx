@@ -38,6 +38,17 @@ jest.mock('@mobile/lib/api', () => ({
   isNotFound: (e: unknown) => (e as { response?: { status?: number } })?.response?.status === 404,
 }));
 
+// Records what was parked at the moment of the link — the real one reads the
+// store, links it and clears it (covered in pendingLink.test.ts).
+const mockLinkPendingCredential = jest.fn();
+jest.mock('@mobile/lib/pendingLink', () => ({
+  linkPendingCredential: () =>
+    mockLinkPendingCredential(
+      (jest.requireActual('@mobile/store/pendingLinkStore') as typeof import('@mobile/store/pendingLinkStore'))
+        .usePendingLinkStore.getState().pending,
+    ),
+}));
+
 import { useSocialSignIn } from '@mobile/hooks/useSocialSignIn';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -100,7 +111,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockCurrentUser = newUser();
   mockGetSocialCredential.mockResolvedValue(RESULT);
-  mockSignInWithCredential.mockResolvedValue(undefined);
+  mockSignInWithCredential.mockResolvedValue({ additionalUserInfo: { isNewUser: true } });
+  mockLinkPendingCredential.mockResolvedValue(undefined);
   mockSignOut.mockResolvedValue(undefined);
   mockSignOutOfGoogle.mockResolvedValue(undefined);
   mockGet.mockResolvedValue({ data: { data: { id: 1 }, error: null } });
@@ -351,4 +363,82 @@ it('does not hold an existing account to the verified-email rule', async () => {
   await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('signed-in');
   expect(mockSignOut).not.toHaveBeenCalled();
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
+});
+
+describe('a credential parked by collision A for the other provider', () => {
+  const APPLE_CREDENTIAL = { providerId: 'apple.com', token: 'apple-id-token', secret: 'nonce' };
+  const PARKED = { provider: 'apple' as const, credential: APPLE_CREDENTIAL as never, phoneHint: null };
+
+  beforeEach(() => {
+    usePendingLinkStore.getState().set(PARKED);
+  });
+
+  it('is linked when Google signs in to the existing account', async () => {
+    mockSignInWithCredential.mockResolvedValue({ additionalUserInfo: { isNewUser: false } });
+    const { result } = renderSocialSignIn();
+
+    await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('signed-in');
+
+    expect(mockLinkPendingCredential).toHaveBeenCalledTimes(1);
+    expect(mockLinkPendingCredential).toHaveBeenCalledWith(PARKED);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('is linked when Google reaches an existing account whose sign-up stalled', async () => {
+    mockSignInWithCredential.mockResolvedValue({ additionalUserInfo: { isNewUser: false } });
+    mockGet.mockRejectedValue(NOT_FOUND);
+    const { result } = renderSocialSignIn();
+
+    await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('new-user');
+
+    expect(mockLinkPendingCredential).toHaveBeenCalledWith(PARKED);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('is dropped, not linked, when Google creates a brand-new account', async () => {
+    // A Google account Firebase has never seen is not the account the Apple
+    // email collided with — signing in to it proves nothing about that one.
+    mockGet.mockRejectedValue(NOT_FOUND);
+    const { result } = renderSocialSignIn();
+
+    await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('new-user');
+
+    expect(mockLinkPendingCredential).not.toHaveBeenCalled();
+    expect(usePendingLinkStore.getState().pending).toBeNull();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('is not linked when the sign-in is refused', async () => {
+    mockSignInWithCredential.mockResolvedValue({ additionalUserInfo: { isNewUser: false } });
+    mockGet.mockRejectedValue(SERVER_ERROR);
+    const { result } = renderSocialSignIn();
+
+    await expect(result.current.mutateAsync({ provider: 'google' })).rejects.toMatchObject({ field: 'form' });
+
+    expect(mockLinkPendingCredential).not.toHaveBeenCalled();
+    expect(usePendingLinkStore.getState().pending).toBeNull();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('is not linked by the same provider again', async () => {
+    mockGetSocialCredential.mockResolvedValue({ ...RESULT, provider: 'apple', credential: APPLE_CREDENTIAL });
+    mockSignInWithCredential.mockResolvedValue({ additionalUserInfo: { isNewUser: false } });
+    const { result } = renderSocialSignIn();
+
+    await expect(result.current.mutateAsync({ provider: 'apple' })).resolves.toBe('signed-in');
+
+    expect(mockLinkPendingCredential).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('is replaced when Google collides too', async () => {
+    mockSignInWithCredential.mockRejectedValue({ code: 'auth/account-exists-with-different-credential' });
+    const { result } = renderSocialSignIn();
+
+    await expect(result.current.mutateAsync({ provider: 'google' })).resolves.toBe('needs-link');
+
+    expect(mockLinkPendingCredential).not.toHaveBeenCalled();
+    expect(usePendingLinkStore.getState().pending).toEqual({ provider: 'google', credential: CREDENTIAL, phoneHint: null });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
 });

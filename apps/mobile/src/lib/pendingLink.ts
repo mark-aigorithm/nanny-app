@@ -22,7 +22,8 @@ const RETRYABLE_LINK_ERRORS = new Set(['auth/invalid-credential', 'auth/missing-
 
 /**
  * Links the parked Google/Apple credential onto the account the user just
- * signed in to (by SMS or password), completing either collision flow.
+ * signed in to (by SMS, password, or the other of Google/Apple), completing
+ * either collision flow.
  *
  * Signing in proved they own this account; the credential proves they own the
  * Google/Apple identity; so linking is safe. It never blocks sign-in: on any
