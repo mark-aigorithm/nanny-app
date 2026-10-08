@@ -341,7 +341,7 @@ export async function notifyPointsRedeemed(
  */
 export async function refundBookingRedemption(
   db: Db,
-  params: { userId: number; scope: RewardScope; points: number },
+  params: { userId: number; scope: RewardScope; points: number; reason?: string },
 ): Promise<void> {
   if (params.points <= 0) return;
   const wallet = await getOrCreateWallet(params.userId, db);
@@ -357,7 +357,7 @@ export async function refundBookingRedemption(
       points: params.points,
       balanceAfter,
       ...rewardScopeColumns(params.scope),
-      reason: 'Refunded — payment not completed',
+      reason: params.reason ?? 'Refunded — payment not completed',
     },
   });
 }

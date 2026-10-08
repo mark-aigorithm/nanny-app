@@ -31,7 +31,13 @@ import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
 
 import { authHeader } from '../../../test/auth';
-import { makeMother, makeNanny } from '../../../test/factories';
+import {
+  makeMother,
+  makeNanny,
+  makePackage,
+  makePromoCode,
+  makeSuperuser,
+} from '../../../test/factories';
 import {
   checkIn,
   checkOut,
@@ -39,7 +45,14 @@ import {
   createBookingViaApi,
   shiftWindowToNow,
 } from '../../../test/journeys/booking';
-import { payViaPaymob } from '../../../test/journeys/payment';
+import { grantCarePoints } from '../../../test/journeys/admin';
+import {
+  createCheckoutSession,
+  inspectIntention,
+  payViaPaymob,
+  purchasePackage,
+  settleCheckout,
+} from '../../../test/journeys/payment';
 
 const REASON = 'Plans changed.';
 
@@ -176,7 +189,13 @@ describe('A17 — the other party is told', () => {
     await cancel(mother.token, booking.id).expect(200);
 
     expect(await wasToldOfCancellation(nanny.id, booking.id)).toBe(true);
-    expect(await wasToldOfCancellation(mother.id, booking.id)).toBe(false);
+    // She cancelled it herself, so what she hears is her own summary — what
+    // came back, and that her payment is being reviewed.
+    const own = await prisma.notification.findFirstOrThrow({
+      where: { userId: mother.id, type: 'BOOKING_CANCELLED', referenceId: booking.id },
+    });
+    expect(own.title).toBe('Booking cancelled');
+    expect(own.body).toMatch(/Our team will review your payment/);
   });
 
   it('tells the mother when the nanny cancels, without promising her a refund', async () => {
@@ -368,5 +387,240 @@ describe('A17 — a nanny dropping a booking that is not paid yet', () => {
     const row = await reload(booking.id);
     expect(row.status).toBe('APPROVED');
     expect(row.nannyProfileId).not.toBeNull();
+  });
+});
+
+/**
+ * A cancel that lands while the mother is paying would leave her card charged
+ * for a cancelled booking. So it waits for an open checkout to finish or
+ * close; a checkout that already went through makes it a paid cancellation;
+ * and if money still lands on a cancelled booking, the team and she are told.
+ */
+describe('A17 — cancelling while she is paying', () => {
+  async function checkingOut() {
+    const mother = await makeMother();
+    const nanny = await makeNanny();
+    const booking = await createBookingViaApi(mother.token);
+    await claimBooking(nanny.token, booking.id);
+    const session = await createCheckoutSession(mother.token, 'booking', booking.id);
+    return { mother, nanny, booking, session };
+  }
+
+  /** Ages the checkout past the life of its Paymob link. */
+  async function expireCheckout(paymentId: number) {
+    await prisma.payment.update({
+      where: { id: paymentId },
+      data: { paymobReconcileAnchorAt: new Date(Date.now() - 2 * 3_600_000) },
+    });
+  }
+
+  it('gives every checkout link an expiry, so an old one cannot take money later', async () => {
+    const { session } = await checkingOut();
+    expect((await inspectIntention(session.clientSecret)).expiration).toBe(90 * 60);
+  });
+
+  it('refuses to cancel while the checkout is still open', async () => {
+    const { mother, booking } = await checkingOut();
+
+    const response = await cancel(mother.token, booking.id);
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatch(/payment for this booking is in progress/i);
+    expect((await reload(booking.id)).status).toBe('APPROVED');
+  });
+
+  it('refuses an admin cancel while she is paying, too', async () => {
+    const { booking } = await checkingOut();
+    const admin = await makeSuperuser();
+
+    const response = await request(app)
+      .post(`/admin/bookings/${booking.id}/reject`)
+      .set(...authHeader(admin.token))
+      .send({ reason: 'Duplicate.' });
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatch(/paying for this booking right now/i);
+    expect((await reload(booking.id)).status).toBe('APPROVED');
+  });
+
+  it('cancels a booking whose payment already went through as a paid booking', async () => {
+    const { mother, booking, session } = await checkingOut();
+    // Paid at Paymob, but its webhook hasn't reached us yet.
+    await settleCheckout(session.clientSecret, { deliverWebhook: false });
+
+    const response = await cancel(mother.token, booking.id);
+    expect(response.status).toBe(200);
+
+    expect((await reload(booking.id)).status).toBe('CANCELLED');
+    const payment = await prisma.payment.findUniqueOrThrow({ where: { id: session.paymentId } });
+    expect(payment.status).toBe('CAPTURED');
+  });
+
+  it('lets the cancel through once the checkout link has expired', async () => {
+    const { mother, booking, session } = await checkingOut();
+    await expireCheckout(session.paymentId);
+
+    expect((await cancel(mother.token, booking.id)).status).toBe(200);
+    expect((await reload(booking.id)).status).toBe('CANCELLED');
+  });
+
+  it('tells the team and the mother when money still lands on a cancelled booking', async () => {
+    const { mother, booking, session } = await checkingOut();
+    const admin = await makeSuperuser();
+    await expireCheckout(session.paymentId);
+    await cancel(mother.token, booking.id).expect(200);
+
+    await settleCheckout(session.clientSecret);
+
+    const payment = await prisma.payment.findUniqueOrThrow({ where: { id: session.paymentId } });
+    expect(payment.status).toBe('CAPTURED');
+    expect((await reload(booking.id)).status).toBe('CANCELLED');
+
+    const toMother = await prisma.notification.findFirst({
+      where: { userId: mother.id, referenceId: booking.id, title: 'Payment received for a cancelled booking' },
+    });
+    expect(toMother?.body).toMatch(/our team will review it/i);
+    expect(toMother?.body).not.toMatch(/refund/i);
+
+    const toAdmin = await prisma.notification.findFirst({
+      where: { userId: admin.id, referenceId: booking.id, title: 'Payment on a cancelled booking' },
+    });
+    expect(toAdmin?.body).toMatch(/Open the booking to refund it/);
+  });
+});
+
+/**
+ * A mother calling off a paid booking outside the window gets back everything
+ * she prepaid — package hours, Care Points and the promo code's use — with the
+ * cancellation itself. Card money is not refunded: the team is told and an
+ * admin decides between a refund and Care Points. Inside the window the
+ * credits stay spent and the money still goes to an admin.
+ */
+describe('A17 — what a paid cancellation gives back', () => {
+  async function hours(token: string): Promise<number> {
+    const response = await request(app).get('/packages/me/hours').set(...authHeader(token));
+    return response.body.data.availableHours as number;
+  }
+
+  async function points(token: string): Promise<number> {
+    const response = await request(app).get('/rewards/wallet').set(...authHeader(token));
+    return response.body.data.pointsBalance as number;
+  }
+
+  /**
+   * A 4-hour booking paid every way at once: a 10% promo code, 2 package
+   * hours, 1 hour of Care Points and the rest by card.
+   */
+  async function paidEveryWay(options: { card?: boolean } = {}) {
+    const { card = true } = options;
+    const mother = await makeMother();
+    const nanny = await makeNanny();
+    const admin = await makeSuperuser();
+
+    const pkg = await makePackage({ hours: card ? 2 : 4, price: 200 });
+    const purchase = await purchasePackage(mother.token, pkg.id);
+    await settleCheckout(purchase.clientSecret);
+    await grantCarePoints(admin.token, mother.id, 500, 'Welcome bonus');
+    const promo = await makePromoCode({ discountType: 'PERCENTAGE', value: 10, maxUsagePerUser: 1 });
+
+    const booking = await createBookingViaApi(mother.token, {
+      durationHours: 4,
+      promoCode: promo.code,
+      ...(card ? { redeemPointsHours: 1 } : {}),
+    });
+    await claimBooking(nanny.token, booking.id);
+    if (card) await payViaPaymob(mother.token, 'booking', booking.id);
+
+    const row = await reload(booking.id);
+    expect(row.status).toBe('CONFIRMED');
+    return {
+      mother,
+      admin,
+      booking,
+      promo,
+      row,
+      hoursBefore: await hours(mother.token),
+      pointsBefore: await points(mother.token),
+    };
+  }
+
+  async function adminToldToDecide(adminId: number, bookingId: number): Promise<boolean> {
+    return (
+      (await prisma.notification.count({
+        where: { userId: adminId, referenceId: bookingId, title: 'Refund decision needed' },
+      })) > 0
+    );
+  }
+
+  it('gives back hours, points and the promo code outside the window, and leaves the money to an admin', async () => {
+    const { mother, admin, booking, promo, row, hoursBefore, pointsBefore } = await paidEveryWay();
+    expect(Number(row.packageHoursApplied)).toBe(2);
+    expect(row.rewardCreditPoints).toBeGreaterThan(0);
+    await startIn(booking.id, 72);
+
+    await cancel(mother.token, booking.id).expect(200);
+
+    expect(await hours(mother.token)).toBe(hoursBefore + 2);
+    expect(await points(mother.token)).toBe(pointsBefore + row.rewardCreditPoints);
+
+    const code = await prisma.promoCode.findUniqueOrThrow({ where: { id: promo.id } });
+    expect(code.usageCount).toBe(0);
+    const live = await prisma.promoCodeRedemption.count({
+      where: { promoCodeId: promo.id, deletedAt: null },
+    });
+    expect(live).toBe(0);
+
+    // The card money stays where it is until an admin decides.
+    const payment = await prisma.payment.findFirstOrThrow({ where: { bookingId: booking.id } });
+    expect(payment.status).toBe('CAPTURED');
+    expect(Number(payment.refundedAmount)).toBe(0);
+    expect(await adminToldToDecide(admin.id, booking.id)).toBe(true);
+
+    const told = await prisma.notification.findFirstOrThrow({
+      where: { userId: mother.id, referenceId: booking.id, title: 'Booking cancelled' },
+    });
+    expect(told.body).toMatch(/2 package hours went back to your package/);
+    expect(told.body).toMatch(/Care Points went back to your balance/);
+    expect(told.body).toContain(`Your promo code ${promo.code} can be used again`);
+    expect(told.body).toMatch(/Our team will review your payment/);
+    expect(told.body).not.toMatch(/refund/i);
+  });
+
+  it('lets her use the promo code again afterwards', async () => {
+    const { mother, booking, promo } = await paidEveryWay();
+    await startIn(booking.id, 72);
+    await cancel(mother.token, booking.id).expect(200);
+
+    const preview = await request(app)
+      .post('/bookings/validate-promo')
+      .set(...authHeader(mother.token))
+      .send({ code: promo.code, subtotal: 400 });
+    expect(preview.status).toBe(200);
+  });
+
+  it('keeps hours, points and the promo code spent inside the window, and still leaves the money to an admin', async () => {
+    const { mother, admin, booking, promo, hoursBefore, pointsBefore } = await paidEveryWay();
+    await startIn(booking.id, 6);
+
+    await cancel(mother.token, booking.id).expect(200);
+
+    expect(await hours(mother.token)).toBe(hoursBefore);
+    expect(await points(mother.token)).toBe(pointsBefore);
+    expect((await prisma.promoCode.findUniqueOrThrow({ where: { id: promo.id } })).usageCount).toBe(1);
+    expect(await adminToldToDecide(admin.id, booking.id)).toBe(true);
+  });
+
+  it('needs no admin when nothing was paid by card', async () => {
+    const { mother, admin, booking, row, hoursBefore } = await paidEveryWay({ card: false });
+    expect(Number(row.totalAmount)).toBe(0);
+    await startIn(booking.id, 72);
+
+    await cancel(mother.token, booking.id).expect(200);
+
+    // The promo came off first, so the package covered only what was left.
+    expect(await hours(mother.token)).toBeCloseTo(hoursBefore + Number(row.packageHoursApplied), 2);
+    expect(await adminToldToDecide(admin.id, booking.id)).toBe(false);
+    const told = await prisma.notification.findFirstOrThrow({
+      where: { userId: mother.id, referenceId: booking.id, title: 'Booking cancelled' },
+    });
+    expect(told.body).not.toMatch(/review your payment/);
   });
 });

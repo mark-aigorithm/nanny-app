@@ -21,9 +21,16 @@ jest.mock('@backend/db/prisma', () => {
   };
   const packagePurchase = { findMany: jest.fn() };
   const promoCode = { findFirst: jest.fn(), update: jest.fn() };
-  const promoCodeRedemption = { count: jest.fn(), create: jest.fn() };
+  // findFirst: a paid cancellation looks for a redemption to release.
+  const promoCodeRedemption = {
+    count: jest.fn(),
+    create: jest.fn(),
+    findFirst: jest.fn().mockResolvedValue(null),
+  };
   return {
     prisma: {
+      // A paid cancellation totals what she paid by card.
+      payment: { findMany: jest.fn().mockResolvedValue([]) },
       user: { findUnique: jest.fn(), findMany: jest.fn() },
       address: { findFirst: jest.fn() },
       nannyProfile: { findUnique: jest.fn(), findMany: jest.fn() },
@@ -73,6 +80,7 @@ jest.mock('@backend/services/package-hours.service', () => ({
 
 jest.mock('@backend/services/paymob.service', () => ({
   confirmBookingIfNothingOwed: jest.fn().mockResolvedValue(null),
+  bookingPaymentInProgress: jest.fn().mockResolvedValue(false),
 }));
 
 jest.mock('@backend/services/reward.service', () => ({
@@ -625,13 +633,31 @@ describe('cancelBooking — reversing prepaid package hours', () => {
     });
   });
 
-  it('leaves a paid booking alone — the hours stay spent', async () => {
+  it('returns the hours of a paid booking cancelled outside the window, in the cancelling write', async () => {
+    // Starts in 2099 — far outside any cancellation window.
     setBooking({ status: 'CONFIRMED', packageHoursApplied: 4, packageCreditAmount: 400 });
 
     await cancelBooking(DECODED, 4, CANCEL);
 
+    expect(mockRefundHours).toHaveBeenCalledTimes(1);
+    expect(mockRefundHours).toHaveBeenCalledWith(expect.anything(), { bookingId: 4 });
+    expect(currentBooking.status).toBe('CANCELLED');
+  });
+
+  it('keeps the hours of a paid booking cancelled inside the window', async () => {
+    const soon = new Date(Date.now() + 2 * 3_600_000);
+    setBooking({
+      status: 'CONFIRMED',
+      packageHoursApplied: 4,
+      packageCreditAmount: 400,
+      startTime: soon,
+      date: soon,
+    });
+
+    await cancelBooking(DECODED, 4, CANCEL);
+
     expect(mockRefundHours).not.toHaveBeenCalled();
-    expect(m.booking.updateMany).not.toHaveBeenCalled();
+    expect(currentBooking.status).toBe('CANCELLED');
   });
 
   it('does nothing when no hours were applied', async () => {
@@ -649,7 +675,9 @@ describe('cancelBooking — reversing prepaid package hours', () => {
       matches({ ...currentBooking, status: 'CONFIRMED' }, where) ? { count: 1 } : { count: 0 },
     );
 
-    await cancelBooking(DECODED, 4, CANCEL);
+    // The cancel itself is guarded on the status it read, so it stops rather
+    // than cancelling a booking that was just paid for.
+    await expect(cancelBooking(DECODED, 4, CANCEL)).rejects.toThrow(/changed while you were cancelling/);
 
     expect(m.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -671,7 +699,7 @@ describe('cancelBooking — reversing prepaid package hours', () => {
       matches({ ...currentBooking, status: 'CONFIRMED' }, where) ? { count: 1 } : { count: 0 },
     );
 
-    await cancelBooking(DECODED, 4, CANCEL);
+    await expect(cancelBooking(DECODED, 4, CANCEL)).rejects.toThrow(/changed while you were cancelling/);
 
     expect(m.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -78,7 +78,11 @@ import {
   redeemPackageHours,
   refundPackageHours,
 } from './package-hours.service';
-import { redeemBookingPromoCodeOnCapture, validatePromoCode } from './promo-code.service';
+import {
+  redeemBookingPromoCodeOnCapture,
+  releaseBookingPromoRedemption,
+  validatePromoCode,
+} from './promo-code.service';
 import { convertReferralForBooking } from './referral.service';
 import {
   applyBookingRedemption,
@@ -774,6 +778,45 @@ export async function notifyMotherBookingConfirmedFree(
 }
 
 /** Notify the assigned nanny that a booking is fully confirmed (post-payment). */
+/**
+ * A card payment went through for a booking that had already been cancelled —
+ * she was paying while it was cancelled. The money stays on the booking, whose
+ * console page offers the refund; this makes sure someone goes to look. The
+ * mother hears that it is being reviewed, not that she will be refunded: the
+ * admin decides between money and Care Points.
+ */
+export async function notifyPaymentOnCancelledBooking(payment: {
+  bookingId: number;
+  motherId: number;
+  amount: number;
+  date: Date;
+}): Promise<void> {
+  const amount = `EGP ${payment.amount.toFixed(2)}`;
+  const dateLabel = payment.date.toISOString().slice(0, 10);
+  const adminIds = await listConsoleUserIdsForSection('bookings');
+
+  await Promise.all([
+    notifyUserBookingEvent(
+      payment.motherId,
+      NotificationType.BOOKING_CANCELLED,
+      'booking_cancelled',
+      'Payment received for a cancelled booking',
+      `We received your payment of ${amount} for the ${dateLabel} booking, which had already been cancelled. Our team will review it and contact you.`,
+      payment.bookingId,
+    ),
+    ...adminIds.map((id) =>
+      notifyUserBookingEvent(
+        id,
+        NotificationType.BOOKING_CANCELLED,
+        'booking_cancelled',
+        'Payment on a cancelled booking',
+        `A payment of ${amount} arrived for booking #${payment.bookingId} after it was cancelled. Open the booking to refund it.`,
+        payment.bookingId,
+      ),
+    ),
+  ]);
+}
+
 export async function notifyNannyBookingConfirmed(
   booking: BookingWithRelations,
 ): Promise<void> {
@@ -1463,11 +1506,12 @@ export async function cancelBooking(
 ): Promise<{ booking: BookingResponse; refundAmount: number }> {
   const user = await getUserByUid(decoded.uid);
 
-  const booking = await prisma.booking.findUnique({
+  const found = await prisma.booking.findUnique({
     where: { id: bookingId, deletedAt: null },
     include: bookingInclude,
   });
-  if (!booking) throw errors.notFound('Booking not found.');
+  if (!found) throw errors.notFound('Booking not found.');
+  let booking: BookingWithRelations = found;
 
   const isMother = booking.motherId === user.id;
   const isNanny = booking.nannyProfile?.userId === user.id;
@@ -1481,6 +1525,21 @@ export async function cancelBooking(
     throw errors.badRequest(
       'A booking that is under way cannot be cancelled. The parent can end the shift instead.',
     );
+  }
+
+  // She may be paying for it right now. A cancel landing mid-checkout would
+  // leave the card charged for a cancelled booking, so wait for the checkout
+  // to finish or close. A payment that already went through has confirmed the
+  // booking by now — re-read it, and this becomes a paid cancellation.
+  if (booking.status === BookingStatus.APPROVED) {
+    await assertNoPaymentInProgress(
+      booking.id,
+      'A payment for this booking is in progress. Finish or close the payment, then try again in a few minutes.',
+    );
+    booking = await prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+      include: bookingInclude,
+    });
   }
   // A nanny dropping a booking nobody has paid for yet doesn't end it: the
   // request goes back to the open pool so another nanny can take it.
@@ -1509,20 +1568,138 @@ export async function cancelBooking(
       ? Number(booking.totalAmount)
       : Math.round(Number(booking.totalAmount) * (1 - cancellationFeePercent / 100) * 100) / 100;
 
-  const updated = await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: BookingStatus.CANCELLED,
-      cancellationReason: body.reason,
-      cancelledById: user.id,
-      cancelledAt: new Date(),
-    },
-    include: bookingInclude,
+  // A paid booking the mother calls off outside the window costs her nothing
+  // she prepaid: her package hours, Care Points and promo code come back with
+  // the cancellation. Any card money is left for an admin to decide on —
+  // refunded, or given back as Care Points.
+  const paid = booking.status === BookingStatus.CONFIRMED;
+  const returnsCredits = isMother && paid && outsideWindow;
+
+  // One transaction, guarded on the status as read: the credits can only be
+  // handed back by the request that actually cancelled the booking.
+  const { updated, returned } = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.booking.updateMany({
+      where: { id: bookingId, status: booking.status, deletedAt: null },
+      data: {
+        status: BookingStatus.CANCELLED,
+        cancellationReason: body.reason,
+        cancelledById: user.id,
+        cancelledAt: new Date(),
+      },
+    });
+    if (count === 0) {
+      throw errors.conflict('This booking changed while you were cancelling it. Please try again.');
+    }
+    return {
+      returned: returnsCredits ? await returnPaidBookingCredits(tx, booking) : NOTHING_RETURNED,
+      updated: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude }),
+    };
   });
 
   await notifyOtherPartyOfCancellation(updated, isNanny ? 'NANNY' : 'MOTHER');
+  if (isMother && paid) await notifyPaidCancellation(updated, returned);
 
   return { booking: toBookingResponse(updated, await getBookingResponseContext(), viewerFor(user)), refundAmount };
+}
+
+type ReturnedCredits = { packageHours: number; carePoints: number; promoCode: string | null };
+
+const NOTHING_RETURNED: ReturnedCredits = { packageHours: 0, carePoints: 0, promoCode: null };
+
+/**
+ * Hands back what a paid booking spent besides money: package hours to their
+ * buckets, Care Points to her wallet, and the promo code's use. The booking's
+ * own figures are left as they were — they record how it was paid. Runs inside
+ * the cancelling transaction, which is what makes it happen once.
+ */
+async function returnPaidBookingCredits(
+  tx: Prisma.TransactionClient,
+  booking: BookingWithRelations,
+): Promise<ReturnedCredits> {
+  const packageHours = await refundPackageHours(tx, { bookingId: booking.id });
+
+  const carePoints = booking.rewardCreditPoints;
+  if (carePoints > 0) {
+    await refundBookingRedemption(tx, {
+      userId: booking.motherId,
+      scope: { bookingId: booking.id },
+      points: carePoints,
+      reason: 'Returned — booking cancelled outside the cancellation window',
+    });
+  }
+
+  const released = await releaseBookingPromoRedemption(tx, booking.id);
+  const promoCode = released
+    ? ((await tx.promoCode.findUnique({ where: { id: released.promoCodeId }, select: { code: true } }))
+        ?.code ?? null)
+    : null;
+
+  return { packageHours, carePoints, promoCode };
+}
+
+/** Card money she has paid and still has on a booking: captured minus refunded. */
+async function cardAmountPaid(bookingId: number): Promise<number> {
+  const payments = await prisma.payment.findMany({
+    where: { bookingId, status: PaymentStatus.CAPTURED, deletedAt: null },
+    select: { amount: true, refundedAmount: true },
+  });
+  const total = payments.reduce((sum, p) => sum + Number(p.amount) - Number(p.refundedAmount), 0);
+  return Math.round(total * 100) / 100;
+}
+
+/**
+ * After the mother cancels a paid booking: tell her what came back, and, if
+ * she paid by card, tell the team — the money waits for an admin to decide
+ * between a refund and Care Points (the booking's console page). She is told
+ * the payment is under review, never promised a refund.
+ */
+async function notifyPaidCancellation(
+  booking: BookingWithRelations,
+  returned: ReturnedCredits,
+): Promise<void> {
+  const dateLabel = booking.date.toISOString().slice(0, 10);
+  const cash = await cardAmountPaid(booking.id);
+
+  const lines: string[] = [];
+  if (returned.packageHours > 0) {
+    lines.push(`${formatHoursLabel(returned.packageHours)} went back to your package.`);
+  }
+  if (returned.carePoints > 0) {
+    lines.push(`${returned.carePoints} Care Points went back to your balance.`);
+  }
+  if (returned.promoCode) lines.push(`Your promo code ${returned.promoCode} can be used again.`);
+  if (cash > 0) {
+    lines.push(`Our team will review your payment of EGP ${cash.toFixed(2)} and contact you.`);
+  }
+
+  await notifyUserBookingEvent(
+    booking.motherId,
+    NotificationType.BOOKING_CANCELLED,
+    'booking_cancelled',
+    'Booking cancelled',
+    [`Your ${dateLabel} booking was cancelled.`, ...lines].join(' '),
+    booking.id,
+  );
+
+  if (cash <= 0) return;
+  const adminIds = await listConsoleUserIdsForSection('bookings');
+  await Promise.all(
+    adminIds.map((id) =>
+      notifyUserBookingEvent(
+        id,
+        NotificationType.BOOKING_CANCELLED,
+        'booking_cancelled',
+        'Refund decision needed',
+        `The mother cancelled booking #${booking.id} after paying EGP ${cash.toFixed(2)}. Open it to refund the money or give Care Points instead.`,
+        booking.id,
+      ),
+    ),
+  );
+}
+
+function formatHoursLabel(hours: number): string {
+  const rounded = Math.round(hours * 100) / 100;
+  return `${rounded} ${rounded === 1 ? 'package hour' : 'package hours'}`;
 }
 
 /**
@@ -1929,6 +2106,20 @@ async function applyPointsToBooking(
  * paymob.service imports this module, and a static import back would make the
  * two depend on each other at load time.
  */
+async function bookingPaymentInProgress(bookingId: number): Promise<boolean> {
+  // Loaded lazily for the same reason as confirmIfNothingOwed below.
+  const { bookingPaymentInProgress: inProgress } = await import('./paymob.service');
+  return inProgress(bookingId);
+}
+
+/**
+ * Thrown when a booking can't be cancelled because the mother is paying for it
+ * right now. Shared with the console's cancel paths.
+ */
+export async function assertNoPaymentInProgress(bookingId: number, message: string): Promise<void> {
+  if (await bookingPaymentInProgress(bookingId)) throw errors.conflict(message);
+}
+
 async function confirmIfNothingOwed(bookingId: number): Promise<BookingWithRelations | null> {
   const { confirmBookingIfNothingOwed } = await import('./paymob.service');
   return confirmBookingIfNothingOwed(bookingId);

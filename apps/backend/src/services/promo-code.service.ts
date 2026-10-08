@@ -211,3 +211,32 @@ export async function redeemBookingPromoCodeOnCapture(
     bookingId,
   });
 }
+
+/**
+ * Undoes the redemption a paid booking made, so the mother can use the code
+ * again — for a booking she cancelled outside the cancellation window. The
+ * redemption row is soft-deleted (the per-user cap counts live rows only) and
+ * the code's usage count goes back down. A no-op when the booking never spent
+ * a code. Run it in the transaction that cancels the booking, which is what
+ * keeps it from running twice.
+ */
+export async function releaseBookingPromoRedemption(
+  tx: Prisma.TransactionClient,
+  bookingId: number,
+): Promise<{ promoCodeId: number } | null> {
+  const redemption = await tx.promoCodeRedemption.findFirst({
+    where: { bookingId, deletedAt: null },
+    select: { id: true, promoCodeId: true },
+  });
+  if (!redemption) return null;
+
+  await tx.promoCodeRedemption.update({
+    where: { id: redemption.id },
+    data: { deletedAt: new Date() },
+  });
+  await tx.promoCode.updateMany({
+    where: { id: redemption.promoCodeId, usageCount: { gt: 0 } },
+    data: { usageCount: { decrement: 1 } },
+  });
+  return { promoCodeId: redemption.promoCodeId };
+}

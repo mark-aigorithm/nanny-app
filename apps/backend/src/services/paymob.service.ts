@@ -18,6 +18,7 @@ import {
   canTransitionBookingStatus,
   notifyMotherBookingConfirmedFree,
   notifyNannyBookingConfirmed,
+  notifyPaymentOnCancelledBooking,
 } from '@backend/services/booking.service';
 import { createPaymobApiClient } from '@backend/lib/paymob/client';
 import {
@@ -74,11 +75,24 @@ function failureReasonFromTxn(txn: PaymobTransactionDto): string {
   return txn.data?.message || 'Payment declined';
 }
 
+/** A payment that landed on a booking already cancelled — money with nothing to confirm. */
+type StrandedPayment = { bookingId: number; motherId: number; amount: number; date: Date };
+
 async function finalizePaymentCaptured(paymentId: number, paymobTransactionId: string | null) {
+  let stranded: StrandedPayment | null = null;
   const confirmedBooking = await prisma.$transaction((tx) =>
-    captureAndConfirmBooking(tx, paymentId, paymobTransactionId),
+    captureAndConfirmBooking(tx, paymentId, paymobTransactionId, {
+      onStranded: (info) => {
+        stranded = info;
+      },
+    }),
   );
   if (confirmedBooking) await announceBookingConfirmed(confirmedBooking, paymobTransactionId);
+  // After the commit, so nobody is told about money the rollback took back.
+  // Only the first capture reaches here: a replayed webhook finds the payment
+  // no longer PENDING and stops before the booking check.
+  const landed = stranded as StrandedPayment | null;
+  if (landed) await notifyPaymentOnCancelledBooking(landed);
 }
 
 /**
@@ -97,7 +111,10 @@ async function captureAndConfirmBooking(
   tx: Prisma.TransactionClient,
   paymentId: number,
   paymobTransactionId: string | null,
-  { onlyIfNothingOwed = false }: { onlyIfNothingOwed?: boolean } = {},
+  {
+    onlyIfNothingOwed = false,
+    onStranded,
+  }: { onlyIfNothingOwed?: boolean; onStranded?: (payment: StrandedPayment) => void } = {},
 ) {
   // Pay-after-approval: the admin already approved (status APPROVED), so a
   // successful capture is the FINAL step and confirms the booking outright.
@@ -143,6 +160,16 @@ async function captureAndConfirmBooking(
       bookingId: booking.id,
       bookingStatus: booking.status,
     });
+    // Cancelled while she was paying: the money is kept on the booking, where
+    // the console offers the refund, and the caller tells the team and her.
+    if (booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.REFUNDED) {
+      onStranded?.({
+        bookingId: booking.id,
+        motherId: booking.motherId,
+        amount: Number(payment.amount),
+        date: booking.date,
+      });
+    }
     return null;
   }
 
@@ -531,6 +558,10 @@ async function openIntention(params: {
       notification_url: notificationUrl,
       redirection_url: redirectionUrl,
       extras: { payment_id: String(payment.id) },
+      // Paymob keeps a hosted link payable for a long time unless told
+      // otherwise; ending it when we stop reusing it means an old checkout
+      // can't take money for a booking that was cancelled since.
+      expiration: PAYMOB_INTENTION_TTL_MS / 1000,
     });
 
     await prisma.payment.update({
@@ -793,6 +824,45 @@ export async function syncPaymobPaymentForBooking(
   if (!payment.paymobClientSecret) return;
 
   await syncBookingAttemptWithPaymob(payment.id, payment.paymobClientSecret);
+}
+
+/**
+ * Before a booking is cancelled: is the mother paying for it right now?
+ *
+ * Only an attempt whose hosted link can still take money counts — younger than
+ * PAYMOB_INTENTION_TTL_MS, which is also the expiry Paymob is given. For that
+ * one Paymob is asked directly, and the answer is settled here: a payment that
+ * already went through confirms the booking (the caller re-reads it and
+ * cancels a paid booking), a failed one is closed, and only one Paymob still
+ * reports as open is "in progress". If Paymob can't be reached the cancel is
+ * let through — a payment that lands afterwards is caught on capture and the
+ * team is told (notifyPaymentOnCancelledBooking).
+ */
+export async function bookingPaymentInProgress(bookingId: number): Promise<boolean> {
+  if (!config.paymob.enabled) return false;
+
+  const attempt = await prisma.payment.findFirst({
+    where: {
+      bookingId,
+      purpose: PaymentPurpose.BOOKING,
+      status: PaymentStatus.PENDING,
+      paymobClientSecret: { not: null },
+      deletedAt: null,
+    },
+    orderBy: { id: 'desc' },
+  });
+  if (!attempt?.paymobClientSecret) return false;
+
+  const openedAt = attempt.paymobReconcileAnchorAt ?? attempt.createdAt;
+  if (Date.now() - openedAt.getTime() >= PAYMOB_INTENTION_TTL_MS) return false;
+
+  try {
+    return (await syncBookingAttemptWithPaymob(attempt.id, attempt.paymobClientSecret)) === 'pending';
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[paymob] could not check an open checkout before cancelling', { bookingId, err });
+    return false;
+  }
 }
 
 /** Ask Paymob how a booking payment attempt stands and settle it to match. */

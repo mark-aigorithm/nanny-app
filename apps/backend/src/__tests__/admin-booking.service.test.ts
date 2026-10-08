@@ -38,6 +38,8 @@ jest.mock('@backend/services/paymob.service', () => ({
 jest.mock('@backend/services/booking.service', () => ({
   ...jest.requireActual('@backend/services/booking.service'),
   returnUnpaidCredits: jest.fn().mockResolvedValue(undefined),
+  // Asks Paymob about an open checkout — not what these tests are about.
+  assertNoPaymentInProgress: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { prisma } from '@backend/db/prisma';

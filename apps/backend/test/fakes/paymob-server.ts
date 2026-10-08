@@ -39,6 +39,8 @@ type Intention = {
   confirmed: boolean;
   transactionId: number | null;
   refundedAmountCents: number;
+  /** Seconds the hosted link stays payable, as the backend asked; undefined when it didn't say. */
+  expiration: number | undefined;
 };
 
 /** In-memory store. The process is per-test-run, so nothing needs to persist. */
@@ -70,6 +72,7 @@ export function buildPaymobFake(): Express {
       special_reference?: string;
       notification_url?: string;
       redirection_url?: string;
+      expiration?: number;
     };
 
     const id = String(allocateId());
@@ -84,6 +87,7 @@ export function buildPaymobFake(): Express {
       confirmed: false,
       transactionId: null,
       refundedAmountCents: 0,
+      expiration: typeof body.expiration === 'number' ? body.expiration : undefined,
     };
     intentions.set(id, intention);
 
@@ -240,6 +244,17 @@ export function buildPaymobFake(): Express {
    * POST /__test__/reset — drop all state. Called between tests so intention
    * ids stay deterministic.
    */
+  app.get('/__test__/intention/:clientSecret', (req: Request, res: Response) => {
+    // What the backend asked for when it opened the checkout — for asserting on
+    // request fields the real API would never echo back (e.g. `expiration`).
+    const intention = findByClientSecret(routeParam(req.params['clientSecret'] ?? ''));
+    if (!intention) {
+      res.status(404).json({ detail: 'Not found.' });
+      return;
+    }
+    res.json({ expiration: intention.expiration ?? null, amountCents: intention.amountCents });
+  });
+
   app.post('/__test__/reset', (_req: Request, res: Response) => {
     intentions.clear();
     nextId = 1;

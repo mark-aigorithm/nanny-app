@@ -22,6 +22,7 @@ import { errors } from '@backend/lib/errors';
 import { toPlatformDateColumn, toPlatformIso, wallClockToUtc } from '@backend/lib/platform-time';
 import {
   assertNoConflict,
+  assertNoPaymentInProgress,
   computeDurationHours,
   returnUnpaidCredits,
   validateStatusTransition,
@@ -500,6 +501,10 @@ export async function rejectBooking(
   input: RejectAdminBookingInput,
 ): Promise<AdminBooking> {
   const adminId = await resolveAdminId(adminFirebaseUid);
+  // Cancelling mid-checkout would leave her card charged for a cancelled
+  // booking (see assertNoPaymentInProgress); a payment that already went
+  // through has confirmed it, so read it after the check.
+  await assertNoPaymentInProgress(id, 'The mother is paying for this booking right now. Try again in a few minutes.');
   const booking = await findAdminBooking(id);
 
   validateStatusTransition(booking.status, BookingStatus.CANCELLED);
@@ -555,6 +560,9 @@ export async function setBookingStatus(
   input: SetBookingStatusInput,
 ): Promise<AdminBooking> {
   const adminId = await resolveAdminId(adminFirebaseUid);
+  if (input.status === BookingStatus.CANCELLED) {
+    await assertNoPaymentInProgress(id, 'The mother is paying for this booking right now. Try again in a few minutes.');
+  }
   const booking = await findAdminBooking(id);
 
   if (booking.status === BookingStatus.COMPLETED) {

@@ -161,6 +161,13 @@ export async function payViaPaymob(
   return session;
 }
 
+/** What the backend sent Paymob when it opened this checkout. */
+export async function inspectIntention(clientSecret: string): Promise<{ expiration: number | null }> {
+  const response = await fetch(`${paymob.apiBaseUrl}/__test__/intention/${clientSecret}`);
+  if (!response.ok) throw new Error(`Paymob fake has no intention ${clientSecret}.`);
+  return (await response.json()) as { expiration: number | null };
+}
+
 /** Clears the fake's in-memory intentions; call from beforeEach alongside the DB reset. */
 export async function resetPaymobFake(): Promise<void> {
   await fetch(`${paymob.apiBaseUrl}/__test__/reset`, { method: 'POST' });
