@@ -232,3 +232,66 @@ describe('deletePackage', () => {
     expect(result).toEqual({ id: 1 });
   });
 });
+
+describe('updatePackage — every field and the rename guard', () => {
+  it('writes every sent field, parsing the expiry into a Date', async () => {
+    mockPrisma.package.findFirst.mockResolvedValue(makePackage());
+    mockPrisma.package.findUnique.mockResolvedValue(null);
+    mockPrisma.package.update.mockResolvedValue(makePackage({ name: 'Family Pack', price: '3500.50' }));
+
+    const r = await updatePackage(1, {
+      name: 'Family Pack',
+      description: 'For busy weeks',
+      hours: 80,
+      price: 3500.5,
+      validityDays: 60,
+      maxSkills: 2,
+      isActive: false,
+      expiresAt: '2026-12-31T00:00:00.000Z',
+    });
+
+    expect(mockPrisma.package.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        name: 'Family Pack',
+        description: 'For busy weeks',
+        hours: 80,
+        price: 3500.5,
+        validityDays: 60,
+        maxSkills: 2,
+        isActive: false,
+        expiresAt: new Date('2026-12-31T00:00:00.000Z'),
+      },
+    });
+    expect(r.price).toBe(3500.5);
+  });
+
+  it('skips the name clash check when the name is resent unchanged', async () => {
+    mockPrisma.package.findFirst.mockResolvedValue(makePackage());
+    mockPrisma.package.update.mockResolvedValue(makePackage());
+
+    await updatePackage(1, { name: 'Starter Pack' });
+
+    expect(mockPrisma.package.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('allows renaming onto the name of a soft-deleted package', async () => {
+    mockPrisma.package.findFirst.mockResolvedValue(makePackage());
+    mockPrisma.package.findUnique.mockResolvedValue(
+      makePackage({ id: 2, name: 'Retired', deletedAt: new Date() }),
+    );
+    mockPrisma.package.update.mockResolvedValue(makePackage({ name: 'Retired' }));
+
+    await expect(updatePackage(1, { name: 'Retired' })).resolves.toMatchObject({ name: 'Retired' });
+  });
+
+  it('names the clashing package in the conflict message', async () => {
+    mockPrisma.package.findFirst.mockResolvedValue(makePackage());
+    mockPrisma.package.findUnique.mockResolvedValue(makePackage({ id: 2, name: 'Family Pack' }));
+
+    await expect(updatePackage(1, { name: 'Family Pack' })).rejects.toMatchObject({
+      message: 'Package "Family Pack" already exists',
+    });
+    expect(mockPrisma.package.update).not.toHaveBeenCalled();
+  });
+});

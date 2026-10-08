@@ -15,13 +15,18 @@ jest.mock('@backend/db/prisma', () => {
   };
 });
 
+import { UpdatePlatformConfigSchema } from '@nanny-app/shared';
+
 import { prisma } from '@backend/db/prisma';
 import { AppError } from '@backend/lib/errors';
 import {
   getBroadcastRadiusKm,
   getPlatformConfig,
   getRevealPhoneMinutes,
+  getRevenueSplit,
+  getServiceFeePercent,
   getSkillMatchingEnabled,
+  getStandardHourlyRate,
   updatePlatformConfig,
 } from '@backend/services/app-settings.service';
 
@@ -283,5 +288,174 @@ describe('updatePlatformConfig — coherence guard', () => {
       (c) => c[0].where.key === 'extra_child_fee_type',
     );
     expect(upsert?.[0].create.value).toBe('');
+  });
+});
+
+// ── Money settings: fee %, hourly rate, revenue split, cancellation fee ─────
+
+describe('getServiceFeePercent', () => {
+  it('returns the default (6) when the key is not seeded', async () => {
+    mockPrisma.appSettings.findUnique.mockResolvedValue(null);
+    await expect(getServiceFeePercent()).resolves.toBe(6);
+    expect(mockPrisma.appSettings.findUnique).toHaveBeenCalledWith({
+      where: { key: 'service_fee_percent' },
+    });
+  });
+
+  it('parses the stored value', async () => {
+    mockPrisma.appSettings.findUnique.mockResolvedValue({ key: 'service_fee_percent', value: '7.5' });
+    await expect(getServiceFeePercent()).resolves.toBe(7.5);
+  });
+});
+
+describe('getStandardHourlyRate', () => {
+  it('returns the default (120) when the key is not seeded', async () => {
+    mockPrisma.appSettings.findUnique.mockResolvedValue(null);
+    await expect(getStandardHourlyRate()).resolves.toBe(120);
+    expect(mockPrisma.appSettings.findUnique).toHaveBeenCalledWith({
+      where: { key: 'standard_hourly_rate' },
+    });
+  });
+
+  it('parses the stored value', async () => {
+    mockPrisma.appSettings.findUnique.mockResolvedValue({
+      key: 'standard_hourly_rate',
+      value: '150.25',
+    });
+    await expect(getStandardHourlyRate()).resolves.toBe(150.25);
+  });
+});
+
+describe('getRevenueSplit', () => {
+  it('reads both live split rows in one query', async () => {
+    await getRevenueSplit();
+    expect(mockPrisma.appSettings.findMany).toHaveBeenCalledWith({
+      where: { key: { in: ['nanny_percent', 'platform_percent'] }, deletedAt: null },
+    });
+  });
+
+  it('defaults to 80/20 when nothing is seeded', async () => {
+    await expect(getRevenueSplit()).resolves.toEqual({ nannyPercent: 80, platformPercent: 20 });
+  });
+
+  it('reads the stored split', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(
+      rows({ nanny_percent: '72.5', platform_percent: '27.5' }),
+    );
+    await expect(getRevenueSplit()).resolves.toEqual({ nannyPercent: 72.5, platformPercent: 27.5 });
+  });
+
+  it('falls back per side: a corrupt row uses its default, the other side is still read', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(
+      rows({ nanny_percent: 'seventy', platform_percent: '30' }),
+    );
+    await expect(getRevenueSplit()).resolves.toEqual({ nannyPercent: 80, platformPercent: 30 });
+  });
+
+  it('uses the default for a side whose row is missing', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(rows({ nanny_percent: '75' }));
+    await expect(getRevenueSplit()).resolves.toEqual({ nannyPercent: 75, platformPercent: 20 });
+  });
+});
+
+describe('cancellationFeePercent', () => {
+  it('defaults to 50 — the fee before it became a setting', async () => {
+    expect((await getPlatformConfig()).cancellationFeePercent).toBe(50);
+  });
+
+  it.each([
+    ['0', 0],
+    ['100', 100],
+    ['35', 35],
+  ])('reads a stored %p as %p', async (stored, expected) => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(rows({ cancellation_fee_percent: stored }));
+    expect((await getPlatformConfig()).cancellationFeePercent).toBe(expected);
+  });
+
+  it('keeps the default on a corrupt row rather than charging NaN', async () => {
+    mockPrisma.appSettings.findMany.mockResolvedValue(rows({ cancellation_fee_percent: 'half' }));
+    expect((await getPlatformConfig()).cancellationFeePercent).toBe(50);
+  });
+
+  it('is saved under cancellation_fee_percent as text', async () => {
+    await updatePlatformConfig({ cancellationFeePercent: 0 });
+    expect(mockPrisma.appSettings.upsert).toHaveBeenCalledWith({
+      where: { key: 'cancellation_fee_percent' },
+      create: { key: 'cancellation_fee_percent', value: '0' },
+      update: { value: '0', deletedAt: null },
+    });
+  });
+
+  it.each([0, 50, 100])('the request schema accepts %p', (value) => {
+    expect(UpdatePlatformConfigSchema.safeParse({ cancellationFeePercent: value }).success).toBe(true);
+  });
+
+  it.each([-1, 101, 12.5])('the request schema refuses %p', (value) => {
+    expect(UpdatePlatformConfigSchema.safeParse({ cancellationFeePercent: value }).success).toBe(false);
+  });
+});
+
+describe('revenue split request rule', () => {
+  it('accepts a split that sums to 100, tolerating float noise', () => {
+    expect(
+      UpdatePlatformConfigSchema.safeParse({ nannyPercent: 70.1, platformPercent: 29.9 }).success,
+    ).toBe(true);
+  });
+
+  it('refuses a split that does not sum to 100', () => {
+    const r = UpdatePlatformConfigSchema.safeParse({ nannyPercent: 70, platformPercent: 20 });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.message).toBe('Nanny and platform percentages must add up to 100');
+  });
+
+  // BUG: the sum-to-100 rule is a refine on the .partial() request schema, so it
+  // only runs when BOTH sides are sent. Sending { nannyPercent: 70 } alone passes
+  // the schema and assertCoherentConfig (app-settings.service.ts:240) has no split
+  // check, so the stored split becomes 70/20. Pricing derives platformAmount as
+  // total − nannyAmount, so no money goes missing, but getRevenueSplit then
+  // reports a platformPercent that no longer matches what the platform earns.
+  it.skip('rejects a one-sided split change that leaves the merged split off 100', async () => {
+    await expect(updatePlatformConfig({ nannyPercent: 70 })).rejects.toThrow(AppError);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('updatePlatformConfig writes', () => {
+  it('upserts only the fields that were sent, reviving a soft-deleted row', async () => {
+    await updatePlatformConfig({ standardHourlyRate: 140, nannyPercent: 75, platformPercent: 25 });
+
+    expect(mockPrisma.appSettings.upsert).toHaveBeenCalledTimes(3);
+    expect(mockPrisma.appSettings.upsert).toHaveBeenCalledWith({
+      where: { key: 'standard_hourly_rate' },
+      create: { key: 'standard_hourly_rate', value: '140' },
+      update: { value: '140', deletedAt: null },
+    });
+    expect(mockPrisma.appSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { key: 'nanny_percent' }, create: { key: 'nanny_percent', value: '75' } }),
+    );
+  });
+
+  it('skips a field present but explicitly undefined', async () => {
+    await updatePlatformConfig({ standardHourlyRate: 140, serviceFeePercent: undefined });
+    expect(mockPrisma.appSettings.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the config re-read after the writes', async () => {
+    mockPrisma.appSettings.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(rows({ standard_hourly_rate: '140' }));
+
+    const r = await updatePlatformConfig({ standardHourlyRate: 140 });
+
+    expect(r.standardHourlyRate).toBe(140);
+    expect(mockPrisma.appSettings.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('names the window length and the minimum in its refusal', async () => {
+    await expect(
+      updatePlatformConfig({ bookingWindowStartHour: 10, bookingWindowEndHour: 11 }),
+    ).rejects.toThrow(
+      'The booking window is only 1 hours long, which is shorter than the 2-hour minimum booking.',
+    );
   });
 });

@@ -32,10 +32,18 @@ import { createInAppNotification, dispatchPush } from '@backend/services/notific
 import {
   applyBookingRedemption,
   awardPointsForBooking,
+  getMyHistory,
+  getMyWallet,
   getRewardConfig,
+  getWalletForUser,
+  getWalletHistory,
+  getWalletSummary,
   grantPoints,
   listWallets,
+  notifyPointsRedeemed,
+  notifyPointsRefunded,
   refundBookingRedemption,
+  resolveUserId,
   updateRewardConfig,
 } from '@backend/services/reward.service';
 
@@ -549,5 +557,519 @@ describe('listWallets (paginated)', () => {
     await listWallets({ page: 1, limit: 20, sortBy, sortDir });
 
     expect(pageSql().sql).toContain(`ORDER BY ${orderBy}\n`);
+  });
+});
+
+// ── Earning: rounding and zero-point guards ─────────────────────────────────
+
+describe('awardPointsForBooking rounding and guards', () => {
+  function primeAward(config: Record<string, unknown> = {}) {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig(config));
+    mockPrisma.rewardLedgerEntry.findFirst.mockResolvedValue(null);
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet());
+    mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet());
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+  }
+
+  it('does nothing when the earn rate is zero', async () => {
+    primeAward({ pointsPerBookedHour: 0 });
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 3 });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when a short booking rounds to zero points', async () => {
+    primeAward({ pointsPerBookedHour: 1 });
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 0.4 });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rounds fractional hours to whole points and the reason to 2dp hours', async () => {
+    primeAward({ pointsPerBookedHour: 10 });
+
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 2.555 });
+
+    expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith({
+      data: {
+        walletId: 30,
+        userId: 29,
+        type: 'EARN',
+        points: 26,
+        balanceAfter: 26,
+        bookingId: 101,
+        reason: 'Earned for a 2.56h booking',
+      },
+    });
+    expect(mockNotify).toHaveBeenCalledWith({
+      userId: 29,
+      type: 'POINTS_EARNED',
+      title: 'You earned Care Points',
+      body: 'You earned 26 Care Points for your completed booking.',
+    });
+    expect(mockPush).toHaveBeenCalledWith(29, {
+      title: 'You earned Care Points',
+      body: 'You earned 26 Care Points for your completed booking.',
+      data: { type: 'points_earned', title: 'You earned Care Points' },
+    });
+  });
+
+  it('still awards the points when the notification fails', async () => {
+    primeAward();
+    mockNotify.mockRejectedValueOnce(new Error('FCM down'));
+
+    await expect(
+      awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 1 }),
+    ).resolves.toBeUndefined();
+    expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('looks for a live EARN entry for this booking before awarding', async () => {
+    primeAward();
+    await awardPointsForBooking({ bookingId: 101, motherId: 29, durationHours: 1 });
+    expect(mockPrisma.rewardLedgerEntry.findFirst).toHaveBeenCalledWith({
+      where: { bookingId: 101, type: 'EARN', deletedAt: null },
+      select: { id: true },
+    });
+  });
+});
+
+// ── Redemption: scope columns, floor, messages ──────────────────────────────
+
+describe('applyBookingRedemption rules', () => {
+  const params = {
+    userId: 29,
+    scope: { bookingId: 101 },
+    redeemHours: 2,
+    perHour: 50,
+    durationHours: 3,
+    owedAmount: 150,
+  };
+
+  function primeRedeem(config: Record<string, unknown> = {}) {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig(config));
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 1000 }));
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.rewardWallet.findUniqueOrThrow.mockResolvedValue({ pointsBalance: 900 });
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+  }
+
+  it('says redemption is unavailable while the program is off', async () => {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig({ enabled: false }));
+    await expect(applyBookingRedemption(mockPrisma as never, params)).rejects.toMatchObject({
+      message: 'Care Points redemption is currently unavailable.',
+    });
+  });
+
+  it('says there is nothing left to pay when the booking is fully covered', async () => {
+    primeRedeem();
+    await expect(
+      applyBookingRedemption(mockPrisma as never, { ...params, owedAmount: 0 }),
+    ).rejects.toMatchObject({
+      message: 'There is nothing left to pay on this booking, so no points are needed.',
+    });
+  });
+
+  it('refuses a request for less than one whole hour', async () => {
+    primeRedeem();
+    await expect(
+      applyBookingRedemption(mockPrisma as never, { ...params, redeemHours: 0.9 }),
+    ).rejects.toMatchObject({ statusCode: 400, message: 'Choose at least one hour to redeem.' });
+    expect(mockPrisma.rewardWallet.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the booking itself is shorter than one hour', async () => {
+    primeRedeem();
+    await expect(
+      applyBookingRedemption(mockPrisma as never, { ...params, durationHours: 0.5 }),
+    ).rejects.toMatchObject({ message: 'Choose at least one hour to redeem.' });
+  });
+
+  it('floors fractional requested hours rather than rounding up', async () => {
+    primeRedeem();
+    const r = await applyBookingRedemption(mockPrisma as never, { ...params, redeemHours: 1.9 });
+    expect(r).toEqual({ hours: 1, pointsCost: 100, discount: 50 });
+  });
+
+  it('names the minimum in its refusal', async () => {
+    primeRedeem({ minRedemptionPoints: 300 });
+    await expect(applyBookingRedemption(mockPrisma as never, params)).rejects.toMatchObject({
+      message: 'You must redeem at least 300 points at a time.',
+    });
+  });
+
+  it('accepts a redemption of exactly the minimum', async () => {
+    primeRedeem({ minRedemptionPoints: 200 });
+    await expect(applyBookingRedemption(mockPrisma as never, params)).resolves.toMatchObject({
+      pointsCost: 200,
+    });
+  });
+
+  it('says the balance is too low when the conditional debit matches nothing', async () => {
+    primeRedeem();
+    mockPrisma.rewardWallet.updateMany.mockResolvedValue({ count: 0 });
+    await expect(applyBookingRedemption(mockPrisma as never, params)).rejects.toMatchObject({
+      message: 'You do not have enough Care Points for this redemption.',
+    });
+    expect(mockPrisma.rewardWallet.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+
+  it('records the balance as read after the debit, with a singular reason for one hour', async () => {
+    primeRedeem();
+    mockPrisma.rewardWallet.findUniqueOrThrow.mockResolvedValue({ pointsBalance: 900 });
+
+    await applyBookingRedemption(mockPrisma as never, { ...params, redeemHours: 1 });
+
+    expect(mockPrisma.rewardWallet.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: 30 },
+      select: { pointsBalance: true },
+    });
+    expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith({
+      data: {
+        walletId: 30,
+        userId: 29,
+        type: 'REDEEM',
+        points: -100,
+        balanceAfter: 900,
+        bookingId: 101,
+        bookingExtensionId: null,
+        reason: 'Redeemed 1 free hour at checkout',
+      },
+    });
+  });
+
+  it('records an extension redemption against the extension, never the parent booking', async () => {
+    primeRedeem();
+
+    await applyBookingRedemption(mockPrisma as never, {
+      ...params,
+      scope: { bookingExtensionId: 55 },
+    });
+
+    expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        bookingId: null,
+        bookingExtensionId: 55,
+        reason: 'Redeemed 2 free hours at checkout',
+      }),
+    });
+  });
+
+  it('rounds the discount to 2dp and never past what is owed', async () => {
+    primeRedeem();
+    // 33.333/hr × 2h = 66.666 → 66.67, but only 66.66 is owed.
+    const r = await applyBookingRedemption(mockPrisma as never, {
+      ...params,
+      perHour: 33.333,
+      owedAmount: 66.66,
+    });
+    expect(r.discount).toBe(66.66);
+  });
+});
+
+describe('refundBookingRedemption reasons and scope', () => {
+  beforeEach(() => {
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 0 }));
+    mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet({ pointsBalance: 200 }));
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+  });
+
+  it('defaults the reason to an unfinished payment', async () => {
+    await refundBookingRedemption(mockPrisma as never, {
+      userId: 29,
+      scope: { bookingId: 101 },
+      points: 200,
+    });
+    expect(mockPrisma.rewardLedgerEntry.create.mock.calls[0][0].data.reason).toBe(
+      'Refunded — payment not completed',
+    );
+  });
+
+  it('records the caller’s reason when one is given', async () => {
+    await refundBookingRedemption(mockPrisma as never, {
+      userId: 29,
+      scope: { bookingId: 101 },
+      points: 200,
+      reason: 'Refunded — booking cancelled early',
+    });
+    expect(mockPrisma.rewardLedgerEntry.create.mock.calls[0][0].data.reason).toBe(
+      'Refunded — booking cancelled early',
+    );
+  });
+
+  it('refunds against an extension scope', async () => {
+    await refundBookingRedemption(mockPrisma as never, {
+      userId: 29,
+      scope: { bookingExtensionId: 55 },
+      points: 100,
+    });
+    expect(mockPrisma.rewardLedgerEntry.create.mock.calls[0][0].data).toMatchObject({
+      bookingId: null,
+      bookingExtensionId: 55,
+      balanceAfter: 200,
+    });
+  });
+
+  it('ignores a negative refund rather than debiting the wallet', async () => {
+    await refundBookingRedemption(mockPrisma as never, {
+      userId: 29,
+      scope: { bookingId: 101 },
+      points: -50,
+    });
+    expect(mockPrisma.rewardWallet.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.rewardLedgerEntry.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('redemption notifications', () => {
+  it('tells the parent how many points bought how many hours (plural)', async () => {
+    await notifyPointsRedeemed(29, 200, 2);
+    expect(mockNotify).toHaveBeenCalledWith({
+      userId: 29,
+      type: 'POINTS_REDEEMED',
+      title: 'Care Points redeemed',
+      body: 'You redeemed 200 points for 2 free care hours on your booking.',
+    });
+    expect(mockPush).toHaveBeenCalledWith(29, expect.objectContaining({
+      data: { type: 'points_redeemed', title: 'Care Points redeemed' },
+    }));
+  });
+
+  it('uses the singular for a single hour', async () => {
+    await notifyPointsRedeemed(29, 100, 1);
+    expect(mockNotify.mock.calls[0][0].body).toBe(
+      'You redeemed 100 points for 1 free care hour on your booking.',
+    );
+  });
+
+  it('tells the parent their points came back on a refund', async () => {
+    await notifyPointsRefunded(29, 150);
+    expect(mockNotify).toHaveBeenCalledWith({
+      userId: 29,
+      type: 'POINTS_GRANTED',
+      title: 'Care Points refunded',
+      body: '150 Care Points were returned to your balance.',
+    });
+    expect(mockPush).toHaveBeenCalledWith(29, expect.objectContaining({
+      data: { type: 'points_granted', title: 'Care Points refunded' },
+    }));
+  });
+
+  it('swallows a push failure', async () => {
+    mockPush.mockRejectedValueOnce(new Error('FCM down'));
+    await expect(notifyPointsRefunded(29, 150)).resolves.toBeUndefined();
+  });
+});
+
+// ── Wallet reads ─────────────────────────────────────────────────────────────
+
+describe('wallet reads', () => {
+  it('lazily creates a zeroed wallet for the user and returns its DTO', async () => {
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(
+      makeWallet({ pointsBalance: 40, lifetimeEarned: 60, lifetimeRedeemed: 20 }),
+    );
+
+    await expect(getWalletForUser(29)).resolves.toEqual({
+      userId: 29,
+      pointsBalance: 40,
+      lifetimeEarned: 60,
+      lifetimeRedeemed: 20,
+    });
+    expect(mockPrisma.rewardWallet.upsert).toHaveBeenCalledWith({
+      where: { userId: 29 },
+      update: {},
+      create: { userId: 29 },
+    });
+  });
+
+  it('resolves a live user from their Firebase uid', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: 29 });
+    await expect(resolveUserId('uid-29')).resolves.toBe(29);
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+      where: { firebaseUid: 'uid-29', deletedAt: null },
+      select: { id: true },
+    });
+  });
+
+  it('refuses (401) a uid with no live user', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    await expect(resolveUserId('uid-x')).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('returns the signed-in parent’s own wallet', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: 29 });
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 5 }));
+    await expect(getMyWallet('uid-29')).resolves.toMatchObject({ userId: 29, pointsBalance: 5 });
+  });
+
+  it('returns the signed-in parent’s own history', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: 29 });
+    mockPrisma.rewardLedgerEntry.count.mockResolvedValue(0);
+    mockPrisma.rewardLedgerEntry.findMany.mockResolvedValue([]);
+
+    await expect(getMyHistory('uid-29', { page: 1, limit: 20 })).resolves.toEqual({
+      entries: [],
+      meta: { page: 1, limit: 20, total: 0, totalPages: 1 },
+    });
+    expect(mockPrisma.rewardLedgerEntry.count).toHaveBeenCalledWith({
+      where: { userId: 29, deletedAt: null },
+    });
+  });
+});
+
+describe('getWalletSummary', () => {
+  it('refuses (404) an unknown or deleted user', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    await expect(getWalletSummary(999)).rejects.toMatchObject({
+      statusCode: 404,
+      message: 'User not found',
+    });
+    expect(mockPrisma.rewardWallet.upsert).not.toHaveBeenCalled();
+  });
+
+  it('combines the wallet with the user’s name, hiding the "-" placeholder last name', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: 29,
+      firstName: 'Nour',
+      lastName: '-',
+      email: 'n@example.com',
+      avatarUrl: 'https://cdn/a.png',
+    });
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 12 }));
+
+    await expect(getWalletSummary(29)).resolves.toEqual({
+      userId: 29,
+      pointsBalance: 12,
+      lifetimeEarned: 0,
+      lifetimeRedeemed: 0,
+      name: 'Nour',
+      email: 'n@example.com',
+      avatarUrl: 'https://cdn/a.png',
+    });
+  });
+});
+
+describe('getWalletHistory', () => {
+  it('pages the live ledger newest first and maps entries to DTOs', async () => {
+    const createdAt = new Date('2026-05-01T10:00:00.000Z');
+    mockPrisma.rewardLedgerEntry.count.mockResolvedValue(45);
+    mockPrisma.rewardLedgerEntry.findMany.mockResolvedValue([
+      {
+        id: 9,
+        type: 'REDEEM',
+        points: -100,
+        balanceAfter: 50,
+        reason: 'Redeemed 1 free hour at checkout',
+        bookingId: 101,
+        createdAt,
+        walletId: 30,
+      },
+    ]);
+
+    const r = await getWalletHistory(29, { page: 3, limit: 20 });
+
+    expect(mockPrisma.rewardLedgerEntry.findMany).toHaveBeenCalledWith({
+      where: { userId: 29, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      skip: 40,
+      take: 20,
+    });
+    expect(r).toEqual({
+      entries: [
+        {
+          id: 9,
+          type: 'REDEEM',
+          points: -100,
+          balanceAfter: 50,
+          reason: 'Redeemed 1 free hour at checkout',
+          bookingId: 101,
+          createdAt: createdAt.toISOString(),
+        },
+      ],
+      meta: { page: 3, limit: 20, total: 45, totalPages: 3 },
+    });
+  });
+});
+
+describe('grantPoints notifications and display', () => {
+  const user = { id: 29, firstName: 'Sarah', lastName: '-', email: 's@x.com', avatarUrl: null };
+
+  it('only bumps lifetimeEarned on a grant, and tells the parent what she was given', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(user);
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 0 }));
+    mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet({ pointsBalance: 20 }));
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+
+    const r = await grantPoints({ userId: 29, points: 20, reason: 'Goodwill', adminId: 1 });
+
+    expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
+      where: { id: 30 },
+      data: { pointsBalance: 20, lifetimeEarned: { increment: 20 } },
+    });
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'You received Care Points',
+        body: "You've been given 20 Care Points: Goodwill",
+      }),
+    );
+    expect(r.name).toBe('Sarah');
+  });
+
+  it('never touches lifetimeEarned on a revoke, and words the notice as an adjustment', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(user);
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 50 }));
+    mockPrisma.rewardWallet.update.mockResolvedValue(makeWallet({ pointsBalance: 30 }));
+    mockPrisma.rewardLedgerEntry.create.mockResolvedValue({});
+
+    await grantPoints({ userId: 29, points: -20, reason: 'Correction', adminId: 1 });
+
+    expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
+      where: { id: 30 },
+      data: { pointsBalance: 30 },
+    });
+    expect(mockPrisma.rewardLedgerEntry.create.mock.calls[0][0].data).toMatchObject({
+      type: 'ADMIN_REVOKE',
+      points: -20,
+      balanceAfter: 30,
+    });
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Care Points adjusted',
+        body: 'Your Care Points balance was adjusted: Correction',
+      }),
+    );
+  });
+
+  it('says there is nothing to revoke and writes nothing from an empty wallet', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(user);
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 0 }));
+
+    await expect(
+      grantPoints({ userId: 29, points: -5, reason: 'x', adminId: 1 }),
+    ).rejects.toMatchObject({ message: 'This user has no Care Points to revoke.' });
+    expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
+    expect(mockPrisma.rewardLedgerEntry.create).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+});
+
+describe('listWallets edge cases', () => {
+  beforeEach(() => {
+    mockPrisma.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
+  });
+
+  it('reads a missing count row as zero and still reports one page', async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    const r = await listWallets({ page: 1, limit: 20, sortBy: 'joined', sortDir: 'desc' });
+
+    expect(r.meta).toEqual({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  });
+
+  it('does not filter on a whitespace-only search', async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ total: 0 }]).mockResolvedValueOnce([]);
+
+    await listWallets({ page: 1, limit: 20, sortBy: 'joined', sortDir: 'desc', search: '   ' });
+
+    expect((mockPrisma.$queryRaw.mock.calls[0][0] as Prisma.Sql).sql).not.toContain('ILIKE');
   });
 });

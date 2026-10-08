@@ -301,6 +301,27 @@ function createListing(motherToken, label) {
 }
 
 /** What the badge and the "Unread" pill are counting. */
+/**
+ * Where the mother's newest booking ended up, and what she was told about it:
+ * its status, and the body of her "Booking cancelled" notice, if there is one.
+ * Read over the same routes the app uses, so a flow can assert on the server's
+ * side of a cancellation the device can't show.
+ */
+function motherBookingOutcome() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+  record(booking);
+  var page = call('GET', motherToken, '/notifications?limit=50');
+  var items = (page && page.notifications) || page || [];
+  output.notice = '';
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].referenceId === booking.id && items[i].title === 'Booking cancelled') {
+      output.notice = items[i].body;
+      break;
+    }
+  }
+}
+
 function unreadCount() {
   var motherToken = signIn(MOTHER_EMAIL);
   output.unread = String(call('GET', motherToken, '/notifications/unread-count').unreadCount);
@@ -939,6 +960,7 @@ var STEPS = {
   'nanny-accept': nannyAccept,
   'seed-listing-notifications': seedListingNotifications,
   'unread-count': unreadCount,
+  'mother-booking-outcome': motherBookingOutcome,
   'community-reset': communityReset,
   'admin-approve-event': adminApproveEvent,
   'event-at-capacity': eventAtCapacity,

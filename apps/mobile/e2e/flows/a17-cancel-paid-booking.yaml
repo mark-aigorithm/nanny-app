@@ -1,0 +1,65 @@
+# A17 — the mother cancels a booking she has already paid for.
+#
+# Books and pays by card (the same path as A1), then calls it off from the
+# booking's page. What this pins, end to end on the device:
+#
+# - the cancel warning names the late-cancellation fee the console publishes
+#   on /bookings/options (window 24 h, fee 50% by default), not a constant;
+# - the booking actually ends CANCELLED on the server;
+# - she is told her payment is under review — and never promised a refund,
+#   because an admin decides between money and Care Points.
+#
+# The booking starts ten minutes out, so this is a cancellation inside the
+# window: the credits rules for an early cancel are the backend suite's (A17).
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+
+# ── Book and pay ───────────────────────────────────────────────────────────
+- runFlow: _book-and-pay.yaml
+
+# ── Open it from Home ──────────────────────────────────────────────────────
+- tapOn: 'Home'
+- extendedWaitUntil:
+    visible: 'UPCOMING'
+    timeout: 30000
+- tapOn: 'UPCOMING'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+
+# ── Cancel it ──────────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element: 'Cancel booking'
+    direction: DOWN
+    centerElement: true
+- tapOn: 'Cancel booking'
+
+- extendedWaitUntil:
+    visible: 'Cancel this booking?'
+    timeout: 10000
+# The window and fee come from the server, the same settings it applies.
+- assertVisible: 'Cancellations within 24 hours of the booking are subject to a 50% fee.'
+
+# The dialog is a modal, so the card's own "Cancel booking" behind it is out of
+# the accessibility tree — this taps the dialog's confirm button.
+- tapOn: 'Cancel booking'
+
+# She is taken back once it's done.
+- extendedWaitUntil:
+    notVisible: 'Cancel this booking?'
+    timeout: 20000
+
+# ── What the server did, and what she was told ─────────────────────────────
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-booking-outcome
+- assertTrue: ${output.status == 'CANCELLED'}
+- assertTrue: ${output.notice.indexOf('Our team will review your payment') >= 0}
+- assertTrue: ${output.notice.toLowerCase().indexOf('refund') < 0}

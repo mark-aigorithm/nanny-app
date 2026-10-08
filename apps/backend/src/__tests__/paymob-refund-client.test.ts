@@ -42,6 +42,35 @@ describe('paymob client refund', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts a string refund id and reports an unknown refunded total as null', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      // No success flag and a non-numeric total: only an explicit false is a failure.
+      json: async () => ({ id: 'rf_9', refunded_amount_cents: '5000' }),
+    })) as unknown as typeof fetch;
+
+    const api = createPaymobApiClient('sk_test', 'https://accept.paymob.com');
+    await expect(api.refund({ transactionId: 'txn_4', amountCents: 5000 })).resolves.toEqual({
+      id: 'rf_9',
+      refundedAmountCents: null,
+      success: true,
+    });
+  });
+
+  it('throws AppError(502) when a 2xx refund response carries no id', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({ success: true, refunded_amount_cents: 100 }),
+    })) as unknown as typeof fetch;
+
+    const api = createPaymobApiClient('sk_test', 'https://accept.paymob.com');
+    await expect(api.refund({ transactionId: 'txn_5', amountCents: 100 })).rejects.toMatchObject({
+      constructor: AppError,
+      statusCode: 502,
+      message: 'Paymob refund response missing id.',
+    });
+  });
+
   it('throws AppError(502) on a non-OK response', async () => {
     global.fetch = jest.fn(async () => ({
       ok: false,

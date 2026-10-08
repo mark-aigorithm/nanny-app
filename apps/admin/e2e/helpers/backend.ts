@@ -470,22 +470,32 @@ async function settleCheckout(clientSecret: string): Promise<void> {
 
 // ── Read-back helpers (assert on the API, not just the screen) ─────
 
-export async function getBooking(adminToken: string, id: number): Promise<{
+export type AdminBookingMoney = {
   status: string;
   totalAmount: number;
   /** Captured minus refunded, across every payment on the booking. */
   amountPaid: number;
-  /** How much of `amountPaid` is above `totalAmount` — what is still owed back. */
+  /** What can still be given back: an overpayment, or all she paid on a cancelled booking. */
   refundableAmount: number;
+  refundKind: 'OVERPAID' | 'CANCELLED' | null;
+  suggestedRefundAmount: number;
+  refundFeePercent: number | null;
   cancellationReason: string | null;
-}> {
-  return (await call('GET', `/admin/bookings/${id}`, adminToken)) as {
-    status: string;
-    totalAmount: number;
-    amountPaid: number;
-    refundableAmount: number;
-    cancellationReason: string | null;
-  };
+};
+
+export async function getBooking(adminToken: string, id: number): Promise<AdminBookingMoney> {
+  return (await call('GET', `/admin/bookings/${id}`, adminToken)) as AdminBookingMoney;
+}
+
+/** The mother cancels her own booking from the app. */
+export async function cancelBookingAsMother(motherToken: string, id: number): Promise<void> {
+  await call('POST', `/bookings/${id}/cancel`, motherToken, { reason: 'Plans changed.' });
+}
+
+/** Her Care Points balance, as the app's wallet shows it. */
+export async function getWalletPoints(motherToken: string): Promise<number> {
+  const wallet = (await call('GET', '/rewards/wallet', motherToken)) as { pointsBalance: number };
+  return wallet.pointsBalance;
 }
 
 // ── Mobile-facing reads (what the app sees after an admin edits a catalogue) ──
@@ -520,6 +530,8 @@ export type AppBookingOptions = {
   minBookingHours: number;
   maxBookingHours: number;
   minAdvanceBookingHours: number;
+  cancellationWindowHours: number;
+  cancellationFeePercent: number;
 };
 
 export type AppFaq = { items: Array<{ question: string; answer: string }> };

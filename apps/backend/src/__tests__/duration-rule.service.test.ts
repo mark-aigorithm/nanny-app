@@ -128,3 +128,110 @@ describe('deleteDurationRule', () => {
     });
   });
 });
+
+describe('duration rule tiers — guards and field handling', () => {
+  it('stores a missing label as null on create', async () => {
+    mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(null);
+    mockPrisma.durationMultiplierRule.create.mockResolvedValue(makeRule({ label: null }));
+
+    const created = await createDurationRule({ minHours: 3, multiplier: 0.9, isActive: false });
+
+    expect(mockPrisma.durationMultiplierRule.findFirst).toHaveBeenCalledWith({
+      where: { minHours: 3, deletedAt: null },
+    });
+    expect(mockPrisma.durationMultiplierRule.create).toHaveBeenCalledWith({
+      data: { minHours: 3, multiplier: 0.9, label: null, isActive: false },
+    });
+    expect(created.label).toBeNull();
+  });
+
+  it('names the clashing tier in the conflict message', async () => {
+    mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(makeRule());
+    await expect(
+      createDurationRule({ minHours: 3, multiplier: 0.9, isActive: true }),
+    ).rejects.toMatchObject({ message: 'A tier for 3h already exists' });
+  });
+
+  it('converts a Decimal multiplier to a plain number', async () => {
+    mockPrisma.durationMultiplierRule.findMany.mockResolvedValue([
+      makeRule({ multiplier: { toString: () => '0.85', valueOf: () => 0.85 } }),
+    ]);
+    const [rule] = await listDurationRules();
+    expect(rule?.multiplier).toBe(0.85);
+  });
+
+  it('refuses to move a tier onto another live tier’s minHours', async () => {
+    mockPrisma.durationMultiplierRule.findFirst
+      .mockResolvedValueOnce(makeRule({ id: 24, minHours: 3 }))
+      .mockResolvedValueOnce(makeRule({ id: 25, minHours: 6 }));
+
+    await expect(updateDurationRule(24, { minHours: 6 })).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'A tier for 6h already exists',
+    });
+    expect(mockPrisma.durationMultiplierRule.findFirst).toHaveBeenLastCalledWith({
+      where: { minHours: 6, deletedAt: null, id: { not: 24 } },
+    });
+    expect(mockPrisma.durationMultiplierRule.update).not.toHaveBeenCalled();
+  });
+
+  it('moves a tier to a free minHours', async () => {
+    mockPrisma.durationMultiplierRule.findFirst
+      .mockResolvedValueOnce(makeRule({ minHours: 3 }))
+      .mockResolvedValueOnce(null);
+    mockPrisma.durationMultiplierRule.update.mockResolvedValue(makeRule({ minHours: 6 }));
+
+    await expect(updateDurationRule(24, { minHours: 6 })).resolves.toMatchObject({ minHours: 6 });
+    expect(mockPrisma.durationMultiplierRule.update).toHaveBeenCalledWith({
+      where: { id: 24 },
+      data: { minHours: 6 },
+    });
+  });
+
+  it('skips the clash check when minHours is resent unchanged', async () => {
+    mockPrisma.durationMultiplierRule.findFirst.mockResolvedValueOnce(makeRule({ minHours: 3 }));
+    mockPrisma.durationMultiplierRule.update.mockResolvedValue(makeRule());
+
+    await updateDurationRule(24, { minHours: 3 });
+
+    expect(mockPrisma.durationMultiplierRule.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes every sent field, and nothing that was not sent', async () => {
+    mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(makeRule());
+    mockPrisma.durationMultiplierRule.update.mockResolvedValue(makeRule());
+
+    await updateDurationRule(24, { multiplier: 0.75, label: 'Full day', isActive: false });
+    expect(mockPrisma.durationMultiplierRule.update).toHaveBeenLastCalledWith({
+      where: { id: 24 },
+      data: { multiplier: 0.75, label: 'Full day', isActive: false },
+    });
+
+    await updateDurationRule(24, {});
+    expect(mockPrisma.durationMultiplierRule.update).toHaveBeenLastCalledWith({
+      where: { id: 24 },
+      data: {},
+    });
+  });
+
+  it('clears the label when it is sent as null', async () => {
+    mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(makeRule());
+    mockPrisma.durationMultiplierRule.update.mockResolvedValue(makeRule({ label: null }));
+
+    await updateDurationRule(24, { label: null });
+
+    expect(mockPrisma.durationMultiplierRule.update).toHaveBeenCalledWith({
+      where: { id: 24 },
+      data: { label: null },
+    });
+  });
+
+  it('refuses (404) to delete a missing or already-deleted tier', async () => {
+    mockPrisma.durationMultiplierRule.findFirst.mockResolvedValue(null);
+    await expect(deleteDurationRule(999)).rejects.toMatchObject({
+      statusCode: 404,
+      message: 'Duration rule not found',
+    });
+    expect(mockPrisma.durationMultiplierRule.update).not.toHaveBeenCalled();
+  });
+});

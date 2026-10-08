@@ -522,7 +522,7 @@ describe('getMyPackageHours', () => {
           status: 'ACTIVE',
           nameSnapshot: 'Starter Pack',
           purchasedAt: new Date('2026-01-01T00:00:00.000Z'),
-          expiresAt: new Date('2026-12-01T00:00:00.000Z'),
+          expiresAt: new Date('2099-12-01T00:00:00.000Z'),
         }),
       ]);
 
@@ -541,7 +541,7 @@ describe('getMyPackageHours', () => {
           maxSkills: 2,
           status: 'ACTIVE',
           purchasedAt: '2026-01-01T00:00:00.000Z',
-          expiresAt: '2026-12-01T00:00:00.000Z',
+          expiresAt: '2099-12-01T00:00:00.000Z',
         },
       ],
     });
@@ -585,5 +585,200 @@ describe('getMyPackageHours', () => {
   it('throws notFound (404) when the user has been soft-deleted', async () => {
     m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: new Date() });
     await expect(getMyPackageHours('uid-7')).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+// ── Edge branches: extension scope, races, read-back fallbacks, DTO nulls ───
+
+describe('redeemPackageHours edge cases', () => {
+  it('records an extension draw against the extension, never the parent booking', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
+    mockPurchaseLookups({}, { 1: '3.00' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    await redeemPackageHours(prisma as never, {
+      userId: 7,
+      scope: { bookingExtensionId: 55 },
+      hoursNeeded: 1,
+    });
+
+    expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        bookingId: null,
+        bookingExtensionId: 55,
+        reason: 'Applied 1h to extension #55',
+      }),
+    });
+  });
+
+  it('stops at the first bucket that covers the whole need, leaving later buckets untouched', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([
+      bucket({ id: 1, hoursRemaining: '10.00' }),
+      bucket({ id: 2, hoursRemaining: '10.00' }),
+    ]);
+    mockPurchaseLookups({}, { 1: '7.00' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    const res = await redeemPackageHours(prisma as never, {
+      userId: 7,
+      scope: { bookingId: 99 },
+      hoursNeeded: 3,
+    });
+
+    expect(res.purchaseIds).toEqual([1]);
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips a bucket whose balance rounds to zero', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([
+      bucket({ id: 1, hoursRemaining: '0.004' }),
+      bucket({ id: 2, hoursRemaining: '5.00' }),
+    ]);
+    mockPurchaseLookups({}, { 2: '3.00' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    const res = await redeemPackageHours(prisma as never, {
+      userId: 7,
+      scope: { bookingId: 99 },
+      hoursNeeded: 2,
+    });
+
+    expect(res).toMatchObject({ hoursApplied: 2, purchaseIds: [2] });
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a zero balance when the read-back finds no row', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '4.00' })]);
+    m.packagePurchase.findFirst.mockResolvedValue(null);
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    await redeemPackageHours(prisma as never, { userId: 7, scope: { bookingId: 99 }, hoursNeeded: 1 });
+
+    expect(m.packageHoursLedger.create.mock.calls[0][0].data.balanceAfter).toBe(0);
+  });
+
+  it('rounds the hours needed to 2dp before drawing', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, hoursRemaining: '10.00' })]);
+    mockPurchaseLookups({}, { 1: '8.67' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    const res = await redeemPackageHours(prisma as never, {
+      userId: 7,
+      scope: { bookingId: 99 },
+      hoursNeeded: 1.333,
+    });
+
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { hoursRemaining: { decrement: 1.33 } } }),
+    );
+    // Reported against the unrounded need, so the 0.003h never drawn shows as applied.
+    expect(res.hoursApplied).toBe(1.33);
+  });
+});
+
+describe('refundPackageHours edge cases', () => {
+  it('restores an extension’s draw under the extension scope', async () => {
+    mockLedgerFindMany([{ purchaseId: 1, userId: 7, hours: '-2.00' }]);
+    mockPurchaseLookups({ 1: bucket({ id: 1 }) }, { 1: '6.00' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    await expect(refundPackageHours(prisma as never, { bookingExtensionId: 55 })).resolves.toBe(2);
+
+    expect(m.packageHoursLedger.findMany).toHaveBeenCalledWith({
+      where: { bookingId: null, bookingExtensionId: 55, type: 'REDEMPTION', deletedAt: null },
+    });
+    expect(m.packageHoursLedger.create).toHaveBeenCalledWith({
+      data: {
+        purchaseId: 1,
+        userId: 7,
+        type: 'REFUND',
+        hours: 2,
+        balanceAfter: 6,
+        bookingId: null,
+        bookingExtensionId: 55,
+        reason: 'Refunded 2h from extension #55',
+      },
+    });
+  });
+
+  it('skips a bucket that was deleted since the draw', async () => {
+    mockLedgerFindMany([{ purchaseId: 1, userId: 7, hours: '-2.00' }]);
+    mockPurchaseLookups({}, {});
+
+    await expect(refundPackageHours(prisma as never, { bookingId: 99 })).resolves.toBe(0);
+    expect(m.packagePurchase.updateMany).not.toHaveBeenCalled();
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('writes no REFUND row when the bucket stopped being ACTIVE between read and write', async () => {
+    mockLedgerFindMany([{ purchaseId: 1, userId: 7, hours: '-2.00' }]);
+    mockPurchaseLookups({ 1: bucket({ id: 1 }) }, {});
+    m.packagePurchase.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(refundPackageHours(prisma as never, { bookingId: 99 })).resolves.toBe(0);
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE', deletedAt: null },
+      data: { hoursRemaining: { increment: 2 } },
+    });
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the restored hours as the balance when the read-back finds no row', async () => {
+    mockLedgerFindMany([{ purchaseId: 1, userId: 7, hours: '-2.50' }]);
+    m.packagePurchase.findFirst.mockImplementation(async (args: PurchaseFindFirstArgs) =>
+      args.select ? null : bucket({ id: 1 }),
+    );
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    await refundPackageHours(prisma as never, { bookingId: 99 });
+
+    expect(m.packageHoursLedger.create.mock.calls[0][0].data.balanceAfter).toBe(2.5);
+  });
+
+  it('refunds only the buckets not already refunded for this scope', async () => {
+    mockLedgerFindMany(
+      [
+        { purchaseId: 1, userId: 7, hours: '-2.00' },
+        { purchaseId: 2, userId: 7, hours: '-1.25' },
+      ],
+      [{ purchaseId: 1 }],
+    );
+    mockPurchaseLookups({ 2: bucket({ id: 2 }) }, { 2: '4.25' });
+    m.packageHoursLedger.create.mockResolvedValue({});
+
+    await expect(refundPackageHours(prisma as never, { bookingId: 99 })).resolves.toBe(1.25);
+    expect(m.packageHoursLedger.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('expirePackagesForUser edge cases', () => {
+  it('forfeits nothing when the read-back finds no row', async () => {
+    m.packagePurchase.findMany.mockResolvedValue([bucket({ id: 1, expiresAt: daysFromNow(-1) })]);
+    m.packagePurchase.findFirst.mockResolvedValue(null);
+
+    await expirePackagesForUser(7, prisma as never);
+
+    expect(m.packagePurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE', deletedAt: null },
+      data: { status: 'EXPIRED', isActiveSlot: null },
+    });
+    expect(m.packageHoursLedger.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('getMyPackageHours DTO', () => {
+  it('reports a never-paid, never-expiring bucket with null dates and excludes it from the balance', async () => {
+    m.user.findUnique.mockResolvedValue({ id: 7, deletedAt: null });
+    m.packagePurchase.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        bucket({ id: 4, status: 'PENDING_PAYMENT', purchasedAt: null, expiresAt: null, hoursRemaining: '0' }),
+        bucket({ id: 5, status: 'ACTIVE', expiresAt: null, hoursRemaining: '2.50' }),
+      ]);
+
+    const r = await getMyPackageHours('uid-7');
+
+    expect(r.availableHours).toBe(2.5);
+    expect(r.buckets[0]).toMatchObject({ id: 4, purchasedAt: null, expiresAt: null });
   });
 });

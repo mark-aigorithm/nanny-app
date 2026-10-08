@@ -28,8 +28,13 @@ import {
   convertReferralForBooking,
   getOrCreateReferralCode,
   getReferralSummary,
+  redeemReferralCode,
   validateReferralCode,
 } from '@backend/services/referral.service';
+import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
+
+const mockNotify = createInAppNotification as jest.Mock;
+const mockPush = dispatchPush as jest.Mock;
 
 const mockPrisma = prisma as unknown as {
   rewardConfig: { findFirst: jest.Mock };
@@ -530,5 +535,271 @@ describe('validateReferralCode', () => {
       refereePoints: 100,
     });
     expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+// ── Code generation failure modes ────────────────────────────────────────────
+
+describe('getOrCreateReferralCode failure modes', () => {
+  beforeEach(() => {
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: REFERRER_ID,
+      firstName: 'Sarah',
+      referralCode: null,
+    });
+  });
+
+  it('refuses (404) an unknown or deleted user', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    await expect(getOrCreateReferralCode(REFERRER_ID)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('rethrows a database error that is not a unique violation, without retrying', async () => {
+    const boom = new Error('connection lost');
+    mockPrisma.user.update.mockRejectedValue(boom);
+
+    await expect(getOrCreateReferralCode(REFERRER_ID)).rejects.toBe(boom);
+    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rethrows a known Prisma error other than P2002', async () => {
+    const notFound = new Prisma.PrismaClientKnownRequestError('Record not found', {
+      code: 'P2025',
+      clientVersion: 'test',
+    });
+    mockPrisma.user.update.mockRejectedValue(notFound);
+
+    await expect(getOrCreateReferralCode(REFERRER_ID)).rejects.toBe(notFound);
+  });
+
+  it('gives up with a 500 after five colliding attempts', async () => {
+    mockPrisma.user.update.mockRejectedValue(uniqueViolation('referral_code'));
+    mockPrisma.user.findUnique.mockResolvedValue({ referralCode: null });
+
+    await expect(getOrCreateReferralCode(REFERRER_ID)).rejects.toMatchObject({
+      statusCode: 500,
+      message: 'Could not generate a referral code. Please try again.',
+    });
+    expect(mockPrisma.user.update).toHaveBeenCalledTimes(5);
+  });
+
+  it('keeps retrying when the user row vanished mid-collision', async () => {
+    mockPrisma.user.update
+      .mockRejectedValueOnce(uniqueViolation('referral_code'))
+      .mockResolvedValueOnce({ referralCode: 'SARAH-ZZZZ' });
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(getOrCreateReferralCode(REFERRER_ID)).resolves.toBe('SARAH-ZZZZ');
+  });
+
+  it('returns the candidate it wrote when the update echoes no code back', async () => {
+    mockPrisma.user.update.mockResolvedValue({ referralCode: null });
+    await expect(getOrCreateReferralCode(REFERRER_ID)).resolves.toMatch(/^SARAH-[A-Z2-9]{4}$/);
+  });
+
+  it('uses at most six letters of the name and never an ambiguous glyph', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: REFERRER_ID,
+      firstName: "Anne-Marie O'Neil",
+      referralCode: null,
+    });
+    mockPrisma.user.update.mockImplementation(
+      async (args: { data: { referralCode: string } }) => ({ referralCode: args.data.referralCode }),
+    );
+
+    const code = await getOrCreateReferralCode(REFERRER_ID);
+
+    expect(code).toMatch(/^ANNEMA-[ABCDEFGHJKLMNPQRTUVWXYZ2-9]{4}$/);
+  });
+});
+
+// ── Redemption guards ────────────────────────────────────────────────────────
+
+describe('applyReferralCode guards', () => {
+  it('rejects a code owned by a non-parent account as simply invalid', async () => {
+    arrangeRedeemable();
+    mockPrisma.user.findFirst.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      args.where.id === REFEREE_ID
+        ? { id: REFEREE_ID, role: 'MOTHER', firstName: 'Dana' }
+        : { id: REFERRER_ID, firstName: 'Nina', role: 'NANNY' },
+    );
+
+    await expect(
+      applyReferralCode({ refereeUserId: REFEREE_ID, code: 'NINA-AAAA' }),
+    ).rejects.toMatchObject({ statusCode: 400, message: 'That referral code is not valid.' });
+    expect(mockPrisma.referral.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses (404) a referee with no live account', async () => {
+    arrangeRedeemable();
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(
+      applyReferralCode({ refereeUserId: REFEREE_ID, code: 'SARAH-4K2P' }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('rethrows an unexpected failure while linking the referral', async () => {
+    arrangeRedeemable();
+    const boom = new Error('deadlock');
+    mockPrisma.referral.create.mockRejectedValue(boom);
+
+    await expect(
+      applyReferralCode({ refereeUserId: REFEREE_ID, code: 'SARAH-4K2P' }),
+    ).rejects.toBe(boom);
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('treats a negative welcome grant as zero and credits nothing', async () => {
+    arrangeRedeemable();
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig({ refereePoints: -10 }));
+
+    await expect(
+      applyReferralCode({ refereeUserId: REFEREE_ID, code: 'SARAH-4K2P' }),
+    ).resolves.toEqual({ referrerFirstName: 'Sarah', pointsAwarded: 0 });
+    expect(mockPrisma.referral.create.mock.calls[0][0].data.refereePoints).toBe(0);
+    expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('credits the welcome points as a REFERRAL ledger entry on top of the existing balance', async () => {
+    arrangeRedeemable();
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(makeWallet({ pointsBalance: 30 }));
+
+    await applyReferralCode({ refereeUserId: REFEREE_ID, code: 'SARAH-4K2P' });
+
+    expect(mockPrisma.rewardWallet.update).toHaveBeenCalledWith({
+      where: { id: 90 },
+      data: { pointsBalance: 130, lifetimeEarned: { increment: 100 } },
+    });
+    expect(mockPrisma.rewardLedgerEntry.create).toHaveBeenCalledWith({
+      data: {
+        walletId: 90,
+        userId: REFEREE_ID,
+        type: 'REFERRAL',
+        points: 100,
+        balanceAfter: 130,
+        reason: 'Welcome bonus from Sarah',
+      },
+    });
+    expect(mockNotify).toHaveBeenCalledWith({
+      userId: REFEREE_ID,
+      type: 'REFERRAL_JOINED',
+      title: 'Welcome to NannyNow',
+      body: '100 Care Points are waiting in your wallet, thanks to Sarah.',
+    });
+    expect(mockPush).toHaveBeenCalledWith(REFEREE_ID, expect.objectContaining({
+      data: { type: 'referral_joined', title: 'Welcome to NannyNow' },
+    }));
+  });
+
+  it('still succeeds when the welcome notification fails', async () => {
+    arrangeRedeemable();
+    mockNotify.mockRejectedValueOnce(new Error('FCM down'));
+
+    await expect(
+      applyReferralCode({ refereeUserId: REFEREE_ID, code: 'SARAH-4K2P' }),
+    ).resolves.toEqual({ referrerFirstName: 'Sarah', pointsAwarded: 100 });
+  });
+});
+
+describe('redeemReferralCode', () => {
+  it('redeems as the user behind the Firebase uid', async () => {
+    arrangeRedeemable();
+    const lookup = mockPrisma.user.findFirst.getMockImplementation()!;
+    mockPrisma.user.findFirst.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      args.where.firebaseUid === 'uid-dana' ? { id: REFEREE_ID } : lookup(args),
+    );
+
+    await expect(redeemReferralCode('uid-dana', 'sarah-4k2p')).resolves.toEqual({
+      referrerFirstName: 'Sarah',
+      pointsAwarded: 100,
+    });
+  });
+
+  it('refuses (401) a uid with no live account', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    await expect(redeemReferralCode('uid-x', 'SARAH-4K2P')).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+});
+
+// ── Conversion edge cases ────────────────────────────────────────────────────
+
+describe('convertReferralForBooking edge cases', () => {
+  function arrangeConvertible(overrides: Record<string, unknown> = {}) {
+    mockPrisma.rewardConfig.findFirst.mockResolvedValue(makeConfig(overrides));
+    mockPrisma.referral.findFirst.mockResolvedValue({ id: 7, referrerId: REFERRER_ID });
+    mockPrisma.user.findUnique.mockResolvedValue({ firstName: 'Dana' });
+    mockPrisma.referral.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.rewardWallet.upsert.mockResolvedValue(
+      makeWallet({ userId: REFERRER_ID, pointsBalance: 40 }),
+    );
+  }
+
+  it('names the invitee generically when her row is gone', async () => {
+    arrangeConvertible();
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await convertReferralForBooking({ refereeUserId: REFEREE_ID, bookingId: 500 });
+
+    expect(mockPrisma.rewardLedgerEntry.create.mock.calls[0][0].data.reason).toBe(
+      'Referral bonus — Someone you invited joined',
+    );
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'Someone you invited completed their first booking — you earned 200 Care Points!',
+      }),
+    );
+  });
+
+  it('converts without crediting or notifying when the payout is zero', async () => {
+    arrangeConvertible({ referrerPoints: 0 });
+
+    await convertReferralForBooking({ refereeUserId: REFEREE_ID, bookingId: 500 });
+
+    expect(mockPrisma.referral.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ referrerPoints: 0 }) }),
+    );
+    expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('clamps a negative payout to zero instead of debiting the referrer', async () => {
+    arrangeConvertible({ referrerPoints: -50 });
+
+    await convertReferralForBooking({ refereeUserId: REFEREE_ID, bookingId: 500 });
+
+    expect(mockPrisma.referral.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ referrerPoints: 0 }) }),
+    );
+    expect(mockPrisma.rewardWallet.update).not.toHaveBeenCalled();
+  });
+
+  it('does not notify when a concurrent call won the conversion', async () => {
+    arrangeConvertible();
+    mockPrisma.referral.updateMany.mockResolvedValue({ count: 0 });
+
+    await convertReferralForBooking({ refereeUserId: REFEREE_ID, bookingId: 500 });
+
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('tells the referrer her referral paid off', async () => {
+    arrangeConvertible();
+
+    await convertReferralForBooking({ refereeUserId: REFEREE_ID, bookingId: 500 });
+
+    expect(mockNotify).toHaveBeenCalledWith({
+      userId: REFERRER_ID,
+      type: 'REFERRAL_CONVERTED',
+      title: 'Your referral paid off',
+      body: 'Dana completed their first booking — you earned 200 Care Points!',
+    });
+    expect(mockPush).toHaveBeenCalledWith(REFERRER_ID, expect.objectContaining({
+      data: { type: 'referral_converted', title: 'Your referral paid off' },
+    }));
   });
 });
