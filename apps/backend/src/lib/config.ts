@@ -68,8 +68,8 @@ const ConfigSchema = z.object({
     .optional()
     .transform((v) => v?.trim().toLowerCase() === 'true'),
 
-  // Recording the business team's cancellation-policy choices on the console's
-  // public /cancellation-flows page. Off unless turned on, for the same reason
+  // Recording the business team's proposed changes to the cancellation table on
+  // the console's public /cancellation-flows page. Off unless turned on, for the same reason
   // as the QA checklist: its endpoints are unauthenticated by design. Set to
   // "true" while the policy is being decided.
   CANCELLATION_POLICY_BOARD_ENABLED: z

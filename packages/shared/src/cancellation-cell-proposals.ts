@@ -8,7 +8,7 @@ import { z } from 'zod';
  *
  * Shared rather than kept in the console because the server records each
  * proposal and uses the scenario ids, outcome keys and choices below as the
- * allowlist for that unauthenticated write — like CANCELLATION_DECISIONS.
+ * allowlist for that unauthenticated write — like QA_SCENARIOS for /qa.
  * The scenarios' wording lives with the table in apps/admin; only their ids
  * are here, and the console's flows are typed against them.
  */

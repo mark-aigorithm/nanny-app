@@ -19,7 +19,7 @@ import { errors } from '@backend/lib/errors';
  * Changes the business team proposes to single cells of the "What happens
  * today" table on the console's public /cancellation-flows page.
  *
- * Same storage idiom as cancellation-policy.service.ts: an app_settings row
+ * Same storage idiom as qa-checklist.service.ts: an app_settings row
  * per cell, JSON validated on the way out, and the shared scenario ids,
  * outcome keys and choices as the allowlist that keeps an unauthenticated
  * write away from every other app_settings key.
