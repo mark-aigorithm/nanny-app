@@ -12,7 +12,7 @@
  */
 import { chromium, type Browser } from '@playwright/test';
 
-import { payCheckout } from '../../../../test-support/paymob/checkout-driver.mjs';
+import { checkoutContext, payCheckout } from '../../../../test-support/paymob/checkout-driver.mjs';
 import { resolvePaymobMode } from '../../../../test-support/paymob/mode.mjs';
 
 import { waitForOtp } from './mailpit';
@@ -466,7 +466,7 @@ let checkoutBrowser: Browser | null = null;
  */
 async function payThroughCheckout(session: { clientSecret: string; publicKey: string }): Promise<void> {
   checkoutBrowser ??= await chromium.launch();
-  const context = await checkoutBrowser.newContext();
+  const context = await checkoutContext(checkoutBrowser);
   try {
     const result = await payCheckout(await context.newPage(), {
       origin: PAYMOB.checkoutOrigin,

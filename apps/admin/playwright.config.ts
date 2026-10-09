@@ -7,13 +7,13 @@ import { resolvePaymobMode } from '../../test-support/paymob/mode.mjs';
  *
  * Specs run against the real Vite app, the real backend, the real PostGIS test
  * database and the Firebase Auth emulator — the full stack from
- * `pnpm test:env`, plus a backend on :3001. Nothing is stubbed; the only
- * substitutions are the local database, the local Auth issuer and the Paymob
- * fake, all of which the backend already treats as ordinary dependencies.
+ * `pnpm test:env`, plus the Paymob-sandbox backend on :3002 and its tunnel
+ * (`start:test:paymob-sandbox`, `pnpm paymob:tunnel`). Nothing is stubbed; the
+ * only substitutions are the local database and the local Auth issuer, and
+ * seeded payments go through Paymob's real TEST-mode checkout.
  *
- * PAYMOB_MODE=sandbox swaps the fake for Paymob's real TEST-mode sandbox. The
- * console then talks to the sandbox backend on :3002, and seeded payments go
- * through Paymob's checkout (test-support/paymob/mode.mjs). Specs do not change.
+ * PAYMOB_MODE=fake swaps Paymob for the local fake, with the console on the
+ * fake's backend on :3001 (test-support/paymob/mode.mjs). Specs do not change.
  */
 const PAYMOB = resolvePaymobMode([], process.env);
 const PORT = 5174;
@@ -40,7 +40,14 @@ export default defineConfig({
   // PermissionsProvider then blocks on /admin/me. WebKit is materially slower
   // through both, and the 5s default left first-navigation assertions racing a
   // cold start. Specs also call `gotoConsole`, which waits for the shell.
-  expect: { timeout: 10_000 },
+  // Against Paymob's sandbox, a screen that waits on Paymob (a refund's
+  // "Refund issued") can take longer than that, so the wait is longer there.
+  expect: { timeout: PAYMOB.mode === 'sandbox' ? 30_000 : 10_000 },
+
+  // A seeded paid booking is paid on the hosted checkout. The fake answers at
+  // once, but a real sandbox payment takes about 30 seconds through 3-D Secure
+  // and Paymob's redirect countdown, the whole of the default test timeout.
+  timeout: PAYMOB.mode === 'sandbox' ? 180_000 : 30_000,
 
   globalSetup: './e2e/global-setup.ts',
 

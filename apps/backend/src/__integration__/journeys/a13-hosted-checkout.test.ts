@@ -57,25 +57,30 @@ const CHECKOUT = JSON.parse(
 };
 
 /**
- * Submits a card through 3-D Secure (the form the challenge page posts),
- * without following the redirect.
+ * Submits the card form the way the WebView does, and returns the page the
+ * fake answers with: "paid" with a refresh to the return URL, or "declined"
+ * with none, as on Paymob's sandbox.
  */
 async function payWithCard(clientSecret: string, card: 'approved' | 'declined') {
   const { number, expiry, cvv, name } = CHECKOUT.cards[card];
-  const response = await fetch(`${paymob.apiBaseUrl}/unifiedcheckout/complete`, {
+  const response = await fetch(`${paymob.apiBaseUrl}/unifiedcheckout/pay`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ clientSecret, cardNumber: number, expiry, cvv, name }),
-    // The redirect target is the assertion — following it would hide it, and
-    // would also hit the return page for no reason.
-    redirect: 'manual',
   });
+  const html = await response.text();
 
   if (response.status >= 500) {
-    throw new Error(`The fake failed to settle the checkout: ${await response.text()}`);
+    throw new Error(`The fake failed to settle the checkout: ${html}`);
   }
 
-  return response;
+  return { status: response.status, html };
+}
+
+/** Where the "paid" page sends the WebView, read off its meta refresh. */
+function returnUrlOf(html: string): URL | null {
+  const match = /http-equiv="refresh" content="\d+;url=([^"]+)"/.exec(html);
+  return match?.[1] ? new URL(match[1].replace(/&amp;/g, '&')) : null;
 }
 
 /** A mother with an APPROVED booking waiting to be paid. */
@@ -148,31 +153,12 @@ describe('A13 — hosted checkout loop', () => {
 
     expect(response.status).toBe(200);
     // The amount is the customer's confirmation they are paying the right
-    // thing; the labels are what every UI driver types and taps by.
-    expect(html).toContain('480.00');
-    for (const key of ['cardNumber', 'expiry', 'cvv', 'name', 'pay'] as const) {
-      expect(html).toContain(CHECKOUT.labels[key]);
+    // thing; the placeholders and the button are what every UI driver types
+    // into and taps, on this fake and on Paymob's real page alike.
+    expect(html).toContain(`${CHECKOUT.labels['pay']} 480.00`);
+    for (const key of ['cardNumber', 'expiry', 'cvv', 'name'] as const) {
+      expect(html).toContain(`placeholder="${CHECKOUT.labels[key]}"`);
     }
-  });
-
-  it('answers a submitted card with a 3-D Secure challenge', async () => {
-    const { mother, booking } = await bookingAwaitingPayment();
-    const session = await createCheckoutSession(mother.token, 'booking', booking.id);
-    const { number, expiry, cvv, name } = CHECKOUT.cards.approved;
-
-    const response = await fetch(`${paymob.apiBaseUrl}/unifiedcheckout/pay`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ clientSecret: session.clientSecret, cardNumber: number, expiry, cvv, name }),
-    });
-    const html = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(html).toContain(CHECKOUT.labels['threeDsTitle']);
-    expect(html).toContain(CHECKOUT.labels['threeDsSubmit']);
-    // Nothing is decided until the challenge is submitted.
-    const untouched = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
-    expect(untouched.status).toBe('APPROVED');
   });
 
   it('404s a checkout for an unknown client secret', async () => {
@@ -185,11 +171,13 @@ describe('A13 — hosted checkout loop', () => {
     const { mother, booking } = await bookingAwaitingPayment();
     const session = await createCheckoutSession(mother.token, 'booking', booking.id);
 
-    const response = await payWithCard(session.clientSecret, 'approved');
+    const { status, html } = await payWithCard(session.clientSecret, 'approved');
 
-    // ── The redirect the WebView follows ──────────────────────────
-    expect(response.status).toBe(302);
-    const landing = new URL(response.headers.get('location') ?? '');
+    // ── The page that sends the WebView home ──────────────────────
+    expect(status).toBe(200);
+    expect(html).toContain(CHECKOUT.labels['paid']);
+    const landing = returnUrlOf(html);
+    if (!landing) throw new Error('The paid page does not redirect to the return URL.');
     expect(landing.pathname).toBe(PAYMOB_RETURN_PATH);
     expect(landing.searchParams.get('success')).toBe('true');
     expect(landing.searchParams.get('error_occured')).toBe('false');
@@ -214,15 +202,13 @@ describe('A13 — hosted checkout loop', () => {
     const { mother, booking } = await bookingAwaitingPayment();
     const session = await createCheckoutSession(mother.token, 'booking', booking.id);
 
-    const response = await payWithCard(session.clientSecret, 'declined');
+    const { status, html } = await payWithCard(session.clientSecret, 'declined');
 
-    expect(response.status).toBe(302);
-    const landing = new URL(response.headers.get('location') ?? '');
-    // `parsePaymobQueryHint` reads any of these as a failure; the fake sets all
-    // three, as Paymob does on a declined card.
-    expect(landing.searchParams.get('success')).toBe('false');
-    expect(landing.searchParams.get('error_occured')).toBe('true');
-    expect(landing.searchParams.get('txn_response_code')).toBe('DECLINED');
+    // Paymob's sandbox stops on its own "Payment declined" page and never
+    // redirects, so the fake does the same. The webhook still tells the backend.
+    expect(status).toBe(200);
+    expect(html).toContain(CHECKOUT.labels['declined']);
+    expect(returnUrlOf(html)).toBeNull();
 
     const declined = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
     expect(declined.status).toBe('APPROVED');

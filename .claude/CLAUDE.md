@@ -162,7 +162,7 @@ pnpm dev
 |---|---|---|---|
 | Unit / component | backend `src/__tests__`, shared, admin, mobile | no | `pnpm test:unit` |
 | Integration (real DB + HTTP) | backend `src/__integration__` | **yes** | `pnpm test:integration` |
-| E2E (browser) | `apps/admin/e2e` | **yes**, plus a backend on :3001 | `pnpm --filter=@nanny-app/admin test:e2e` |
+| E2E (browser) | `apps/admin/e2e` | **yes**, plus the Paymob-sandbox backend on :3002 and its tunnel | `pnpm --filter=@nanny-app/admin test:e2e` |
 | E2E (device) | `apps/mobile/e2e` | **yes**, plus a backend, Metro and an Android emulator | `pnpm test:e2e:mobile` |
 
 | Package | Runner |
@@ -199,24 +199,27 @@ real code path. Enabled per surface by an env var (`FIREBASE_AUTH_EMULATOR_HOST`
 `VITE_FIREBASE_AUTH_EMULATOR_HOST`, `extra.firebaseAuthEmulatorHost`) that is unset in every real
 build.
 
-For an E2E run, also start the backend against that stack:
+For an E2E run, also start the webhook tunnel and the backend against that stack. E2E pays
+through Paymob's real TEST-mode sandbox by default, with test keys from the untracked
+`apps/backend/.env.paymob-sandbox.local`:
 
 ```bash
-pnpm --filter=@nanny-app/backend start:test
+pnpm paymob:tunnel
+pnpm --filter=@nanny-app/backend start:test:paymob-sandbox
 ```
 
 The device tier needs two more processes on top of that — an emulator and Metro — and a one-time
 setup (Maestro CLI, an AVD, a debug build). All of it is in
 [apps/mobile/e2e/README.md](../apps/mobile/e2e/README.md).
 
-**Payment is exercised for real on both E2E tiers.** The Paymob fake serves the same
-`/unifiedcheckout/` page the app opens (a card form and then 3-D Secure, judged by the test card
-typed), signs its webhooks with the production HMAC helpers and delivers them itself. So a WebView
-completing a checkout is the production path with a local issuer, not a mock. Neither E2E tier
-touches the fake's `/__test__` routes, so both can run unchanged against Paymob's real TEST-mode
-sandbox. `PAYMOB_MODE=sandbox` (or `--paymob=sandbox`) switches them; the shared labels, cards and
-ports are in `test-support/paymob/`, and the setup (test keys in an untracked file, a cloudflared
-tunnel) is in the mobile E2E README under "Paymob: fake or sandbox".
+**Payment is exercised for real on both E2E tiers.** By default they pay on Paymob's real
+TEST-mode sandbox: a flow types a test card into Paymob's checkout, and Paymob delivers the signed
+webhook through a cloudflared tunnel. `PAYMOB_MODE=fake` (or `--paymob=fake`) swaps in the local
+Paymob fake, which serves a copy of Paymob's checkout page, judges the test card typed, signs its
+webhooks with the production HMAC helpers and delivers them itself, for working offline. The flows
+are identical in both modes; the shared page text, cards and ports are in `test-support/paymob/`,
+and the setup is in the mobile E2E README under "Paymob: fake or sandbox". The backend's Jest
+integration suites always use the fake.
 
 - **Coverage threshold**: 80% across lines/branches/functions (planned; the CI gate is not yet wired).
 

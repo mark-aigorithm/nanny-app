@@ -19,9 +19,9 @@ import { CHECKOUT, checkoutUrl } from './mode.mjs';
 const RETURN_PATH = '/paymob/return';
 
 /**
- * Real Paymob may render the card fields inside iframes, which a page-level
- * locator does not see into. So this checks every frame and takes the first
- * that has the field.
+ * Paymob renders its 3-D Secure step in an iframe, and may one day move the
+ * card fields into one, which a page-level locator does not see into. So this
+ * checks every frame and takes the first that has the element.
  */
 async function inAnyFrame(page, find, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
@@ -35,26 +35,56 @@ async function inAnyFrame(page, find, timeoutMs) {
   }
 }
 
-async function fill(page, label, value, timeoutMs) {
-  const field = await inAnyFrame(page, (frame) => frame.getByLabel(label, { exact: false }), timeoutMs);
-  if (!field) throw new Error(`Checkout field "${label}" never appeared (checkout.json → labels).`);
+/**
+ * What the page showed instead, for an error that otherwise only says what was
+ * missing: the URL and the visible text of every frame.
+ */
+async function describe(page) {
+  const texts = await Promise.all(
+    page.frames().map(async (frame) => {
+      const text = await frame.locator('body').innerText({ timeout: 2_000 }).catch(() => '');
+      return text.replace(/\s+/g, ' ').trim().slice(0, 300);
+    }),
+  );
+  return `The page was ${page.url()} showing: ${texts.filter(Boolean).join(' | ') || '(nothing)'}`;
+}
+
+/** Paymob's card fields have no visible labels, only placeholders. */
+async function fill(page, placeholder, value, timeoutMs) {
+  const field = await inAnyFrame(page, (frame) => frame.getByPlaceholder(placeholder, { exact: true }), timeoutMs);
+  if (!field) {
+    throw new Error(`Checkout field "${placeholder}" never appeared (checkout.json → labels). ${await describe(page)}`);
+  }
   await field.fill(value);
 }
 
-async function press(page, name, timeoutMs) {
-  const button = await inAnyFrame(page, (frame) => frame.getByRole('button', { name, exact: true }), timeoutMs);
-  if (!button) throw new Error(`Checkout button "${name}" never appeared (checkout.json → labels).`);
-  await button.click();
+/**
+ * A browser context to pay in. Paymob's checkout sits behind a firewall that
+ * answers 403 Forbidden to a user agent naming HeadlessChrome, which is what a
+ * plain headless launch sends. So this sends the one the same Chrome sends
+ * headed. Playwright Test's "Desktop Chrome" profile does the same on its own,
+ * but a context opened outside a test does not get it.
+ *
+ * @param {import('playwright').Browser} browser
+ * @returns {Promise<import('playwright').BrowserContext>}
+ */
+export async function checkoutContext(browser) {
+  const probe = await browser.newPage();
+  const userAgent = (await probe.evaluate(() => navigator.userAgent)).replace('HeadlessChrome', 'Chrome');
+  await probe.context().close();
+  return browser.newContext({ userAgent });
 }
 
 /**
  * @param {import('playwright').Page} page
  * @param {{ origin: string, publicKey: string, clientSecret: string, card?: string, timeoutMs?: number }} options
  *   `card` is a key of checkout.json → cards ('approved' by default).
- * @returns {Promise<{ success: boolean, returnUrl: string }>}
- *   What the provider's redirect said. Whether the backend has recorded it yet
- *   is a separate question. The fake delivers the webhook before redirecting,
- *   but Paymob races the two.
+ * @returns {Promise<{ success: boolean, returnUrl: string | null }>}
+ *   `success` is what the checkout showed. An approved card lands on the return
+ *   URL, which comes back as `returnUrl`. A declined one stops on Paymob's
+ *   "Payment declined" page, which never redirects, so `returnUrl` is null.
+ *   Whether the backend has recorded the payment yet is a separate question:
+ *   the fake delivers the webhook before answering, but Paymob races the two.
  */
 export async function payCheckout(page, { origin, publicKey, clientSecret, card = 'approved', timeoutMs = 60_000 }) {
   const details = CHECKOUT.cards[card];
@@ -76,15 +106,28 @@ export async function payCheckout(page, { origin, publicKey, clientSecret, card 
   await fill(page, labels.expiry, details.expiry, timeoutMs);
   await fill(page, labels.cvv, details.cvv, timeoutMs);
   await fill(page, labels.name, details.name, timeoutMs);
-  await press(page, labels.pay, timeoutMs);
 
-  // 3-D Secure is a step the issuer decides on, so it may not come. Whichever
-  // happens first ends the wait: the challenge page or the redirect home.
-  const challenge = inAnyFrame(page, (frame) => frame.getByText(labels.threeDsTitle), timeoutMs).then((found) =>
-    found ? 'challenge' : 'none',
+  // The button reads "Pay EGP <amount>", so it is matched by its prefix.
+  const pay = await inAnyFrame(
+    page,
+    (frame) => frame.getByRole('button', { name: new RegExp(`^${labels.pay}\\b`) }),
+    timeoutMs,
   );
-  const first = await Promise.race([returned.then(() => 'returned'), challenge]);
-  if (first === 'challenge') await press(page, labels.threeDsSubmit, timeoutMs);
+  if (!pay) {
+    throw new Error(`Checkout button "${labels.pay} …" never appeared (checkout.json → labels). ${await describe(page)}`);
+  }
+  await pay.click();
+
+  // Test cards pass 3-D Secure without a challenge. What follows is either the
+  // redirect home or the declined page, which stays put.
+  // The loser keeps polling until the page closes, which then throws; that is
+  // swallowed rather than left to kill the payer as an unhandled rejection.
+  const declined = inAnyFrame(page, (frame) => frame.getByText(labels.declined), timeoutMs * 2).then(
+    (found) => (found ? 'declined' : 'none'),
+    () => 'none',
+  );
+  const first = await Promise.race([returned.then(() => 'returned'), declined]);
+  if (first === 'declined') return { success: false, returnUrl: null };
 
   await returned;
   const url = new URL(page.url());

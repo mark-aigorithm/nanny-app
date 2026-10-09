@@ -12,34 +12,45 @@
  */
 import { PAYMOB_PROFILES } from '../../../test-support/paymob/mode.mjs';
 
-export const EMULATOR_ENV = {
-  API_BASE_URL: PAYMOB_PROFILES.fake.emulatorApiBaseUrl,
+/** What every variant shares: Auth and Storage on the local emulators. */
+const LAB_ENV = {
   FIREBASE_AUTH_EMULATOR_HOST: '10.0.2.2:9099',
   // Points native Storage (lib/storage.ts) at the local Storage emulator so
   // registration (nanny ID/avatar) and marketplace listing uploads work in E2E.
   // Also the flag the photo-picker affordance keys off (lib/e2eImage.ts).
   FIREBASE_STORAGE_EMULATOR_HOST: '10.0.2.2:9199',
-  // Points the checkout WebView at the Paymob fake instead of Paymob. Empty in
-  // every real build — see apps/mobile/src/lib/paymobCheckout.ts.
-  PAYMOB_CHECKOUT_ORIGIN: PAYMOB_PROFILES.fake.emulatorCheckoutOrigin,
 };
 
 /**
- * PAYMOB_MODE=sandbox (`e2e:metro:paymob-sandbox`): the same lab, but checkout
- * opens Paymob's real TEST-mode page, and the app talks to the sandbox backend
- * on :3002. Auth and Storage stay on the emulators, so seeding and sign-in are
- * unchanged. See test-support/paymob/mode.mjs.
+ * The default (`e2e:metro`, PAYMOB_MODE=sandbox): checkout opens Paymob's real
+ * TEST-mode page, and the app talks to the sandbox backend on :3002. Auth and
+ * Storage stay on the emulators, so seeding and sign-in are unchanged. See
+ * test-support/paymob/mode.mjs.
  */
-export const PAYMOB_SANDBOX_ENV = {
-  ...EMULATOR_ENV,
+export const EMULATOR_ENV = {
+  ...LAB_ENV,
   API_BASE_URL: PAYMOB_PROFILES.sandbox.emulatorApiBaseUrl,
+  // Empty, as in every real build: the app opens Paymob's own host
+  // (apps/mobile/src/lib/paymobCheckout.ts).
   PAYMOB_CHECKOUT_ORIGIN: PAYMOB_PROFILES.sandbox.emulatorCheckoutOrigin,
+};
+
+/**
+ * PAYMOB_MODE=fake (`e2e:metro:paymob-fake`): the backend on :3001, and the
+ * checkout WebView pointed at the local Paymob fake on :4010.
+ */
+export const PAYMOB_FAKE_ENV = {
+  ...LAB_ENV,
+  API_BASE_URL: PAYMOB_PROFILES.fake.emulatorApiBaseUrl,
+  PAYMOB_CHECKOUT_ORIGIN: PAYMOB_PROFILES.fake.emulatorCheckoutOrigin,
 };
 
 /** The one key the live variant must never carry — see LIVE_AUTH_ENV. */
 export const AUTH_EMULATOR_KEY = 'FIREBASE_AUTH_EMULATOR_HOST';
 
-const { [AUTH_EMULATOR_KEY]: _authEmulatorHost, ...STILL_LOCAL } = EMULATOR_ENV;
+// The live suite keeps the backend on :3001 and the Paymob fake: it tests
+// sign-in against the real Firebase project, not payment.
+const { [AUTH_EMULATOR_KEY]: _authEmulatorHost, ...STILL_LOCAL } = PAYMOB_FAKE_ENV;
 
 /**
  * The live-Firebase auth suite's variant (`e2e:metro:live`, driven by

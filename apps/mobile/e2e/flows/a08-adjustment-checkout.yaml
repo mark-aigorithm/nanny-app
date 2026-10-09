@@ -52,8 +52,15 @@ appId: com.nannyapp.mobile
 - runFlow: _pay-checkout.yaml
 
 # ── Paid: reopen and the card is gone from Home ────────────────────────────
-- runFlow:
-    file: _relaunch.yaml
-    env:
-      EXPECT: 'Book care'
-- assertNotVisible: 'Balance due'
+# Reopened until it is. Paymob's sandbox races its webhook against the
+# redirect, so the app can be back before the backend has recorded the
+# payment; reopening a moment later is what a parent would do. The fake always
+# delivers the webhook first, so there it passes on the first try.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow:
+          file: _relaunch.yaml
+          env:
+            EXPECT: 'Book care'
+      - assertNotVisible: 'Balance due'

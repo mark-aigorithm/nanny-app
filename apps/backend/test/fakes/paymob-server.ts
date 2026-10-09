@@ -37,7 +37,7 @@ type TestCard = { number: string; expiry: string; cvv: string; name: string; out
 const CHECKOUT = JSON.parse(
   readFileSync(path.join(__dirname, '..', '..', '..', '..', 'test-support', 'paymob', 'checkout.json'), 'utf8'),
 ) as {
-  labels: Record<'cardNumber' | 'expiry' | 'cvv' | 'name' | 'pay' | 'threeDsTitle' | 'threeDsSubmit', string>;
+  labels: Record<'cardNumber' | 'expiry' | 'cvv' | 'name' | 'pay' | 'paid' | 'declined', string>;
   cards: Record<string, TestCard>;
 };
 
@@ -200,12 +200,13 @@ export function buildPaymobFake(): Express {
    * origin at this fake is the only change needed to complete a payment without
    * Paymob.
    *
-   * It is a card form, as Paymob's is, and its labels come from the same
-   * test-support/paymob/checkout.json that the Maestro subflow and the
-   * Playwright driver type into. A flow therefore pays the same way here and on
-   * Paymob's sandbox, and which card it types decides the outcome on both. The
-   * HTML is deliberately plain: Android exposes WebView content to the
-   * accessibility tree, so a UI driver finds every control by its visible text.
+   * It copies the parts of Paymob's real checkout that a driver touches, taken
+   * from test-support/paymob/checkout.json: card fields known only by their
+   * placeholders, and a "Pay EGP <amount>" button. The Maestro subflow and the
+   * Playwright driver therefore pay the same way here and on Paymob's sandbox,
+   * and the card typed decides the outcome on both. The HTML is deliberately
+   * plain: Android exposes WebView content to the accessibility tree, so a UI
+   * driver finds every control by its text or placeholder.
    */
   app.get('/unifiedcheckout/', (req: Request, res: Response) => {
     const clientSecret = String(req.query['clientSecret'] ?? '');
@@ -217,71 +218,47 @@ export function buildPaymobFake(): Express {
     }
 
     const { labels } = CHECKOUT;
-    const field = (name: CardField, label: string, placeholder: string, inputmode: string) =>
-      `<label for="${name}">${escapeHtml(label)}</label>
-       <input id="${name}" name="${name}" aria-label="${escapeHtml(label)}"
-              placeholder="${escapeHtml(placeholder)}" inputmode="${inputmode}" autocomplete="off" />`;
+    const amount = (intention.amountCents / 100).toFixed(2);
+    const field = (name: CardField, placeholder: string, inputmode: string) =>
+      `<input id="${name}" name="${name}" placeholder="${escapeHtml(placeholder)}"
+              inputmode="${inputmode}" autocomplete="off" />`;
 
     res.send(
       page(
         'Test checkout',
-        `<p class="amount">EGP ${(intention.amountCents / 100).toFixed(2)}</p>
+        `<p class="amount">EGP ${amount}</p>
          <p class="ref">Reference ${escapeHtml(intention.merchantOrderId ?? intention.id)}</p>
          <form method="post" action="/unifiedcheckout/pay">
            <input type="hidden" name="clientSecret" value="${escapeHtml(intention.clientSecret)}" />
-           ${field('cardNumber', labels.cardNumber, '1234 5678 9012 3456', 'numeric')}
-           ${field('expiry', labels.expiry, 'MM/YY', 'numeric')}
-           ${field('cvv', labels.cvv, '123', 'numeric')}
-           ${field('name', labels.name, 'Name on card', 'text')}
-           <button type="submit" class="pay">${escapeHtml(labels.pay)}</button>
+           ${field('cardNumber', labels.cardNumber, 'numeric')}
+           ${field('expiry', labels.expiry, 'numeric')}
+           ${field('cvv', labels.cvv, 'numeric')}
+           ${field('name', labels.name, 'text')}
+           <button type="submit" class="pay">${escapeHtml(labels.pay)} ${amount}</button>
          </form>`,
       ),
     );
   });
 
   /**
-   * POST /unifiedcheckout/pay — the card form's submit. It answers with the
-   * issuer's 3-D Secure challenge, as Paymob's test integrations do, carrying
-   * the card forward. The decision is taken when the challenge is submitted.
-   */
-  app.post('/unifiedcheckout/pay', (req: Request, res: Response) => {
-    const body = req.body as Partial<Record<CardField | 'clientSecret', string>>;
-    const intention = findByClientSecret(String(body.clientSecret ?? ''));
-
-    if (!intention) {
-      res.status(404).send(page('Unknown checkout', '<p>No intention matches that client secret.</p>'));
-      return;
-    }
-
-    const carried = (['clientSecret', ...CARD_FIELDS] as const)
-      .map((name) => `<input type="hidden" name="${name}" value="${escapeHtml(String(body[name] ?? ''))}" />`)
-      .join('');
-
-    res.send(
-      page(
-        CHECKOUT.labels.threeDsTitle,
-        `<p>Test issuer authentication for EGP ${(intention.amountCents / 100).toFixed(2)}.</p>
-         <form method="post" action="/unifiedcheckout/complete">
-           ${carried}
-           <button type="submit" class="pay">${escapeHtml(CHECKOUT.labels.threeDsSubmit)}</button>
-         </form>`,
-      ),
-    );
-  });
-
-  /**
-   * POST /unifiedcheckout/complete — the 3-D Secure submit, where the card is
+   * POST /unifiedcheckout/pay — the card form's submit, where the card is
    * judged. A card listed in checkout.json settles the way its `outcome` says.
    * Any other card is declined, as a real gateway declines a card it does not
    * know.
    *
-   * Mirrors the order real Paymob works in, with one deliberate difference: the
-   * webhook is delivered *and awaited* before the redirect. Paymob races the
-   * two, so a test that redirected first would have to poll for the backend to
-   * catch up; awaiting makes "the WebView reached the return URL" mean "the
-   * payment has already been recorded", which is what removes the flake.
+   * Then it answers the way Paymob's sandbox does for its test cards, which
+   * pass 3-D Secure without a challenge. An approved card gets the "Thanks for
+   * your payment" page, which redirects to the merchant. A declined one gets
+   * "Payment declined" and stays there, with no redirect.
+   *
+   * One deliberate difference: the webhook is delivered *and awaited* before
+   * the page is sent. Paymob races the two, so a test that saw the return URL
+   * first would have to poll for the backend to catch up; awaiting makes "the
+   * WebView reached the return URL" mean "the payment has already been
+   * recorded", which is what removes the flake. Drivers still poll, so the
+   * sandbox works too.
    */
-  app.post('/unifiedcheckout/complete', (req: Request, res: Response) => {
+  app.post('/unifiedcheckout/pay', (req: Request, res: Response) => {
     void (async () => {
       const body = req.body as Partial<Record<CardField | 'clientSecret', string>>;
       const intention = findByClientSecret(String(body.clientSecret ?? ''));
@@ -314,12 +291,25 @@ export function buildPaymobFake(): Express {
         return;
       }
 
+      if (!success) {
+        res.send(page(CHECKOUT.labels.declined, '<p>Do not honour</p><p>Try again</p>'));
+        return;
+      }
       if (!intention.redirectionUrl) {
-        res.send(page(success ? 'Paid' : 'Declined', '<p>No redirection URL was set.</p>'));
+        res.send(page(CHECKOUT.labels.paid, '<p>No redirection URL was set.</p>'));
         return;
       }
 
-      res.redirect(302, buildReturnUrl(intention, success));
+      // Paymob counts down five seconds before redirecting. Three is enough for
+      // a UI driver to see the page come and go, which is how it knows the
+      // checkout has handed back.
+      const returnUrl = escapeHtml(buildReturnUrl(intention));
+      res.send(
+        page(
+          CHECKOUT.labels.paid,
+          `<p>Re-directing you to Merchant's Website.</p><meta http-equiv="refresh" content="3;url=${returnUrl}" />`,
+        ),
+      );
     })();
   });
 
@@ -443,14 +433,14 @@ async function deliverWebhook(intention: Intention, callback: SignedCallback): P
  * backend's own query (`bookingId`, `extensionId`, …) is already on
  * `redirectionUrl` and is preserved.
  */
-function buildReturnUrl(intention: Intention, success: boolean): string {
+function buildReturnUrl(intention: Intention): string {
   const url = new URL(intention.redirectionUrl ?? '');
   url.searchParams.set('id', String(intention.transactionId ?? 0));
   url.searchParams.set('order', String(intention.orderId));
-  url.searchParams.set('success', String(success));
+  url.searchParams.set('success', 'true');
   url.searchParams.set('pending', 'false');
-  url.searchParams.set('error_occured', String(!success));
-  url.searchParams.set('txn_response_code', success ? 'APPROVED' : 'DECLINED');
+  url.searchParams.set('error_occured', 'false');
+  url.searchParams.set('txn_response_code', 'APPROVED');
   return url.toString();
 }
 

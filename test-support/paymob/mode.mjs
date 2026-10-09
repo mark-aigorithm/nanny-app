@@ -1,15 +1,17 @@
 /**
- * Which Paymob the E2E suites pay through: the local fake or Paymob's real
- * TEST-mode sandbox.
+ * Which Paymob the E2E suites pay through: Paymob's real TEST-mode sandbox, or
+ * the local fake.
  *
  * The flows are the same in both modes (see checkout.json). Only where things
  * live changes, and this file is the one place that says where:
  *
- *   PAYMOB_MODE=fake      (default) The fake on :4010 and the backend on :3001
- *                         (`start:test`, .env.test).
- *   PAYMOB_MODE=sandbox   Paymob's real checkout and the backend on :3002
- *                         (`start:test:paymob-sandbox`, which takes TEST keys
- *                         from apps/backend/.env.paymob-sandbox.local).
+ *   PAYMOB_MODE=sandbox   (default) Paymob's real checkout and the backend on
+ *                         :3002 (`start:test:paymob-sandbox`, which takes TEST
+ *                         keys from apps/backend/.env.paymob-sandbox.local and
+ *                         needs `pnpm paymob:tunnel` for the webhook).
+ *   PAYMOB_MODE=fake      The fake on :4010 and the backend on :3001
+ *                         (`start:test`, .env.test). For working offline, or
+ *                         without test keys.
  *
  * The sandbox backend has its own port so that a run in one mode can never
  * talk to a backend started in the other. Each runner checks the port its
@@ -35,7 +37,7 @@ export const PAYMOB_PROFILES = {
     emulatorApiBaseUrl: 'http://10.0.2.2:3001',
     emulatorCheckoutOrigin: 'http://10.0.2.2:4010',
     backendScript: 'pnpm --filter @nanny-app/backend start:test',
-    metroScript: 'pnpm --filter @nanny-app/mobile e2e:metro',
+    metroScript: 'pnpm --filter @nanny-app/mobile e2e:metro:paymob-fake',
   },
   sandbox: {
     mode: 'sandbox',
@@ -45,23 +47,23 @@ export const PAYMOB_PROFILES = {
     // Empty: the app falls back to Paymob's own host (lib/paymobCheckout.ts).
     emulatorCheckoutOrigin: '',
     backendScript: 'pnpm --filter @nanny-app/backend start:test:paymob-sandbox',
-    metroScript: 'pnpm --filter @nanny-app/mobile e2e:metro:paymob-sandbox',
+    metroScript: 'pnpm --filter @nanny-app/mobile e2e:metro',
   },
 };
 
 /**
  * The mode a run asked for: `--paymob=<mode>` on the command line wins over
- * `PAYMOB_MODE`, and the default is the fake. An unknown value throws rather
- * than falling back. A typo that silently ran against the fake would report a
- * sandbox pass that never happened.
+ * `PAYMOB_MODE`, and the default is the sandbox. An unknown value throws
+ * rather than falling back. A typo that silently ran against the fake would
+ * report a sandbox pass that never happened.
  */
 export function resolvePaymobMode(argv = process.argv.slice(2), env = process.env) {
   const flag = argv.find((arg) => arg.startsWith('--paymob='));
-  const raw = (flag ? flag.slice('--paymob='.length) : env['PAYMOB_MODE'] ?? 'fake').trim();
+  const raw = (flag ? flag.slice('--paymob='.length) : env['PAYMOB_MODE'] ?? 'sandbox').trim();
   const profile = PAYMOB_PROFILES[raw];
   if (!profile) {
     throw new Error(
-      `Unknown Paymob mode "${raw}". Use --paymob=fake or --paymob=sandbox (or PAYMOB_MODE).`,
+      `Unknown Paymob mode "${raw}". Use --paymob=sandbox or --paymob=fake (or PAYMOB_MODE).`,
     );
   }
   return profile;

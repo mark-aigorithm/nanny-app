@@ -24,6 +24,8 @@ import { Prisma, type Role } from '@prisma/client';
 import { prisma } from '@backend/db/prisma';
 import { firebaseAuth } from '@backend/lib/firebase';
 
+import { movePaymentIdsPastEarlierRuns } from './payment-references';
+
 type RoleSpec = {
   email: string;
   password: string;
@@ -80,6 +82,9 @@ async function main(): Promise<void> {
   if (!raw) throw new Error('E2E_ROLES is required (a JSON array of role specs).');
 
   await seed(JSON.parse(raw) as RoleSpec[]);
+  // The admin suite seeds paid bookings, and Paymob's sandbox refuses an order
+  // reference it has seen in an earlier run.
+  await movePaymentIdsPastEarlierRuns();
 }
 
 main()

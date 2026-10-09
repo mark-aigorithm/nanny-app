@@ -14,10 +14,10 @@
  *
  *   node e2e/run.mjs            # every flow in e2e/flows
  *   node e2e/run.mjs smoke      # just e2e/flows/smoke.yaml
- *   node e2e/run.mjs --paymob=sandbox a01
- *                               # paying through Paymob's real TEST-mode
- *                               # sandbox instead of the fake (or set
- *                               # PAYMOB_MODE=sandbox)
+ *   node e2e/run.mjs --paymob=fake a01
+ *                               # paying through the local Paymob fake
+ *                               # instead of Paymob's real TEST-mode
+ *                               # sandbox (or set PAYMOB_MODE=fake)
  *
  * The flows are the same in both Paymob modes. Each pays by typing a test card
  * into whichever checkout page Metro points the app at; see
@@ -293,14 +293,15 @@ function runFlow(maestro, flow) {
     AUTH_PROJECT_ID,
     PAYER_URL,
     // The hosted checkout, as _pay-checkout.yaml types into it. The same values
-    // in both Paymob modes; see test-support/paymob/checkout.json.
+    // in both Paymob modes; see test-support/paymob/checkout.json. The fields
+    // are found by placeholder, and the button by its "Pay EGP" prefix, since
+    // Maestro matches a regex against the whole text.
     CHECKOUT_CARD_NUMBER_LABEL: CHECKOUT.labels.cardNumber,
     CHECKOUT_EXPIRY_LABEL: CHECKOUT.labels.expiry,
     CHECKOUT_CVV_LABEL: CHECKOUT.labels.cvv,
     CHECKOUT_NAME_LABEL: CHECKOUT.labels.name,
-    CHECKOUT_PAY_LABEL: CHECKOUT.labels.pay,
-    CHECKOUT_3DS_TITLE: CHECKOUT.labels.threeDsTitle,
-    CHECKOUT_3DS_SUBMIT: CHECKOUT.labels.threeDsSubmit,
+    CHECKOUT_PAY_LABEL: `${CHECKOUT.labels.pay} .*`,
+    CHECKOUT_PAID_LABEL: CHECKOUT.labels.paid,
     CARD_NUMBER: CHECKOUT.cards.approved.number,
     CARD_EXPIRY: CHECKOUT.cards.approved.expiry,
     CARD_CVV: CHECKOUT.cards.approved.cvv,

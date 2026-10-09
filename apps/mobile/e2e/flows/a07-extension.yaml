@@ -79,9 +79,18 @@ appId: com.nannyapp.mobile
 - runFlow: _pay-checkout.yaml
 
 # ── The booking is longer ──────────────────────────────────────────────────
-- runFlow: _open-running-booking.yaml
-# Checked before scrolling: the confirmed-extension card would sit at the top.
-- assertNotVisible: 'EXTRA HOURS CONFIRMED'
+# Reopened until the card for the unpaid extension is gone. Paymob's sandbox
+# races its webhook against the redirect, so the app can be back before the
+# backend has recorded the payment; reopening a moment later is what a parent
+# would do. The fake always delivers the webhook first, so there it passes on
+# the first try.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow: _open-running-booking.yaml
+      # Checked before scrolling: the confirmed-extension card would sit at
+      # the top.
+      - assertNotVisible: 'EXTRA HOURS CONFIRMED'
 - scrollUntilVisible:
     element: '6 hours'
     direction: DOWN

@@ -6,4 +6,7 @@
 export declare function payCheckout(
   page: object,
   options: { origin: string; publicKey: string; clientSecret: string; card?: string; timeoutMs?: number },
-): Promise<{ success: boolean; returnUrl: string }>;
+): Promise<{ success: boolean; returnUrl: string | null }>;
+
+/** A context whose user agent Paymob's firewall lets through. `browser` is a Playwright Browser. */
+export declare function checkoutContext<Context>(browser: { newContext(options?: object): Promise<Context> }): Promise<Context>;

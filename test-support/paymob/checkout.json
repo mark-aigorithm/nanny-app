@@ -1,13 +1,13 @@
 {
-  "$comment": "One source of truth for the hosted checkout the E2E suites drive, in both PAYMOB_MODE=fake and PAYMOB_MODE=sandbox. The Paymob fake (apps/backend/test/fakes/paymob-server.ts) renders its card form from `labels` and settles each payment by looking the submitted card up in `cards`. The Maestro subflow (apps/mobile/e2e/flows/_pay-checkout.yaml) and the Playwright driver (checkout-driver.mjs) type and tap by the same `labels`. So the fake behaves as Paymob does, and a flow cannot tell which one it is on. Once real test keys are in place, open a sandbox checkout once and copy Paymob's visible field labels into `labels`. The fake then follows on its own.",
+  "$comment": "One source of truth for the hosted checkout the E2E suites drive, in both PAYMOB_MODE=fake and PAYMOB_MODE=sandbox. `labels` is what Paymob's real checkout (eg.checkout.paymob.com) shows, as seen on the sandbox on 2026-10-08: the card fields have no visible labels, so they are found by their placeholders; the button reads `Pay EGP <amount>`, so `pay` is a prefix; an approved test card goes through 3-D Secure without a challenge and lands on `paid` before redirecting; a declined one stops on `declined` and does not redirect. The Paymob fake (apps/backend/test/fakes/paymob-server.ts) renders the same page from these values, and the Maestro subflow (apps/mobile/e2e/flows/_pay-checkout.yaml) and the Playwright driver (checkout-driver.mjs) type and tap by them, so a flow cannot tell which one it is on. If Paymob changes its page, update the values here and the fake follows.",
   "labels": {
-    "cardNumber": "Card number",
-    "expiry": "Expiry date",
+    "cardNumber": "1234 1234 1234 1234",
+    "expiry": "MM/YY",
     "cvv": "CVV",
-    "name": "Name on card",
-    "pay": "Pay",
-    "threeDsTitle": "3D Secure",
-    "threeDsSubmit": "Submit"
+    "name": "ex. Abdullah Adel",
+    "pay": "Pay EGP",
+    "paid": "Thanks for your payment",
+    "declined": "Payment declined"
   },
   "cards": {
     "approved": {
@@ -24,7 +24,7 @@
       "cvv": "123",
       "name": "Test Account",
       "outcome": "declined",
-      "source": "The Mastercard gateway's test convention: the expiry date picks the response. NOT yet confirmed against Paymob's sandbox. Confirm it on the first sandbox run."
+      "source": "The Mastercard gateway's test convention: the expiry date picks the response. Confirmed on Paymob's sandbox on 2026-10-08 (\"Payment declined — Do not honour\")."
     }
   }
 }

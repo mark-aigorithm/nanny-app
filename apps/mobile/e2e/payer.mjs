@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 import { chromium } from 'playwright';
 
-import { payCheckout } from '../../../test-support/paymob/checkout-driver.mjs';
+import { checkoutContext, payCheckout } from '../../../test-support/paymob/checkout-driver.mjs';
 
 export const PAYER_PORT = 4020;
 
@@ -55,7 +55,7 @@ async function serve(checkoutOrigin) {
           const { publicKey, clientSecret, card } = await readJson(req);
           // Launched on first use: most runs never pay off-device.
           browser ??= await chromium.launch();
-          const context = await browser.newContext();
+          const context = await checkoutContext(browser);
           try {
             const page = await context.newPage();
             send(res, 200, await payCheckout(page, { origin: checkoutOrigin, publicKey, clientSecret, card }));

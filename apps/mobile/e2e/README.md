@@ -97,14 +97,23 @@ the emulator never loads, doubling the build and adding a way for it to fail.
 
 ## Running
 
-Four things have to be up. Each in its own terminal, because each one's log is
+Payments go through **Paymob's real TEST-mode sandbox** by default, so a run
+needs the test keys in `apps/backend/.env.paymob-sandbox.local` (once; see
+[Running against the sandbox](#running-against-the-sandbox)) and a tunnel for
+Paymob's webhook. `--paymob=fake` runs offline against the local fake instead;
+see [Paymob: fake or sandbox](#paymob-fake-or-sandbox).
+
+Five things have to be up. Each in its own terminal, because each one's log is
 what explains a failure:
 
 ```bash
 pnpm test:env
 ```
 ```bash
-pnpm --filter @nanny-app/backend start:test
+pnpm paymob:tunnel
+```
+```bash
+pnpm --filter @nanny-app/backend start:test:paymob-sandbox
 ```
 ```bash
 emulator -avd nanny-e2e -gpu host
@@ -112,6 +121,15 @@ emulator -avd nanny-e2e -gpu host
 ```bash
 pnpm --filter @nanny-app/mobile e2e:metro
 ```
+
+Start the backend after the tunnel: it reads the tunnel's URL when it starts.
+
+**Not between about 22:50 and midnight.** The flows that start a shift (A01,
+A07, and the others that check in) book through the app's picker, which offers
+no start time on the current day once a minimum-length booking can no longer
+begin, and tomorrow's first start is more than fifteen minutes away. Check-in
+then refuses the PIN ("You can start this booking 15 minutes before…"). That is
+the product's rule, not a flake; run them outside that hour.
 
 Then:
 
@@ -254,14 +272,17 @@ go through either of two Paymobs. One flag picks which:
 
 | `PAYMOB_MODE` | Checkout and webhook | Backend |
 |---|---|---|
-| `fake` (default) | The local fake on :4010 (`pnpm test:env`) | `start:test` on :3001 |
-| `sandbox` | Paymob's real TEST-mode sandbox, webhook through a tunnel | `start:test:paymob-sandbox` on :3002 |
+| `sandbox` (default) | Paymob's real TEST-mode sandbox, webhook through a tunnel | `start:test:paymob-sandbox` on :3002 |
+| `fake` | The local fake on :4010 (`pnpm test:env`), for working offline or without keys | `start:test` on :3001 |
 
 **The flows are identical in both modes.** Neither suite touches the fake's
 `/__test__` routes. A flow pays the way a customer does, by typing a test card
-into the hosted checkout. The fake's checkout imitates Paymob's: a card form,
-then a 3-D Secure step, and the card typed decides the outcome. The field labels
-and the test cards live in one file,
+into the hosted checkout. The fake's checkout copies what Paymob's sandbox
+shows: card fields known only by their placeholders, a "Pay EGP <amount>"
+button, then "Thanks for your payment" and a redirect home for the approved
+card, or "Payment declined" and no redirect for the declined one. The test cards
+pass 3-D Secure without a challenge on both. The page's text and the test cards
+live in one file,
 [`test-support/paymob/checkout.json`](../../../test-support/paymob/checkout.json).
 The fake renders and judges from it, and the Maestro subflow, the Playwright
 driver and the payer all type from it. The other mode-specific values (ports,
@@ -294,39 +315,60 @@ You need: Paymob dashboard access in **TEST** mode, and `cloudflared`
    The backend puts that URL on every intention as `notification_url` and
    `redirection_url`, so nothing needs setting in the dashboard. The URL changes
    each time the tunnel restarts; restart the backend after it does.
-3. **Backend and Metro** in sandbox mode. `pnpm test:env` stays as it is, for the
-   database and the emulators:
+3. **Backend and Metro**. `pnpm test:env` stays as it is, for the database and
+   the emulators:
    ```bash
    pnpm --filter @nanny-app/backend start:test:paymob-sandbox
-   pnpm --filter @nanny-app/mobile e2e:metro:paymob-sandbox
+   pnpm --filter @nanny-app/mobile e2e:metro
    ```
-4. **Run** any flow, or all of them:
+4. **Run** any flow, or all of them. No flag is needed; sandbox is the default:
    ```bash
-   pnpm test:e2e:mobile --paymob=sandbox a01
-   PAYMOB_MODE=sandbox pnpm --filter=@nanny-app/admin test:e2e a03-refund
+   pnpm test:e2e:mobile a01
+   pnpm --filter=@nanny-app/admin test:e2e a03-refund
    ```
 
-To go back, restart Metro with `e2e:metro` and run without the flag. The APK
-stays the same in both modes.
+### Running against the fake
 
-### First sandbox run: what to check
+For working offline or without test keys: start `start:test` (backend on :3001)
+instead of the sandbox backend, no tunnel, and Metro with
+`pnpm --filter @nanny-app/mobile e2e:metro:paymob-fake`. Then pass the flag:
 
-Until real keys are in place, these are written from Paymob's docs and have not
-been seen working:
+```bash
+pnpm test:e2e:mobile --paymob=fake a01
+PAYMOB_MODE=fake pnpm --filter=@nanny-app/admin test:e2e a03-refund
+```
 
-- **Labels.** Open one sandbox checkout. If Paymob's visible labels for the card
-  fields, the Pay button or the 3-D Secure page differ from `checkout.json` →
-  `labels`, change them there. The fake follows automatically.
-- **Iframes.** If Paymob renders the card fields in an iframe, the Playwright
-  driver already looks inside frames. Maestro sees WebView iframes in the
-  accessibility tree as well; confirm this on the device.
-- **The declined card.** `cards.declined` uses the Mastercard gateway's
-  convention that the expiry date picks the response (05/39 → declined). Paymob
-  documents only the approved cards. Confirm the declined card on the sandbox
-  before a flow relies on it.
-- **Webhook route.** If Paymob ignores the intention's `notification_url` for
-  your integration, set the integration's transaction callback in the dashboard
-  to `<tunnel>/webhooks/paymob`.
+The APK is the same in both modes; switching means restarting Metro and the
+backend, not rebuilding.
+
+### What the sandbox looks like
+
+Seen on the first sandbox run (2026-10-08), and copied into `checkout.json` and
+the fake:
+
+- The checkout redirects to `eg.checkout.paymob.com`. The card fields are not in
+  an iframe, and have no visible labels: they are found by placeholder.
+- After Pay, 3-D Secure runs in an iframe through Mastercard's gateway. With the
+  test cards it needs no answer. A payment takes about 25 seconds to reach the
+  return URL, which is why the admin suite's timeout is longer in sandbox mode.
+- The declined card (expiry 05/39) is declined ("Do not honour"), and the page
+  stays on "Payment declined" with a Try again button. The flows only pay with
+  the approved card.
+- The webhook arrives through the tunnel at the intention's `notification_url`;
+  nothing needs setting in the dashboard.
+- Paymob refuses an order reference it already holds ("An Order with ref: 56
+  already exists"). The reference is the `payments.id`, which restarts at 1
+  whenever a suite truncates the test database, while the sandbox account keeps
+  every earlier run's orders. Both seeders (`seed-mobile.ts`, `seed-roles.ts`)
+  therefore move the payments sequence up to the current Unix time first
+  (`apps/backend/test/e2e/payment-references.ts`).
+- Paymob's firewall answers **403 Forbidden** to a user agent naming
+  `HeadlessChrome`. The payer and the admin suite open their checkout browser
+  through `checkoutContext()` in `checkout-driver.mjs`, which sends a headed
+  Chrome's user agent instead.
+
+If Paymob changes its page, update `checkout.json` → `labels`. The fake, the
+Maestro subflow and the Playwright driver all follow.
 
 ## Layout
 
@@ -343,7 +385,7 @@ been seen working:
 | `lab.mjs` | What both runners share: Maestro, Metro, device prep, one `maestro test` |
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
 | `android.mjs` | Locating adb and the one device to drive |
-| `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command (`--live-auth` for the live suite's variant, `--paymob-sandbox` for the Paymob sandbox) |
+| `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command (`--live-auth` for the live suite's variant, `--paymob-fake` for the Paymob fake) |
 | `payer.mjs` | Pays a checkout in headless Chromium for `advance.js mother-pay`; `run.mjs` starts it on :4020 |
 
 The subflows are where the awkward parts live, and most flows are little more
@@ -355,7 +397,7 @@ than a sequence of them:
 | `_sign-in.yaml` | Signs in `${EMAIL}` / `${PASSWORD}` through the email door, from the sign-in screen |
 | `_book-to-review.yaml` | Home → the review step, with a booking that starts in ten minutes |
 | `_book-and-pay.yaml` | The above, plus the nanny accepting and a real checkout |
-| `_pay-checkout.yaml` | Types the test card into the open checkout and gets through 3-D Secure, against the fake or the sandbox |
+| `_pay-checkout.yaml` | Types the test card into the open checkout and waits for it to hand back to the app, against the fake or the sandbox |
 | `_relaunch.yaml` | Reopens the app and waits for `${EXPECT}` |
 | `_open-running-booking.yaml` | Reopens onto the detail screen of a shift under way |
 
@@ -407,7 +449,7 @@ focus". Reopening the app is what empties that cache, which is what
 
 **Payment.** The Paymob fake serves the checkout page the WebView opens, and
 delivers the webhook server-side exactly as Paymob does. A flow pays by typing
-the approved test card into a real card form and getting through 3-D Secure
+the approved test card into a real card form and waiting for it to hand back
 (`_pay-checkout.yaml`). The same flows run against Paymob's real sandbox; see
 [Paymob: fake or sandbox](#paymob-fake-or-sandbox).
 

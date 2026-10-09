@@ -21,7 +21,7 @@ export type TestCard = {
 };
 
 export declare const CHECKOUT: {
-  labels: Record<'cardNumber' | 'expiry' | 'cvv' | 'name' | 'pay' | 'threeDsTitle' | 'threeDsSubmit', string>;
+  labels: Record<'cardNumber' | 'expiry' | 'cvv' | 'name' | 'pay' | 'paid' | 'declined', string>;
   cards: Record<string, TestCard>;
 };
 export declare const PAYMOB_PROFILES: Record<PaymobMode, PaymobProfile>;

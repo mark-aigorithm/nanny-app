@@ -29,6 +29,8 @@ import { Role } from '@prisma/client';
 import { prisma } from '@backend/db/prisma';
 import { firebaseAuth } from '@backend/lib/firebase';
 
+import { movePaymentIdsPastEarlierRuns } from './payment-references';
+
 type AccountSpec = {
   /** E.164, as the app builds it from the country code plus typed digits. */
   phone: string;
@@ -532,6 +534,9 @@ async function main(): Promise<void> {
   await seedPromoCodes(fixtures.promoCodes);
   await seedPackage(fixtures.package);
   if (motherId !== null) await seedCarePoints(motherId, fixtures.carePoints);
+
+  // Paymob's sandbox refuses an order reference it has seen in an earlier run.
+  await movePaymentIdsPastEarlierRuns();
 }
 
 main()

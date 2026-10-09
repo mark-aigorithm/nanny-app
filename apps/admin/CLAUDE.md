@@ -100,8 +100,10 @@ An `OPERATOR` only reaches the sections the superuser granted. `lib/permissions.
   signed in as that role, `/login` redirects to the dashboard, and the spec times out looking for a
   password field. Needed whenever a change only takes effect on an account's *next* session — a
   permission grant, for instance, is read once per session from `/admin/me`.
-- E2E needs the full stack: `pnpm test:env` and `pnpm --filter=@nanny-app/backend start:test` from
-  the repo root. See the root CLAUDE.md.
+- E2E needs the full stack: `pnpm test:env`, `pnpm paymob:tunnel` and
+  `pnpm --filter=@nanny-app/backend start:test:paymob-sandbox` from the repo root (seeded payments go
+  through Paymob's TEST sandbox; `PAYMOB_MODE=fake` with `start:test` runs offline). See the root
+  CLAUDE.md.
 
 ## Environment
 
