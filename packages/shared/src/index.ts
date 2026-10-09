@@ -24,3 +24,4 @@ export * from './support';
 export * from './legal';
 export * from './qa-scenarios';
 export * from './cancellation-decisions';
+export * from './cancellation-cell-proposals';

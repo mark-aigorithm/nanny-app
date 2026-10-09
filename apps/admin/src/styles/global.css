@@ -4981,6 +4981,61 @@ input[type='number'] {
   font-size: 0.9rem;
 }
 
+/* A cell the business team can change: the value, then its Change button. */
+.flows-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.flows-cell-edit {
+  gap: 0.35rem;
+}
+
+.flows-proposed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.5rem 0.65rem;
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-muted);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.flows-proposed-meta {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.flows-proposed-today {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.flows-proposed-today-label {
+  font-weight: 600;
+}
+
+.flows-cell-today {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.flows-cell-reset {
+  display: flex;
+  justify-content: flex-start;
+}
+
 /* The full-width line beneath a row: its gap, or why it can't happen. Pinned
    and capped to the screen, so on a phone it stays readable however far the
    table is scrolled sideways. */

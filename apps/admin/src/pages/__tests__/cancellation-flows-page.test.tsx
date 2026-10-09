@@ -21,6 +21,10 @@ function decisions(entries: Record<string, unknown> = {}) {
   return http.get('/api/cancellation-policy', () => ok({ entries }));
 }
 
+function cells(entries: Record<string, unknown> = {}) {
+  return http.get('/api/cancellation-policy/cells', () => ok({ entries }));
+}
+
 function renderPage() {
   return renderWithProviders(
     <ToastProvider>
@@ -35,7 +39,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   }
 
   it('puts every flow in one table, with its five outcomes as columns', () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
 
     const table = screen.getByRole('table');
@@ -48,7 +52,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   });
 
   it('re-reads every flow for the payment picked', async () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
     const user = userEvent.setup();
 
@@ -61,7 +65,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   });
 
   it('says nannies cannot cancel, and lists no nanny cancellation', () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
 
     expect(screen.getByText('Nannies can’t cancel bookings.')).toBeInTheDocument();
@@ -69,7 +73,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   });
 
   it('says when a flow cannot happen with the payment picked', async () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
     const user = userEvent.setup();
 
@@ -82,7 +86,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   });
 
   it('narrows to who cancels', async () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
     const user = userEvent.setup();
 
@@ -97,7 +101,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   });
 
   it('shows every decision with all of its options', () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
 
     for (const decision of CANCELLATION_DECISIONS) {
@@ -109,7 +113,7 @@ describe('CancellationFlowsPage — what happens today', () => {
   });
 
   it('links each known gap to its flow', () => {
-    server.use(decisions());
+    server.use(decisions(), cells());
     renderPage();
 
     const gapsSection = screen.getByRole('region', { name: 'Known gaps' });
@@ -160,6 +164,7 @@ describe('CancellationFlowsPage — recording answers', () => {
           updatedAt: '2026-10-07T10:00:00.000Z',
         },
       }),
+      cells(),
     );
     renderPage();
 
@@ -180,6 +185,7 @@ describe('CancellationFlowsPage — recording answers', () => {
       decisions({
         [FIRST.id]: { optionId: CHOICE.id, decidedBy: '', note: '', updatedAt: '2026-10-07T10:00:00.000Z' },
       }),
+      cells(),
       http.delete(`/api/cancellation-policy/${FIRST.id}`, () => {
         cleared = true;
         return ok({ cleared: true });
@@ -199,12 +205,146 @@ describe('CancellationFlowsPage — recording answers', () => {
       http.get('/api/cancellation-policy', () =>
         HttpResponse.json({ data: null, error: 'Not found' }, { status: 404 }),
       ),
+      http.get('/api/cancellation-policy/cells', () =>
+        HttpResponse.json({ data: null, error: 'Not found' }, { status: 404 }),
+      ),
     );
     renderPage();
 
-    expect(await screen.findByText(/switched off on this server/)).toBeInTheDocument();
+    expect(await screen.findByText(/options below are read-only/)).toBeInTheDocument();
     const section = screen.getByRole('region', { name: FIRST.title });
     expect(within(section).queryByRole('button', { name: 'Record decision' })).not.toBeInTheDocument();
     expect(within(section).getByRole('article', { name: CHOICE.label })).toBeInTheDocument();
+  });
+});
+
+describe('CancellationFlowsPage — changing a cell', () => {
+  const INSIDE = 'Mother cancels a paid booking inside the cancellation window';
+  const CELL_URL = '/api/cancellation-policy/cells/mother-paid-inside/money';
+
+  function rowFor(title: string) {
+    return screen.getByText(new RegExp(`^\\d+\\. ${title}$`)).closest('tr')!;
+  }
+
+  const proposal = {
+    choiceId: 'refund-percent-to-card',
+    percent: 50,
+    text: 'Only within 24 hours',
+    proposedBy: 'Sara',
+    updatedAt: '2026-10-09T10:00:00.000Z',
+  };
+
+  it('saves a change with its percentage, details and name', async () => {
+    let body: unknown;
+    server.use(
+      decisions(),
+      cells(),
+      http.put(CELL_URL, async ({ request }) => {
+        body = await request.json();
+        return ok({ ...(body as object), updatedAt: '2026-10-09T10:00:00.000Z' });
+      }),
+    );
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: `Change Money for ${INSIDE}` }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByLabelText('What should happen'));
+    await user.click(screen.getByRole('option', { name: 'Refund a % to the card' }));
+
+    const save = within(dialog).getByRole('button', { name: 'Save change' });
+    expect(save).toBeDisabled(); // the % is still missing
+    await user.type(within(dialog).getByLabelText('% refunded'), '50');
+    await user.type(within(dialog).getByLabelText(/Details/), 'Only within 24 hours');
+    await user.type(within(dialog).getByLabelText('Your name'), 'Sara');
+    await user.click(save);
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        choiceId: 'refund-percent-to-card',
+        percent: 50,
+        text: 'Only within 24 hours',
+        proposedBy: 'Sara',
+      }),
+    );
+  });
+
+  it('needs the words when the change is "Something else"', async () => {
+    server.use(decisions(), cells());
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: `Change Notifications for ${INSIDE}` }));
+    const dialog = screen.getByRole('dialog');
+    const save = within(dialog).getByRole('button', { name: 'Save change' });
+    expect(save).toBeDisabled();
+    await user.type(within(dialog).getByLabelText('What the notice should say'), 'Tell her when the refund lands.');
+    expect(save).toBeEnabled();
+  });
+
+  it('shows a saved change with today crossed out, and can narrow to changed rows', async () => {
+    server.use(decisions(), cells({ 'mother-paid-inside.money': proposal }));
+    renderPage();
+    const user = userEvent.setup();
+
+    const row = rowFor(INSIDE);
+    expect(await within(row).findByText('50% refunded to the card')).toBeInTheDocument();
+    expect(within(row).getByText('Only within 24 hours')).toBeInTheDocument();
+    expect(within(row).getByText(/by Sara/)).toBeInTheDocument();
+    expect(within(row).getByText('Today:')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/Show only changed rows \(1 change\)/));
+    const table = screen.getByRole('table');
+    for (const flow of CANCELLATION_FLOWS) {
+      const shown = within(table).queryByText(new RegExp(`^\\d+\\. ${flow.title}$`)) !== null;
+      expect(shown, flow.id).toBe(flow.id === 'mother-paid-inside');
+    }
+  });
+
+  it('puts a changed cell back to today', async () => {
+    let cleared = false;
+    server.use(
+      decisions(),
+      cells({ 'mother-paid-inside.money': proposal }),
+      http.delete(CELL_URL, () => {
+        cleared = true;
+        return ok({ cleared: true });
+      }),
+    );
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: `Change Money for ${INSIDE}` }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Back to today' }));
+
+    await waitFor(() => expect(cleared).toBe(true));
+  });
+
+  it('offers no change for a column the payment picked does not involve', async () => {
+    server.use(decisions(), cells());
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findAllByRole('button', { name: /^Change Money for/ });
+    await user.click(screen.getByLabelText('Paid with'));
+    await user.click(screen.getByRole('option', { name: 'Card only' }));
+
+    expect(
+      screen.queryByRole('button', { name: `Change Package hours for ${INSIDE}` }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Change Money for ${INSIDE}` })).toBeInTheDocument();
+  });
+
+  it('is read-only when saving changes is switched off', async () => {
+    server.use(
+      decisions(),
+      http.get('/api/cancellation-policy/cells', () =>
+        HttpResponse.json({ data: null, error: 'Not found' }, { status: 404 }),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText(/Saving changes is switched off/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Change / })).not.toBeInTheDocument();
   });
 });

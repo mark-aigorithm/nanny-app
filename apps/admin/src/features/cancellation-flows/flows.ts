@@ -7,7 +7,12 @@
  * that renders signed out, and no backend route answers without a token. When
  * cancellation behaviour changes, change the matching row here in the same
  * commit — `source` names the code each row describes.
+ *
+ * The ids and outcome keys are shared with the server, which records the
+ * changes the business team proposes per cell (cancellation-cell-proposals.ts).
  */
+
+import type { CancellationFlowId, CancellationOutcomeKey } from '@nanny-app/shared';
 
 /**
  * How an outcome reads to the mother: kept whole, lost, nothing at stake, or a
@@ -21,7 +26,7 @@ export type Outcome = { tone: OutcomeTone; text: string };
 export type CancellationActor = 'Mother' | 'Mother or nanny' | 'Admin' | 'System';
 
 export type CancellationFlow = {
-  id: string;
+  id: CancellationFlowId;
   title: string;
   who: CancellationActor;
   /** The booking statuses the flow starts from. */
@@ -50,7 +55,7 @@ export const OUTCOME_ROWS = [
   { key: 'promoCode', label: 'Promo code' },
   { key: 'money', label: 'Money' },
   { key: 'notifications', label: 'Notifications' },
-] as const satisfies readonly { key: keyof CancellationFlow; label: string }[];
+] as const satisfies readonly { key: CancellationOutcomeKey; label: string }[];
 
 const RETURNED_HOURS: Outcome = {
   tone: 'ok',

@@ -56,7 +56,11 @@ import type {
   PricePreviewInput,
   PromoCode,
   CancellationDecisionEntry,
+  CancellationCellProposal,
+  CancellationCellProposalsState,
   CancellationDecisionsState,
+  CancellationFlowId,
+  CancellationOutcomeKey,
   QaChecklistEntry,
   QaChecklistState,
   RewardConfig,
@@ -65,6 +69,7 @@ import type {
   RewardWalletSummary,
   SetBookingStatusInput,
   SetNannySkillsInput,
+  SetCancellationCellProposalInput,
   SetCancellationDecisionInput,
   SetQaScenarioStatusInput,
   Skill,
@@ -762,4 +767,30 @@ export async function setCancellationDecision(
 
 export async function clearCancellationDecision(decisionId: string): Promise<void> {
   await apiClient.delete(`/cancellation-policy/${decisionId}`);
+}
+
+export async function fetchCancellationCellProposals(): Promise<CancellationCellProposalsState> {
+  const res = await apiClient.get<ApiEnvelope<CancellationCellProposalsState>>(
+    '/cancellation-policy/cells',
+  );
+  return res.data.data;
+}
+
+export async function setCancellationCellProposal(
+  flowId: CancellationFlowId,
+  outcome: CancellationOutcomeKey,
+  input: SetCancellationCellProposalInput,
+): Promise<CancellationCellProposal> {
+  const res = await apiClient.put<ApiEnvelope<CancellationCellProposal>>(
+    `/cancellation-policy/cells/${flowId}/${outcome}`,
+    input,
+  );
+  return res.data.data;
+}
+
+export async function clearCancellationCellProposal(
+  flowId: CancellationFlowId,
+  outcome: CancellationOutcomeKey,
+): Promise<void> {
+  await apiClient.delete(`/cancellation-policy/cells/${flowId}/${outcome}`);
 }

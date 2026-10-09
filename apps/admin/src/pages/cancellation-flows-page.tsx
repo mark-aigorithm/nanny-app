@@ -1,10 +1,17 @@
+import { useState } from 'react';
+
 import { isAxiosError } from 'axios';
 
-import { CANCELLATION_DECISIONS, CANCELLATION_EXAMPLE_BOOKING } from '@nanny-app/shared';
+import {
+  CANCELLATION_DECISIONS,
+  CANCELLATION_EXAMPLE_BOOKING,
+  cancellationCellKey,
+} from '@nanny-app/shared';
 
 import { Badge, Card, ICON_SIZE, Info, TriangleAlert, useToast } from '@admin/components/ui';
+import { CellEditor } from '@admin/features/cancellation-flows/cell-editor';
 import { DecisionCard, type RecordingState } from '@admin/features/cancellation-flows/decision-card';
-import { CANCELLATION_FLOWS } from '@admin/features/cancellation-flows/flows';
+import { CANCELLATION_FLOWS, OUTCOME_ROWS } from '@admin/features/cancellation-flows/flows';
 import { TONE_BADGE } from '@admin/features/cancellation-flows/outcome-value';
 import { FlowsTable } from '@admin/features/cancellation-flows/flows-table';
 import {
@@ -12,12 +19,14 @@ import {
   useClearCancellationDecision,
   useSetCancellationDecision,
 } from '@admin/features/cancellation-flows/use-cancellation-decisions';
+import { useCellProposals, type CellRef } from '@admin/features/cancellation-flows/use-cell-proposals';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 /**
  * Every way a booking can be cancelled, what each does to the mother's
- * credits, promo code and money today, and the policy options for each — open
- * without an account.
+ * credits, promo code and money today — with the changes the business team
+ * proposes, cell by cell — and the policy options for each, open without an
+ * account.
  *
  * Public for the same reason as /qa: the cancellation policy is decided with
  * the business team, who have no console login. So it renders outside
@@ -31,6 +40,17 @@ export function CancellationFlowsPage() {
   const decisions = useCancellationDecisions();
   const setDecision = useSetCancellationDecision();
   const clearDecision = useClearCancellationDecision();
+
+  const cellProposals = useCellProposals();
+  const [editing, setEditing] = useState<CellRef | null>(null);
+  // Whoever saved last from this page, so the next cell's "Your name" is filled in.
+  const [lastName, setLastName] = useState('');
+  const proposals = cellProposals.data?.entries ?? {};
+  const cellsOff = cellProposals.isError;
+  const cellsDisabled =
+    isAxiosError(cellProposals.error) && cellProposals.error.response?.status === 404;
+  const editingFlow = editing && CANCELLATION_FLOWS.find((flow) => flow.id === editing.flowId);
+  const editingColumn = editing && OUTCOME_ROWS.find((row) => row.key === editing.outcome);
 
   // The page reads fine without the backend; recording just switches off. A
   // 404 means the server has the board turned off, anything else is a fault.
@@ -88,6 +108,23 @@ export function CancellationFlowsPage() {
           the mother keeps or loses. A promo code can sit on top of any payment: it comes off
           first, then package hours, then Care Points, and the card pays the rest.
         </p>
+        <p className="flows-section-lead">
+          <strong>Want something to work differently?</strong> Press <em>Change</em> in any cell
+          and say what should happen instead — returned, refunded, a percentage, Care Points, or
+          your own words. Your change shows in the cell with today&rsquo;s behaviour crossed out
+          beneath it, and everyone with this link sees it. A change applies to the scenario
+          whatever the payment.
+        </p>
+        {cellsOff && (
+          <p className="flows-gap" role="alert">
+            <TriangleAlert size={ICON_SIZE.inline} aria-hidden />
+            <span>
+              {cellsDisabled
+                ? 'Saving changes is switched off on this server, so the table is read-only.'
+                : `Proposed changes could not be loaded: ${apiErrorMessage(cellProposals.error)}`}
+            </span>
+          </p>
+        )}
         <p className="flows-design-note">
           <Info size={ICON_SIZE.inline} aria-hidden />
           <span>
@@ -95,7 +132,26 @@ export function CancellationFlowsPage() {
             can&rsquo;t make a booking contacts support, and an admin handles it.
           </span>
         </p>
-        <FlowsTable />
+        <FlowsTable
+          proposals={proposals}
+          canEdit={cellProposals.isSuccess}
+          onEditCell={setEditing}
+        />
+        {editing && editingFlow && editingColumn && (
+          <CellEditor
+            key={cancellationCellKey(editing.flowId, editing.outcome)}
+            cell={editing}
+            scenario={editingFlow.title}
+            outcomeLabel={editingColumn.label}
+            today={editingFlow[editing.outcome]}
+            proposal={proposals[cancellationCellKey(editing.flowId, editing.outcome)]}
+            defaultName={lastName}
+            onSaved={(name) => {
+              if (name) setLastName(name);
+            }}
+            onClose={() => setEditing(null)}
+          />
+        )}
 
         <section id="gaps" className="flows-flow" aria-label="Known gaps">
           <Card title={`Known gaps (${gaps.length})`}>
