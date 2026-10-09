@@ -92,18 +92,6 @@ describe('CancellationFlowsPage — what happens today', () => {
     }
   });
 
-  it('links each known gap to its flow', () => {
-    server.use(cells());
-    renderPage();
-
-    const gapsSection = screen.getByRole('region', { name: 'Known gaps' });
-    for (const flow of CANCELLATION_FLOWS.filter((f) => f.gap !== undefined)) {
-      expect(within(gapsSection).getByRole('link', { name: flow.title })).toHaveAttribute(
-        'href',
-        `#${flow.id}`,
-      );
-    }
-  });
 });
 
 describe('CancellationFlowsPage — changing a cell', () => {

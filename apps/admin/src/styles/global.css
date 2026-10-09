@@ -4826,27 +4826,6 @@ input[type='number'] {
   gap: 0.4rem;
 }
 
-.flows-gap-list {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.flows-gap-list a {
-  color: var(--color-primary-dark);
-  font-weight: 600;
-}
-
-/* Anchored from the gap list; keep the card off the very top edge. */
-.flows-flow {
-  scroll-margin-top: 1rem;
-}
-
 .flows-when {
   color: var(--color-text-secondary);
   font-size: 0.85rem;
@@ -5064,18 +5043,6 @@ input[type='number'] {
 .flows-row-note svg {
   flex-shrink: 0;
   margin-top: 0.15rem;
-}
-
-.flows-jump {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
-  font-size: 0.9rem;
-}
-
-.flows-jump a {
-  color: var(--color-primary-dark);
-  font-weight: 600;
 }
 
 .flows-section-title {

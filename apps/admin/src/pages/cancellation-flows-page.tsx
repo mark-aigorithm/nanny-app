@@ -4,7 +4,7 @@ import { isAxiosError } from 'axios';
 
 import { cancellationCellKey } from '@nanny-app/shared';
 
-import { Badge, Card, ICON_SIZE, Info, TriangleAlert } from '@admin/components/ui';
+import { Badge, ICON_SIZE, Info, TriangleAlert } from '@admin/components/ui';
 import { CellEditor } from '@admin/features/cancellation-flows/cell-editor';
 import { CANCELLATION_FLOWS, OUTCOME_ROWS } from '@admin/features/cancellation-flows/flows';
 import { TONE_BADGE } from '@admin/features/cancellation-flows/outcome-value';
@@ -23,8 +23,6 @@ import { apiErrorMessage } from '@admin/lib/api-error';
  * API but the proposed changes.
  */
 export function CancellationFlowsPage() {
-  const gaps = CANCELLATION_FLOWS.filter((flow) => flow.gap !== undefined);
-
   const cellProposals = useCellProposals();
   const [editing, setEditing] = useState<CellRef | null>(null);
   // Whoever saved last from this page, so the next cell's "Your name" is filled in.
@@ -52,11 +50,6 @@ export function CancellationFlowsPage() {
             </p>
           </div>
         </header>
-
-        <nav className="flows-jump" aria-label="On this page">
-          <a href="#today">What happens today</a>
-          <a href="#gaps">Known gaps ({gaps.length})</a>
-        </nav>
 
         <div className="flows-legend" aria-label="Legend">
           {Object.values(TONE_BADGE).map((badge) => (
@@ -118,25 +111,6 @@ export function CancellationFlowsPage() {
             onClose={() => setEditing(null)}
           />
         )}
-
-        <section id="gaps" className="flows-flow" aria-label="Known gaps">
-          <Card title={`Known gaps (${gaps.length})`}>
-            {gaps.length === 0 ? (
-              <p className="flows-section-lead">
-                None — every flow above works as designed. To change how one works, propose it in
-                its cell.
-              </p>
-            ) : (
-              <ul className="flows-gap-list">
-                {gaps.map((flow) => (
-                  <li key={flow.id}>
-                    <a href={`#${flow.id}`}>{flow.title}</a> — {flow.gap}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </section>
       </div>
     </div>
   );
