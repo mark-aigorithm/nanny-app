@@ -18,8 +18,10 @@ a run through, and what breaks.
 ## When you're asked to "run the e2e tests"
 
 Do **not** just type `pnpm test:e2e:mobile` — nothing will be up. A flow needs six things alive:
-PostGIS, the Firebase Auth+Storage emulator, the Paymob fake, the backend (`start:test`), Metro, and
-a booted emulator. They die between sessions. The order that works, every time:
+PostGIS, the Firebase Auth+Storage emulator, the Paymob webhook tunnel (`pnpm paymob:tunnel`), the
+Paymob-sandbox backend (`start:test:paymob-sandbox`, :3002), Metro, and a booted emulator. That's
+the default sandbox mode; `--paymob=fake` swaps the tunnel and sandbox backend for the Paymob fake
+(:4010, from `test:env`) and `start:test` on :3001, with Metro on `e2e:metro:paymob-fake`. They die between sessions. The order that works, every time:
 
 1. **Check what survived** — ports and the emulator. If it's all up and healthy, skip to step 6.
 2. **Repair the lab** if anything is down → `references/environment.md` has the exact commands.

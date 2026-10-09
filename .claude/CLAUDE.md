@@ -279,8 +279,9 @@ integration suites always use the fake.
 | Decision | Why it might change |
 |---|---|
 | REST API (no GraphQL) | If mobile queries become complex with many joins, consider GraphQL |
-| Firestore for live location | Adds a second DB to manage; could replace with WebSockets on the backend |
-| ECS Fargate (always-on) | If traffic is very spiky, Lambda + API Gateway might be cheaper |
+| Backend on Vercel serverless (ECS Fargate is the planned target) | Interval jobs don't survive invocations, so Paymob reconciliation doesn't run there; once a background job is needed, move to always-on hosting (or a cron trigger) |
+| Location is the nanny's single saved home base (no live tracking yet) | Live tracking during a booking would need a realtime channel: Firestore as planned (a second DB), or WebSockets on the backend |
 | Phone-first auth (SMS by default; email + password, Google, Apple beside it) | Every sign-in sends a real SMS; if cost bites, lean harder on the email door |
 | Single AWS region | If launching internationally, multi-region RDS and CloudFront geo-restriction needed |
-| FCM topics for push | Topics are broadcast; for per-user push, store FCM tokens in DB |
+| Per-user push via FCM tokens stored in `device_tokens` | Broadcasts (promos, announcements) would want FCM topics on top |
+| E2E pays on Paymob's real TEST sandbox by default (`PAYMOB_MODE=fake` opt-in) | Depends on the network, the cloudflared tunnel, the test keys and Paymob's firewall; if sandbox flakiness costs more runs than it catches, make the fake the default again |

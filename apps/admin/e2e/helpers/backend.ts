@@ -18,7 +18,7 @@ import { resolvePaymobMode } from '../../../../test-support/paymob/mode.mjs';
 import { waitForOtp } from './mailpit';
 
 /**
- * Which Paymob seeded payments go through (PAYMOB_MODE, default the fake), and
+ * Which Paymob seeded payments go through (PAYMOB_MODE, default the sandbox), and
  * so which backend the suite talks to. See test-support/paymob/mode.mjs.
  */
 const PAYMOB = resolvePaymobMode([], process.env);

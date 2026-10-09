@@ -19,16 +19,22 @@ Exact, copy-paste commands for this Windows machine. Paths and quirks are specif
 | PostGIS (`nannyapp_test`) | 55432 | `pnpm test:env` (docker, detached — survives most crashes) |
 | Firebase Auth emulator | 9099 | `pnpm test:env` (concurrently) |
 | Firebase Storage emulator | 9199 | `pnpm test:env` |
-| Paymob fake | 4010 | `pnpm test:env` |
+| Paymob fake | 4010 | `pnpm test:env` (only *used* in `--paymob=fake` runs) |
+| Paymob webhook tunnel (cloudflared) | — | `pnpm paymob:tunnel` (sandbox mode, the default) |
 | Mailpit (SMTP 1025 / HTTP 8025) | 8025 | `pnpm test:env` (docker) |
-| Backend under test | 3001 | `pnpm --filter @nanny-app/backend start:test` |
-| Metro | 8081 | `pnpm --filter @nanny-app/mobile e2e:metro` |
+| Backend under test (sandbox, default) | 3002 | `pnpm --filter @nanny-app/backend start:test:paymob-sandbox` |
+| Backend under test (`--paymob=fake`) | 3001 | `pnpm --filter @nanny-app/backend start:test` |
+| Metro | 8081 | `pnpm --filter @nanny-app/mobile e2e:metro` (fake mode: `e2e:metro:paymob-fake`) |
 | Android emulator (`nanny-e2e` AVD) | — | `emulator -avd nanny-e2e -gpu host …` |
 
 `pnpm test:env` runs `test:env:free` (reaps strays on 9099/4400/4500/4010) → `test:env:up` (docker
 `--wait`) → `concurrently --kill-others` the Auth/Storage emulator **and** the Paymob fake. Because
 of `--kill-others`, if the emulator or Paymob dies the whole `test:env` process exits (PostGIS
 stays — it's detached docker).
+
+The mode decides which backend port the runner checks (`test-support/paymob/mode.mjs`): a backend
+started in the other mode is simply not found. Sandbox mode needs the untracked TEST keys in
+`apps/backend/.env.paymob-sandbox.local`.
 
 ## The PATH prelude (run it in every Bash call)
 
@@ -46,8 +52,8 @@ export PATH="/usr/bin:/c/Windows/System32:/c/Windows:/c/Program Files/nodejs:/c/
 ## Health check first
 
 ```bash
-echo "backend $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/health) metro $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/status)"
-netstat -ano | grep LISTENING | grep -E ':(55432|9099|9199|4010|3001|8081) ' | awk '{print $2}' | sort -u
+echo "backend $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/health) metro $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/status)"
+netstat -ano | grep LISTENING | grep -E ':(55432|9099|9199|4010|3002|8081) ' | awk '{print $2}' | sort -u
 adb devices
 adb shell dumpsys wifi 2>/dev/null | grep -oiE 'Wi-Fi is (enabled|disabled)' | head -1
 # device -> host reachability (THE check that matters):
@@ -97,7 +103,8 @@ adb shell 'echo -e "GET / HTTP/1.0\r\n\r\n" | toybox nc -w 3 10.0.2.2 9099 2>&1 
 # test:env FIRST (backend needs the DB + emulator)
 powershell -NoProfile -Command "Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c cd /d D:\Projects\nanny-app && pnpm test:env > C:\Users\markb\AppData\Local\Temp\claude\testenv.log 2>&1'} | Out-Null; 'test:env up'"
 # wait ~45s, confirm 9099/9199/4010 listening, then:
-powershell -NoProfile -Command "Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c cd /d D:\Projects\nanny-app && pnpm --filter @nanny-app/backend start:test > C:\Users\markb\AppData\Local\Temp\claude\backend.log 2>&1'} | Out-Null; 'backend up'"
+powershell -NoProfile -Command "Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c cd /d D:\Projects\nanny-app && pnpm paymob:tunnel > C:\Users\markb\AppData\Local\Temp\claude\tunnel.log 2>&1'} | Out-Null; 'tunnel up'"
+powershell -NoProfile -Command "Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c cd /d D:\Projects\nanny-app && pnpm --filter @nanny-app/backend start:test:paymob-sandbox > C:\Users\markb\AppData\Local\Temp\claude\backend.log 2>&1'} | Out-Null; 'backend up'"
 powershell -NoProfile -Command "Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c cd /d D:\Projects\nanny-app && pnpm --filter @nanny-app/mobile e2e:metro > C:\Users\markb\AppData\Local\Temp\claude\metro.log 2>&1'} | Out-Null; 'metro up'"
 ```
 
@@ -133,7 +140,8 @@ export MAESTRO_BIN='C:\Users\markb\AppData\Local\maestro\bin\maestro.bat'
 cd /d/Projects/nanny-app || exit 1
 
 pnpm test:env                                  > "$S/testenv.log" 2>&1 &   ; sleep 55
-pnpm --filter @nanny-app/backend start:test    > "$S/backend.log" 2>&1 &   ; sleep 30
+pnpm paymob:tunnel                             > "$S/tunnel.log"  2>&1 &   ; sleep 10
+pnpm --filter @nanny-app/backend start:test:paymob-sandbox > "$S/backend.log" 2>&1 & ; sleep 30
 pnpm --filter @nanny-app/mobile e2e:metro      > "$S/metro.log"   2>&1 &   ; sleep 40
 
 # Metro's --clear crawl, paid for up front (see trap #4)
