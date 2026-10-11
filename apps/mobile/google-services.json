@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "936472549582-ct5881kt6sbf7rbkg4qamachdounhtib.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nannyapp.mobile",
+            "certificate_hash": "b7ccdcd5de93cb2491ffdebf5ac59cfd44fd2399"
+          }
+        },
+        {
           "client_id": "936472549582-d8q8v18pb8gerfgqkhbe69sf7fldojhb.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
