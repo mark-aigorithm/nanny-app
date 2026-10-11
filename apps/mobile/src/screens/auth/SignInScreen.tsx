@@ -5,10 +5,11 @@ import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import { APP_NAME, OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, Divider, IconCircle, OtpCodeInput, ScreenContainer } from '@mobile/components/ui';
+import { Button, Divider, OtpCodeInput, ScreenContainer } from '@mobile/components/ui';
 import AuthIconButton from '@mobile/components/AuthIconButton';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useSendSignInCode, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
+import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { validatePhone, toE164, fromE164 } from '@mobile/lib/validation';
@@ -127,14 +128,18 @@ export default function SignInScreen() {
   }
 
   // Sign-in is the stack root now, so there is no back gesture out of the
-  // code phase — this is what returns her to the phone field, with the
-  // number she typed still there, so a mistyped digit doesn't trap her.
+  // code phase — the chevron, "Change" and Android's back button all return
+  // her to the phone field, with the number she typed still there, so a
+  // mistyped digit or an SMS that never comes doesn't trap her.
   function useDifferentNumber() {
     setConfirmation(null);
     setCode('');
     setFormError(null);
     setSecondsLeft(RESEND_SECONDS);
   }
+
+  const canLeaveCodePhase = isCodePhase && !confirmSignIn.isPending;
+  useHardwareBack(useDifferentNumber, canLeaveCodePhase);
 
   function continueAsGuest() {
     useGuestStore.getState().enterGuestMode();
@@ -167,7 +172,17 @@ export default function SignInScreen() {
         >
           <View style={styles.topBar}>
             <View style={styles.brand}>
-              <IconCircle icon="heart-outline" size="md" iconColor={colors.primaryDark} />
+              {isCodePhase && (
+                <Pressable
+                  onPress={canLeaveCodePhase ? useDifferentNumber : undefined}
+                  disabled={!canLeaveCodePhase}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to phone number"
+                >
+                  <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+                </Pressable>
+              )}
               <Text style={styles.brandName}>{APP_NAME}</Text>
             </View>
             {/* A pending connection means she has an account to finish signing
@@ -188,9 +203,7 @@ export default function SignInScreen() {
                 {`We sent a ${OTP_LENGTH}-digit code to `}
                 <Text style={styles.subtitleStrong}>{`${countryCode} ${phone}`}</Text>
                 {'. '}
-                {/* Sign-in is the stack root, so there is no back button to
-                    escape a mistyped number — this link is the only way out
-                    of the code phase and back to the phone field. */}
+                {/* The in-line twin of the back chevron above. */}
                 <Text
                   style={[styles.inlineLink, confirmSignIn.isPending && styles.linkDisabled]}
                   onPress={confirmSignIn.isPending ? undefined : useDifferentNumber}

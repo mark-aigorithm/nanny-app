@@ -52,10 +52,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  // The wordmark alone, as on every other screen that carries the brand.
   brandName: {
     ...typeScale.headingMd,
-    letterSpacing: -0.3,
-    color: colors.primaryDark,
+    letterSpacing: -0.5,
+    color: colors.primary,
   },
   // Guest browsing — deliberately quieter than every sign-in route.
   skipLink: {

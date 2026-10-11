@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BackHandler } from 'react-native';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -13,6 +14,10 @@ jest.mock('expo-router', () => ({
     back: mockBack,
     canGoBack: () => mockCanGoBack,
   }),
+  useFocusEffect: (effect: () => (() => void) | undefined) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    require('react').useEffect(effect, [effect]);
+  },
 }));
 
 const mockConfirm = jest.fn();
@@ -316,6 +321,40 @@ describe('the front door', () => {
     expect(screen.getByText('Continue')).toBeTruthy();
     expect(screen.getByText('Skip for now')).toBeTruthy();
     expect(screen.getByLabelText('Create an account')).toBeTruthy();
+  });
+
+  it('has a back chevron out of the code phase', async () => {
+    renderScreen();
+    expect(screen.queryByLabelText('Back to phone number')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
+    fireEvent.press(screen.getByText('Continue'));
+    await waitFor(() => expect(screen.getByTestId('signIn.code')).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText('Back to phone number'));
+
+    expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
+    expect(screen.queryByLabelText('Back to phone number')).toBeNull();
+  });
+
+  it('takes the Android back button out of the code phase', async () => {
+    const handlers: Array<() => boolean | null | undefined> = [];
+    const spy = jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
+      handlers.push(handler);
+      return { remove: () => handlers.splice(handlers.indexOf(handler), 1) };
+    });
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('signIn.phone'), '1234567891');
+    fireEvent.press(screen.getByText('Continue'));
+    await waitFor(() => expect(screen.getByTestId('signIn.code')).toBeTruthy());
+
+    let handled: boolean | null | undefined;
+    act(() => {
+      handled = handlers.at(-1)?.();
+    });
+
+    expect(handled).toBe(true);
+    expect(screen.getByTestId('signIn.phone').props.value).toBe('1234567891');
+    spy.mockRestore();
   });
 });
 
