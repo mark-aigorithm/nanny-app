@@ -42,7 +42,7 @@ appId: com.nannyapp.mobile
 
 # ── Sent to sign in, with the reason and the number already there ──────────
 - extendedWaitUntil:
-    visible: 'You already have an account. Sign in with your phone once to connect Google.'
+    visible: 'You already have an account. Sign in to it once to connect Google.'
     timeout: 60000
 - tapOn: 'Continue'
 - extendedWaitUntil:

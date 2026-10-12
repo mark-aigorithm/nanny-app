@@ -37,7 +37,7 @@ appId: com.nannyapp.mobile
 
 # ── Refused, with the reason ────────────────────────────────────────────────
 - extendedWaitUntil:
-    visible: 'You already have an account. Sign in with your phone once to connect Google.'
+    visible: 'You already have an account. Sign in to it once to connect Google.'
     timeout: 60000
 
 # ── Prove ownership through the email door instead ──────────────────────────
