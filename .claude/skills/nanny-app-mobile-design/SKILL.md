@@ -75,7 +75,7 @@ container, `StatusBar`, or header** — the shared primitives own those.
 |---|---|
 | Horizontal content padding | `screenPadding` (24) everywhere |
 | Top inset | Owned by the header — **never set `paddingTop: STATUS_BAR_HEIGHT` in a screen** |
-| Bottom — parent floating-tab screens | `PARENT_TAB_SCROLL_BOTTOM` |
+| Bottom — parent floating-tab screens | `useFloatingNavClearance() + spacing.lg` (inline — it includes the live system-bar inset) |
 | Bottom — nanny bottom-nav screens | `BOTTOM_NAV_HEIGHT + spacing.lg` |
 | Bottom — plain stack screens (no nav bar) | `spacing['4xl']` (48) — never magic numbers (120/200/…) |
 | Bottom — anything pinned to the bottom edge (sticky CTA footer, bottom sheet, composer) | `useBottomBarPadding(minimum)` inline — never `Platform.OS === 'ios' ? 36 : …` |
@@ -125,6 +125,8 @@ Only build a bespoke element when nothing above fits. When you do, mirror the ex
 - Leaving styles inline in the screen file instead of the `.styles.ts` sibling.
 - Hand-rolling a container / `StatusBar` / back-header instead of `ScreenContainer` + a shared header — this is the #1 source of layout drift.
 - Padding the bottom with a magic number or `spacing['3xl']` when the screen scrolls under a nav bar — use the clearance token for that nav (see the padding & clearance table).
+- Judging a layout only at 390pt. Check 320pt wide and 360pt at 1.3× text: a Text in a row without `flexShrink`, a fixed `height` around text, or a value + stepper row that can't wrap all break there (see "Lay out for the narrowest phone" in `apps/mobile/CLAUDE.md`).
+- Importing `Text`/`TextInput` from `react-native` — use `@mobile/components/ui/text` (capped font scaling; a guard test enforces it).
 
 ## Verify visually
 

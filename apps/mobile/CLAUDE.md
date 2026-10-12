@@ -97,7 +97,7 @@ All visual constants are centralized in `src/theme/` and imported via `@mobile/t
 | `borders.ts` | `borderRadius` — scale (sm→full) |
 | `shadows.ts` | `shadows` — elevation presets as `ViewStyle` |
 | `motion.ts` | `motion` — durations, press scale, spring configs, list stagger |
-| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT` (nanny in-flow bar), `FLOATING_NAV_CLEARANCE` (parent floating pill), and the parent-tab helpers `PARENT_TAB_CONTENT_TOP(_WITH_SEARCH)`, `PARENT_TAB_SCROLL_BOTTOM`, `PARENT_TAB_FAB_BOTTOM` |
+| `layout.ts` | `STATUS_BAR_HEIGHT`, `HEADER_HEIGHT`, `BOTTOM_NAV_HEIGHT` (nanny in-flow bar), `FLOATING_NAV_HEIGHT` (parent floating pill, above the bottom inset), and `PARENT_TAB_CONTENT_TOP(_WITH_SEARCH)` |
 | `index.ts` | Barrel re-export of all above |
 
 ---
@@ -196,8 +196,32 @@ in the `nanny-app-mobile-design` skill; the mandatory rules are:
   a screen's scroll content.
 - **Horizontal content padding is `screenPadding` (24)** on every screen.
 - **Bottom clearance uses a token, never a magic number:** parent floating-tab screens
-  `PARENT_TAB_SCROLL_BOTTOM`; nanny bottom-nav screens `BOTTOM_NAV_HEIGHT + spacing.lg`; plain
-  stack screens (no nav bar) `spacing['4xl']`.
+  `useFloatingNavClearance() + spacing.lg`; nanny bottom-nav screens `BOTTOM_NAV_HEIGHT + spacing.lg`;
+  plain stack screens (no nav bar) `spacing['4xl']`.
+- **Never guess the system's bottom bar.** The app is edge-to-edge, so Android's 3-button bar /
+  gesture handle and the iPhone home indicator draw over it, and their height changes with the
+  device and the user's navigation setting (0 when hidden). Anything pinned to the bottom edge — a
+  sticky CTA footer, a bottom sheet, a composer — pads with `useBottomBarPadding(minimum)` from
+  `hooks/useBottomInset.ts`, applied inline; never `Platform.OS === 'ios' ? 36 : …`.
+- **The top inset is `STATUS_BAR_HEIGHT`** — the device's real value at launch (notch, Dynamic
+  Island, punch-hole), not a per-platform constant. A screen whose content scrolls without a
+  header starts its ScrollView below it, so nothing runs under the clock.
+- **Lay out for the narrowest phone, not the 390pt design canvas.** Every screen must fit at
+  **320pt wide** and at **360pt with 1.3× text** — common Android sizes, and where the device
+  testers found overflow. In practice:
+  - Text sharing a row with anything else gets `flexShrink: 1` (or `flex: 1`); amounts stay on one
+    line and the other side shrinks.
+  - Containers around text use `minHeight`/`minWidth`, not fixed `height`/`width`.
+  - A value with a control beside it (a stepper, a button) sits in a `flexWrap: 'wrap'` row, so the
+    control drops underneath when both don't fit — never estimate widths in code.
+  - A label in a fixed-width tile spreads `wordSafeLabelProps(label)` so a long single word
+    shrinks instead of splitting ("Notificati / ons").
+  - A screen whose content can outgrow a short phone scrolls; it never squashes.
+- **Text comes only from `@mobile/components/ui/text`** (`Text`, `TextInput`, `AnimatedText`),
+  which caps OS font scaling at `MAX_FONT_SCALE` (1.3). React 19 ignores `defaultProps`, so the cap
+  can't be set on React Native's own components. `src/__tests__/layout-guards.test.ts` fails on a
+  raw `Text`/`TextInput` import from `react-native`, on a `Platform.OS` guess at system-bar space,
+  and on `StatusBar.currentHeight` outside the theme.
 
 ---
 
