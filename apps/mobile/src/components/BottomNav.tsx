@@ -11,6 +11,7 @@ import PressableScale from '@mobile/components/ui/pressable-scale';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
+import { useFloatingNavStore } from '@mobile/store/floatingNavStore';
 
 export type BottomNavTab = 'home' | 'services' | 'activity' | 'account';
 
@@ -79,6 +80,7 @@ export default function BottomNav({ activeTab }: Props) {
   const { isGuest, gate } = useGuestGate();
   const { data: unreadData } = useUnreadMessageCount(!isGuest);
   const hasUnread = (unreadData?.unreadCount ?? 0) > 0;
+  const setPillHeight = useFloatingNavStore((s) => s.setPillHeight);
 
   // Where each tab's icon circle sits inside the pill, measured on layout.
   const [slots, setSlots] = useState<Partial<Record<BottomNavTab, { x: number; y: number }>>>({});
@@ -123,7 +125,10 @@ export default function BottomNav({ activeTab }: Props) {
       style={[styles.wrapper, { bottom: insets.bottom + spacing.md }]}
       pointerEvents="box-none"
     >
-      <View style={styles.pill}>
+      <View
+        style={styles.pill}
+        onLayout={(e) => setPillHeight(Math.ceil(e.nativeEvent.layout.height))}
+      >
         {activeSlot && (
           <Animated.View
             pointerEvents="none"

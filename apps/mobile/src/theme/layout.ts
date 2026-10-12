@@ -36,7 +36,8 @@ export const REGISTRATION_HEADER_HEIGHT =
  * How far the parent floating pill tab bar reaches above the bottom safe area:
  * its offset (spacing.md) + the pill itself (~76). It sits on top of the
  * system's bottom bar, whose height varies by device and setting, so screens
- * never use this directly — `useFloatingNavClearance()` adds the live inset.
+ * never use this directly — `useFloatingNavClearance()` adds the live inset,
+ * and swaps the pill estimate for its measured height once it has laid out.
  * Not BOTTOM_NAV_HEIGHT, which is the nanny bar's in-flow height.
  */
 export const FLOATING_NAV_HEIGHT = spacing.md + 76;
