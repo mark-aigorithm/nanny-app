@@ -58,6 +58,10 @@ export const styles = StyleSheet.create({
   tileLabel: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
+    // A row child won't shrink below its text width by default, so on narrow
+    // screens or large system font sizes the label spills out of the tile.
+    // Shrinking lets it wrap onto a second line inside the tile instead.
+    flexShrink: 1,
   },
   tileIconWrap: {
     position: 'relative',
