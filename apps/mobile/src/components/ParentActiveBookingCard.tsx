@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Pressable } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -34,6 +34,27 @@ function rank(b: BookingResponse): number {
 
 function pickActive(bookings: BookingResponse[]): BookingResponse | null {
   return [...bookings].sort((a, b) => rank(a) - rank(b))[0] ?? null;
+}
+
+/** Still broadcast to nannies: no one has accepted, and nothing is owed. */
+function isSearching(b: BookingResponse): boolean {
+  return b.status === 'PENDING' && !b.balanceDue;
+}
+
+/**
+ * The line under the card for every active booking the card isn't showing —
+ * one card can only speak for one booking, so without this a second request
+ * still searching for a nanny was invisible from Home.
+ */
+function othersLine(others: BookingResponse[]): string | null {
+  if (others.length === 0) return null;
+  const n = others.length;
+  if (others.every(isSearching)) {
+    return n === 1
+      ? '1 more request is still finding a nanny'
+      : `${n} more requests are still finding a nanny`;
+  }
+  return n === 1 ? '1 more active booking' : `${n} more active bookings`;
 }
 
 type Look = {
@@ -108,6 +129,12 @@ export default function ParentActiveBookingCard() {
   // Poll so the card flips from "finding" to "nanny found — pay" on its own.
   const { data = [] } = useBookingList(ACTIVE_STATUSES, undefined, 6000);
   const active = pickActive(data);
+  // Several requests all still searching read as one card for all of them —
+  // "Reaching out to nannies…" about one would hide the rest.
+  const searchingCount = data.filter(isSearching).length;
+  const groupSearching = !!active && isSearching(active) && searchingCount > 1;
+  const others = active && !groupSearching ? data.filter((b) => b.id !== active.id) : [];
+  const moreLine = othersLine(others);
 
   const pulse = useRef(new Animated.Value(0)).current;
   const shouldPulse = !!active && lookFor(active).pulse;
@@ -126,8 +153,19 @@ export default function ParentActiveBookingCard() {
 
   if (!active) return null;
 
-  const look = lookFor(active);
+  const look: Look = groupSearching
+    ? {
+        ...lookFor(active),
+        title: `${searchingCount} requests still searching`,
+        cta: 'Tap to see them all',
+      }
+    : lookFor(active);
+  const openActivity = () => router.push('/(parent)/(tabs)/bookings' as never);
   const onPress = () => {
+    if (groupSearching) {
+      openActivity();
+      return;
+    }
     const isRequestFlow = active.status === 'PENDING' || active.status === 'APPROVED';
     router.push({
       pathname: isRequestFlow
@@ -173,7 +211,7 @@ export default function ParentActiveBookingCard() {
         <Text style={[styles.eyebrow, { color: look.dark ? colors.liveGreen : colors.primaryDark }]}>
           {look.eyebrow}
         </Text>
-        <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
+        <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
           {look.title}
         </Text>
         <Text style={[styles.cta, { color: subColor }]}>{look.cta}</Text>
@@ -183,6 +221,19 @@ export default function ParentActiveBookingCard() {
         <Ionicons name="chevron-forward" size={18} color={look.dark ? colors.white : colors.primary} />
       </View>
     </PressableScale>
+
+      {moreLine && (
+        <Pressable
+          style={styles.moreRow}
+          onPress={openActivity}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${moreLine}. View all bookings`}
+        >
+          <Text style={styles.moreText}>{moreLine}</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
+        </Pressable>
+      )}
 
       {/* Balance due after an admin edit — replaces the Start gate, which the
           server would refuse while the booking is unsettled. */}
@@ -249,5 +300,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chevronLight: { backgroundColor: colors.primaryMuted },
+  moreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.xs,
+    marginTop: -spacing.sm,
+  },
+  moreText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    color: colors.primaryDark,
+  },
   chevronDark: { backgroundColor: 'rgba(255,255,255,0.15)' },
 });
