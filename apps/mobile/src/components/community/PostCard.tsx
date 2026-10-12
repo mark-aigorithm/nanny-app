@@ -203,7 +203,7 @@ export default function PostCard({
                 <Ionicons name="people-outline" size={15} color={colors.textMuted} />
                 <Text style={styles.detailText}>
                   {post.maxAttendees !== null
-                    ? `${post.rsvpCount} going · ${post.maxAttendees} spots`
+                    ? `${post.rsvpCount} going · ${post.maxAttendees} ${post.maxAttendees === 1 ? 'spot' : 'spots'}`
                     : `${post.rsvpCount} going`}
                   {post.price !== null ? ` · ${formatPrice(post.price)}` : ''}
                 </Text>

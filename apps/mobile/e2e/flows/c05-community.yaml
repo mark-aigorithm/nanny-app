@@ -170,9 +170,10 @@ appId: com.nannyapp.mobile
     timeout: 30000
 
 # Anchored to the card: every event renders the same "N going" caption, and the
-# lab shares its database with the admin suite.
+# lab shares its database with the admin suite. The caption goes on to name the
+# capacity ("0 going · 1 spot"), and Maestro matches a node's whole text.
 - assertVisible:
-    text: '0 going'
+    text: '0 going.*'
     below: 'E2E lab coffee morning'
 
 # ── RSVP ───────────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ appId: com.nannyapp.mobile
 - extendedWaitUntil:
     visible: 'Going'
     timeout: 30000
-- assertVisible: '1 going'
+- assertVisible: '1 going.*'
 
 # ── The ceiling ────────────────────────────────────────────────────────────
 # Approved over HTTP first: a pending event is invisible to anybody but its
