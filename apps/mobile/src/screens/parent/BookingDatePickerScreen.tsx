@@ -393,6 +393,7 @@ export default function BookingDatePickerScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.rail}
         contentContainerStyle={styles.railContent}
       >
         {railDays.map((d) => {
@@ -503,36 +504,41 @@ export default function BookingDatePickerScreen() {
     }
     return (
       <View style={styles.durationCard}>
-        <View style={styles.durationTopRow}>
-          <View style={styles.durationReadout}>
-            <Text style={styles.durationValue}>
+        <View style={styles.readout}>
+          <View style={styles.readoutRow}>
+            <Text
+              style={[styles.durationValue, styles.readoutValue]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {startWall ? formatBookingTime(startWall) : '—'}
             </Text>
-            <Text style={styles.durationCaption}>
-              {timeError ?? `Adjust in ${START_STEP_MINUTES}-minute steps`}
-            </Text>
+            <Stepper
+              testID="booking.startTime"
+              value={Math.max(startIndex, 0)}
+              onChange={(index) => {
+                const next = startCandidates[index];
+                if (next) applyStart(next);
+              }}
+              min={0}
+              max={startCandidates.length - 1}
+              // Only the minutes: repeating the full time next to the readout
+              // that already shows it made the control wide and redundant.
+              formatValue={(index) => {
+                const at = startCandidates[index];
+                return at ? `:${at.slice(14, 16)}` : '—';
+              }}
+            />
           </View>
-          <Stepper
-            testID="booking.startTime"
-            value={Math.max(startIndex, 0)}
-            onChange={(index) => {
-              const next = startCandidates[index];
-              if (next) applyStart(next);
-            }}
-            min={0}
-            max={startCandidates.length - 1}
-            // Only the minutes: repeating the full time next to the readout
-            // that already shows it made the control wide and redundant.
-            formatValue={(index) => {
-              const at = startCandidates[index];
-              return at ? `:${at.slice(14, 16)}` : '—';
-            }}
-          />
+          <Text style={styles.durationCaption}>
+            {timeError ?? `Adjust in ${START_STEP_MINUTES}-minute steps`}
+          </Text>
         </View>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.quickScroll}
           contentContainerStyle={styles.quickScrollRow}
         >
           {hourChips.map((chip) => {
@@ -658,29 +664,34 @@ export default function BookingDatePickerScreen() {
               <Text style={styles.sectionTitle}>How long?</Text>
 
               <View style={styles.durationCard}>
-                <View style={styles.durationTopRow}>
-                  <View style={styles.durationReadout}>
+                <View style={styles.readout}>
+                  <View style={styles.readoutRow}>
                     {/* testID: "4h" also appears in the stepper and the deal banner, so a
                         flow reading the chosen length needs this one by id. */}
-                    <Text style={styles.durationValue} testID="booking.duration.value">
+                    <Text
+                      style={[styles.durationValue, styles.readoutValue]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      testID="booking.duration.value"
+                    >
                       {durationMinutes !== null ? formatMinutes(durationMinutes) : '—'}
                     </Text>
-                    <Text style={styles.durationCaption}>
-                      {startWall && endWall
-                        ? `${formatBookingTime(startWall)} – ${formatBookingTime(endWall)}`
-                        : 'Pick a start time first'}
-                    </Text>
+                    <Stepper
+                      testID="booking.duration"
+                      value={durationMinutes ?? minDuration}
+                      onChange={setSelectedDurationMinutes}
+                      min={minDuration}
+                      max={maxDuration}
+                      step={DURATION_STEP_MINUTES}
+                      formatValue={formatMinutes}
+                      disabled={availableDurations.length === 0}
+                    />
                   </View>
-                  <Stepper
-                    testID="booking.duration"
-                    value={durationMinutes ?? minDuration}
-                    onChange={setSelectedDurationMinutes}
-                    min={minDuration}
-                    max={maxDuration}
-                    step={DURATION_STEP_MINUTES}
-                    formatValue={formatMinutes}
-                    disabled={availableDurations.length === 0}
-                  />
+                  <Text style={styles.durationCaption}>
+                    {startWall && endWall
+                      ? `${formatBookingTime(startWall)} – ${formatBookingTime(endWall)}`
+                      : 'Pick a start time first'}
+                  </Text>
                 </View>
 
                 {nextDurationDeal && (

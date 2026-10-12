@@ -37,6 +37,7 @@ export const styles = StyleSheet.create({
   advanceNotice: {
     ...typeScale.caption,
     color: colors.textTertiary,
+    flexShrink: 1,
   },
 
   // Sections
@@ -67,15 +68,20 @@ export const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
 
-  // Date rail
+  // Date rail — bleeds to the screen edges so scrolled cards aren't cut off
+  // 24dp inside them; the content padding keeps the resting position aligned.
+  rail: {
+    marginHorizontal: -screenPadding,
+  },
   railContent: {
     gap: spacing.sm,
     paddingVertical: spacing.xxs,
-    paddingRight: spacing.lg,
+    paddingHorizontal: screenPadding,
   },
   railCard: {
-    width: 62,
+    minWidth: 62,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
@@ -134,10 +140,11 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginTop: spacing.lg,
   },
+  // flex rather than a fixed 36 each: seven of those overflow the grid card at 320dp.
   weekdayLabel: {
     ...typeScale.captionBold,
     color: colors.textMuted,
-    width: 36,
+    flex: 1,
     textAlign: 'center',
   },
   calendarGrid: {
@@ -182,10 +189,30 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: spacing.lg,
   },
+  // Bleeds to the card's edges so scrolled chips aren't cut off inside its padding.
+  quickScroll: {
+    marginHorizontal: -spacing.lg,
+  },
   quickScrollRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingRight: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  // A big value with its stepper beside it (start time, duration). The value
+  // stays on one line; when the two don't both fit — a narrow phone or a large
+  // font — the stepper wraps under it, and the caption runs full width below.
+  readout: {
+    gap: spacing.xxs,
+  },
+  readoutRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  readoutValue: {
+    maxWidth: '100%',
   },
 
   // Duration
@@ -195,15 +222,6 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     gap: spacing.lg,
     ...shadows.sm,
-  },
-  durationTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  durationReadout: {
-    gap: spacing.xxs,
   },
   durationValue: {
     ...typeScale.displaySm,
