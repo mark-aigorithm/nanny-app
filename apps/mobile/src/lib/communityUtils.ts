@@ -1,5 +1,7 @@
 import type { CommunityPostResponse, CommunityPostType, PaginationMeta } from '@nanny-app/shared';
 
+import { APP_NAME } from '@mobile/constants/app';
+
 import { formatMoney } from './formatMoney';
 
 export function formatTimeAgo(isoDate: string): string {
@@ -12,7 +14,13 @@ export function formatTimeAgo(isoDate: string): string {
   const days = Math.floor(hours / 24);
   if (days === 1) return 'Yesterday';
   if (days < 7) return `${days}d ago`;
-  return new Date(isoDate).toLocaleDateString();
+  // "Sep 29", with the year only once it isn't this one — not "9/29/2026".
+  const date = new Date(isoDate);
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}),
+  });
 }
 
 export function formatAuthorName(author: CommunityPostResponse['author']): string {
@@ -120,3 +128,16 @@ export type CommentsPage = {
   comments: import('@nanny-app/shared').CommentResponse[];
   meta: PaginationMeta;
 };
+
+/** What "Share" hands the OS share sheet: the post's gist, signed with the app. */
+export function postShareMessage(post: CommunityPostResponse): string {
+  const lines: string[] = [];
+  if (post.title) lines.push(post.title);
+  if (post.type === 'event') {
+    lines.push([formatEventDate(post.eventStartsAt), post.location].filter(Boolean).join(' · '));
+  }
+  if (post.type === 'marketplace') lines.push(formatPrice(post.price));
+  if (post.body) lines.push(post.body);
+  lines.push(`Shared from the ${APP_NAME} community`);
+  return lines.filter(Boolean).join('\n\n');
+}

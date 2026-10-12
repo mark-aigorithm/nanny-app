@@ -23,6 +23,8 @@ import {
   getPostTypeLabel,
 } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
+import { textDirectionStyle } from '@mobile/lib/textDirection';
+import { POST_TYPE_ICONS } from '@mobile/components/community/PostTagChip';
 import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/my-posts-screen.styles';
 
@@ -63,6 +65,12 @@ function statusMeta(post: CommunityPostResponse): StatusMeta {
   }
 }
 
+const SUMMARY: { status: CommunityPostResponse['moderationStatus']; label: string }[] = [
+  { status: 'rejected', label: 'To fix' },
+  { status: 'pending', label: 'In review' },
+  { status: 'approved', label: 'Published' },
+];
+
 /** The one-line detail under the title: what the type is about. */
 function detailLine(post: CommunityPostResponse): string | null {
   switch (post.type) {
@@ -97,31 +105,41 @@ function PostRow({
 
   return (
     <Card style={styles.postCard}>
-      <Pressable style={styles.postHeader} onPress={onOpen}>
+      <Pressable style={styles.postHeader} onPress={onOpen} accessibilityRole="button">
+        {/* A photo when the post has one; otherwise its type, rather than an
+            empty "no image" box that reads as a failed upload. */}
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.thumb} resizeMode="cover" />
         ) : (
           <View style={[styles.thumb, styles.thumbEmpty]}>
-            <Ionicons name="image-outline" size={20} color={colors.textPlaceholder} />
+            <Ionicons name={POST_TYPE_ICONS[post.type]} size={24} color={colors.primaryDark} />
           </View>
         )}
         <View style={styles.postBody}>
-          <Text style={styles.typeLabel}>{getPostTypeLabel(post.type)}</Text>
-          <Text style={styles.postTitle} numberOfLines={1}>
+          <View style={styles.metaRow}>
+            <Text style={styles.typeLabel}>{getPostTypeLabel(post.type)}</Text>
+            <Text style={styles.postTime}>{formatTimeAgo(post.createdAt)}</Text>
+          </View>
+          <Text
+            style={[styles.postTitle, textDirectionStyle(post.title ?? post.body)]}
+            numberOfLines={2}
+          >
             {post.title ?? post.body}
           </Text>
           {detail && <Text style={styles.postDetail}>{detail}</Text>}
-          <Text style={styles.postTime}>{formatTimeAgo(post.createdAt)}</Text>
+          <View style={[styles.chip, meta.chipStyle]}>
+            <Ionicons name={meta.icon} size={14} color={meta.color} />
+            <Text style={[styles.chipText, meta.textStyle]}>{meta.label}</Text>
+          </View>
         </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.textPlaceholder} />
       </Pressable>
 
-      <View style={[styles.chip, meta.chipStyle]}>
-        <Ionicons name={meta.icon} size={14} color={meta.color} />
-        <Text style={[styles.chipText, meta.textStyle]}>{meta.label}</Text>
-      </View>
-
       {post.moderationStatus === 'rejected' && post.rejectionReason && (
-        <Text style={styles.reason}>{post.rejectionReason}</Text>
+        <View style={styles.reasonBox}>
+          <Text style={styles.reasonLabel}>Reviewer’s note</Text>
+          <Text style={styles.reason}>{post.rejectionReason}</Text>
+        </View>
       )}
 
       {post.moderationStatus !== 'approved' && (
@@ -192,13 +210,36 @@ export default function MyPostsScreen() {
 
         {!isLoading && !isError && posts.length === 0 && (
           <Card style={styles.emptyCard}>
-            <Ionicons name="albums-outline" size={26} color={colors.textPlaceholder} />
+            <View style={styles.emptyIcon}>
+              <Ionicons name="create-outline" size={26} color={colors.primaryDark} />
+            </View>
             <Text style={styles.emptyTitle}>Nothing posted yet</Text>
             <Text style={styles.emptyBody}>
               Ask a question, host an event or sell something and it will show up here while
               it’s reviewed.
             </Text>
+            <Button
+              title="Create a post"
+              onPress={() => router.push('/(parent)/create-post' as never)}
+              style={styles.emptyButton}
+            />
           </Card>
+        )}
+
+        {/* What needs her attention first: anything sent back, then the queue.
+            Counted from what's loaded, so only once every page is in. */}
+        {posts.length > 0 && !hasNextPage && (
+          <View style={styles.summaryRow}>
+            {SUMMARY.map(({ status, label }) => {
+              const count = posts.filter((p) => p.moderationStatus === status).length;
+              return (
+                <View key={status} style={styles.summaryTile}>
+                  <Text style={styles.summaryCount}>{count}</Text>
+                  <Text style={styles.summaryLabel}>{label}</Text>
+                </View>
+              );
+            })}
+          </View>
         )}
 
         {posts.map((post) => (

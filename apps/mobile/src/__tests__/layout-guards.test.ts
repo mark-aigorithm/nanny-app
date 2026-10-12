@@ -54,6 +54,20 @@ describe('layout guards', () => {
     expect(offenders((src) => guess.test(src))).toEqual([]);
   });
 
+  // Edge-to-edge Android doesn't shrink the window for the keyboard, so an
+  // iOS-only `behavior` left comment boxes and form fields under it. (The care
+  // log's sheet sets its own `behavior` for both platforms.)
+  it('avoids the keyboard only through the shared KeyboardAvoidingView', () => {
+    expect(
+      offenders(
+        (src, file) =>
+          !file.endsWith(path.join('components', 'ui', 'keyboard-avoiding-view.tsx')) &&
+          !file.endsWith(path.join('nanny', 'CareLogScreen.tsx')) &&
+          /import \{[^}]*\bKeyboardAvoidingView\b[^}]*\} from 'react-native'/.test(src),
+      ),
+    ).toEqual([]);
+  });
+
   it('reads the status bar height only in the theme', () => {
     expect(
       offenders(

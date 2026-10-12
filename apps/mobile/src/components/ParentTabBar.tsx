@@ -16,7 +16,6 @@ export const ROUTE_TO_TAB: Readonly<Record<string, BottomNavTab>> = {
   notifications: 'home',
   services: 'services',
   community: 'services',
-  'community-feed': 'services',
   bookings: 'activity',
   messages: 'account',
   'mother-profile': 'account',

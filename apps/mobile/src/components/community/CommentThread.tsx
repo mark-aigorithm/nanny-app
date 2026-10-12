@@ -6,12 +6,14 @@ import type { CommentResponse } from '@nanny-app/shared';
 
 import { formatAuthorName, formatTimeAgo } from '@mobile/lib/communityUtils';
 import { resolveAvatarUri } from '@mobile/lib/imageUri';
+import { textDirectionStyle } from '@mobile/lib/textDirection';
 import { colors, spacing, borderRadius, typeScale } from '@mobile/theme';
 
 type Props = {
   comment: CommentResponse;
   onLikePress?: (commentId: number) => void;
-  onReplyPress?: (commentId: number) => void;
+  /** Gets the comment and its author's name, for the composer's "Replying to". */
+  onReplyPress?: (commentId: number, authorName: string) => void;
 };
 
 function CommentItem({
@@ -20,129 +22,140 @@ function CommentItem({
   onReplyPress,
   isReply = false,
 }: Props & { isReply?: boolean }) {
-  const avatarUri = resolveAvatarUri(
-    formatAuthorName(comment.author),
-    comment.author.avatarUrl,
-  );
+  const authorName = formatAuthorName(comment.author);
+  const avatarUri = resolveAvatarUri(authorName, comment.author.avatarUrl);
 
   return (
-    <View style={[styles.commentCard, isReply && styles.replyCard]}>
-      <View style={styles.authorRow}>
-        <Image source={{ uri: avatarUri }} style={isReply ? styles.replyAvatar : styles.avatar} />
-        <Text style={isReply ? styles.replyAuthorName : styles.authorName}>
-          {formatAuthorName(comment.author)}
-        </Text>
-        <Text style={styles.time}>{formatTimeAgo(comment.createdAt)}</Text>
-      </View>
-      <Text style={isReply ? styles.replyBody : styles.body}>{comment.body}</Text>
-      <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={() => onLikePress?.(comment.id)}>
-          <Ionicons
-            name={comment.likedByMe ? 'heart' : 'heart-outline'}
-            size={14}
-            color={comment.likedByMe ? colors.error : colors.textMuted}
-          />
-          <Text style={styles.actionText}>{comment.likeCount}</Text>
-        </Pressable>
-        {!isReply && (
-          <Pressable style={styles.action} onPress={() => onReplyPress?.(comment.id)}>
-            <Text style={styles.actionText}>Reply</Text>
+    <View style={styles.comment}>
+      <Image source={{ uri: avatarUri }} style={isReply ? styles.replyAvatar : styles.avatar} />
+      <View style={styles.main}>
+        <View style={styles.bubble}>
+          <View style={styles.authorRow}>
+            <Text style={styles.authorName} numberOfLines={1}>
+              {authorName}
+            </Text>
+            <Text style={styles.time}>{formatTimeAgo(comment.createdAt)}</Text>
+          </View>
+          <Text style={[styles.body, textDirectionStyle(comment.body)]}>{comment.body}</Text>
+        </View>
+        <View style={styles.actions}>
+          <Pressable
+            style={styles.action}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={comment.likedByMe ? 'Unlike comment' : 'Like comment'}
+            onPress={() => onLikePress?.(comment.id)}
+          >
+            <Ionicons
+              name={comment.likedByMe ? 'heart' : 'heart-outline'}
+              size={15}
+              color={comment.likedByMe ? colors.error : colors.textMuted}
+            />
+            {comment.likeCount > 0 && (
+              <Text style={[styles.actionText, comment.likedByMe && styles.actionTextLiked]}>
+                {comment.likeCount}
+              </Text>
+            )}
           </Pressable>
+          {!isReply && onReplyPress && (
+            <Pressable
+              style={styles.action}
+              hitSlop={4}
+              accessibilityRole="button"
+              onPress={() => onReplyPress(comment.id, authorName)}
+            >
+              <Text style={styles.actionText}>Reply</Text>
+            </Pressable>
+          )}
+        </View>
+        {!isReply && comment.replies.length > 0 && (
+          <View style={styles.replies}>
+            {comment.replies.map((reply) => (
+              <CommentItem key={reply.id} comment={reply} onLikePress={onLikePress} isReply />
+            ))}
+          </View>
         )}
       </View>
-      {!isReply && comment.replies.length > 0 && (
-        <View style={styles.replies}>
-          {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              onLikePress={onLikePress}
-              isReply
-            />
-          ))}
-        </View>
-      )}
     </View>
   );
 }
 
 export default function CommentThread({ comment, onLikePress, onReplyPress }: Props) {
-  return (
-    <View>
-      <CommentItem comment={comment} onLikePress={onLikePress} onReplyPress={onReplyPress} />
-      <View style={styles.divider} />
-    </View>
-  );
+  return <CommentItem comment={comment} onLikePress={onLikePress} onReplyPress={onReplyPress} />;
 }
 
 const styles = StyleSheet.create({
-  commentCard: {
-    paddingVertical: spacing.sm,
+  comment: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
-  replyCard: {
-    marginTop: spacing.sm,
-    paddingLeft: spacing.md,
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceMuted,
+  },
+  replyAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceMuted,
+  },
+  main: {
+    flex: 1,
+    minWidth: 0,
+  },
+  bubble: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderTopLeftRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xxs,
   },
   authorRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xxs,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-  },
-  replyAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
+    alignItems: 'baseline',
+    gap: spacing.sm,
   },
   authorName: {
-    ...typeScale.bodySm,
-    fontWeight: '600',
-    color: colors.textDark,
-    flexShrink: 1,
-  },
-  replyAuthorName: {
-    ...typeScale.caption,
-    fontWeight: '600',
+    ...typeScale.labelSm,
     color: colors.textDark,
     flexShrink: 1,
   },
   time: {
     ...typeScale.caption,
     color: colors.textMuted,
-    marginLeft: 'auto',
   },
   body: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
   },
-  replyBody: {
-    ...typeScale.bodySm,
-    color: colors.textSecondary,
-  },
   actions: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xs,
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.xs,
   },
+  // 36pt rows with hitSlop: comfortable to hit without spacing comments apart.
   action: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xxs,
+    minHeight: 36,
+    minWidth: 36,
+    paddingHorizontal: spacing.xs,
   },
   actionText: {
-    ...typeScale.caption,
+    ...typeScale.labelSm,
     color: colors.textMuted,
   },
-  replies: {
-    marginTop: spacing.xs,
+  actionTextLiked: {
+    color: colors.error,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.borderSubtle,
+  replies: {
+    gap: spacing.sm,
+    paddingLeft: spacing.xs,
   },
 });

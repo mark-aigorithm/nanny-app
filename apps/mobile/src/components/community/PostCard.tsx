@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Image, StyleSheet } from 'react-native';
+import { View, Image, Share, StyleSheet } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { CommunityPostResponse } from '@nanny-app/shared';
@@ -12,8 +12,10 @@ import {
   formatEventDate,
   formatPrice,
   formatTimeAgo,
+  postShareMessage,
 } from '@mobile/lib/communityUtils';
 import { resolveAvatarUri, resolveImageUri } from '@mobile/lib/imageUri';
+import { textDirectionStyle } from '@mobile/lib/textDirection';
 import { colors, spacing, borderRadius, typeScale, shadows } from '@mobile/theme';
 
 type Props = {
@@ -22,11 +24,26 @@ type Props = {
   onLikePress?: () => void;
   onCommentPress?: () => void;
   onRsvpPress?: () => void;
+  /** Feed card: long text is clipped and the whole card opens the post. */
   compact?: boolean;
 };
 
 /** Platform-authored listings are shown as the brand, never as the admin. */
 const OFFICIAL_SELLER_NAME = 'NannyNow';
+
+/** The calendar-page tile on an event: "OCT" over "14". */
+function EventDateTile({ iso }: { iso: string | null }) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return (
+    <View style={styles.dateTile}>
+      <Text style={styles.dateTileMonth}>
+        {date.toLocaleDateString(undefined, { month: 'short' }).toUpperCase()}
+      </Text>
+      <Text style={styles.dateTileDay}>{date.getDate()}</Text>
+    </View>
+  );
+}
 
 export default function PostCard({
   post,
@@ -41,6 +58,43 @@ export default function PostCard({
   const primaryImageUri = post.imageUrls
     .map(resolveImageUri)
     .find((url): url is string => Boolean(url));
+  const isFull =
+    post.type === 'event' &&
+    post.maxAttendees !== null &&
+    post.rsvpCount >= post.maxAttendees &&
+    !post.rsvpdByMe;
+
+  const sharePost = () => {
+    Share.share({ message: postShareMessage(post) }).catch(() => undefined);
+  };
+
+  const rsvpButton =
+    post.type === 'event' && onRsvpPress ? (
+      <PressableScale
+        style={[
+          styles.rsvpButton,
+          post.rsvpdByMe && styles.rsvpButtonActive,
+          isFull && styles.rsvpButtonFull,
+        ]}
+        haptic="tap"
+        disabled={isFull}
+        onPress={onRsvpPress}
+        accessibilityRole="button"
+      >
+        {post.rsvpdByMe && (
+          <Ionicons name="checkmark" size={16} color={colors.successText} />
+        )}
+        <Text
+          style={[
+            styles.rsvpText,
+            post.rsvpdByMe && styles.rsvpTextActive,
+            isFull && styles.rsvpTextFull,
+          ]}
+        >
+          {isFull ? 'Full' : post.rsvpdByMe ? 'Going' : 'RSVP'}
+        </Text>
+      </PressableScale>
+    ) : null;
 
   const content = (
     <View style={styles.card}>
@@ -87,9 +141,17 @@ export default function PostCard({
       )}
 
       {post.type === 'qa' && (
-        <Text style={styles.body} numberOfLines={compact ? 3 : undefined}>
-          {post.body}
-        </Text>
+        <>
+          {post.title ? (
+            <Text style={[styles.title, textDirectionStyle(post.title)]}>{post.title}</Text>
+          ) : null}
+          <Text
+            style={[styles.question, textDirectionStyle(post.body)]}
+            numberOfLines={compact ? 4 : undefined}
+          >
+            {post.body}
+          </Text>
+        </>
       )}
 
       {post.type === 'marketplace' && (
@@ -97,14 +159,19 @@ export default function PostCard({
           {primaryImageUri ? (
             <View style={styles.imageWrap}>
               <Image source={{ uri: primaryImageUri }} style={styles.image} resizeMode="cover" />
-              <View style={styles.priceBadge}>
-                <Text style={styles.priceBadgeText}>{formatPrice(post.price)}</Text>
-              </View>
             </View>
           ) : null}
-          <Text style={styles.title}>{post.title}</Text>
+          <View style={styles.listingRow}>
+            <Text style={[styles.title, styles.listingTitle, textDirectionStyle(post.title)]}>
+              {post.title}
+            </Text>
+            <Text style={styles.price}>{formatPrice(post.price)}</Text>
+          </View>
           {post.body ? (
-            <Text style={styles.body} numberOfLines={compact ? 2 : undefined}>
+            <Text
+              style={[styles.body, textDirectionStyle(post.body)]}
+              numberOfLines={compact ? 2 : undefined}
+            >
               {post.body}
             </Text>
           ) : null}
@@ -113,41 +180,53 @@ export default function PostCard({
 
       {post.type === 'event' && (
         <>
-          <Text style={styles.title}>{post.title}</Text>
-          <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-            <Text style={styles.detailText}>{formatEventDate(post.eventStartsAt)}</Text>
+          {primaryImageUri && !compact ? (
+            <View style={styles.imageWrap}>
+              <Image source={{ uri: primaryImageUri }} style={styles.image} resizeMode="cover" />
+            </View>
+          ) : null}
+          <View style={styles.eventRow}>
+            <EventDateTile iso={post.eventStartsAt} />
+            <View style={styles.eventInfo}>
+              <Text style={[styles.title, textDirectionStyle(post.title)]}>{post.title}</Text>
+              <View style={styles.detailRow}>
+                <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+                <Text style={styles.detailText}>{formatEventDate(post.eventStartsAt)}</Text>
+              </View>
+              {post.location ? (
+                <View style={styles.detailRow}>
+                  <Ionicons name="location-outline" size={15} color={colors.textMuted} />
+                  <Text style={styles.detailText}>{post.location}</Text>
+                </View>
+              ) : null}
+              <View style={styles.detailRow}>
+                <Ionicons name="people-outline" size={15} color={colors.textMuted} />
+                <Text style={styles.detailText}>
+                  {post.maxAttendees !== null
+                    ? `${post.rsvpCount} going · ${post.maxAttendees} spots`
+                    : `${post.rsvpCount} going`}
+                  {post.price !== null ? ` · ${formatPrice(post.price)}` : ''}
+                </Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-            <Text style={styles.detailText}>{post.location}</Text>
-          </View>
-          {post.price !== null && (
-            <Text style={styles.eventPrice}>{formatPrice(post.price)}</Text>
-          )}
-          <Text style={styles.attendeeCount}>{post.rsvpCount} going</Text>
-          {!compact && (
-            <Pressable
-              style={[styles.rsvpButton, post.rsvpdByMe && styles.rsvpButtonActive]}
-              onPress={onRsvpPress}
-            >
-              <Text style={[styles.rsvpText, post.rsvpdByMe && styles.rsvpTextActive]}>
-                {post.rsvpdByMe ? 'Going' : 'RSVP'}
-              </Text>
-            </Pressable>
-          )}
+          {post.body && !compact ? (
+            <Text style={[styles.body, textDirectionStyle(post.body)]}>{post.body}</Text>
+          ) : null}
         </>
       )}
 
       {post.tags.length > 0 && (
         <View style={styles.tagsRow}>
           {post.tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>#{tag}</Text>
-            </View>
+            <Text key={tag} style={styles.tagText}>
+              #{tag}
+            </Text>
           ))}
         </View>
       )}
+
+      <View style={styles.divider} />
 
       <PostActionBar
         likeCount={post.likeCount}
@@ -155,7 +234,8 @@ export default function PostCard({
         likedByMe={post.likedByMe}
         onLikePress={onLikePress}
         onCommentPress={onCommentPress ?? onPress}
-        showShare={post.type === 'qa'}
+        onSharePress={post.moderationStatus === 'approved' ? sharePost : undefined}
+        trailing={rsvpButton}
       />
     </View>
   );
@@ -172,25 +252,28 @@ export default function PostCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+    gap: spacing.md,
     ...shadows.sm,
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    marginRight: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
   },
   authorInfo: {
     flex: 1,
+    minWidth: 0,
   },
   authorNameRow: {
     flexDirection: 'row',
@@ -198,8 +281,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   authorName: {
-    ...typeScale.bodySm,
-    fontWeight: '600',
+    ...typeScale.labelMd,
     color: colors.textDark,
     flexShrink: 1,
   },
@@ -213,9 +295,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
   officialBadgeText: {
-    ...typeScale.caption,
-    fontWeight: '700',
+    ...typeScale.captionBold,
     color: colors.primaryDark,
+  },
+  authorTime: {
+    ...typeScale.caption,
+    color: colors.textMuted,
   },
   statusChip: {
     flexDirection: 'row',
@@ -226,111 +311,123 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: borderRadius.full,
-    marginBottom: spacing.sm,
   },
   statusChipRejected: {
     backgroundColor: colors.errorLight,
   },
   statusChipText: {
-    ...typeScale.caption,
-    fontWeight: '600',
+    ...typeScale.captionBold,
     color: colors.textTertiary,
   },
   statusChipTextRejected: {
     color: colors.error,
   },
-  authorTime: {
-    ...typeScale.caption,
-    color: colors.textMuted,
+  title: {
+    ...typeScale.headingSm,
+    color: colors.textDark,
+  },
+  question: {
+    ...typeScale.bodyLg,
+    color: colors.textPrimary,
   },
   body: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  title: {
-    ...typeScale.headingSm,
-    color: colors.textDark,
-    marginBottom: spacing.xs,
   },
   imageWrap: {
     borderRadius: borderRadius.md,
     overflow: 'hidden',
-    marginBottom: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
   },
   image: {
     width: '100%',
-    height: 180,
+    aspectRatio: 16 / 10,
   },
-  priceBadge: {
-    position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: borderRadius.full,
+  // Title and price share a row; the title wraps and the price never does.
+  listingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
   },
-  priceBadgeText: {
-    ...typeScale.caption,
-    fontWeight: '700',
-    color: colors.primary,
+  listingTitle: {
+    flex: 1,
+  },
+  price: {
+    ...typeScale.headingSm,
+    color: colors.primaryDark,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  dateTile: {
+    width: 52,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.successLight,
+    alignItems: 'center',
+  },
+  dateTileMonth: {
+    ...typeScale.captionBold,
+    color: colors.successText,
+  },
+  dateTileDay: {
+    ...typeScale.headingLg,
+    color: colors.successText,
+  },
+  eventInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing.xxs,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginBottom: spacing.xxs,
   },
   detailText: {
     ...typeScale.bodySm,
     color: colors.textMuted,
     flexShrink: 1,
   },
-  eventPrice: {
-    ...typeScale.bodySm,
-    color: colors.primary,
-    fontWeight: '600',
-    marginTop: spacing.xxs,
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.sm,
+    rowGap: spacing.xxs,
   },
-  attendeeCount: {
-    ...typeScale.caption,
-    color: colors.textMuted,
-    marginVertical: spacing.sm,
+  tagText: {
+    ...typeScale.labelSm,
+    color: colors.primaryDark,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.warmBorder,
   },
   rsvpButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    minHeight: 36,
+    backgroundColor: colors.primaryDark,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    marginBottom: spacing.sm,
   },
   rsvpButtonActive: {
     backgroundColor: colors.successLight,
   },
+  rsvpButtonFull: {
+    backgroundColor: colors.neutralLight,
+  },
   rsvpText: {
-    ...typeScale.bodySm,
+    ...typeScale.labelMd,
     color: colors.white,
-    fontWeight: '600',
   },
   rsvpTextActive: {
-    color: colors.successDark,
+    color: colors.successText,
   },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  tag: {
-    backgroundColor: colors.taupeLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: borderRadius.full,
-  },
-  tagText: {
-    ...typeScale.caption,
-    color: colors.textTertiary,
+  rsvpTextFull: {
+    color: colors.textMuted,
   },
 });

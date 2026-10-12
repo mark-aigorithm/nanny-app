@@ -104,7 +104,12 @@ export default function CustomerSupportScreen() {
 
             <Pressable
               style={styles.contactCard}
-              onPress={() => router.dismissTo('/(parent)/(tabs)/community')}
+              onPress={() =>
+                router.dismissTo({
+                  pathname: '/(parent)/(tabs)/community',
+                  params: { filter: 'Q&A' },
+                })
+              }
             >
               <View style={styles.contactIconWrapBeige}>
                 <Ionicons name="chatbubbles-outline" size={20} color={colors.textTertiary} />

@@ -14,10 +14,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COMMUNITY_TAGS, type CreateCommunityPostRequest } from '@nanny-app/shared';
 
+import { KeyboardAvoidingView } from '@mobile/components/ui';
+import { POST_TYPE_ICONS } from '@mobile/components/community/PostTagChip';
 import { useCommunityPost, useCreatePost, useUpdatePost } from '@mobile/hooks/useCommunity';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import {
   createTypeToUi,
+  formatEventDate,
   uiTypeToCreate,
 } from '@mobile/lib/communityUtils';
 import type { CreatePostUiType } from '@mobile/types';
@@ -75,7 +78,9 @@ export default function CreatePostScreen() {
   const [location, setLocation] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
   const [eventDate, setEventDate] = useState(new Date(Date.now() + 86_400_000));
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  // Android's picker does a date or a time, never both at once ("datetime" is
+  // iOS-only), so there it runs as two steps: the day, then the time.
+  const [pickerMode, setPickerMode] = useState<'date' | 'time' | 'datetime' | null>(null);
   const [selectedTags, setSelectedTags] = useState<(typeof COMMUNITY_TAGS)[number][]>([]);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -218,9 +223,14 @@ export default function CreatePostScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={exitCreatePost} hitSlop={8}>
+        <Pressable
+          onPress={exitCreatePost}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Ionicons name="close" size={24} color={colors.textDark} />
         </Pressable>
         <Text style={styles.headerTitle}>
@@ -259,7 +269,14 @@ export default function CreatePostScreen() {
                     key={type}
                     style={[styles.typeChip, isActive && styles.typeChipActive]}
                     onPress={() => setPostType(type)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isActive }}
                   >
+                    <Ionicons
+                      name={POST_TYPE_ICONS[uiTypeToCreate(type)]}
+                      size={16}
+                      color={isActive ? colors.white : colors.textTertiary}
+                    />
                     <Text style={[styles.typeChipText, isActive && styles.typeChipTextActive]}>
                       {type}
                     </Text>
@@ -344,18 +361,32 @@ export default function CreatePostScreen() {
           <>
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Date & time</Text>
-              <Pressable style={styles.selectField} onPress={() => setShowDatePicker(true)}>
+              <Pressable
+                style={styles.selectField}
+                onPress={() => setPickerMode(Platform.OS === 'ios' ? 'datetime' : 'date')}
+              >
                 <Ionicons name="calendar-outline" size={18} color={colors.textMuted} />
-                <Text style={styles.selectFieldText}>{eventDate.toLocaleString()}</Text>
+                <Text style={styles.selectFieldText}>
+                  {formatEventDate(eventDate.toISOString())}
+                </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
               </Pressable>
-              {showDatePicker && (
+              {pickerMode && (
                 <DateTimePicker
                   value={eventDate}
-                  mode="datetime"
-                  onChange={(_event, date) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    if (date) setEventDate(date);
+                  mode={pickerMode}
+                  minimumDate={pickerMode === 'time' ? undefined : new Date()}
+                  onChange={(event, date) => {
+                    if (Platform.OS === 'ios') {
+                      if (date) setEventDate(date);
+                      return;
+                    }
+                    if (event.type !== 'set' || !date) {
+                      setPickerMode(null);
+                      return;
+                    }
+                    setEventDate(date);
+                    setPickerMode(pickerMode === 'date' ? 'time' : null);
                   }}
                 />
               )}
@@ -463,6 +494,6 @@ export default function CreatePostScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

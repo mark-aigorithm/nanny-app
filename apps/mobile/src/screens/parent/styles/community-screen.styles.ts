@@ -1,80 +1,114 @@
 import { StyleSheet } from 'react-native';
 import {
   colors,
-  fontFamily,
   typeScale,
   spacing,
   screenPadding,
   borderRadius,
-  PARENT_TAB_CONTENT_TOP,
-  HEADER_HEIGHT,
+  shadows,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  filterBar: {
-    position: 'absolute',
-    top: HEADER_HEIGHT,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  headerButtonActive: {
+    backgroundColor: colors.taupe,
+  },
+
+  // Filters (or the search field), between the header and the feed.
+  toolbar: {
+    paddingBottom: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.warmBorder,
   },
   filterRow: {
     paddingHorizontal: screenPadding,
     gap: spacing.sm,
   },
   filterPill: {
-    borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 40,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
   },
   filterPillActive: {
-    backgroundColor: colors.primary,
-  },
-  filterPillInactive: {
-    backgroundColor: colors.taupe,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   filterPillText: {
-    ...typeScale.labelSm,
+    ...typeScale.labelMd,
+    color: colors.textTertiary,
   },
   filterPillTextActive: {
     color: colors.white,
   },
-  filterPillTextInactive: {
-    color: colors.textTertiary,
-  },
-
-  // "My posts" shortcut (every filter — every post is reviewed)
-  myPostsLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-    gap: spacing.xxs,
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.md,
-  },
-  myPostsText: {
-    ...typeScale.labelSm,
-    color: colors.primaryDark,
+  searchBar: {
+    marginHorizontal: screenPadding,
   },
 
   list: {
     flex: 1,
   },
   listContent: {
-    paddingTop: HEADER_HEIGHT + spacing['3xl'] + spacing.lg + spacing.md,
+    paddingTop: spacing.lg,
     paddingHorizontal: screenPadding,
-    gap: spacing.lg,
   },
   listContentEmpty: {
     flexGrow: 1,
   },
+  listGap: {
+    height: spacing.lg,
+  },
+
+  // "My posts" entry at the top of every filter
+  myPostsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primaryMuted,
+  },
+  myPostsIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  myPostsText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  myPostsTitle: {
+    ...typeScale.labelMd,
+    color: colors.textPrimary,
+  },
+  myPostsSubtitle: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+  },
+
   loadingIndicator: {
     marginTop: spacing['3xl'],
   },
@@ -83,11 +117,25 @@ export const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingTop: spacing['3xl'],
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
-  emptyText: {
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  emptyTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyBody: {
     ...typeScale.bodyMd,
     color: colors.textMuted,
     textAlign: 'center',
@@ -101,7 +149,6 @@ export const styles = StyleSheet.create({
   },
   emptyCtaText: {
     ...typeScale.labelMd,
-    fontFamily: fontFamily.semiBold,
     color: colors.primaryDark,
   },
 });

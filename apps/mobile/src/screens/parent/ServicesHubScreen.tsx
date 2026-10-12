@@ -45,20 +45,16 @@ export default function ServicesHubScreen() {
 
   const openTile = (key: string) => {
     switch (key) {
+      // One community screen; each tile names its filter, so Events opens
+      // Events even when the community is still showing another one.
       case 'community':
-        router.push('/(parent)/(tabs)/community');
+        router.push({ pathname: '/(parent)/(tabs)/community', params: { filter: 'All posts' } });
         break;
       case 'marketplace':
-        router.push({
-          pathname: '/(parent)/(tabs)/community-feed',
-          params: { filter: 'Marketplace' },
-        });
+        router.push({ pathname: '/(parent)/(tabs)/community', params: { filter: 'Marketplace' } });
         break;
       case 'events':
-        router.push({
-          pathname: '/(parent)/(tabs)/community-feed',
-          params: { filter: 'Events' },
-        });
+        router.push({ pathname: '/(parent)/(tabs)/community', params: { filter: 'Events' } });
         break;
       case 'packages':
         router.push('/(parent)/packages' as never);

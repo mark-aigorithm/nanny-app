@@ -39,7 +39,6 @@ describe('ParentTabBar', () => {
 
   it('maps secondary tab screens onto their section tab', () => {
     expect(ROUTE_TO_TAB.notifications).toBe('home');
-    expect(ROUTE_TO_TAB['community-feed']).toBe('services');
     expect(ROUTE_TO_TAB.messages).toBe('account');
   });
 

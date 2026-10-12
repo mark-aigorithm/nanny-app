@@ -63,17 +63,20 @@ describe('ServicesHubScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(parent)/book/booking-date-picker');
 
     fireEvent.press(getByText('Community'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/community');
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(parent)/(tabs)/community',
+      params: { filter: 'All posts' },
+    });
 
     fireEvent.press(getByText('Marketplace'));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/(tabs)/community-feed',
+      pathname: '/(parent)/(tabs)/community',
       params: { filter: 'Marketplace' },
     });
 
     fireEvent.press(getByText('Events & Meetups'));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(parent)/(tabs)/community-feed',
+      pathname: '/(parent)/(tabs)/community',
       params: { filter: 'Events' },
     });
 
@@ -99,6 +102,9 @@ describe('ServicesHubScreen', () => {
     );
 
     fireEvent.press(getByText('Community'));
-    expect(mockPush).toHaveBeenCalledWith('/(parent)/(tabs)/community');
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(parent)/(tabs)/community',
+      params: { filter: 'All posts' },
+    });
   });
 });

@@ -51,7 +51,7 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn: 'Community'
 
-# Q&A is the default pill, so this is also the assertion that the feed loaded.
+# The filter pills render once the screen is up (All is the default filter).
 - extendedWaitUntil:
     visible: 'Q&A'
     timeout: 30000
@@ -176,8 +176,8 @@ appId: com.nannyapp.mobile
     below: 'E2E lab coffee morning'
 
 # ── RSVP ───────────────────────────────────────────────────────────────────
-# The button only renders on the detail screen; the feed card is compact and
-# leaves it out.
+# The feed card has an RSVP button too, but every event card would render one —
+# the detail screen has exactly one.
 - tapOn: 'E2E lab coffee morning'
 - extendedWaitUntil:
     visible: 'RSVP'

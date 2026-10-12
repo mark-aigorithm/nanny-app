@@ -47,7 +47,13 @@ export default function Header({
     >
       <View style={styles.row}>
         {showBackButton ? (
-          <Pressable onPress={handleBack} style={styles.backButton} hitSlop={8}>
+          <Pressable
+            onPress={handleBack}
+            style={styles.backButton}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
         ) : leftElement ? (

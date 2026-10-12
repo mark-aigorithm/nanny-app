@@ -78,6 +78,10 @@ export const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   typeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 40,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
@@ -86,8 +90,8 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   typeChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   typeChipText: {
     ...typeScale.labelSm,

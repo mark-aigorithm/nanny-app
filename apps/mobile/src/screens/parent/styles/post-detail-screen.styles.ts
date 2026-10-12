@@ -1,384 +1,137 @@
 import { StyleSheet } from 'react-native';
-import {
-  colors,
-  fontFamily,
-  typeScale,
-  spacing,
-  screenPadding,
-  borderRadius,
-  shadows,
-  STATUS_BAR_HEIGHT,
-} from '@mobile/theme';
-
-export const postDetailTheme = {
-  iconDark: colors.textDark,
-  primary: colors.primary,
-  white: colors.white,
-  textPlaceholder: colors.textPlaceholder,
-} as const;
+import { colors, typeScale, spacing, screenPadding, borderRadius } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: colors.background,
-    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
-    paddingBottom: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.warmBorder,
+  },
+  body: {
+    flex: 1,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     paddingHorizontal: screenPadding,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceMuted,
-    zIndex: 10,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  headerTitle: {
+  notFoundTitle: {
     ...typeScale.headingSm,
-    color: colors.textDark,
+    color: colors.textPrimary,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  notFoundBody: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
 
-  // ── Scroll ──────────────────────────────────────────────────────────────────
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: screenPadding,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing['4xl'],
-  },
-
-  // ── Post Card ───────────────────────────────────────────────────────────────
-  postCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    ...shadows.sm,
-    gap: spacing.md,
-  },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.warmBorder,
-  },
-  authorInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  authorName: {
-    fontFamily: fontFamily.bold,
-    fontSize: 15,
-    color: colors.textDark,
-    lineHeight: 20,
-  },
-  authorTime: {
-    fontFamily: fontFamily.regular,
-    fontSize: 12,
-    color: colors.textMuted,
-    lineHeight: 16,
-  },
-  tagPill: {
-    borderRadius: borderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  tagPillText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 11,
-  },
-  postBody: {
-    ...typeScale.bodyLg,
-    color: colors.textDark,
-    lineHeight: 24,
-  },
-
-  // ── Post image (marketplace / event) ────────────────────────────────────────
-  postImageContainer: {
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  postImage: {
-    width: '100%',
-    height: 200,
-  },
-  priceBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: colors.goldWarm,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: spacing.xs,
-  },
-  priceBadgeText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 14,
-    color: colors.white,
-  },
-  postTitle: {
-    ...typeScale.headingMd,
-    color: colors.textDark,
-  },
-
-  // ── Event details ───────────────────────────────────────────────────────────
-  eventDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  eventDetailText: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
-  },
-  attendeesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  stackedAvatars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  attendeeAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.white,
-    backgroundColor: colors.warmBorder,
-  },
-  attendeeCount: {
-    ...typeScale.labelSm,
-    color: colors.textMuted,
-  },
-
-  // ── Action bar ──────────────────────────────────────────────────────────────
-  actionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceMuted,
-    paddingTop: spacing.md,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  actionCount: {
-    ...typeScale.labelSm,
-    color: colors.textMuted,
-  },
-  actionItemActive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  actionCountActive: {
-    ...typeScale.labelSm,
-    color: colors.primary,
-  },
-
-  // ── Comments section ────────────────────────────────────────────────────────
-  commentsSection: {
-    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing['2xl'],
     gap: spacing.lg,
   },
-  commentsTitle: {
-    ...typeScale.headingSm,
-    color: colors.textDark,
-  },
-  commentCard: {
-    gap: spacing.sm,
-  },
-  commentAuthorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.warmBorder,
-  },
-  commentAuthorName: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
-    color: colors.textDark,
-  },
-  commentTime: {
-    fontFamily: fontFamily.regular,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  commentBody: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-    marginLeft: 32 + spacing.sm,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    marginLeft: 32 + spacing.sm,
-  },
-  commentAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  commentActionText: {
-    ...typeScale.caption,
-    color: colors.textMuted,
-  },
-  commentDivider: {
-    height: 1,
-    backgroundColor: colors.surfaceMuted,
-    marginVertical: spacing.xs,
-  },
 
-  // ── Replies ─────────────────────────────────────────────────────────────────
-  repliesContainer: {
-    marginLeft: 32 + spacing.sm,
-    marginTop: spacing.sm,
-    paddingLeft: spacing.md,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.surfaceMuted,
-    gap: spacing.md,
-  },
-  replyCard: {
-    gap: spacing.xs,
-  },
-  replyAuthorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  replyAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.warmBorder,
-  },
-  replyAuthorName: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    color: colors.textDark,
-  },
-  replyTime: {
-    fontFamily: fontFamily.regular,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  replyBody: {
-    ...typeScale.bodySm,
-    color: colors.textSecondary,
-    marginLeft: 24 + spacing.sm,
-  },
-
-  // ── Sticky reply input ──────────────────────────────────────────────────────
-  replyInputBar: {
-    flexDirection: 'column',
-    paddingHorizontal: screenPadding,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceMuted,
-    gap: spacing.sm,
-  },
-  replyAvatar2: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.warmBorder,
-  },
-  replyInput: {
-    flex: 1,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    color: colors.textDark,
-  },
-  sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: colors.neutralLight,
-  },
-
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButtonAbsolute: {
-    position: 'absolute',
-    top: STATUS_BAR_HEIGHT + spacing.sm,
-    left: 20,
-  },
-  loadMorePressable: {
-    paddingVertical: 12,
-  },
-  loadMoreText: {
-    color: colors.primary,
-    textAlign: 'center',
-  },
-  replyCancelText: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  replyInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  replyInputFlex: {
-    flex: 1,
-  },
   messageSellerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.xl,
-    paddingVertical: spacing.md,
-    marginTop: spacing.md,
-    ...shadows.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryDark,
   },
   messageSellerButtonText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 15,
+    ...typeScale.labelLg,
     color: colors.white,
+  },
+
+  // ── Comments ────────────────────────────────────────────────────────────────
+  commentsSection: {
+    gap: spacing.md,
+  },
+  commentsTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+  },
+  noComments: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing['2xl'],
+  },
+  noCommentsText: {
+    ...typeScale.bodyMd,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  loadMorePressable: {
+    alignSelf: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  loadMoreText: {
+    ...typeScale.labelMd,
+    color: colors.primaryDark,
+  },
+
+  // ── Composer (pinned under the thread, above the keyboard) ─────────────────
+  composer: {
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.warmBorder,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+  },
+  replyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  replyBannerText: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    flex: 1,
+  },
+  replyBannerName: {
+    ...typeScale.captionBold,
+    color: colors.textSecondary,
+  },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
+  // Grows with the text up to about five lines, then scrolls inside itself.
+  composerInput: {
+    ...typeScale.bodyMd,
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    borderRadius: borderRadius['2xl'],
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textPrimary,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: colors.neutralLight,
   },
 });

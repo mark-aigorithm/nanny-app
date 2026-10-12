@@ -34,6 +34,45 @@ export const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing['2xl'],
   },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: br.full,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  emptyButton: {
+    alignSelf: 'stretch',
+    marginTop: spacing.md,
+  },
+
+  // Status summary
+  summaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  summaryTile: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: br.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.warmBorder,
+  },
+  summaryCount: {
+    ...typeScale.headingLg,
+    color: colors.textPrimary,
+  },
+  summaryLabel: {
+    ...typeScale.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+
   emptyTitle: {
     ...typeScale.headingSm,
     color: colors.textDark,
@@ -50,14 +89,14 @@ export const styles = StyleSheet.create({
   },
   postHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   thumb: {
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     borderRadius: br.md,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.primaryMuted,
   },
   thumbEmpty: {
     alignItems: 'center',
@@ -65,7 +104,14 @@ export const styles = StyleSheet.create({
   },
   postBody: {
     flex: 1,
-    gap: spacing.xxs,
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: spacing.sm,
   },
   typeLabel: {
     ...typeScale.caption,
@@ -79,9 +125,8 @@ export const styles = StyleSheet.create({
     color: colors.textDark,
   },
   postDetail: {
-    ...typeScale.bodySm,
-    fontWeight: '700',
-    color: colors.primary,
+    ...typeScale.labelSm,
+    color: colors.primaryDark,
   },
   postTime: {
     ...typeScale.caption,
@@ -121,6 +166,16 @@ export const styles = StyleSheet.create({
     color: colors.successText,
   },
 
+  reasonBox: {
+    gap: spacing.xxs,
+    padding: spacing.md,
+    borderRadius: br.md,
+    backgroundColor: colors.errorLight,
+  },
+  reasonLabel: {
+    ...typeScale.captionBold,
+    color: colors.error,
+  },
   reason: {
     ...typeScale.bodySm,
     color: colors.textSecondary,
