@@ -64,15 +64,23 @@ export function requireAppInstalled(adb, device) {
 }
 
 /**
+ * The host port Metro listens on. Inside the emulator the app always loads from
+ * :8081 (`adb reverse` maps it), so only the host side moves — for a machine
+ * where another project's Metro already holds 8081.
+ */
+const METRO_PORT = process.env['E2E_METRO_PORT'] || '8081';
+const METRO_URL = `http://127.0.0.1:${METRO_PORT}`;
+
+/**
  * Metro serves the JS *and* the config block that points the app at the local
  * stack. `metroScript` is the package script that starts the right one —
  * `e2e:metro` for the emulator suite, `e2e:metro:live` for the live one.
  */
 export async function requireMetro(metroScript = 'e2e:metro') {
-  const response = await fetch('http://127.0.0.1:8081/status').catch(() => null);
+  const response = await fetch(`${METRO_URL}/status`).catch(() => null);
   if (!response?.ok) {
     fail(
-      'No Metro bundler on :8081. A debug build loads its JS from there:\n' +
+      `No Metro bundler on :${METRO_PORT}. A debug build loads its JS from there:\n` +
         `  pnpm --filter @nanny-app/mobile ${metroScript}`,
     );
   }
@@ -102,7 +110,7 @@ export async function requireMetro(metroScript = 'e2e:metro') {
  */
 async function warmMetro(metroScript) {
   const url =
-    'http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle' +
+    `${METRO_URL}/.expo/.virtual-metro-entry.bundle` +
     '?platform=android&dev=true&hot=false&transform.engine=hermes';
 
   process.stdout.write('[e2e] building the bundle… ');
@@ -138,7 +146,7 @@ async function warmMetro(metroScript) {
  * verification (see emulator-env.mjs).
  */
 async function readMetroAuthConfig() {
-  const response = await fetch('http://127.0.0.1:8081/', {
+  const response = await fetch(`${METRO_URL}/`, {
     headers: { 'expo-platform': 'android', accept: 'application/expo+json,application/json' },
     signal: AbortSignal.timeout(60_000),
   }).catch(() => null);
@@ -221,7 +229,7 @@ export async function requireMetroFor(suite) {
  * payment goes to is not something to guess.
  */
 export async function requireMetroPaymob(profile) {
-  const response = await fetch('http://127.0.0.1:8081/', {
+  const response = await fetch(`${METRO_URL}/`, {
     headers: { 'expo-platform': 'android', accept: 'application/expo+json,application/json' },
     signal: AbortSignal.timeout(60_000),
   }).catch(() => null);
@@ -251,11 +259,21 @@ export async function requireMetroPaymob(profile) {
  * device over USB.
  */
 export function reverseMetroPort(adb, device) {
-  const result = spawnSync(adb, ['-s', device, 'reverse', 'tcp:8081', 'tcp:8081'], {
+  const result = spawnSync(adb, ['-s', device, 'reverse', 'tcp:8081', `tcp:${METRO_PORT}`], {
     encoding: 'utf8',
   });
   if (result.status !== 0) {
     fail(`adb reverse for Metro failed: ${result.stderr?.trim() || 'unknown error'}`);
+  }
+  // Metro names its own port in the bundle URL it hands the app, so a Metro
+  // moved off 8081 must be reachable inside the emulator on that port too.
+  if (METRO_PORT !== '8081') {
+    const own = spawnSync(adb, ['-s', device, 'reverse', `tcp:${METRO_PORT}`, `tcp:${METRO_PORT}`], {
+      encoding: 'utf8',
+    });
+    if (own.status !== 0) {
+      fail(`adb reverse for Metro failed: ${own.stderr?.trim() || 'unknown error'}`);
+    }
   }
 }
 

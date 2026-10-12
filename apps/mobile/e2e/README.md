@@ -146,6 +146,12 @@ pnpm test:e2e:mobile smoke
 The runner checks all four prerequisites before doing anything and names the
 missing command rather than failing inside a flow.
 
+**Port 8081 taken** (another project's Metro): start this one elsewhere —
+`pnpm --filter @nanny-app/mobile e2e:metro --port 8090` — and run with
+`E2E_METRO_PORT=8090 pnpm test:e2e:mobile`. The runner reverses both 8081 and
+8090 into the emulator, so the flows' `localhost:8081` link still works and so
+does the bundle URL Metro hands back, which names its own port.
+
 ## Live-Firebase auth suite
 
 Everything above runs against the Auth emulator. The five flows in
