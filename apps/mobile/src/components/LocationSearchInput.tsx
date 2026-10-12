@@ -75,6 +75,9 @@ export default function LocationSearchInput({
           onFocus={() => setIsFocused(true)}
           // Delay so a suggestion tap registers before the dropdown unmounts.
           onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+          // Android leaves a long address scrolled to its end ("…4735044,
+          // Egypt"); at rest, show where it starts — the street.
+          selection={isFocused ? undefined : { start: 0, end: 0 }}
           placeholder={placeholder}
           placeholderTextColor={colors.textPlaceholder}
           autoCapitalize="words"

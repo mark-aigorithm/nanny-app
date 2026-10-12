@@ -22,6 +22,8 @@ import Constants from 'expo-constants';
  */
 export function isMapAvailable(): boolean {
   if (Platform.OS !== 'android') return true;
-  const apiKey = Constants.expoConfig?.android?.config?.googleMaps?.apiKey;
-  return typeof apiKey === 'string' && apiKey.trim().length > 0;
+  // Not `android.config.googleMaps.apiKey`: Expo deletes `android.config` from
+  // the config it embeds in the app, so that read was always empty and every
+  // Android build fell back to no map. app.config.ts publishes this flag instead.
+  return Constants.expoConfig?.extra?.['googleMapsEnabled'] === true;
 }

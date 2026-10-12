@@ -146,6 +146,10 @@ const config: ExpoConfig = {
     // hostUri so it stays in sync with the IP printed at startup.
     apiBaseUrl: process.env['API_BASE_URL'] ?? 'https://backend-beige-nine-55.vercel.app',
     currencyCode: process.env['CURRENCY_CODE'] ?? 'EGP',
+    // Whether this build carries a Google Maps key — read by src/lib/maps.ts.
+    // The key itself lives in android.config, which Expo strips from the
+    // runtime config, so the app can't look for it there.
+    googleMapsEnabled: GOOGLE_MAPS_API_KEY.trim().length > 0,
     // Google Places / Geocoding key — read by src/lib/googlePlaces.ts.
     googlePlacesApiKey: GOOGLE_PLACES_API_KEY,
     // Web OAuth client id for native Google Sign-In — read by lib/socialAuth.ts.
