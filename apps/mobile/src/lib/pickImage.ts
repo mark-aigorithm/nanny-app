@@ -19,9 +19,12 @@ export async function pickImageFromLibrary(): Promise<string | null> {
       noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to upload your ID.' });
       return null;
     }
+    // No crop step: Android's cropper opens with its box over the whole photo
+    // and a "Crop" button that hands it back unchanged, which reads as broken.
+    // An ID is reviewed whole anyway.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
