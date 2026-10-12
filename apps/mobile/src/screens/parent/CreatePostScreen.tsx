@@ -10,7 +10,7 @@ import {
 import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COMMUNITY_TAGS, type CreateCommunityPostRequest } from '@nanny-app/shared';
 
@@ -78,12 +78,38 @@ export default function CreatePostScreen() {
   const [location, setLocation] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
   const [eventDate, setEventDate] = useState(new Date(Date.now() + 86_400_000));
-  // Android's picker does a date or a time, never both at once ("datetime" is
-  // iOS-only), so there it runs as two steps: the day, then the time.
-  const [pickerMode, setPickerMode] = useState<'date' | 'time' | 'datetime' | null>(null);
+  // iOS shows an inline date-and-time picker under the field.
+  const [showIosPicker, setShowIosPicker] = useState(false);
   const [selectedTags, setSelectedTags] = useState<(typeof COMMUNITY_TAGS)[number][]>([]);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  /**
+   * Android has no combined date-and-time dialog — asking the declarative
+   * picker for mode="datetime" crashed the app when the dialog closed — so it
+   * runs as two imperative dialogs: the day, then the time on that day.
+   */
+  function openEventDatePicker() {
+    if (Platform.OS === 'ios') {
+      setShowIosPicker((shown) => !shown);
+      return;
+    }
+    DateTimePickerAndroid.open({
+      value: eventDate,
+      mode: 'date',
+      minimumDate: new Date(),
+      onChange: (dateEvent, day) => {
+        if (dateEvent.type !== 'set' || !day) return;
+        DateTimePickerAndroid.open({
+          value: day,
+          mode: 'time',
+          onChange: (timeEvent, time) => {
+            if (timeEvent.type === 'set' && time) setEventDate(time);
+          },
+        });
+      },
+    });
+  }
 
   const createPost = useCreatePost();
   const updatePost = useUpdatePost();
@@ -362,8 +388,10 @@ export default function CreatePostScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Date & time</Text>
               <Pressable
+                testID="createPost.eventDate"
                 style={styles.selectField}
-                onPress={() => setPickerMode(Platform.OS === 'ios' ? 'datetime' : 'date')}
+                onPress={openEventDatePicker}
+                accessibilityRole="button"
               >
                 <Ionicons name="calendar-outline" size={18} color={colors.textMuted} />
                 <Text style={styles.selectFieldText}>
@@ -371,22 +399,13 @@ export default function CreatePostScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
               </Pressable>
-              {pickerMode && (
+              {Platform.OS === 'ios' && showIosPicker && (
                 <DateTimePicker
                   value={eventDate}
-                  mode={pickerMode}
-                  minimumDate={pickerMode === 'time' ? undefined : new Date()}
-                  onChange={(event, date) => {
-                    if (Platform.OS === 'ios') {
-                      if (date) setEventDate(date);
-                      return;
-                    }
-                    if (event.type !== 'set' || !date) {
-                      setPickerMode(null);
-                      return;
-                    }
-                    setEventDate(date);
-                    setPickerMode(pickerMode === 'date' ? 'time' : null);
+                  mode="datetime"
+                  minimumDate={new Date()}
+                  onChange={(_event, date) => {
+                    if (date) setEventDate(date);
                   }}
                 />
               )}
