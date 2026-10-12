@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useBooking, useSyncPaymobPayment } from '@mobile/hooks/useBookings';
 import { bookingFlowRetryParams, type BookingFlowParams } from '@mobile/lib/bookingDraft';
@@ -24,6 +25,7 @@ const POLL_INTERVAL_MS = 3_000;
 
 export default function BookingPaymentResultScreen() {
   const router = useRouter();
+  const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const params = useLocalSearchParams<BookingFlowParams & { bookingId: string }>();
   const bookingId = params.bookingId;
   const syncPaymob = useSyncPaymobPayment();
@@ -163,7 +165,7 @@ export default function BookingPaymentResultScreen() {
   if (outcome === 'success') {
     return (
       <View style={styles.container}>
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: bottomPadding }]}>
           <View style={[styles.iconCircle, styles.iconCircleSuccess]}>
             <Ionicons name="checkmark" size={28} color={colors.success} />
           </View>
@@ -179,7 +181,7 @@ export default function BookingPaymentResultScreen() {
   if (outcome === 'stalled' || !bookingId) {
     return (
       <View style={styles.container}>
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: bottomPadding }]}>
           <View style={[styles.iconCircle, styles.iconCirclePending]}>
             <Ionicons name="time-outline" size={28} color={colors.primary} />
           </View>
@@ -213,7 +215,7 @@ export default function BookingPaymentResultScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: bottomPadding }]}>
         <View style={[styles.iconCircle, styles.iconCircleFailure]}>
           <Ionicons name="close" size={28} color={colors.error} />
         </View>

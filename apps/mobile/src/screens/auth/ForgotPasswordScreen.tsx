@@ -19,6 +19,7 @@ import {
   useConfirmPhoneAndResetPassword,
   useSendPasswordResetEmail,
 } from '@mobile/hooks/useAuth';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { validatePhone, toE164, validateEmail } from '@mobile/lib/validation';
 import type { PhoneConfirmation } from '@mobile/lib/firebase';
 import { linkPendingCredential } from '@mobile/lib/pendingLink';
@@ -40,6 +41,7 @@ import { styles } from './styles/forgot-password-screen.styles';
  * wizard set, and the root gate resumes it.
  */
 export default function ForgotPasswordScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
 
   const [channel, setChannel] = useState<'email' | 'sms' | null>(null);
@@ -231,7 +233,7 @@ export default function ForgotPasswordScreen() {
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

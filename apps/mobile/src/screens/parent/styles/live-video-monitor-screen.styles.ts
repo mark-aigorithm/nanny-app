@@ -23,7 +23,6 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: HEADER_HEIGHT + spacing.lg,
-    paddingBottom: 40,
     paddingHorizontal: screenPadding,
     gap: spacing.lg,
   },

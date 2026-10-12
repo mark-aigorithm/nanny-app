@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import {
   colors,
   fontFamily,
@@ -251,34 +251,6 @@ export const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
-  // Footer
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(253,250,248,0.8)',
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 36 : spacing['2xl'],
-  },
-  confirmBtn: {
-    backgroundColor: colors.primaryDark,
-    borderRadius: borderRadius['2xl'],
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.lg,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.5,
-  },
-  confirmBtnText: {
-    ...typeScale.labelLg,
-    fontFamily: fontFamily.bold,
-    color: colors.white,
-  },
-
   introSection: {
     paddingHorizontal: screenPadding,
     paddingBottom: spacing.sm,
@@ -301,7 +273,6 @@ export const styles = StyleSheet.create({
   webviewWrap: {
     flex: 1,
     marginHorizontal: screenPadding,
-    marginBottom: spacing.sm,
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
     borderWidth: 1,
@@ -329,7 +300,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: screenPadding,
     paddingTop: spacing.lg,
-    paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },
   freeCard: {

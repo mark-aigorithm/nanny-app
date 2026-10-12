@@ -6,7 +6,8 @@ import { router } from 'expo-router';
 import type { PackagePurchase } from '@nanny-app/shared';
 
 import { Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { usePackageHours } from '@mobile/hooks/usePackages';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { getApiErrorMessage } from '@mobile/lib/api';
@@ -81,6 +82,7 @@ function PackageBucketRow({ bucket }: { bucket: PackagePurchase }) {
 
 export default function PackageHoursScreen() {
   const hours = usePackageHours();
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
 
   const { isRefreshingByUser, refreshByUser } = useRefreshByUser(() => hours.refetch());
 
@@ -93,7 +95,7 @@ export default function PackageHoursScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primary} />

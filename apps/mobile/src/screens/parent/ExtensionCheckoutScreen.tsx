@@ -12,7 +12,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useBookingExtension, useExtensionPaymobCheckout } from '@mobile/hooks/useBookings';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import { formatMoney } from '@mobile/lib/formatMoney';
@@ -32,6 +33,8 @@ import { styles } from './styles/extension-checkout-screen.styles';
  */
 export default function ExtensionCheckoutScreen() {
   const router = useRouter();
+  // Paymob's Pay button sits at the bottom of the page; keep it off the system bar.
+  const webviewBottomGap = useBottomBarPadding(spacing.sm);
   const { extensionId } = useLocalSearchParams<{ extensionId?: string }>();
 
   const startedRef = useRef(false);
@@ -139,7 +142,7 @@ export default function ExtensionCheckoutScreen() {
       </View>
 
       <View
-        style={styles.webviewWrap}
+        style={[styles.webviewWrap, { marginBottom: webviewBottomGap }]}
         onLayout={(e) => {
           const h = Math.round(e.nativeEvent.layout.height);
           // First settled height only — later fluctuations (the Android

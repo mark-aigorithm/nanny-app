@@ -4,6 +4,7 @@ import { View, Pressable, Animated, Easing, ActivityIndicator } from 'react-nati
 import { Text, AnimatedText } from '@mobile/components/ui/text';
 
 import { colors } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { styles } from './styles/booking-summary-bar.styles';
 
 interface BookingSummaryBarProps {
@@ -45,6 +46,7 @@ export default function BookingSummaryBar({
   children,
 }: BookingSummaryBarProps) {
   const flash = useRef(new Animated.Value(0)).current;
+  const bottomPadding = useBottomBarPadding();
 
   useEffect(() => {
     if (total == null) return;
@@ -58,7 +60,7 @@ export default function BookingSummaryBar({
   }, [total, flash]);
 
   return (
-    <View style={styles.footer}>
+    <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
       {children}
 
       <View style={styles.summaryRow}>

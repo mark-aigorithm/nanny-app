@@ -11,6 +11,7 @@ import { APP_NAME } from '@mobile/constants';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
 import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
@@ -34,6 +35,7 @@ const STEPS: { title: string; body: string }[] = [
 ];
 
 export default function HomeScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const { isGuest, gate } = useGuestGate();
   const { gate: idGate } = useIdGate();
@@ -58,7 +60,7 @@ export default function HomeScreen() {
     <ScreenContainer useSafeArea={false}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navClearance + spacing.lg }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

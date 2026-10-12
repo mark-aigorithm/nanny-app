@@ -25,7 +25,5 @@ export const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: screenPadding,
-    // Plain screen with no nav bar — the standard bottom clearance token.
-    paddingBottom: spacing['4xl'],
   },
 });

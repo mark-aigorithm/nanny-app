@@ -13,7 +13,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: spacing.sm,
     paddingHorizontal: screenPadding,
-    paddingBottom: spacing['4xl'],
     gap: spacing['3xl'],
   },
   // The booking card and whatever it is waiting on (payment, PIN, extension)

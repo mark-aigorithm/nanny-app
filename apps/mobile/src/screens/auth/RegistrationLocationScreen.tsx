@@ -21,6 +21,8 @@ import { reverseGeocodeDetailed } from '@mobile/lib/googlePlaces';
 import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-location-screen.styles';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { screenPadding } from '@mobile/theme';
 
 /**
  * A mother's "Location & preferences": her home address and map pin (the
@@ -29,6 +31,7 @@ import { styles } from './styles/registration-location-screen.styles';
  * (RegistrationNannyLocationScreen).
  */
 export default function RegistrationLocationScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
 
   const draft = useRegistrationDraftStore();
@@ -158,7 +161,7 @@ export default function RegistrationLocationScreen() {
         </ScrollView>
 
         {/* Fixed footer */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           <Button title="Continue" onPress={handleContinue} />
         </View>
 

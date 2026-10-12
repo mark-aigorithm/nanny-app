@@ -25,6 +25,7 @@ import {
   useSignOut,
   type PhoneLinkChallenge,
 } from '@mobile/hooks/useAuth';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import type { MappedAuthError } from '@mobile/lib/authErrors';
 import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
@@ -84,6 +85,7 @@ function linkTarget(user: FirebaseUser | null, signUpUid: string | null): boolea
  *   a stalled sign-up: the root gate resumes it.
  */
 export default function RegistrationPhoneScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -448,7 +450,7 @@ export default function RegistrationPhoneScreen() {
           )}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           <Button title={primary.title} onPress={primary.onPress} disabled={primary.disabled} />
         </View>
       </View>

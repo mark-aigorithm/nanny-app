@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Button, Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { usePackages, usePackageHours, useCancelPackageCheckout } from '@mobile/hooks/usePackages';
 import { usePricingConfig } from '@mobile/hooks/useBookings';
 import { getApiErrorMessage } from '@mobile/lib/api';
@@ -48,6 +49,7 @@ function SummaryRow({ label, value, tone }: { label: string; value: string; tone
  */
 export default function PackageReviewScreen() {
   const { packageId } = useLocalSearchParams<PackageFlowParams>();
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const packages = usePackages();
   const packageHours = usePackageHours();
   const pricing = usePricingConfig();
@@ -96,7 +98,7 @@ export default function PackageReviewScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {blockingCheckout && (

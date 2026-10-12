@@ -51,7 +51,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.lg,
-    paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },
 

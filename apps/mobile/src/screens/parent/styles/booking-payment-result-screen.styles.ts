@@ -22,7 +22,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: screenPadding,
     paddingTop: STATUS_BAR_HEIGHT + spacing['3xl'],
-    paddingBottom: spacing['3xl'],
   },
   iconCircle: {
     width: 64,

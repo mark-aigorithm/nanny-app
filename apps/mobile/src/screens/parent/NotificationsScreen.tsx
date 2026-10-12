@@ -20,6 +20,7 @@ import {
   useUnreadNotificationCount,
 } from '@mobile/hooks/useNotifications';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { formatTimeAgo } from '@mobile/lib/communityUtils';
 import { navigateToBookingDetail } from '@mobile/lib/notificationNavigation';
 import {
@@ -36,6 +37,7 @@ const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [
 ];
 
 export default function NotificationsScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const [filter, setFilter] = useState<NotificationFilter>('all');
 
@@ -143,7 +145,7 @@ export default function NotificationsScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navClearance + screenPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

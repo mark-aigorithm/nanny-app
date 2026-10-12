@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import { IdDocumentType, idTypeRequiresBack } from '@shared/nanny';
@@ -11,6 +12,8 @@ import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { uploadFor, useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-id-screen.styles';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { screenPadding } from '@mobile/theme';
 
 const ID_UPLOAD_FAILED_MESSAGE =
   "Couldn't upload your ID. Check your connection and try again.";
@@ -22,6 +25,7 @@ const ID_UPLOAD_FAILED_MESSAGE =
  * sides that changed since the last upload — and Finish sends their URLs.
  */
 export default function RegistrationNannyIdScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -128,7 +132,7 @@ export default function RegistrationNannyIdScreen() {
           )}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           <Button
             title={isUploading ? 'Uploading…' : 'Continue'}
             onPress={() => void handleContinue()}

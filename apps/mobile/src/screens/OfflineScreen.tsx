@@ -3,7 +3,8 @@ import { View } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
-import { colors } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle, ScreenContainer } from '@mobile/components/ui';
 import { styles } from './styles/offline-screen.styles';
 
@@ -19,6 +20,7 @@ interface OfflineScreenProps {
  * exactly where they were.
  */
 export default function OfflineScreen({ onRetry }: OfflineScreenProps) {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   // Same "spinner for the whole user-initiated check" semantics as pull-to-refresh.
   const { isRefreshingByUser: isChecking, refreshByUser: retry } = useRefreshByUser(onRetry);
 
@@ -38,7 +40,7 @@ export default function OfflineScreen({ onRetry }: OfflineScreenProps) {
         </Text>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
         <Button title="Try again" onPress={() => void retry()} loading={isChecking} />
       </View>
     </ScreenContainer>

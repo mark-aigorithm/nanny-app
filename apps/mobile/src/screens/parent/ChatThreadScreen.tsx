@@ -19,6 +19,7 @@ import {
   useMessages,
   useSendMessage,
 } from '@mobile/hooks/useMessaging';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { formatAuthorName, formatPrice } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -44,6 +45,7 @@ function formatDateDivider(isoDate: string): string {
 }
 
 export default function ChatThreadScreen() {
+  const bottomPadding = useBottomBarPadding(spacing.md);
   const router = useRouter();
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
   const currentUserId = useUserProfileStore((s) => s.profile?.id);
@@ -228,7 +230,7 @@ export default function ChatThreadScreen() {
         </View>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
         <TextInput
           testID="chatThread.message"
           style={styles.input}

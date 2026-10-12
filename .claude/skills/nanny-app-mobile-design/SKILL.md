@@ -78,6 +78,7 @@ container, `StatusBar`, or header** — the shared primitives own those.
 | Bottom — parent floating-tab screens | `PARENT_TAB_SCROLL_BOTTOM` |
 | Bottom — nanny bottom-nav screens | `BOTTOM_NAV_HEIGHT + spacing.lg` |
 | Bottom — plain stack screens (no nav bar) | `spacing['4xl']` (48) — never magic numbers (120/200/…) |
+| Bottom — anything pinned to the bottom edge (sticky CTA footer, bottom sheet, composer) | `useBottomBarPadding(minimum)` inline — never `Platform.OS === 'ios' ? 36 : …` |
 
 `ScreenContainer` runs with `useSafeArea={false}`: the header owns the top inset and the
 clearance tokens own the bottom, so a top safe-area edge would double-pad. Only reach for

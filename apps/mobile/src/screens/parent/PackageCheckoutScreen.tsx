@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StatusBar, ActivityIndicator, Platform } from 'react-native';
+import { View, Pressable, StatusBar, ActivityIndicator, Platform } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useCancelPackageCheckout, usePurchasePackage } from '@mobile/hooks/usePackages';
 import type { PackageCheckoutSession } from '@mobile/hooks/usePackages';
 import { hasRequiredPackageCheckout, type PackageFlowParams } from '@mobile/lib/packagePurchaseDraft';
@@ -132,6 +134,7 @@ true;
 
 export default function PackageCheckoutScreen() {
   const router = useRouter();
+  const webviewBottomGap = useBottomBarPadding(spacing.sm);
   const params = useLocalSearchParams<PackageFlowParams>();
   const packageId = params.packageId;
   const startedRef = useRef(false);
@@ -270,7 +273,7 @@ export default function PackageCheckoutScreen() {
           </View>
 
           <View
-            style={styles.webviewWrap}
+            style={[styles.webviewWrap, { marginBottom: webviewBottomGap }]}
             onLayout={(e) => {
               const h = Math.round(e.nativeEvent.layout.height);
               // Capture the first settled height only — later fluctuations (e.g.

@@ -31,6 +31,7 @@ import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle } from '@mobile/components/ui';
 
 import { useBooking, useConfirmFreeBooking, usePaymobCheckout } from '@mobile/hooks/useBookings';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 
 import {
 
@@ -78,6 +79,8 @@ function isRetryCheckout(params: BookingFlowParams): boolean {
 
 
 export default function BookingStep3Screen() {
+  const freeBottomPadding = useBottomBarPadding(spacing['4xl']);
+  const webviewBottomGap = useBottomBarPadding(spacing.sm);
 
   const router = useRouter();
 
@@ -383,7 +386,7 @@ export default function BookingStep3Screen() {
 
 
       {nothingToPay && booking ? (
-        <View style={styles.freeWrap}>
+        <View style={[styles.freeWrap, { paddingBottom: freeBottomPadding }]}>
           <View style={styles.freeCard}>
             <IconCircle icon="checkmark" size="lg" />
             <Text style={styles.freeTitle}>Nothing to pay</Text>
@@ -428,7 +431,7 @@ export default function BookingStep3Screen() {
         </View>
       ) : (
       <View
-        style={styles.webviewWrap}
+        style={[styles.webviewWrap, { marginBottom: webviewBottomGap }]}
         onLayout={(e) => {
           const h = Math.round(e.nativeEvent.layout.height);
           // Capture the first settled height only — later fluctuations (e.g.

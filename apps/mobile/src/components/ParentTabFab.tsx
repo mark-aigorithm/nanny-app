@@ -4,7 +4,8 @@ import type { ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 
-import { colors, screenPadding, shadows, PARENT_TAB_FAB_BOTTOM } from '@mobile/theme';
+import { colors, screenPadding, shadows, spacing } from '@mobile/theme';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import PressableScale from '@mobile/components/ui/pressable-scale';
 
 interface ParentTabFabProps {
@@ -27,9 +28,10 @@ export default function ParentTabFab({
   style,
   accessibilityLabel,
 }: ParentTabFabProps) {
+  const navClearance = useFloatingNavClearance();
   return (
     <PressableScale
-      style={[styles.fab, style]}
+      style={[styles.fab, { bottom: navClearance + spacing.sm }, style]}
       haptic="tap"
       onPress={onPress}
       accessibilityRole="button"
@@ -43,7 +45,6 @@ export default function ParentTabFab({
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: PARENT_TAB_FAB_BOTTOM,
     right: screenPadding,
     width: 56,
     height: 56,

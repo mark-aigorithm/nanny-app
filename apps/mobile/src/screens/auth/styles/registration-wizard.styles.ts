@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import type { TextStyle, ViewStyle } from 'react-native';
 
 import {
@@ -62,7 +62,6 @@ export const wizardBase = {
   footer: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 36 : screenPadding,
     backgroundColor: colors.background,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.taupe,

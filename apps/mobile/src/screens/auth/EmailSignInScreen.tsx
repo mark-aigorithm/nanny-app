@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Pressable, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors, spacing } from '@mobile/theme';
 import { Button, TextInputField } from '@mobile/components/ui';
 import { useSignInWithEmail } from '@mobile/hooks/useAuth';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { validateEmail, validateSignInPassword } from '@mobile/lib/validation';
 import { styles } from './styles/email-sign-in-screen.styles';
 
@@ -19,6 +21,7 @@ import { styles } from './styles/email-sign-in-screen.styles';
  * isn't an error: the root gate resumes that sign-up.
  */
 export default function EmailSignInScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -76,7 +79,7 @@ export default function EmailSignInScreen() {
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

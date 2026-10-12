@@ -19,6 +19,7 @@ import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { isNothingToPay } from '@mobile/lib/nothingToPay';
@@ -38,6 +39,7 @@ const STATUS_BY_TAB: Record<BookingTabKey, string> = {
 };
 
 export default function BookingHistoryScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTabKey>('upcoming');
 
@@ -78,7 +80,7 @@ export default function BookingHistoryScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navClearance + screenPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

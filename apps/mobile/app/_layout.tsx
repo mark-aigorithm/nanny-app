@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
 import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
 import E2eGooglePickerHost from '@mobile/components/E2eGooglePickerHost';
@@ -93,7 +93,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <StatusBar style="auto" />
         <ProfileLoader />
         <Stack screenOptions={{ headerShown: false }} />

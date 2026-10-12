@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PaymentStatus } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useSyncPackagePayment, usePackageHours } from '@mobile/hooks/usePackages';
 import type { PackageFlowParams } from '@mobile/lib/packagePurchaseDraft';
@@ -25,6 +26,7 @@ const POLL_INTERVAL_MS = 3_000;
 
 export default function PackagePaymentResultScreen() {
   const router = useRouter();
+  const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const params = useLocalSearchParams<PackageFlowParams>();
   const purchaseId = params.purchaseId;
   const packageId = params.packageId;
@@ -178,7 +180,7 @@ export default function PackagePaymentResultScreen() {
 
     return (
       <View style={styles.container}>
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: bottomPadding }]}>
           <View style={[styles.iconCircle, styles.iconCircleSuccess]}>
             <Ionicons name="checkmark" size={28} color={colors.success} />
           </View>
@@ -208,7 +210,7 @@ export default function PackagePaymentResultScreen() {
   if (outcome === 'stalled' || !purchaseId) {
     return (
       <View style={styles.container}>
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: bottomPadding }]}>
           <View style={[styles.iconCircle, styles.iconCirclePending]}>
             <Ionicons name="time-outline" size={28} color={colors.primary} />
           </View>
@@ -242,7 +244,7 @@ export default function PackagePaymentResultScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: bottomPadding }]}>
         <View style={[styles.iconCircle, styles.iconCircleFailure]}>
           <Ionicons name="close" size={28} color={colors.error} />
         </View>

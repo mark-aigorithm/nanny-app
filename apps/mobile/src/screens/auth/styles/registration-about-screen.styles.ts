@@ -90,7 +90,6 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
-    paddingBottom: 36,
   },
   datePickerHeader: {
     flexDirection: 'row',

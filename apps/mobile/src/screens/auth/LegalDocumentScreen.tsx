@@ -6,7 +6,8 @@ import { LegalDocumentKeySchema } from '@nanny-app/shared';
 
 import { Button, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { useLegalDocument } from '@mobile/hooks/useSupport';
-import { colors } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { colors, spacing } from '@mobile/theme';
 
 import { styles } from './styles/legal-document-screen.styles';
 
@@ -19,6 +20,7 @@ const FALLBACK_TITLES = { terms: 'Terms of Service', privacy: 'Privacy Policy' }
  * and works signed out.
  */
 export default function LegalDocumentScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const params = useLocalSearchParams<{ key?: string }>();
   const parsedKey = LegalDocumentKeySchema.safeParse(params.key);
   const key = parsedKey.success ? parsedKey.data : 'terms';
@@ -27,7 +29,7 @@ export default function LegalDocumentScreen() {
   return (
     <ScreenContainer useSafeArea={false}>
       <StackHeader title={data?.title ?? FALLBACK_TITLES[key]} />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
         {isLoading && (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} accessibilityLabel="Loading" />

@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import {
   colors,
   fontFamily,
@@ -18,7 +18,6 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 36 : spacing['2xl'],
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
     gap: spacing.md,

@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import type { CommunityPostResponse } from '@nanny-app/shared';
 
 import { Button, Card, ScreenContainer, StackHeader } from '@mobile/components/ui';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useMyPosts } from '@mobile/hooks/useCommunity';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import {
@@ -140,6 +141,7 @@ function PostRow({
  * gets edited and resubmitted.
  */
 export default function MyPostsScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useMyPosts();
@@ -168,7 +170,7 @@ export default function MyPostsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

@@ -8,7 +8,6 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  FLOATING_NAV_CLEARANCE,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -24,7 +23,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: FLOATING_NAV_CLEARANCE + screenPadding,
   },
 
   // Uber-style big screen title

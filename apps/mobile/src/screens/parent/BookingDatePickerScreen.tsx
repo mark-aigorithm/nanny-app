@@ -1,12 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  ActivityIndicator,
-} from 'react-native';
+import { View, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '@mobile/theme';
@@ -81,6 +76,7 @@ function formatMinutes(minutes: number): string {
 }
 
 export default function BookingDatePickerScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: options, isLoading, error } = useBookingOptions();
   // Loaded a screen early so the mother sees the price while she chooses, not
@@ -590,7 +586,13 @@ export default function BookingDatePickerScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          // Clears the summary bar, which is taller than a plain button, grows
+          // again when the longer-booking nudge appears, and sits above the
+          // system's bottom bar.
+          { paddingBottom: 220 + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <BookingStepProgress step={1} title="Where and when do you need care?" />

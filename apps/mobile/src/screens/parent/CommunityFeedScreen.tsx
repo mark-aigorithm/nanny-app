@@ -21,6 +21,7 @@ import {
 } from '@mobile/hooks/useCommunity';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { filterPillToType, filterPostsBySearch } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
 import { colors, spacing } from '@mobile/theme';
@@ -29,6 +30,7 @@ import { styles } from './styles/community-feed-screen.styles';
 const FILTER_PILLS: CommunityFilterPill[] = ['All posts', 'Q&A', 'Marketplace', 'Events'];
 
 export default function CommunityFeedScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const params = useLocalSearchParams<{ filter?: string }>();
   const initialFilter = (params.filter as CommunityFilterPill) ?? 'All posts';
@@ -161,6 +163,7 @@ export default function CommunityFeedScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[
           styles.scrollContent,
+          { paddingBottom: navClearance + spacing['2xl'] },
           (isLoading || visiblePosts.length === 0) && styles.scrollContentEmpty,
         ]}
         keyboardShouldPersistTaps="handled"
@@ -217,7 +220,7 @@ export default function CommunityFeedScreen() {
       />
 
       <PressableScale
-        style={styles.fab}
+        style={[styles.fab, { bottom: navClearance + spacing['2xl'] }]}
         haptic="tap"
         accessibilityRole="button"
         accessibilityLabel="Create post"

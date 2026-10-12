@@ -18,6 +18,7 @@ import { stepInfo } from '@mobile/lib/registrationSteps';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { dobToIso } from '@mobile/lib/validation';
 import { useRedeemReferralCode } from '@mobile/hooks/useReferrals';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 import { uploadFor, useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-finish-screen.styles';
@@ -53,6 +54,7 @@ type Uploads = { avatarUrl: string; idDocumentFrontUrl?: string; idDocumentBackU
  *   notification prompt, so Back can't land in an empty wizard.
  */
 export default function RegistrationFinishScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -310,7 +312,7 @@ export default function RegistrationFinishScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
         <Button
           title={
             isUploading

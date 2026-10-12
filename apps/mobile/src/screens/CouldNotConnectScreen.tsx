@@ -6,6 +6,7 @@ import { COULD_NOT_CONNECT } from '@mobile/lib/authErrors';
 import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle, ScreenContainer } from '@mobile/components/ui';
 import { styles } from './styles/could-not-connect-screen.styles';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 
 interface CouldNotConnectScreenProps {
   onRetry: () => void;
@@ -19,6 +20,7 @@ interface CouldNotConnectScreenProps {
  * try again, or sign out.
  */
 export default function CouldNotConnectScreen({ onRetry, onSignOut, isSigningOut }: CouldNotConnectScreenProps) {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   return (
     <ScreenContainer useSafeArea={false}>
       <View style={styles.content}>
@@ -33,7 +35,7 @@ export default function CouldNotConnectScreen({ onRetry, onSignOut, isSigningOut
         <Text style={styles.body}>{COULD_NOT_CONNECT}</Text>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
         <Button title="Retry" onPress={onRetry} disabled={isSigningOut} />
         <Button title="Sign out" variant="outline" onPress={onSignOut} disabled={isSigningOut} loading={isSigningOut} />
       </View>

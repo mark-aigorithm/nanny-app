@@ -75,7 +75,6 @@ export const styles = StyleSheet.create({
   webviewWrap: {
     flex: 1,
     marginHorizontal: screenPadding,
-    marginBottom: spacing.sm,
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
     borderWidth: 1,

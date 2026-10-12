@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   colors,
@@ -16,7 +16,6 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: spacing.xs,
-    paddingBottom: spacing['4xl'],
     paddingHorizontal: screenPadding,
     gap: spacing['2xl'],
   },
@@ -193,7 +192,6 @@ export const styles = StyleSheet.create({
     borderTopLeftRadius: borderRadius['2xl'],
     borderTopRightRadius: borderRadius['2xl'],
     paddingHorizontal: screenPadding,
-    paddingBottom: Platform.OS === 'ios' ? 40 : spacing['2xl'],
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
@@ -260,7 +258,6 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: borderRadius['2xl'],
     paddingHorizontal: screenPadding,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
   },
   pickerHeader: {
     flexDirection: 'row',

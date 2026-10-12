@@ -8,7 +8,6 @@ export const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: screenPadding,
-    paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },
   center: {

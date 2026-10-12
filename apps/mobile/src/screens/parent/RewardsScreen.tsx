@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import type { RewardLedgerEntry } from '@nanny-app/shared';
 
 import { Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useRewardConfig, useRewardHistory, useRewardWallet } from '@mobile/hooks/useRewards';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { styles } from './styles/rewards-screen.styles';
@@ -37,6 +38,7 @@ function formatDate(iso: string): string {
 }
 
 export default function RewardsScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
 
   const wallet = useRewardWallet();
@@ -63,7 +65,7 @@ export default function RewardsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primary} />

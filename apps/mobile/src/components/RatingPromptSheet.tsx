@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Avatar, Button, StarRatingInput } from '@mobile/components/ui';
 import { useCreateReview } from '@mobile/hooks/useNannies';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import {
   useRatingPromptStore,
@@ -33,6 +34,7 @@ function isAlreadyReviewed(message: string): boolean {
 }
 
 export default function RatingPromptSheet() {
+  const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const booking = useRatingPromptStore((s) => s.booking);
   const clearRatingPrompt = useRatingPromptStore((s) => s.clearRatingPrompt);
   const queryClient = useQueryClient();
@@ -83,7 +85,7 @@ export default function RatingPromptSheet() {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={() => undefined}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
           <ScrollView
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
@@ -139,7 +141,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,
-    paddingBottom: spacing['3xl'],
     gap: spacing.lg,
   },
   handle: {

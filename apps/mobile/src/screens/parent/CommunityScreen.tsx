@@ -23,6 +23,7 @@ import {
 } from '@mobile/hooks/useCommunity';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { filterPillToType } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
 import { colors, spacing, HEADER_HEIGHT } from '@mobile/theme';
@@ -31,6 +32,7 @@ import { styles } from './styles/community-screen.styles';
 const FILTER_PILLS: CommunityFilterPill[] = ['Q&A', 'Marketplace', 'Events'];
 
 export default function CommunityScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const params = useLocalSearchParams<{ filter?: string }>();
   const [activeFilter, setActiveFilter] = useState<CommunityFilterPill>('Q&A');
@@ -123,6 +125,7 @@ export default function CommunityScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[
           styles.listContent,
+          { paddingBottom: navClearance + spacing['3xl'] },
           (isLoading || posts.length === 0) && styles.listContentEmpty,
         ]}
         showsVerticalScrollIndicator={false}

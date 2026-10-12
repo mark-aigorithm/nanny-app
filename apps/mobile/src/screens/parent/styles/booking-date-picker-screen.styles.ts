@@ -22,9 +22,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: HEADER_HEIGHT + spacing.lg,
     paddingHorizontal: screenPadding,
-    // Clears the summary bar, which is taller than a plain button and grows
-    // again when the longer-booking nudge appears.
-    paddingBottom: 220,
     gap: spacing['2xl'],
   },
   noticePill: {

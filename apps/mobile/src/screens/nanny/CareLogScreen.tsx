@@ -25,6 +25,7 @@ import { colors, spacing } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
 import { useCareLogs, useCreateCareLog } from '@mobile/hooks/useCareLogs';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { styles } from './styles/care-log-screen.styles';
 import { chooseDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
@@ -70,6 +71,9 @@ function entryTitle(entry: CareLogResponse): string {
 }
 
 export default function CareLogScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['2xl']);
+  const scrollBottomPadding = useBottomBarPadding(spacing['4xl']);
+  const pickerBottomPadding = useBottomBarPadding(spacing.lg);
   const router = useRouter();
 
   const { data: inProgressBookings = [] } = useBookingList('IN_PROGRESS');
@@ -236,7 +240,7 @@ export default function CareLogScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -345,7 +349,7 @@ export default function CareLogScreen() {
           style={styles.sheetOverlay}
         >
           <Pressable style={{ flex: 1 }} onPress={closeSheet} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -460,7 +464,7 @@ export default function CareLogScreen() {
           {Platform.OS === 'ios' && showTimePicker && (
             <View style={styles.pickerOverlay}>
               <Pressable style={{ flex: 1 }} onPress={() => setShowTimePicker(false)} />
-              <View style={styles.pickerSheet}>
+              <View style={[styles.pickerSheet, { paddingBottom: pickerBottomPadding }]}>
                 <View style={styles.pickerHeader}>
                   <Text style={styles.pickerTitle}>Log time</Text>
                   <Pressable onPress={() => setShowTimePicker(false)} hitSlop={12}>

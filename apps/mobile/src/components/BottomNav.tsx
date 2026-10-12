@@ -67,8 +67,8 @@ const TABS: {
 
 /**
  * Uber-style floating pill tab bar. Absolutely positioned above the bottom
- * safe area; screens pad scroll content with FLOATING_NAV_CLEARANCE so nothing
- * hides behind it. Mounted once by `ParentTabBar` (the parent Tabs' `tabBar`),
+ * safe area; screens pad scroll content with `useFloatingNavClearance()` so
+ * nothing hides behind it. Mounted once by `ParentTabBar` (the parent Tabs' `tabBar`),
  * so it persists across tab switches and the sage indicator can glide from
  * the old tab to the new one.
  */

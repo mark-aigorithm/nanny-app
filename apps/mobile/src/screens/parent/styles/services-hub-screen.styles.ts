@@ -7,7 +7,6 @@ import {
   screenPadding,
   borderRadius,
   shadows,
-  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -17,7 +16,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.xs,
-    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
     gap: spacing.lg,
   },
 

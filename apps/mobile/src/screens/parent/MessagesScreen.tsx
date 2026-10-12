@@ -14,6 +14,7 @@ import ParentTabHeader from '@mobile/components/ParentTabHeader';
 import ParentTabSearchStrip from '@mobile/components/ParentTabSearchStrip';
 import { FadeInView, PressableScale } from '@mobile/components/ui';
 import { useConversations } from '@mobile/hooks/useMessaging';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { formatAuthorName, formatPrice, formatTimeAgo } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { colors, spacing } from '@mobile/theme';
@@ -91,6 +92,7 @@ function ConversationItem({
 }
 
 export default function MessagesScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const { data, isLoading } = useConversations();
@@ -113,7 +115,7 @@ export default function MessagesScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navClearance + spacing.lg }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

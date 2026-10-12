@@ -18,6 +18,7 @@ import Button from '@mobile/components/ui/button';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import { useCertificationCatalog, useSkillCatalog } from '@mobile/hooks/useNannies';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-details-screen.styles';
@@ -83,6 +84,7 @@ const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityTypeValue }[] = 
 ];
 
 export default function RegistrationNannyDetailsScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
 
   const draft = useRegistrationDraftStore();
@@ -417,7 +419,7 @@ export default function RegistrationNannyDetailsScreen() {
           {formError && <Text style={styles.errorText}>{formError}</Text>}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           {!canContinue && (
             <Text style={styles.footerHint}>{`Still needed: ${missing.join(', ')}.`}</Text>
           )}

@@ -8,7 +8,6 @@ import {
   shadows,
   screenPadding,
   PARENT_TAB_CONTENT_TOP,
-  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 const STEP_NUMBER_SIZE = 28;
@@ -20,7 +19,6 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: PARENT_TAB_CONTENT_TOP,
-    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
     paddingHorizontal: screenPadding,
     gap: spacing['2xl'],
   },

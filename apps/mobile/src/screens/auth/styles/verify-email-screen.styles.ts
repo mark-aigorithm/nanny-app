@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   colors,
@@ -61,7 +61,6 @@ export const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 36 : screenPadding,
     backgroundColor: colors.background,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.taupe,

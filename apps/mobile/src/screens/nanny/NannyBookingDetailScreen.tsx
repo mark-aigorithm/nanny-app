@@ -9,7 +9,8 @@ import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer, StackHeader } from '@mobile/components/ui';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { BookingAddressCard } from '@mobile/components/booking/BookingAddressCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
@@ -29,6 +30,7 @@ function getStatusStyle(status: BookingStatus) {
 }
 
 export default function NannyBookingDetailScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
 
@@ -64,7 +66,7 @@ export default function NannyBookingDetailScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Status Badge */}

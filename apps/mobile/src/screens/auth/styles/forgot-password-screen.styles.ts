@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   colors,
@@ -43,7 +43,6 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: screenPadding,
-    paddingBottom: Platform.OS === 'ios' ? 56 : 40,
     gap: spacing['3xl'],
   },
 

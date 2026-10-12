@@ -1,9 +1,19 @@
 import { Platform, StatusBar } from 'react-native';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { spacing } from './spacing';
 
+/**
+ * The top safe area — status bar, notch, Dynamic Island, punch-hole camera —
+ * as the device reports it at launch. It is a constant (the app is
+ * portrait-only, and nothing changes the top inset at runtime), so styles can
+ * use it. Never a per-platform guess: it is 20 on an iPhone SE, 59 under a
+ * Dynamic Island, and varies across Android cutouts. The fallback only covers
+ * a launch where native metrics were not ready, and tests.
+ */
 export const STATUS_BAR_HEIGHT =
-  Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+  initialWindowMetrics?.insets.top ||
+  (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44);
 
 export const HEADER_HEIGHT = STATUS_BAR_HEIGHT + 56;
 
@@ -23,12 +33,13 @@ export const REGISTRATION_HEADER_HEIGHT =
   STATUS_BAR_HEIGHT + REGISTRATION_TITLE_ROW_HEIGHT + REGISTRATION_PROGRESS_HEIGHT;
 
 /**
- * Bottom content clearance for the parent floating pill tab bar:
- * pill height (~72) + bottom offset + breathing room. Screens that scroll
- * under the floating bar pad their content with this, NOT BOTTOM_NAV_HEIGHT
- * (which remains the nanny bar's in-flow height).
+ * How far the parent floating pill tab bar reaches above the bottom safe area:
+ * its offset (spacing.md) + the pill itself (~76). It sits on top of the
+ * system's bottom bar, whose height varies by device and setting, so screens
+ * never use this directly — `useFloatingNavClearance()` adds the live inset.
+ * Not BOTTOM_NAV_HEIGHT, which is the nanny bar's in-flow height.
  */
-export const FLOATING_NAV_CLEARANCE = 112;
+export const FLOATING_NAV_HEIGHT = spacing.md + 76;
 
 export const PARENT_TAB_SEARCH_BAR_HEIGHT = 48;
 
@@ -39,10 +50,3 @@ export const PARENT_TAB_CONTENT_TOP = HEADER_HEIGHT + spacing.lg;
 
 export const PARENT_TAB_CONTENT_TOP_WITH_SEARCH =
   HEADER_HEIGHT + PARENT_TAB_SEARCH_STRIP_HEIGHT;
-
-export const PARENT_TAB_SCROLL_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.lg;
-
-// The floating pill occupies ~122px from the screen bottom on home-indicator
-// devices (insets.bottom 34 + 12 offset + ~76 pill height). +spacing.sm left
-// the FAB sitting ~2px under the pill, so it needs the larger clearance.
-export const PARENT_TAB_FAB_BOTTOM = FLOATING_NAV_CLEARANCE + spacing.lg;

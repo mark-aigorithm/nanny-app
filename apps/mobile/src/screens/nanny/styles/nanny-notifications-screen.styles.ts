@@ -60,7 +60,6 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing['4xl'],
     gap: spacing['2xl'],
   },
 

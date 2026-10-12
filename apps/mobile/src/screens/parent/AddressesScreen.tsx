@@ -14,6 +14,7 @@ import {
   useSetDefaultAddress,
   useUpdateAddress,
 } from '@mobile/hooks/useAddresses';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/addresses-screen.styles';
@@ -28,6 +29,7 @@ type SheetState = { mode: 'closed' } | { mode: 'add' } | { mode: 'edit'; address
  */
 export default function AddressesScreen() {
   const router = useRouter();
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const { data: addresses, isLoading, isError, refetch } = useAddresses();
   const createAddress = useCreateAddress();
   const updateAddress = useUpdateAddress();
@@ -83,7 +85,7 @@ export default function AddressesScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {isLoading ? (

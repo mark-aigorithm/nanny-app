@@ -7,7 +7,6 @@ import {
   screenPadding,
   borderRadius,
   PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
-  PARENT_TAB_SCROLL_BOTTOM,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -23,7 +22,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: screenPadding,
     paddingTop: PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
-    paddingBottom: PARENT_TAB_SCROLL_BOTTOM,
   },
 
   emptyText: {

@@ -19,6 +19,8 @@ import { reverseGeocodeDetailed } from '@mobile/lib/googlePlaces';
 import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
 import { styles } from './styles/registration-nanny-location-screen.styles';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { screenPadding } from '@mobile/theme';
 
 /**
  * A nanny's "Home location": the address and map pin (the register API needs
@@ -27,6 +29,7 @@ import { styles } from './styles/registration-nanny-location-screen.styles';
  * street address under the address field, the pin under the map.
  */
 export default function RegistrationNannyLocationScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
 
   const draft = useRegistrationDraftStore();
@@ -131,7 +134,7 @@ export default function RegistrationNannyLocationScreen() {
         </ScrollView>
 
         {/* Fixed footer */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           <Button title="Continue" onPress={handleContinue} />
         </View>
       </View>

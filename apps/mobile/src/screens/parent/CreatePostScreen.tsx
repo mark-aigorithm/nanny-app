@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COMMUNITY_TAGS, type CreateCommunityPostRequest } from '@nanny-app/shared';
 
 import { useCommunityPost, useCreatePost, useUpdatePost } from '@mobile/hooks/useCommunity';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import {
   createTypeToUi,
   uiTypeToCreate,
@@ -50,6 +51,7 @@ function reviewNotice(type: CreatePostUiType, editing: boolean): string {
 }
 
 export default function CreatePostScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
   const params = useLocalSearchParams<{
     type?: string;
@@ -240,7 +242,7 @@ export default function CreatePostScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

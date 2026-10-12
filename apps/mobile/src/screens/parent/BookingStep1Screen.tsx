@@ -7,6 +7,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -67,6 +68,7 @@ function addOnChipLabel(skill: PublicSkill, baseRate: number | null, hours: numb
 }
 
 export default function BookingStep1Screen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<BookingFlowParams & {
     startTime: string;
@@ -334,7 +336,7 @@ export default function BookingStep1Screen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         <BookingStepProgress step={3} title="Review your request" />

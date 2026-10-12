@@ -14,6 +14,7 @@ import { CareInstructionsCard } from '@mobile/components/booking/CareInstruction
 import { CareTimeline } from '@mobile/components/booking/CareTimeline';
 import { LiveShiftCard } from '@mobile/components/booking/LiveShiftCard';
 import { useBooking, useBookingOptions, useCancelBooking } from '@mobile/hooks/useBookings';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { bookingDayLabel } from '@mobile/lib/bookingDetail';
 import { cancellationWarning } from '@mobile/lib/cancellationWarning';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
@@ -31,6 +32,7 @@ import { styles } from './styles/booking-detail-screen.styles';
  */
 export default function BookingDetailScreen() {
   const router = useRouter();
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const { bookingId, focusCareLog } = useLocalSearchParams<{
     bookingId?: string;
     focusCareLog?: string;
@@ -120,7 +122,7 @@ export default function BookingDetailScreen() {
       <ScrollView
         ref={scrollRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.top}>

@@ -17,6 +17,7 @@ import {
   useNotifications,
   useUnreadNotificationCount,
 } from '@mobile/hooks/useNotifications';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { formatTimeAgo } from '@mobile/lib/communityUtils';
 import {
@@ -33,6 +34,7 @@ const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [
 ];
 
 export default function NannyNotificationsScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const [filter, setFilter] = useState<NotificationFilter>('all');
 
   const {
@@ -85,7 +87,7 @@ export default function NannyNotificationsScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

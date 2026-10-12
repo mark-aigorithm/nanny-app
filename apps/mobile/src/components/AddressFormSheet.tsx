@@ -15,6 +15,7 @@ import type { Address, AddressInput } from '@nanny-app/shared';
 import { colors, spacing } from '@mobile/theme';
 import AddressForm from '@mobile/components/AddressForm';
 import { styles } from './styles/address-form-sheet.styles';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 
 type Props = {
   visible: boolean;
@@ -41,6 +42,7 @@ export default function AddressFormSheet({
   error,
   hideDefaultToggle,
 }: Props) {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   return (
     <Modal
       visible={visible}
@@ -68,7 +70,7 @@ export default function AddressFormSheet({
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

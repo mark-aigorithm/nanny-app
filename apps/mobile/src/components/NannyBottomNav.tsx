@@ -3,6 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontFamily, BOTTOM_NAV_HEIGHT } from '@mobile/theme';
 
 export type NannyBottomNavTab = 'dashboard' | 'requests' | 'profile';
@@ -43,9 +44,17 @@ const TABS: {
 
 export default function NannyBottomNav({ activeTab }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
+  // The bar's tinted background runs down under the system's bottom bar, and
+  // the tabs sit above it, however tall that bar is on this device.
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { height: BOTTOM_NAV_HEIGHT + insets.bottom, paddingBottom: insets.bottom },
+      ]}
+    >
       {TABS.map((tab) => {
         const isActive = tab.key === activeTab;
         return (
@@ -71,7 +80,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: colors.taupe,
-    height: BOTTOM_NAV_HEIGHT,
     alignItems: 'center',
     paddingHorizontal: 8,
   },

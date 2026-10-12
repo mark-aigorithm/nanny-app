@@ -7,6 +7,7 @@ import { ApprovalStatus } from '@shared/auth';
 import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle } from '@mobile/components/ui';
@@ -20,6 +21,7 @@ import { styles } from './styles/pending-review-screen.styles';
  * Sign out and Delete account are the only other ways off it.
  */
 export default function PendingReviewScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const meQuery = useMe();
   const signOut = useSignOut();
   const { confirmDeleteAccount, isDeleting } = useConfirmDeleteAccount();
@@ -59,7 +61,7 @@ export default function PendingReviewScreen() {
         </Text>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
         <Button
           title="Check status"
           onPress={() => void meQuery.refetch()}

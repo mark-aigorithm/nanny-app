@@ -7,6 +7,7 @@ import { VLCPlayer } from 'react-native-vlc-media-player';
 
 import { Button } from '@mobile/components/ui';
 import { useBookingCamera, useNotifyNannyCamera } from '@mobile/hooks/useBookingCamera';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import { colors, spacing } from '@mobile/theme';
 
@@ -23,6 +24,7 @@ const NOTIFY_COOLDOWN_SECONDS = 300;
  * work in Expo Go.
  */
 export default function LiveVideoMonitorScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
   const { bookingId: rawBookingId } = useLocalSearchParams<{ bookingId?: string }>();
   const bookingId = rawBookingId ? Number(rawBookingId) : undefined;
@@ -77,7 +79,7 @@ export default function LiveVideoMonitorScreen() {
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.videoContainer}>

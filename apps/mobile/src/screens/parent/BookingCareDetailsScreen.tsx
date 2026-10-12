@@ -6,6 +6,7 @@ import {
   Switch,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -80,6 +81,7 @@ function addOnChipLabel(skill: PublicSkill, baseRate: number | null): string {
  * already be settled, not still being assembled.
  */
 export default function BookingCareDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<BookingFlowParams>();
 
@@ -270,7 +272,7 @@ export default function BookingCareDetailsScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

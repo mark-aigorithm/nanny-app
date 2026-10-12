@@ -33,6 +33,5 @@ export const styles = StyleSheet.create({
   content: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.sm,
-    paddingBottom: spacing['4xl'],
   },
 });

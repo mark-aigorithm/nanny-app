@@ -21,6 +21,7 @@ import {
   useSignOut,
   useVerifyEmailOtp,
 } from '@mobile/hooks/useAuth';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import type { MappedAuthError } from '@mobile/lib/authErrors';
 import { nextStep, stepInfo } from '@mobile/lib/registrationSteps';
@@ -54,6 +55,7 @@ function passwordRequirements(password: string, confirm: string): Requirement[] 
  * this very address keeps it: "Your password is already set".
  */
 export default function RegistrationAccountScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -286,7 +288,7 @@ export default function RegistrationAccountScreen() {
           )}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           <Button
             title={linkEmailPassword.isPending ? 'Saving…' : 'Continue'}
             onPress={() => void handleContinue()}

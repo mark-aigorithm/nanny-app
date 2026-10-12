@@ -14,7 +14,8 @@ import { useRouter } from 'expo-router';
 import type { ReferralListItem } from '@nanny-app/shared';
 
 import { Button, Card, IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useReferralSummary } from '@mobile/hooks/useReferrals';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { styles } from './styles/refer-a-friend-screen.styles';
@@ -61,6 +62,7 @@ function InviteRow({ item }: { item: ReferralListItem }) {
 }
 
 export default function ReferAFriendScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const router = useRouter();
 
   const summary = useReferralSummary();
@@ -95,7 +97,7 @@ export default function ReferAFriendScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

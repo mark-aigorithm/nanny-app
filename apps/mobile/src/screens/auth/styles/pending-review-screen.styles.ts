@@ -29,7 +29,6 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   footer: {
-    paddingBottom: spacing['3xl'],
     gap: spacing.md,
   },
   deleteLink: {

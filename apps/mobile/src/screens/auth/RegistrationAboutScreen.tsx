@@ -23,6 +23,7 @@ import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import { useCheckAvailability } from '@mobile/hooks/useAuth';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { getApiErrorMessage } from '@mobile/lib/api';
 import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
 import { abandonSocialSignUpForLink } from '@mobile/lib/pendingLink';
@@ -80,6 +81,8 @@ type FieldErrors = {
  * sign in with her number.
  */
 export default function RegistrationAboutScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
+  const sheetBottomPadding = useBottomBarPadding(spacing['3xl']);
   const router = useRouter();
   const draft = useRegistrationDraftStore();
   const patch = useRegistrationDraftStore((s) => s.patch);
@@ -349,7 +352,7 @@ export default function RegistrationAboutScreen() {
           )}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           <Button
             title={
               checkAvailability.isPending
@@ -387,7 +390,7 @@ export default function RegistrationAboutScreen() {
               style={styles.datePickerBackdrop}
               onPress={() => setShowDatePicker(false)}
             >
-              <Pressable style={styles.datePickerSheet}>
+              <Pressable style={[styles.datePickerSheet, { paddingBottom: sheetBottomPadding }]}>
                 <View style={styles.datePickerHeader}>
                   <Pressable onPress={() => setShowDatePicker(false)} hitSlop={8}>
                     <Text style={styles.datePickerCancel}>Cancel</Text>

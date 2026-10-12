@@ -11,6 +11,8 @@ import IdCaptureFields from '@mobile/components/IdCaptureFields';
 import { useIdSubmit } from '@mobile/hooks/useIdSubmit';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { screenPadding } from '@mobile/theme';
 import { pickImageFromLibrary } from '@mobile/lib/pickImage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { styles } from './styles/upload-id-screen.styles';
@@ -23,6 +25,7 @@ import { styles } from './styles/upload-id-screen.styles';
  * Non-dismissable by design.
  */
 export default function UploadIdScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
   const profile = useUserProfileStore((s) => s.profile);
   const signOut = useSignOut();
@@ -86,7 +89,7 @@ export default function UploadIdScreen() {
         />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
         <Button
           title={isSubmitting ? 'Submitting…' : 'Submit for review'}
           onPress={() => void submit({ idType, frontUri, backUri })}

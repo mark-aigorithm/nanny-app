@@ -19,6 +19,7 @@ import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
 import { usePackageHours } from '@mobile/hooks/usePackages';
 import { useRefetchOnFocus } from '@mobile/hooks/useRefetchOnFocus';
 import { useRewardWallet } from '@mobile/hooks/useRewards';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { currentPackageLabel } from '@mobile/lib/currentPackage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors, spacing } from '@mobile/theme';
@@ -38,6 +39,7 @@ const QUICK_TILES: {
 ];
 
 export default function MotherProfileWalletScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const profile = useUserProfileStore((s) => s.profile);
   const signOut = useSignOut();
@@ -94,7 +96,7 @@ export default function MotherProfileWalletScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navClearance + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.statusPill}>

@@ -342,7 +342,7 @@ export const styles = StyleSheet.create({
   },
   backButtonAbsolute: {
     position: 'absolute',
-    top: 56,
+    top: STATUS_BAR_HEIGHT + spacing.sm,
     left: 20,
   },
   loadMorePressable: {

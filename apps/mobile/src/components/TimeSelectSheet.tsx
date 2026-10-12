@@ -17,6 +17,7 @@ import {
   screenPadding,
   borderRadius,
 } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 
 interface Props {
   visible: boolean;
@@ -112,6 +113,7 @@ function WheelColumn<T>({
 }
 
 export default function TimeSelectSheet({ visible, title, value, onSelect, onClose }: Props) {
+  const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const parsed = parseHhmm(value);
   const [hour12, setHour12] = useState(parsed.hour12);
   const [minute, setMinute] = useState(parsed.minute);
@@ -141,7 +143,7 @@ export default function TimeSelectSheet({ visible, title, value, onSelect, onClo
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
           <View style={styles.header}>
             <Pressable onPress={onClose} hitSlop={12}>
               <Text style={styles.cancel}>Cancel</Text>
@@ -196,7 +198,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: borderRadius['2xl'],
     borderTopRightRadius: borderRadius['2xl'],
-    paddingBottom: spacing['3xl'],
   },
   header: {
     flexDirection: 'row',

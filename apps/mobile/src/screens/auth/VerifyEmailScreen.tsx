@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import { APP_NAME, OTP_LENGTH } from '@mobile/constants';
 import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useVerifiedEmailSubmit } from '@mobile/hooks/useVerifiedEmailSubmit';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { validateEmail } from '@mobile/lib/validation';
 import { colors, screenPadding } from '@mobile/theme';
 import { styles } from './styles/verify-email-screen.styles';
@@ -24,6 +26,7 @@ import { styles } from './styles/verify-email-screen.styles';
  * sign-in (see `useVerifiedEmailSubmit`).
  */
 export default function VerifyEmailScreen() {
+  const bottomPadding = useBottomBarPadding(screenPadding);
   const router = useRouter();
   const signOut = useSignOut();
 
@@ -114,7 +117,7 @@ export default function VerifyEmailScreen() {
           {error && <Text style={styles.error}>{error}</Text>}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
           {step === 'email' ? (
             <Button
               title={isSending ? 'Sending…' : 'Send code'}

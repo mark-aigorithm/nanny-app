@@ -13,7 +13,8 @@ import {
 } from '@mobile/components/ui';
 import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
-import { colors } from '@mobile/theme';
+import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/services-hub-screen.styles';
 
 // Uber-style services hub: one hero action plus a grid of everything else
@@ -30,6 +31,7 @@ const TILES: {
 ];
 
 export default function ServicesHubScreen() {
+  const navClearance = useFloatingNavClearance();
   const router = useRouter();
   const { gate } = useGuestGate();
   const { gate: idGate } = useIdGate();
@@ -81,7 +83,7 @@ export default function ServicesHubScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navClearance + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         <FadeInView index={0}>

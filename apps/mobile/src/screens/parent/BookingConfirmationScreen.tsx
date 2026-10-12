@@ -30,6 +30,7 @@ import {
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
 import { payBookingParams } from '@mobile/lib/bookingDraft';
@@ -71,6 +72,7 @@ function formatElapsed(seconds: number): string {
 export default function BookingConfirmationScreen() {
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
 
   // Poll while the request is still unclaimed so the screen flips to
   // "nanny accepted — pay" on its own the moment a nanny claims it.
@@ -236,7 +238,7 @@ export default function BookingConfirmationScreen() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Hero ── */}
