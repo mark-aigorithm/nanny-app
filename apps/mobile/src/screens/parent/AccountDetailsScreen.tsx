@@ -58,10 +58,12 @@ export default function AccountDetailsScreen() {
         noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to pick a profile picture.' });
         return;
       }
+      // No crop step: on Android it is a second system screen, and phones that
+      // reclaim the app behind it (Samsung, Oppo) lose the picked photo — or crash
+      // — on the way back. Avatars are drawn with `cover`, so no square is needed.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {

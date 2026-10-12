@@ -282,3 +282,29 @@ describe('Google/Apple sign-up', () => {
     expect(mockAbandon).toHaveBeenCalledTimes(1);
   });
 });
+
+// The crop screen Android put between the library and this form was a second
+// system screen with its own "CROP" button; until she tapped it the photo
+// never arrived. The picked photo now comes straight back and shows at once.
+it('shows the picked photo straight away, with no crop step', async () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ImagePicker = require('expo-image-picker') as {
+    requestMediaLibraryPermissionsAsync: jest.Mock;
+    launchImageLibraryAsync: jest.Mock;
+  };
+  ImagePicker.requestMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: true });
+  ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({
+    canceled: false,
+    assets: [{ uri: 'file:///picked.jpg' }],
+  });
+  fillDraft({ photoUri: null });
+  renderScreen();
+
+  fireEvent.press(screen.getByText('Add photo'));
+
+  await waitFor(() => expect(screen.getByText('Change photo')).toBeTruthy());
+  expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
+    expect.objectContaining({ allowsEditing: false }),
+  );
+  expect(useRegistrationDraftStore.getState().photoUri).toBe('file:///picked.jpg');
+});

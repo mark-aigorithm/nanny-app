@@ -135,7 +135,7 @@ export default function RegistrationAboutScreen() {
 
   async function handlePickPhoto() {
     try {
-      // E2E: skip the system picker + crop and use a bundled placeholder.
+      // E2E: skip the system picker and use a bundled placeholder.
       const e2eUri = await e2ePlaceholderImageUri();
       if (e2eUri) {
         patch({ photoUri: e2eUri });
@@ -147,10 +147,12 @@ export default function RegistrationAboutScreen() {
         noticeDialog({ title: 'Permission needed', message: 'Please allow photo library access to pick a profile picture.' });
         return;
       }
+      // No crop step: on Android it is a second system screen, and phones that
+      // reclaim the app behind it (Samsung, Oppo) lose the picked photo — or crash
+      // — on the way back. Avatars are drawn with `cover`, so no square is needed.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
