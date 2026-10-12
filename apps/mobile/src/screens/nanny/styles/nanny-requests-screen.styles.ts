@@ -30,8 +30,10 @@ export const styles = StyleSheet.create({
   },
 
   // Filter chips
+  // Wraps: four chips are wider than a narrow phone's content width.
   filterRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   filterChip: {
@@ -110,6 +112,7 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   detailText: {
+    flexShrink: 1,
     ...typeScale.bodySm,
     color: colors.textSecondary,
   },

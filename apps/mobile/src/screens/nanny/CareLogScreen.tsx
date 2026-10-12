@@ -284,7 +284,9 @@ export default function CareLogScreen() {
               >
                 <Ionicons name={entry.icon} size={28} color={colors.textPrimary} />
               </View>
-              <Text style={styles.quickLabel}>{entry.label}</Text>
+              <Text style={styles.quickLabel} numberOfLines={1} adjustsFontSizeToFit>
+                {entry.label}
+              </Text>
             </Pressable>
           ))}
         </View>

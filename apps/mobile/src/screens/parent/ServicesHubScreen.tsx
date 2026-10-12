@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
-import { Text } from '@mobile/components/ui/text';
+import { Text, wordSafeLabelProps } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -101,7 +101,9 @@ export default function ServicesHubScreen() {
           {TILES.map((tile) => (
             <PressableScale key={tile.key} style={styles.tile} onPress={tileHandler(tile.key)}>
               <Ionicons name={tile.icon} size={24} color={colors.textPrimary} />
-              <Text style={styles.tileLabel}>{tile.label}</Text>
+              <Text style={styles.tileLabel} {...wordSafeLabelProps(tile.label)}>
+                {tile.label}
+              </Text>
             </PressableScale>
           ))}
         </FadeInView>

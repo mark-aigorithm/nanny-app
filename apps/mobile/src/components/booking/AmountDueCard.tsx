@@ -66,6 +66,7 @@ const styles = StyleSheet.create({
   title: {
     ...typeScale.labelLg,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   amount: {
     ...typeScale.headingMd,

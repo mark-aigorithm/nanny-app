@@ -97,6 +97,8 @@ const styles = StyleSheet.create({
   },
   box: {
     width: 48,
+    // Six boxes are wider than a 320dp phone's content; they narrow to fit.
+    flexShrink: 1,
     height: 56,
     backgroundColor: colors.warmBorder,
     borderRadius: borderRadius.xl,

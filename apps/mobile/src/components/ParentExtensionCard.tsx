@@ -186,6 +186,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
@@ -194,6 +195,7 @@ const styles = StyleSheet.create({
   amountLabel: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   amountValue: {
     ...typeScale.headingSm,

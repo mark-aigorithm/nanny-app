@@ -59,11 +59,11 @@ export default function StackHeader({
 
       <View style={styles.titleRow}>
         <View style={styles.titleWrap}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
           {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
+            <Text style={styles.subtitle} numberOfLines={2}>
               {subtitle}
             </Text>
           ) : null}

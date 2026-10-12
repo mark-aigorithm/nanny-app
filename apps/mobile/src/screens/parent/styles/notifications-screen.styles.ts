@@ -56,7 +56,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: HEADER_HEIGHT,
+    minHeight: HEADER_HEIGHT,
     paddingHorizontal: screenPadding,
     paddingTop: STATUS_BAR_HEIGHT,
     backgroundColor: colors.background,
@@ -73,9 +73,15 @@ export const styles = StyleSheet.create({
     color: colors.textDark,
     letterSpacing: -0.5,
   },
+  // Shrinks so "Mark all read" wraps instead of pushing past the edge on narrow phones.
+  markAllReadButton: {
+    flexShrink: 1,
+    marginLeft: spacing.sm,
+  },
   markAllRead: {
     ...typeScale.labelMd,
     color: colors.primary,
+    textAlign: 'right',
   },
   headerSpacer: {
     width: 72,

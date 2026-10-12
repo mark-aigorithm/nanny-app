@@ -54,8 +54,11 @@ export const styles = StyleSheet.create({
     ...typeScale.headingLg,
     color: colors.primaryDark,
   },
+  // The label can carry a price; it wraps on a narrow phone and the CTA grows.
   cta: {
-    height: 56,
+    minHeight: 56,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius['2xl'],
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -74,5 +77,6 @@ export const styles = StyleSheet.create({
     ...typeScale.labelLg,
     fontFamily: fontFamily.bold,
     color: colors.white,
+    textAlign: 'center',
   },
 });

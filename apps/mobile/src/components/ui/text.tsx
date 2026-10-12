@@ -33,3 +33,16 @@ export type TextInput = RNTextInput;
 /** `Animated.Text` with the same cap. */
 export const AnimatedText = Animated.createAnimatedComponent(Text);
 
+/**
+ * For a short label in a tile or column whose width is fixed by the layout:
+ * it wraps between words, and when a single word is still wider than the line
+ * ("Notifications" at 1.3x in a half-width tile on a 360pt phone) it shrinks a
+ * little instead of splitting the word across lines. Spread onto a `Text`.
+ */
+export function wordSafeLabelProps(label: string) {
+  return {
+    numberOfLines: label.trim().split(/\s+/).length,
+    adjustsFontSizeToFit: true,
+    minimumFontScale: 0.7,
+  } as const;
+}

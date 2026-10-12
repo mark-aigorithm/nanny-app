@@ -202,6 +202,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   elapsed: {
+    flexShrink: 1,
     fontFamily: fontFamily.semiBold,
     fontSize: 11,
     color: 'rgba(255,255,255,0.75)',

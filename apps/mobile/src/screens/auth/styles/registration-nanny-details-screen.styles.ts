@@ -119,14 +119,18 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.borderSubtle,
   },
   dayLabel: {
-    width: 36,
+    minWidth: 36,
     ...typeScale.labelMd,
     fontFamily: fontFamily.semiBold,
     color: colors.textPrimary,
   },
+  // Two time pills don't fit beside the day and the switch on a narrow
+  // phone; the end time wraps under the start time instead of overflowing.
   timePills: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.xs,
   },
@@ -157,6 +161,7 @@ export const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   copyButtonText: {
+    flexShrink: 1,
     ...typeScale.labelSm,
     color: colors.primary,
   },

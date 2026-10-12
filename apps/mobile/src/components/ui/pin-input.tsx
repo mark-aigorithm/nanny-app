@@ -87,6 +87,8 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: CELL_SIZE,
+    // Narrows to fit a dialog on a small phone; the height stays.
+    flexShrink: 1,
     height: CELL_SIZE,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.taupeLight,

@@ -103,11 +103,13 @@ const styles = StyleSheet.create({
     ...typeScale.bodySm,
     fontWeight: '600',
     color: colors.textDark,
+    flexShrink: 1,
   },
   replyAuthorName: {
     ...typeScale.caption,
     fontWeight: '600',
     color: colors.textDark,
+    flexShrink: 1,
   },
   time: {
     ...typeScale.caption,

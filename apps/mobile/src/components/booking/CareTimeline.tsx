@@ -165,10 +165,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   title: {
     ...typeScale.headingMd,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   toggle: {
     ...typeScale.labelMd,
@@ -243,6 +245,8 @@ const styles = StyleSheet.create({
   },
   photos: {
     flexDirection: 'row',
+    // Four 64dp photos are wider than the entry body on a 320dp phone.
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.xs,
   },

@@ -170,6 +170,7 @@ export const styles = StyleSheet.create({
   // "Didn't get it? Resend in 24s"
   resendRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,

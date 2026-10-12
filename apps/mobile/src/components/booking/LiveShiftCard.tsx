@@ -311,6 +311,7 @@ const styles = StyleSheet.create({
   left: {
     ...typeScale.headingLg,
     color: colors.white,
+    flexShrink: 1,
   },
   track: {
     height: 8,
@@ -354,7 +355,8 @@ const styles = StyleSheet.create({
   },
   primaryAction: {
     flex: 1,
-    height: 52,
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius['2xl'],
     backgroundColor: colors.white,
     flexDirection: 'row',
@@ -365,6 +367,7 @@ const styles = StyleSheet.create({
   primaryActionText: {
     ...typeScale.labelLg,
     color: colors.successDark,
+    flexShrink: 1,
   },
   roundAction: {
     width: 52,
@@ -400,6 +403,8 @@ const styles = StyleSheet.create({
   footerText: {
     ...typeScale.labelMd,
     color: colors.white,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   endText: {
     color: colors.warmLight,
@@ -410,7 +415,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   hourChip: {
-    height: 36,
+    minHeight: 36,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.full,
     backgroundColor: colors.white,

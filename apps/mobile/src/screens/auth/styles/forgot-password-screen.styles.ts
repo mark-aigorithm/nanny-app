@@ -81,7 +81,7 @@ export const styles = StyleSheet.create({
     height: 56,
   },
   countryCodeBox: {
-    width: 64,
+    minWidth: 64,
     height: 56,
     backgroundColor: colors.taupeLight,
     borderRadius: borderRadius.xl,
@@ -129,6 +129,7 @@ export const styles = StyleSheet.create({
     color: colors.textPlaceholder,
   },
   timerText: {
+    flexShrink: 1,
     fontFamily: fontFamily.medium,
     fontSize: 14,
     color: colors.textMuted,

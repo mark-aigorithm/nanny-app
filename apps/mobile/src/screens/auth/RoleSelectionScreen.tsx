@@ -8,7 +8,8 @@ import type { Role } from '@mobile/types';
 import { Button, Divider } from '@mobile/components/ui';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useDiscardUnfinishedAccount } from '@mobile/hooks/useAuth';
-import { colors } from '@mobile/theme';
+import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { colors, spacing } from '@mobile/theme';
 import { firstStep } from '@mobile/lib/registrationSteps';
 import { SOCIAL_PROVIDER_LABEL } from '@mobile/lib/socialAuth';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -26,6 +27,7 @@ import { styles } from './styles/role-selection-screen.styles';
  * account.
  */
 export default function RoleSelectionScreen() {
+  const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const router = useRouter();
   const patchDraft = useRegistrationDraftStore((s) => s.patch);
@@ -72,90 +74,93 @@ export default function RoleSelectionScreen() {
       <View style={styles.blobTopLeft} />
       <View style={styles.blobBottomRight} />
 
-      {/* Main content */}
-      <View style={styles.content}>
-        <View style={styles.headingGroup}>
-          <Text style={styles.headline}>
-            {isResume ? 'Finish setting up your account' : 'Create your account'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {isResume
-              ? `Signed in as ${draftEmail || `${countryCode} ${phone}`}. Tell us who you are to finish setting up.`
-              : isSocial
-                ? `Signed in with ${SOCIAL_PROVIDER_LABEL[authProvider]} as ${draftEmail}. Tell us who you are to finish setting up.`
-                : 'Tell us who you are so we can set up the right experience for you.'}
-          </Text>
-        </View>
+      {/* Centred when the screen has room; scrolls on a short phone or with a
+          large font, instead of squashing the cards into the buttons. */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Main content */}
+        <View style={styles.content}>
+          <View style={styles.headingGroup}>
+            <Text style={styles.headline}>
+              {isResume ? 'Finish setting up your account' : 'Create your account'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {isResume
+                ? `Signed in as ${draftEmail || `${countryCode} ${phone}`}. Tell us who you are to finish setting up.`
+                : isSocial
+                  ? `Signed in with ${SOCIAL_PROVIDER_LABEL[authProvider]} as ${draftEmail}. Tell us who you are to finish setting up.`
+                  : 'Tell us who you are so we can set up the right experience for you.'}
+            </Text>
+          </View>
 
-        <View style={styles.cards}>
-          <RoleCard
-            label="I'm a mother"
-            description="I want to find trusted nannies for my children"
-            icon="heart-outline"
-            selected={selectedRole === 'parent'}
-            onPress={() => setSelectedRole('parent')}
-          />
-          <RoleCard
-            label="I'm a nanny"
-            description="I want to offer childcare and earn on my schedule"
-            icon="briefcase-outline"
-            selected={selectedRole === 'nanny'}
-            onPress={() => setSelectedRole('nanny')}
-          />
-        </View>
-
-        {!selectedRole && (
-          <Text style={styles.helperText}>Select an option above to sign up</Text>
-        )}
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Button
-          title={continueTitle}
-          onPress={handleContinue}
-          variant="primary"
-          fullWidth
-          disabled={!selectedRole}
-          style={styles.continueButton}
-        />
-
-        {isAccountBacked ? (
-          // A way back to the phone sign-up (and the other provider) for
-          // someone signed in to an account without a row who meant another
-          // method. The server deletes the account only if no row points at it.
-          <Pressable
-            style={styles.differentMethodRow}
-            onPress={() => discardUnfinishedAccount.mutate()}
-            disabled={discardUnfinishedAccount.isPending}
-            hitSlop={8}
-          >
-            <Text style={styles.differentMethodLink}>Use a different sign-up method</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.socialSection}>
-            <Divider label="or" />
-            <SocialAuthButtons
-              context="sign-up"
-              role={selectedRole ?? undefined}
-              disabled={!selectedRole}
+          <View style={styles.cards}>
+            <RoleCard
+              label="I'm a mother"
+              description="I want to find trusted nannies for my children"
+              icon="heart-outline"
+              selected={selectedRole === 'parent'}
+              onPress={() => setSelectedRole('parent')}
+            />
+            <RoleCard
+              label="I'm a nanny"
+              description="I want to offer childcare and earn on my schedule"
+              icon="briefcase-outline"
+              selected={selectedRole === 'nanny'}
+              onPress={() => setSelectedRole('nanny')}
             />
           </View>
-        )}
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Already have an account?</Text>
-          <View style={styles.dividerLine} />
+          {!selectedRole && (
+            <Text style={styles.helperText}>Select an option above to sign up</Text>
+          )}
         </View>
 
-        <Button
-          title="Sign in"
-          onPress={handleSignIn}
-          variant="outline"
-          fullWidth
-        />
-      </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Button
+            title={continueTitle}
+            onPress={handleContinue}
+            variant="primary"
+            fullWidth
+            disabled={!selectedRole}
+            style={styles.continueButton}
+          />
+
+          {isAccountBacked ? (
+            // A way back to the phone sign-up (and the other provider) for
+            // someone signed in to an account without a row who meant another
+            // method. The server deletes the account only if no row points at it.
+            <Pressable
+              style={styles.differentMethodRow}
+              onPress={() => discardUnfinishedAccount.mutate()}
+              disabled={discardUnfinishedAccount.isPending}
+              hitSlop={8}
+            >
+              <Text style={styles.differentMethodLink}>Use a different sign-up method</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.socialSection}>
+              <Divider label="or" />
+              <SocialAuthButtons
+                context="sign-up"
+                role={selectedRole ?? undefined}
+                disabled={!selectedRole}
+              />
+            </View>
+          )}
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>Already have an account?</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Button title="Sign in" onPress={handleSignIn} variant="outline" fullWidth />
+        </View>
+      </ScrollView>
     </View>
   );
 }

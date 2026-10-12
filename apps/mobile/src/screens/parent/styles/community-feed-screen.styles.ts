@@ -35,12 +35,15 @@ export const styles = StyleSheet.create({
     ...typeScale.headingLg,
     color: colors.textDark,
   },
+  // Shrinks (the pill's label wraps) so the title keeps its width on narrow phones.
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    flexShrink: 1,
   },
   onlinePill: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.taupe,
@@ -56,6 +59,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   onlineText: {
+    flexShrink: 1,
     fontFamily: fontFamily.semiBold,
     fontSize: 12,
     color: colors.textTertiary,

@@ -164,6 +164,7 @@ export const styles = StyleSheet.create({
   priceLabel: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   priceValue: {
     ...typeScale.labelMd,
@@ -172,6 +173,7 @@ export const styles = StyleSheet.create({
   promoLabel: {
     ...typeScale.bodyMd,
     color: colors.success,
+    flexShrink: 1,
   },
   promoValue: {
     ...typeScale.labelMd,
@@ -330,6 +332,7 @@ export const styles = StyleSheet.create({
   freeTotalLabel: {
     ...typeScale.headingSm,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   freeTotalValue: {
     ...typeScale.headingSm,

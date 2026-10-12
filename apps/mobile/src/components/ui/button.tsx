@@ -44,7 +44,7 @@ export default function Button({
   style,
 }: ButtonProps) {
   const variantStyle = VARIANT_STYLES[variant];
-  const height = size === 'md' ? 56 : 40;
+  const minHeight = size === 'md' ? 56 : 40;
   const fontSize = size === 'md' ? 16 : 14;
   const iconSize = size === 'md' ? 20 : 16;
 
@@ -56,7 +56,7 @@ export default function Button({
       style={[
         styles.base,
         {
-          height,
+          minHeight,
           backgroundColor: variantStyle.bg,
           opacity: disabled ? 0.5 : 1,
         },
@@ -107,11 +107,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius['2xl'],
     paddingHorizontal: spacing.xl,
+    // A long label wraps (narrow phone, large text) and the button grows with it.
+    paddingVertical: spacing.sm,
   },
   fullWidth: {
     width: '100%',
   },
   label: {
     fontFamily: fontFamily.bold,
+    flexShrink: 1,
+    textAlign: 'center',
   },
 });

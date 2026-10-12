@@ -158,7 +158,16 @@ export default function BottomNav({ activeTab }: Props) {
                   <View style={styles.badge} testID="account-unread-badge" />
                 )}
               </View>
-              <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
+              {/* Four tabs share the pill: at 320dp and large text a label shrinks
+                  to fit its slot instead of wrapping or spilling past it. */}
+              <Text
+                style={[styles.label, isActive && styles.labelActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {tab.label}
+              </Text>
             </PressableScale>
           );
         })}
@@ -187,6 +196,7 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: NAV_ITEM_PADDING_TOP,

@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
   dateField: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
+    minHeight: 56,
     backgroundColor: colors.taupeLight,
     borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.lg,

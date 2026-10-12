@@ -140,10 +140,12 @@ export const styles = StyleSheet.create({
     color: colors.white,
     letterSpacing: 0.5,
   },
+  // Capped so a long camera name ellipsizes instead of running over the LIVE badge.
   cameraSelector: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
+    maxWidth: '60%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -153,6 +155,7 @@ export const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
   cameraSelectorText: {
+    flexShrink: 1,
     fontFamily: fontFamily.semiBold,
     fontSize: 12,
     color: colors.textPrimary,

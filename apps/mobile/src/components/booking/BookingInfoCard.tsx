@@ -110,7 +110,7 @@ export function BookingInfoCard({ booking, paymentOpen = false }: Props) {
             {payment ? (
               <View style={styles.paymentStatus}>
                 <Ionicons name={paymentIcon} size={14} color={paymentColor} />
-                <Text style={[styles.sub, { color: paymentColor }]}>
+                <Text style={[styles.sub, styles.paymentText, { color: paymentColor }]}>
                   {formatPaymentStatus(payment.status)} · {formatPaymentMethod(payment.method)}
                 </Text>
               </View>
@@ -269,11 +269,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  paymentText: {
+    flexShrink: 1,
+  },
   mapsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    height: 32,
+    minHeight: 32,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.full,
     backgroundColor: colors.primaryMuted,

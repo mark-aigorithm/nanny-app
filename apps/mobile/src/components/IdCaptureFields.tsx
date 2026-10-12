@@ -181,6 +181,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     left: spacing.sm,
+    // Leaves room for the "Change" pill in the opposite corner.
+    maxWidth: '55%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -193,6 +195,7 @@ const styles = StyleSheet.create({
     ...typeScale.labelMd,
     color: colors.successText,
     fontFamily: fontFamily.bold,
+    flexShrink: 1,
   },
   errorText: {
     ...typeScale.bodySm,

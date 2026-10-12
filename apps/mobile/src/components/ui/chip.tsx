@@ -30,7 +30,7 @@ export default function Chip({
   inactiveColor = colors.taupe,
   style,
 }: ChipProps) {
-  const height = size === 'md' ? 36 : 30;
+  const minHeight = size === 'md' ? 36 : 30;
   const fontSize = size === 'md' ? 14 : 12;
 
   return (
@@ -40,7 +40,7 @@ export default function Chip({
       style={[
         styles.base,
         {
-          height,
+          minHeight,
           backgroundColor: active ? activeColor : inactiveColor,
         },
         style,
@@ -75,10 +75,14 @@ const styles = StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
+    // Shrinks (and its label wraps) rather than running out of a narrow row.
+    flexShrink: 1,
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
   },
   label: {
     fontFamily: fontFamily.semiBold,
+    flexShrink: 1,
   },
 });

@@ -201,6 +201,7 @@ const styles = StyleSheet.create({
     ...typeScale.bodySm,
     fontWeight: '600',
     color: colors.textDark,
+    flexShrink: 1,
   },
   officialBadge: {
     flexDirection: 'row',
@@ -284,6 +285,7 @@ const styles = StyleSheet.create({
   detailText: {
     ...typeScale.bodySm,
     color: colors.textMuted,
+    flexShrink: 1,
   },
   eventPrice: {
     ...typeScale.bodySm,

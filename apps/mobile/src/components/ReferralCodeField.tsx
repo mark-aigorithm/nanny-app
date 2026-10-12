@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
   label: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   hint: {
     ...typeScale.bodySm,

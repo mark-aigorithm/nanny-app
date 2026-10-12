@@ -1,16 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-
   View,
   Pressable,
-
   StatusBar,
-
   ActivityIndicator,
-
   Platform,
-
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 

@@ -113,7 +113,12 @@ export function PayingWithCard({
                   suffix="h free"
                   size="sm"
                 />
-                <Text style={points.hoursApplied > 0 ? styles.rowAmount : styles.noneUsed}>
+                <Text
+                  style={[
+                    points.hoursApplied > 0 ? styles.rowAmount : styles.noneUsed,
+                    styles.stepperAmount,
+                  ]}
+                >
                   {points.hoursApplied > 0 ? `−${formatMoney(points.saving)}` : 'None used'}
                 </Text>
               </View>
@@ -225,11 +230,17 @@ const styles = StyleSheet.create({
     color: colors.goldWarm,
     marginLeft: 'auto',
   },
+  // The stepper can't shrink, so on a narrow phone the amount drops below it
+  // (still right-aligned) instead of running out of the card.
   stepperRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
+  },
+  stepperAmount: {
+    marginLeft: 'auto',
   },
   divider: {
     borderTopWidth: 1,

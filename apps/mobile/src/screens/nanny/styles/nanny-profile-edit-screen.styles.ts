@@ -95,7 +95,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.borderSubtle,
   },
   dayLabel: {
-    width: 36,
+    minWidth: 36,
     ...typeScale.labelMd,
     fontFamily: fontFamily.semiBold,
     color: colors.textPrimary,
@@ -128,6 +128,7 @@ export const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   viewLocationText: {
+    flexShrink: 1,
     ...typeScale.bodyMd,
     color: colors.textTertiary,
   },

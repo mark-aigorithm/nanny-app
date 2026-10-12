@@ -91,13 +91,16 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   chatNameRow: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
   chatName: {
+    flexShrink: 1,
     ...typeScale.headingSm,
     color: colors.textPrimary,
     lineHeight: 24,

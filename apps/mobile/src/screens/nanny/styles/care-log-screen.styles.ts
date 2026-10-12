@@ -81,19 +81,23 @@ export const styles = StyleSheet.create({
   },
 
   // Quick Entry Grid
+  // Five fixed 64dp boxes are wider than a narrow phone's content width, so
+  // the boxes shrink to their column (up to 64) and the gap stays tight.
   quickGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
   quickEntry: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     gap: 7,
   },
   quickIconBox: {
-    width: 64,
-    height: 64,
+    width: '100%',
+    maxWidth: 64,
+    aspectRatio: 1,
     borderRadius: borderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',

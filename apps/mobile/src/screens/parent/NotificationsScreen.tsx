@@ -132,6 +132,7 @@ export default function NotificationsScreen() {
         <Text style={styles.headerTitle}>Notifications</Text>
         {showMarkAllRead ? (
           <TouchableOpacity
+            style={styles.markAllReadButton}
             activeOpacity={0.7}
             onPress={() => markAllRead.mutate()}
             disabled={markAllRead.isPending}

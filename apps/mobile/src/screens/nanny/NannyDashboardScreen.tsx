@@ -83,14 +83,14 @@ export default function NannyDashboardScreen() {
             <View style={styles.earningsRow}>
               <View style={styles.earningsItem}>
                 <Text style={styles.earningsLabel}>This week</Text>
-                <Text style={styles.earningsAmount}>
+                <Text style={styles.earningsAmount} numberOfLines={1} adjustsFontSizeToFit>
                   {dashboard != null ? formatMoney(dashboard.earningsThisWeek) : '—'}
                 </Text>
               </View>
               <View style={styles.earningsDivider} />
               <View style={styles.earningsItem}>
                 <Text style={styles.earningsLabel}>This month</Text>
-                <Text style={styles.earningsAmount}>
+                <Text style={styles.earningsAmount} numberOfLines={1} adjustsFontSizeToFit>
                   {dashboard != null ? formatMoney(dashboard.earningsThisMonth) : '—'}
                 </Text>
               </View>

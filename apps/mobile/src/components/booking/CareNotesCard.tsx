@@ -111,6 +111,7 @@ const styles = StyleSheet.create({
   title: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   titleWarning: {
     ...typeScale.labelMd,

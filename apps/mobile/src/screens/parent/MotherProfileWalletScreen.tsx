@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
-import { Text } from '@mobile/components/ui/text';
+import { Text, wordSafeLabelProps } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -124,7 +124,9 @@ export default function MotherProfileWalletScreen() {
                 <Ionicons name={tile.icon} size={22} color={colors.textPrimary} />
                 {tile.key === 'inbox' && hasUnread && <View style={styles.tileBadge} />}
               </View>
-              <Text style={styles.tileLabel}>{tile.label}</Text>
+              <Text style={styles.tileLabel} {...wordSafeLabelProps(tile.label)}>
+                {tile.label}
+              </Text>
             </PressableScale>
           ))}
         </FadeInView>
@@ -141,9 +143,7 @@ export default function MotherProfileWalletScreen() {
                 <IconCircle icon="time-outline" size="sm" />
                 <Text style={styles.walletLabel}>Care hours</Text>
                 <Text style={styles.walletValue}>{hoursValue}</Text>
-                <Text style={styles.walletCaption} numberOfLines={1}>
-                  {hoursCaption}
-                </Text>
+                <Text style={styles.walletCaption}>{hoursCaption}</Text>
               </PressableScale>
               <View style={styles.walletDivider} />
               <PressableScale

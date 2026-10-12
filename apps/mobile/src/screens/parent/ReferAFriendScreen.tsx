@@ -210,15 +210,21 @@ export default function ReferAFriendScreen() {
             {/* Stats */}
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{data.stats.invited}</Text>
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {data.stats.invited}
+                </Text>
                 <Text style={styles.statLabel}>Invited</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{data.stats.joined}</Text>
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {data.stats.joined}
+                </Text>
                 <Text style={styles.statLabel}>Booked</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{data.stats.pointsEarned.toLocaleString()}</Text>
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {data.stats.pointsEarned.toLocaleString()}
+                </Text>
                 <Text style={styles.statLabel}>Points earned</Text>
               </View>
             </View>

@@ -47,6 +47,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.md,
@@ -56,6 +57,7 @@ export const styles = StyleSheet.create({
   summaryLabel: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   summaryValue: {
     ...typeScale.headingSm,

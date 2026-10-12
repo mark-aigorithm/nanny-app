@@ -183,6 +183,8 @@ const styles = StyleSheet.create({
   },
   pinCell: {
     width: 56,
+    // Four cells are wider than the card on a 320dp phone; they narrow to fit.
+    flexShrink: 1,
     height: 64,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.primaryMuted,

@@ -64,7 +64,9 @@ function ConversationItem({
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
           <View style={styles.chatNameRow}>
-            <Text style={styles.chatName}>{participantName}</Text>
+            <Text style={styles.chatName} numberOfLines={1}>
+              {participantName}
+            </Text>
           </View>
           <Text style={[styles.chatTime, hasUnread && styles.chatTimeUnread]}>{time}</Text>
         </View>

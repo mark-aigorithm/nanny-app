@@ -34,9 +34,15 @@ export default function TextInputField({
   return (
     <View style={containerStyle}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputContainer, error ? styles.inputError : undefined]}>
+      <View
+        style={[
+          styles.inputContainer,
+          props.multiline ? styles.inputContainerMultiline : undefined,
+          error ? styles.inputError : undefined,
+        ]}
+      >
         <TextInput
-          style={[styles.input, inputStyle]}
+          style={[styles.input, props.multiline ? styles.inputMultiline : undefined, inputStyle]}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={isSecure}
           {...props}
@@ -78,6 +84,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.lg,
   },
+  // Multi-line text grows the field instead of being clipped at one row.
+  inputContainerMultiline: {
+    height: 'auto',
+    minHeight: 56,
+  },
   inputError: {
     borderWidth: 1,
     borderColor: colors.error,
@@ -88,6 +99,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
     height: '100%',
+  },
+  inputMultiline: {
+    height: 'auto',
+    paddingVertical: spacing.md,
   },
   iconButton: {
     marginLeft: spacing.sm,

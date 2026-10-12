@@ -115,7 +115,9 @@ export default function LiveVideoMonitorScreen() {
 
               <View style={styles.cameraSelector}>
                 <Ionicons name="home-outline" size={14} color={colors.textPrimary} />
-                <Text style={styles.cameraSelectorText}>{camera.name}</Text>
+                <Text style={styles.cameraSelectorText} numberOfLines={1}>
+                  {camera.name}
+                </Text>
               </View>
 
               <View style={styles.statusBar}>

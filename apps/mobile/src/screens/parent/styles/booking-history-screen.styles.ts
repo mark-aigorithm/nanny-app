@@ -177,6 +177,7 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   detailText: {
+    flexShrink: 1,
     fontFamily: fontFamily.medium,
     fontSize: 14,
     color: colors.textPrimary,

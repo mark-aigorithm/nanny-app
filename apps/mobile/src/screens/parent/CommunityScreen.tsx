@@ -36,6 +36,9 @@ export default function CommunityScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ filter?: string }>();
   const [activeFilter, setActiveFilter] = useState<CommunityFilterPill>('Q&A');
+  // The filter bar floats over the list and its height grows with the font
+  // scale, so the list starts below its measured height, not a guessed one.
+  const [filterBarHeight, setFilterBarHeight] = useState(0);
 
   useEffect(() => {
     if (params.filter && FILTER_PILLS.includes(params.filter as CommunityFilterPill)) {
@@ -74,7 +77,10 @@ export default function CommunityScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />
 
-      <View style={styles.filterBar}>
+      <View
+        style={styles.filterBar}
+        onLayout={(e) => setFilterBarHeight(e.nativeEvent.layout.height)}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -125,6 +131,7 @@ export default function CommunityScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[
           styles.listContent,
+          filterBarHeight > 0 && { paddingTop: HEADER_HEIGHT + filterBarHeight + spacing.md },
           { paddingBottom: navClearance + spacing['3xl'] },
           (isLoading || posts.length === 0) && styles.listContentEmpty,
         ]}

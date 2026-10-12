@@ -169,6 +169,7 @@ export const styles = StyleSheet.create({
   promoChipText: {
     ...typeScale.labelSm,
     color: colors.successDark,
+    flexShrink: 1,
   },
   promoErrorText: {
     ...typeScale.caption,

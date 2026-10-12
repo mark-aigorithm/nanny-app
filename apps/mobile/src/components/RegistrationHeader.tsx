@@ -39,7 +39,11 @@ export default function RegistrationHeader({ step, onBack }: RegistrationHeaderP
         >
           <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title}>{isResume ? 'Finish setting up' : 'Create account'}</Text>
+        {/* The row is a fixed-height overlay the screen pads past, so a title too
+            wide for a narrow phone at large text shrinks to one line, not two. */}
+        <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {isResume ? 'Finish setting up' : 'Create account'}
+        </Text>
         <View style={styles.spacer} />
       </View>
       <View

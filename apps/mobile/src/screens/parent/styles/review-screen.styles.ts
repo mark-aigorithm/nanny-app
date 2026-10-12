@@ -43,6 +43,8 @@ export const styles = StyleSheet.create({
   headerTitle: {
     ...typeScale.headingLg,
     color: colors.textPrimary,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   iconBtn: {
     width: 40,

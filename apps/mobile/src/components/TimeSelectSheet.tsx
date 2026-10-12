@@ -212,6 +212,9 @@ const styles = StyleSheet.create({
     ...typeScale.labelMd,
     fontFamily: fontFamily.semiBold,
     color: colors.textPrimary,
+    flexShrink: 1,
+    textAlign: 'center',
+    marginHorizontal: spacing.md,
   },
   cancel: {
     ...typeScale.labelMd,

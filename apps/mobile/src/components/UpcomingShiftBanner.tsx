@@ -156,6 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textMuted,
   },
   countdown: {
+    flexShrink: 1,
     fontFamily: fontFamily.semiBold,
     fontSize: 11,
     color: colors.textSecondary,

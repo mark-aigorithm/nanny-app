@@ -84,6 +84,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     letterSpacing: -1.2,
     color: colors.primary,
+    flexShrink: 1,
   },
   headerRight: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   summaryText: {
+    flexShrink: 1,
     ...typeScale.bodyMd,
     color: colors.successText,
   },
@@ -49,6 +50,7 @@ export const styles = StyleSheet.create({
   },
   legalLinks: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.sm,

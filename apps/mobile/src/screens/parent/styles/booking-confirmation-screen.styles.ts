@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: screenPadding,
-    paddingVertical: spacing['4xl'],
+    paddingTop: spacing['4xl'],
     gap: spacing.lg,
   },
   // Top bar — owns the status-bar inset, like StackHeader does
@@ -184,6 +184,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   detailLeft: {
     flexDirection: 'row',
@@ -197,6 +198,8 @@ export const styles = StyleSheet.create({
   detailValue: {
     ...typeScale.labelMd,
     color: colors.textPrimary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
 
   // What happens next
@@ -330,11 +333,13 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: borderRadius.full,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
   },
   rewardApplyText: {
     ...typeScale.labelMd,
     color: colors.white,
+    textAlign: 'center',
   },
   rewardRemove: {
     ...typeScale.labelMd,

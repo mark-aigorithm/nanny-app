@@ -139,14 +139,17 @@ export const styles = StyleSheet.create({
   rateBlock: {
     gap: spacing.xxs,
   },
+  // Wraps so the saving pill drops under the rate on narrow phones.
   rateRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
   },
   rateValue: {
     ...typeScale.displaySm,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   rateUnit: {
     ...typeScale.bodyMd,

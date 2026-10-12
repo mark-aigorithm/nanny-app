@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
     height: 56,
   },
   countryCodeBox: {
-    width: 64,
+    minWidth: 64,
     height: 56,
     backgroundColor: colors.taupeLight,
     borderRadius: borderRadius.xl,
@@ -77,6 +77,7 @@ export const styles = StyleSheet.create({
   },
   resendRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,
@@ -100,5 +101,6 @@ export const styles = StyleSheet.create({
   verifiedText: {
     ...typeScale.bodyLg,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
 });

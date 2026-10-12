@@ -106,7 +106,11 @@ export const styles = StyleSheet.create({
     ...typeScale.bodySm,
     color: colors.textMuted,
   },
+  // Shrinks so a long time range or children list wraps instead of leaving the card.
   detailValue: {
+    flexShrink: 1,
+    marginLeft: spacing.md,
+    textAlign: 'right',
     ...typeScale.labelMd,
     color: colors.textPrimary,
   },

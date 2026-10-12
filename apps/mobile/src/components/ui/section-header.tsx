@@ -32,12 +32,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
     paddingHorizontal: spacing['2xl'],
   },
   title: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   action: {
     fontFamily: fontFamily.semiBold,

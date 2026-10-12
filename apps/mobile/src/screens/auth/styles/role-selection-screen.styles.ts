@@ -1,14 +1,29 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, fontFamily, typeScale, spacing, borderRadius, shadows } from '@mobile/theme';
+import {
+  colors,
+  fontFamily,
+  typeScale,
+  spacing,
+  borderRadius,
+  shadows,
+  STATUS_BAR_HEIGHT,
+} from '@mobile/theme';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  // Starts below the status bar, so content scrolled up never runs under it.
+  scroll: {
+    flex: 1,
+    marginTop: STATUS_BAR_HEIGHT,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing['2xl'],
-    paddingTop: 80,
-    paddingBottom: spacing['4xl'],
+    paddingTop: spacing['4xl'],
   },
 
   // Blobs
@@ -159,6 +174,8 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.warmBorder,
   },
   dividerText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontFamily: fontFamily.regular,
     fontSize: 14,
     color: colors.textSecondary,
