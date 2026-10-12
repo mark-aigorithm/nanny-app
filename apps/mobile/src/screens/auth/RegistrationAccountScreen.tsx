@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { colors } from '@mobile/theme';
+import { colors, screenPadding } from '@mobile/theme';
 import { EMAIL_OTP_RESEND_COOLDOWN_SECONDS } from '@shared/email';
 import { OTP_LENGTH } from '@mobile/constants';
 import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';

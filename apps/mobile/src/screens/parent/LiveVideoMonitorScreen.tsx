@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { VLCPlayer } from 'react-native-vlc-media-player';
@@ -7,7 +8,7 @@ import { VLCPlayer } from 'react-native-vlc-media-player';
 import { Button } from '@mobile/components/ui';
 import { useBookingCamera, useNotifyNannyCamera } from '@mobile/hooks/useBookingCamera';
 import { getApiErrorMessage } from '@mobile/lib/api';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 
 import { styles } from './styles/live-video-monitor-screen.styles';
 

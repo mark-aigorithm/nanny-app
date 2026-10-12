@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { formatAddressArea, type Address, type AddressInput } from '@nanny-app/shared';
@@ -14,7 +15,7 @@ import {
   useUpdateAddress,
 } from '@mobile/hooks/useAddresses';
 import { getApiErrorMessage } from '@mobile/lib/api';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/addresses-screen.styles';
 
 /** What the sheet is open for: adding, or editing one address. */

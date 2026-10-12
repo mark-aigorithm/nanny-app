@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, StatusBar, KeyboardAvoidingView, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { Button, TextInputField } from '@mobile/components/ui';
 import { useSignInWithEmail } from '@mobile/hooks/useAuth';
 import { validateEmail, validateSignInPassword } from '@mobile/lib/validation';

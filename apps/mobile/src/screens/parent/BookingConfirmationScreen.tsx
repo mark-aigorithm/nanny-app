@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Image,
   ScrollView,
@@ -9,12 +8,13 @@ import {
   Animated,
   Easing,
 } from 'react-native';
+import { Text, AnimatedText } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BookingStatus, PaymentStatus, type BookingResponse } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import {
   Button,
   PressableScale,
@@ -279,9 +279,9 @@ export default function BookingConfirmationScreen() {
 
           <Text style={styles.heading}>{heading}</Text>
           {isPending ? (
-            <Animated.Text style={[styles.subtitle, { opacity: messageFade }]}>
+            <AnimatedText style={[styles.subtitle, { opacity: messageFade }]}>
               {subtitle}
-            </Animated.Text>
+            </AnimatedText>
           ) : (
             <Text style={styles.subtitle}>{subtitle}</Text>
           )}

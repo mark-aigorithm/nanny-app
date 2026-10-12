@@ -4,7 +4,7 @@
  * needing the native font glyphs.
  */
 import React from 'react';
-import { Text } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 const ICON_MAP: Record<string, string> = {
   'notifications-outline': '🔔',

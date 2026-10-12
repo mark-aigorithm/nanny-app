@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
-  TextInput,
   Image,
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -23,7 +22,7 @@ import {
 import type { CreatePostUiType } from '@mobile/types';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { e2ePlaceholderImageUri } from '@mobile/lib/e2eImage';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/create-post-screen.styles';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
 

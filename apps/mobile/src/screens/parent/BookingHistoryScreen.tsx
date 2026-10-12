@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -9,12 +8,13 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
 import { FadeInView, PressableScale } from '@mobile/components/ui';
-import { colors } from '@mobile/theme';
+import { colors, screenPadding } from '@mobile/theme';
 import type { BookingTabKey } from '@mobile/types';
 import type { BookingResponse } from '@nanny-app/shared';
 import { useBookingList, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';

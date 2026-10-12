@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import CampaignCarousel from '@mobile/components/CampaignCarousel';
@@ -11,7 +12,7 @@ import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
 import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/home-screen.styles';
 
 // Uber-style flow: the parent orders care without picking a nanny. Home is a

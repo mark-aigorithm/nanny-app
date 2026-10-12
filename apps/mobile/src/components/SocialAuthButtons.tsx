@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 

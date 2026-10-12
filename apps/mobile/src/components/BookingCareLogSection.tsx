@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { CareLogResponse } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';

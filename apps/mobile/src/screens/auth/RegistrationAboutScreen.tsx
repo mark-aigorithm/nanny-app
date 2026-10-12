@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -9,6 +8,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import type { AvailabilityResponse } from '@nanny-app/shared';
 import { latestAllowedDob } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
+import { colors, screenPadding, spacing } from '@mobile/theme';
 import TextInputField from '@mobile/components/ui/text-input';
 import Button from '@mobile/components/ui/button';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';

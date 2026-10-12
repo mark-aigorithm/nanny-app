@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
+import { View, Pressable, Linking, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { BookingLocation } from '@nanny-app/shared';
 

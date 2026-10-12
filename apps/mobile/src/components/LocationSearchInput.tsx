@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, Keyboard } from 'react-native';
+import { View, Pressable, Keyboard } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { ParsedAddressParts } from '@nanny-app/shared';
 

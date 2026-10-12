@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { BookingResponse } from '@nanny-app/shared';
 import { CHECK_IN_EARLY_MINUTES, Role } from '@nanny-app/shared';

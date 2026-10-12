@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import type { CommunityPostType } from '@nanny-app/shared';
 
 import { colors, spacing, borderRadius, typeScale } from '@mobile/theme';

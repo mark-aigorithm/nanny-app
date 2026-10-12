@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { Text, TextInput } from './text';
 
 import { OTP_LENGTH } from '@mobile/constants';
 import { colors, borderRadius, fontFamily, spacing } from '@mobile/theme';

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { View, Text, Pressable, Animated, Easing, ActivityIndicator } from 'react-native';
+import { View, Pressable, Animated, Easing, ActivityIndicator } from 'react-native';
+import { Text, AnimatedText } from '@mobile/components/ui/text';
 
 import { colors } from '@mobile/theme';
 import { styles } from './styles/booking-summary-bar.styles';
@@ -78,7 +79,7 @@ export default function BookingSummaryBar({
                 {originalTotal}
               </Text>
             )}
-            <Animated.Text
+            <AnimatedText
               style={[
                 styles.total,
                 {
@@ -99,7 +100,7 @@ export default function BookingSummaryBar({
               numberOfLines={1}
             >
               {total}
-            </Animated.Text>
+            </AnimatedText>
           </View>
         )}
       </View>

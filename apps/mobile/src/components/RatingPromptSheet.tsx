@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   Modal,
-  TextInput,
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Avatar, Button, StarRatingInput } from '@mobile/components/ui';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Pressable } from 'react-native';
+import { View, ScrollView, RefreshControl, ActivityIndicator, Pressable } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { PackagePurchase } from '@nanny-app/shared';

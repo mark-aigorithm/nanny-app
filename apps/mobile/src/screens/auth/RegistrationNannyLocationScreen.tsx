@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import Button from '@mobile/components/ui/button';

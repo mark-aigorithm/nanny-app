@@ -1,16 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   Image,
-  TextInput,
   Platform,
   StatusBar,
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -24,7 +23,7 @@ import { formatAuthorName, formatPrice } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMessagingStore } from '@mobile/store/messagingStore';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/chat-thread-screen.styles';
 
 function formatMessageTime(isoDate: string): string {

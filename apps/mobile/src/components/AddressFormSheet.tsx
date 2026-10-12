@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   Pressable,
   Modal,
   ScrollView,
@@ -9,10 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { Address, AddressInput } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import AddressForm from '@mobile/components/AddressForm';
 import { styles } from './styles/address-form-sheet.styles';
 

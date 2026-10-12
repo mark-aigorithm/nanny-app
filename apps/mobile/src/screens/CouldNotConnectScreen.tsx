@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 import { COULD_NOT_CONNECT } from '@mobile/lib/authErrors';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle, ScreenContainer } from '@mobile/components/ui';
 import { styles } from './styles/could-not-connect-screen.styles';
 

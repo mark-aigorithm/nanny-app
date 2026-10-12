@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   RefreshControl,
   ActivityIndicator,
   Pressable,
   Image,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { CommunityPostResponse } from '@nanny-app/shared';
@@ -22,7 +22,7 @@ import {
   getPostTypeLabel,
 } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/my-posts-screen.styles';
 
 type StatusMeta = {

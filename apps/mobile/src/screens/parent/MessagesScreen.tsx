@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Image,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import type { ConversationResponse } from '@nanny-app/shared';
 import { useRouter } from 'expo-router';
 
@@ -16,7 +16,7 @@ import { FadeInView, PressableScale } from '@mobile/components/ui';
 import { useConversations } from '@mobile/hooks/useMessaging';
 import { formatAuthorName, formatPrice, formatTimeAgo } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/messages-screen.styles';
 
 function ConversationItem({

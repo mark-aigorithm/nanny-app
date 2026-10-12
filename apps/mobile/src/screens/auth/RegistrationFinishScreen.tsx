@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { CURRENT_TERMS_VERSION } from '@nanny-app/shared';
 import { idTypeRequiresBack } from '@shared/nanny';
-import { colors } from '@mobile/theme';
+import { colors, screenPadding } from '@mobile/theme';
 import Button from '@mobile/components/ui/button';
 import ReferralCodeField from '@mobile/components/ReferralCodeField';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';

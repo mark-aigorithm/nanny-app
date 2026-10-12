@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, Image, TextInput, ActivityIndicator } from 'react-native';
+import { View, Pressable, Image, ActivityIndicator } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@mobile/theme';

@@ -7,7 +7,7 @@ import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useVerifiedEmailSubmit } from '@mobile/hooks/useVerifiedEmailSubmit';
 import { validateEmail } from '@mobile/lib/validation';
-import { colors } from '@mobile/theme';
+import { colors, screenPadding } from '@mobile/theme';
 import { styles } from './styles/verify-email-screen.styles';
 
 /**

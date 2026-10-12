@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { PressableScale, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
 import ParentExtensionCard from '@mobile/components/ParentExtensionCard';

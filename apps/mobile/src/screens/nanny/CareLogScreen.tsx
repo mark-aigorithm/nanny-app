@@ -1,16 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   Image,
-  TextInput,
   Modal,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import DateTimePicker, {
   DateTimePickerAndroid,
   type DateTimePickerEvent,
@@ -22,7 +21,7 @@ import type { CareLogResponse, CareLogType } from '@nanny-app/shared';
 
 import { ScreenContainer, StackHeader } from '@mobile/components/ui';
 import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
 import { useCareLogs, useCreateCareLog } from '@mobile/hooks/useCareLogs';

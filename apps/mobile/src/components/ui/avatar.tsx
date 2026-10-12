@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Image, Text, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
+import { Text } from './text';
 import type { ViewStyle, StyleProp } from 'react-native';
 
 import { colors, fontFamily } from '@mobile/theme';

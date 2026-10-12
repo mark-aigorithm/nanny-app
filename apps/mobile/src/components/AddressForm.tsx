@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, Switch } from 'react-native';
+import { View, Switch } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import {
   AddressInputSchema,
   applyAddressParts,

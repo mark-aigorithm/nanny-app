@@ -3,9 +3,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
 
   View,
-
-  Text,
-
   Pressable,
 
   StatusBar,
@@ -15,6 +12,7 @@ import {
   Platform,
 
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,7 +26,7 @@ import type { WebViewNavigation } from 'react-native-webview';
 
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 
 import { Button, IconCircle } from '@mobile/components/ui';
 

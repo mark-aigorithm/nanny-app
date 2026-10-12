@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { colors } from '@mobile/theme';

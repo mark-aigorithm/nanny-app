@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
+import { View, Animated, Easing, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 import { colors, fontFamily, typeScale, spacing, borderRadius } from '@mobile/theme';
 

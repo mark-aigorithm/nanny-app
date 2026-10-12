@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Modal, Pressable, Animated, Easing } from 'react-native';
+import { View, Modal, Pressable, Animated, Easing } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 import { Button } from '@mobile/components/ui';
 import { useConfirmDialogStore } from '@mobile/store/confirmDialogStore';

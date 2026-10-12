@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useLocalSearchParams } from 'expo-router';
 import { LegalDocumentKeySchema } from '@nanny-app/shared';
 

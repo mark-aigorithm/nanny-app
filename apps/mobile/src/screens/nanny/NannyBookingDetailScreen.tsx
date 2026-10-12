@@ -1,11 +1,11 @@
 import React from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer, StackHeader } from '@mobile/components/ui';

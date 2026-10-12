@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';

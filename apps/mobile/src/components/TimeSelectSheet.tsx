@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   Modal,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import {
   colors,
   fontFamily,

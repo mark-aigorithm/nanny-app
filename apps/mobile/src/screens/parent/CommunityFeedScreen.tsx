@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   ActivityIndicator,
   RefreshControl,
   FlatList,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -23,7 +23,7 @@ import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { filterPillToType, filterPostsBySearch } from '@mobile/lib/communityUtils';
 import type { CommunityFilterPill } from '@mobile/types';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/community-feed-screen.styles';
 
 const FILTER_PILLS: CommunityFilterPill[] = ['All posts', 'Q&A', 'Marketplace', 'Events'];

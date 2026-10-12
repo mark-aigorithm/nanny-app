@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { TextInput } from './text';
 import type { ViewStyle, StyleProp, TextInputProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 

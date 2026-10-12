@@ -1,20 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Switch,
 } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AGE_RANGES, AvailabilityType } from '@nanny-app/shared';
 import type { AgeRange, AvailabilityType as AvailabilityTypeValue, WeeklySchedule } from '@nanny-app/shared';
-import { colors } from '@mobile/theme';
+import { colors, screenPadding } from '@mobile/theme';
 import Button from '@mobile/components/ui/button';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import TimeSelectSheet, { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';

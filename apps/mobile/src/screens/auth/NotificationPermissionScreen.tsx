@@ -1,10 +1,6 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StatusBar,
-} from 'react-native';
+import { View, Pressable, ScrollView, StatusBar } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 

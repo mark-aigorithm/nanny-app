@@ -1,18 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
 import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import {

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -20,7 +21,7 @@ import { useRefetchOnFocus } from '@mobile/hooks/useRefetchOnFocus';
 import { useRewardWallet } from '@mobile/hooks/useRewards';
 import { currentPackageLabel } from '@mobile/lib/currentPackage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/mother-profile-wallet-screen.styles';
 
 // Uber-style Account tab: name header, 2x2 quick tiles, promo cards, list.

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StatusBar, Pressable } from 'react-native';
+import { View, StatusBar, Pressable } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import { ApprovalStatus } from '@shared/auth';
@@ -7,7 +8,7 @@ import { useMe } from '@mobile/hooks/useMe';
 import { useSignOut } from '@mobile/hooks/useAuth';
 import { useConfirmDeleteAccount } from '@mobile/hooks/useConfirmDeleteAccount';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle } from '@mobile/components/ui';
 import { styles } from './styles/pending-review-screen.styles';
 

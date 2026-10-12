@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { BookingResponse } from '@nanny-app/shared';
 

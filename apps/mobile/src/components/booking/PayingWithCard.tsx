@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 
 import { IconCircle, Stepper } from '@mobile/components/ui';
 import type { BookingCreditsPlan } from '@mobile/lib/bookingCredits';

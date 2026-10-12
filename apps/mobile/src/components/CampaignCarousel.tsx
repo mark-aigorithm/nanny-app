@@ -2,13 +2,13 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
-  Text,
   View,
   useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ViewToken,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import {

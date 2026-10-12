@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, Linking, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Pressable, Linking, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { BookingResponse } from '@nanny-app/shared';

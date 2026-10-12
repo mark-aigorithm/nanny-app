@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import type { NotificationResponse } from '@nanny-app/shared';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -24,7 +24,7 @@ import {
   getNotificationIcon,
   type NotificationFilter,
 } from '@mobile/lib/notificationUtils';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/nanny-notifications-screen.styles';
 
 const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [

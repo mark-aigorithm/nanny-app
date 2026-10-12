@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Text, TextInput, View } from 'react-native';
+import { Modal, View } from 'react-native';
+import { Text, TextInput } from '@mobile/components/ui/text';
 
 import { Button } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';

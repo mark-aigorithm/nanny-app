@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StatusBar, Pressable } from 'react-native';
+import { View, ScrollView, StatusBar, Pressable } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import { ApprovalStatus } from '@shared/auth';

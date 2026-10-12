@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StatusBar, Text, View } from 'react-native';
+import { Pressable, StatusBar, View } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 

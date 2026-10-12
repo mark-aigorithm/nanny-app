@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
+import { View, Pressable, Animated, Easing, StyleSheet } from 'react-native';
+import { Text } from './text';
 import type { ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
