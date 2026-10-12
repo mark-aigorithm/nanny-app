@@ -4,14 +4,12 @@ import {
   ScrollView,
   Pressable,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ScreenContainer } from '@mobile/components/ui';
+import { KeyboardAvoidingView, ScreenContainer } from '@mobile/components/ui';
 import { colors } from '@mobile/theme';
 import { formatTimeDisplay } from '@mobile/components/TimeSelectSheet';
 import NannyBottomNav from '@mobile/components/NannyBottomNav';
@@ -121,7 +119,6 @@ export default function NannyProfileEditScreen() {
     <ScreenContainer useSafeArea={false}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
         style={styles.scrollView}

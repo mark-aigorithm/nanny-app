@@ -3,11 +3,10 @@ import {
   View,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Switch,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
+import { KeyboardAvoidingView } from '@mobile/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -220,10 +219,7 @@ export default function RegistrationNannyDetailsScreen() {
   const skillOptions = skillCatalog ?? [];
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.keyboardAvoid}>
       <View style={styles.container}>
         <RegistrationHeader step={step} />
 

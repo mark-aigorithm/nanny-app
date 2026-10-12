@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Pressable, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Pressable, ScrollView, StatusBar } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors, spacing } from '@mobile/theme';
-import { Button, TextInputField } from '@mobile/components/ui';
+import { Button, KeyboardAvoidingView, TextInputField } from '@mobile/components/ui';
 import { useSignInWithEmail } from '@mobile/hooks/useAuth';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { validateEmail, validateSignInPassword } from '@mobile/lib/validation';
@@ -66,7 +66,6 @@ export default function EmailSignInScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />

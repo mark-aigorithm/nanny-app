@@ -5,10 +5,9 @@ import {
   Modal,
   ScrollView,
   StatusBar,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
+import { KeyboardAvoidingView } from '@mobile/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import type { Address, AddressInput } from '@nanny-app/shared';
 
@@ -50,10 +49,7 @@ export default function AddressFormSheet({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.root}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <Pressable

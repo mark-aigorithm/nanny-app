@@ -126,6 +126,7 @@ Before creating any new visual pattern, check if an existing component covers it
 | `PulseRings` | Expanding sonar rings for "searching" states |
 | `PressableScale` | Drop-in `Pressable` with the standard press feedback (soft scale + optional `haptic`) — use for every tappable card/tile/button |
 | `FadeInView` | One-time fade-and-rise entrance for list items and sections (`index` staggers) |
+| `KeyboardAvoidingView` | The only keyboard avoider — `behavior="padding"` on both platforms (see Screen Layout) |
 
 - Only create new UI components if no existing one covers the use case
 - Import from `@mobile/components/ui`
@@ -217,11 +218,19 @@ in the `nanny-app-mobile-design` skill; the mandatory rules are:
   - A label in a fixed-width tile spreads `wordSafeLabelProps(label)` so a long single word
     shrinks instead of splitting ("Notificati / ons").
   - A screen whose content can outgrow a short phone scrolls; it never squashes.
+- **Inputs near the bottom avoid the keyboard through `KeyboardAvoidingView` from
+  `@mobile/components/ui`.** Edge-to-edge Android doesn't shrink the window for the keyboard, so
+  the old `behavior={Platform.OS === 'ios' ? 'padding' : undefined}` left comment boxes, chat
+  composers and form fields under it. A composer pinned under the keyboard drops its
+  `useBottomBarPadding` while `useKeyboardVisible()` is true (the keyboard covers the system bar).
+- **Floating things above the parent tab bar use `useFloatingNavClearance()`**, which reads the
+  bar's measured height (it grows with the OS font size), never a constant.
 - **Text comes only from `@mobile/components/ui/text`** (`Text`, `TextInput`, `AnimatedText`),
   which caps OS font scaling at `MAX_FONT_SCALE` (1.3). React 19 ignores `defaultProps`, so the cap
   can't be set on React Native's own components. `src/__tests__/layout-guards.test.ts` fails on a
   raw `Text`/`TextInput` import from `react-native`, on a `Platform.OS` guess at system-bar space,
-  and on `StatusBar.currentHeight` outside the theme.
+  on `StatusBar.currentHeight` outside the theme, and on a `KeyboardAvoidingView` imported from
+  `react-native`.
 
 ---
 

@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Pressable, ScrollView } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@mobile/theme';
 import { APP_NAME, OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, Divider, OtpCodeInput, ScreenContainer } from '@mobile/components/ui';
+import { Button, Divider, KeyboardAvoidingView, OtpCodeInput, ScreenContainer } from '@mobile/components/ui';
 import AuthIconButton from '@mobile/components/AuthIconButton';
 import SocialAuthButtons from '@mobile/components/SocialAuthButtons';
 import { useSendSignInCode, useConfirmPhoneSignIn } from '@mobile/hooks/useAuth';
@@ -160,7 +160,6 @@ export default function SignInScreen() {
     <ScreenContainer>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.blobTopRight} />
         <View style={styles.blobLeft} />

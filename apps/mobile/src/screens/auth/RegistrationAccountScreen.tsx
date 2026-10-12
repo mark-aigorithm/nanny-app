@@ -3,8 +3,6 @@ import {
   View,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { colors, screenPadding } from '@mobile/theme';
 import { EMAIL_OTP_RESEND_COOLDOWN_SECONDS } from '@shared/email';
 import { OTP_LENGTH } from '@mobile/constants';
-import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
+import { Button, KeyboardAvoidingView, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import {
   useLinkEmailPassword,
@@ -162,7 +160,6 @@ export default function RegistrationAccountScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
         <RegistrationHeader step={step} />

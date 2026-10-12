@@ -3,8 +3,6 @@ import {
   View,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +10,7 @@ import { useRouter } from 'expo-router';
 
 import { colors, screenPadding } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, OtpCodeInput } from '@mobile/components/ui';
+import { Button, KeyboardAvoidingView, OtpCodeInput } from '@mobile/components/ui';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';
 import { auth } from '@mobile/lib/firebase';
 import type { FirebaseUser, PhoneConfirmation } from '@mobile/lib/firebase';
@@ -323,7 +321,6 @@ export default function RegistrationPhoneScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
         <RegistrationHeader step={step} />

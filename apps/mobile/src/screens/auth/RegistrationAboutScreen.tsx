@@ -3,12 +3,12 @@ import {
   View,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Image,
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
+import { KeyboardAvoidingView } from '@mobile/components/ui';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -238,10 +238,7 @@ export default function RegistrationAboutScreen() {
   const busy = checkAvailability.isPending || isUploading || isHandingOff;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.keyboardAvoid}>
       <View style={styles.container}>
         <RegistrationHeader step={step} />
 

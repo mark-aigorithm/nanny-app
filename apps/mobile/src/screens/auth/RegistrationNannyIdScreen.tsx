@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
+import { KeyboardAvoidingView } from '@mobile/components/ui';
 import { useRouter } from 'expo-router';
 
 import { IdDocumentType, idTypeRequiresBack } from '@shared/nanny';
@@ -92,10 +93,7 @@ export default function RegistrationNannyIdScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.keyboardAvoid}>
       <View style={styles.container}>
         <RegistrationHeader step={step} />
 

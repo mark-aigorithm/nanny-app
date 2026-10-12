@@ -5,10 +5,9 @@ import {
   Pressable,
   Image,
   StatusBar,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
+import { KeyboardAvoidingView } from '@mobile/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -104,10 +103,7 @@ export default function AccountDetailsScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       <ScrollView

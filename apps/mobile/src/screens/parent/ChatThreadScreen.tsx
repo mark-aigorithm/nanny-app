@@ -4,12 +4,11 @@ import {
   ScrollView,
   Pressable,
   Image,
-  Platform,
   StatusBar,
-  KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
+import { KeyboardAvoidingView } from '@mobile/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -20,6 +19,7 @@ import {
   useSendMessage,
 } from '@mobile/hooks/useMessaging';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { formatAuthorName, formatPrice } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -45,7 +45,11 @@ function formatDateDivider(isoDate: string): string {
 }
 
 export default function ChatThreadScreen() {
-  const bottomPadding = useBottomBarPadding(spacing.md);
+  // The keyboard covers the system bar, so the composer clears it only while
+  // the keyboard is down.
+  const keyboardVisible = useKeyboardVisible();
+  const restingPadding = useBottomBarPadding(spacing.md);
+  const bottomPadding = keyboardVisible ? spacing.sm : restingPadding;
   const router = useRouter();
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
   const currentUserId = useUserProfileStore((s) => s.profile?.id);
@@ -125,7 +129,6 @@ export default function ChatThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
       <StatusBar barStyle="dark-content" translucent backgroundColor={colors.transparent} />

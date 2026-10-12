@@ -4,8 +4,6 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +11,7 @@ import { useRouter } from 'expo-router';
 
 import { colors, spacing } from '@mobile/theme';
 import { OTP_LENGTH, RESEND_SECONDS } from '@mobile/constants';
-import { Button, OtpCodeInput, TextInputField } from '@mobile/components/ui';
+import { Button, KeyboardAvoidingView, OtpCodeInput, TextInputField } from '@mobile/components/ui';
 import {
   useSendSignInCode,
   useConfirmPhoneAndResetPassword,
@@ -213,7 +211,6 @@ export default function ForgotPasswordScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
