@@ -115,6 +115,12 @@ export default function CreatePostScreen() {
   const updatePost = useUpdatePost();
   const { data: existingPost } = useCommunityPost(editingId);
 
+  // A screen kept mounted keeps its state, so a later open from another
+  // filter (Events after Q&A) must still start on the type it asked for.
+  useEffect(() => {
+    if (!editingId) setPostType(initialType);
+  }, [editingId, initialType]);
+
   // Seed the form from the post being edited, once it arrives.
   useEffect(() => {
     if (!existingPost) return;
