@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { BookingChild } from '@nanny-app/shared';
-import { childrenWithAllergies, formatChildAge } from '@nanny-app/shared';
+import { childrenWithAllergies, formatChildAge, formatHealthLine } from '@nanny-app/shared';
 
 import { colors, spacing, borderRadius, typeScale, shadows } from '@mobile/theme';
 
@@ -13,14 +13,15 @@ interface Props {
   specialInstructions: string | null;
   /**
    * The nanny is the one who has to act on this, so she gets the loud version:
-   * a red-bordered ALLERGY WARNING she can't skim past. The mother is reading
+   * a red-bordered HEALTH WARNING she can't skim past. The mother is reading
    * back what she typed, so hers is a calm summary.
    */
   emphasis: 'warning' | 'summary';
 }
 
 /**
- * Allergies and the parent's notes, on a booking detail screen.
+ * Allergies, medical conditions and medicines, then the parent's notes, on a
+ * booking detail screen.
  *
  * These used to be visible nowhere in the mobile app: a mother could type
  * "Liam is allergic to peanuts" into the booking form and no nanny would ever
@@ -40,29 +41,31 @@ export function CareNotesCard({ bookingChildren, specialInstructions, emphasis }
       {allergic.length > 0 ? (
         <View style={[styles.card, isWarning ? styles.cardWarning : styles.cardSummary]}>
           <View style={styles.head}>
-            <Ionicons
-              name="warning"
-              size={18}
-              color={isWarning ? colors.error : colors.goldWarm}
-            />
+            <Ionicons name="warning" size={18} color={isWarning ? colors.error : colors.goldWarm} />
             <Text style={[styles.title, isWarning && styles.titleWarning]}>
-              {isWarning ? 'ALLERGY WARNING' : 'Allergies'}
+              {isWarning ? 'HEALTH WARNING' : 'Allergies and health'}
             </Text>
           </View>
 
-          {allergic.map((child, i) => (
-            <View key={i} style={styles.childRow}>
-              <Text style={styles.childName}>
-                {child.name?.trim() || formatChildAge(child.ageYears)}
-              </Text>
-              <Text style={styles.allergy}>{child.allergies}</Text>
-            </View>
-          ))}
+          {allergic.map((child, i) => {
+            const line = formatHealthLine(child);
+            return (
+              <View key={i} style={styles.childRow}>
+                <Text style={styles.childName}>
+                  {child.name?.trim() || formatChildAge(child.ageYears, child.ageMonths)}
+                </Text>
+                {line ? <Text style={styles.allergy}>{line}</Text> : null}
+                {child.healthNotes ? (
+                  <Text style={styles.healthNotes}>{child.healthNotes}</Text>
+                ) : null}
+              </View>
+            );
+          })}
 
           {isWarning ? (
             <Text style={styles.note}>
-              Check every food and product before giving it to them. Call the parent if
-              you are unsure.
+              Check every food and product before giving it to them. Call the parent if you are
+              unsure.
             </Text>
           ) : null}
         </View>
@@ -72,9 +75,7 @@ export function CareNotesCard({ bookingChildren, specialInstructions, emphasis }
         <View style={[styles.card, styles.cardSummary]}>
           <View style={styles.head}>
             <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-            <Text style={styles.title}>
-              {isWarning ? 'Notes from the parent' : 'Your notes'}
-            </Text>
+            <Text style={styles.title}>{isWarning ? 'Notes from the parent' : 'Your notes'}</Text>
           </View>
           <Text style={styles.notesBody}>{notes}</Text>
         </View>
@@ -128,6 +129,11 @@ const styles = StyleSheet.create({
   allergy: {
     ...typeScale.bodyMd,
     color: colors.textPrimary,
+  },
+  healthNotes: {
+    ...typeScale.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   note: {
     ...typeScale.bodySm,

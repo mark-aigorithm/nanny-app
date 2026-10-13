@@ -2,7 +2,7 @@
  * A20 — editing a profile, and where the edit shows up.
  *
  * A mother edits her own account from the app: her details through
- * `PATCH /auth/me`, her children through `PUT /auth/children`. A nanny's
+ * `PATCH /auth/me` (her children are A31). A nanny's
  * professional profile is deliberately not hers to edit — the app's Profile
  * tab is read-only and an operator makes the change in the console — so her
  * half of this journey is driven from the admin routes and read back through
@@ -72,43 +72,6 @@ describe('A20 — a mother edits her account', () => {
       location: '14 Garden Street, Maadi',
       addresses: [expect.objectContaining({ id: mother.addressId, isDefault: true })],
     });
-  });
-
-  it('adds and removes children, and the saved list is what the booking form offers', async () => {
-    const mother = await makeMother();
-    const children = (body: object) =>
-      request(app).put('/auth/children').set(...authHeader(mother.token)).send(body);
-
-    let saved = await children({
-      children: [
-        { name: 'Layla', ageYears: 4, allergies: 'peanuts' },
-        { name: 'Omar', ageYears: 1, allergies: null },
-      ],
-    });
-    expect(saved.status).toBe(200);
-
-    let list = await request(app).get('/auth/children').set(...authHeader(mother.token));
-    expect(list.body.data).toHaveLength(2);
-    expect(list.body.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: 'Layla', ageYears: 4, allergies: 'peanuts' }),
-        expect.objectContaining({ name: 'Omar', ageYears: 1 }),
-      ]),
-    );
-
-    // Removing one is a save of the list without it.
-    saved = await children({ children: [{ name: 'Layla', ageYears: 4, allergies: 'peanuts' }] });
-    expect(saved.status).toBe(200);
-
-    list = await request(app).get('/auth/children').set(...authHeader(mother.token));
-    expect(list.body.data).toHaveLength(1);
-    expect(list.body.data[0]).toMatchObject({ name: 'Layla' });
-
-    // A saved child is bookable by exactly the details she entered.
-    const booking = await createBookingViaApi(mother.token, {
-      children: [{ name: 'Layla', ageYears: 4, allergies: 'peanuts' }],
-    });
-    expect(booking.status).toBe('PENDING');
   });
 
   it('refuses a blank name rather than saving it', async () => {

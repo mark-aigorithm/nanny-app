@@ -7,6 +7,7 @@
  * and the commit must refuse a stale revision — that optimistic token is the
  * only thing standing between two admins and a lost edit.
  */
+import { BookingChildSchema } from '@nanny-app/shared';
 import { prisma } from '@backend/db/prisma';
 
 import { makeMother, makeNanny, makeSuperuser } from '../../../test/factories';
@@ -19,7 +20,7 @@ import {
 import { payViaPaymob } from '../../../test/journeys/payment';
 
 const START_HOUR = 10;
-const CHILDREN = [{ name: 'Test Child', ageYears: 3, allergies: null }];
+const CHILDREN = [BookingChildSchema.parse({ name: 'Test Child', ageYears: 3 })];
 
 function editTo(durationHours: number) {
   return {

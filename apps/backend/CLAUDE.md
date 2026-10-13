@@ -258,6 +258,15 @@ rule inside that service's transactions; there is no database constraint for it 
 declare a partial unique index, and one would show as permanent drift in `migrate diff`). See
 `Docs/superpowers/specs/2026-09-19-addresses-design.md`.
 
+**A booking picks children by id; `/auth/children` is for old builds only**
+A mother's children live on `children` (Profile → Children, `/children` CRUD). The current app
+books with `childIds`, and `getChildrenForBooking` snapshots each one into `bookedChildren`, aged
+on the booking's month (children store a birth month, not an age). App builds that predate this
+still send typed `children` and call `GET/PUT /auth/children`; that PUT now only *adds* children
+she doesn't have (`mergeLegacyChildren`) — never replace the set from it, or an old build wipes
+what a new one saved. The open request pool gets the snapshot without names or `notes`
+(`bookingChildrenFor`); the nanny holding the booking gets everything.
+
 **PostGIS geography type with Prisma**
 Prisma does not natively support PostGIS `geography` columns — they appear as `Unsupported("geography(...)")` in the schema. Radius searches must use raw SQL (`prisma.$queryRaw`). Keep these queries in `nannies.service.ts`, never in routes.
 

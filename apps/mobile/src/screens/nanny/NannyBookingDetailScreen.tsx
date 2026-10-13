@@ -14,6 +14,7 @@ import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { BookingAddressCard } from '@mobile/components/booking/BookingAddressCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
+import { ChildProfilesCard } from '@mobile/components/booking/ChildProfilesCard';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
@@ -121,7 +122,10 @@ export default function NannyBookingDetailScreen() {
               </View>
               <Text style={styles.detailValue}>
                 {booking.children
-                  .map((c) => (c.name ? `${c.name} (${formatChildAge(c.ageYears)})` : formatChildAge(c.ageYears)))
+                  .map((c) => {
+                    const age = formatChildAge(c.ageYears, c.ageMonths);
+                    return c.name ? `${c.name} (${age})` : age;
+                  })
                   .join(', ')}
               </Text>
             </View>
@@ -140,6 +144,9 @@ export default function NannyBookingDetailScreen() {
           specialInstructions={booking.specialInstructions}
           emphasis="warning"
         />
+
+        {/* Diet, languages, interests and the mother's note on each child. */}
+        <ChildProfilesCard bookingChildren={booking.children} />
 
         {/* Earnings — the nanny only sees what she takes home. */}
         <View style={styles.paymentCard}>

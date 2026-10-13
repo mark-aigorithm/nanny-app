@@ -160,14 +160,14 @@ export default function NannyRequestsScreen() {
           )}
         </View>
 
-        {/* Allergies before she claims, so she can pass on a child she can't
+        {/* Allergies and conditions before she claims, so she can pass on a child she can't
             safely take. formatAllergySummary falls back to the age when a child
             has no name, so this carries the risk without the identity. */}
         {hasAllergyWarning(booking.children) && (
           <View style={styles.allergyBanner}>
             <Ionicons name="warning" size={16} color={colors.error} />
             <View style={styles.allergyBannerBody}>
-              <Text style={styles.allergyBannerLabel}>ALLERGY</Text>
+              <Text style={styles.allergyBannerLabel}>ALLERGY / HEALTH</Text>
               <Text style={styles.allergyBannerText}>
                 {formatAllergySummary(booking.children)}
               </Text>
@@ -259,7 +259,9 @@ export default function NannyRequestsScreen() {
           </View>
         )}
 
-        {activeFilter === 'past' ? (
+        {/* Upcoming too, not only past: the details screen is where she reads
+            each child's health notes, diet and interests before she goes. */}
+        {activeFilter === 'past' || activeFilter === 'upcoming' ? (
           <Pressable
             style={styles.viewDetailsRow}
             onPress={() =>

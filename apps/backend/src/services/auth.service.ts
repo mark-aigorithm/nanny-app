@@ -8,7 +8,7 @@ import {
   type AvailabilityResponse,
   type CheckAvailabilityRequest,
   type PhoneAccountCheckResponse,
-  type Child as ChildDto,
+  type LegacyChild,
   type RegisterRequest,
   type Role as ApiRole,
   type SaveChildrenRequest,
@@ -32,7 +32,7 @@ import {
   consumeVerificationToken,
 } from '@backend/services/email-verification.service';
 import { createAddress, getDefaultAddress } from './address.service';
-import { listChildren, saveChildren } from './child.service';
+import { listLegacyChildren, mergeLegacyChildren } from './child.service';
 
 // The copy the app shows for each refusal — one string per outcome, so the
 // several paths that reach the same outcome can't word it differently.
@@ -514,25 +514,30 @@ export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
   return toUserResponse(updated, await flatLocationOf(updated.id));
 }
 
-/** The mother's saved children, used to prefill the booking sheet. */
-export async function getMyChildren(decoded: DecodedIdToken): Promise<ChildDto[]> {
+/**
+ * The mother's saved children as app builds older than Profile → Children read
+ * them (GET /auth/children). Current builds use GET /children.
+ */
+export async function getMyChildren(decoded: DecodedIdToken): Promise<LegacyChild[]> {
   const user = await requireUser(decoded);
-  return listChildren(user.id);
+  return listLegacyChildren(user.id);
 }
 
 /**
- * Replaces the mother's saved children. Mothers only — a nanny has no family on
- * file here, and letting her write one would just be dead data.
+ * Older builds' "save for next booking": adds the children she doesn't already
+ * have and never removes any (see mergeLegacyChildren). Mothers only — a nanny
+ * has no family on file here, and letting her write one would be dead data.
  */
 export async function saveMyChildren(
   decoded: DecodedIdToken,
   body: SaveChildrenRequest,
-): Promise<ChildDto[]> {
+): Promise<LegacyChild[]> {
   const user = await requireUser(decoded);
   if (user.role !== Role.MOTHER) {
     throw errors.forbidden('Only mothers can save children.');
   }
-  return saveChildren(user.id, body.children);
+  await mergeLegacyChildren(user.id, body.children);
+  return listLegacyChildren(user.id);
 }
 
 /**

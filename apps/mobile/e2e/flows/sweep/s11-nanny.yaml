@@ -31,7 +31,7 @@ appId: com.nannyapp.mobile
 - takeScreenshot: s11-03-requests
 - scrollUntilVisible:
     element:
-      text: 'Lina: Peanuts and lab dust'
+      text: '.*: Peanuts and lab dust'
     direction: DOWN
     centerElement: true
     timeout: 30000

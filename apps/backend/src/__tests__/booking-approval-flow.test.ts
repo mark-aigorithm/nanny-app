@@ -1,4 +1,4 @@
-import { Role, BookingStatus, NannyBookingDecision } from '@nanny-app/shared';
+import { BookingChildSchema, Role, BookingStatus, NannyBookingDecision } from '@nanny-app/shared';
 import { BookingStatus as PrismaBookingStatus } from '@prisma/client';
 
 import { AppError } from '@backend/lib/errors';
@@ -263,7 +263,7 @@ describe('createBooking (broadcast)', () => {
       startTime: `${dateIso}T10:00:00`,
       endTime: `${dateIso}T13:00:00`,
       skillIds: [],
-      children: [{ name: null, ageYears: 4, allergies: null }],
+      children: [BookingChildSchema.parse({ name: null, ageYears: 4 })],
       addressId: HOME_ADDRESS.id,
     });
 

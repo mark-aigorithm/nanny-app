@@ -1,3 +1,5 @@
+import { BookingChildSchema } from '@nanny-app/shared';
+
 import {
   bookingDayLabel,
   childrenPhrase,
@@ -77,7 +79,7 @@ describe('time labels', () => {
 });
 
 describe('childrenPhrase', () => {
-  const child = (name: string | null) => ({ name, ageYears: 3, allergies: null });
+  const child = (name: string | null) => BookingChildSchema.parse({ name, ageYears: 3 });
 
   it('names the children when every one of them has a name', () => {
     expect(childrenPhrase([child('Laila')], 1)).toBe('Laila');

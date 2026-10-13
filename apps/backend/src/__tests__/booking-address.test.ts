@@ -1,4 +1,4 @@
-import { Role } from '@nanny-app/shared';
+import { BookingChildSchema, Role } from '@nanny-app/shared';
 import { Prisma } from '@prisma/client';
 
 /**
@@ -84,7 +84,7 @@ const BODY = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
   skillIds: [] as number[],
-  children: [{ name: null, ageYears: 3, allergies: null }],
+  children: [BookingChildSchema.parse({ name: null, ageYears: 3 })],
   addressId: 7,
 };
 
@@ -144,7 +144,7 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     childrenCount: 1,
     extraChildren: 0,
     extraChildFeePerHour: 0,
-    bookedChildren: [{ name: null, ageYears: 3, allergies: null }],
+    bookedChildren: [BookingChildSchema.parse({ name: null, ageYears: 3 })],
     selectedSkillFees: null,
     addressId: 7,
     bookedAddress: SNAPSHOT,

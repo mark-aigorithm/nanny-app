@@ -102,3 +102,51 @@ appId: com.nannyapp.mobile
     timeout: 2000
 - takeScreenshot: s12-10-care-log-custom-kbd
 - hideKeyboard
+
+# The booking's details, from Requests → Upcoming: the health warning and
+# "About the children" (diet, languages, interests, notes) she reads before and
+# during the shift. The lab booking's child carries all of those (advance.js).
+# Back out of the custom-entry sheet and then the care log, however many
+# presses that takes.
+- repeat:
+    while:
+      notVisible: 'Requests'
+    times: 3
+    commands:
+      - back
+      - waitForAnimationToEnd:
+          timeout: 2000
+- tapOn: 'Requests'
+- extendedWaitUntil:
+    visible: 'Upcoming'
+    timeout: 30000
+- tapOn: 'Upcoming'
+- scrollUntilVisible:
+    element:
+      text: '.*: Peanuts and lab dust'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+# Below "End shift", so under the tab bar until scrolled up to the middle.
+- scrollUntilVisible:
+    element: 'View details'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    text: 'View details'
+    below: '.*: Peanuts and lab dust'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s12-11-booking-detail
+- scrollUntilVisible:
+    element: 'About the children'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s12-12-booking-detail-children

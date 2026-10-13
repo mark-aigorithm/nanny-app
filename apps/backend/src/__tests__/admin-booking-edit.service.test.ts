@@ -1,3 +1,4 @@
+import { BookingChildSchema } from '@nanny-app/shared';
 import { BookingStatus as PrismaBookingStatus } from '@prisma/client';
 
 /**
@@ -198,7 +199,7 @@ const rewardConfig = { enabled: true, redemptionPointsPerHour: 100, minRedemptio
 const editInput = {
   startTime: '2026-08-02T10:00:00',
   endTime: '2026-08-02T14:00:00', // 4 hours
-  children: [{ name: null, ageYears: 3, allergies: null }],
+  children: [BookingChildSchema.parse({ name: null, ageYears: 3 })],
   skillIds: [1],
   usePackageHours: false,
   carePointsHours: 0,
@@ -550,7 +551,7 @@ describe('previewBookingEdit — validation', () => {
   });
 
   it('blocks more children than one nanny may care for', async () => {
-    const child = { name: null, ageYears: 3, allergies: null };
+    const child = BookingChildSchema.parse({ name: null, ageYears: 3 });
 
     const preview = await previewBookingEdit(4, ADMIN_UID, {
       ...editInput,

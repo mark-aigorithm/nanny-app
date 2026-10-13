@@ -1,4 +1,4 @@
-import { Role } from '@nanny-app/shared';
+import { BookingChildSchema, Role } from '@nanny-app/shared';
 
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
@@ -67,7 +67,7 @@ const VALID_BODY = {
   startTime: '2026-07-20T14:00:00',
   endTime: '2026-07-20T18:00:00',
   skillIds: [] as number[],
-  children: [{ name: null, ageYears: 4, allergies: null }],
+  children: [BookingChildSchema.parse({ name: null, ageYears: 4 })],
   addressId: HOME_ADDRESS.id,
 };
 

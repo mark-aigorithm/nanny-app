@@ -282,26 +282,39 @@ model NannyProfile {
 /// Admin-curated catalog of nanny specialties (e.g. "French speaker",
 /// "Works with disabilities"). Controlled replacement for the free-text
 /// NannyProfile.specialties array. Linked to nannies via NannySkill.
-/// A child in a mother's family. Saved once and used to prefill every later
-/// booking; a booking then stores its own id-less snapshot (Booking.bookedChildren)
-/// so editing or removing a child here never rewrites a past booking's record.
+/// A child in a mother's family, kept on her profile (Profile → Children).
+/// A booking picks from these and stores its own id-less snapshot
+/// (Booking.bookedChildren), aged on the booking's date, so editing or
+/// removing a child here never rewrites a past booking's record.
 /// The count is what drives the extra-child fee — see resolveExtraChildFee.
 model Child {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  user      User      @relation("UserChildren", fields: [userId], references: [id])
-  /// Optional — a mother may give ages only, which is all pricing needs.
-  name      String?
-  /// Whole years. 0 means under one year old.
-  ageYears  Int       @map("age_years")
-  /// Free text — anything the nanny must not feed or expose this child to.
-  /// Deliberately not a catalog: real answers ("peanuts, and cats make her
-  /// wheeze") don't enumerate. Surfaced to the nanny as a warning, and copied
-  /// into Booking.bookedChildren at booking time like the rest of the snapshot.
-  allergies String?   @db.Text
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  user        User      @relation("UserChildren", fields: [userId], references: [id])
+  /// Required for every child saved from Profile → Children. Null only on rows
+  /// from app builds where the name was optional; the app asks for one before
+  /// such a child can be booked.
+  name        String?
+  /// First day of the birth month. Null only on rows saved as a bare age by
+  /// older builds — those fall back to ageYears.
+  birthDate   DateTime? @map("birth_date") @db.Date
+  /// The age as older builds saved it. Unused once birthDate is set: a stored
+  /// age goes stale, which is why the birth month replaced it.
+  ageYears    Int?      @map("age_years")
+  /// Chips: presets (shared CHILD_*_PRESETS) or the mother's own words, stored
+  /// as the label she saw.
+  allergies   String[]  @default([])
+  conditions  String[]  @default([])
+  /// Medicines and what to do — shown to the nanny with the allergies.
+  healthNotes String?   @map("health_notes") @db.Text
+  diet        String[]  @default([])
+  interests   String[]  @default([])
+  languages   String[]  @default([])
+  /// Comfort toy, nap habits, what calms them down.
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
 
   @@index([userId, deletedAt])
   @@map("children")

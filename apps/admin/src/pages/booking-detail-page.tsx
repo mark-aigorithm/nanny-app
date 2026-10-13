@@ -2,7 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { canAssignBookingNanny, formatAddressArea, formatChildAge } from '@nanny-app/shared';
+import {
+  canAssignBookingNanny,
+  formatAddressArea,
+  formatChildAge,
+  formatHealthLine,
+} from '@nanny-app/shared';
 import type { AdminBookingDetail } from '@nanny-app/shared';
 
 import {
@@ -298,28 +303,41 @@ function BookingSections({
       value:
         booking.children.length > 0 ? (
           <ul className="booking-children">
-            {booking.children.map((child, index) => (
-              <li key={index}>
-                <span>
-                  {child.name ? (
-                    <>
-                      <strong>{child.name}</strong> · {formatChildAge(child.ageYears)}
-                    </>
-                  ) : (
-                    formatChildAge(child.ageYears)
+            {booking.children.map((child, index) => {
+              const health = formatHealthLine(child);
+              const extras = [
+                child.diet.length > 0 ? `Diet: ${child.diet.join(', ')}` : null,
+                child.languages.length > 0 ? `Speaks: ${child.languages.join(', ')}` : null,
+                child.interests.length > 0 ? `Likes: ${child.interests.join(', ')}` : null,
+                child.notes ? `Notes: ${child.notes}` : null,
+              ].filter((s): s is string => s != null);
+              return (
+                <li key={index}>
+                  <span>
+                    {child.name ? (
+                      <>
+                        <strong>{child.name}</strong> ·{' '}
+                        {formatChildAge(child.ageYears, child.ageMonths)}
+                      </>
+                    ) : (
+                      formatChildAge(child.ageYears, child.ageMonths)
+                    )}
+                  </span>
+                  {/* Support needs to see the health warning the nanny was given. */}
+                  {(health || child.healthNotes) && (
+                    <Badge tone="warning">
+                      <span className="badge-with-icon">
+                        <TriangleAlert size={12} aria-hidden />
+                        {[health, child.healthNotes].filter(Boolean).join(' · ')}
+                      </span>
+                    </Badge>
                   )}
-                </span>
-                {/* Support needs to see the allergy the nanny was warned about. */}
-                {child.allergies && (
-                  <Badge tone="warning">
-                    <span className="badge-with-icon">
-                      <TriangleAlert size={12} aria-hidden />
-                      Allergies: {child.allergies}
-                    </span>
-                  </Badge>
-                )}
-              </li>
-            ))}
+                  {extras.length > 0 && (
+                    <span className="booking-children-extras">{extras.join(' · ')}</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           childrenLabel(booking.childrenCount)

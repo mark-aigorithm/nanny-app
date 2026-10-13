@@ -5,6 +5,7 @@ import {
   getBookingDurationHours,
   hasRequiredBookingDraft,
   parseChildrenParam,
+  parseChildIdsParam,
   parseSkillIdsParam,
   payBookingParams,
   type BookingFlowParams,
@@ -23,8 +24,8 @@ describe('parseChildrenParam — a hand-edited deep link can never be trusted', 
       { name: 'Lina', ageYears: 5, allergies: 'peanuts' },
     ]);
     expect(parseChildrenParam(raw)).toEqual([
-      { name: null, ageYears: 3, allergies: null },
-      { name: 'Lina', ageYears: 5, allergies: 'peanuts' },
+      expect.objectContaining({ name: null, ageYears: 3, allergies: null, conditions: [] }),
+      expect.objectContaining({ name: 'Lina', ageYears: 5, allergies: 'peanuts' }),
     ]);
   });
 
@@ -149,5 +150,17 @@ describe('bookingFlowRetryParams — carry the draft back into checkout', () => 
     expect(retry.retry).toBe('1');
     expect(retry.promoCode).toBe('WELCOME10');
     expect(retry.startTimeWall).toBe('2026-08-02T09:00:00');
+  });
+});
+
+describe('parseChildIdsParam — the saved children she picked', () => {
+  it('keeps positive integer ids in order, once each', () => {
+    expect(parseChildIdsParam('4,2,4')).toEqual([4, 2]);
+    expect(parseChildIdsParam(' 7 , x, 0, -1, 3.5 ')).toEqual([7]);
+  });
+
+  it('reads an absent or empty param as nothing picked', () => {
+    expect(parseChildIdsParam(undefined)).toEqual([]);
+    expect(parseChildIdsParam('')).toEqual([]);
   });
 });

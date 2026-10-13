@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import type { BookingChild } from '@nanny-app/shared';
-import { formatChildAge } from '@nanny-app/shared';
+import { formatChildAge, formatHealthLine } from '@nanny-app/shared';
 
 import { colors, borderRadius, shadows, spacing, typeScale } from '@mobile/theme';
 
@@ -16,7 +16,8 @@ interface Props {
 
 /**
  * What the nanny was told, read back to the mother in one place: each child
- * with their age and any allergy beside their name, then her own notes.
+ * with their age and any allergy or condition beside their name, then her own
+ * notes.
  *
  * The nanny's booking screen keeps CareNotesCard's loud ALLERGY WARNING — she
  * has to act on it. Here it is a calm summary the mother can check.
@@ -34,7 +35,10 @@ export function CareInstructionsCard({
       <Text style={styles.heading}>Care instructions</Text>
       <View style={styles.card}>
         {bookingChildren.map((child, i) => {
-          const allergies = child.allergies?.trim();
+          // Allergies and conditions, or just "see notes" when only a
+          // medicines note was given.
+          const health = formatHealthLine(child) || (child.healthNotes ? 'Health notes' : '');
+          const age = formatChildAge(child.ageYears, child.ageMonths);
           const name = child.name?.trim();
           return (
             <View key={i} style={[styles.child, i > 0 && styles.divided]}>
@@ -46,15 +50,13 @@ export function CareInstructionsCard({
                 )}
               </View>
               <View style={styles.childText}>
-                <Text style={styles.childName}>{name || formatChildAge(child.ageYears)}</Text>
-                {name ? <Text style={styles.age}>{formatChildAge(child.ageYears)}</Text> : null}
+                <Text style={styles.childName}>{name || age}</Text>
+                {name ? <Text style={styles.age}>{age}</Text> : null}
               </View>
-              {allergies ? (
-                <View style={styles.allergy} accessibilityLabel={`Allergy: ${allergies}`}>
+              {health ? (
+                <View style={styles.allergy} accessibilityLabel={`Health: ${health}`}>
                   <Ionicons name="alert-circle" size={14} color={colors.error} />
-                  <Text style={styles.allergyText} numberOfLines={2}>
-                    {allergies}
-                  </Text>
+                  <Text style={styles.allergyText}>{health}</Text>
                 </View>
               ) : (
                 <Text style={styles.none}>No allergies</Text>

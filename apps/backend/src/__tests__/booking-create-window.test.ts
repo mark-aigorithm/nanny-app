@@ -1,4 +1,4 @@
-import { Role } from '@nanny-app/shared';
+import { BookingChildSchema, Role } from '@nanny-app/shared';
 
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
@@ -155,7 +155,7 @@ async function create(body: { startTime: string; endTime: string }) {
   const response = await createBooking(DECODED, {
     ...body,
     skillIds: [],
-    children: [{ name: null, ageYears: 4, allergies: null }],
+    children: [BookingChildSchema.parse({ name: null, ageYears: 4 })],
     addressId: HOME_ADDRESS.id,
   });
   return { response, data: mockPrisma.booking.create.mock.calls[0][0].data };

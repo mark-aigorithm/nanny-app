@@ -7,6 +7,7 @@
  * refund follow-up was skipped: the banner and its modal must reach the refund
  * endpoint, and must not appear to a view-only operator or on a settled booking.
  */
+import { BookingChildSchema } from '@nanny-app/shared';
 import type { AdminBookingDetail, AdminRefundResponse, AdminUser } from '@nanny-app/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -53,7 +54,7 @@ const BOOKING: AdminBookingDetail = {
   baseRate: 100,
   effectiveHourlyRate: 100,
   skillAddOns: [],
-  children: [{ name: 'Lina', ageYears: 3, allergies: null }],
+  children: [BookingChildSchema.parse({ name: 'Lina', ageYears: 3 })],
   childrenCount: 1,
   extraChildren: 0,
   extraChildFeePerHour: 0,

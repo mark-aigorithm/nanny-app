@@ -1,0 +1,168 @@
+# UI sweep 14 — Profile → Children: the list, the add/edit sheet with its chip
+# lists and keyboard, the remove confirmation, and the empty state. The seeded
+# mother has one child, Lina (seed-mobile.ts); seedLab puts her back before
+# every flow, so this one is free to add and remove.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Children'
+- extendedWaitUntil:
+    visible: 'Who your nanny looks after'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s14-01-children
+
+# ── Add a child ──
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Add a child'
+# The name field, not Save: Save is below the fold on a small phone.
+- extendedWaitUntil:
+    visible:
+      id: 'childForm.name'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s14-02-add-child
+- tapOn:
+    id: 'childForm.name'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s14-03-add-child-name-kbd
+- inputText: 'Omar'
+- pressKey: Enter
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Peanuts'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Asthma'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: '\+ Other'
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'childForm.allergies.other'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s14-04-add-child-other-kbd
+# No double letters: typed into a dev build with nothing focused, "rr" reloads it.
+- inputText: 'Kiwi'
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s14-05-add-child-health
+# The form is long at font 1.3 on a small phone — more than _tap.yaml's 10 s
+# of scrolling.
+- scrollUntilVisible:
+    element: 'Lego'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Lego'
+- scrollUntilVisible:
+    element:
+      id: 'childForm.notes'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'childForm.notes'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s14-06-add-child-notes-kbd
+- inputText: 'Naps at 2 with his blue blanket'
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'Save child'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s14-07-add-child-bottom
+- tapOn: 'Save child'
+
+- extendedWaitUntil:
+    visible: 'Omar'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s14-08-children-two
+- scrollUntilVisible:
+    element: 'Add a child'
+    direction: DOWN
+    centerElement: true
+    timeout: 10000
+    optional: true
+- takeScreenshot: s14-09-children-two-bottom
+
+# ── Edit ──
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Edit Omar'
+- extendedWaitUntil:
+    visible: 'Edit child'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s14-10-edit-child
+- tapOn: 'Close'
+- extendedWaitUntil:
+    visible: 'Who your nanny looks after'
+    timeout: 30000
+
+# ── Remove, down to the empty state ──
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Remove Omar'
+- extendedWaitUntil:
+    visible: 'Remove Omar\?'
+    timeout: 10000
+- takeScreenshot: s14-11-remove-confirm
+- tapOn: '(?i)remove'
+- extendedWaitUntil:
+    notVisible: 'Omar'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Remove Lina'
+- extendedWaitUntil:
+    visible: 'Remove Lina\?'
+    timeout: 10000
+- tapOn: '(?i)remove'
+- extendedWaitUntil:
+    visible: 'No children yet'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s14-12-children-empty

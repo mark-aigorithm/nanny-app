@@ -36,7 +36,10 @@ export type CreateBookingOptions = {
   usePackageHours?: boolean;
   redeemPointsHours?: number;
   skillIds?: number[];
+  /** Children typed in, as builds older than Profile → Children send them. */
   children?: Array<{ name: string | null; ageYears: number; allergies: string | null }>;
+  /** Saved children picked by id, as the current app sends them. Replaces `children`. */
+  childIds?: number[];
   /** Which saved address to book at. Omitted → her default, as the picker preselects it. */
   addressId?: number;
 };
@@ -77,7 +80,7 @@ export async function createBookingViaApi(
     .send({
       startTime: wallClockTomorrow(startHour),
       endTime: wallClockTomorrow(startHour + durationHours),
-      children,
+      ...(rest.childIds ? {} : { children }),
       ...rest,
       addressId,
     });

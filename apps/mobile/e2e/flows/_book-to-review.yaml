@@ -70,8 +70,8 @@ appId: com.nannyapp.mobile
 - tapOn:
     id: 'booking.cta'
 
-# One child, aged three, is the screen's own default — a mother who has saved
-# no family sees exactly this, so accepting it is a real path, not a shortcut.
+# The seeded mother has one saved child (Lina, three — seed-mobile.ts), and an
+# only child is ticked for her, so the care step goes straight through.
 - extendedWaitUntil:
     visible: 'Who needs care?'
     timeout: 20000

@@ -1,30 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-} from 'react-native';
-import { Text, TextInput } from '@mobile/components/ui/text';
+import { View, ScrollView, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
+import { Text } from '@mobile/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
   calculatePriceBreakdown,
+  childMissingForBooking,
   formatChildAge,
+  formatHealthLine,
   resolveDurationMultiplier,
   resolveEffectiveRate,
   resolveExtraChildFee,
-  type BookingChild,
+  toBookingChild,
+  type Child,
+  type ChildInput,
   type PublicSkill,
 } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
-import { Chip, Stepper } from '@mobile/components/ui';
+import { Button, Chip } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { usePricingConfig } from '@mobile/hooks/useBookings';
-import { useSavedChildren } from '@mobile/hooks/useChildren';
+import { useChildren, useCreateChild, useUpdateChild } from '@mobile/hooks/useChildren';
+import { getApiErrorMessage } from '@mobile/lib/api';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatDurationHours } from '@mobile/lib/formatTime';
 import {
@@ -32,26 +32,18 @@ import {
   getBookingDurationHours,
   getBookingTimeDisplay,
   hasRequiredBookingDraft,
-  parseChildrenParam,
+  parseChildIdsParam,
   parseSkillIdsParam,
   type BookingFlowParams,
 } from '@mobile/lib/bookingDraft';
 
 import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
+import ChildFormSheet from '@mobile/components/ChildFormSheet';
 import { styles } from './styles/booking-care-details-screen.styles';
 
-/** Matches ChildAgeYearsSchema — past this a nanny isn't who you'd book. */
-const MAX_CHILD_AGE = 17;
-
-/**
- * Age a newly-added child starts at. A visible, editable default beats an empty
- * state she has to clear before the form will move: the number is right there on
- * the stepper, so nothing is submitted that she hasn't seen.
- */
-const DEFAULT_CHILD_AGE = 3;
-
-type DraftChild = { name: string; ageYears: number; allergies: string };
+/** What the child sheet is open for: adding, or editing one saved child. */
+type SheetState = { mode: 'closed' } | { mode: 'add' } | { mode: 'edit'; child: Child };
 
 /** What a skill add-on costs across the whole booking, in money. */
 function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): number {
@@ -87,63 +79,96 @@ export default function BookingCareDetailsScreen() {
 
   const draftReady = hasRequiredBookingDraft(params);
   const { data: pricing } = usePricingConfig();
-  const { data: savedChildren, isSuccess: savedLoaded } = useSavedChildren();
+  const {
+    data: savedChildren,
+    isLoading: childrenLoading,
+    isError: childrenError,
+    refetch: refetchChildren,
+  } = useChildren();
+  const createChild = useCreateChild();
+  const updateChild = useUpdateChild();
 
   const hours = getBookingDurationHours(params);
   const hourlyRate = pricing?.standardHourlyRate ?? null;
   const maxChildren = pricing?.maxChildrenPerBooking ?? 1;
   const includedChildren = pricing?.includedChildrenPerBooking ?? 1;
+  // Ages are worked out on the booking's month, as the server will.
+  const bookingMonth = (params.startTimeWall ?? params.dateIso ?? '').slice(0, 7);
 
-  // Coming back from the review step must restore exactly what she chose, so the
-  // params win over her saved family whenever they carry anything.
-  const cameWithChildren = useMemo(
-    () => parseChildrenParam(params.children).length > 0,
-    [params.children],
+  // Ids of the saved children she has ticked, in the order she ticked them —
+  // which is also the order the extra-child badge counts in. Coming back from
+  // the review step restores exactly what she chose.
+  const [selectedIds, setSelectedIds] = useState<number[]>(() =>
+    parseChildIdsParam(params.childIds),
   );
-  const [children, setChildren] = useState<DraftChild[]>(() => {
-    const fromParams = parseChildrenParam(params.children);
-    // Never start empty. The stepper floors at one child and the CTA needs a
-    // count to enable; waiting on the saved-children query to seed left the
-    // screen stuck at "0 children" whenever that request was slow or errored.
-    return fromParams.length > 0
-      ? fromParams.map((c) => ({
-          name: c.name ?? '',
-          ageYears: c.ageYears,
-          allergies: c.allergies ?? '',
-        }))
-      : [{ name: '', ageYears: DEFAULT_CHILD_AGE, allergies: '' }];
-  });
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>(() =>
     parseSkillIdsParam(params.skillIds),
   );
-  // On by default so her family carries to the next booking without a tap. The
-  // param is only ever '0' once she has explicitly turned it off and moved on,
-  // so returning from the review step still respects that choice.
-  const [saveChildren, setSaveChildren] = useState(params.saveChildren !== '0');
+  const [sheet, setSheet] = useState<SheetState>({ mode: 'closed' });
+  const [sheetError, setSheetError] = useState<string | null>(null);
 
-  // The default child above is a placeholder her saved family should replace —
-  // but only on first arrival, and never over a real selection (restored params,
-  // or a count she has since changed). This latch tracks "the draft is now hers".
-  const childrenSettled = useRef(cameWithChildren);
-
-  // Prefill from her saved family once, on first arrival. Guarded by the latch so
-  // it can swap the placeholder for her real family but never clobber a choice
-  // she has already made.
+  // A mother with one child doesn't need to tick her: on first arrival, with
+  // nothing chosen yet, an only (bookable) child is picked for her. With two or
+  // more, who comes is a real choice, so nothing is assumed.
+  const preselected = useRef(selectedIds.length > 0);
   useEffect(() => {
-    if (childrenSettled.current || !savedLoaded) return;
-    childrenSettled.current = true;
-    if (savedChildren && savedChildren.length > 0) {
-      setChildren(
-        savedChildren
-          .slice(0, Math.max(1, maxChildren))
-          .map((c) => ({
-            name: c.name ?? '',
-            ageYears: c.ageYears,
-            allergies: c.allergies ?? '',
-          })),
-      );
+    if (preselected.current || !savedChildren) return;
+    preselected.current = true;
+    const only = savedChildren.length === 1 ? savedChildren[0] : undefined;
+    if (only && !childMissingForBooking(only)) setSelectedIds([only.id]);
+  }, [savedChildren]);
+
+  // Drop a selection whose child has since been removed (e.g. from another tab).
+  const children = useMemo(() => {
+    const byId = new Map((savedChildren ?? []).map((c) => [c.id, c]));
+    return selectedIds.flatMap((id) => {
+      const child = byId.get(id);
+      return child ? [child] : [];
+    });
+  }, [savedChildren, selectedIds]);
+  const atMax = children.length >= maxChildren;
+
+  const toggleChild = (child: Child) => {
+    if (childMissingForBooking(child)) {
+      // An older build's child with no name or birth month: finish them first.
+      openEdit(child);
+      return;
     }
-  }, [savedLoaded, savedChildren, maxChildren]);
+    setSelectedIds((prev) => {
+      if (prev.includes(child.id)) return prev.filter((id) => id !== child.id);
+      if (prev.length >= maxChildren) return prev;
+      return [...prev, child.id];
+    });
+  };
+
+  const openAdd = () => {
+    setSheetError(null);
+    setSheet({ mode: 'add' });
+  };
+  const openEdit = (child: Child) => {
+    setSheetError(null);
+    setSheet({ mode: 'edit', child });
+  };
+  const closeSheet = () => setSheet({ mode: 'closed' });
+
+  const handleSaveChild = (input: ChildInput) => {
+    setSheetError(null);
+    const onError = (err: unknown) =>
+      setSheetError(getApiErrorMessage(err, 'Could not save. Please try again.'));
+    // Saved to her profile either way, then ticked — she opened the sheet from
+    // here to book this child.
+    const select = (saved: Child) => {
+      setSelectedIds((prev) =>
+        prev.includes(saved.id) || prev.length >= maxChildren ? prev : [...prev, saved.id],
+      );
+      closeSheet();
+    };
+    if (sheet.mode === 'edit') {
+      updateChild.mutate({ id: sheet.child.id, input }, { onSuccess: select, onError });
+    } else {
+      createChild.mutate(input, { onSuccess: select, onError });
+    }
+  };
 
   const extraChildren = Math.max(0, children.length - includedChildren);
 
@@ -188,25 +213,6 @@ export default function BookingCareDetailsScreen() {
     }).totalAmount;
   }, [pricing, hours, selectedAddOns, children.length]);
 
-  const setCount = (next: number) => {
-    childrenSettled.current = true;
-    setChildren((prev) => {
-      if (next === prev.length) return prev;
-      if (next < prev.length) return prev.slice(0, next);
-      const added = Array.from({ length: next - prev.length }, () => ({
-        name: '',
-        ageYears: DEFAULT_CHILD_AGE,
-        allergies: '',
-      }));
-      return [...prev, ...added];
-    });
-  };
-
-  const patchChild = (index: number, patch: Partial<DraftChild>) => {
-    childrenSettled.current = true;
-    setChildren((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-  };
-
   const toggleSkill = (id: number) => {
     setSelectedSkillIds((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
@@ -215,18 +221,15 @@ export default function BookingCareDetailsScreen() {
 
   const handleContinue = () => {
     if (children.length === 0) return;
-    const payload: BookingChild[] = children.map((c) => ({
-      name: c.name.trim() ? c.name.trim() : null,
-      ageYears: c.ageYears,
-      allergies: c.allergies.trim() ? c.allergies.trim() : null,
-    }));
     router.push({
       pathname: '/(parent)/book/booking-step-1',
       params: {
         ...params,
-        children: JSON.stringify(payload),
+        childIds: children.map((c) => c.id).join(','),
+        // The snapshot the review step shows; the server builds its own from
+        // the ids, the same way.
+        children: JSON.stringify(children.map((c) => toBookingChild(c, bookingMonth))),
         skillIds: selectedSkillIds.join(','),
-        saveChildren: saveChildren ? '1' : '0',
       },
     } as never);
   };
@@ -278,105 +281,120 @@ export default function BookingCareDetailsScreen() {
       >
         <BookingStepProgress step={2} title="Who needs care?" />
 
-        {/* ── How many ── */}
-        <View style={styles.countRow}>
-          <View style={styles.countBody}>
-            <Text style={styles.countTitle}>Children</Text>
-            <Text style={styles.countSub}>
-              {includedChildren} included in the rate
-              {extraChildren > 0 && effectiveRate
-                ? ` · +${formatMoney(effectiveRate.childFeePerHour, { fractionDigits: 0 })}/hr for ${extraChildren} more`
-                : ''}
-            </Text>
-          </View>
-          <Stepper
-            value={children.length}
-            onChange={setCount}
-            min={1}
-            max={Math.max(1, maxChildren)}
-            size="sm"
-          />
+        {/* ── Who's coming ──
+            Picked from her saved children (Profile → Children). Adding or
+            editing a child here saves it to her profile too, so the next
+            booking has it. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Children</Text>
+          <Text style={styles.sectionHint}>
+            {includedChildren} included in the rate
+            {extraChildren > 0 && effectiveRate
+              ? ` · +${formatMoney(effectiveRate.childFeePerHour, { fractionDigits: 0 })}/hr for ${extraChildren} more`
+              : ''}
+            {` · up to ${maxChildren} per booking`}
+          </Text>
         </View>
 
-        {/* ── Each child ──
-            Name is optional, age is not: the age is what the nanny judges the
-            job on and what the request card shows her. */}
-        {children.map((child, index) => {
-          const isExtra = index >= includedChildren;
-          return (
-            <View key={index} style={styles.childCard}>
-              <View style={styles.childHeaderRow}>
-                <View style={styles.childIndex}>
-                  <Text style={styles.childIndexText}>{index + 1}</Text>
-                </View>
-                <TextInput
-                  style={styles.childNameInput}
-                  value={child.name}
-                  onChangeText={(name) => patchChild(index, { name })}
-                  placeholder="Name (optional)"
-                  placeholderTextColor={colors.textPlaceholder}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                />
-                {isExtra && effectiveRate && effectiveRate.childFeePerHour > 0 && (
-                  <View style={styles.childBadge}>
-                    <Text style={styles.childBadgeText}>Extra</Text>
+        {childrenLoading ? (
+          <View style={styles.childrenState}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : childrenError ? (
+          <View style={styles.childrenState}>
+            <Text style={styles.childrenErrorText}>Could not load your children.</Text>
+            <Button title="Try again" variant="outline" onPress={() => void refetchChildren()} />
+          </View>
+        ) : savedChildren && savedChildren.length === 0 ? (
+          <View style={styles.childrenEmpty}>
+            <Ionicons name="happy-outline" size={26} color={colors.primaryDark} />
+            <Text style={styles.childrenEmptyTitle}>Who is this booking for?</Text>
+            <Text style={styles.childrenEmptySub}>
+              Add your child once and pick them on every booking after this.
+            </Text>
+          </View>
+        ) : (
+          savedChildren?.map((child) => {
+            const order = selectedIds.indexOf(child.id);
+            const selected = order >= 0;
+            const missing = childMissingForBooking(child);
+            const disabled = !selected && atMax && !missing;
+            const isExtra = selected && order >= includedChildren;
+            const snapshot = toBookingChild(child, bookingMonth);
+            const health = [formatHealthLine(snapshot), child.healthNotes]
+              .filter(Boolean)
+              .join(' · ');
+            return (
+              <View
+                key={child.id}
+                style={[
+                  styles.childCard,
+                  selected && styles.childCardSelected,
+                  disabled && styles.childCardDisabled,
+                ]}
+              >
+                <Pressable
+                  style={styles.childPickRow}
+                  onPress={() => toggleChild(child)}
+                  disabled={disabled}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected, disabled }}
+                  accessibilityLabel={child.name ?? 'Child with no name'}
+                >
+                  <Ionicons
+                    name={selected ? 'checkbox' : 'square-outline'}
+                    size={24}
+                    color={selected ? colors.primary : colors.textMuted}
+                  />
+                  <View style={styles.childBody}>
+                    <Text style={styles.childName}>{child.name ?? 'Add a name'}</Text>
+                    <Text style={styles.childMeta}>
+                      {missing
+                        ? missing === 'name'
+                          ? 'Add a name to book'
+                          : 'Add the birth month to book'
+                        : formatChildAge(snapshot.ageYears, snapshot.ageMonths)}
+                    </Text>
+                    {health ? (
+                      <View style={styles.childHealth}>
+                        <Ionicons name="alert-circle" size={14} color={colors.error} />
+                        <Text style={styles.childHealthText}>{health}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                )}
+                  {isExtra && effectiveRate && effectiveRate.childFeePerHour > 0 && (
+                    <View style={styles.childBadge}>
+                      <Text style={styles.childBadgeText}>Extra</Text>
+                    </View>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={styles.childEditBtn}
+                  onPress={() => openEdit(child)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${child.name ?? 'child'}`}
+                >
+                  <Text style={styles.childEditText}>Edit</Text>
+                </Pressable>
               </View>
+            );
+          })
+        )}
 
-              {/* A stepper, not a list of every year: eighteen chips per child
-                  was three screens of scrolling before the second child, and the
-                  mother knows the age — she doesn't need to hunt for it. */}
-              <View style={styles.ageRow}>
-                <Text style={styles.ageLabel}>Age</Text>
-                <Stepper
-                  value={child.ageYears}
-                  onChange={(ageYears) => patchChild(index, { ageYears })}
-                  min={0}
-                  max={MAX_CHILD_AGE}
-                  formatValue={formatChildAge}
-                  size="sm"
-                />
-              </View>
+        {atMax && (savedChildren?.length ?? 0) > maxChildren ? (
+          <Text style={styles.sectionHint}>
+            One nanny can look after up to {maxChildren} children. Untick one to swap.
+          </Text>
+        ) : null}
 
-              {/* Allergies sit on the child, not in the free-text notes at the
-                  end of the flow: a note can be skimmed, and this is the one
-                  thing the nanny is shown as a warning she has to read. */}
-              <View style={styles.allergyRow}>
-                <Ionicons name="alert-circle-outline" size={16} color={colors.goldWarm} />
-                <TextInput
-                  style={styles.allergyInput}
-                  value={child.allergies}
-                  onChangeText={(allergies) => patchChild(index, { allergies })}
-                  placeholder="Allergies (optional)"
-                  placeholderTextColor={colors.textPlaceholder}
-                  autoCapitalize="sentences"
-                  maxLength={300}
-                />
-              </View>
-            </View>
-          );
-        })}
-
-        {/* ── Save for next time ── */}
-        <View style={styles.saveRow}>
-          <View style={styles.saveBody}>
-            <Text style={styles.saveTitle}>Save for next booking</Text>
-            <Text style={styles.saveSub}>
-              We&apos;ll fill this in for you next time. You can still change it.
-            </Text>
-          </View>
-          <Switch
-            value={saveChildren}
-            onValueChange={setSaveChildren}
-            trackColor={{ false: colors.taupe, true: colors.primary }}
-            thumbColor={colors.white}
-            // Without this the off-state track has no fill on iOS, so a white
-            // thumb over a white card left the toggle invisible.
-            ios_backgroundColor={colors.taupe}
+        {!childrenLoading && !childrenError && (
+          <Button
+            title={savedChildren && savedChildren.length === 0 ? 'Add your child' : 'Add a child'}
+            icon="add"
+            variant="secondary"
+            onPress={openAdd}
           />
-        </View>
+        )}
 
         {/* ── Skills ── */}
         {addOns.length > 0 && (
@@ -431,6 +449,15 @@ export default function BookingCareDetailsScreen() {
         ctaLabel="Continue to review"
         onPress={handleContinue}
         disabled={children.length === 0}
+      />
+
+      <ChildFormSheet
+        visible={sheet.mode !== 'closed'}
+        onClose={closeSheet}
+        initial={sheet.mode === 'edit' ? sheet.child : undefined}
+        onSubmit={handleSaveChild}
+        submitting={createChild.isPending || updateChild.isPending}
+        error={sheetError}
       />
     </View>
   );

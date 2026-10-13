@@ -495,15 +495,25 @@ export const CreateBookingSchema = z.object({
   /** Ids of skills the mother selected as paid add-ons (e.g. "French speaker"). */
   skillIds: z.array(z.number().int()).default([]),
   /**
-   * The children this booking is for. Required — the count drives the price and
-   * the nanny needs to know what she is accepting. There is no `.max()` here on
-   * purpose: the ceiling is an admin setting, so only the server can enforce it
-   * and say what the current limit actually is.
+   * Which of the mother's saved children (Profile → Children) the booking is
+   * for. The server snapshots each one, aged on the booking's date — the
+   * current app always sends this. There is no `.max()` here on purpose: the
+   * ceiling is an admin setting, so only the server can enforce it and say what
+   * the current limit actually is.
    */
-  children: z.array(BookingChildSchema).min(1, 'Tell us who the booking is for.'),
+  childIds: z
+    .array(z.number().int().positive())
+    .min(1, 'Pick who the booking is for.')
+    .refine((ids) => new Set(ids).size === ids.length, 'Each child can only be picked once.')
+    .optional(),
   /**
-   * Replace the mother's saved children with `children`, so her next booking is
-   * prefilled. Drives the "Save for next booking" toggle in the booking sheet.
+   * The children typed straight into the booking, from app builds that predate
+   * Profile → Children. Ignored when `childIds` is sent.
+   */
+  children: z.array(BookingChildSchema).min(1, 'Tell us who the booking is for.').optional(),
+  /**
+   * Old builds' "Save for next booking" toggle: adds `children` she doesn't
+   * already have to her profile (see SaveChildrenSchema).
    */
   saveChildren: z.boolean().optional(),
   /**
@@ -516,6 +526,9 @@ export const CreateBookingSchema = z.object({
    * Builds that predate this apply points after acceptance instead.
    */
   redeemPointsHours: z.number().int().min(1).optional(),
+}).refine((b) => b.childIds !== undefined || b.children !== undefined, {
+  message: 'Pick who the booking is for.',
+  path: ['childIds'],
 });
 export type CreateBookingRequest = z.infer<typeof CreateBookingSchema>;
 

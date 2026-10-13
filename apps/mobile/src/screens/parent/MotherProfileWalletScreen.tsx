@@ -164,7 +164,20 @@ export default function MotherProfileWalletScreen() {
           </FadeInView>
         )}
 
-        {/* Promo cards */}
+        {/* Promo cards. Children first: it's what every booking picks from. */}
+        <FadeInView index={2}>
+          <PressableScale
+            style={styles.promoCard}
+            onPress={() => router.push('/(parent)/children' as never)}
+          >
+            <View style={styles.promoTextWrap}>
+              <Text style={styles.promoTitle}>Children</Text>
+              <Text style={styles.promoSubtitle}>Who your nanny looks after</Text>
+            </View>
+            <IconCircle icon="happy-outline" size="lg" />
+          </PressableScale>
+        </FadeInView>
+
         <FadeInView index={2}>
           <PressableScale
             style={styles.promoCard}

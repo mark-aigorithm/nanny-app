@@ -1072,6 +1072,12 @@ input[type='number'] {
   gap: 0.4rem 0.75rem;
 }
 
+.booking-children-extras {
+  flex-basis: 100%;
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+}
+
 .booking-reference {
   display: inline-flex;
   align-items: center;

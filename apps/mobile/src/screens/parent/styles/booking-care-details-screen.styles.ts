@@ -89,64 +89,80 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Children
-  countRow: {
-    flexDirection: 'row',
+  // Children — one card per saved child, ticked to include.
+  childrenState: {
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: spacing.md,
-    padding: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
+  childrenErrorText: {
+    ...typeScale.bodyMd,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  childrenEmpty: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.xl,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.surface,
     ...shadows.sm,
   },
-  countBody: {
+  childrenEmptyTitle: {
+    ...typeScale.headingSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  childrenEmptySub: {
+    ...typeScale.bodySm,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  childCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.transparent,
+    ...shadows.sm,
+  },
+  childCardSelected: {
+    borderColor: colors.primary,
+  },
+  childCardDisabled: {
+    opacity: 0.5,
+  },
+  childPickRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.lg,
+    minHeight: 64,
+  },
+  childBody: {
     flex: 1,
     gap: spacing.xxs,
   },
-  countTitle: {
-    ...typeScale.headingSm,
+  childName: {
+    ...typeScale.labelLg,
     color: colors.textPrimary,
   },
-  countSub: {
+  childMeta: {
     ...typeScale.bodySm,
     color: colors.textSecondary,
   },
-
-  // One row per child: name + age.
-  childCard: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.surface,
-    ...shadows.sm,
-  },
-  childHeaderRow: {
+  childHealth: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignItems: 'flex-start',
+    gap: spacing.xs,
   },
-  childIndex: {
-    width: 26,
-    height: 26,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  childIndexText: {
-    ...typeScale.labelSm,
-    color: colors.primaryDark,
-  },
-  childNameInput: {
-    flex: 1,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.full,
-    height: 40,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    color: colors.textPrimary,
+  childHealthText: {
+    ...typeScale.caption,
+    color: colors.error,
+    flexShrink: 1,
   },
   /** Marks the extra children — the ones carrying the surcharge. */
   childBadge: {
@@ -159,57 +175,17 @@ export const styles = StyleSheet.create({
     ...typeScale.caption,
     color: colors.primaryDark,
   },
-  ageLabel: {
-    ...typeScale.labelSm,
-    color: colors.textSecondary,
-  },
-  ageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-
-  // Allergies — same pill field as the name, with a warm icon so it reads as
-  // the safety line on the card rather than one more optional detail.
-  allergyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  allergyInput: {
-    flex: 1,
-    backgroundColor: colors.taupeLight,
-    borderRadius: borderRadius.full,
-    height: 40,
+  // 44dp tap target, per the UI sweep rules.
+  childEditBtn: {
+    minWidth: 44,
+    minHeight: 44,
     paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-
-  // Save-for-next-time toggle
-  saveRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.surface,
-    ...shadows.sm,
+    justifyContent: 'center',
   },
-  saveBody: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  saveTitle: {
-    ...typeScale.labelMd,
-    color: colors.textPrimary,
-  },
-  saveSub: {
-    ...typeScale.caption,
-    color: colors.textMuted,
+  childEditText: {
+    ...typeScale.labelSm,
+    color: colors.primaryDark,
   },
 
   // Add-ons

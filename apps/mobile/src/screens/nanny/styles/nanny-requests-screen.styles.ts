@@ -279,6 +279,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // 44dp tap target, per the UI sweep rules.
+    minHeight: 44,
   },
   viewDetailsText: {
     ...typeScale.labelMd,

@@ -22,14 +22,14 @@ export type BookingFlowParams = {
   promoCode?: string;
   /** Comma-separated skill ids the parent selected as paid add-ons. */
   skillIds?: string;
+  /** Comma-separated ids of the saved children she picked — what is submitted. */
+  childIds?: string;
   /**
-   * The children being booked for, JSON-encoded. Expo Router params are strings,
-   * and these carry a name AND an age each — a delimiter-joined string would
-   * break the first time a mother types a comma into a name.
+   * Those children as the booking will snapshot them, JSON-encoded, for the
+   * review step's summary and price (the server builds its own from the ids).
+   * Expo Router params are strings, and a name can contain a comma.
    */
   children?: string;
-  /** '1' when she asked to save these children for her next booking. */
-  saveChildren?: string;
   /**
    * The saved address the nanny is sent to, chosen on the Where step. Required
    * to submit — it is where the booking happens and what the server measures
@@ -67,6 +67,16 @@ export function parseSkillIdsParam(raw: string | undefined): number[] {
     .split(',')
     .map((part) => Number(part.trim()))
     .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+/** The picked child ids carried through the flow; junk is dropped. */
+export function parseChildIdsParam(raw: string | undefined): number[] {
+  if (!raw) return [];
+  const ids = raw
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  return [...new Set(ids)];
 }
 
 /**

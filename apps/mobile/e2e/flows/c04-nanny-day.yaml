@@ -57,25 +57,26 @@ appId: com.nannyapp.mobile
 #
 # The allergy is also the one thing on the card she must not get wrong, and it
 # travels with the *request* rather than waiting for the booking to be hers —
-# so she can pass on a child she cannot safely take.
+# so she can pass on a child she cannot safely take. The child's name does not:
+# the pool shows "3 yrs: …" until she holds the booking, hence the `.*`.
 - scrollUntilVisible:
     element:
-      text: 'Lina: Peanuts and lab dust'
+      text: '.*: Peanuts and lab dust'
     direction: DOWN
     centerElement: true
     timeout: 30000
 - assertVisible:
-    text: 'ALLERGY'
-    above: 'Lina: Peanuts and lab dust'
+    text: 'ALLERGY.*'
+    above: '.*: Peanuts and lab dust'
 
 - tapOn:
     text: 'Accept request'
-    below: 'Lina: Peanuts and lab dust'
+    below: '.*: Peanuts and lab dust'
 
 # Claiming takes it out of the open pool — first to accept wins, so a card still
 # offering it would mean two nannies could take the same shift.
 - extendedWaitUntil:
-    notVisible: 'Lina: Peanuts and lab dust'
+    notVisible: '.*: Peanuts and lab dust'
     timeout: 30000
 
 # ── The mother pays ────────────────────────────────────────────────────────

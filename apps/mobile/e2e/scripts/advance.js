@@ -428,7 +428,21 @@ function motherBook() {
     // is shared with every other suite that has ever run against this database
     // — dozens of factory bookings sit in it — and none of the rest of the card
     // is distinctive: same duration, same price, same "1 child · 3 yrs".
-    children: [{ name: 'Lina', ageYears: 3, allergies: 'Peanuts and lab dust' }],
+    // The rest of the child fills the nanny's "About the children" card. Sent
+    // typed in, as builds older than Profile → Children do — that path stays
+    // supported, and it keeps the allergy line independent of the seed.
+    children: [
+      {
+        name: 'Lina',
+        ageYears: 3,
+        allergies: 'Peanuts and lab dust',
+        healthNotes: 'Antihistamine syrup in the kitchen drawer',
+        diet: ['No sugar'],
+        interests: ['Lego', 'Drawing'],
+        languages: ['Arabic', 'English'],
+        notes: 'Naps at 2 with her bunny',
+      },
+    ],
     specialInstructions: 'E2E lab booking for the care log flow.',
   });
   record(booking);

@@ -184,7 +184,7 @@ describe('BookingDetailScreen — a running shift', () => {
     const screen = renderScreen(booking());
 
     expect(await screen.findByText('Care instructions')).toBeTruthy();
-    expect(screen.getByLabelText('Allergy: Peanuts')).toBeTruthy();
+    expect(screen.getByLabelText('Health: Peanuts')).toBeTruthy();
     expect(screen.getByText('No allergies')).toBeTruthy();
     expect(screen.getByText('Your notes to Elena')).toBeTruthy();
     expect(screen.getByText('Nap at 1pm.')).toBeTruthy();

@@ -467,6 +467,12 @@ second one to try would be refused for double-booking her. Seeding also *undoes*
 the previous flow — this database is never truncated — which is what makes any
 single flow runnable on its own.
 
+Each seeded mother has exactly one saved child, Lina, aged three (re-created on
+every seed). The booking flow's care step ticks an only child for the mother, so
+flows that book pass through it with one tap, and the review step reads
+"1 child · 3 yrs" as it did when the step defaulted to one three-year-old.
+`s14-children` adds and removes children freely for the same reason.
+
 ## Notes
 
 **Sign-in, as setup, goes through the email door.** Phone + SMS code is the

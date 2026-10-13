@@ -1,8 +1,10 @@
-import { Role } from '@nanny-app/shared';
+import { BookingChildSchema, Role } from '@nanny-app/shared';
 
 /**
  * createBooking's handling of the children on a request: the configured ceiling,
- * the snapshot written to the row, and the "save for next booking" side effect.
+ * the snapshot written to the row (from the saved children she picked, or the
+ * children an older build typed in), and that older build's "save for next
+ * booking" side effect.
  *
  * The price math itself is covered by extra-child-fee.test.ts — what this suite
  * pins is the wiring, which is where the count can silently stop reaching the
@@ -110,10 +112,27 @@ const WINDOW = {
   addressId: HOME_ADDRESS.id,
 };
 
-const kid = (ageYears: number, name: string | null = null, allergies: string | null = null) => ({
-  name,
-  ageYears,
-  allergies,
+const kid = (ageYears: number, name: string | null = null, allergies: string | null = null) =>
+  BookingChildSchema.parse({ name, ageYears, allergies });
+
+/** A saved child row as Prisma returns it (Profile → Children). */
+const savedRow = (id: number, over: Record<string, unknown> = {}) => ({
+  id,
+  userId: 10,
+  name: `Child ${id}`,
+  birthDate: new Date('2024-11-01T00:00:00.000Z'),
+  ageYears: null,
+  allergies: [],
+  conditions: [],
+  healthNotes: null,
+  diet: [],
+  interests: [],
+  languages: [],
+  notes: null,
+  createdAt: new Date('2026-07-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-07-01T00:00:00.000Z'),
+  deletedAt: null,
+  ...over,
 });
 
 function bookingRow() {
@@ -241,8 +260,8 @@ describe('createBooking — pricing and snapshot', () => {
     });
 
     expect(createdData().bookedChildren).toEqual([
-      { name: 'Lina', ageYears: 2, allergies: 'Peanuts, sesame' },
-      { name: 'Omar', ageYears: 4, allergies: null },
+      kid(2, 'Lina', 'Peanuts, sesame'),
+      kid(4, 'Omar'),
     ]);
   });
 
@@ -255,25 +274,91 @@ describe('createBooking — pricing and snapshot', () => {
   });
 });
 
-describe('createBooking — saving children for next time', () => {
-  it('replaces the saved set when asked', async () => {
+describe('createBooking — children picked from her profile', () => {
+  it('snapshots the picked children in the order picked, aged on the booking month', async () => {
+    mockPrisma.child.findMany.mockResolvedValue([
+      savedRow(1, { name: 'Lina', allergies: ['Peanuts', 'Sesame'], conditions: ['Asthma'] }),
+      savedRow(2, {
+        name: 'Omar',
+        birthDate: new Date('2021-03-01T00:00:00.000Z'),
+        interests: ['Lego'],
+        notes: 'Loves his blue blanket',
+      }),
+    ]);
+
+    await createBooking(DECODED, { ...WINDOW, childIds: [2, 1] });
+
+    expect(mockPrisma.child.findMany).toHaveBeenCalledWith({
+      where: { userId: 10, deletedAt: null, id: { in: [2, 1] } },
+    });
+    expect(createdData().bookedChildren).toEqual([
+      BookingChildSchema.parse({
+        name: 'Omar',
+        ageYears: 5, // March 2021 → July 2026
+        interests: ['Lego'],
+        notes: 'Loves his blue blanket',
+      }),
+      BookingChildSchema.parse({
+        name: 'Lina',
+        ageYears: 1,
+        ageMonths: 20, // November 2024 → July 2026
+        allergies: 'Peanuts, Sesame',
+        conditions: ['Asthma'],
+      }),
+    ]);
+    expect(createdData().childrenCount).toBe(2);
+  });
+
+  it('404s a child that is not one of hers', async () => {
+    mockPrisma.child.findMany.mockResolvedValue([savedRow(1)]);
+    await expect(createBooking(DECODED, { ...WINDOW, childIds: [1, 99] })).rejects.toThrow(
+      'Child not found.',
+    );
+    expect(mockPrisma.booking.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a child saved by an older build until she adds a birth month', async () => {
+    mockPrisma.child.findMany.mockResolvedValue([
+      savedRow(1, { name: 'Lina', birthDate: null, ageYears: 3 }),
+    ]);
+    await expect(createBooking(DECODED, { ...WINDOW, childIds: [1] })).rejects.toThrow(
+      'Add Lina’s birth month before booking.',
+    );
+  });
+
+  it('applies the ceiling to picked children too', async () => {
+    mockPrisma.child.findMany.mockResolvedValue([1, 2, 3, 4, 5].map((id) => savedRow(id)));
+    await expect(createBooking(DECODED, { ...WINDOW, childIds: [1, 2, 3, 4, 5] })).rejects.toThrow(
+      'One nanny can care for at most 4 children in a single booking.',
+    );
+  });
+
+  it('never writes to her saved children', async () => {
+    mockPrisma.child.findMany.mockResolvedValue([savedRow(1)]);
+    await createBooking(DECODED, { ...WINDOW, childIds: [1], saveChildren: true });
+    expect(mockPrisma.child.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.child.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('createBooking — an older build saving children for next time', () => {
+  it('adds the children she does not have yet, and deletes nothing', async () => {
+    mockPrisma.child.findMany.mockResolvedValue([
+      savedRow(1, { name: 'Lina', allergies: ['Peanuts'], interests: ['Drawing'] }),
+    ]);
+
     await createBooking(DECODED, {
       ...WINDOW,
-      children: [kid(2, 'Lina', 'Peanuts'), kid(5, 'Omar')],
+      children: [kid(2, 'lina', 'Peanuts'), kid(5, 'Omar', 'Dairy')],
       saveChildren: true,
     });
 
-    // Replace-all: the old set is soft-deleted, then the new one inserted.
-    expect(mockPrisma.child.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 10, deletedAt: null } }),
-    );
-    // The allergy is saved with the child, so her next booking prefills it and
-    // she doesn't have to remember to retype it every time.
+    // Lina is already saved (names match case-insensitively), so only Omar is
+    // added — and nothing is soft-deleted, so Lina keeps what Profile →
+    // Children saved for her.
+    expect(mockPrisma.child.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.child.createMany).toHaveBeenCalledWith({
-      data: [
-        { userId: 10, name: 'Lina', ageYears: 2, allergies: 'Peanuts' },
-        { userId: 10, name: 'Omar', ageYears: 5, allergies: null },
-      ],
+      data: [{ userId: 10, name: 'Omar', ageYears: 5, allergies: ['Dairy'] }],
     });
   });
 
@@ -284,7 +369,7 @@ describe('createBooking — saving children for next time', () => {
   });
 
   it('writes the booking and the children in one transaction', async () => {
-    // A failed booking must never silently rewrite her saved family.
+    // A failed booking must never add to her saved family.
     await createBooking(DECODED, { ...WINDOW, children: [kid(2)], saveChildren: true });
     expect(mockPrisma.$transaction).toHaveBeenCalled();
   });

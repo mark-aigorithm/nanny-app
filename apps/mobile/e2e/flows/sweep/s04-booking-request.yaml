@@ -64,14 +64,42 @@ appId: com.nannyapp.mobile
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s04-05-who-needs-care
+# Adding a child from the picker: the same sheet as Profile → Children (s14
+# covers its fields); saved to her profile and ticked, so the picker then shows
+# two children and the second one's Extra badge.
 - runFlow:
     file: _tap.yaml
     env:
-      TARGET: 'Allergies \(optional\)'
+      TARGET: 'Add a child'
+# The name field, not Save: Save is below the fold on a small phone.
+- extendedWaitUntil:
+    visible:
+      id: 'childForm.name'
+    timeout: 30000
+- tapOn:
+    id: 'childForm.name'
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: s04-06-who-needs-care-kbd
-- hideKeyboard
+- takeScreenshot: s04-06-who-needs-care-add-kbd
+- inputText: 'Omar'
+- pressKey: Enter
+# The form is long at font 1.3 on a small phone — more than _tap.yaml's 10 s
+# of scrolling.
+- scrollUntilVisible:
+    element: 'Save child'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Save child'
+- extendedWaitUntil:
+    visible: 'Omar'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-06b-who-needs-care-two
 - tapOn:
     id: 'booking.cta'
 

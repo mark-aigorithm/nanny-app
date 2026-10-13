@@ -107,6 +107,7 @@ function makeBooking(overrides: Partial<{
     endTime,
     date: startTime,
     mother,
+    nannyProfileId: 19,
     nannyProfile: {
       id: 19,
       userId: nannyUser.id,
@@ -420,8 +421,8 @@ describe('booking shift transitions', () => {
       const result = await checkOutBooking({ uid: 'firebase-nanny' } as never, 4);
 
       expect(result.children).toEqual([
-        { name: 'Lina', ageYears: 3, allergies: null },
-        { name: 'Omar', ageYears: 6, allergies: 'Dairy' },
+        expect.objectContaining({ name: 'Lina', ageYears: 3, allergies: null, conditions: [] }),
+        expect.objectContaining({ name: 'Omar', ageYears: 6, allergies: 'Dairy' }),
       ]);
     });
 

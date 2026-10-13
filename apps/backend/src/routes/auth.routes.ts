@@ -208,7 +208,8 @@ authRouter.post(
 
 /**
  * GET /auth/children
- * The mother's saved children, used to prefill the booking sheet.
+ * The mother's saved children in the shape app builds older than
+ * Profile → Children read. Current builds use GET /children.
  */
 authRouter.get('/children', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -221,9 +222,10 @@ authRouter.get('/children', requireAuth, async (req: Request, res: Response, nex
 
 /**
  * PUT /auth/children
- * Replaces the mother's saved children with the set sent. PUT rather than POST
- * because the body is the complete new state, not an addition — which is what
- * the booking sheet's "save for next booking" toggle means.
+ * Older builds' "save for next booking" toggle. It used to replace her saved
+ * children; it now only adds the ones she doesn't have (mergeLegacyChildren),
+ * so an old build can't wipe what Profile → Children saved. Returns the same
+ * legacy list as GET.
  */
 authRouter.put(
   '/children',

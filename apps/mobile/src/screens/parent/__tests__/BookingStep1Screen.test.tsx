@@ -48,7 +48,10 @@ const BASE_PARAMS = {
   startTimeWall: `${dateIso}T09:00:00`,
   endTimeWall: `${dateIso}T11:00:00`,
   durationHours: '2', // 2h × EGP 100 = EGP 200.00
-  children: JSON.stringify([{ ageYears: 3 }]), // 1 child, within the 2 included
+  // 1 child, within the 2 included. The ids are what is submitted; the JSON is
+  // the snapshot the care step hands over for the summary and price.
+  childIds: '5',
+  children: JSON.stringify([{ name: 'Lina', ageYears: 3 }]),
   skillIds: '',
   // Chosen on the Where step; the draft is incomplete without it.
   addressId: '7',
@@ -124,6 +127,33 @@ describe('BookingStep1Screen — price', () => {
     getByText('Tell us who needs care to continue.');
     fireEvent.press(getByText('Go back'));
     expect(mockBack).toHaveBeenCalled();
+  });
+});
+
+describe('BookingStep1Screen — children', () => {
+  it('reads back the children she picked by name', () => {
+    const { getByText } = renderScreen();
+    getByText('Lina\u00A0(3 yrs)');
+  });
+
+  it('submits the saved children she picked, by id', async () => {
+    (api.post as jest.Mock).mockResolvedValueOnce({ data: { data: { id: 9 }, error: null } });
+    const { getByText } = renderScreen();
+
+    fireEvent.press(getByText('Request care · EGP 200.00'));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const body = (api.post as jest.Mock).mock.calls[0][1];
+    expect(body.childIds).toEqual([5]);
+    // The server snapshots them itself; nothing typed is sent alongside.
+    expect(body).not.toHaveProperty('children');
+    expect(body).not.toHaveProperty('saveChildren');
+  });
+
+  it('sends her back when the picked ids are missing', () => {
+    mockParams = { ...BASE_PARAMS, childIds: '' };
+    const { getByText } = renderScreen();
+    getByText('Tell us who needs care to continue.');
   });
 });
 

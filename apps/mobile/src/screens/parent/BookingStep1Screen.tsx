@@ -13,8 +13,10 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
   calculatePriceBreakdown,
+  formatChildAge,
   formatChildrenSummary,
   resolveDurationMultiplier,
+  type BookingChild,
   type PublicSkill,
 } from '@nanny-app/shared';
 
@@ -33,6 +35,7 @@ import {
   getBookingDurationHours,
   getBookingTimeDisplay,
   hasRequiredBookingDraft,
+  parseChildIdsParam,
   parseChildrenParam,
   parseSkillIdsParam,
   type BookingFlowParams,
@@ -65,6 +68,14 @@ function addOnChipLabel(skill: PublicSkill, baseRate: number | null, hours: numb
   const amount = addOnAmount(skill, baseRate, hours);
   if (amount <= 0.005) return skill.name;
   return `${skill.name} · +${formatMoney(amount, { fractionDigits: 0 })}`;
+}
+
+/** "Lina (3 yrs), Omar (8 mos)" — falls back to the nameless summary. */
+function formatPickedChildren(children: readonly BookingChild[]): string {
+  if (children.some((c) => !c.name?.trim())) return formatChildrenSummary(children);
+  return children
+    .map((c) => `${c.name!.trim()}\u00A0(${formatChildAge(c.ageYears, c.ageMonths)})`)
+    .join(', ');
 }
 
 export default function BookingStep1Screen() {
@@ -116,6 +127,7 @@ export default function BookingStep1Screen() {
   // reports what they cost. Reading them straight from the params (rather than
   // holding state) is what keeps the two screens from disagreeing.
   const children = useMemo(() => parseChildrenParam(params.children), [params.children]);
+  const childIds = useMemo(() => parseChildIdsParam(params.childIds), [params.childIds]);
   const selectedSkillIds = useMemo(() => parseSkillIdsParam(params.skillIds), [params.skillIds]);
 
   const addOns = pricing?.skillAddOns ?? [];
@@ -205,7 +217,12 @@ export default function BookingStep1Screen() {
   }, [packages, prepaidHours, hourlyRate]);
 
   const canProceed =
-    draftReady && hourlyRate != null && hours > 0 && children.length > 0 && !isPricingLoading;
+    draftReady &&
+    hourlyRate != null &&
+    hours > 0 &&
+    children.length > 0 &&
+    childIds.length > 0 &&
+    !isPricingLoading;
 
   /**
    * The stepper runs 0…max, but the program may impose a floor on a single
@@ -264,8 +281,8 @@ export default function BookingStep1Screen() {
         ...(instructions.trim() ? { specialInstructions: instructions.trim() } : {}),
         ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
         skillIds: selectedSkillIds,
-        children,
-        ...(params.saveChildren === '1' ? { saveChildren: true } : {}),
+        // The server snapshots these from her profile, aged on the booking date.
+        childIds,
         // Spent with the request, so a request they fully cover is confirmed
         // the moment a nanny accepts — no payment step.
         // Only what is still owed after the package — the server trims to the
@@ -303,7 +320,7 @@ export default function BookingStep1Screen() {
   // Children arrive from the care step, so a deep link straight to this screen
   // can land here without them. Say so and send her back — a disabled CTA with
   // no explanation is the worse failure.
-  if (!draftReady || children.length === 0) {
+  if (!draftReady || children.length === 0 || childIds.length === 0) {
     return (
       <View style={[styles.container, styles.centeredState]}>
         <Text style={styles.missingParamsText}>
@@ -366,7 +383,9 @@ export default function BookingStep1Screen() {
             <Ionicons name="people-outline" size={20} color={colors.primaryDark} />
           </View>
           <View style={styles.whenBody}>
-            <Text style={styles.whenDate}>{formatChildrenSummary(children)}</Text>
+            {/* Her own review, so the names she picked — the open pool is what
+                gets the nameless summary. */}
+            <Text style={styles.whenDate}>{formatPickedChildren(children)}</Text>
             <Text style={styles.whenTime}>
               {selectedAddOns.length > 0
                 ? `${selectedAddOns.map((s) => s.name).join(', ')} · +${formatMoney(addOnsTotal)}`

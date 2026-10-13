@@ -7,6 +7,7 @@
  * (a real refund call to the Paymob fake, accumulated on the original
  * transaction) or as Care Points.
  */
+import { BookingChildSchema } from '@nanny-app/shared';
 import { PaymentStatus } from '@prisma/client';
 import request from 'supertest';
 
@@ -24,7 +25,7 @@ import {
 import { payViaPaymob } from '../../../test/journeys/payment';
 
 const START_HOUR = 10;
-const CHILDREN = [{ name: 'Test Child', ageYears: 3, allergies: null }];
+const CHILDREN = [BookingChildSchema.parse({ name: 'Test Child', ageYears: 3 })];
 
 /** Books 6 hours, claims and pays it, then shortens it to 4 to create an overpayment. */
 async function paidBookingWithOverpayment() {

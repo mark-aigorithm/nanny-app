@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { formatChildAge } from '@nanny-app/shared';
+import { BookingChildSchema, formatChildAge } from '@nanny-app/shared';
 import type {
   AdminBookingDetail,
   AdminBookingEditContext,
@@ -74,11 +74,9 @@ function seedForm(booking: AdminBookingDetail): EditorForm {
     children:
       booking.children.length > 0
         ? booking.children.map((c) => ({ ...c }))
-        : Array.from({ length: Math.max(1, booking.childrenCount) }, () => ({
-            name: null,
-            ageYears: 0,
-            allergies: null,
-          })),
+        : Array.from({ length: Math.max(1, booking.childrenCount) }, () =>
+            BookingChildSchema.parse({ ageYears: 0 }),
+          ),
     skillIds: booking.skillAddOns.map((s) => s.id),
     promoCode: booking.promoCode ?? '',
     usePackageHours: booking.packageHoursApplied > 0,
@@ -259,13 +257,16 @@ function EditorForm({
 
   function setChildCount(count: number) {
     const next = [...form.children];
-    while (next.length < count) next.push({ name: null, ageYears: 0, allergies: null });
+    while (next.length < count) next.push(BookingChildSchema.parse({ ageYears: 0 }));
     next.length = count;
     setForm({ ...form, children: next });
   }
 
   function setChildAge(index: number, age: number) {
-    const next = form.children.map((c, i) => (i === index ? { ...c, ageYears: age } : c));
+    // The months were the age on the booking date; an edited age replaces them.
+    const next = form.children.map((c, i) =>
+      i === index ? { ...c, ageYears: age, ageMonths: null } : c,
+    );
     setForm({ ...form, children: next });
   }
 
@@ -331,7 +332,7 @@ function EditorForm({
         </Field>
         <div className="child-ages">
           {form.children.map((child, i) => (
-            <Field key={i} label={child.name ? child.name : `Child ${i + 1}`} hint={formatChildAge(child.ageYears)}>
+            <Field key={i} label={child.name ? child.name : `Child ${i + 1}`} hint={formatChildAge(child.ageYears, child.ageMonths)}>
               <input
                 className="hour-input"
                 type="number"

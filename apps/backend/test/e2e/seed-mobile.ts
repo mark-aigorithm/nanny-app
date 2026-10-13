@@ -185,6 +185,26 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
     await prisma.address.create({ data: { userId: user.id, isDefault: true, ...homeFields } });
   }
 
+  // One saved child, Lina, aged three — what the booking flows book for. As the
+  // only child she is ticked for the mother on the care step, so the flows pass
+  // through it unchanged; and three is what the old care step defaulted to, so
+  // the review summary still reads "1 child · 3 yrs". Reset every run so a flow
+  // that added or edited children last time can't change the baseline.
+  if (spec.role === Role.MOTHER) {
+    await prisma.child.updateMany({
+      where: { userId: user.id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    const now = new Date();
+    await prisma.child.create({
+      data: {
+        userId: user.id,
+        name: 'Lina',
+        birthDate: new Date(Date.UTC(now.getUTCFullYear() - 3, now.getUTCMonth(), 1)),
+      },
+    });
+  }
+
   if (spec.role === Role.NANNY) {
     const existing = await prisma.nannyProfile.findFirst({ where: { userId: user.id } });
     const profile = {

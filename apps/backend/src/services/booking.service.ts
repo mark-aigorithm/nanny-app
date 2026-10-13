@@ -65,7 +65,7 @@ import {
   getRevealPhoneMinutes,
 } from './app-settings.service';
 import { listConsoleUserIdsForSection } from './admin-user.service';
-import { saveChildren } from './child.service';
+import { getChildrenForBooking, mergeLegacyChildren } from './child.service';
 import { createInAppNotification, dispatchPush } from './notification.service';
 import {
   buildBreakdown,
@@ -307,6 +307,22 @@ function parseBookedChildren(raw: Prisma.JsonValue | null | undefined): BookingC
 }
 
 /**
+ * The children as this viewer may see them. A nanny looking at an unclaimed
+ * request in the open pool gets ages, health warnings, diet, interests and
+ * languages — what she needs to judge the job — but not the names or the
+ * mother's free-text notes, which can identify the family. The nanny who holds
+ * the booking, the mother and admins see everything.
+ */
+function bookingChildrenFor(
+  b: { nannyProfileId: number | null; bookedChildren: Prisma.JsonValue | null },
+  viewer: BookingViewer,
+): BookingChild[] {
+  const children = parseBookedChildren(b.bookedChildren);
+  if (viewer !== 'NANNY' || b.nannyProfileId != null) return children;
+  return children.map((c) => ({ ...c, name: null, notes: null }));
+}
+
+/**
  * The current payment for a booking = its newest attempt. `bookingInclude`
  * already sorts newest-first and takes one, so this is just the head — but going
  * through a named helper keeps every read of "the payment" consistent.
@@ -504,7 +520,7 @@ function toBookingResponse(
     baseRate: Number(b.baseRate),
     effectiveHourlyRate: Number(b.effectiveHourlyRate),
     skillAddOns: parseSkillAddOns(b.selectedSkillFees),
-    children: parseBookedChildren(b.bookedChildren),
+    children: bookingChildrenFor(b, viewer),
     childrenCount: b.childrenCount,
     extraChildren: b.extraChildren,
     extraChildFeePerHour: Number(b.extraChildFeePerHour),
@@ -1140,7 +1156,16 @@ export async function createBooking(
   // The ceiling is an admin setting, so the shared schema can only require at
   // least one child — the actual limit has to be checked here, where the current
   // value is known and the message can say what it is.
-  const children = body.children;
+  //
+  // The current app sends the ids of children saved on her profile; each is
+  // snapshotted, aged on the booking's month (the wall-clock start's YYYY-MM).
+  // Builds older than Profile → Children send the children typed in instead.
+  const children = body.childIds
+    ? await getChildrenForBooking(user.id, body.childIds, body.startTime.slice(0, 7))
+    : (body.children ?? []);
+  if (children.length === 0) {
+    throw errors.badRequest('Pick who the booking is for.');
+  }
   if (children.length > config.maxChildrenPerBooking) {
     throw errors.badRequest(
       `One nanny can care for at most ${config.maxChildrenPerBooking} children in a single booking.`,
@@ -1284,9 +1309,10 @@ export async function createBooking(
   // consumed until the payment is captured (see redeemBookingPromoCodeOnCapture).
   // A request no nanny claims, or one the mother cancels, must not burn her code.
   //
-  // "Save for next booking" runs in the same transaction as the create, so a
-  // failed booking never silently rewrites her saved family.
-  const wantsSaveChildren = body.saveChildren === true;
+  // An older build's "Save for next booking" runs in the same transaction as
+  // the create, so a failed booking never adds to her saved family. Children
+  // picked by id are already saved.
+  const wantsSaveChildren = body.saveChildren === true && body.childIds === undefined;
   // Care Points chosen with the request are spent now, after the promo and any
   // package hours, so a fully covered request needs no payment step once a
   // nanny accepts it. Skipped when nothing is left to cover — spending points
@@ -1297,7 +1323,7 @@ export async function createBooking(
   if (willApplyPackageHours || wantsSaveChildren || pointsHours > 0) {
     booking = await prisma.$transaction(async (tx) => {
       let created = await tx.booking.create({ data, include: bookingInclude });
-      if (wantsSaveChildren) await saveChildren(user.id, children, tx);
+      if (wantsSaveChildren) await mergeLegacyChildren(user.id, children, tx);
       if (willApplyPackageHours) {
         created = await applyPackageHoursToBooking(tx, created, breakdown.skillAddOns);
       }
