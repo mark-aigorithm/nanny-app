@@ -6,7 +6,6 @@ import {
   Image,
   Modal,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
@@ -17,15 +16,21 @@ import DateTimePicker, {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import type { CareLogResponse, CareLogType } from '@nanny-app/shared';
+import {
+  bookingChildLabels,
+  formatChildNames,
+  type CareLogResponse,
+  type CareLogType,
+} from '@nanny-app/shared';
 
-import { ScreenContainer, StackHeader } from '@mobile/components/ui';
+import { Chip, KeyboardAvoidingView, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
 import { colors, spacing } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
 import { useCareLogs, useCreateCareLog } from '@mobile/hooks/useCareLogs';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
 import { styles } from './styles/care-log-screen.styles';
 import { chooseDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
@@ -75,17 +80,25 @@ export default function CareLogScreen() {
   const scrollBottomPadding = useBottomBarPadding(spacing['4xl']);
   const pickerBottomPadding = useBottomBarPadding(spacing.lg);
   const router = useRouter();
+  const keyboardVisible = useKeyboardVisible();
 
   const { data: inProgressBookings = [] } = useBookingList('IN_PROGRESS');
   const activeBooking = inProgressBookings[0];
   const bookingId = activeBooking?.id;
   const checkOut = useCheckOut();
 
+  // Who an entry can be about: the booking's children, by their label on it.
+  const childLabels = useMemo(
+    () => bookingChildLabels(activeBooking?.children ?? []),
+    [activeBooking?.children],
+  );
+
   const { data: entries = [], isLoading: loadingEntries } = useCareLogs(bookingId);
   const createLog = useCreateCareLog(bookingId);
 
   const [sheetCategory, setSheetCategory] = useState<CategoryConfig | null>(null);
   const [customLabel, setCustomLabel] = useState('');
+  const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [evidenceUris, setEvidenceUris] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -104,6 +117,8 @@ export default function CareLogScreen() {
     }
     setSheetCategory(category);
     setCustomLabel('');
+    // With one child there is nothing to choose; with more she picks.
+    setSelectedChildren(childLabels.length === 1 ? [...childLabels] : []);
     setNotes('');
     setEvidenceUris([]);
     setOccurredAt(new Date());
@@ -113,6 +128,7 @@ export default function CareLogScreen() {
   function closeSheet() {
     setSheetCategory(null);
     setCustomLabel('');
+    setSelectedChildren([]);
     setNotes('');
     setEvidenceUris([]);
     setOccurredAt(new Date());
@@ -186,6 +202,19 @@ export default function CareLogScreen() {
     });
   }
 
+  function toggleChild(label: string) {
+    setSelectedChildren((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
+    );
+  }
+
+  const allChildrenSelected =
+    childLabels.length > 0 && childLabels.every((l) => selectedChildren.includes(l));
+
+  function toggleAllChildren() {
+    setSelectedChildren(allChildrenSelected ? [] : [...childLabels]);
+  }
+
   function removeEvidence(uri: string) {
     setEvidenceUris((prev) => prev.filter((u) => u !== uri));
   }
@@ -194,6 +223,10 @@ export default function CareLogScreen() {
     if (!sheetCategory || !bookingId) return;
     if (sheetCategory.type === 'CUSTOM' && !customLabel.trim()) {
       noticeDialog({ title: 'Custom label required', message: 'Give this entry a short title.' });
+      return;
+    }
+    if (childLabels.length > 0 && selectedChildren.length === 0) {
+      noticeDialog({ title: 'Which child?', message: 'Pick the child this entry is about.' });
       return;
     }
 
@@ -206,6 +239,7 @@ export default function CareLogScreen() {
       await createLog.mutateAsync({
         type: sheetCategory.type,
         ...(sheetCategory.type === 'CUSTOM' ? { customLabel: customLabel.trim() } : {}),
+        childNames: childLabels.filter((l) => selectedChildren.includes(l)),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         occurredAt: occurredAt.toISOString(),
         evidenceUrls,
@@ -317,6 +351,11 @@ export default function CareLogScreen() {
                     </View>
                     <View style={styles.logEntryInfo}>
                       <Text style={styles.logEntryTitle}>{entryTitle(entry)}</Text>
+                      {entry.childNames.length > 0 ? (
+                        <Text style={styles.logEntryChildren}>
+                          {formatChildNames(entry.childNames)}
+                        </Text>
+                      ) : null}
                       <Text style={styles.logEntrySubtitle} numberOfLines={1}>
                         {entry.notes ?? '—'}
                         {entry.evidenceUrls.length > 0 ? `  •  ${entry.evidenceUrls.length} photo${entry.evidenceUrls.length > 1 ? 's' : ''}` : ''}
@@ -346,12 +385,11 @@ export default function CareLogScreen() {
             refuses a second Modal from the root while this one is open and
             leaves the app unresponsive. */}
         <ConfirmDialogHost nested />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.sheetOverlay}
-        >
+        {/* Enabled only while the keyboard is up, so its padding can't
+            outlive the keyboard and leave a band above the nav bar. */}
+        <KeyboardAvoidingView style={styles.sheetOverlay} enabled={keyboardVisible}>
           <Pressable style={{ flex: 1 }} onPress={closeSheet} />
-          <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
+          <View style={[styles.sheet, { paddingBottom: keyboardVisible ? spacing.lg : bottomPadding }]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -373,6 +411,36 @@ export default function CareLogScreen() {
                   <Ionicons name="close" size={22} color={colors.textPrimary} />
                 </Pressable>
               </View>
+
+              {/* Which child the entry is about */}
+              {childLabels.length > 0 && (
+                <View style={styles.timeSelector}>
+                  <Text style={styles.timeSelectorLabel}>
+                    {childLabels.length === 1 ? 'CHILD' : 'WHICH CHILD?'}
+                  </Text>
+                  <View style={styles.childChips}>
+                    {childLabels.map((label) => (
+                      <Chip
+                        key={label}
+                        label={label}
+                        active={selectedChildren.includes(label)}
+                        onPress={() => toggleChild(label)}
+                        inactiveColor={colors.white}
+                        style={styles.childChip}
+                      />
+                    ))}
+                    {childLabels.length > 1 && (
+                      <Chip
+                        label="All"
+                        active={allChildrenSelected}
+                        onPress={toggleAllChildren}
+                        inactiveColor={colors.white}
+                        style={styles.childChip}
+                      />
+                    )}
+                  </View>
+                </View>
+              )}
 
               {/* Custom label (only for CUSTOM type) */}
               {sheetCategory?.type === 'CUSTOM' && (

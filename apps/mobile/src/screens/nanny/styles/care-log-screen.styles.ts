@@ -7,6 +7,7 @@ import {
   borderRadius,
   shadows,
   screenPadding,
+  STATUS_BAR_HEIGHT,
 } from '@mobile/theme';
 
 export const styles = StyleSheet.create({
@@ -173,6 +174,21 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.textMuted,
   },
+  logEntryChildren: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.primaryDark,
+  },
+  childChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  // Chips are 36dp by default; these are the sheet's main choice, so 44dp.
+  childChip: {
+    minHeight: 44,
+  },
   logEntryRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -190,8 +206,11 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
+    // The sheet stops below the clock; past that its body scrolls.
+    paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
   },
   sheet: {
+    flexShrink: 1,
     backgroundColor: colors.surface,
     borderTopLeftRadius: borderRadius['2xl'],
     borderTopRightRadius: borderRadius['2xl'],

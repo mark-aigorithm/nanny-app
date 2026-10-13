@@ -92,6 +92,7 @@ function log(id: number, minutesAgo: number, notes: string): CareLogResponse {
     nannyProfileId: 19,
     type: 'MEAL',
     customLabel: null,
+    childNames: ['Lina'],
     notes,
     occurredAt: iso(-minutesAgo),
     evidenceUrls: [],
@@ -173,6 +174,9 @@ describe('BookingDetailScreen — a running shift', () => {
     expect(await screen.findByText('Update 5')).toBeTruthy();
     expect(screen.getByText('Update 3')).toBeTruthy();
     expect(screen.queryByText('Update 2')).toBeNull();
+
+    // Each update says which child it was about.
+    expect(screen.getAllByText('Lina')).toHaveLength(3);
 
     fireEvent.press(screen.getByText('See all 5'));
 

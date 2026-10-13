@@ -512,6 +512,7 @@ function motherCareLogs() {
   output.status = booking.status;
   output.careLogCount = String(logs ? logs.length : 0);
   output.careLogNotes = logs && logs.length > 0 ? String(logs[0].notes) : '';
+  output.careLogChildren = logs && logs.length > 0 ? (logs[0].childNames || []).join(',') : '';
 }
 
 /**

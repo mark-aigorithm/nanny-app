@@ -1165,6 +1165,11 @@ model CareLog {
   nannyProfile   NannyProfile @relation(fields: [nannyProfileId], references: [id])
   type           CareLogType
   customLabel    String?      @map("custom_label")
+  /// Which of the booking's children the entry is about, by their label on the
+  /// booking (shared bookingChildLabel — the name, or "Child 2 (3 yrs)").
+  /// Labels, not ids, because Booking.bookedChildren is an id-less snapshot.
+  /// Empty on entries from builds that didn't ask.
+  childNames     String[]     @default([]) @map("child_names")
   notes          String?      @db.Text
   occurredAt     DateTime     @map("occurred_at")
   evidenceUrls   String[]     @default([]) @map("evidence_urls")

@@ -375,3 +375,24 @@ export function formatChildrenSummary(children: readonly BookingChild[]): string
     .join(', ');
   return `${count} · ${ages} yrs`;
 }
+
+/**
+ * What a child on a booking is called in the care log: her name, or
+ * "Child 2 (3 yrs)" for a booking from a build where the name was optional.
+ * A care log entry stores these labels (see CareLog.childNames), so they must
+ * come out the same every time for the same booking.
+ */
+export function bookingChildLabel(child: BookingChild, index: number): string {
+  return child.name?.trim() || `Child ${index + 1} (${formatChildAge(child.ageYears, child.ageMonths)})`;
+}
+
+/** The labels of every child on a booking, in booking order. */
+export function bookingChildLabels(children: readonly BookingChild[]): string[] {
+  return children.map(bookingChildLabel);
+}
+
+/** "Lina" / "Lina & Omar" / "Lina, Omar & Sami" — who a care log entry is about. */
+export function formatChildNames(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}

@@ -140,6 +140,9 @@ appId: com.nannyapp.mobile
 - extendedWaitUntil:
     visible: 'Log meal'
     timeout: 30000
+# The booking has one child, so the sheet has already picked her.
+- assertVisible: 'CHILD'
+- assertVisible: 'Lina'
 
 - tapOn: 'Add notes\.\.\.'
 - inputText: 'Rice and vegetables, ate most of it'
@@ -161,3 +164,4 @@ appId: com.nannyapp.mobile
 - assertTrue: ${output.status == 'IN_PROGRESS'}
 - assertTrue: ${output.careLogCount == '1'}
 - assertTrue: ${output.careLogNotes == 'Rice and vegetables, ate most of it'}
+- assertTrue: ${output.careLogChildren == 'Lina'}

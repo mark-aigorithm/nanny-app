@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
-import type { CareLogResponse } from '@nanny-app/shared';
+import { formatChildNames, type CareLogResponse } from '@nanny-app/shared';
 import { colors } from '@mobile/theme';
 import { useCareLogs } from '@mobile/hooks/useCareLogs';
 import {
@@ -104,6 +104,9 @@ function CareLogEntry({ entry }: { entry: CareLogResponse }) {
           </Text>
           <Text style={styles.entryTime}>{formatCareLogTime(entry.occurredAt)}</Text>
         </View>
+        {entry.childNames.length > 0 ? (
+          <Text style={styles.entryChildren}>{formatChildNames(entry.childNames)}</Text>
+        ) : null}
         {entry.notes ? (
           <Text style={styles.entryNotes}>{entry.notes}</Text>
         ) : null}

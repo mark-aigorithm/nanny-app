@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
-import type { CareLogResponse } from '@nanny-app/shared';
+import { formatChildNames, type CareLogResponse } from '@nanny-app/shared';
 
 import { Chip } from '@mobile/components/ui';
 import { useCareLogs } from '@mobile/hooks/useCareLogs';
@@ -141,6 +141,9 @@ function TimelineEntry({
             <Text style={styles.type}>{careLogTypeLabel(entry.type, entry.customLabel)}</Text>
             <Text style={styles.time}>{formatCareLogTime(entry.occurredAt)}</Text>
           </View>
+          {entry.childNames.length > 0 ? (
+            <Text style={styles.children}>{formatChildNames(entry.childNames)}</Text>
+          ) : null}
           {entry.notes ? <Text style={styles.notes}>{entry.notes}</Text> : null}
           {entry.evidenceUrls.length > 0 ? (
             <View style={styles.photos}>
@@ -238,6 +241,10 @@ const styles = StyleSheet.create({
   time: {
     ...typeScale.caption,
     color: colors.textMuted,
+  },
+  children: {
+    ...typeScale.labelMd,
+    color: colors.primaryDark,
   },
   notes: {
     ...typeScale.bodyMd,

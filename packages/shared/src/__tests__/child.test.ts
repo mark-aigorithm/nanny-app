@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BookingChildSchema,
   ChildInputSchema,
+  bookingChildLabels,
+  formatChildNames,
   childAgeOn,
   formatAllergySummary,
   formatChildAge,
@@ -11,6 +13,7 @@ import {
   type Child,
 } from '../child';
 import { CreateBookingSchema } from '../booking';
+import { CreateCareLogSchema } from '../care-log';
 
 describe('childAgeOn', () => {
   it('counts whole years, with months while under two', () => {
@@ -149,5 +152,27 @@ describe('CreateBookingSchema children', () => {
     expect(CreateBookingSchema.safeParse(window).success).toBe(false);
     expect(CreateBookingSchema.safeParse({ ...window, childIds: [] }).success).toBe(false);
     expect(CreateBookingSchema.safeParse({ ...window, childIds: [3, 3] }).success).toBe(false);
+  });
+});
+
+describe('care log child labels', () => {
+  it('uses the name, or a numbered label with the age for an unnamed child', () => {
+    const named = BookingChildSchema.parse({ name: ' Lina ', ageYears: 3 });
+    const unnamed = BookingChildSchema.parse({ name: null, ageYears: 1, ageMonths: 8 });
+    expect(bookingChildLabels([named, unnamed])).toEqual(['Lina', 'Child 2 (8 mos)']);
+  });
+
+  it('joins names the way a sentence would', () => {
+    expect(formatChildNames([])).toBe('');
+    expect(formatChildNames(['Lina'])).toBe('Lina');
+    expect(formatChildNames(['Lina', 'Omar'])).toBe('Lina & Omar');
+    expect(formatChildNames(['Lina', 'Omar', 'Sami'])).toBe('Lina, Omar & Sami');
+  });
+
+  it('accepts an entry without childNames, as older builds send it', () => {
+    expect(CreateCareLogSchema.parse({ type: 'MEAL' }).childNames).toEqual([]);
+    expect(CreateCareLogSchema.parse({ type: 'NAP', childNames: [' Lina '] }).childNames).toEqual([
+      'Lina',
+    ]);
   });
 });

@@ -3,6 +3,8 @@ import {
   BookingStatus,
   CareLogType,
   Role,
+  bookingChildLabels,
+  formatChildNames,
   type CareLogResponse,
   type CreateCareLogRequest,
 } from '@nanny-app/shared';
@@ -14,6 +16,7 @@ import {
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import type { DecodedIdToken } from '@backend/lib/firebase';
+import { parseBookedChildren } from '@backend/services/booking.service';
 import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
 
 type CareLogRow = Prisma.CareLogGetPayload<true>;
@@ -25,6 +28,7 @@ function toCareLogResponse(row: CareLogRow): CareLogResponse {
     nannyProfileId: row.nannyProfileId,
     type: row.type,
     customLabel: row.customLabel,
+    childNames: row.childNames,
     notes: row.notes,
     occurredAt: row.occurredAt.toISOString(),
     evidenceUrls: row.evidenceUrls,
@@ -78,10 +82,12 @@ async function notifyMotherCareLogEntry(
   nannyLastName: string,
   entryType: CareLogType,
   customLabel: string | null,
+  childNames: readonly string[],
 ): Promise<void> {
   const nannyName = `${nannyFirstName} ${nannyLastName}`.trim();
   const title = 'New care log update';
-  const body = `${nannyName} ${careLogEntrySummary(entryType, customLabel)}`;
+  const forWhom = childNames.length > 0 ? ` for ${formatChildNames(childNames)}` : '';
+  const body = `${nannyName} ${careLogEntrySummary(entryType, customLabel)}${forWhom}`;
 
   await createInAppNotification({
     userId: motherId,
@@ -101,6 +107,24 @@ async function notifyMotherCareLogEntry(
       focusCareLog: '1',
     },
   });
+}
+
+/**
+ * The children an entry names, checked against the booking's own snapshot and
+ * put in booking order. A name that isn't on the booking is refused rather
+ * than dropped, so a stale screen can't log against the wrong child silently.
+ */
+function resolveChildNames(
+  bookedChildren: Prisma.JsonValue | null,
+  requested: readonly string[],
+): string[] {
+  if (requested.length === 0) return [];
+  const labels = bookingChildLabels(parseBookedChildren(bookedChildren));
+  const unknown = requested.filter((name) => !labels.includes(name));
+  if (unknown.length > 0) {
+    throw errors.badRequest(`Not a child on this booking: ${unknown.join(', ')}.`);
+  }
+  return labels.filter((label) => requested.includes(label));
 }
 
 export async function listCareLogs(
@@ -138,6 +162,7 @@ export async function createCareLog(
   }
 
   const occurredAt = body.occurredAt ? new Date(body.occurredAt) : new Date();
+  const childNames = resolveChildNames(booking.bookedChildren, body.childNames);
 
   const created = await prisma.careLog.create({
     data: {
@@ -145,6 +170,7 @@ export async function createCareLog(
       nannyProfileId: booking.nannyProfile.id,
       type: body.type,
       customLabel: body.type === CareLogType.CUSTOM ? body.customLabel ?? null : null,
+      childNames,
       notes: body.notes ?? null,
       occurredAt,
       evidenceUrls: body.evidenceUrls,
@@ -158,6 +184,7 @@ export async function createCareLog(
     booking.nannyProfile.user.lastName,
     body.type,
     body.type === CareLogType.CUSTOM ? body.customLabel ?? null : null,
+    childNames,
   ).catch(() => undefined);
 
   return toCareLogResponse(created);

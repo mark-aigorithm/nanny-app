@@ -20,6 +20,12 @@ export const CareLogResponseSchema = z.object({
   nannyProfileId: z.number().int(),
   type: CareLogTypeSchema,
   customLabel: z.string().nullable(),
+  /**
+   * Which children the entry is about, as their labels on the booking
+   * (bookingChildLabel). Empty on entries from builds that didn't ask, and on
+   * bookings with no children listed.
+   */
+  childNames: z.array(z.string()),
   notes: z.string().nullable(),
   occurredAt: z.string(),
   evidenceUrls: z.array(z.string()),
@@ -31,6 +37,12 @@ export const CreateCareLogSchema = z
   .object({
     type: CareLogTypeSchema,
     customLabel: z.string().trim().min(1).max(60).optional(),
+    /**
+     * Labels of the booking's children this entry is about. The app requires
+     * at least one when the booking lists children; optional here because
+     * builds before this field don't send it.
+     */
+    childNames: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
     notes: z.string().trim().max(1000).optional(),
     occurredAt: z.string().datetime({ offset: true }).optional(),
     evidenceUrls: z.array(z.string().url()).max(8).default([]),

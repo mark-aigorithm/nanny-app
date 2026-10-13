@@ -300,7 +300,7 @@ function parseSkillAddOns(raw: Prisma.JsonValue | null | undefined): AppliedSkil
  * malformed row must degrade to "no children listed" rather than 500 an entire
  * bookings list.
  */
-function parseBookedChildren(raw: Prisma.JsonValue | null | undefined): BookingChild[] {
+export function parseBookedChildren(raw: Prisma.JsonValue | null | undefined): BookingChild[] {
   if (!Array.isArray(raw)) return [];
   const parsed = BookingChildSchema.array().safeParse(raw);
   return parsed.success ? parsed.data : [];

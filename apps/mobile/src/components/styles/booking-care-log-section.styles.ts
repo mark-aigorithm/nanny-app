@@ -99,6 +99,10 @@ export const styles = StyleSheet.create({
     ...typeScale.bodySm,
     color: colors.textMuted,
   },
+  entryChildren: {
+    ...typeScale.labelMd,
+    color: colors.primaryDark,
+  },
   entryNotes: {
     ...typeScale.bodySm,
     color: colors.textSecondary,
