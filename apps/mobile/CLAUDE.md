@@ -290,7 +290,8 @@ visible.
   - Copy that points at a control ("drag the pin") appears only when that control is rendered.
   - An empty state that asks the user to do something includes the button to do it.
   - A summary or review step repeats every choice made earlier, including the address.
-- **After a layout change, run the sweep for the affected flows** at the worst cell at least:
+- **After building a feature or changing a layout, run the sweep for it** with the `ui-sweep` skill
+  (`.claude/skills/ui-sweep/`), which covers adding a sweep flow for new screens; at the least, the worst cell:
   `node e2e/ui-sweep.mjs --paymob=fake --cells=small-1.3-3btn --flows=sNN`. Look at the shots,
   keyboard ones included, before calling the change done.
 
