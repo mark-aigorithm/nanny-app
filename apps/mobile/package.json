@@ -16,6 +16,7 @@
     "e2e:metro": "node e2e/with-emulator-env.mjs expo start --clear",
     "e2e:metro:live": "node e2e/with-emulator-env.mjs --live-auth expo start --clear",
     "e2e:metro:paymob-fake": "node e2e/with-emulator-env.mjs --paymob-fake expo start --clear",
+    "e2e:ui-sweep": "node e2e/ui-sweep.mjs",
     "preview:web": "node scripts/generate-preview-entry.js && vite build --config vite.preview.config.ts"
   },
   "dependencies": {

@@ -1,0 +1,212 @@
+# UI sweep 03 — the nanny-only steps of the wizard (A10's path, throwaway
+# REGISTRATION_NANNY) through to the vetting gate. The steps a mother shares
+# are shot in s02; here they are only driven through.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- tapOn: 'Create an account'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+- tapOn: "I'm a nanny"
+- takeScreenshot: s03-01-role-selection-nanny
+- tapOn: 'Sign up as a nanny'
+
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 7 — YOUR NUMBER'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: '100 000 0000'
+- inputText: ${REGISTRATION_NANNY_PHONE}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Send code'
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${REGISTRATION_NANNY_PHONE_E164}
+- tapOn:
+    id: 'registerPhone.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Verify'
+
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 7 — ABOUT YOU'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Enter your first name'
+- inputText: ${REGISTRATION_NANNY_FIRST_NAME}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Enter your last name'
+- inputText: 'Lab'
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'you@example.com'
+- inputText: ${REGISTRATION_NANNY_EMAIL}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Select your date of birth'
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'STEP 3 OF 7 — SECURE YOUR ACCOUNT'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: email-otp
+      EMAIL_OTP_ADDRESS: ${REGISTRATION_NANNY_EMAIL}
+- tapOn:
+    id: 'registerAccount.code.boxes'
+- inputText: ${output.emailOtp}
+- extendedWaitUntil:
+    visible: 'Enter a password'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Enter a password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Re-enter your password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'STEP 4 OF 7 — HOME LOCATION'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s03-02-home-location
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Street address'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s03-03-home-location-kbd
+- inputText: '2 Test Street, Cairo'
+- hideKeyboard
+# The suggestion list covers the map while the field is focused, and a tap
+# outside doesn't close it; Enter picks the top suggestion, as a user would,
+# which also sets the pin (where the map sits differs per cell).
+- takeScreenshot: s03-03b-home-location-suggestions
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'STEP 5 OF 7 — PROFESSIONAL DETAILS'
+    timeout: 30000
+- takeScreenshot: s03-04-professional-details
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Share your experience, approach to childcare, and what makes you a great nanny…'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s03-05-professional-details-kbd
+- inputText: 'E2E lab nanny — five years with toddlers and school-age children.'
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'e.g. 5'
+- inputText: '5'
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Full-time'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: '1-3'
+- takeScreenshot: s03-06-professional-details-filled
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'STEP 6 OF 7 — VERIFY YOUR IDENTITY'
+    timeout: 30000
+- takeScreenshot: s03-07-verify-identity
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Passport'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Passport photo page'
+- extendedWaitUntil:
+    visible: 'Change'
+    timeout: 30000
+- takeScreenshot: s03-08-verify-identity-filled
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'Complete setup'
+    timeout: 60000
+- takeScreenshot: s03-09-finish
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'I agree to the Terms of Service and Privacy Policy'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Complete setup'
+- extendedWaitUntil:
+    visible: 'Stay in the loop'
+    timeout: 90000
+# "Not now" sits under the 3-button nav bar on a small phone at 1.3 (a finding
+# of the sweep), where a tap would press Home. _launch.yaml has already granted
+# the permission, so Enable goes straight on.
+- tapOn: 'Enable notifications'
+- extendedWaitUntil:
+    visible: 'Your profile is under review'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s03-10-pending-review

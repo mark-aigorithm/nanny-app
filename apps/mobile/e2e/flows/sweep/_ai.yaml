@@ -1,0 +1,12 @@
+# Maestro's assertNoDefectsWithAI on the current screen, only when the sweep
+# runs with --ai. It needs a Maestro Cloud login and sends the screenshot to
+# Maestro, which is why it is off by default. Optional: a finding is reported,
+# never a reason to stop the sweep.
+appId: com.nannyapp.mobile
+---
+- runFlow:
+    when:
+      true: ${AI == 'true'}
+    commands:
+      - assertNoDefectsWithAI:
+          optional: true

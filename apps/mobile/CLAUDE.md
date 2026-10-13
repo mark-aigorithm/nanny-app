@@ -232,6 +232,68 @@ in the `nanny-app-mobile-design` skill; the mandatory rules are:
   on `StatusBar.currentHeight` outside the theme, and on a `KeyboardAvoidingView` imported from
   `react-native`.
 
+### Rules from the UI sweep
+
+The UI sweep (`pnpm --filter @nanny-app/mobile e2e:ui-sweep`, see `e2e/README.md` "UI sweep")
+screenshots every screen at 360×640dp and S25 size, font 1.0 and 1.3, 3-button and gesture nav.
+Its first run (Oct 2026) found the same few classes of bug on screen after screen; each rule below
+closes one class. Maestro's E2E can't catch them, because covered or clipped text still counts as
+visible.
+
+- **Nothing the user needs may sit under the system bar, a sticky footer or a tab bar.**
+  - A screen with a sticky footer or pinned CTA is a ScrollView. Its content's bottom padding is the
+    footer's *measured* height (`onLayout`), never a constant.
+  - The last item of every scroll view clears the system bar plus whatever tab bar is showing. The
+    nanny tab bar grows with font scale and the gesture inset just like the parent's floating bar,
+    so pad by its measured height, not `BOTTOM_NAV_HEIGHT`.
+  - Full-screen pages that look fixed (sign-in, notification prompt, "You're booked.", offline)
+    still scroll, so a small phone at 1.3× can reach the last button.
+- **Never push the primary action down with spacer whitespace.** No fixed-height or `flex: 1`
+  spacers above a CTA or form. Spacing comes from tokens and collapses before the action leaves the
+  screen.
+- **Every input stays usable with the keyboard open.** That covers forms, bottom sheets, dialogs and
+  WebViews (the Paymob checkout).
+  - The focused field *and* its submit button can be scrolled above the keyboard: a ScrollView
+    inside the shared `KeyboardAvoidingView`.
+  - A sticky footer drops its system-bar padding while `useKeyboardVisible()` is true, and gives
+    the padding back when the keyboard hides, so no grey band is left behind.
+  - A dropdown or suggestion list stays above the sticky footer, and a tap outside it closes it.
+  - Numeric codes (PIN, OTP) use `keyboardType="number-pad"`.
+- **Sheets and dialogs fit the window.** Their maximum height is the window minus the status-bar
+  inset, their body scrolls, and their action buttons stay visible, also with the keyboard up.
+- **Headers own the status-bar area.**
+  - Every screen paints an opaque header behind the clock, so scrolled content never shows above
+    the header or runs under the status bar. Help and the nanny Profile tab got this wrong.
+  - A sticky header shows a hairline divider once content scrolls under it.
+  - Every pushed screen uses `StackHeader`. Its title matches the label that opened it ("Account
+    details" opens "Account details", not "Profile"). It has one exit control.
+  - A multi-step flow keeps one header and one title on every step.
+- **Text that carries meaning never truncates; it wraps.** Times and time ranges, amounts, names,
+  notification titles and rejection reasons get 2+ lines at 1.3×. When a row must give, the
+  decorative side (a pill, a timestamp, the price chip) shrinks or drops to its own line.
+- **Keep units on one line:** currency + amount, a phone number (`+20 110…`), a person's full name,
+  a date ("Tue, Oct 13"), a time range. Join them with non-breaking spaces (` `) in the shared
+  formatter, so nothing breaks mid-unit ("10/13/202" / "6", "−EGP" / "120.00").
+- **One formatter per kind of value.** Dates, times, phone numbers and countdowns each go through a
+  single helper. A countdown carries units ("15 min left"); never a bare `15:28`, which reads as a
+  clock time.
+- **An enabled button never looks disabled.** A primary CTA uses the full-strength primary fill with
+  text contrast of at least 4.5:1. The pale sage/beige look is reserved for `disabled`, which also
+  sets `accessibilityState={{ disabled: true }}`.
+- **Tap targets are at least 44dp,** text links included (Edit, Delete, Never mind): use
+  `minHeight`/`hitSlop`. Icon-only buttons get an `accessibilityLabel`.
+- **Badges sit on the icon's corner,** outside its shape, at every font scale.
+- **Copy matches the screen.**
+  - No total before the inputs that make it are chosen.
+  - A request has one status name and one colour on Home, Activity and notifications. Success
+    green is for confirmed states only.
+  - Copy that points at a control ("drag the pin") appears only when that control is rendered.
+  - An empty state that asks the user to do something includes the button to do it.
+  - A summary or review step repeats every choice made earlier, including the address.
+- **After a layout change, run the sweep for the affected flows** at the worst cell at least:
+  `node e2e/ui-sweep.mjs --paymob=fake --cells=small-1.3-3btn --flows=sNN`. Look at the shots,
+  keyboard ones included, before calling the change done.
+
 ---
 
 ## Central Types (`src/types/`)

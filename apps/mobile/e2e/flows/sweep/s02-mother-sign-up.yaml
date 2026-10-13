@@ -1,0 +1,234 @@
+# UI sweep 02 — a mother's sign-up wizard, end to end, plus the ID gate she
+# meets on her first "Book care". Drives C2's path with the same throwaway
+# account (REGISTRATION), which the seeder wipes before every flow.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- tapOn: 'Create an account'
+- extendedWaitUntil:
+    visible: 'Create your account'
+    timeout: 30000
+- takeScreenshot: s02-01-role-selection
+- tapOn: "I'm a mother"
+- takeScreenshot: s02-02-role-selection-mother
+- tapOn: 'Sign up as a mother'
+
+- extendedWaitUntil:
+    visible: 'STEP 1 OF 5 — YOUR NUMBER'
+    timeout: 30000
+- takeScreenshot: s02-03-your-number
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: '100 000 0000'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s02-04-your-number-kbd
+- inputText: ${REGISTRATION_PHONE}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Send code'
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- takeScreenshot: s02-05-your-number-code
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: phone-otp
+      OTP_PHONE: ${REGISTRATION_PHONE_E164}
+- tapOn:
+    id: 'registerPhone.code.boxes'
+- inputText: ${output.otp}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Verify'
+
+- extendedWaitUntil:
+    visible: 'STEP 2 OF 5 — ABOUT YOU'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s02-06-about-you
+- tapOn: 'Continue'
+- takeScreenshot: s02-07-about-you-errors
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Add photo'
+- extendedWaitUntil:
+    visible: 'Change photo'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Enter your first name'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s02-08-about-you-kbd
+- inputText: ${REGISTRATION_FIRST_NAME}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Enter your last name'
+- inputText: 'Lab'
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'you@example.com'
+- inputText: ${REGISTRATION_EMAIL}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: 'Select your date of birth'
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: s02-09-about-you-filled
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Select your date of birth'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s02-10-dob-system-dialog
+- tapOn: 'OK'
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'STEP 3 OF 5 — SECURE YOUR ACCOUNT'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 'Resend in.*'
+    timeout: 30000
+- takeScreenshot: s02-11-secure-account
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: email-otp
+      EMAIL_OTP_ADDRESS: ${REGISTRATION_EMAIL}
+- tapOn:
+    id: 'registerAccount.code.boxes'
+- inputText: ${output.emailOtp}
+- extendedWaitUntil:
+    visible: 'Enter a password'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Enter a password'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s02-12-secure-account-password-kbd
+- inputText: ${PASSWORD}
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Re-enter your password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- takeScreenshot: s02-13-secure-account-filled
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'STEP 4 OF 5 — LOCATION & PREFERENCES'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s02-14-location
+# No map tap: where the map sits differs per cell, and picking a suggestion
+# below sets the pin anyway.
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Street address'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s02-15-location-kbd
+- inputText: '1 Test Street, Cairo'
+- hideKeyboard
+# The suggestion list stays open while the field is focused, and a tap
+# outside doesn't close it; Enter picks the top suggestion, as a user would.
+- takeScreenshot: s02-15b-location-suggestions
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 2000
+# Scroll by swiping in the side margin: a swipe that starts on the map pans
+# the map instead of the page, and on a small phone the map fills the middle.
+# Start above the sticky footer, which reaches 68% up a small phone at 1.3.
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          start: '3%, 60%'
+          end: '3%, 20%'
+          duration: 600
+- takeScreenshot: s02-16-location-preferences
+- tapOn: 'Background checked'
+- tapOn: 'Continue'
+
+- extendedWaitUntil:
+    visible: 'Complete setup'
+    timeout: 30000
+- takeScreenshot: s02-17-finish
+# No keyboard shot of the referral field: once focused, its keyboard can't be
+# closed on the large phone (neither Enter nor Back), which the sweep's first
+# run reported as a finding; it would strand the rest of the flow.
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Terms of Service'
+- extendedWaitUntil:
+    visible: '.*will be published here soon.*'
+    timeout: 30000
+- takeScreenshot: s02-19-legal-terms
+- back
+- extendedWaitUntil:
+    visible: 'Complete setup'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'I agree to the Terms of Service and Privacy Policy'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Complete setup'
+
+- extendedWaitUntil:
+    visible: 'Stay in the loop'
+    timeout: 60000
+- takeScreenshot: s02-20-notification-permission
+# "Not now" sits under the 3-button nav bar on a small phone at 1.3 (a finding
+# of the sweep), where a tap would press Home. _launch.yaml has already granted
+# the permission, so Enable goes straight on.
+- tapOn: 'Enable notifications'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s02-21-home-new-mother
+- tapOn: 'Book care'
+- extendedWaitUntil:
+    visible: 'Verify your identity'
+    timeout: 30000
+- takeScreenshot: s02-22-id-gate
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Passport'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Passport photo page'
+- extendedWaitUntil:
+    visible: 'Change'
+    timeout: 30000
+- takeScreenshot: s02-23-id-gate-filled

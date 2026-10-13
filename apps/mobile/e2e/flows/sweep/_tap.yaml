@@ -1,0 +1,13 @@
+# Taps ${TARGET} after scrolling it into view if it is below the fold. Maestro
+# never scrolls before a tap, and on the small phone at font 1.3 plenty of
+# buttons start under the fold or the navigation bar. Centred, because Maestro
+# counts an element behind a sticky footer as visible and would tap the footer.
+appId: com.nannyapp.mobile
+---
+- scrollUntilVisible:
+    element: ${TARGET}
+    direction: DOWN
+    centerElement: true
+    timeout: 10000
+    optional: true
+- tapOn: ${TARGET}

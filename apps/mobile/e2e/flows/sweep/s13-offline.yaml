@@ -1,0 +1,20 @@
+# UI sweep 13 — the offline gate, raised by airplane mode over a signed-in Home.
+appId: com.nannyapp.mobile
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- setAirplaneMode: enabled
+- extendedWaitUntil:
+    visible: "You're offline"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s13-01-offline

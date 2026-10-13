@@ -1,0 +1,244 @@
+# UI sweep 10 — the Account tab and everything under it: details, addresses,
+# Care Points, referral, help, notifications, the inbox and a chat, and the
+# delete-account confirmation (cancelled).
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: seed-conversation
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: seed-listing-notifications
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: configure-support
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-01-account
+- runFlow: _ai.yaml
+- scroll
+- takeScreenshot: s10-02-account-scrolled
+- scrollUntilVisible:
+    element: 'Delete account'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- takeScreenshot: s10-03-account-bottom
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Delete account'
+- extendedWaitUntil:
+    visible: 'Delete your account\?'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-04-delete-account-confirm
+- tapOn: 'Cancel'
+- scrollUntilVisible:
+    element: 'Account details'
+    direction: UP
+    timeout: 20000
+
+- tapOn: 'Account details'
+- extendedWaitUntil:
+    visible: 'First name'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-05-account-details
+# The edit toggle is an unlabelled icon in the header's top-right corner, and
+# the header's height is in dp, so its share of the screen differs per cell:
+# step down until "Change photo" says edit mode is on.
+- repeat:
+    while:
+      notVisible: 'Change photo'
+    times: 6
+    commands:
+      - runFlow:
+          when:
+            notVisible: 'Change photo'
+          commands:
+            - tapOn:
+                point: '88%,${output.editY = (output.editY || 5) + 1}%'
+            - waitForAnimationToEnd:
+                timeout: 1500
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s10-06-account-details-editing
+- tapOn: 'Mona'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s10-06b-account-details-kbd
+- hideKeyboard
+- scroll
+- takeScreenshot: s10-07-account-details-bottom
+# Back may only close edit mode; press it again if still on the profile.
+- back
+- runFlow:
+    when:
+      visible: 'Last name'
+    commands:
+      - back
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: 'Addresses'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: 'Addresses'
+- extendedWaitUntil:
+    visible: 'Add address'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-08-addresses
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Add address'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-09-add-address
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Street address'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s10-10-add-address-kbd
+- hideKeyboard
+- back
+- back
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: 'Care Points'
+    direction: UP
+    timeout: 20000
+- tapOn: 'Care Points'
+- extendedWaitUntil:
+    visible: 'Your Care Points'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-11-care-points
+- back
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: 'Refer a friend'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: 'Refer a friend'
+- extendedWaitUntil:
+    visible: 'Your code'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-12-refer-a-friend
+- scroll
+- takeScreenshot: s10-13-refer-a-friend-scrolled
+- back
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: 'Help'
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- tapOn: 'Help'
+- extendedWaitUntil:
+    visible: 'Help & support'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-14-help
+- scroll
+- takeScreenshot: s10-15-help-scrolled
+- scrollUntilVisible:
+    element:
+      id: 'customerSupport.search'
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: 'customerSupport.search'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s10-16-help-search-kbd
+- hideKeyboard
+- back
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: 'Notifications'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: 'Notifications'
+- extendedWaitUntil:
+    visible: 'Your listing is live'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-17-notifications
+- tapOn: 'Unread.*'
+- takeScreenshot: s10-18-notifications-unread
+- back
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+
+- scrollUntilVisible:
+    element: 'Inbox'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: 'Inbox'
+- extendedWaitUntil:
+    visible: 'Is the highchair still available'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-19-inbox
+- tapOn: 'Is the highchair still available'
+- extendedWaitUntil:
+    visible: 'Write a message...'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s10-20-chat
+- tapOn:
+    id: 'chatThread.message'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s10-21-chat-kbd
+- hideKeyboard

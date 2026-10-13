@@ -177,6 +177,12 @@ the suite put together — a debug APK, Metro, an AVD, and a Maestro CLI that is
 Its prerequisites and the several non-obvious things that make a flow pass are in
 [apps/mobile/e2e/README.md](../apps/mobile/e2e/README.md); read that before touching a flow.
 
+The same lab also runs the **UI sweep** (`pnpm --filter @nanny-app/mobile e2e:ui-sweep`). It is not
+a test: it screenshots every screen across small/large phones, font 1.0/1.3 and both Android nav
+modes into a contact sheet for a person to look at, because E2E passes on text that is clipped or
+covered. The layout rules it produced are in `apps/mobile/CLAUDE.md` ("Rules from the UI sweep");
+follow them in any mobile UI change.
+
 ### The test stack
 
 Integration and E2E tests run against real services — a real PostGIS database and a real Firebase

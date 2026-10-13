@@ -1,0 +1,199 @@
+# UI sweep 09 — Community: the three feeds, a post and its comments, the
+# composer in all three kinds, the event date and time (Android's own
+# dialogs), and My posts.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: community-reset
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Community'
+    timeout: 30000
+- tapOn: 'Community'
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-01-community-qa
+
+# A question of her own, so there is a post to open whatever else the feed holds.
+- tapOn: 'Create post'
+- extendedWaitUntil:
+    visible: 'Post type'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-02-create-question
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'createPost.body'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s09-03-create-question-kbd
+- eraseText
+- inputText: 'Where do you all keep the pram in a small flat with no lift and a narrow hallway?'
+- hideKeyboard
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'createPost.submit'
+- extendedWaitUntil:
+    visible: 'Where do you all keep the pram.*'
+    timeout: 30000
+- takeScreenshot: s09-04-community-qa-own-post
+- tapOn: 'Where do you all keep the pram.*'
+- extendedWaitUntil:
+    visible: 'Comments \(0\)'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-05-post-detail
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'postDetail.comment'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s09-06-post-detail-comment-kbd
+- inputText: 'Folded behind the door'
+- hideKeyboard
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'postDetail.commentSend'
+- extendedWaitUntil:
+    visible: 'Comments \(1\)'
+    timeout: 30000
+- takeScreenshot: s09-07-post-detail-with-comment
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+
+- tapOn: 'Create post'
+- extendedWaitUntil:
+    visible: 'Post type'
+    timeout: 30000
+- tapOn: 'Event'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-08-create-event
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'createPost.title'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s09-09-create-event-title-kbd
+# hideKeyboard leaves the keyboard up here at small · 1.3, and then every
+# scroll swipe lands on the keyboard. Enter submits the one-line title, which
+# closes it.
+- pressKey: Enter
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'createPost.eventDate'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-10-event-date-system-dialog
+- tapOn: 'OK'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-11-event-time-system-dialog
+- tapOn: 'OK'
+# Swipe in the side margin: at font 1.3 the middle of the screen is the
+# multiline description field, which takes the swipe instead of the page.
+- repeat:
+    while:
+      notVisible:
+        id: 'createPost.capacity'
+    times: 6
+    commands:
+      - swipe:
+          start: '3%, 70%'
+          end: '3%, 30%'
+          duration: 600
+- swipe:
+    start: '3%, 70%'
+    end: '3%, 45%'
+    duration: 600
+- takeScreenshot: s09-12-create-event-bottom
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'createPost.capacity'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s09-13-create-event-capacity-kbd
+- hideKeyboard
+
+- scrollUntilVisible:
+    element: 'Marketplace'
+    direction: UP
+    timeout: 20000
+- tapOn: 'Marketplace'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-14-create-listing
+- repeat:
+    while:
+      notVisible:
+        id: 'createPost.price'
+    times: 6
+    commands:
+      - swipe:
+          start: '3%, 70%'
+          end: '3%, 30%'
+          duration: 600
+- runFlow:
+    file: _tap-id.yaml
+    env:
+      TARGET_ID: 'createPost.price'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s09-15-create-listing-price-kbd
+- hideKeyboard
+- back
+- extendedWaitUntil:
+    visible: 'Q&A'
+    timeout: 30000
+
+# The filter chips scroll sideways; on a small phone "Events" starts off the
+# right edge.
+- runFlow:
+    when:
+      notVisible: 'Events'
+    commands:
+      - swipe:
+          from: 'Marketplace'
+          direction: LEFT
+- tapOn: 'Events'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-16-community-events
+- tapOn: 'Marketplace'
+- extendedWaitUntil:
+    visible: 'My posts'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-17-community-marketplace
+- tapOn: 'My posts'
+- extendedWaitUntil:
+    visible: 'Where do you all keep the pram.*'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s09-18-my-posts

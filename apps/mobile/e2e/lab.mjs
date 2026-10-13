@@ -334,17 +334,19 @@ function quoteArg(value) {
 }
 
 /**
- * Runs one flow file with `params` as its `-e` values, and says whether it
- * passed. Never exits the process itself — a caller with cleanup to do (the
- * live suite's purge) has to get control back whatever happens here.
+ * Runs one flow file with `params` as its `-e` values (and any `extraArgs` for
+ * `maestro test`), and says whether it passed. Never exits the process itself
+ * — a caller with cleanup to do (the live suite's purge) has to get control
+ * back whatever happens here.
  */
-export function runMaestro(maestro, flowPath, params) {
+export function runMaestro(maestro, flowPath, params, extraArgs = []) {
   const result = spawnSync(
     maestro,
     [
       'test',
       flowPath,
       ...Object.entries(params).flatMap(([key, value]) => ['-e', quoteArg(`${key}=${value}`)]),
+      ...extraArgs,
     ],
     {
       cwd: E2E_DIR,

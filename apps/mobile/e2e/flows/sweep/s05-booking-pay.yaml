@@ -1,0 +1,112 @@
+# UI sweep 05 — a nanny has accepted, so the mother pays: Home's "Nanny found ·
+# payment due" card, the accepted screen, the checkout, "You're booked." and
+# the upcoming booking afterwards. The request and the acceptance are seeded
+# over HTTP before she signs in.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: '.*Nanny found.*'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s05-01-home-nanny-found-pay
+- runFlow: _ai.yaml
+
+- tapOn: '.*Nanny found.*'
+- extendedWaitUntil:
+    visible: 'A nanny accepted!'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s05-02-nanny-accepted
+- scrollUntilVisible:
+    element: 'Complete payment'
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- takeScreenshot: s05-03-nanny-accepted-bottom
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Complete payment'
+- extendedWaitUntil:
+    visible: ${CHECKOUT_CARD_NUMBER_LABEL}
+    timeout: 60000
+- takeScreenshot: s05-04-checkout
+- tapOn: ${CHECKOUT_CARD_NUMBER_LABEL}
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s05-05-checkout-kbd
+- hideKeyboard
+- runFlow: _pay.yaml
+- extendedWaitUntil:
+    visible: "You're booked."
+    timeout: 90000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s05-06-youre-booked
+- runFlow: _ai.yaml
+
+# On a small phone the buttons start under the navigation bar.
+- scrollUntilVisible:
+    element: 'Back to home'
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- takeScreenshot: s05-06b-youre-booked-scrolled
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'View booking details'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s05-07-booking-detail-upcoming
+- scroll
+- takeScreenshot: s05-08-booking-detail-upcoming-scrolled
+- scroll
+- takeScreenshot: s05-09-booking-detail-upcoming-bottom
+- back
+# Back lands on "You're booked." again; its own link goes Home.
+- extendedWaitUntil:
+    visible: "You're booked."
+    timeout: 30000
+- scrollUntilVisible:
+    element: 'Back to home'
+    direction: DOWN
+    timeout: 10000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Back to home'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s05-10-home-upcoming
+- tapOn: 'Activity'
+- extendedWaitUntil:
+    visible: 'Past'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s05-11-activity-upcoming-confirmed

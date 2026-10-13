@@ -1,0 +1,85 @@
+# UI sweep 07 — the shift is over: the rating prompt on Home, and the
+# completed booking in Activity → Past. The whole shift is seeded over HTTP.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-pay
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-in
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-care-log
+      CARE_LOG_NOTE: 'Nap from 1 to 2:30, woke up happy'
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-out
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'How was your booking with .*'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s07-01-rate-booking
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Rate 4 stars'
+- takeScreenshot: s07-02-rate-booking-picked
+- runFlow:
+    when:
+      visible:
+        id: 'review.comment'
+    commands:
+      - tapOn:
+          id: 'review.comment'
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: s07-03-rate-booking-kbd
+      - hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Submit rating'
+- extendedWaitUntil:
+    notVisible: 'How was your booking with .*'
+    timeout: 30000
+- tapOn: 'Activity'
+- extendedWaitUntil:
+    visible: 'Past'
+    timeout: 30000
+- tapOn: 'Past'
+- extendedWaitUntil:
+    visible: 'Past bookings'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s07-04-activity-past-completed
+- tapOn: 'Completed'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s07-05-booking-completed
+- scroll
+- takeScreenshot: s07-06-booking-completed-scrolled
+- scroll
+- takeScreenshot: s07-07-booking-completed-bottom

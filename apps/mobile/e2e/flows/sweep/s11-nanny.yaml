@@ -1,0 +1,98 @@
+# UI sweep 11 — the nanny's app between shifts: dashboard, the request pool
+# and its tabs, notifications and her profile. A request of the lab mother's
+# is seeded so the pool holds at least one card that is known to be fresh.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${NANNY_EMAIL}
+- extendedWaitUntil:
+    visible: 'Your earnings'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-01-dashboard
+- runFlow: _ai.yaml
+- scroll
+- takeScreenshot: s11-02-dashboard-scrolled
+
+- tapOn: 'Requests'
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-03-requests
+- scrollUntilVisible:
+    element:
+      text: 'Lina: Peanuts and lab dust'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+    optional: true
+- takeScreenshot: s11-04-requests-lab-card
+- scrollUntilVisible:
+    element: 'Upcoming'
+    direction: UP
+    timeout: 60000
+- tapOn: 'Upcoming'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-05-requests-upcoming
+- tapOn: 'Past'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-06-requests-past
+- runFlow:
+    when:
+      visible: 'View details'
+    commands:
+      - tapOn:
+          text: 'View details'
+          index: 0
+      - extendedWaitUntil:
+          visible: 'Booking details'
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - takeScreenshot: s11-07-booking-detail-past
+      - back
+      - extendedWaitUntil:
+          visible: 'Declined'
+          timeout: 30000
+- tapOn: 'Declined'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-08-requests-declined
+
+- tapOn: 'Open notifications'
+- extendedWaitUntil:
+    visible: 'Notifications'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-09-notifications
+- back
+
+- tapOn: 'Profile'
+- extendedWaitUntil:
+    visible: 'ABOUT'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s11-10-profile
+- scroll
+- takeScreenshot: s11-11-profile-scrolled
+- scroll
+- takeScreenshot: s11-12-profile-scrolled-more
+- scrollUntilVisible:
+    element: 'Delete account'
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: s11-13-profile-bottom

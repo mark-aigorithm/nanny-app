@@ -376,6 +376,57 @@ the fake:
 If Paymob changes its page, update `checkout.json` → `labels`. The fake, the
 Maestro subflow and the Playwright driver all follow.
 
+## UI sweep
+
+```bash
+E2E_METRO_PORT=8090 pnpm --filter @nanny-app/mobile e2e:ui-sweep --paymob=fake
+pnpm --filter @nanny-app/mobile e2e:ui-sweep --paymob=fake --cells=small-1.3 --flows=s04,s05
+```
+
+Not a test. The flows above check text in the accessibility tree, which still
+counts clipped or covered text as visible, and they run at one screen size and
+one font scale. Layout bugs reached real phones that way. The sweep drives every
+screen a mother and a nanny can reach and screenshots each one, so a person (or
+an agent) can *look* at them.
+
+It runs `flows/sweep/s*.yaml` across eight matrix cells:
+
+| Axis | Values | How |
+|---|---|---|
+| Screen | small 360×640 dp (`720x1280` @ 320) · S25-like (`1080x2400` @ 450, 384 dp wide) | `wm size` / `wm density` |
+| Font scale | 1.0 · 1.3 (the app caps at 1.3×) | `settings put system font_scale` |
+| Navigation | 3-button · gesture | `cmd overlay enable-exclusive` |
+
+Cell ids are `<screen>-<font>-<nav>`, e.g. `small-1.3-gesture`; `--cells` and
+`--flows` take comma-separated prefixes. Screens with inputs get a second shot
+with the keyboard open, so the runner turns on `show_ime_with_hard_keyboard`
+(the AVD reports a hardware keyboard). It puts every setting back afterwards,
+also on Ctrl+C.
+
+Output goes to `ui-sweep-output/<timestamp>/` (gitignored): one folder per
+cell, `results.json`, and `index.html`, a contact sheet with one row per screen
+and one column per cell. A flow that stops early leaves `<flow>-zz-FAILED.png`,
+the screen it stopped on, and the screens it never reached are marked in the
+sheet. To re-run what failed into the same sheet, pass `--into=<timestamp>` with
+`--cells` and `--flows`; it replaces those flows' shots and results. A full run takes about two to three hours.
+
+Things to know when editing a sweep flow:
+
+- Maestro 2.11 only writes a `takeScreenshot` under its own output folder, so
+  the flows use bare names (`s04-07-review-request`) and the runner collects
+  each flow's shots into the cell's folder.
+- Waits are there so each shot shows a screen that has arrived. A selector that
+  depends on where something sits on screen has to work at all eight cells.
+- `--ai` also runs Maestro's `assertNoDefectsWithAI` after key shots
+  (`flows/sweep/_ai.yaml`). It needs a Maestro Cloud login and sends the
+  screenshots to Maestro, so it is off by default.
+
+What the sweep cannot show: the system photo picker and crop screen (E2E
+returns a bundled placeholder, `src/lib/e2eImage.ts`), the Google account sheet
+(also replaced under E2E), Apple sign-in (iOS only), the OS permission prompts
+(`_launch.yaml` grants every permission), and "Could not connect" (needs the
+backend down).
+
 ## Layout
 
 | Path | What it is |
@@ -392,6 +443,8 @@ Maestro subflow and the Playwright driver all follow.
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
 | `android.mjs` | Locating adb and the one device to drive |
 | `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command (`--live-auth` for the live suite's variant, `--paymob-fake` for the Paymob fake) |
+| `ui-sweep.mjs` · `flows/sweep/` | The UI sweep: screenshots of every screen across a device matrix (above) |
+| `suite.mjs` | What `run.mjs` and `ui-sweep.mjs` share: seeding, the `-e` params, lab checks |
 | `payer.mjs` | Pays a checkout in headless Chromium for `advance.js mother-pay`; `run.mjs` starts it on :4020 |
 
 The subflows are where the awkward parts live, and most flows are little more

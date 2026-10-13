@@ -1,0 +1,145 @@
+# UI sweep 04 — a mother requests care: Home empty, the three booking steps,
+# "Finding a nanny", then Home with one and with two requests still searching
+# (the second booked over HTTP), and the Activity tab holding them.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-01-home-empty
+- runFlow: _ai.yaml
+
+- tapOn: 'Book care'
+- extendedWaitUntil:
+    visible: 'Pick a day'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-02-pick-a-day
+# On a small phone the day rail starts below the fold.
+- scrollUntilVisible:
+    element:
+      id: 'booking.day'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    id: 'booking.day'
+    index: 0
+- takeScreenshot: s04-03-pick-a-time
+# The day opens on the earliest legal start, which has passed by the time the
+# request is submitted three screens of screenshots later ("Cannot book in the
+# past"). Thirty minutes of headroom; this booking never needs a check-in.
+- scrollUntilVisible:
+    element:
+      id: 'booking.startTime.increment'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- repeat:
+    times: 6
+    commands:
+      - tapOn:
+          id: 'booking.startTime.increment'
+- scrollUntilVisible:
+    element:
+      id: 'booking.cta'
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- takeScreenshot: s04-04-pick-a-time-bottom
+- tapOn:
+    id: 'booking.cta'
+
+- extendedWaitUntil:
+    visible: 'Who needs care?'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-05-who-needs-care
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Allergies \(optional\)'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-06-who-needs-care-kbd
+- hideKeyboard
+- tapOn:
+    id: 'booking.cta'
+
+- extendedWaitUntil:
+    visible: 'Review your request'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-07-review-request
+- runFlow: _ai.yaml
+- scrollUntilVisible:
+    element:
+      id: 'booking.promoInput'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- takeScreenshot: s04-08-review-request-bottom
+- tapOn:
+    id: 'booking.promoInput'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-09-review-request-promo-kbd
+- hideKeyboard
+- tapOn:
+    id: 'booking.cta'
+
+- extendedWaitUntil:
+    visible: 'Finding a nanny'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-10-finding-a-nanny
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Back to home'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-11-home-one-searching
+
+# A second open request, for the grouped "N requests still searching" card.
+# The card polls every six seconds, so no relaunch is needed.
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- extendedWaitUntil:
+    visible: '.*requests still searching.*'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-12-home-two-searching
+- runFlow: _ai.yaml
+- tapOn: '.*requests still searching.*'
+- extendedWaitUntil:
+    visible: 'Past'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-13-activity-upcoming-searching
+- tapOn: 'Past'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-14-activity-past
+- tapOn: 'Cancelled'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s04-15-activity-cancelled

@@ -4,3 +4,5 @@
 
 expo-env.d.ts
 # @end expo-cli
+# UI sweep screenshots (e2e/ui-sweep.mjs) — never committed
+e2e/ui-sweep-output/

@@ -1,0 +1,104 @@
+# UI sweep 12 — the nanny's shift: the "Shift starting soon" prompt, the PIN,
+# the dashboard while on shift, and the care log with its entry form.
+# Request, acceptance and payment are seeded over HTTP.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-pay
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${NANNY_EMAIL}
+- extendedWaitUntil:
+    visible: 'Shift starting soon'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s12-01-shift-starting-soon
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Start shift'
+- extendedWaitUntil:
+    visible: 'Enter start PIN'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s12-02-start-pin-kbd
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-start-pin
+- inputText: ${output.pin}
+- extendedWaitUntil:
+    visible: 'Tap to open care log'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s12-03-dashboard-on-shift
+- runFlow: _ai.yaml
+- scroll
+- takeScreenshot: s12-04-dashboard-on-shift-scrolled
+- scrollUntilVisible:
+    element: 'Tap to open care log'
+    direction: UP
+    timeout: 20000
+
+- tapOn: 'Tap to open care log'
+- extendedWaitUntil:
+    visible: 'Care log'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s12-05-care-log
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Meal'
+- extendedWaitUntil:
+    visible: 'Log meal'
+    timeout: 30000
+- takeScreenshot: s12-06-care-log-meal
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Add notes\.\.\.'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s12-07-care-log-meal-kbd
+- inputText: 'Rice and vegetables, ate most of it'
+- hideKeyboard
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Save entry'
+- extendedWaitUntil:
+    visible: 'Rice and vegetables, ate most of it'
+    timeout: 30000
+- takeScreenshot: s12-08-care-log-with-entry
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Custom'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s12-09-care-log-custom
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'e.g. Tummy time, Story reading'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s12-10-care-log-custom-kbd
+- hideKeyboard

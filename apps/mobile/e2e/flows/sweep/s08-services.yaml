@@ -1,0 +1,84 @@
+# UI sweep 08 — Services: the hub, packages through to the package checkout,
+# and My Hours before anything is bought.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Care hours'
+    timeout: 30000
+- tapOn: 'Care hours'
+- extendedWaitUntil:
+    visible: 'My Hours'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s08-01-my-hours-empty
+- back
+
+- tapOn: 'Services'
+- extendedWaitUntil:
+    visible: 'Packages'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s08-02-services
+- scroll
+- takeScreenshot: s08-03-services-scrolled
+
+- tapOn: 'Packages'
+- extendedWaitUntil:
+    visible: 'Choose a package'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s08-04-packages
+- scrollUntilVisible:
+    element:
+      text: ${PACKAGE_NAME}
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- takeScreenshot: s08-05-packages-lab-package
+- scrollUntilVisible:
+    element:
+      text: 'Buy package'
+      below: ${PACKAGE_NAME}
+    direction: DOWN
+    timeout: 10000
+    optional: true
+# The package name may have scrolled under the header by now, so match the
+# button alone: the scroll above brought the lab package's into view.
+- tapOn: 'Buy package'
+- extendedWaitUntil:
+    visible: 'Review package'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s08-06-package-review
+- scrollUntilVisible:
+    element:
+      text: 'Continue to payment'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- takeScreenshot: s08-07-package-review-bottom
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Continue to payment'
+- extendedWaitUntil:
+    visible: 'Complete your payment to activate your package.'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${CHECKOUT_CARD_NUMBER_LABEL}
+    timeout: 60000
+- takeScreenshot: s08-08-package-checkout

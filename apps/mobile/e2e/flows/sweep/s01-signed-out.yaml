@@ -1,0 +1,107 @@
+# UI sweep 01 — the signed-out doors: phone, SMS code, email, forgot password.
+#
+# Not a test. Run only by e2e/ui-sweep.mjs, which collects each flow's
+# takeScreenshot files into one folder per matrix cell. Waits are only there so
+# each shot is of a screen that has arrived; see e2e/README.md "UI sweep".
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s01-01-sign-in
+
+- tapOn:
+    id: 'signIn.phone'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s01-02-sign-in-phone-kbd
+- inputText: ${MOTHER_PHONE}
+- hideKeyboard
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible:
+      id: 'signIn.code.boxes'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s01-03-sms-code
+- tapOn:
+    id: 'signIn.code.boxes'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s01-04-sms-code-kbd
+- hideKeyboard
+
+- tapOn: 'Back to phone number'
+- extendedWaitUntil:
+    visible: 'Sign in with email'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Sign in with email'
+- extendedWaitUntil:
+    visible:
+      id: 'emailSignIn.email'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s01-05-email-sign-in
+- tapOn:
+    id: 'emailSignIn.password'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s01-06-email-sign-in-kbd
+- hideKeyboard
+
+- tapOn: 'Forgot password\?'
+- extendedWaitUntil:
+    visible: 'Email me a reset link'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s01-07-forgot-password-choice
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Email me a reset link'
+- extendedWaitUntil:
+    visible:
+      id: 'forgotPassword.email'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s01-08-forgot-password-email
+- tapOn:
+    id: 'forgotPassword.email'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s01-09-forgot-password-email-kbd
+- hideKeyboard
+# Back leaves the reset screen altogether; reopen it on the channel choice.
+- back
+- runFlow:
+    when:
+      visible: 'Forgot password\?'
+    commands:
+      - tapOn: 'Forgot password\?'
+- extendedWaitUntil:
+    visible: 'Text me a code instead'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Text me a code instead'
+- extendedWaitUntil:
+    visible:
+      id: 'forgotPassword.phone'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s01-10-forgot-password-sms
+- tapOn:
+    id: 'forgotPassword.phone'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s01-11-forgot-password-sms-kbd
+- hideKeyboard
