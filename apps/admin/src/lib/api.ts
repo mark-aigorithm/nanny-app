@@ -71,6 +71,7 @@ import type {
   SetBookingStatusInput,
   ServiceArea,
   ServiceAreaLookup,
+  ServiceAreaSettings,
   SetNannySkillsInput,
   SetCancellationCellProposalInput,
   SetQaScenarioStatusInput,
@@ -225,6 +226,23 @@ export async function lookupServiceArea(q: string): Promise<ServiceAreaLookup> {
   const res = await apiClient.get<ApiEnvelope<ServiceAreaLookup>>('/admin/service-areas/lookup', {
     params: { q },
   });
+  return res.data.data;
+}
+
+export async function fetchServiceAreaSettings(): Promise<ServiceAreaSettings> {
+  const res = await apiClient.get<ApiEnvelope<ServiceAreaSettings>>(
+    '/admin/service-areas/settings',
+  );
+  return res.data.data;
+}
+
+export async function updateServiceAreaSettings(
+  input: ServiceAreaSettings,
+): Promise<ServiceAreaSettings> {
+  const res = await apiClient.put<ApiEnvelope<ServiceAreaSettings>>(
+    '/admin/service-areas/settings',
+    input,
+  );
   return res.data.data;
 }
 

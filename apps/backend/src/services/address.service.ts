@@ -11,7 +11,7 @@ import type { DecodedIdToken } from 'firebase-admin/auth';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import { getActiveServiceAreas, isInAnyArea } from '@backend/services/service-area.service';
+import { getEnforcedServiceAreas, isInAnyArea } from '@backend/services/service-area.service';
 
 /**
  * A user's addresses — the single source of location for everything: the
@@ -260,7 +260,7 @@ async function requireMother(decoded: DecodedIdToken): Promise<User> {
 
 /** Adds `inServiceArea` to the caller's own addresses, for the booking picker. */
 async function withServiceArea(list: AddressDto[]): Promise<AddressDto[]> {
-  const areas = await getActiveServiceAreas();
+  const areas = await getEnforcedServiceAreas();
   return list.map((a) => ({ ...a, inServiceArea: isInAnyArea(a.latitude, a.longitude, areas) }));
 }
 

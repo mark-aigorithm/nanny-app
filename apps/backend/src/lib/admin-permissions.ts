@@ -153,6 +153,8 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   // ── Service areas (where mothers can book) ──────────────────
   { method: 'GET', pattern: '/service-areas', requires: section('serviceAreas', 'VIEW') },
   { method: 'GET', pattern: '/service-areas/mother-pins', requires: section('serviceAreas', 'VIEW') },
+  { method: 'GET', pattern: '/service-areas/settings', requires: section('serviceAreas', 'VIEW') },
+  { method: 'PUT', pattern: '/service-areas/settings', requires: section('serviceAreas', 'MANAGE') },
   // Calls OpenStreetMap on the platform's behalf — writers only.
   { method: 'GET', pattern: '/service-areas/lookup', requires: section('serviceAreas', 'MANAGE') },
   { method: 'POST', pattern: '/service-areas', requires: section('serviceAreas', 'MANAGE') },

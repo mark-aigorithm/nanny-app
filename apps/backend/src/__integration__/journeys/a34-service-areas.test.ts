@@ -1,8 +1,9 @@
 /**
  * A34 — service areas. While at least one area is active, a mother can book
  * only at an address inside one; with none active (or only inactive ones),
- * booking is unrestricted. Her address book says which addresses qualify, and
- * booking options name the areas for the app's note.
+ * booking is unrestricted — as it is while the page-wide switch is off. Her
+ * address book says which addresses qualify, and booking options name the
+ * areas for the app's note.
  */
 import request from 'supertest';
 
@@ -106,6 +107,45 @@ describe('A34 — booking is limited to active service areas', () => {
 
     const options = await request(app).get('/bookings/options').set(...authHeader(mother.token));
     expect(options.body.data.serviceAreaNames).toEqual(['New Cairo']);
+  });
+});
+
+describe('A34 — the page-wide switch', () => {
+  it('switched off, books outside an active area and names no area; on again, refuses', async () => {
+    const admin = await makeAdmin();
+    const mother = await makeMother();
+    await addArea(admin.token, 'New Cairo', NEW_CAIRO);
+
+    const off = await request(app)
+      .put('/admin/service-areas/settings')
+      .set(...authHeader(admin.token))
+      .send({ enabled: false });
+    expect(off.body.data).toEqual({ enabled: false });
+    const read = await request(app).get('/admin/service-areas/settings').set(...authHeader(admin.token));
+    expect(read.body.data).toEqual({ enabled: false });
+
+    expect((await bookAt(mother.token, mother.addressId!)).status).toBe(201);
+    const options = await request(app).get('/bookings/options').set(...authHeader(mother.token));
+    expect(options.body.data.serviceAreaNames).toEqual([]);
+    const list = await request(app).get('/addresses').set(...authHeader(mother.token));
+    expect(list.body.data[0].inServiceArea).toBe(true);
+
+    await request(app)
+      .put('/admin/service-areas/settings')
+      .set(...authHeader(admin.token))
+      .send({ enabled: true });
+    expect((await bookAt(mother.token, mother.addressId!)).status).toBe(400);
+  });
+
+  it('lets a viewing operator read the switch but not flip it', async () => {
+    const viewer = await makeOperator({ serviceAreas: 'VIEW' });
+    const read = await request(app).get('/admin/service-areas/settings').set(...authHeader(viewer.token));
+    expect(read.body.data).toEqual({ enabled: true });
+    const write = await request(app)
+      .put('/admin/service-areas/settings')
+      .set(...authHeader(viewer.token))
+      .send({ enabled: false });
+    expect(write.status).toBe(403);
   });
 });
 

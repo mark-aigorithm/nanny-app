@@ -7,6 +7,7 @@ import {
   type MotherPin,
   type Polygon,
   type ServiceArea,
+  type ServiceAreaSettings,
   type ServiceAreaSource,
   type UpdateServiceAreaInput,
 } from '@nanny-app/shared';
@@ -16,24 +17,52 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 
 /**
- * Where mothers can book. While at least one area is active, a booking's
- * address must fall inside one; with none active, booking is unrestricted —
- * so the feature is off until an admin switches an area on.
+ * Where mothers can book. While the page-wide switch is on and at least one
+ * area is active, a booking's address must fall inside one; with the switch
+ * off or no area active, booking is unrestricted — so the feature is off until
+ * an admin switches an area on.
  */
+
+const ENABLED_KEY = 'service_areas_enabled';
+
+/**
+ * Only the literal "false" switches the limit off; no row, or anything else,
+ * reads as on — the same rule as the other toggles in app_settings.
+ */
+export async function getServiceAreaSettings(): Promise<ServiceAreaSettings> {
+  const row = await prisma.appSettings.findFirst({ where: { key: ENABLED_KEY, deletedAt: null } });
+  return { enabled: row ? row.value !== 'false' : true };
+}
+
+export async function updateServiceAreaSettings(
+  input: ServiceAreaSettings,
+): Promise<ServiceAreaSettings> {
+  const value = String(input.enabled);
+  await prisma.appSettings.upsert({
+    where: { key: ENABLED_KEY },
+    create: { key: ENABLED_KEY, value },
+    update: { value, deletedAt: null },
+  });
+  return { enabled: input.enabled };
+}
 
 export type ActiveArea = { name: string; polygon: Polygon };
 
 /**
- * Active areas, oldest first (the order their names are listed in). A row
- * whose polygon no longer parses is skipped and logged rather than failing
- * every booking and address list.
+ * The areas booking is limited to: the active ones, oldest first (the order
+ * their names are listed in) — or none while the page-wide switch is off. A
+ * row whose polygon no longer parses is skipped and logged rather than
+ * failing every booking and address list.
  */
-export async function getActiveServiceAreas(): Promise<ActiveArea[]> {
+export async function getEnforcedServiceAreas(): Promise<ActiveArea[]> {
   const rows = await prisma.serviceArea.findMany({
     where: { isActive: true, deletedAt: null },
     orderBy: { id: 'asc' },
     select: { id: true, name: true, polygon: true },
   });
+  // The switch only matters once an area is active, so the common case — no
+  // areas — costs one query, not two.
+  if (rows.length === 0 || !(await getServiceAreaSettings()).enabled) return [];
   const areas: ActiveArea[] = [];
   for (const row of rows) {
     const parsed = PolygonSchema.safeParse(row.polygon);
@@ -50,7 +79,7 @@ export function isInAnyArea(lat: number, lng: number, areas: ActiveArea[]): bool
 
 /** Throws the refusal mothers see when the point is outside every active area. */
 export async function assertInServiceArea(lat: number, lng: number): Promise<void> {
-  const areas = await getActiveServiceAreas();
+  const areas = await getEnforcedServiceAreas();
   if (!isInAnyArea(lat, lng, areas)) {
     throw errors.badRequest(outsideServiceAreaMessage(areas.map((a) => a.name)));
   }

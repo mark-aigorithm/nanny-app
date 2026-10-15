@@ -66,6 +66,13 @@ export const ServiceAreaLookupSchema = z.object({
 export type ServiceAreaLookup = z.infer<typeof ServiceAreaLookupSchema>;
 
 /** A mother's default address as a bare point — the editor's coverage preview. */
+/**
+ * The page-wide switch. Off lifts the limit for every mother, whatever areas
+ * are active; on (the default) limits booking to the active areas, if any.
+ */
+export const ServiceAreaSettingsSchema = z.object({ enabled: z.boolean() });
+export type ServiceAreaSettings = z.infer<typeof ServiceAreaSettingsSchema>;
+
 export const MotherPinSchema = z.object({ latitude: z.number(), longitude: z.number() });
 export type MotherPin = z.infer<typeof MotherPinSchema>;
 

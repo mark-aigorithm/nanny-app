@@ -24,6 +24,7 @@ console looks the name up and draws the real border, which the admin adjusts by 
 | Where a border comes from | OpenStreetMap Nominatim (`polygon_geojson=1`, `countrycodes=eg`), called by the backend. Google's APIs return only a viewport, never a border. A spike on 2026-10-15 found "New Cairo" returns the official district (319 points); "التجمع الخامس" returns a 10 km² block that misses most of the settlement. So the lookup is **a starting shape the admin must check**, never saved unseen. |
 | No border found | Start from the result's bounding box; with no result at all, the admin draws by hand. |
 | No active areas | Booking is allowed everywhere. The feature is off until the admin switches an area on, so deploying it changes nothing. |
+| Page-wide switch (added 2026-10-15) | "Limit booking to service areas" at the top of the page, stored as `service_areas_enabled` in `app_settings`, default on. Off lifts the limit for everyone while keeping every area and its status; on restores it. |
 | Mother outside | Signs up and browses as normal. Blocked on the booking "Where" step with a note listing the served areas. |
 | Existing bookings | Never re-checked. The check runs only when a booking is created. |
 | Storage of the shape | GeoJSON `Polygon` in a `Json` column, checked in TypeScript. A handful of areas does not need PostGIS geometry, and Prisma has no type for it. |

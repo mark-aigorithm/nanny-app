@@ -27,6 +27,7 @@ import {
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
   CreateServiceAreaSchema,
+  ServiceAreaSettingsSchema,
   CreateSkillSchema,
   GrantPointsSchema,
   PricePreviewSchema,
@@ -165,8 +166,10 @@ import {
   createServiceArea,
   deleteServiceArea,
   listMotherPins,
+  getServiceAreaSettings,
   listServiceAreas,
   updateServiceArea,
+  updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
 import { lookupServiceArea } from '@backend/services/service-area-lookup.service';
 import {
@@ -896,6 +899,26 @@ adminRouter.get('/service-areas/mother-pins', async (_req: Request, res: Respons
     next(err);
   }
 });
+
+adminRouter.get('/service-areas/settings', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getServiceAreaSettings()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.put(
+  '/service-areas/settings',
+  validateBody(ServiceAreaSettingsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateServiceAreaSettings(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 adminRouter.get('/service-areas/lookup', async (req: Request, res: Response, next: NextFunction) => {
   try {

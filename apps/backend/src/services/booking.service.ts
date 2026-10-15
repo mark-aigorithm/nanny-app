@@ -51,7 +51,7 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
 import { isWithinRadius, toLatLng, type LatLng } from '@backend/lib/geo';
 import { randomStartPin } from '@backend/lib/pin';
 import { toBookingAddressSnapshot } from '@backend/services/address.service';
-import { assertInServiceArea, getActiveServiceAreas } from '@backend/services/service-area.service';
+import { assertInServiceArea, getEnforcedServiceAreas } from '@backend/services/service-area.service';
 import {
   assertWallClock,
   toPlatformDateColumn,
@@ -1372,7 +1372,7 @@ export async function getBookingPricingConfig(): Promise<PricingConfig> {
 export async function getBookingOptions(): Promise<BookingOptions> {
   const config = await getPlatformConfig();
   const now = new Date();
-  const areas = await getActiveServiceAreas();
+  const areas = await getEnforcedServiceAreas();
   return {
     bookingWindowStartHour: config.bookingWindowStartHour,
     bookingWindowEndHour: config.bookingWindowEndHour,

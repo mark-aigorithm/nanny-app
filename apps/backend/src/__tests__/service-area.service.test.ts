@@ -1,15 +1,22 @@
 import { prisma } from '@backend/db/prisma';
 import {
   assertInServiceArea,
-  getActiveServiceAreas,
+  getEnforcedServiceAreas,
+  getServiceAreaSettings,
   isInAnyArea,
+  updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
 
 jest.mock('@backend/db/prisma', () => ({
-  prisma: { serviceArea: { findMany: jest.fn() } },
+  prisma: {
+    serviceArea: { findMany: jest.fn() },
+    appSettings: { findFirst: jest.fn(), upsert: jest.fn() },
+  },
 }));
 
 const findMany = prisma.serviceArea.findMany as jest.Mock;
+const findSetting = prisma.appSettings.findFirst as jest.Mock;
+const upsertSetting = prisma.appSettings.upsert as jest.Mock;
 
 const NEW_CAIRO = {
   type: 'Polygon',
@@ -18,7 +25,11 @@ const NEW_CAIRO = {
 const DOWNTOWN = { lat: 30.0444, lng: 31.2357 };
 const FIFTH_SETTLEMENT = { lat: 30.02, lng: 31.47 };
 
-beforeEach(() => findMany.mockReset());
+beforeEach(() => {
+  findMany.mockReset();
+  findSetting.mockReset().mockResolvedValue(null);
+  upsertSetting.mockReset();
+});
 
 describe('isInAnyArea', () => {
   it('allows everywhere when no area is active', () => {
@@ -31,10 +42,10 @@ describe('isInAnyArea', () => {
   });
 });
 
-describe('getActiveServiceAreas', () => {
+describe('getEnforcedServiceAreas', () => {
   it('asks only for live, active rows in creation order', async () => {
     findMany.mockResolvedValue([]);
-    await getActiveServiceAreas();
+    await getEnforcedServiceAreas();
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true, deletedAt: null },
@@ -47,7 +58,7 @@ describe('getActiveServiceAreas', () => {
       { name: 'Broken', polygon: { type: 'Polygon', coordinates: [[[1, 2]]] } },
       { name: 'New Cairo', polygon: NEW_CAIRO },
     ]);
-    const areas = await getActiveServiceAreas();
+    const areas = await getEnforcedServiceAreas();
     expect(areas.map((a) => a.name)).toEqual(['New Cairo']);
   });
 });
@@ -62,6 +73,35 @@ describe('assertInServiceArea', () => {
     await expect(assertInServiceArea(DOWNTOWN.lat, DOWNTOWN.lng)).rejects.toMatchObject({
       statusCode: 400,
       message: "We don't serve this area yet. We're currently in: New Cairo.",
+    });
+  });
+});
+
+describe('the page-wide switch', () => {
+  it('is on when never set, and only the literal "false" turns it off', async () => {
+    await expect(getServiceAreaSettings()).resolves.toEqual({ enabled: true });
+    findSetting.mockResolvedValue({ value: 'garbage' });
+    await expect(getServiceAreaSettings()).resolves.toEqual({ enabled: true });
+    findSetting.mockResolvedValue({ value: 'false' });
+    await expect(getServiceAreaSettings()).resolves.toEqual({ enabled: false });
+  });
+  it('switched off, enforces no area and lets an outside address book', async () => {
+    findSetting.mockResolvedValue({ value: 'false' });
+    findMany.mockResolvedValue([{ name: 'New Cairo', polygon: NEW_CAIRO }]);
+    await expect(getEnforcedServiceAreas()).resolves.toEqual([]);
+    await expect(assertInServiceArea(DOWNTOWN.lat, DOWNTOWN.lng)).resolves.toBeUndefined();
+  });
+  it('does not read the switch while no area is active', async () => {
+    findMany.mockResolvedValue([]);
+    await expect(getEnforcedServiceAreas()).resolves.toEqual([]);
+    expect(findSetting).not.toHaveBeenCalled();
+  });
+  it('saves the switch as text, reviving a soft-deleted row', async () => {
+    await updateServiceAreaSettings({ enabled: false });
+    expect(upsertSetting).toHaveBeenCalledWith({
+      where: { key: 'service_areas_enabled' },
+      create: { key: 'service_areas_enabled', value: 'false' },
+      update: { value: 'false', deletedAt: null },
     });
   });
 });

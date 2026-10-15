@@ -1,13 +1,14 @@
 /**
  * Service Areas is the Skills-style table over the areas mothers can book in.
  * Pinned here: the empty state explains that booking is open everywhere, the
- * Active toggle saves a real boolean, and delete confirms first.
+ * Active toggle saves a real boolean, delete confirms first, and the page-wide
+ * switch saves and says that booking is open everywhere while it is off.
  */
 import type { AdminUser, ServiceArea } from '@nanny-app/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ToastProvider } from '@admin/components/ui';
 import { PermissionsProvider } from '@admin/lib/permissions';
@@ -45,6 +46,11 @@ function renderPage() {
 }
 
 describe('ServiceAreasPage', () => {
+  // The page-wide switch, on unless a test says otherwise.
+  beforeEach(() => {
+    server.use(http.get('/api/admin/service-areas/settings', () => ok({ enabled: true })));
+  });
+
   it('says booking is open everywhere when there are no areas', async () => {
     server.use(http.get('/api/admin/me', () => ok(ADMIN)), http.get('/api/admin/service-areas', () => ok([])));
     renderPage();
@@ -92,5 +98,36 @@ describe('ServiceAreasPage', () => {
     expect(deleted).toBe(false);
     await userEvent.click(screen.getByRole('button', { name: /delete area/i }));
     await waitFor(() => expect(deleted).toBe(true));
+  });
+
+  it('switches the limit off from the page, and says booking is open everywhere', async () => {
+    let body: unknown;
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/service-areas', () => ok([NEW_CAIRO])),
+      http.put('/api/admin/service-areas/settings', async ({ request }) => {
+        body = await request.json();
+        return ok(body);
+      }),
+    );
+    renderPage();
+    const toggle = await screen.findByRole('checkbox', { name: /limit booking to service areas/i });
+    await waitFor(() => expect(toggle).toBeChecked());
+    expect(screen.getByText(/1 active area/i)).toBeInTheDocument();
+    await userEvent.click(toggle);
+    await waitFor(() => expect(body).toEqual({ enabled: false }));
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText(/service areas are switched off/i)).toBeInTheDocument();
+  });
+
+  it('shows the switch off when it was saved off', async () => {
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/service-areas', () => ok([NEW_CAIRO])),
+      http.get('/api/admin/service-areas/settings', () => ok({ enabled: false })),
+    );
+    renderPage();
+    expect(await screen.findByText(/service areas are switched off/i)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /limit booking to service areas/i })).not.toBeChecked();
   });
 });

@@ -198,7 +198,10 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 **Booking is limited to active service areas**
 `POST /bookings` refuses an address outside every active `service_areas` polygon
 (`assertInServiceArea`, checked on the address's pin, never its typed area). With no active
-area, booking is unrestricted — that is the off switch, and the state every test starts in.
+area, booking is unrestricted — the state every test starts in. The page-wide switch
+(`service_areas_enabled` in `app_settings`, default on; `GET/PUT /admin/service-areas/settings`)
+lifts the limit without touching the areas: every check goes through `getEnforcedServiceAreas`,
+which returns none while it is off.
 The console's border lookup calls OpenStreetMap Nominatim from the backend (1 req/s,
 identified `User-Agent`); its results are starting shapes, and informal names can be badly
 off. Apply the `add_service_areas` migration to the production database (`pnpm db:migrate` against its `DATABASE_URL`) before the backend that reads it deploys — Vercel deploys on merge, and without the table every booking, booking-options and address request fails. See `Docs/superpowers/specs/2026-10-15-service-areas-design.md`.
