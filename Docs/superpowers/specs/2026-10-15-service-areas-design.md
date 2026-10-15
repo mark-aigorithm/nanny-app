@@ -158,7 +158,11 @@ Migration `add_service_areas`. Int ids, like `Address`.
 
 ## Rollout
 
-1. Deploy with no areas: no behaviour change.
-2. Admin adds "New Cairo", checks the coverage preview, trims the edges, and switches it on.
-3. Mothers outside see the note from that moment. Older app builds without the note still get the
+1. Apply the `add_service_areas` migration to the production database (`pnpm db:migrate` against
+   its `DATABASE_URL`) before the backend that reads it deploys — Vercel deploys on merge, and
+   without the table every booking, booking-options and address request fails.
+2. Deploy with no areas: no behaviour change.
+3. Admin adds "New Cairo" (new areas start inactive), checks the coverage preview, trims the edges,
+   and switches it on.
+4. Mothers outside see the note from that moment. Older app builds without the note still get the
    backend's refusal message when they submit.

@@ -81,13 +81,15 @@ function EditablePolygon({ polygon, drawing, version, onChange }: AreaMapProps) 
       lastFittedVersion.current = version;
       return;
     }
+    const outline =
+      getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() ||
+      undefined;
     const p = new google.maps.Polygon({
       map,
       paths: toPath(polygon),
       editable: true,
-      strokeColor:
-        getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() ||
-        undefined,
+      strokeColor: outline,
+      fillColor: outline,
       strokeWeight: 2,
       fillOpacity: 0.15,
     });
@@ -144,22 +146,27 @@ function Pins({ pins, polygon }: { pins: MotherPin[]; polygon: Polygon | null })
   const map = useMap();
   useEffect(() => {
     if (!map) return;
+    const css = getComputedStyle(document.documentElement);
+    const token = (name: string) => css.getPropertyValue(name).trim() || undefined;
+    const insideColor = token('--color-success-text');
+    const outsideColor = token('--color-text-muted');
+    const edge = token('--color-surface');
     const dots = pins.map(
       (pin) =>
-        new google.maps.Circle({
+        new google.maps.Marker({
           map,
-          center: { lat: pin.latitude, lng: pin.longitude },
-          radius: 60,
-          strokeWeight: 0,
-          fillOpacity: 0.9,
-          fillColor:
-            polygon && isPointInPolygon(pin.latitude, pin.longitude, polygon)
-              ? getComputedStyle(document.documentElement)
-                  .getPropertyValue('--color-success')
-                  .trim()
-              : getComputedStyle(document.documentElement)
-                  .getPropertyValue('--color-text-muted')
-                  .trim(),
+          position: { lat: pin.latitude, lng: pin.longitude },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 4,
+            fillColor:
+              polygon && isPointInPolygon(pin.latitude, pin.longitude, polygon)
+                ? insideColor
+                : outsideColor,
+            fillOpacity: 1,
+            strokeWeight: 1,
+            strokeColor: edge,
+          },
           clickable: false,
         }),
     );

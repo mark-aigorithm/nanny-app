@@ -40,7 +40,7 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
   const [name, setName] = useState(area?.name ?? '');
   const [polygon, setPolygon] = useState<Polygon | null>(area?.polygon ?? null);
   const [source, setSource] = useState<ServiceAreaSource>(area?.source ?? 'drawn');
-  const [isActive, setIsActive] = useState(area?.isActive ?? true);
+  const [isActive, setIsActive] = useState(area?.isActive ?? false);
   const [drawing, setDrawing] = useState(false);
   // Tells the map the outline was replaced from here (not edited on the map).
   const [version, setVersion] = useState(0);
@@ -172,7 +172,7 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
         </p>
       )}
 
-      <Field label="Status" hint="Only active areas limit booking.">
+      <Field label="Status" hint="New areas start inactive. Only active areas limit booking.">
         <Select
           value={isActive ? 'active' : 'inactive'}
           options={[

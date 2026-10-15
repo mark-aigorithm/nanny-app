@@ -1,4 +1,9 @@
-import type { Polygon, Position, ServiceAreaLookup } from '@nanny-app/shared';
+import {
+  ServiceAreaLookupSchema,
+  type Polygon,
+  type Position,
+  type ServiceAreaLookup,
+} from '@nanny-app/shared';
 
 import { AppError, errors } from '@backend/lib/errors';
 import { simplifyRing } from '@backend/lib/polygon-simplify';
@@ -18,7 +23,8 @@ const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
 const USER_AGENT = 'NannyNow-admin/1.0 (service-area lookup)';
 const MIN_INTERVAL_MS = 1_100;
 const TIMEOUT_MS = 10_000;
-const UNAVAILABLE = "The map lookup didn't answer. Try again in a moment, or draw the area by hand.";
+const UNAVAILABLE =
+  "The map lookup didn't answer. Try again in a moment, or draw the area by hand.";
 
 export type NominatimHit = {
   display_name: string;
@@ -53,8 +59,13 @@ function outerRing(geojson: NominatimHit['geojson']): Position[] | null {
     return (geojson.coordinates as Position[][])[0] ?? null;
   }
   if (geojson.type === 'MultiPolygon') {
-    const rings = (geojson.coordinates as Position[][][]).map((p) => p[0]).filter((r): r is Position[] => !!r);
-    return rings.reduce<Position[] | null>((best, r) => (!best || ringArea(r) > ringArea(best) ? r : best), null);
+    const rings = (geojson.coordinates as Position[][][])
+      .map((p) => p[0])
+      .filter((r): r is Position[] => !!r);
+    return rings.reduce<Position[] | null>(
+      (best, r) => (!best || ringArea(r) > ringArea(best) ? r : best),
+      null,
+    );
   }
   return null;
 }
@@ -68,14 +79,28 @@ export function toLookup(query: string, hits: NominatimHit[]): ServiceAreaLookup
     }
   }
   const first = hits[0];
-  if (!first) throw errors.notFound(`Nothing called “${query}” was found on the map. Draw the area by hand.`);
-  const [south, north, west, east] = first.boundingbox.map(Number) as [number, number, number, number];
+  if (!first)
+    throw errors.notFound(`Nothing called “${query}” was found on the map. Draw the area by hand.`);
+  const [south, north, west, east] = first.boundingbox.map(Number) as [
+    number,
+    number,
+    number,
+    number,
+  ];
   return {
     displayName: first.display_name,
     source: 'bbox',
     polygon: {
       type: 'Polygon',
-      coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]],
+      coordinates: [
+        [
+          [west, south],
+          [east, south],
+          [east, north],
+          [west, north],
+          [west, south],
+        ],
+      ],
     },
   };
 }
@@ -96,10 +121,28 @@ export async function lookupServiceArea(query: string): Promise<ServiceAreaLooku
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`Nominatim ${res.status}`);
-    hits = (await res.json()) as NominatimHit[];
+    const body: unknown = await res.json();
+    if (!Array.isArray(body))
+      throw new Error('Nominatim answered with something other than a list');
+    hits = body as NominatimHit[];
   } catch (err) {
     console.warn('[service-area] lookup failed:', err instanceof Error ? err.message : err);
     throw new AppError(UNAVAILABLE, 502);
   }
-  return toLookup(query, hits);
+  let lookup: ServiceAreaLookup;
+  try {
+    lookup = toLookup(query, hits);
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    console.warn(
+      '[service-area] unreadable lookup result:',
+      err instanceof Error ? err.message : err,
+    );
+    throw new AppError(UNAVAILABLE, 502);
+  }
+  if (!ServiceAreaLookupSchema.safeParse(lookup).success) {
+    console.warn('[service-area] lookup result failed validation');
+    throw new AppError(UNAVAILABLE, 502);
+  }
+  return lookup;
 }
