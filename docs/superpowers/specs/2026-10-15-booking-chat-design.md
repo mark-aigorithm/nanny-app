@@ -1,6 +1,6 @@
 # Booking chat — design
 
-**Date:** 2026-10-15 · **Status:** approved in chat, awaiting spec review
+**Date:** 2026-10-15 · **Status:** approved; implemented on `feat/booking-chat`
 
 ## Goal
 
@@ -77,12 +77,13 @@ model BookingChatRead {
 
 ## Shared schemas (`packages/shared/src/booking-chat.ts`)
 
-- `BookingMessageSchema` — `{ id, bookingId, content, createdAt, sender: { id, firstName, lastName, avatarUrl, role: 'MOTHER' | 'NANNY' } }`
+- `BookingMessageResponseSchema` — `{ id, bookingId, content, createdAt, sender: { id, firstName, lastName, avatarUrl, role: 'MOTHER' | 'NANNY' } }`
 - `BookingMessageListResponseSchema` — `{ messages, hasMore }` (oldest → newest within the page)
 - `BookingMessageHistoryQuerySchema` — `{ cursor?: ISO datetime, limit ≤ 100, default 50 }`
 - `SendBookingMessageSchema` — `{ content: trimmed, 1–2000 chars }`
-- `BookingChatSummarySchema` — `{ canSend, messageCount, unreadCount }`, added as `chat` to the
-  mobile booking detail response and as `chatMessageCount` to `AdminBookingDetail`.
+- `BookingChatSummarySchema` — `{ canSend, messageCount, unreadCount }`, served by
+  `GET /bookings/:id/messages/summary` (not a field on `BookingResponse`, whose mapper also builds
+  every booking list). The console counts messages from its transcript query.
 
 ## Backend
 
@@ -94,6 +95,7 @@ bookings router). Routes stay thin per the backend guide.
 | `GET /bookings/:id/messages` | mother / current nanny | Cursor-paged history, any status |
 | `POST /bookings/:id/messages` | mother / current nanny | `IN_PROGRESS` only, else **409** "Messages can only be sent while the booking is in progress." Marks the sender read. |
 | `POST /bookings/:id/messages/read` | mother / current nanny | Upserts `BookingChatRead.lastReadAt = now` |
+| `GET /bookings/:id/messages/summary` | mother / current nanny | `BookingChatSummary` for the entry card |
 | `GET /admin/bookings/:id/messages` | console, `bookings: VIEW` | Full history, read-only; new row in `ADMIN_ROUTE_PERMISSIONS` |
 
 - **Access:** a user who is neither `booking.motherId` nor `booking.nannyProfile.userId` gets
@@ -135,7 +137,7 @@ chevron, `PressableScale`), with a corner `Badge` for unread.
 Placed directly under the `LiveShiftCard` on the mother's `BookingDetailScreen`, and under the
 status badge on `NannyBookingDetailScreen`.
 
-### Chat screen — `screens/shared/BookingChatScreen.tsx`
+### Chat screen — `screens/BookingChatScreen.tsx`
 
 One screen for both roles: `ScreenContainer` + `StackHeader` (title: the other person's full name;
 subtitle: the booking day), message list with date dividers, `ChatComposer` when `canSend`.
