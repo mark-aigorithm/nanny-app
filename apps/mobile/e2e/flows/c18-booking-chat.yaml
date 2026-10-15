@@ -1,0 +1,114 @@
+# C18 — the booking chat during a shift, from the mother's side: the unread
+# badge on Booking details, reading the nanny's message, and replying twice.
+#
+# The shift is set up over HTTP (book, accept, pay, check in) and the nanny
+# writes first, also over HTTP; the app only ever acts as the mother. Every run
+# books a new booking, and unread counts are per booking, so nothing earlier
+# runs left behind can make a count pass.
+#
+# The second reply is typed straight after the first is sent, without tapping
+# the box again. Sending used to make the box non-editable, which on Android
+# blurs it and closes the keyboard, so that text went nowhere.
+appId: com.nannyapp.mobile
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: mother-pay
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-in
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: nanny-chat-message
+      CHAT_MESSAGE: 'C18: she finished her lunch. Can we go to the park?'
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: booking-chat-state
+- assertTrue: ${output.motherUnread == '1'}
+- assertTrue: ${output.nannyUnread == '0'}
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+
+# ── The way in, with its badge ─────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'IN PROGRESS: .*is with your child.*'
+    timeout: 60000
+- tapOn: 'IN PROGRESS: .*is with your child.*'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+# The card's label carries the count, so this asserts the badge, not just the card.
+- scrollUntilVisible:
+    element:
+      text: 'Message .*, 1 unread'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+
+# ── Reading ────────────────────────────────────────────────────────────────
+- tapOn: 'Message .*, 1 unread'
+- extendedWaitUntil:
+    visible: 'C18: she finished her lunch.*'
+    timeout: 30000
+
+# ── Replying ───────────────────────────────────────────────────────────────
+- tapOn:
+    id: 'chatThread.message'
+- inputText: 'C18 reply one: yes, take a hat'
+- tapOn: 'Send message'
+- extendedWaitUntil:
+    visible: 'C18 reply one: yes, take a hat'
+    timeout: 30000
+# The box keeps focus after a send, so the keyboard stays up for the next one.
+- assertVisible:
+    id: 'chatThread.message'
+    focused: true
+- inputText: 'C18 reply two: back by four'
+- tapOn: 'Send message'
+- extendedWaitUntil:
+    visible: 'C18 reply two: back by four'
+    timeout: 30000
+
+# ── What the backend holds ─────────────────────────────────────────────────
+# Opening the chat marked the nanny's message read; both replies wait unread
+# on her side, and the newest is the one she will see.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: booking-chat-state
+- assertTrue: ${output.motherUnread == '0'}
+- assertTrue: ${output.nannyUnread == '2'}
+- assertTrue: "${output.nannyLastMessage == 'C18 reply two: back by four'}"
+- assertTrue: ${output.nannyLastSender == 'MOTHER'}
+
+# ── And the badge is gone ──────────────────────────────────────────────────
+- hideKeyboard
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: 'Message .*'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertNotVisible: 'Message .*, 1 unread'
