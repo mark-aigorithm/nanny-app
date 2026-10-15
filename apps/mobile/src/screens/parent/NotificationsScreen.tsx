@@ -22,7 +22,7 @@ import {
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { formatTimeAgo } from '@mobile/lib/communityUtils';
-import { navigateToBookingDetail } from '@mobile/lib/notificationNavigation';
+import { navigateToBookingChat, navigateToBookingDetail } from '@mobile/lib/notificationNavigation';
 import {
   groupNotificationsByDate,
   getNotificationIcon,
@@ -96,6 +96,11 @@ export default function NotificationsScreen() {
     }
     // The nanny couldn't stay, so that booking is a dead end — start a new one
     // instead of opening the shift she can't extend.
+    if (notification.type === 'booking_message' && notification.referenceId) {
+      navigateToBookingChat(router, notification.referenceId, 'parent');
+      return;
+    }
+
     if (notification.type === 'booking_extension_declined') {
       router.push('/(parent)/book/booking-date-picker' as never);
       return;

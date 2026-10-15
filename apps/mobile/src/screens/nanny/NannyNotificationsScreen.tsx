@@ -9,6 +9,7 @@ import {
 import { Text } from '@mobile/components/ui/text';
 import type { NotificationResponse } from '@nanny-app/shared';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { IconCircle, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import {
@@ -20,6 +21,7 @@ import {
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { formatTimeAgo } from '@mobile/lib/communityUtils';
+import { navigateToBookingChat } from '@mobile/lib/notificationNavigation';
 import {
   groupNotificationsByDate,
   getNotificationIcon,
@@ -34,6 +36,7 @@ const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [
 ];
 
 export default function NannyNotificationsScreen() {
+  const router = useRouter();
   const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const [filter, setFilter] = useState<NotificationFilter>('all');
 
@@ -64,6 +67,9 @@ export default function NannyNotificationsScreen() {
   const handleNotificationPress = async (notification: NotificationResponse) => {
     if (!notification.isRead) {
       await markRead.mutateAsync(notification.id);
+    }
+    if (notification.type === 'booking_message' && notification.referenceId) {
+      navigateToBookingChat(router, notification.referenceId, 'nanny');
     }
   };
 

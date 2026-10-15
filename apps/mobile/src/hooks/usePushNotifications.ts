@@ -5,7 +5,13 @@ import { useRouter, useSegments } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { api, unwrap } from '@mobile/lib/api';
-import { navigateToBookingDetail, shouldFocusCareLogFromPushData } from '@mobile/lib/notificationNavigation';
+import {
+  isBookingMessagePush,
+  navigateToBookingChat,
+  navigateToBookingDetail,
+  shouldFocusCareLogFromPushData,
+} from '@mobile/lib/notificationNavigation';
+import { BOOKING_CHAT_KEY } from '@mobile/hooks/useBookingChat';
 import { goToParentTab } from '@mobile/lib/parentNav';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
 import { useAuthStore } from '@mobile/store/authStore';
@@ -147,6 +153,15 @@ function navigateFromNotification(
     void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
   }
 
+  if (isBookingMessagePush(data)) {
+    navigateToBookingChat(
+      router,
+      Number(data!['bookingId']),
+      segments[0] === '(nanny)' ? 'nanny' : 'parent',
+    );
+    return;
+  }
+
   const conversationId = data?.['conversationId'];
   if (conversationId) {
     router.push({
@@ -257,6 +272,14 @@ export function usePushNotifications() {
       const messaging = messagingFactory();
 
       unsubscribeOnMessage = messaging.onMessage((message) => {
+        if (isBookingMessagePush(message.data)) {
+          const bookingId = message.data?.['bookingId'];
+          void queryClient.invalidateQueries({ queryKey: [BOOKING_CHAT_KEY] });
+          // Her chat with this booking is on screen: the refetch is enough.
+          if (bookingId === useMessagingStore.getState().activeBookingChatId) return;
+          void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          return;
+        }
         const incomingConversationId = message.data?.['conversationId'];
         const activeConversationId = useMessagingStore.getState().activeConversationId;
         if (incomingConversationId && incomingConversationId === activeConversationId) {
