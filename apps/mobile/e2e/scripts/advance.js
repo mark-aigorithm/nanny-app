@@ -1006,7 +1006,36 @@ function adminTimeEdit() {
   output.balanceDue = String(preview.balanceDueAmount);
 }
 
+/**
+ * An active service area around New Cairo — away from the seeded mother's
+ * address (downtown, 30.0444, 31.2357), so her booking is refused. The seeder
+ * clears every area before each flow; `service-area-clear` does it sooner.
+ */
+function serviceAreaSet() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var area = call('POST', adminToken, '/admin/service-areas', {
+    name: 'New Cairo',
+    source: 'drawn',
+    isActive: true,
+    polygon: {
+      type: 'Polygon',
+      coordinates: [[[31.40, 29.98], [31.52, 29.98], [31.52, 30.06], [31.40, 30.06], [31.40, 29.98]]],
+    },
+  });
+  output.areaId = String(area.id);
+}
+
+function serviceAreaClear() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var areas = call('GET', adminToken, '/admin/service-areas');
+  for (var i = 0; i < areas.length; i++) {
+    call('DELETE', adminToken, '/admin/service-areas/' + areas[i].id);
+  }
+}
+
 var STEPS = {
+  'service-area-set': serviceAreaSet,
+  'service-area-clear': serviceAreaClear,
   'admin-time-edit': adminTimeEdit,
   'phone-otp': phoneOtp,
   'emulator-providers': emulatorProviders,

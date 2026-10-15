@@ -358,6 +358,7 @@ each proves the screen is wired.
 | C14 | Collision A: a Google sign-*in* refused for an email with a password account, proved through "Sign in with email" instead of SMS, then linked — asserted via the emulator — **covered** by `c14-google-collision-email-door.yaml` | `UI:mobile` |
 | C15 | Leftover resume: a Firebase account with no row is resumed at role selection instead of dead-ending, with the phone and password it already proves locked in — **covered** by `c15-leftover-resume.yaml` | `UI:mobile` |
 | C17 | Delete account: the Account tab's confirm dialog, the deletion notice on the sign-in screen, then the number signing in as unregistered — **covered** by `c17-delete-account.yaml` | `UI:mobile` |
+| C19 | Service areas: with an active area away from the mother, the booking Where step tags her address, names the area and keeps Continue disabled — **covered** by `c19-service-area.yaml` | `UI:mobile` |
 
 **The photo picker no longer bounds C2 and C7.** "About you" still refuses `Continue` until
 `draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker returns a bundled

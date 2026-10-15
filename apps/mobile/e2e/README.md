@@ -770,6 +770,21 @@ so the next run's `seedAccount` upsert-by-email simply finds nothing under
 `ACCOUNTS`. A run that fails before reaching deletion just leaves an ordinary
 MOTHER row behind, which the same upsert finds and resets.
 
+## Service areas (C19)
+
+**C19** — an active service area away from the mother blocks the Where step. The flow
+draws a square around New Cairo as the admin (`service-area-set`), opens the booking
+flow as the seeded mother (downtown Cairo, outside it) and asserts the address tag
+"Not in our service area yet", the note naming the area, and the disabled
+"Choose an address we serve" button.
+
+- **`service-area-set`** / **`service-area-clear`** are `advance.js` steps: the first POSTs the
+  New Cairo area (`/admin/service-areas`), the second soft-deletes every area. C19 and the
+  `s17-service-area` sweep flow call `clear` from `onFlowComplete`.
+- **The seeder clears all service areas before every flow** (`seed-mobile.ts`). Booking is
+  refused outside an active area, so a run that died mid-C19 would otherwise block every flow
+  after it. Run A01 after C19 to prove nothing leaked.
+
 ## Why launching takes five steps
 
 `_launch.yaml` looks over-engineered until each step has cost you an afternoon.

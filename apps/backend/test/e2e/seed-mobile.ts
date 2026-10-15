@@ -329,6 +329,10 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
     await prisma.booking.updateMany({ where: { id: { in: bookingIds } }, data: { deletedAt } });
   }
 
+  // Every flow starts unrestricted; C19 is the only one that draws an area,
+  // and a run that dies mid-flow must not leave the rest of the suite blocked.
+  await prisma.serviceArea.updateMany({ where: { deletedAt: null }, data: { deletedAt: new Date() } });
+
   await prisma.promoCodeRedemption.updateMany({
     where: { userId: { in: userIds }, deletedAt: null },
     data: { deletedAt },

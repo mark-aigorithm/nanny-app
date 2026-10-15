@@ -1,0 +1,56 @@
+# C19 — booking is limited to the admin's service areas. With an active area
+# around New Cairo, the seeded mother's downtown address is tagged on the
+# "Where" step, the note names the area, and Continue stays disabled. The area
+# is drawn over HTTP as the admin; the app only ever acts as the mother.
+#
+# Every other flow books with no area at all — the seeder clears them before
+# each flow — so this one also clears its own on the way out.
+appId: com.nannyapp.mobile
+onFlowComplete:
+  - runScript:
+      file: ../scripts/advance.js
+      env:
+        ADVANCE: service-area-clear
+---
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: service-area-set
+
+- runFlow: _launch.yaml
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- tapOn: 'Book care'
+- extendedWaitUntil:
+    visible: 'Pick a day'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'booking.day'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    id: 'booking.day'
+    index: 0
+
+# "Where" is the first section, above the day rail.
+- scrollUntilVisible:
+    element: 'Not in our service area yet'
+    direction: UP
+    centerElement: true
+    timeout: 15000
+- assertVisible: "We don't serve this area yet. We're currently in: New Cairo."
+- scrollUntilVisible:
+    element: 'Choose an address we serve'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: 'booking.cta'
+    enabled: false

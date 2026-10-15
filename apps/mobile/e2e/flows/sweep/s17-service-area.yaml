@@ -1,0 +1,55 @@
+# UI sweep 17 — the booking "Where" step when the mother's address is outside
+# every service area: the address tagged "Not in our service area yet", the note
+# naming the area, and the disabled "Choose an address we serve" button. The
+# area is drawn over HTTP; the seeder (and onFlowComplete) clear it.
+appId: com.nannyapp.mobile
+onFlowComplete:
+  - runScript:
+      file: ../../scripts/advance.js
+      env:
+        ADVANCE: service-area-clear
+---
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: service-area-set
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: 'Book care'
+# "Where" is the first section; on a small phone at 1.3x the day rail is below
+# the fold, so wait on the tag rather than on "Pick a day".
+- extendedWaitUntil:
+    visible: 'Not in our service area yet'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s17-01-where-outside
+- scrollUntilVisible:
+    element: "We don't serve this area yet.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s17-02-where-note
+# With a day picked the footer button reads "Choose an address we serve".
+- scrollUntilVisible:
+    element:
+      id: 'booking.day'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    id: 'booking.day'
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s17-03-cta-disabled
