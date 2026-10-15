@@ -3,7 +3,8 @@ import { View, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react
 import { Text } from '@mobile/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '@mobile/theme';
 import {
   bookingWindowLengthHours,
@@ -23,6 +24,7 @@ import BookingStepProgress from '@mobile/components/BookingStepProgress';
 import BookingSummaryBar from '@mobile/components/BookingSummaryBar';
 import BookingLocationSection from '@mobile/components/BookingLocationSection';
 import { Stepper } from '@mobile/components/ui';
+import { ADDRESSES_KEY } from '@mobile/hooks/useAddresses';
 import { fmtBookingDate, useBookingOptions, usePricingConfig } from '@mobile/hooks/useBookings';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingTime, formatDurationHours, formatHour24 } from '@mobile/lib/formatTime';
@@ -82,6 +84,19 @@ export default function BookingDatePickerScreen() {
   // Loaded a screen early so the mother sees the price while she chooses, not
   // after. Step 2 runs the identical calculation, so the two can't disagree.
   const { data: pricing } = usePricingConfig();
+
+  // Service areas change in the admin at any time, and whether each address
+  // is inside one comes with the address list and the booking options. Ask
+  // again every time the mother opens booking, so she never books against
+  // the areas the app happened to load earlier.
+  const queryClient = useQueryClient();
+  useFocusEffect(
+    useCallback(() => {
+      for (const queryKey of [['booking-options'], [ADDRESSES_KEY]]) {
+        void queryClient.refetchQueries({ queryKey }, { cancelRefetch: false });
+      }
+    }, [queryClient]),
+  );
 
   const today = useMemo(() => new Date(), []);
   const todayIso = toDateIso(today.getFullYear(), today.getMonth(), today.getDate());

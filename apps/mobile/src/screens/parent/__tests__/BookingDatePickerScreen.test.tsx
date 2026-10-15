@@ -1,15 +1,21 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { act, render, fireEvent } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Router is the only per-file mock this screen needs — firebase, the API layer,
 // maps and safe-area insets are all handled by the global jest.setup.js.
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack, replace: jest.fn() }),
-}));
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual('react');
+  return {
+    useRouter: () => ({ push: mockPush, back: mockBack, replace: jest.fn() }),
+    // Runs like a screen gaining focus once, on mount.
+    useFocusEffect: (effect: () => void) => useEffect(effect, [effect]),
+  };
+});
 
+import { api } from '@mobile/lib/api';
 import BookingDatePickerScreen from '@mobile/screens/parent/BookingDatePickerScreen';
 
 /** 22:45 on the device, the same wall-clock the platform is reporting. */
@@ -53,6 +59,7 @@ function renderScreen() {
   });
   queryClient.setQueryData(['booking-options'], OPTIONS);
   queryClient.setQueryData(['pricing-config'], PRICING);
+  queryClient.setQueryData(['addresses'], []);
   return render(
     <QueryClientProvider client={queryClient}>
       <BookingDatePickerScreen />
@@ -67,6 +74,12 @@ beforeEach(() => {
   // depends on the animation. The fixed clock is the point of the file: the
   // rail is built from `new Date()`.
   jest.useFakeTimers({ now: NOW });
+  // The screen asks again for the options and addresses every time it opens.
+  (api.get as jest.Mock).mockImplementation((url: string) =>
+    Promise.resolve({
+      data: { data: url === '/bookings/options' ? OPTIONS : url === '/addresses' ? [] : null, error: null },
+    }),
+  );
 });
 
 afterEach(() => {
@@ -99,5 +112,16 @@ describe('BookingDatePickerScreen — default length', () => {
 
     expect(getAllByText('2h').length).toBeGreaterThan(0);
     expect(queryByText('4h')).toBeNull();
+  });
+});
+
+describe('BookingDatePickerScreen — service areas', () => {
+  it('asks again for the options and addresses each time booking opens, however fresh the cache', async () => {
+    renderScreen();
+    await act(async () => {});
+
+    const urls = (api.get as jest.Mock).mock.calls.map(([url]) => url);
+    expect(urls).toContain('/bookings/options');
+    expect(urls).toContain('/addresses');
   });
 });
