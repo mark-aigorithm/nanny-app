@@ -8,7 +8,6 @@ import type { Child, ChildInput } from '@nanny-app/shared';
 import { colors, spacing } from '@mobile/theme';
 import ChildForm from '@mobile/components/ChildForm';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
-import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { styles } from './styles/address-form-sheet.styles';
 
 type Props = {
@@ -36,10 +35,6 @@ export default function ChildFormSheet({
   error,
 }: Props) {
   const bottomPadding = useBottomBarPadding(spacing['4xl']);
-  // Only pad for the keyboard while it is up. Inside an Android Modal the
-  // avoiding view's padding did not return to zero when the keyboard closed,
-  // leaving a status-bar-high band above the navigation bar (UI sweep, s14).
-  const keyboardVisible = useKeyboardVisible();
   return (
     <Modal
       visible={visible}
@@ -47,7 +42,7 @@ export default function ChildFormSheet({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView style={styles.root} enabled={keyboardVisible}>
+      <KeyboardAvoidingView style={styles.root}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <Pressable

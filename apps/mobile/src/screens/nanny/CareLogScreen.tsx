@@ -385,9 +385,7 @@ export default function CareLogScreen() {
             refuses a second Modal from the root while this one is open and
             leaves the app unresponsive. */}
         <ConfirmDialogHost nested />
-        {/* Enabled only while the keyboard is up, so its padding can't
-            outlive the keyboard and leave a band above the nav bar. */}
-        <KeyboardAvoidingView style={styles.sheetOverlay} enabled={keyboardVisible}>
+        <KeyboardAvoidingView style={styles.sheetOverlay}>
           <Pressable style={{ flex: 1 }} onPress={closeSheet} />
           <View style={[styles.sheet, { paddingBottom: keyboardVisible ? spacing.lg : bottomPadding }]}>
             <ScrollView
