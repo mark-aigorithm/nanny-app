@@ -7,11 +7,12 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { formatChildNames, type CareLogResponse } from '@nanny-app/shared';
 
-import { Chip } from '@mobile/components/ui';
+import { Chip, PressableScale } from '@mobile/components/ui';
 import { useCareLogs } from '@mobile/hooks/useCareLogs';
 import {
   CARE_LOG_FILTER_PILLS,
@@ -38,6 +39,9 @@ const PREVIEW_COUNT = 3;
  * The nanny's updates as a timeline, newest first, on the mother's Booking
  * details. It shows the latest few and opens in place to show the rest — no
  * separate screen to lose her way back from.
+ *
+ * Tapping an entry opens it on its own screen (CareLogEntryScreen) with the
+ * notes in full and the photos large enough to see.
  *
  * The nanny's own booking screen keeps BookingCareLogSection: she is writing
  * the log, not reading it.
@@ -126,20 +130,34 @@ function TimelineEntry({
   day: string | null;
   last: boolean;
 }) {
+  const router = useRouter();
   const icon = careLogIcon(entry.type);
   const showDay = day !== null && day !== 'Today';
+  const label = careLogTypeLabel(entry.type, entry.customLabel);
+  const time = formatCareLogTime(entry.occurredAt);
 
   return (
     <>
       {showDay ? <Text style={styles.day}>{day}</Text> : null}
-      <View style={[styles.entry, last && styles.entryLast]}>
+      <PressableScale
+        style={[styles.entry, last && styles.entryLast]}
+        onPress={() =>
+          router.push({
+            pathname: '/(parent)/book/care-log-entry',
+            params: { bookingId: String(entry.bookingId), entryId: String(entry.id) },
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${time}. See details`}
+      >
         <View style={[styles.icon, { backgroundColor: icon.backgroundColor }]}>
           <Ionicons name={icon.name} size={18} color={colors.textSecondary} />
         </View>
         <View style={styles.body}>
           <View style={styles.entryHead}>
-            <Text style={styles.type}>{careLogTypeLabel(entry.type, entry.customLabel)}</Text>
-            <Text style={styles.time}>{formatCareLogTime(entry.occurredAt)}</Text>
+            <Text style={styles.type}>{label}</Text>
+            <Text style={styles.time}>{time}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </View>
           {entry.childNames.length > 0 ? (
             <Text style={styles.children}>{formatChildNames(entry.childNames)}</Text>
@@ -153,7 +171,7 @@ function TimelineEntry({
             </View>
           ) : null}
         </View>
-      </View>
+      </PressableScale>
     </>
   );
 }
@@ -229,7 +247,7 @@ const styles = StyleSheet.create({
   },
   entryHead: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
