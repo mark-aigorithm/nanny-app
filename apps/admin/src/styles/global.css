@@ -5190,3 +5190,16 @@ input[type='number'] {
 .area-map-toolbar { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; margin: 10px; padding: 0.25rem; background: var(--color-surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); }
 .area-form-hint { margin: 0.5rem 0 0; color: var(--color-text-muted); font-size: 0.875rem; }
 .area-form-coverage { margin: 0.5rem 0 0; font-weight: 600; }
+
+/* ── Touch devices: no zoom on focus ─────────────────────────────
+   iOS Safari zooms the page into any text field whose font is under
+   16px, and stays zoomed, leaving the page scrolling sideways. On
+   touch screens every form control is at least 16px. !important
+   because fields are sized by many class rules, some nested. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}
