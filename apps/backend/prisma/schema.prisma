@@ -224,6 +224,8 @@ model User {
   eventRsvps               EventRsvp[]
   conversationParticipants ConversationParticipant[]
   messagesSent             Message[]
+  bookingMessages          BookingMessage[]  @relation("BookingMessageSender")
+  bookingChatReads         BookingChatRead[] @relation("BookingChatReader")
   notifications            Notification[]
   deviceTokens             DeviceToken[]
   emailLogs                EmailLog[]
@@ -954,6 +956,8 @@ model Booking {
 
   review             Review?
   careLogs           CareLog[]
+  chatMessages       BookingMessage[]
+  chatReads          BookingChatRead[]
   packageHoursLedger PackageHoursLedger[]
   extensions         BookingExtension[]
   adjustments        BookingAdjustment[]
@@ -1389,6 +1393,42 @@ model Message {
   @@map("messages")
 }
 
+/// A message between a booking's mother and its nanny. Sent only while the
+/// booking is IN_PROGRESS; readable by both (and the console) afterwards.
+/// Access follows the booking's current nanny, so none is stored here.
+model BookingMessage {
+  id        Int       @id @default(autoincrement())
+  bookingId Int       @map("booking_id")
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+  senderId  Int       @map("sender_id")
+  sender    User      @relation("BookingMessageSender", fields: [senderId], references: [id])
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([bookingId, createdAt])
+  @@index([senderId])
+  @@map("booking_messages")
+}
+
+/// When each participant last read a booking's chat — drives unread counts.
+model BookingChatRead {
+  id         Int       @id @default(autoincrement())
+  bookingId  Int       @map("booking_id")
+  booking    Booking   @relation(fields: [bookingId], references: [id])
+  userId     Int       @map("user_id")
+  user       User      @relation("BookingChatReader", fields: [userId], references: [id])
+  lastReadAt DateTime  @map("last_read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@unique([bookingId, userId])
+  @@index([userId])
+  @@map("booking_chat_reads")
+}
+
 // ──────────────────────────────────────────────────────────────
 // Notifications
 // ──────────────────────────────────────────────────────────────
@@ -1433,6 +1473,8 @@ enum NotificationType {
   MARKETPLACE_LISTING_APPROVED
   /// An admin rejected a marketplace listing; the seller must edit and resubmit.
   MARKETPLACE_LISTING_REJECTED
+  /// The other side of a running booking sent a chat message.
+  BOOKING_MESSAGE
 
   @@map("notification_type")
 }

@@ -69,6 +69,8 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'marketplace_listing_approved';
     case 'MARKETPLACE_LISTING_REJECTED':
       return 'marketplace_listing_rejected';
+    case 'BOOKING_MESSAGE':
+      return 'booking_message';
     default:
       return 'marketplace_message';
   }
