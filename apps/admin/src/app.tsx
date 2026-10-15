@@ -22,6 +22,7 @@ import { PromoCodesPage } from './pages/promo-codes-page';
 import { CampaignsPage } from './pages/campaigns-page';
 import { RewardsPage } from './pages/rewards-page';
 import { SettingsPage } from './pages/settings-page';
+import { ServiceAreasPage } from './pages/service-areas-page';
 import { SkillsPage } from './pages/skills-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
@@ -214,6 +215,14 @@ export function App() {
                   element={
                     <Guarded section="settings">
                       <SettingsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="service-areas"
+                  element={
+                    <Guarded section="serviceAreas">
+                      <ServiceAreasPage />
                     </Guarded>
                   }
                 />

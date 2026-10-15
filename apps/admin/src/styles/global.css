@@ -5171,3 +5171,9 @@ input[type='number'] {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* Service Areas — the one-line state of the restriction above the table. */
+.service-areas-summary {
+  margin: 0 0 12px;
+  color: var(--color-text-muted);
+}

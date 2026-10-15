@@ -44,9 +44,11 @@ import type {
   CreateDurationRuleInput,
   CreateOfficialPostInput,
   CreatePromoCodeInput,
+  CreateServiceAreaInput,
   CreateSkillInput,
   DurationRule,
   GrantPointsInput,
+  MotherPin,
   NannyOption,
   Package,
   CreatePackageInput,
@@ -67,6 +69,8 @@ import type {
   RewardWalletSortKey,
   RewardWalletSummary,
   SetBookingStatusInput,
+  ServiceArea,
+  ServiceAreaLookup,
   SetNannySkillsInput,
   SetCancellationCellProposalInput,
   SetQaScenarioStatusInput,
@@ -89,6 +93,7 @@ import type {
   UpdatePlatformConfigInput,
   UpdatePromoCodeInput,
   UpdateRewardConfigInput,
+  UpdateServiceAreaInput,
   UpdateSkillInput,
   UpdateSupportContactInput,
 } from '@nanny-app/shared';
@@ -191,6 +196,40 @@ export async function createSkill(input: CreateSkillInput): Promise<Skill> {
 
 export async function updateSkill(id: number, input: UpdateSkillInput): Promise<Skill> {
   const res = await apiClient.patch<ApiEnvelope<Skill>>(`/admin/skills/${id}`, input);
+  return res.data.data;
+}
+
+export async function fetchServiceAreas(): Promise<ServiceArea[]> {
+  const res = await apiClient.get<ApiEnvelope<ServiceArea[]>>('/admin/service-areas');
+  return res.data.data;
+}
+
+export async function createServiceArea(input: CreateServiceAreaInput): Promise<ServiceArea> {
+  const res = await apiClient.post<ApiEnvelope<ServiceArea>>('/admin/service-areas', input);
+  return res.data.data;
+}
+
+export async function updateServiceArea(
+  id: number,
+  input: UpdateServiceAreaInput,
+): Promise<ServiceArea> {
+  const res = await apiClient.patch<ApiEnvelope<ServiceArea>>(`/admin/service-areas/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteServiceArea(id: number): Promise<void> {
+  await apiClient.delete(`/admin/service-areas/${id}`);
+}
+
+export async function lookupServiceArea(q: string): Promise<ServiceAreaLookup> {
+  const res = await apiClient.get<ApiEnvelope<ServiceAreaLookup>>('/admin/service-areas/lookup', {
+    params: { q },
+  });
+  return res.data.data;
+}
+
+export async function fetchMotherPins(): Promise<MotherPin[]> {
+  const res = await apiClient.get<ApiEnvelope<MotherPin[]>>('/admin/service-areas/mother-pins');
   return res.data.data;
 }
 
