@@ -33,4 +33,6 @@ export const handlers = [
   http.get('/api/admin/skills', () => ok([SKILL_FIXTURE])),
   // The nanny picker: an empty pool by default; a test that wants rows overrides it.
   http.get('/api/admin/bookings/:id/candidates', () => ok([])),
+  // A booking's chat: empty unless a test supplies messages.
+  http.get('/api/admin/bookings/:id/messages', () => ok({ messages: [], hasMore: false })),
 ];

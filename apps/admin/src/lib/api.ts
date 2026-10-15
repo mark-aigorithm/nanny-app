@@ -33,6 +33,7 @@ import type {
   AdminSortOrder,
   AdminUser,
   AdminUserSortKey,
+  BookingMessageListResponse,
   Camera,
   Campaign,
   Certification,
@@ -397,6 +398,13 @@ export async function fetchBookings(
 
 export async function fetchBooking(id: string): Promise<AdminBookingDetail> {
   const res = await apiClient.get<ApiEnvelope<AdminBookingDetail>>(`/admin/bookings/${id}`);
+  return res.data.data;
+}
+
+export async function fetchBookingMessages(id: string): Promise<BookingMessageListResponse> {
+  const res = await apiClient.get<ApiEnvelope<BookingMessageListResponse>>(
+    `/admin/bookings/${id}/messages`,
+  );
   return res.data.data;
 }
 

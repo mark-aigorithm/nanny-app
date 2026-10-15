@@ -34,6 +34,7 @@ import {
   Wallet,
 } from '@admin/components/ui';
 import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
+import { BookingChatButton, BookingChatModal } from '@admin/features/bookings/booking-chat-modal';
 import { BookingEditor } from '@admin/features/bookings/booking-editor';
 import { RefundModal } from '@admin/features/bookings/refund-modal';
 import { ContactLinks } from '@admin/features/users/profile-detail';
@@ -72,6 +73,7 @@ export function BookingDetailPage() {
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [refunding, setRefunding] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const { data: booking, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['booking', id],
     queryFn: () => fetchBooking(id),
@@ -85,7 +87,7 @@ export function BookingDetailPage() {
   // and a booking cancelled after payment waits here for an admin to decide.
   const canRefund = canManage && booking != null && booking.refundableAmount > 0;
 
-  const actions = canEdit ? (
+  const editActions = canEdit ? (
     editing ? (
       <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
         Cancel
@@ -96,6 +98,13 @@ export function BookingDetailPage() {
       </Button>
     )
   ) : undefined;
+
+  const actions = (
+    <>
+      {booking && <BookingChatButton bookingId={id} onOpen={() => setChatOpen(true)} />}
+      {editActions}
+    </>
+  );
 
   return (
     <section>
@@ -168,6 +177,14 @@ export function BookingDetailPage() {
                 }
               />
             </>
+          )}
+          {chatOpen && (
+            <BookingChatModal
+              bookingId={id}
+              motherName={booking.mother.name}
+              nannyName={booking.nanny?.name ?? null}
+              onClose={() => setChatOpen(false)}
+            />
           )}
           {assigning && canAssign && (
             <AssignNannyModal booking={booking} onClose={() => setAssigning(false)} />
