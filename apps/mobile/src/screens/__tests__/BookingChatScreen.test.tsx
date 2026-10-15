@@ -7,9 +7,10 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: jest.fn(), canGoBack: () => true, replace: jest.fn() }),
   useLocalSearchParams: () => ({ bookingId: '7' }),
 }));
+let mockFocused = true;
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useIsFocused: () => true,
+  useIsFocused: () => mockFocused,
 }));
 
 import { api } from '@mobile/lib/api';
@@ -56,6 +57,8 @@ function renderScreen(summary: BookingChatSummary, messages: BookingMessageRespo
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocused = true;
+  useMessagingStore.setState({ activeBookingChatId: null });
   useUserProfileStore.setState({ profile: { id: 1, role: 'MOTHER' } as never });
 });
 
@@ -98,4 +101,13 @@ it('keeps the text and says why when a send is refused', async () => {
     await screen.findByText('Messages can only be sent while the booking is in progress.'),
   ).toBeTruthy();
   expect(screen.getByDisplayValue('Still there?')).toBeTruthy();
+});
+
+it('does not mark the chat read while it sits unfocused (the nanny tab stays mounted)', async () => {
+  mockFocused = false;
+  const screen = renderScreen({ canSend: true, messageCount: 1, unreadCount: 1 }, [msg(1, 2, 'Are you back?')]);
+  expect(await screen.findByText('Are you back?')).toBeTruthy();
+  await new Promise((r) => setTimeout(r, 50));
+  expect(api.post).not.toHaveBeenCalledWith('/bookings/7/messages/read');
+  expect(useMessagingStore.getState().activeBookingChatId).toBeNull();
 });

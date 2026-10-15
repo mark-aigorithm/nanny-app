@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { BOOKING_MESSAGE_MAX_LENGTH } from '@nanny-app/shared';
 
 import { ChatComposer, DateDivider, MessageBubble, formatMessageTime, groupMessagesByDay } from '@mobile/components/chat';
@@ -34,6 +35,9 @@ export default function BookingChatScreen() {
   const role = useUserProfileStore((s) => s.profile?.role);
   const setActiveBookingChatId = useMessagingStore((s) => s.setActiveBookingChatId);
   const closedPadding = useBottomBarPadding(spacing.md);
+  // The nanny's chat is a hidden tab, which stays mounted after she leaves it,
+  // so reading and "this chat is open" follow focus, not mount.
+  const isFocused = useIsFocused();
 
   const { data: booking } = useBooking(bookingId || undefined);
   const { data: summary } = useBookingChatSummary(bookingId || undefined);
@@ -47,16 +51,16 @@ export default function BookingChatScreen() {
   const lastMessageId = messages[messages.length - 1]?.id;
 
   useEffect(() => {
-    if (!bookingIdParam) return;
+    if (!bookingIdParam || !isFocused) return;
     setActiveBookingChatId(bookingIdParam);
     return () => setActiveBookingChatId(null);
-  }, [bookingIdParam, setActiveBookingChatId]);
+  }, [bookingIdParam, isFocused, setActiveBookingChatId]);
 
-  // Opening the chat, and every new message while it is open, counts as read.
+  // Opening the chat, and every new message while it is on screen, counts as read.
   useEffect(() => {
-    if (bookingId) markRead.mutate();
+    if (bookingId && isFocused) markRead.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingId, lastMessageId]);
+  }, [bookingId, lastMessageId, isFocused]);
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
