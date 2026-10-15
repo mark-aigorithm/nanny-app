@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { api, unwrap } from '@mobile/lib/api';
 import {
+  bookingChatRoleFor,
   isBookingMessagePush,
   navigateToBookingChat,
   navigateToBookingDetail,
@@ -16,6 +17,7 @@ import { goToParentTab } from '@mobile/lib/parentNav';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useMessagingStore } from '@mobile/store/messagingStore';
+import { useUserProfileStore } from '@mobile/store/userProfileStore';
 
 type FirebaseMessaging = {
   requestPermission: () => Promise<number>;
@@ -154,11 +156,20 @@ function navigateFromNotification(
   }
 
   if (isBookingMessagePush(data)) {
-    navigateToBookingChat(
-      router,
-      Number(data!['bookingId']),
-      segments[0] === '(nanny)' ? 'nanny' : 'parent',
-    );
+    const bookingId = Number(data!['bookingId']);
+    const inRoleGroup = segments[0] === '(nanny)' || segments[0] === '(parent)';
+    const profileRole = useUserProfileStore.getState().profile?.role;
+    if (inRoleGroup || profileRole) {
+      navigateToBookingChat(router, bookingId, bookingChatRoleFor(segments, profileRole));
+      return;
+    }
+    // Cold start from the tap: nothing says yet whether she is a mother or a
+    // nanny. Open the chat once her profile has loaded.
+    const unsubscribe = useUserProfileStore.subscribe((state) => {
+      if (!state.profile) return;
+      unsubscribe();
+      navigateToBookingChat(router, bookingId, bookingChatRoleFor([], state.profile.role));
+    });
     return;
   }
 

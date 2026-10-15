@@ -32,3 +32,16 @@ export function navigateToBookingChat(
     params: { bookingId: String(bookingId) },
   } as never);
 }
+
+/**
+ * Which app a chat push opens in: the route group she is in, or — on a cold
+ * start, before the root gate has mounted either group — her profile's role.
+ */
+export function bookingChatRoleFor(
+  segments: readonly string[],
+  profileRole: string | null | undefined,
+): 'parent' | 'nanny' {
+  if (segments[0] === '(nanny)') return 'nanny';
+  if (segments[0] === '(parent)') return 'parent';
+  return profileRole === 'NANNY' ? 'nanny' : 'parent';
+}
