@@ -20,6 +20,7 @@ jest.mock('@backend/db/prisma', () => {
   const durationMultiplierRule = { findMany: jest.fn() };
   return {
     prisma: {
+      serviceArea: { findMany: jest.fn().mockResolvedValue([]) },
       booking,
       user,
       address,

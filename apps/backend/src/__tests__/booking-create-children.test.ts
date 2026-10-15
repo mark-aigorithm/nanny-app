@@ -16,6 +16,7 @@ jest.mock('@backend/db/prisma', () => {
   const child = { updateMany: jest.fn(), createMany: jest.fn(), findMany: jest.fn() };
   return {
     prisma: {
+      serviceArea: { findMany: jest.fn().mockResolvedValue([]) },
       user: { findUnique: jest.fn(), findMany: jest.fn() },
       address: { findFirst: jest.fn() },
       nannyProfile: { findMany: jest.fn() },

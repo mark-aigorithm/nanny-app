@@ -29,6 +29,7 @@ jest.mock('@backend/db/prisma', () => {
   };
   return {
     prisma: {
+      serviceArea: { findMany: jest.fn().mockResolvedValue([]) },
       // A paid cancellation totals what she paid by card.
       payment: { findMany: jest.fn().mockResolvedValue([]) },
       user: { findUnique: jest.fn(), findMany: jest.fn() },

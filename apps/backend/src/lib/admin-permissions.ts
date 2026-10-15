@@ -150,6 +150,15 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/skills/:id', requires: anyOf(['skills', 'MANAGE'], ['pricing', 'MANAGE']) },
   { method: 'DELETE', pattern: '/skills/:id', requires: section('skills', 'MANAGE') },
 
+  // ── Service areas (where mothers can book) ──────────────────
+  { method: 'GET', pattern: '/service-areas', requires: section('serviceAreas', 'VIEW') },
+  { method: 'GET', pattern: '/service-areas/mother-pins', requires: section('serviceAreas', 'VIEW') },
+  // Calls OpenStreetMap on the platform's behalf — writers only.
+  { method: 'GET', pattern: '/service-areas/lookup', requires: section('serviceAreas', 'MANAGE') },
+  { method: 'POST', pattern: '/service-areas', requires: section('serviceAreas', 'MANAGE') },
+  { method: 'PATCH', pattern: '/service-areas/:id', requires: section('serviceAreas', 'MANAGE') },
+  { method: 'DELETE', pattern: '/service-areas/:id', requires: section('serviceAreas', 'MANAGE') },
+
   // ── Certifications ──────────────────────────────────────────
   // Read alongside skills by the nanny profile editor; same reasoning.
   { method: 'GET', pattern: '/certifications', requires: ANY_ADMIN },

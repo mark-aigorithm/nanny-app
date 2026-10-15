@@ -26,6 +26,7 @@ import {
   CreatePackageSchema,
   CreateDurationRuleSchema,
   CreatePromoCodeSchema,
+  CreateServiceAreaSchema,
   CreateSkillSchema,
   GrantPointsSchema,
   PricePreviewSchema,
@@ -53,6 +54,7 @@ import {
   UpdateOfficialPostSchema,
   UpdatePackageSchema,
   UpdateRewardConfigSchema,
+  UpdateServiceAreaSchema,
   UpdateSkillSchema,
   UpdateSupportContactSchema,
   SupportFaqSchema,
@@ -159,6 +161,14 @@ import {
   listCampaigns,
   updateCampaign,
 } from '@backend/services/campaign.service';
+import {
+  createServiceArea,
+  deleteServiceArea,
+  listMotherPins,
+  listServiceAreas,
+  updateServiceArea,
+} from '@backend/services/service-area.service';
+import { lookupServiceArea } from '@backend/services/service-area-lookup.service';
 import {
   createSkill,
   deleteSkill,
@@ -868,6 +878,67 @@ adminRouter.delete(
     }
   },
 );
+
+// ── Service areas (where mothers can book) ─────────────────────
+
+adminRouter.get('/service-areas', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listServiceAreas()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/service-areas/mother-pins', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listMotherPins()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/service-areas/lookup', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (q === '' || q.length > 100) throw errors.badRequest('Type an area name to look up.');
+    res.json(ok(await lookupServiceArea(q)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/service-areas',
+  validateBody(CreateServiceAreaSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createServiceArea(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/service-areas/:id',
+  validateBody(UpdateServiceAreaSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateServiceArea(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/service-areas/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteServiceArea(routeIdParam(req.params.id));
+    res.json(ok(null));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Certifications (nanny credential catalog) ──────────────────
 

@@ -195,6 +195,14 @@ Two Jest projects, split by what they require — see `jest.config.cjs`.
 
 ## Known Gotchas
 
+**Booking is limited to active service areas**
+`POST /bookings` refuses an address outside every active `service_areas` polygon
+(`assertInServiceArea`, checked on the address's pin, never its typed area). With no active
+area, booking is unrestricted — that is the off switch, and the state every test starts in.
+The console's border lookup calls OpenStreetMap Nominatim from the backend (1 req/s,
+identified `User-Agent`); its results are starting shapes, and informal names can be badly
+off. See `Docs/superpowers/specs/2026-10-15-service-areas-design.md`.
+
 **The password-reset email is Firebase's; its link lands on our page**
 The app's "Forgot password" calls Firebase's `sendPasswordResetEmail`, so Firebase's mailer sends
 it — not our SMTP, and nothing lands in `email_logs`. Firebase takes no template per request, and

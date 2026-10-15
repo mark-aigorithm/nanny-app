@@ -2,6 +2,7 @@ import { BookingChildSchema, Role } from '@nanny-app/shared';
 
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
+    serviceArea: { findMany: jest.fn().mockResolvedValue([]) },
     user: { findUnique: jest.fn(), findMany: jest.fn() },
     address: { findFirst: jest.fn() },
     nannyProfile: { findMany: jest.fn() },

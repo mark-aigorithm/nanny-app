@@ -11,6 +11,7 @@ import type { DecodedIdToken } from 'firebase-admin/auth';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
+import { getActiveServiceAreas, isInAnyArea } from '@backend/services/service-area.service';
 
 /**
  * A user's addresses — the single source of location for everything: the
@@ -257,9 +258,15 @@ async function requireMother(decoded: DecodedIdToken): Promise<User> {
   return user;
 }
 
+/** Adds `inServiceArea` to the caller's own addresses, for the booking picker. */
+async function withServiceArea(list: AddressDto[]): Promise<AddressDto[]> {
+  const areas = await getActiveServiceAreas();
+  return list.map((a) => ({ ...a, inServiceArea: isInAnyArea(a.latitude, a.longitude, areas) }));
+}
+
 export async function listMyAddresses(decoded: DecodedIdToken): Promise<AddressDto[]> {
   const user = await requireUser(decoded);
-  return listAddresses(user.id);
+  return withServiceArea(await listAddresses(user.id));
 }
 
 export async function createMyAddress(
@@ -267,7 +274,8 @@ export async function createMyAddress(
   body: AddressInput,
 ): Promise<AddressDto> {
   const user = await requireMother(decoded);
-  return createAddress(user.id, body);
+  const [marked] = await withServiceArea([await createAddress(user.id, body)]);
+  return marked as AddressDto;
 }
 
 export async function updateMyAddress(
@@ -276,7 +284,8 @@ export async function updateMyAddress(
   body: UpdateAddressRequest,
 ): Promise<AddressDto> {
   const user = await requireMother(decoded);
-  return updateAddress(user.id, id, body);
+  const [marked] = await withServiceArea([await updateAddress(user.id, id, body)]);
+  return marked as AddressDto;
 }
 
 export async function setMyDefaultAddress(
@@ -284,12 +293,12 @@ export async function setMyDefaultAddress(
   id: number,
 ): Promise<AddressDto[]> {
   const user = await requireMother(decoded);
-  return setDefaultAddress(user.id, id);
+  return withServiceArea(await setDefaultAddress(user.id, id));
 }
 
 export async function deleteMyAddress(decoded: DecodedIdToken, id: number): Promise<AddressDto[]> {
   const user = await requireMother(decoded);
-  return deleteAddress(user.id, id);
+  return withServiceArea(await deleteAddress(user.id, id));
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

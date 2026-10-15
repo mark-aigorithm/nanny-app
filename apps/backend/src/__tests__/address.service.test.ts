@@ -21,6 +21,7 @@ jest.mock('@backend/db/prisma', () => {
     prisma: {
       user: { findUnique: jest.fn() },
       address,
+      serviceArea: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(async (arg: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => unknown)({ address })

@@ -51,6 +51,7 @@ import type { DecodedIdToken } from '@backend/lib/firebase';
 import { isWithinRadius, toLatLng, type LatLng } from '@backend/lib/geo';
 import { randomStartPin } from '@backend/lib/pin';
 import { toBookingAddressSnapshot } from '@backend/services/address.service';
+import { assertInServiceArea, getActiveServiceAreas } from '@backend/services/service-area.service';
 import {
   assertWallClock,
   toPlatformDateColumn,
@@ -1195,6 +1196,11 @@ export async function createBooking(
       : errors.notFound('Address not found.');
   }
 
+  // Only inside an active service area (no active area = anywhere). Checked
+  // on the address the booking is made at, by its pin — the typed area name
+  // is the mother's to edit and Google's to spell.
+  await assertInServiceArea(Number(home.latitude), Number(home.longitude));
+
   // Idempotency: a double-tapped "Request care" must not create two broadcasts.
   // Reuse an existing unclaimed request for the same mother and time window.
   const existingPending = await prisma.booking.findFirst({
@@ -1366,6 +1372,7 @@ export async function getBookingPricingConfig(): Promise<PricingConfig> {
 export async function getBookingOptions(): Promise<BookingOptions> {
   const config = await getPlatformConfig();
   const now = new Date();
+  const areas = await getActiveServiceAreas();
   return {
     bookingWindowStartHour: config.bookingWindowStartHour,
     bookingWindowEndHour: config.bookingWindowEndHour,
@@ -1379,6 +1386,7 @@ export async function getBookingOptions(): Promise<BookingOptions> {
     earliestStartWallClock: toPlatformWallClock(
       new Date(now.getTime() + config.minAdvanceBookingHours * 3_600_000),
     ),
+    serviceAreaNames: areas.map((a) => a.name),
   };
 }
 

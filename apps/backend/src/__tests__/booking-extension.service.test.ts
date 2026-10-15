@@ -28,6 +28,7 @@ jest.mock('@backend/db/prisma', () => {
   };
   return {
     prisma: {
+      serviceArea: { findMany: jest.fn().mockResolvedValue([]) },
       user: { findUnique: jest.fn() },
       booking: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue(null), update: jest.fn() },
       bookingExtension,
