@@ -30,6 +30,7 @@ export const ADMIN_SECTIONS = [
   'pricing',
   'cameras',
   'settings',
+  'serviceAreas',
 ] as const;
 
 export const AdminSectionSchema = z.enum(ADMIN_SECTIONS);
@@ -53,6 +54,7 @@ export const ADMIN_SECTION_LABELS: Record<AdminSection, string> = {
   pricing: 'Pricing & Fees',
   cameras: 'Cameras',
   settings: 'Booking Options',
+  serviceAreas: 'Service Areas',
 };
 
 /** The admin-console route each section lands on — used for nav and redirects. */
@@ -70,6 +72,7 @@ export const ADMIN_SECTION_PATHS: Record<AdminSection, string> = {
   pricing: '/pricing',
   cameras: '/cameras',
   settings: '/settings',
+  serviceAreas: '/service-areas',
 };
 
 /**
@@ -101,6 +104,7 @@ export const OperatorPermissionsSchema = z.object({
   pricing: AdminAccessLevelSchema.optional(),
   cameras: AdminAccessLevelSchema.optional(),
   settings: AdminAccessLevelSchema.optional(),
+  serviceAreas: AdminAccessLevelSchema.optional(),
 });
 export type OperatorPermissions = z.infer<typeof OperatorPermissionsSchema>;
 

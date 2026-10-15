@@ -36,6 +36,7 @@ export const BOOKING_OPTIONS: BookingOptions = {
   timezone: 'Africa/Cairo',
   nowWallClock: wall(now),
   earliestStartWallClock: wall(soon),
+  serviceAreaNames: [],
 };
 
 export const PRICING_CONFIG: PricingConfig = {

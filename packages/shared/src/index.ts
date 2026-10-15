@@ -6,6 +6,7 @@ export * from './camera';
 export * from './skill';
 export * from './child';
 export * from './address';
+export * from './service-area';
 export * from './certification';
 export * from './package';
 export * from './campaign';

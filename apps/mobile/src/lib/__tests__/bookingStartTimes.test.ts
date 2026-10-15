@@ -18,6 +18,7 @@ function options(overrides: Partial<BookingOptions> = {}): BookingOptions {
     timezone: 'Africa/Cairo',
     nowWallClock: '2026-08-21T22:45:00',
     earliestStartWallClock: '2026-08-21T22:45:00',
+    serviceAreaNames: [],
     ...overrides,
   };
 }

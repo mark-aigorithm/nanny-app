@@ -604,6 +604,11 @@ export const BookingOptionsSchema = z.object({
    * re-checks real instants regardless.
    */
   earliestStartWallClock: z.string(),
+  /**
+   * Names of the active service areas, in creation order, for the "Where"
+   * step's note. Empty means booking is unrestricted.
+   */
+  serviceAreaNames: z.array(z.string()),
 });
 export type BookingOptions = z.infer<typeof BookingOptionsSchema>;
 

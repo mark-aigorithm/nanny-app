@@ -79,6 +79,12 @@ export const AddressSchema = AddressInputSchema.omit({ isDefault: true }).extend
   id: z.number().int(),
   isDefault: z.boolean(),
   createdAt: z.string(),
+  /**
+   * Whether a booking may be made here: inside an active service area, or
+   * true when no area is active. Set only on the mother's own address book
+   * (the /addresses routes); absent elsewhere.
+   */
+  inServiceArea: z.boolean().optional(),
 });
 export type Address = z.infer<typeof AddressSchema>;
 
