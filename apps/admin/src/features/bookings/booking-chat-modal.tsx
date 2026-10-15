@@ -18,8 +18,16 @@ function useBookingMessages(bookingId: string) {
 
 /** "View chat (N)" for the booking header; disabled when there is nothing to read. */
 export function BookingChatButton({ bookingId, onOpen }: { bookingId: string; onOpen: () => void }) {
-  const { data } = useBookingMessages(bookingId);
-  if (!data) return null;
+  const { data, isLoading } = useBookingMessages(bookingId);
+  if (!data) {
+    // Still loading: hold the place. Failed: stay clickable, so the modal can
+    // say what went wrong and offer a retry instead of the action vanishing.
+    return (
+      <Button variant="ghost" size="sm" onClick={onOpen} disabled={isLoading}>
+        View chat
+      </Button>
+    );
+  }
   const count = data.messages.length;
   return (
     <Button

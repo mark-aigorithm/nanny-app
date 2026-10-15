@@ -3,7 +3,7 @@
  * who sent it and when; the mother sits left, the nanny right.
  */
 import type { BookingMessageResponse } from '@nanny-app/shared';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -72,6 +72,23 @@ describe('BookingChatModal', () => {
 });
 
 describe('BookingChatButton', () => {
+  it('stays reachable when the transcript fails, so the modal can explain and retry', async () => {
+    server.use(
+      http.get('/api/admin/bookings/4/messages', () =>
+        HttpResponse.json({ data: null, error: 'Server exploded' }, { status: 500 }),
+      ),
+    );
+    const onOpen = vi.fn();
+    renderWithProviders(<BookingChatButton bookingId="4" onOpen={onOpen} />);
+    const button = await screen.findByRole('button', { name: 'View chat' });
+    // Disabled while loading; enabled once the request has failed for good.
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false), {
+      timeout: 5000,
+    });
+    await userEvent.click(button);
+    expect(onOpen).toHaveBeenCalled();
+  });
+
   it('shows the count and opens', async () => {
     server.use(http.get('/api/admin/bookings/4/messages', () => ok({ messages: MESSAGES, hasMore: false })));
     const onOpen = vi.fn();
