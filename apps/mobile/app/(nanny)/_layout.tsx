@@ -13,6 +13,7 @@ export default function NannyLayout() {
         <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
         <Tabs.Screen name="care-log" options={{ href: null }} />
         <Tabs.Screen name="booking-detail" options={{ href: null }} />
+        <Tabs.Screen name="booking-chat" options={{ href: null }} />
         <Tabs.Screen name="notifications" options={{ href: null }} />
       </Tabs>
       <NannyShiftPromptHost />
