@@ -173,7 +173,30 @@ describe('sendBookingMessage', () => {
     expect(mockNotify.mock.calls[0][0].body).toBe(`Mona: ${'x'.repeat(99)}…`);
   });
 
+  it('has notified the other side by the time it responds (serverless may stop after)', async () => {
+    db.booking.findUnique.mockResolvedValue(booking(BookingStatus.IN_PROGRESS));
+    db.bookingMessage.create.mockResolvedValue(created);
+    mockNotify.mockImplementationOnce(() => new Promise((r) => setTimeout(() => r({}), 20)));
+
+    await sendBookingMessage(as('uid-mother'), 7, { content: 'Nap at 1pm please' });
+
+    expect(mockPush).toHaveBeenCalledWith(nanny.id, expect.anything());
+  });
+
+  it('logs a notification failure', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    db.booking.findUnique.mockResolvedValue(booking(BookingStatus.IN_PROGRESS));
+    db.bookingMessage.create.mockResolvedValue(created);
+    mockNotify.mockRejectedValueOnce(new Error('fcm down'));
+
+    await sendBookingMessage(as('uid-mother'), 7, { content: 'Nap at 1pm please' });
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('booking 7'), expect.any(Error));
+    warn.mockRestore();
+  });
+
   it('still returns the message when the notification fails', async () => {
+    jest.spyOn(console, 'warn').mockImplementationOnce(() => undefined);
     db.booking.findUnique.mockResolvedValue(booking(BookingStatus.IN_PROGRESS));
     db.bookingMessage.create.mockResolvedValue(created);
     mockNotify.mockRejectedValueOnce(new Error('fcm down'));

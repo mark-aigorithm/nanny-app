@@ -170,10 +170,15 @@ export async function sendBookingMessage(
   });
   await markRead(bookingId, user.id, created.createdAt);
 
+  // Awaited, not fire-and-forget: on serverless hosting the function may be
+  // frozen once the response is sent, taking an unsent push with it. A failure
+  // is logged and never fails the send — the message itself is already stored.
   if (otherUserId !== null) {
-    void notifyRecipient(bookingId, otherUserId, user.firstName, created.content).catch(
-      () => undefined,
-    );
+    try {
+      await notifyRecipient(bookingId, otherUserId, user.firstName, created.content);
+    } catch (err) {
+      console.warn(`Booking chat notification failed for booking ${bookingId}`, err);
+    }
   }
 
   return toMessageResponse(created, booking.motherId);
