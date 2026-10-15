@@ -12,7 +12,12 @@ import {
 
 import { Button, Field, FormModal, Input, Select, useToast } from '@admin/components/ui';
 import { AreaMap } from '@admin/features/service-areas/area-map';
-import { createServiceArea, fetchMotherPins, lookupServiceArea, updateServiceArea } from '@admin/lib/api';
+import {
+  createServiceArea,
+  fetchMotherPins,
+  lookupServiceArea,
+  updateServiceArea,
+} from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { firstIssueMessage } from '@admin/lib/form-errors';
 import { isMapsAvailable } from '@admin/lib/maps';
@@ -43,10 +48,14 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
   const [formError, setFormError] = useState<string | null>(null);
   const mapsAvailable = isMapsAvailable();
 
-  const { data: pins = [] } = useQuery({ queryKey: ['service-area-pins'], queryFn: fetchMotherPins });
+  const { data: pins = [] } = useQuery({
+    queryKey: ['service-area-pins'],
+    queryFn: fetchMotherPins,
+  });
 
   const inside = useMemo(
-    () => (polygon ? pins.filter((p) => isPointInPolygon(p.latitude, p.longitude, polygon)).length : 0),
+    () =>
+      polygon ? pins.filter((p) => isPointInPolygon(p.latitude, p.longitude, polygon)).length : 0,
     [pins, polygon],
   );
 
@@ -78,9 +87,16 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
 
   function submit() {
     setFormError(null);
-    const parsed = CreateServiceAreaSchema.safeParse({ name: name.trim(), polygon, source, isActive });
+    const parsed = CreateServiceAreaSchema.safeParse({
+      name: name.trim(),
+      polygon,
+      source,
+      isActive,
+    });
     if (!parsed.success) return setFormError(firstIssueMessage(parsed.error));
-    save.mutate(() => (area ? updateServiceArea(area.id, parsed.data) : createServiceArea(parsed.data)));
+    save.mutate(() =>
+      area ? updateServiceArea(area.id, parsed.data) : createServiceArea(parsed.data),
+    );
   }
 
   return (
@@ -95,7 +111,12 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
     >
       <div className="area-form-find">
         <Field label="Area name">
-          <Input value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="New Cairo" />
+          <Input
+            value={name}
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+            placeholder="New Cairo"
+          />
         </Field>
         <Button
           variant="ghost"
@@ -109,7 +130,16 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
 
       {mapsAvailable ? (
         <>
-          <AreaMap polygon={polygon} drawing={drawing} pins={pins} version={version} onChange={(p) => { setPolygon(p); if (p && drawing) setSource('drawn'); }} />
+          <AreaMap
+            polygon={polygon}
+            drawing={drawing}
+            pins={pins}
+            version={version}
+            onChange={(p) => {
+              setPolygon(p);
+              if (p && drawing) setSource('drawn');
+            }}
+          />
           <div className="area-form-tools">
             <Button
               variant="ghost"
@@ -117,21 +147,29 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
                 setPolygon(null);
                 setVersion((v) => v + 1);
                 setDrawing(true);
-                setNotice('Click the map to place each corner. From three corners the outline appears; drag corners to adjust.');
+                setNotice(
+                  'Click the map to place each corner. From three corners the outline appears; drag corners to adjust.',
+                );
               }}
             >
               Draw by hand
             </Button>
-            <span className="area-form-hint">Drag a corner to move it, a midpoint to add one; right-click a corner to remove it.</span>
+            <span className="area-form-hint">
+              Drag a corner to move it, a midpoint to add one; right-click a corner to remove it.
+            </span>
           </div>
           {polygon && (
             <p className="area-form-coverage">
-              {polygonAreaKm2(polygon).toFixed(1)} km² · {inside} of {pins.length} mothers’ addresses are inside
+              {polygonAreaKm2(polygon).toFixed(1)} km² · {inside} of {pins.length} mothers’
+              addresses are inside
             </p>
           )}
         </>
       ) : (
-        <p className="area-form-notice">Drawing an area needs the Google Maps key (VITE_GOOGLE_MAPS_API_KEY). You can still switch existing areas on and off.</p>
+        <p className="area-form-notice">
+          Drawing an area needs the Google Maps key (VITE_GOOGLE_MAPS_API_KEY). You can still switch
+          existing areas on and off.
+        </p>
       )}
 
       <Field label="Status" hint="Only active areas limit booking.">

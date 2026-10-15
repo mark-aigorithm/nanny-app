@@ -60,6 +60,7 @@ function EditablePolygon({ polygon, drawing, version, onChange }: AreaMapProps) 
   const draft = useRef<google.maps.LatLngLiteral[]>([]);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const lastFittedVersion = useRef<number | null>(null);
   const polygonRef = useRef(polygon);
   polygonRef.current = polygon;
   // While drawing, each added corner changes the outline from outside the
@@ -76,13 +77,17 @@ function EditablePolygon({ polygon, drawing, version, onChange }: AreaMapProps) 
     shape.current?.setMap(null);
     if (!polygon) {
       shape.current = null;
+      // Nothing to fit; the outline that follows (drawn by hand) must not fit either.
+      lastFittedVersion.current = version;
       return;
     }
     const p = new google.maps.Polygon({
       map,
       paths: toPath(polygon),
       editable: true,
-      strokeColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || undefined,
+      strokeColor:
+        getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() ||
+        undefined,
       strokeWeight: 2,
       fillOpacity: 0.15,
     });
@@ -97,9 +102,15 @@ function EditablePolygon({ polygon, drawing, version, onChange }: AreaMapProps) 
       }),
     ];
     shape.current = p;
-    const bounds = new google.maps.LatLngBounds();
-    toPath(polygon).forEach((pt) => bounds.extend(pt));
-    map.fitBounds(bounds, 40);
+    // Fit the view only to an outline that came from outside (Find, open);
+    // never while corners are being placed or edited, which would move the map
+    // under the cursor.
+    if (lastFittedVersion.current !== version) {
+      lastFittedVersion.current = version;
+      const bounds = new google.maps.LatLngBounds();
+      toPath(polygon).forEach((pt) => bounds.extend(pt));
+      map.fitBounds(bounds, 40);
+    }
     return () => {
       listeners.forEach((l) => l.remove());
       p.setMap(null);
@@ -124,7 +135,7 @@ function EditablePolygon({ polygon, drawing, version, onChange }: AreaMapProps) 
       }
     });
     return () => listener.remove();
-  }, [map, drawing]);
+  }, [map, drawing, version]);
 
   return null;
 }
@@ -143,8 +154,12 @@ function Pins({ pins, polygon }: { pins: MotherPin[]; polygon: Polygon | null })
           fillOpacity: 0.9,
           fillColor:
             polygon && isPointInPolygon(pin.latitude, pin.longitude, polygon)
-              ? getComputedStyle(document.documentElement).getPropertyValue('--color-success').trim()
-              : getComputedStyle(document.documentElement).getPropertyValue('--color-text-muted').trim(),
+              ? getComputedStyle(document.documentElement)
+                  .getPropertyValue('--color-success')
+                  .trim()
+              : getComputedStyle(document.documentElement)
+                  .getPropertyValue('--color-text-muted')
+                  .trim(),
           clickable: false,
         }),
     );
