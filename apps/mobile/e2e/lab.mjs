@@ -343,6 +343,8 @@ export function runMaestro(maestro, flowPath, params, extraArgs = []) {
   const result = spawnSync(
     maestro,
     [
+      // Without it Maestro picks a device itself when several are up.
+      ...(process.env['ANDROID_SERIAL'] ? ['--device', process.env['ANDROID_SERIAL']] : []),
       'test',
       flowPath,
       ...Object.entries(params).flatMap(([key, value]) => ['-e', quoteArg(`${key}=${value}`)]),

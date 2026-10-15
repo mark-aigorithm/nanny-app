@@ -1,0 +1,109 @@
+# UI sweep 15 — the mother opens a care-log entry from the booking's timeline:
+# an entry with the nanny's photo, that photo full screen, and an entry with
+# notes only. Everything up to the shift is seeded over HTTP.
+appId: com.nannyapp.mobile
+---
+- runFlow: ../_launch.yaml
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-book
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-accept
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-pay
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-check-in
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-care-log
+      CARE_LOG_NOTE: 'Lunch: pasta and apple slices, ate nearly all of it and asked for more. Drank a full cup of water after.'
+      CARE_LOG_PHOTO: '1'
+# The newer entry, without a photo, sits first in the timeline.
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: nanny-care-log
+      CARE_LOG_NOTE: 'Snack: a banana'
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'IN PROGRESS: .*is with your child.*'
+    timeout: 60000
+- tapOn: 'IN PROGRESS: .*is with your child.*'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: 'Today so far'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s15-01-timeline
+
+# The entry with the photo (the older one, so the second "Meal").
+- scrollUntilVisible:
+    element:
+      text: 'Meal, .*See details'
+      index: 1
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    text: 'Meal, .*See details'
+    index: 1
+- extendedWaitUntil:
+    visible: 'Logged by .*'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s15-02-entry-with-photo
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Photo. Open full screen'
+- extendedWaitUntil:
+    visible: 'Close photo'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s15-03-photo-full-screen
+- tapOn: 'Close photo'
+- extendedWaitUntil:
+    notVisible: 'Close photo'
+    timeout: 10000
+- tapOn: 'Back'
+
+# The newer entry: notes, no photo. Back keeps the booking's scroll position,
+# so wait on the header, not the section title.
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: 'Meal, .*See details'
+      index: 0
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    text: 'Meal, .*See details'
+    index: 0
+- extendedWaitUntil:
+    visible: 'No photo with this update.'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s15-04-entry-no-photo

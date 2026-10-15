@@ -124,6 +124,15 @@ pnpm --filter @nanny-app/mobile e2e:metro
 
 Start the backend after the tunnel: it reads the tunnel's URL when it starts.
 
+The runners drive exactly one device and refuse to guess when several are up. If other projects'
+emulators share the machine, boot ours on its own port and name it with `ANDROID_SERIAL`, which
+`run.mjs`, `ui-sweep.mjs` and `build.mjs` pass to adb and to Maestro (`--device`):
+
+```bash
+emulator -avd nanny-e2e -port 5562 -no-window -gpu swiftshader_indirect -no-snapshot-save -no-audio
+ANDROID_SERIAL=emulator-5562 pnpm test:e2e:mobile
+```
+
 **Not between about 22:50 and midnight.** The flows that start a shift (A01,
 A07, and the others that check in) book through the app's picker, which offers
 no start time on the current day once a minimum-length booking can no longer
@@ -441,7 +450,7 @@ backend down).
 | `flows/live/*.yaml` | Its five flows, plus `_register-managed.yaml`; never run by `run.mjs` |
 | `lab.mjs` | What both runners share: Maestro, Metro, device prep, one `maestro test` |
 | `build.mjs` | Gradle debug build with the ABI pinned, then `adb install` |
-| `android.mjs` | Locating adb and the one device to drive |
+| `android.mjs` | Locating adb and the one device to drive (`ANDROID_SERIAL` picks it when several are up) |
 | `emulator-env.mjs` | The `10.0.2.2` values; `with-emulator-env.mjs` applies them to a command (`--live-auth` for the live suite's variant, `--paymob-fake` for the Paymob fake) |
 | `ui-sweep.mjs` · `flows/sweep/` | The UI sweep: screenshots of every screen across a device matrix (above) |
 | `suite.mjs` | What `run.mjs` and `ui-sweep.mjs` share: seeding, the `-e` params, lab checks |

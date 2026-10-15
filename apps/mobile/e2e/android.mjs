@@ -34,7 +34,11 @@ export function resolveAdb() {
   return adb;
 }
 
-/** The one booted device to drive, or an explanation of what to start. */
+/**
+ * The device to drive, or an explanation of what to start. With several
+ * emulators up (other projects share this machine), ANDROID_SERIAL names ours;
+ * adb honours it on its own, and runMaestro passes it on as `--device`.
+ */
 export function requireBootedDevice(adb) {
   const listed = execFileSync(adb, ['devices'], { encoding: 'utf8' })
     .split(/\r?\n/)
@@ -42,6 +46,14 @@ export function requireBootedDevice(adb) {
     .map((line) => line.trim())
     .filter((line) => line.endsWith('\tdevice'))
     .map((line) => line.split('\t')[0]);
+
+  const chosen = process.env['ANDROID_SERIAL'];
+  if (chosen) {
+    if (!listed.includes(chosen)) {
+      fail(`ANDROID_SERIAL is ${chosen}, which is not a booted device (${listed.join(', ') || 'none'}).`);
+    }
+    return chosen;
+  }
 
   if (listed.length === 0) {
     fail(
@@ -51,7 +63,10 @@ export function requireBootedDevice(adb) {
   }
   if (listed.length > 1) {
     // Maestro would pick one itself, which makes "it passed" ambiguous about where.
-    fail(`More than one device is connected (${listed.join(', ')}). Leave exactly one running.`);
+    fail(
+      `More than one device is connected (${listed.join(', ')}). Leave exactly one running, or ` +
+        'name the one to use with ANDROID_SERIAL=<serial>.',
+    );
   }
 
   return listed[0];
