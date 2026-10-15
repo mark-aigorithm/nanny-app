@@ -26,6 +26,7 @@ export const NotificationTypeSchema = z.enum([
   'booking_extended',
   'marketplace_listing_approved',
   'marketplace_listing_rejected',
+  'booking_message',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
