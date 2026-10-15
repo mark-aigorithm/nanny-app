@@ -96,4 +96,32 @@ export const styles = StyleSheet.create({
     ...typeScale.caption,
     color: colors.textMuted,
   },
+
+  // An address outside every active service area.
+  outsideTag: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.errorLight,
+  },
+  outsideTagText: {
+    ...typeScale.caption,
+    color: colors.error,
+  },
+  outsideNote: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.errorLight,
+  },
+  outsideNoteText: {
+    ...typeScale.bodySm,
+    color: colors.textPrimary,
+    flex: 1,
+  },
 });

@@ -135,3 +135,70 @@ describe('BookingLocationSection', () => {
     expect(getByText('submit stub')).toBeTruthy();
   });
 });
+
+function OutsideHost({ onOutside, names = ['New Cairo'] }: { onOutside: (o: boolean) => void; names?: string[] }) {
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  return (
+    <BookingLocationSection
+      selectedId={selectedId}
+      onSelect={setSelectedId}
+      serviceAreaNames={names}
+      onOutsideAreaChange={onOutside}
+    />
+  );
+}
+
+function renderOutside(onOutside: (o: boolean) => void, names?: string[]) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <OutsideHost onOutside={onOutside} names={names} />
+    </QueryClientProvider>,
+  );
+}
+
+describe('BookingLocationSection — service areas', () => {
+  it('tags an outside address and explains when it is selected', async () => {
+    mockApi.get.mockReturnValue(envelope([
+      address({ id: 1, inServiceArea: false }),
+      address({ id: 2, isDefault: false, label: 'Work', inServiceArea: true }),
+    ]));
+    const onOutside = jest.fn();
+
+    const { getByText, queryByText } = renderOutside(onOutside);
+
+    await waitFor(() => expect(getByText('Not in our service area yet')).toBeTruthy());
+    expect(getByText("We don't serve this area yet. We're currently in: New Cairo.")).toBeTruthy();
+    await waitFor(() => expect(onOutside).toHaveBeenLastCalledWith(true));
+
+    fireEvent.press(getByText('Work'));
+
+    await waitFor(() => expect(onOutside).toHaveBeenLastCalledWith(false));
+    expect(queryByText(/We don't serve this area yet/)).toBeNull();
+  });
+
+  it('treats an address with no flag as inside (older backend)', async () => {
+    mockApi.get.mockReturnValue(envelope([address({ id: 1 })]));
+    const onOutside = jest.fn();
+    const { queryByText } = renderOutside(onOutside, []);
+    await waitFor(() => expect(onOutside).toHaveBeenLastCalledWith(false));
+    expect(queryByText('Not in our service area yet')).toBeNull();
+  });
+
+  it('re-checks when she adds an address that is outside', async () => {
+    mockApi.get.mockReturnValueOnce(envelope([address({ id: 1, inServiceArea: true })]));
+    mockApi.post.mockReturnValue(envelope(address({ id: 9, label: 'Work', isDefault: false, inServiceArea: false })));
+    mockApi.get.mockReturnValue(envelope([
+      address({ id: 1, inServiceArea: true }),
+      address({ id: 9, label: 'Work', isDefault: false, inServiceArea: false }),
+    ]));
+    const onOutside = jest.fn();
+    const { getByText, findByText } = renderOutside(onOutside);
+
+    // The list has to be on screen first (the flag is reported false while loading).
+    fireEvent.press(await findByText('Add new'));
+    fireEvent.press(getByText('submit stub'));
+
+    await waitFor(() => expect(onOutside).toHaveBeenLastCalledWith(true));
+  });
+});

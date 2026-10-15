@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
-import { formatAddressArea, type AddressInput } from '@nanny-app/shared';
+import { formatAddressArea, outsideServiceAreaMessage, type AddressInput } from '@nanny-app/shared';
 
 import { colors } from '@mobile/theme';
 import AddressFormSheet from '@mobile/components/AddressFormSheet';
@@ -14,6 +14,10 @@ type Props = {
   /** The address the booking will be made at; null until one is chosen. */
   selectedId: number | null;
   onSelect: (id: number | null) => void;
+  /** Active service areas, for the note under an outside address. */
+  serviceAreaNames?: string[];
+  /** Whether the selected address is outside every active area — Continue waits on it. */
+  onOutsideAreaChange?: (outside: boolean) => void;
 };
 
 /**
@@ -23,7 +27,12 @@ type Props = {
  * the address form and selects what it creates, so a first-time booker is
  * never sent elsewhere to set up an address book.
  */
-export default function BookingLocationSection({ selectedId, onSelect }: Props) {
+export default function BookingLocationSection({
+  selectedId,
+  onSelect,
+  serviceAreaNames = [],
+  onOutsideAreaChange,
+}: Props) {
   const { data: addresses } = useAddresses();
   const createAddress = useCreateAddress();
   const [adding, setAdding] = useState(false);
@@ -37,6 +46,14 @@ export default function BookingLocationSection({ selectedId, onSelect }: Props) 
     if (stillThere) return;
     onSelect(defaultAddressOf(addresses)?.id ?? null);
   }, [addresses, selectedId, onSelect]);
+
+  // An address the backend marks outside every active area can't be booked at.
+  // No flag (an older backend) reads as inside; the server checks regardless.
+  const selected = addresses?.find((a) => a.id === selectedId);
+  const selectedOutside = selected?.inServiceArea === false;
+  useEffect(() => {
+    onOutsideAreaChange?.(selectedOutside);
+  }, [selectedOutside, onOutsideAreaChange]);
 
   const openAdd = () => {
     setAddError(null);
@@ -98,6 +115,11 @@ export default function BookingLocationSection({ selectedId, onSelect }: Props) 
                     {address.formattedAddress}
                   </Text>
                   <Text style={styles.cardLabel}>{formatAddressArea(address)}</Text>
+                  {address.inServiceArea === false && (
+                    <View style={styles.outsideTag}>
+                      <Text style={styles.outsideTagText}>Not in our service area yet</Text>
+                    </View>
+                  )}
                 </View>
               </Pressable>
             );
@@ -106,6 +128,13 @@ export default function BookingLocationSection({ selectedId, onSelect }: Props) 
             <Ionicons name="add-circle-outline" size={18} color={colors.primaryDark} />
             <Text style={styles.changeLink}>Add new</Text>
           </Pressable>
+        </View>
+      )}
+
+      {selectedOutside && (
+        <View style={styles.outsideNote} accessibilityRole="alert">
+          <Ionicons name="information-circle-outline" size={18} color={colors.error} />
+          <Text style={styles.outsideNoteText}>{outsideServiceAreaMessage(serviceAreaNames)}</Text>
         </View>
       )}
 

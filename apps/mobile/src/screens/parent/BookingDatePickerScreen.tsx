@@ -356,6 +356,8 @@ export default function BookingDatePickerScreen() {
   const [addressId, setAddressId] = useState<number | null>(null);
   const handleSelectAddress = useCallback((id: number | null) => setAddressId(id), []);
   const missingLocation = addressId === null;
+  // The chosen address is outside every active service area.
+  const [addressOutside, setAddressOutside] = useState(false);
 
   const canContinue =
     !!options &&
@@ -363,7 +365,8 @@ export default function BookingDatePickerScreen() {
     !!endWall &&
     durationMinutes !== null &&
     durationMinutes > 0 &&
-    !missingLocation;
+    !missingLocation &&
+    !addressOutside;
 
   const handleContinue = () => {
     if (!canContinue || !startWall || !endWall || durationMinutes === null || addressId === null) {
@@ -582,9 +585,11 @@ export default function BookingDatePickerScreen() {
       ? 'Select a start time'
       : missingLocation
         ? 'Add your address'
-        : breakdown
-          ? `Continue · ${formatMoney(breakdown.totalAmount)}`
-          : 'Continue';
+        : addressOutside
+          ? 'Choose an address we serve'
+          : breakdown
+            ? `Continue · ${formatMoney(breakdown.totalAmount)}`
+            : 'Continue';
 
   return (
     <View style={styles.container}>
@@ -614,7 +619,12 @@ export default function BookingDatePickerScreen() {
           <>
             {/* Where first — the mother confirms the address the nanny will be
                 sent to before choosing when. */}
-            <BookingLocationSection selectedId={addressId} onSelect={handleSelectAddress} />
+            <BookingLocationSection
+              selectedId={addressId}
+              onSelect={handleSelectAddress}
+              serviceAreaNames={options?.serviceAreaNames ?? []}
+              onOutsideAreaChange={setAddressOutside}
+            />
 
             <View style={styles.noticePill}>
               <Ionicons name="information-circle-outline" size={15} color={colors.textTertiary} />
