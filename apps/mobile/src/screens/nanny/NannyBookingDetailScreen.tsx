@@ -13,6 +13,7 @@ import { colors, spacing } from '@mobile/theme';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import BookingCareLogSection from '@mobile/components/BookingCareLogSection';
 import { BookingAddressCard } from '@mobile/components/booking/BookingAddressCard';
+import { BookingChatCard } from '@mobile/components/booking/BookingChatCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
 import { ChildProfilesCard } from '@mobile/components/booking/ChildProfilesCard';
 import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
@@ -74,6 +75,18 @@ export default function NannyBookingDetailScreen() {
         <View style={[styles.statusBadge, statusStyle.badge]}>
           <Text style={[styles.statusText, statusStyle.text]}>{formatBookingStatus(booking.status)}</Text>
         </View>
+
+        {/* Talk to the mother during the shift; the history stays after. */}
+        <BookingChatCard
+          bookingId={booking.id}
+          otherFirstName={booking.motherFirstName}
+          onOpen={() =>
+            router.push({
+              pathname: '/(nanny)/booking-chat',
+              params: { bookingId: String(booking.id) },
+            } as never)
+          }
+        />
 
         {/* Mother Card */}
         <View style={styles.motherCard}>

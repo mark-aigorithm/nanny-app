@@ -8,6 +8,7 @@ import { PressableScale, ScreenContainer, StackHeader } from '@mobile/components
 import ParentStartPinCard from '@mobile/components/ParentStartPinCard';
 import ParentExtensionCard from '@mobile/components/ParentExtensionCard';
 import { AmountDueCard } from '@mobile/components/booking/AmountDueCard';
+import { BookingChatCard } from '@mobile/components/booking/BookingChatCard';
 import { BookingInfoCard } from '@mobile/components/booking/BookingInfoCard';
 import { BookingStatusCard } from '@mobile/components/booking/BookingStatusCard';
 import { CareInstructionsCard } from '@mobile/components/booking/CareInstructionsCard';
@@ -137,6 +138,18 @@ export default function BookingDetailScreen() {
               isCancelling={cancelBooking.isPending}
             />
           )}
+
+          {/* Talk to the nanny while she's here; the history stays after. */}
+          <BookingChatCard
+            bookingId={booking.id}
+            otherFirstName={nannyFirstName}
+            onOpen={() =>
+              router.push({
+                pathname: '/(parent)/book/booking-chat',
+                params: { bookingId: String(booking.id) },
+              } as never)
+            }
+          />
 
           {/* Money owed after an admin edit — the one thing that blocks the start. */}
           <AmountDueCard booking={booking} />

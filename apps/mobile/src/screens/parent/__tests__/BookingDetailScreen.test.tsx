@@ -8,6 +8,10 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), canGoBack: () => true, dismissTo: jest.fn() }),
   useLocalSearchParams: () => ({ bookingId: '1' }),
 }));
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useIsFocused: () => true,
+}));
 
 import { api } from '@mobile/lib/api';
 import BookingDetailScreen from '@mobile/screens/parent/BookingDetailScreen';
@@ -104,6 +108,7 @@ function renderScreen(b: BookingResponse, careLogs: CareLogResponse[] = []) {
   const routes: Record<string, unknown> = {
     '/bookings/1': b,
     '/bookings/1/care-logs': careLogs,
+    '/bookings/1/messages/summary': { canSend: true, messageCount: 0, unreadCount: 0 },
     '/bookings/options': { cancellationWindowHours: 24, cancellationFeePercent: 50 },
   };
   (api.get as jest.Mock).mockImplementation((url: string) =>
@@ -263,5 +268,16 @@ describe('BookingDetailScreen — other states', () => {
     expect(await screen.findByText('Complete payment')).toBeTruthy();
     expect(screen.getByText('Not paid yet')).toBeTruthy();
     expect(screen.getByText('Base rate')).toBeTruthy();
+  });
+});
+
+describe('BookingDetailScreen — chat', () => {
+  it('opens the booking chat from the live booking', async () => {
+    const screen = renderScreen(booking());
+    fireEvent.press(await screen.findByText('Message Elena'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(parent)/book/booking-chat',
+      params: { bookingId: '1' },
+    });
   });
 });
