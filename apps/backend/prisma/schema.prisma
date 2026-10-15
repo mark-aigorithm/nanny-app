@@ -585,6 +585,25 @@ model AppSettings {
   @@map("app_settings")
 }
 
+/// An area mothers can book in. While at least one is active, a booking's
+/// address must fall inside one; with none active, booking is unrestricted.
+/// See Docs/superpowers/specs/2026-10-15-service-areas-design.md.
+model ServiceArea {
+  id        Int       @id @default(autoincrement())
+  name      String
+  /// GeoJSON Polygon, [lng, lat] order, one closed outer ring.
+  polygon   Json
+  isActive  Boolean   @default(true) @map("is_active")
+  /// 'osm' | 'bbox' | 'drawn' — where the outline started.
+  source    String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([isActive, deletedAt])
+  @@map("service_areas")
+}
+
 enum DiscountType {
   FLAT
   PERCENTAGE
