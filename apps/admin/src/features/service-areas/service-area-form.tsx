@@ -1,17 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Redo2, Shrink, Spline, Undo2 } from 'lucide-react';
 
 import {
   CreateServiceAreaSchema,
   isPointInPolygon,
+  FEWER_CORNERS_TARGET,
   polygonAreaKm2,
-  type Polygon,
+  simplifyPolygon,
   type ServiceArea,
-  type ServiceAreaSource,
 } from '@nanny-app/shared';
 
-import { Button, Field, FormModal, Input, Select, useToast } from '@admin/components/ui';
+import { Button, Field, FormModal, ICON_SIZE, Input, Select, useToast } from '@admin/components/ui';
 import { AreaMap } from '@admin/features/service-areas/area-map';
+import { useOutlineHistory } from '@admin/features/service-areas/use-outline-history';
 import {
   createServiceArea,
   fetchMotherPins,
@@ -32,18 +34,25 @@ type Props = {
  * Add or edit a service area. Find looks the name up on OpenStreetMap and draws
  * its border as a starting shape — which can be badly off for informal names,
  * so the dialog says to check it — and the admin drags corners or draws by
- * hand. The coverage line counts mothers' default addresses inside.
+ * hand. Every change to the outline can be undone (Ctrl+Z) and redone
+ * (Ctrl+Shift+Z or Ctrl+Y). The coverage line counts mothers' default
+ * addresses inside.
  */
 export function ServiceAreaFormModal({ area, onClose }: Props) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [name, setName] = useState(area?.name ?? '');
-  const [polygon, setPolygon] = useState<Polygon | null>(area?.polygon ?? null);
-  const [source, setSource] = useState<ServiceAreaSource>(area?.source ?? 'drawn');
+  const history = useOutlineHistory({
+    polygon: area?.polygon ?? null,
+    source: area?.source ?? 'drawn',
+  });
+  const { polygon, source } = history.outline;
   const [isActive, setIsActive] = useState(area?.isActive ?? false);
   const [drawing, setDrawing] = useState(false);
   // Tells the map the outline was replaced from here (not edited on the map).
   const [version, setVersion] = useState(0);
+  // Asks the map to frame the outline; an area being edited is framed on open.
+  const [fitRequest, setFitRequest] = useState(area ? 1 : 0);
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const mapsAvailable = isMapsAvailable();
@@ -63,9 +72,9 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
     mutationFn: () => lookupServiceArea(name.trim()),
     onSuccess: (found) => {
       setDrawing(false);
-      setPolygon(found.polygon);
+      history.set({ polygon: found.polygon, source: found.source });
       setVersion((v) => v + 1);
-      setSource(found.source);
+      setFitRequest((f) => f + 1);
       setNotice(
         found.source === 'osm'
           ? `Found “${found.displayName}”. Check the border before saving — informal names can be off.`
@@ -84,6 +93,48 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
     },
     onError: (err) => setFormError(apiErrorMessage(err)),
   });
+
+  const corners = polygon ? polygon.coordinates[0]!.length - 1 : 0;
+  const canFind = name.trim() !== '' && !find.isPending && mapsAvailable;
+
+  // Undo and Redo replace the outline, so the map must redraw it.
+  function undo() {
+    if (!history.canUndo) return;
+    history.undo();
+    setVersion((v) => v + 1);
+  }
+  function redo() {
+    if (!history.canRedo) return;
+    history.redo();
+    setVersion((v) => v + 1);
+  }
+
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y act on the outline, except inside a text
+  // field, where they keep undoing typing.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) undo();
+      else if ((key === 'z' && e.shiftKey) || key === 'y') redo();
+      else return;
+      e.preventDefault();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
+
+  function fewerCorners() {
+    if (!polygon) return;
+    const thinned = simplifyPolygon(polygon);
+    history.set({ polygon: thinned, source });
+    setVersion((v) => v + 1);
+    setNotice(
+      `Thinned to ${thinned.coordinates[0]!.length - 1} corners. Undo brings the detail back.`,
+    );
+  }
 
   function submit() {
     setFormError(null);
@@ -115,14 +166,16 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
             value={name}
             autoFocus
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter looks the name up rather than saving the area.
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (canFind) find.mutate();
+            }}
             placeholder="New Cairo"
           />
         </Field>
-        <Button
-          variant="ghost"
-          disabled={name.trim() === '' || find.isPending || !mapsAvailable}
-          onClick={() => find.mutate()}
-        >
+        <Button variant="ghost" disabled={!canFind} onClick={() => find.mutate()}>
           Find on map
         </Button>
       </div>
@@ -135,29 +188,62 @@ export function ServiceAreaFormModal({ area, onClose }: Props) {
             drawing={drawing}
             pins={pins}
             version={version}
-            onChange={(p) => {
-              setPolygon(p);
-              if (p && drawing) setSource('drawn');
-            }}
+            fitRequest={fitRequest}
+            onChange={(p) => history.set({ polygon: p, source: drawing ? 'drawn' : source })}
+            toolbar={
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Undo"
+                  title="Undo (Ctrl+Z)"
+                  disabled={!history.canUndo}
+                  onClick={undo}
+                >
+                  <Undo2 size={ICON_SIZE.inline} aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Redo"
+                  title="Redo (Ctrl+Shift+Z)"
+                  disabled={!history.canRedo}
+                  onClick={redo}
+                >
+                  <Redo2 size={ICON_SIZE.inline} aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title={`Thin the outline to at most ${FEWER_CORNERS_TARGET} corners`}
+                  disabled={corners <= FEWER_CORNERS_TARGET}
+                  onClick={fewerCorners}
+                >
+                  <Shrink size={ICON_SIZE.inline} aria-hidden />
+                  Fewer corners
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    history.set({ polygon: null, source: 'drawn' });
+                    setVersion((v) => v + 1);
+                    setDrawing(true);
+                    setNotice(
+                      'Click the map to place each corner. From three corners the outline appears; drag corners to adjust.',
+                    );
+                  }}
+                >
+                  <Spline size={ICON_SIZE.inline} aria-hidden />
+                  Draw by hand
+                </Button>
+              </>
+            }
           />
-          <div className="area-form-tools">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setPolygon(null);
-                setVersion((v) => v + 1);
-                setDrawing(true);
-                setNotice(
-                  'Click the map to place each corner. From three corners the outline appears; drag corners to adjust.',
-                );
-              }}
-            >
-              Draw by hand
-            </Button>
-            <span className="area-form-hint">
-              Drag a corner to move it, a midpoint to add one; right-click a corner to remove it.
-            </span>
-          </div>
+          <p className="area-form-hint">
+            Drag a corner to move it, a midpoint to add one; right-click a corner to remove it. Zoom
+            with the + and − buttons or the scroll wheel.
+          </p>
           {polygon && (
             <p className="area-form-coverage">
               {polygonAreaKm2(polygon).toFixed(1)} km² · {inside} of {pins.length} mothers’

@@ -1,12 +1,12 @@
 import {
   ServiceAreaLookupSchema,
+  simplifyRing,
   type Polygon,
   type Position,
   type ServiceAreaLookup,
 } from '@nanny-app/shared';
 
 import { AppError, errors } from '@backend/lib/errors';
-import { simplifyRing } from '@backend/lib/polygon-simplify';
 
 /**
  * Looks an area's name up on OpenStreetMap and returns its border as a

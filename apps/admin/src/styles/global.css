@@ -5177,6 +5177,9 @@ input[type='number'] {
   margin: 0 0 12px;
   color: var(--color-text-muted);
 }
+.service-areas-switch {
+  margin: 0 0 8px;
+}
 
 /* Service area editor — Find row, map, tools and coverage line. */
 .area-form-find { display: flex; gap: 0.5rem; align-items: flex-end; }
@@ -5184,6 +5187,6 @@ input[type='number'] {
 .area-form-notice { margin: 0.5rem 0; color: var(--color-text-muted); }
 .area-map { display: flex; flex-direction: column; gap: 0.75rem; }
 .area-map-canvas { width: 100%; height: 420px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-warm-border); }
-.area-form-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
-.area-form-hint { color: var(--color-text-muted); font-size: 0.875rem; }
+.area-map-toolbar { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; margin: 10px; padding: 0.25rem; background: var(--color-surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); }
+.area-form-hint { margin: 0.5rem 0 0; color: var(--color-text-muted); font-size: 0.875rem; }
 .area-form-coverage { margin: 0.5rem 0 0; font-weight: 600; }

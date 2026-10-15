@@ -1,4 +1,4 @@
-import type { Position } from '@nanny-app/shared';
+import type { Polygon, Position } from './service-area';
 
 const METRES_PER_DEGREE = 111_320;
 
@@ -53,4 +53,18 @@ export function simplifyRing(ring: Position[], toleranceM = 25, maxPositions = 1
     if (out.length <= maxPositions) return out;
     tolerance *= 2;
   }
+}
+
+/** Corners the admin's "Fewer corners" thins an outline to, at most. */
+export const FEWER_CORNERS_TARGET = 30;
+
+/**
+ * Thins an outline to at most `maxCorners` corners (the closing point not
+ * counted), keeping its shape as closely as that allows. An outline already
+ * that small comes back as is.
+ */
+export function simplifyPolygon(polygon: Polygon, maxCorners = FEWER_CORNERS_TARGET): Polygon {
+  const ring = polygon.coordinates[0] as Position[];
+  if (ring.length - 1 <= maxCorners) return polygon;
+  return { type: 'Polygon', coordinates: [simplifyRing(ring, 25, maxCorners + 1)] };
 }
