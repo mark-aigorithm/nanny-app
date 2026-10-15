@@ -58,13 +58,13 @@ import { AssignNannyModal } from '@admin/features/bookings/assign-nanny-modal';
 const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'REFUNDED']);
 
 const STATUS_FILTERS: { value: AdminBookingStatusFilter; label: string }[] = [
+  { value: 'ALL', label: 'All' },
   { value: 'PENDING', label: 'Pending approval' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'CONFIRMED', label: 'Confirmed' },
   { value: 'IN_PROGRESS', label: 'In progress' },
   { value: 'COMPLETED', label: 'Completed' },
   { value: 'CANCELLED', label: 'Cancelled' },
-  { value: 'ALL', label: 'All' },
 ];
 
 // Statuses an admin may override to. Mirrors SetBookingStatusSchema on the
@@ -130,7 +130,7 @@ function pendingTone(mins: number, sla: SlaThresholds): 'neutral' | 'warning' | 
 
 export function BookingsPage() {
   const canManage = useCanManage('bookings');
-  const [status, setStatus] = useState<AdminBookingStatusFilter>('PENDING');
+  const [status, setStatus] = useState<AdminBookingStatusFilter>('ALL');
   const [editing, setEditing] = useState<{ id: number; start: string; end: string } | null>(null);
   const [rejecting, setRejecting] = useState<AdminBooking | null>(null);
   const [assigning, setAssigning] = useState<AdminBooking | null>(null);

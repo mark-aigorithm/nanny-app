@@ -19,7 +19,9 @@ test('rejects a pending request with a reason', async ({ page }) => {
   const admin = await superuserToken();
   const booking = await seedPendingBooking();
 
+  // On the pending queue, so the rejected request visibly leaves it.
   await gotoConsole(page, '/bookings');
+  await chooseOption(page, 'Status', 'Pending approval');
   await actionsFor(page, booking.mother.surname).click();
   await page.getByRole('menuitem', { name: 'Reject' }).click();
 
@@ -65,7 +67,8 @@ test('leaves the booking alone when the dialog is dismissed', async ({ page }) =
   await gotoConsole(page, '/bookings');
   await actionsFor(page, booking.mother.surname).click();
   await page.getByRole('menuitem', { name: 'Reject' }).click();
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  // `exact`: rows of cancelled bookings also read as buttons containing it.
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
   await expect(rowFor(page, booking.mother.surname)).toBeVisible();
   expect((await getBooking(admin, booking.id)).status).toBe('PENDING');

@@ -31,7 +31,7 @@ test('shows a new request in the pending queue', async ({ page }) => {
 
   await gotoConsole(page, '/bookings');
 
-  // The queue opens on "Pending approval", so a new request needs no filtering.
+  // The page opens on "All", newest first, so a new request needs no filtering.
   const row = rowFor(page, booking.mother.surname);
   await expect(row).toBeVisible();
   await expect(row).toContainText('pending');
@@ -56,6 +56,7 @@ test('follows a claimed and paid booking through the status filters', async ({ p
   const booking = await seedPaidBooking(admin);
 
   await gotoConsole(page, '/bookings');
+  await chooseOption(page, 'Status', 'Pending approval');
 
   // It has left the pending queue: claiming moved it on, payment confirmed it.
   await expect(rowFor(page, booking.mother.surname)).toHaveCount(0);

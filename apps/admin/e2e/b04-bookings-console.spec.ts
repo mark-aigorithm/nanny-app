@@ -52,7 +52,9 @@ test('overrides a booking status straight from the queue', async ({ page }) => {
   const admin = await superuserToken();
   const booking = await seedPendingBooking();
 
+  // The page opens on "All"; the pending queue is a filter away.
   await gotoConsole(page, '/bookings');
+  await chooseOption(page, 'Status', 'Pending approval');
   await expect(rowFor(page, booking.mother.surname)).toBeVisible();
 
   // Cancelling is the one thing an operator can do to an unclaimed request:
@@ -70,10 +72,9 @@ test('locks the override once a booking is completed', async ({ page }) => {
   const admin = await superuserToken();
   const booking = await seedPaidBooking(admin);
 
-  // "All" so the row stays put as its status changes; the list is newest-first,
-  // so a booking seeded moments ago is at the top of it.
+  // "All" (the default) so the row stays put as its status changes; the list
+  // is newest-first, so a booking seeded moments ago is at the top of it.
   await gotoConsole(page, '/bookings');
-  await chooseOption(page, 'Status', 'All');
 
   // The legal way to the end of the lifecycle, one hop at a time.
   await override(page, booking.mother.surname, 'in progress');
@@ -173,7 +174,8 @@ test('changing the filter returns to the first page', async ({ page }) => {
 
   // Without the reset, a filter change would ask for page 2 of a result set
   // that may only have one page — and the operator would see an empty table.
-  await chooseOption(page, 'Status', 'All');
+  // (The page opens on "All", so the change is to the pending queue.)
+  await chooseOption(page, 'Status', 'Pending approval');
   await expect(page.locator('.pagination-page')).toContainText('Page 1 of');
 });
 
