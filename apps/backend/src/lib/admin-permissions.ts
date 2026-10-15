@@ -69,6 +69,7 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/bookings/:id/status', requires: section('bookings', 'MANAGE') },
   { method: 'PATCH', pattern: '/bookings/:id/times', requires: section('bookings', 'MANAGE') },
   { method: 'GET', pattern: '/bookings/:id/candidates', requires: section('bookings', 'VIEW') },
+  { method: 'GET', pattern: '/bookings/:id/messages', requires: section('bookings', 'VIEW') },
   { method: 'PATCH', pattern: '/bookings/:id/nanny', requires: section('bookings', 'MANAGE') },
   { method: 'GET', pattern: '/bookings/:id/edit/context', requires: section('bookings', 'VIEW') },
   // A dry run that writes nothing — viewing the editor is enough.

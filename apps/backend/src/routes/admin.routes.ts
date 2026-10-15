@@ -78,6 +78,7 @@ import {
   setBookingStatus,
   updateBookingTimes,
 } from '@backend/services/admin-booking.service';
+import { listAdminBookingMessages } from '@backend/services/booking-chat.service';
 import {
   assignBookingNanny,
   listBookingCandidates,
@@ -232,6 +233,14 @@ adminRouter.get(
 adminRouter.get('/bookings/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(ok(await getAdminBooking(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/bookings/:id/messages', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listAdminBookingMessages(routeIdParam(req.params.id))));
   } catch (err) {
     next(err);
   }

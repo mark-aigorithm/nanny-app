@@ -8,7 +8,9 @@ import {
   type CreateBookingExtensionRequest,
   CreateBookingExtensionSchema,
   CreateBookingSchema,
+  BookingMessageHistoryQuerySchema,
   CreateCareLogSchema,
+  SendBookingMessageSchema,
   type CreatePaymobIntentionRequest,
   CreatePaymobIntentionSchema,
   MockPayBookingSchema,
@@ -46,6 +48,12 @@ import {
   getBookingCamera,
   notifyNannyToStartCamera,
 } from '@backend/services/booking-camera.service';
+import {
+  getBookingChatSummary,
+  listBookingMessages,
+  markBookingChatRead,
+  sendBookingMessage,
+} from '@backend/services/booking-chat.service';
 import {
   cancelBookingExtension,
   getBookingExtension,
@@ -530,6 +538,56 @@ bookingRouter.post(
       if (!req.firebaseUser) throw errors.unauthorized();
       const log = await createCareLog(req.firebaseUser, routeIdParam(req.params['id']), req.body);
       res.status(201).json(ok(log));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.get(
+  '/:id/messages',
+  requireAuth,
+  validateQuery(BookingMessageHistoryQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const query = res.locals['validatedQuery'] as ReturnType<
+        typeof BookingMessageHistoryQuerySchema.parse
+      >;
+      res.json(ok(await listBookingMessages(req.firebaseUser, routeIdParam(req.params['id']), query)));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.get(
+  '/:id/messages/summary',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await getBookingChatSummary(req.firebaseUser, routeIdParam(req.params['id']))));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/messages',
+  requireAuth,
+  validateBody(SendBookingMessageSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const message = await sendBookingMessage(req.firebaseUser, routeIdParam(req.params['id']), req.body);
+      res.status(201).json(ok(message));
+    } catch (err) { next(err); }
+  },
+);
+
+bookingRouter.post(
+  '/:id/messages/read',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      res.json(ok(await markBookingChatRead(req.firebaseUser, routeIdParam(req.params['id']))));
     } catch (err) { next(err); }
   },
 );
