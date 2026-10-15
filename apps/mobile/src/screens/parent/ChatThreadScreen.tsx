@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -7,8 +7,15 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@mobile/components/ui/text';
+import { Text } from '@mobile/components/ui/text';
 import { KeyboardAvoidingView } from '@mobile/components/ui';
+import {
+  ChatComposer,
+  DateDivider,
+  MessageBubble,
+  formatMessageTime,
+  groupMessagesByDay,
+} from '@mobile/components/chat';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -18,38 +25,14 @@ import {
   useMessages,
   useSendMessage,
 } from '@mobile/hooks/useMessaging';
-import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
-import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { formatAuthorName, formatPrice } from '@mobile/lib/communityUtils';
 import { resolveImageUri } from '@mobile/lib/imageUri';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { useMessagingStore } from '@mobile/store/messagingStore';
-import { colors, spacing } from '@mobile/theme';
+import { colors } from '@mobile/theme';
 import { styles } from './styles/chat-thread-screen.styles';
 
-function formatMessageTime(isoDate: string): string {
-  return new Date(isoDate).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function formatDateDivider(isoDate: string): string {
-  const date = new Date(isoDate);
-  const today = new Date();
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
 export default function ChatThreadScreen() {
-  // The keyboard covers the system bar, so the composer clears it only while
-  // the keyboard is down.
-  const keyboardVisible = useKeyboardVisible();
-  const restingPadding = useBottomBarPadding(spacing.md);
-  const bottomPadding = keyboardVisible ? spacing.sm : restingPadding;
   const router = useRouter();
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
   const currentUserId = useUserProfileStore((s) => s.profile?.id);
@@ -79,20 +62,6 @@ export default function ChatThreadScreen() {
       scrollViewRef.current?.scrollToEnd({ animated: false });
     }, 100);
   }, [messages.length]);
-
-  const groupedMessages = useMemo(() => {
-    const groups: { date: string; items: typeof messages }[] = [];
-    for (const message of messages) {
-      const dateKey = new Date(message.createdAt).toDateString();
-      const lastGroup = groups[groups.length - 1];
-      if (lastGroup && new Date(lastGroup.items[0]!.createdAt).toDateString() === dateKey) {
-        lastGroup.items.push(message);
-      } else {
-        groups.push({ date: message.createdAt, items: [message] });
-      }
-    }
-    return groups;
-  }, [messages]);
 
   const handleSend = async () => {
     const content = messageText.trim();
@@ -158,49 +127,17 @@ export default function ChatThreadScreen() {
           </View>
         </View>
 
-        {groupedMessages.map((group) => (
+        {groupMessagesByDay(messages).map((group) => (
           <View key={group.date}>
-            <View style={styles.dateDividerWrap}>
-              <View style={styles.dateDivider}>
-                <Text style={styles.dateDividerText}>{formatDateDivider(group.date)}</Text>
-              </View>
-            </View>
-            {group.items.map((msg) => {
-              const isSent = msg.sender.id === currentUserId;
-              return (
-                <View
-                  key={msg.id}
-                  style={[
-                    styles.messageBubbleWrap,
-                    isSent ? styles.messageSent : styles.messageReceived,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.messageBubble,
-                      isSent ? styles.bubbleSent : styles.bubbleReceived,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.messageText,
-                        isSent ? styles.messageTextSent : styles.messageTextReceived,
-                      ]}
-                    >
-                      {msg.content}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.timeRow,
-                      isSent ? styles.timeRowSent : styles.timeRowReceived,
-                    ]}
-                  >
-                    <Text style={styles.timeText}>{formatMessageTime(msg.createdAt)}</Text>
-                  </View>
-                </View>
-              );
-            })}
+            <DateDivider date={group.date} />
+            {group.items.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                content={msg.content}
+                sent={msg.sender.id === currentUserId}
+                time={formatMessageTime(msg.createdAt)}
+              />
+            ))}
           </View>
         ))}
       </ScrollView>
@@ -233,26 +170,12 @@ export default function ChatThreadScreen() {
         </View>
       </View>
 
-      <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
-        <TextInput
-          testID="chatThread.message"
-          style={styles.input}
-          placeholder="Write a message..."
-          placeholderTextColor={colors.textPlaceholder}
-          value={messageText}
-          onChangeText={setMessageText}
-          multiline={false}
-          editable={!sendMessage.isPending}
-        />
-        <Pressable
-          testID="chatThread.send"
-          style={[styles.sendBtn, !messageText.trim() && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={!messageText.trim() || sendMessage.isPending}
-        >
-          <Ionicons name="send" size={20} color={colors.white} />
-        </Pressable>
-      </View>
+      <ChatComposer
+        value={messageText}
+        onChangeText={setMessageText}
+        onSend={() => void handleSend()}
+        sending={sendMessage.isPending}
+      />
     </KeyboardAvoidingView>
   );
 }
