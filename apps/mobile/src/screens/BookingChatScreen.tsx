@@ -69,7 +69,12 @@ export default function BookingChatScreen() {
   const handleSend = () => {
     const content = text.trim();
     if (!content || send.isPending) return;
-    send.mutate({ content }, { onSuccess: () => setText('') });
+    // The box stays editable while sending, so clear it only if nothing was
+    // typed after pressing send.
+    send.mutate(
+      { content },
+      { onSuccess: () => setText((now) => (now.trim() === content ? '' : now)) },
+    );
   };
 
   const isMother = role === 'MOTHER';

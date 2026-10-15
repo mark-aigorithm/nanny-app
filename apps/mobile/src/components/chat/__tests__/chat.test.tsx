@@ -42,6 +42,17 @@ describe('ChatComposer', () => {
     fireEvent.press(screen.getByLabelText('Send message'));
     expect(onSend).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the message box editable while sending, but not the send button', () => {
+    const onSend = jest.fn();
+    const screen = render(
+      <ChatComposer value="hi" onChangeText={jest.fn()} onSend={onSend} sending />,
+    );
+    // A non-editable input loses focus on Android, which closes the keyboard.
+    expect(screen.getByLabelText('Message').props.editable).not.toBe(false);
+    fireEvent.press(screen.getByLabelText('Send message'));
+    expect(onSend).not.toHaveBeenCalled();
+  });
 });
 
 it('renders a bubble with its time', () => {

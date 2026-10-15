@@ -44,7 +44,9 @@ export function ChatComposer({
         onChangeText={onChangeText}
         multiline
         maxLength={maxLength}
-        editable={!sending}
+        // Stays editable while sending: on Android, making a focused input
+        // non-editable blurs it, which closed the keyboard on every send.
+        // The send button is what blocks a second send.
         accessibilityLabel="Message"
       />
       <Pressable
