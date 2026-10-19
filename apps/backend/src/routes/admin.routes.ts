@@ -61,6 +61,8 @@ import {
   SupportFaqSchema,
   LegalDocumentKeySchema,
   UpdateLegalDocumentSchema,
+  UserGroupInputSchema,
+  UserGroupMembersSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -156,6 +158,15 @@ import {
   listPromoCodes,
   updatePromoCode,
 } from '@backend/services/promo-code.service';
+import {
+  addUserGroupMembers,
+  createUserGroup,
+  deleteUserGroup,
+  getUserGroup,
+  listUserGroups,
+  removeUserGroupMembers,
+  updateUserGroup,
+} from '@backend/services/admin-group.service';
 import {
   createCampaign,
   deleteCampaign,
@@ -836,6 +847,82 @@ adminRouter.delete('/campaigns/:id', async (req: Request, res: Response, next: N
     next(err);
   }
 });
+
+// ── User groups (survey audiences) ─────────────────────────────
+
+adminRouter.get('/groups', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listUserGroups()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/groups',
+  validateBody(UserGroupInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      res.status(201).json(ok(await createUserGroup(req.adminUser.id, req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getUserGroup(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch(
+  '/groups/:id',
+  validateBody(UserGroupInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateUserGroup(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteUserGroup(routeIdParam(req.params.id));
+    res.json(ok(null));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/groups/:id/members',
+  validateBody(UserGroupMembersSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await addUserGroupMembers(routeIdParam(req.params.id), req.body.userIds)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/groups/:id/members',
+  validateBody(UserGroupMembersSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await removeUserGroupMembers(routeIdParam(req.params.id), req.body.userIds)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── Skills (nanny specialty catalog) ───────────────────────────
 

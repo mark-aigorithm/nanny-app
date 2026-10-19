@@ -140,6 +140,17 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/campaigns/:id', requires: section('campaigns', 'MANAGE') },
   { method: 'DELETE', pattern: '/campaigns/:id', requires: section('campaigns', 'MANAGE') },
 
+  // ── Groups (audiences reused by Surveys, later the notification center) ──
+  // Reading the list is also open to whoever can send a survey: the publish
+  // dialog lists groups to pick from.
+  { method: 'GET', pattern: '/groups', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
+  { method: 'POST', pattern: '/groups', requires: section('groups', 'MANAGE') },
+  { method: 'GET', pattern: '/groups/:id', requires: section('groups', 'VIEW') },
+  { method: 'PATCH', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
+  { method: 'DELETE', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
+  { method: 'POST', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
+  { method: 'DELETE', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
+
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel
   // and the nanny profile editor — and it's already public to the mobile app,
