@@ -87,6 +87,22 @@ describe('A39 — answering a survey', () => {
     expect(skipAfter.status).toBe(409);
   });
 
+  it('a skip racing a submit never undoes the answer', async () => {
+    const admin = await makeAdmin();
+    const mother = await makeMother();
+    const survey = await createPublishedSurvey(admin.token, [mother.id]);
+
+    const [skip, submit] = await Promise.all([
+      request(app).post(`/surveys/${survey.id}/skip`).set(...authHeader(mother.token)),
+      request(app).post(`/surveys/${survey.id}/answers`).set(...authHeader(mother.token)).send({ answers: validAnswers(survey) }),
+    ]);
+    expect([200, 409]).toContain(skip.status);
+    expect(submit.status).toBe(200);
+    const recipient = await prisma.surveyRecipient.findFirstOrThrow({ where: { surveyId: survey.id } });
+    expect(recipient.status).toBe('ANSWERED');
+    expect(await prisma.surveyAnswer.count({ where: { recipient: { surveyId: survey.id } } })).toBe(3);
+  });
+
   it('stores only answered optional questions and the chosen options', async () => {
     const admin = await makeAdmin();
     const mother = await makeMother();

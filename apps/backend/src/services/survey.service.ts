@@ -73,10 +73,17 @@ export async function skipMySurvey(decoded: DecodedIdToken, surveyId: number): P
   const user = await requireMother(decoded);
   const recipient = await requireOpenRecipient(user.id, surveyId);
   if (recipient.status === SurveyRecipientStatus.SKIPPED) return;
-  await prisma.surveyRecipient.update({
-    where: { id: recipient.id },
+  // Status guard: a submit that commits between our read and write must win.
+  const { count } = await prisma.surveyRecipient.updateMany({
+    where: { id: recipient.id, status: SurveyRecipientStatus.PENDING },
     data: { status: SurveyRecipientStatus.SKIPPED, skippedAt: new Date() },
   });
+  if (count === 0) {
+    const current = await prisma.surveyRecipient.findUnique({ where: { id: recipient.id } });
+    if (current?.status === SurveyRecipientStatus.ANSWERED) {
+      throw errors.conflict('You have already answered this survey.');
+    }
+  }
 }
 
 export async function submitMySurveyAnswers(
