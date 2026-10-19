@@ -604,6 +604,24 @@ model ServiceArea {
   @@map("service_areas")
 }
 
+/// A published mobile build, recorded by an admin. The newest mandatory row per
+/// platform is the floor for "update required"; the newest row overall drives
+/// "update available". Unique (platform, version) among live rows is enforced
+/// in app-release.service.ts so a soft-deleted release can be re-added.
+model AppRelease {
+  id           Int            @id @default(autoincrement())
+  platform     DevicePlatform
+  version      String
+  mandatory    Boolean        @default(false)
+  releaseNotes String?        @map("release_notes")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+
+  @@index([platform])
+  @@map("app_releases")
+}
+
 enum DiscountType {
   FLAT
   PERCENTAGE
