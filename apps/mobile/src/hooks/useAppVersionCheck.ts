@@ -37,3 +37,13 @@ export function useAppVersionCheck() {
     refetchOnWindowFocus: true,
   });
 }
+
+/**
+ * True while this install is below the newest mandatory release. Hosts that
+ * open their own Modals (rating, shift prompts) render nothing meanwhile, so
+ * nothing can sit above the update blocker. React Query shares the request.
+ */
+export function useIsUpdateRequired(): boolean {
+  const { data } = useAppVersionCheck();
+  return data?.status === 'update_required';
+}

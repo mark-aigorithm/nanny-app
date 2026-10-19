@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, Modal } from 'react-native';
 
 import UpdateAvailableSheet from '@mobile/components/UpdateAvailableSheet';
 import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
 import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
 import { readDismissedUpdate, writeDismissedUpdate } from '@mobile/lib/dismissedUpdate';
-import { colors } from '@mobile/theme';
 
 /**
  * Mount once in the root layout, beside OfflineGate. Asks the backend whether
@@ -28,9 +27,19 @@ export default function UpdateGate() {
 
   if (data.status === 'update_required') {
     return (
-      <View style={styles.overlay}>
+      // A Modal, not an overlay View: Modals open in their own native window, so
+      // only another Modal could cover a View. Rating/shift hosts check
+      // useIsUpdateRequired and render nothing meanwhile.
+      <Modal
+        visible
+        transparent={false}
+        animationType="none"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => undefined}
+      >
         <UpdateRequiredScreen releaseNotes={data.releaseNotes} onUpdate={openStore} />
-      </View>
+      </Modal>
     );
   }
 
@@ -49,13 +58,3 @@ export default function UpdateGate() {
     />
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.background,
-    // Above the router stack and root-mounted hosts; OfflineGate (mounted after) still wins when offline.
-    zIndex: 1000,
-    elevation: 1000,
-  },
-});
