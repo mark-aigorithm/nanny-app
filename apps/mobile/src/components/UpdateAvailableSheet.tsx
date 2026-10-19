@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 
 import { Button } from '@mobile/components/ui';
@@ -13,7 +13,10 @@ interface UpdateAvailableSheetProps {
   onLater: () => void;
 }
 
-/** Dismissible "update available" prompt for an optional release. */
+/**
+ * Dismissible "update available" prompt for an optional release: backdrop and
+ * sheet only. UpdateGate hosts it in its single Modal.
+ */
 export default function UpdateAvailableSheet({
   latestVersion,
   releaseNotes,
@@ -23,23 +26,21 @@ export default function UpdateAvailableSheet({
   const bottomPadding = useBottomBarPadding(spacing['3xl']);
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onLater}>
-      <View style={styles.backdrop}>
-        <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
-          <Text style={styles.headline}>A new version is available</Text>
-          <Text style={styles.body}>Version {latestVersion} is ready in the store.</Text>
-          {releaseNotes ? (
-            <ScrollView style={styles.notesScroll}>
-              <Text style={styles.notes}>{releaseNotes}</Text>
-            </ScrollView>
-          ) : null}
-          <View style={styles.actions}>
-            <Button title="Update" onPress={onUpdate} />
-            <Button title="Later" variant="text" onPress={onLater} />
-          </View>
+    <View style={styles.backdrop}>
+      <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
+        <Text style={styles.headline}>A new version is available</Text>
+        <Text style={styles.body}>Version {latestVersion} is ready in the store.</Text>
+        {releaseNotes ? (
+          <ScrollView style={styles.notesScroll}>
+            <Text style={styles.notes}>{releaseNotes}</Text>
+          </ScrollView>
+        ) : null}
+        <View style={styles.actions}>
+          <Button title="Update" onPress={onUpdate} />
+          <Button title="Later" variant="text" onPress={onLater} />
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 

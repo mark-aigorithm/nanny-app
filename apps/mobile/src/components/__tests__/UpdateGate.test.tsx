@@ -1,5 +1,5 @@
 import React from 'react';
-import { BackHandler, Linking } from 'react-native';
+import { BackHandler, Linking, Modal } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { AppVersionCheckResult } from '@nanny-app/shared';
 
@@ -107,4 +107,29 @@ it('renders nothing when the backend sends no store link', async () => {
   const { queryByText } = render(<UpdateGate />);
   await act(async () => {});
   await waitFor(() => expect(queryByText(REQUIRED_HEADLINE)).toBeNull());
+});
+
+it('renders nothing for an unknown status', async () => {
+  mockCheck = {
+    data: result({ status: 'something_new' as unknown as AppVersionCheckResult['status'] }),
+  };
+  const { queryByText, UNSAFE_queryAllByType } = render(<UpdateGate />);
+  await act(async () => {});
+  expect(queryByText(REQUIRED_HEADLINE)).toBeNull();
+  expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
+  expect(UNSAFE_queryAllByType(Modal)).toHaveLength(0);
+});
+
+it('keeps one Modal mounted when the sheet turns into the blocker', async () => {
+  mockCheck = { data: result({ status: 'update_available', latestVersion: '1.2.0' }) };
+  const { findByText, queryByText, rerender, UNSAFE_getAllByType } = render(<UpdateGate />);
+  await findByText(AVAILABLE_HEADLINE);
+  expect(UNSAFE_getAllByType(Modal)).toHaveLength(1);
+
+  mockCheck = { data: result({ status: 'update_required', latestVersion: '1.2.0' }) };
+  rerender(<UpdateGate />);
+
+  expect(await findByText(REQUIRED_HEADLINE)).toBeTruthy();
+  expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
+  expect(UNSAFE_getAllByType(Modal)).toHaveLength(1);
 });

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Linking, Modal } from 'react-native';
+import { Linking, Modal, StyleSheet, View } from 'react-native';
 
 import UpdateAvailableSheet from '@mobile/components/UpdateAvailableSheet';
 import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
 import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
+import { colors } from '@mobile/theme';
 import { readDismissedUpdate, writeDismissedUpdate } from '@mobile/lib/dismissedUpdate';
 
 /**
@@ -25,36 +26,49 @@ export default function UpdateGate() {
   const storeUrl = data.storeUrl;
   const openStore = () => void Linking.openURL(storeUrl);
 
+  // One Modal for both states, so a sheet -> blocker change is a re-render, not
+  // a dismiss-then-present (iOS can drop a Modal presented mid-dismissal). A
+  // Modal rather than an overlay View: Modals open in their own native window,
+  // so only another Modal could cover a View. Rating/shift hosts check
+  // useIsUpdateRequired and render nothing meanwhile.
   if (data.status === 'update_required') {
     return (
-      // A Modal, not an overlay View: Modals open in their own native window, so
-      // only another Modal could cover a View. Rating/shift hosts check
-      // useIsUpdateRequired and render nothing meanwhile.
       <Modal
         visible
-        transparent={false}
+        transparent
         animationType="none"
         statusBarTranslucent
         navigationBarTranslucent
         onRequestClose={() => undefined}
       >
-        <UpdateRequiredScreen releaseNotes={data.releaseNotes} onUpdate={openStore} />
+        <View style={styles.requiredBackground}>
+          <UpdateRequiredScreen releaseNotes={data.releaseNotes} onUpdate={openStore} />
+        </View>
       </Modal>
     );
   }
 
+  if (data.status !== 'update_available') return null;
   if (dismissed === undefined || !data.latestVersion || dismissed === data.latestVersion) return null;
   const latestVersion = data.latestVersion;
+  const later = () => {
+    setDismissed(latestVersion);
+    void writeDismissedUpdate(latestVersion);
+  };
 
   return (
-    <UpdateAvailableSheet
-      latestVersion={latestVersion}
-      releaseNotes={data.releaseNotes}
-      onUpdate={openStore}
-      onLater={() => {
-        setDismissed(latestVersion);
-        void writeDismissedUpdate(latestVersion);
-      }}
-    />
+    <Modal visible transparent animationType="slide" onRequestClose={later}>
+      <UpdateAvailableSheet
+        latestVersion={latestVersion}
+        releaseNotes={data.releaseNotes}
+        onUpdate={openStore}
+        onLater={later}
+      />
+    </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  // The Modal is transparent (shared with the sheet), so the blocker paints its own opaque fill.
+  requiredBackground: { flex: 1, backgroundColor: colors.background },
+});
