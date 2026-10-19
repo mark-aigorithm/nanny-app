@@ -1,6 +1,8 @@
 import { AppState } from 'react-native';
 import { QueryClient, focusManager, onlineManager } from '@tanstack/react-query';
 
+import { clearPromptedSurveys } from '@mobile/store/surveyPromptStore';
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -22,6 +24,8 @@ export const APP_VERSION_CHECK_KEY = 'app-version-check';
 export function clearUserQueries(): void {
   queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== APP_VERSION_CHECK_KEY });
   queryClient.getMutationCache().clear();
+  // Which surveys were prompted is per account too.
+  clearPromptedSurveys();
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   queryClient,
   subscribeAppActive,
 } from '@mobile/lib/queryClient';
+import { markSurveyPrompted, wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
 afterEach(() => {
   // Leave the singleton the way React Query ships it for other test files.
@@ -91,4 +92,14 @@ it('clearUserQueries drops user data but keeps the app-version check cached', ()
   expect(queryClient.getQueryData(versionKey)).toEqual({ status: 'ok' });
   expect(queryClient.getQueryData(['auth', 'me', 'uid-1'])).toBeUndefined();
   queryClient.clear();
+});
+
+// The prompted-this-session set is per account: after mother A signs out and
+// mother B signs in, a survey id A already saw must still prompt for B.
+it('clearUserQueries forgets which surveys were prompted', () => {
+  markSurveyPrompted(42);
+
+  clearUserQueries();
+
+  expect(wasSurveyPrompted(42)).toBe(false);
 });
