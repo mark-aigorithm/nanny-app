@@ -22,7 +22,11 @@ import {
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { formatTimeAgo } from '@mobile/lib/communityUtils';
-import { navigateToBookingChat, navigateToBookingDetail } from '@mobile/lib/notificationNavigation';
+import {
+  navigateToBookingChat,
+  navigateToBookingDetail,
+  navigateToSurvey,
+} from '@mobile/lib/notificationNavigation';
 import {
   groupNotificationsByDate,
   getNotificationIcon,
@@ -78,6 +82,10 @@ export default function NotificationsScreen() {
         pathname: '/(parent)/chat/messaging',
         params: { conversationId: notification.referenceId },
       });
+      return;
+    }
+    if (notification.referenceType === 'survey' && notification.referenceId) {
+      navigateToSurvey(router, notification.referenceId);
       return;
     }
     // A rejected post needs fixing, so send her to My posts; an approved one

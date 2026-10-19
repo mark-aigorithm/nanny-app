@@ -8,13 +8,16 @@ import { api, unwrap } from '@mobile/lib/api';
 import {
   bookingChatRoleFor,
   isBookingMessagePush,
+  isSurveyPush,
   navigateToBookingChat,
   navigateToBookingDetail,
+  navigateToSurvey,
   shouldFocusCareLogFromPushData,
 } from '@mobile/lib/notificationNavigation';
 import { BOOKING_CHAT_KEY } from '@mobile/hooks/useBookingChat';
 import { goToParentTab } from '@mobile/lib/parentNav';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
+import { PENDING_SURVEYS_KEY } from '@mobile/hooks/useSurveys';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useMessagingStore } from '@mobile/store/messagingStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -155,6 +158,12 @@ function navigateFromNotification(
     void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
   }
 
+  if (isSurveyPush(data)) {
+    void queryClient.invalidateQueries({ queryKey: PENDING_SURVEYS_KEY });
+    navigateToSurvey(router, Number(data!['surveyId']));
+    return;
+  }
+
   if (isBookingMessagePush(data)) {
     const bookingId = Number(data!['bookingId']);
     const inRoleGroup = segments[0] === '(nanny)' || segments[0] === '(parent)';
@@ -283,6 +292,11 @@ export function usePushNotifications() {
       const messaging = messagingFactory();
 
       unsubscribeOnMessage = messaging.onMessage((message) => {
+        if (isSurveyPush(message.data)) {
+          queryClient.invalidateQueries({ queryKey: PENDING_SURVEYS_KEY });
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          return;
+        }
         if (isBookingMessagePush(message.data)) {
           const bookingId = message.data?.['bookingId'];
           void queryClient.invalidateQueries({ queryKey: [BOOKING_CHAT_KEY] });
