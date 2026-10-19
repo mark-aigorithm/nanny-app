@@ -5,10 +5,11 @@ description: Use when shipping a new NannyApp build to testers — a TestFlight 
 
 # Releasing a new build
 
-A **build**, not a version. `app.config.ts` pins `version: '1.0.0'` and `eas.json` sets
+A **build**, not a version. `app.config.ts` pins `version` (currently `1.0.0`) and `eas.json` sets
 `appVersionSource: "remote"`, so EAS owns the build number and `autoIncrement` on the production
 profile bumps it server-side. **Never edit `version` to ship to testers** — a new build number is
-what TestFlight and Play need, and the marketing version only changes when the product does.
+what TestFlight and Play need. The marketing `version` changes only for a public store release (see the
+store-release note under Preflight), because the force-update check compares it.
 
 ## Preflight
 
