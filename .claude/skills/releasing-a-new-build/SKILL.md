@@ -19,6 +19,11 @@ what TestFlight and Play need, and the marketing version only changes when the p
 | Backend env vars on the deployment the app points at | The app talks to the Vercel backend (`API_BASE_URL` in `app.config.ts`). Server config degrades **silently**: no `GMAIL_*`/`SMTP_*` ⇒ every email OTP 400s, no `PAYMOB_*` ⇒ checkout is dead. Check before handing testers a build that exercises them. |
 | `npx eas-cli whoami` | Non-interactive builds fail late without a session. |
 
+For a **store release** (not a tester build), also:
+
+- **Bump `version` in `apps/mobile/app.config.ts`** (semver x.y.z) for every store release. The
+  force-update check compares this version; two builds with the same version are indistinguishable to it.
+
 ## The two commands
 
 ```bash
@@ -73,6 +78,10 @@ artifact link at the end.
 TestFlight processing takes a few minutes after submit; the build appears under the ascAppId
 `6797044436` app. Verify a real device reaches **SMS entry with no reCAPTCHA** — that is the signal
 the APNs production key is still right. For the APK, hand over the artifact URL from the build page.
+
+- **Record the release** in the admin console → App Releases (platform + version) once the store has
+  published it. Tick *Mandatory* only when every older install must stop working — and only after the
+  build is live on that platform's store.
 
 The device-level detail behind these (emulator, Maestro, the Firebase console state) lives in the
 `mobile-e2e-lab` skill and the `phone-auth-verification` memory.
