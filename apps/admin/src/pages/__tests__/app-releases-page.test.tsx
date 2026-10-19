@@ -74,7 +74,7 @@ describe('AppReleasesPage', () => {
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: /add release/i }));
-    await userEvent.type(screen.getByLabelText(/version/i), '2.0.0');
+    await userEvent.type(screen.getByPlaceholderText('1.4.0'), '2.0.0');
     await userEvent.click(screen.getByLabelText(/mandatory/i));
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add release$/i }));
 
@@ -99,7 +99,7 @@ describe('AppReleasesPage', () => {
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: /add release/i }));
-    await userEvent.type(screen.getByLabelText(/version/i), '1.4');
+    await userEvent.type(screen.getByPlaceholderText('1.4.0'), '1.4');
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add release$/i }));
     expect(await screen.findByText(/version must look like 1\.4\.0/i)).toBeInTheDocument();
     expect(called).toBe(false);

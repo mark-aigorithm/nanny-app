@@ -104,7 +104,7 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
         )}
         <Field
           label="Mandatory"
-          hint="Users on an older build are blocked until they update. Otherwise they get a prompt they can dismiss."
+          hint="Users on any older version are blocked until they update. Otherwise they get a prompt they can dismiss."
         >
           <Switch checked={mandatory} onChange={setMandatory} label={mandatory ? 'Mandatory' : 'Optional'} />
         </Field>
