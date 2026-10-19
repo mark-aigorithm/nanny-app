@@ -30,6 +30,7 @@ import {
   Sparkles,
   Ticket,
   Users,
+  UsersRound,
   Video,
   Wallet,
 } from './ui';
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket, section: 'promoCodes' },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone, section: 'campaigns' },
   { to: '/surveys', label: 'Surveys', icon: ClipboardList, section: 'surveys' },
+  { to: '/groups', label: 'Groups', icon: UsersRound, section: 'groups' },
   { to: '/community', label: 'Community', icon: MessagesSquare, section: 'marketplace' },
   { to: '/skills', label: 'Nanny Skills', icon: Sparkles, section: 'skills' },
   { to: '/certifications', label: 'Certifications', icon: BadgeCheck, section: 'certifications' },

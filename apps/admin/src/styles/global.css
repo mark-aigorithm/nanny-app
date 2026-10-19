@@ -3066,6 +3066,22 @@ input[type='number'] {
   width: min(440px, 100%);
 }
 
+/* Wide content, e.g. the mother picker table. */
+.modal--lg {
+  width: min(1100px, 100%);
+}
+
+/* Mother picker: search box, selection summary, then the table. */
+.mother-picker-hint {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.mother-picker-search {
+  width: min(24rem, 100%);
+}
+
 /* Side gutters come from .modal-body above; the footer only owns the bottom edge. */
 .modal-footer {
   display: flex;

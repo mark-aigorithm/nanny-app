@@ -24,6 +24,8 @@ import { RewardsPage } from './pages/rewards-page';
 import { SettingsPage } from './pages/settings-page';
 import { ServiceAreasPage } from './pages/service-areas-page';
 import { SkillsPage } from './pages/skills-page';
+import { GroupDetailPage } from './pages/group-detail-page';
+import { GroupsPage } from './pages/groups-page';
 import { SurveysPage } from './pages/surveys-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
@@ -160,6 +162,22 @@ export function App() {
                   element={
                     <Guarded section="surveys">
                       <SurveysPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="groups"
+                  element={
+                    <Guarded section="groups">
+                      <GroupsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="groups/:id"
+                  element={
+                    <Guarded section="groups">
+                      <GroupDetailPage />
                     </Guarded>
                   }
                 />

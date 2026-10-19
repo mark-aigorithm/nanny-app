@@ -64,6 +64,7 @@ export {
   // Reporting
   Wallet,
   Users,
+  UsersRound,
   ClipboardList,
   // Care Points
   Gift,
