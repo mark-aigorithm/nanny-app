@@ -19,6 +19,7 @@ import {
   AdminPackagePurchaseListQuerySchema,
   type AdminPackagePurchaseListQuery,
   CreateAdminSchema,
+  CreateAppReleaseSchema,
   CreateCameraSchema,
   CreateCampaignSchema,
   CreateCertificationSchema,
@@ -51,6 +52,7 @@ import {
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
   UpdateCampaignSchema,
+  UpdateAppReleaseSchema,
   UpdateCertificationSchema,
   UpdateOfficialPostSchema,
   UpdatePackageSchema,
@@ -219,6 +221,12 @@ import {
   listSkills,
   updateSkill,
 } from '@backend/services/skill.service';
+import {
+  createAppRelease,
+  deleteAppRelease,
+  listAppReleases,
+  updateAppRelease,
+} from '@backend/services/app-release.service';
 import {
   createCertification,
   deleteCertification,
@@ -1295,6 +1303,48 @@ adminRouter.delete(
     }
   },
 );
+
+// ── App releases (force update) ────────────────────────────────
+
+adminRouter.get('/app-releases', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listAppReleases()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/app-releases',
+  validateBody(CreateAppReleaseSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createAppRelease(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/app-releases/:id',
+  validateBody(UpdateAppReleaseSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateAppRelease(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/app-releases/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await deleteAppRelease(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Packages (purchasable hour bundles, EGP) ───────────────────
 

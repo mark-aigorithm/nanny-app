@@ -1,7 +1,14 @@
 import { AppState } from 'react-native';
 import { focusManager, onlineManager } from '@tanstack/react-query';
 
-import { bindFocusManager, bindOnlineManager, subscribeAppActive } from '@mobile/lib/queryClient';
+import {
+  APP_VERSION_CHECK_KEY,
+  bindFocusManager,
+  bindOnlineManager,
+  clearUserQueries,
+  queryClient,
+  subscribeAppActive,
+} from '@mobile/lib/queryClient';
 
 afterEach(() => {
   // Leave the singleton the way React Query ships it for other test files.
@@ -72,4 +79,16 @@ describe('focus — app foreground', () => {
     expect(remove).toHaveBeenCalled();
     spy.mockRestore();
   });
+});
+
+it('clearUserQueries drops user data but keeps the app-version check cached', () => {
+  const versionKey = [APP_VERSION_CHECK_KEY, 'ios', '1.0.0'];
+  queryClient.setQueryData(versionKey, { status: 'ok' });
+  queryClient.setQueryData(['auth', 'me', 'uid-1'], { id: 1 });
+
+  clearUserQueries();
+
+  expect(queryClient.getQueryData(versionKey)).toEqual({ status: 'ok' });
+  expect(queryClient.getQueryData(['auth', 'me', 'uid-1'])).toBeUndefined();
+  queryClient.clear();
 });

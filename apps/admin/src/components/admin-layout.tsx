@@ -31,6 +31,7 @@ import {
   Ticket,
   Users,
   UsersRound,
+  Smartphone,
   Video,
   Wallet,
 } from './ui';
@@ -55,6 +56,7 @@ const navItems: NavItem[] = [
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet, section: 'pricing' },
   { to: '/cameras', label: 'Cameras', icon: Video, section: 'cameras' },
   { to: '/settings', label: 'Booking Options', icon: Settings, section: 'settings' },
+  { to: '/app-releases', label: 'App Releases', icon: Smartphone, section: 'settings' },
   { to: '/service-areas', label: 'Service Areas', icon: MapPin, section: 'serviceAreas' },
 ];
 

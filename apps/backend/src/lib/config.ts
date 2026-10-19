@@ -41,6 +41,14 @@ const ConfigSchema = z.object({
   /** Public origin of this API, e.g. https://api.example.com (no trailing slash). Used to build notification_url. */
   PUBLIC_API_URL: z.string().optional(),
 
+  // Where the app's "update" button sends the user. Defaults are the live
+  // listings (App Store id from eas.json, Android package from app.config.ts).
+  IOS_STORE_URL: z.string().url().default('https://apps.apple.com/app/id6797044436'),
+  ANDROID_STORE_URL: z
+    .string()
+    .url()
+    .default('https://play.google.com/store/apps/details?id=com.nannyapp.mobile'),
+
   // Transactional email — all optional; feature enabled only when a full
   // transport is configured (see buildEmailConfig). Two ways to configure it:
   //  1. Generic SMTP: SMTP_HOST (+ port/user/password/from).
@@ -203,6 +211,7 @@ export const config = {
   nodeEnv: raw.NODE_ENV,
   port: raw.PORT,
   databaseUrl: raw.DATABASE_URL,
+  storeUrls: { ios: raw.IOS_STORE_URL, android: raw.ANDROID_STORE_URL },
   firebase: {
     projectId: raw.FIREBASE_PROJECT_ID,
     clientEmail: raw.FIREBASE_CLIENT_EMAIL,

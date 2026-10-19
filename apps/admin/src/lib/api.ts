@@ -54,10 +54,12 @@ import type {
   BookingMessageListResponse,
   Camera,
   Campaign,
+  AppRelease,
   Certification,
   CreateAdminInput,
   CreateCameraInput,
   CreateCampaignInput,
+  CreateAppReleaseInput,
   CreateCertificationInput,
   CreateDurationRuleInput,
   CreateOfficialPostInput,
@@ -106,6 +108,7 @@ import type {
   UpdateBookingTimesInput,
   UpdateCameraInput,
   UpdateCampaignInput,
+  UpdateAppReleaseInput,
   UpdateCertificationInput,
   UpdateDurationRuleInput,
   UpdateOfficialPostInput,
@@ -301,6 +304,27 @@ export async function updateCertification(
 
 export async function deleteCertification(id: number): Promise<void> {
   await apiClient.delete(`/admin/certifications/${id}`);
+}
+
+// ── App releases (force update) ────────────────────────────────
+
+export async function fetchAppReleases(): Promise<AppRelease[]> {
+  const res = await apiClient.get<ApiEnvelope<AppRelease[]>>('/admin/app-releases');
+  return res.data.data;
+}
+
+export async function createAppRelease(input: CreateAppReleaseInput): Promise<AppRelease> {
+  const res = await apiClient.post<ApiEnvelope<AppRelease>>('/admin/app-releases', input);
+  return res.data.data;
+}
+
+export async function updateAppRelease(id: number, input: UpdateAppReleaseInput): Promise<AppRelease> {
+  const res = await apiClient.patch<ApiEnvelope<AppRelease>>(`/admin/app-releases/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteAppRelease(id: number): Promise<void> {
+  await apiClient.delete(`/admin/app-releases/${id}`);
 }
 
 // ── Packages (purchasable hour bundles, EGP) ───────────────────
