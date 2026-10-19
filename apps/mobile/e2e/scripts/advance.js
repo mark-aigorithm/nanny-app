@@ -1033,7 +1033,68 @@ function serviceAreaClear() {
   }
 }
 
+/**
+ * The surveys s18 sweeps, published to the seeded mother over the admin API
+ * (the seeder soft-deletes her recipient rows before every flow):
+ *   - "One quick question about…" (a long title) — sent first, then skipped
+ *     by her, so the profile list shows a Skipped item;
+ *   - "How are we doing?" — every question type, left PENDING, so the app
+ *     prompts for it on open;
+ *   - "Summer camp ideas" — sent last (the top notification), then closed, so
+ *     opening it shows the closed end state.
+ */
+function surveySeed() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var motherToken = signIn(MOTHER_EMAIL);
+  var motherId = call('GET', motherToken, '/auth/me').id;
+
+  function publish(draft) {
+    var survey = call('POST', adminToken, '/admin/surveys', draft);
+    call('POST', adminToken, '/admin/surveys/' + survey.id + '/publish', { userIds: [motherId] });
+    return survey.id;
+  }
+
+  var skipped = publish({
+    // Long on purpose: the list, the header and the prompt must wrap it, not cut it.
+    title: 'One quick question about your last booking, from the request to the goodbye',
+    questions: [{ type: 'YES_NO', prompt: 'Did your last nanny arrive on time?' }],
+  });
+  call('POST', motherToken, '/surveys/' + skipped + '/skip');
+
+  var pending = publish({
+    title: 'How are we doing?',
+    description: 'Two minutes, promise.',
+    questions: [
+      { type: 'RATING', prompt: 'Rate your last nanny' },
+      {
+        type: 'SINGLE_CHOICE',
+        prompt: 'How did you find us?',
+        options: ['A friend or family member', 'Instagram', 'Search'],
+      },
+      {
+        type: 'MULTI_CHOICE',
+        prompt: 'What do you book for?',
+        options: ['Work', 'Errands', 'Date night'],
+        required: false,
+      },
+      { type: 'YES_NO', prompt: 'Would you recommend us?' },
+      { type: 'TEXT', prompt: 'Anything else?', required: false },
+    ],
+  });
+
+  var closed = publish({
+    title: 'Summer camp ideas',
+    questions: [{ type: 'TEXT', prompt: 'Which activities would your children enjoy?' }],
+  });
+  call('POST', adminToken, '/admin/surveys/' + closed + '/close');
+
+  output.surveyPending = String(pending);
+  output.surveySkipped = String(skipped);
+  output.surveyClosed = String(closed);
+}
+
 var STEPS = {
+  'survey-seed': surveySeed,
   'service-area-set': serviceAreaSet,
   'service-area-clear': serviceAreaClear,
   'admin-time-edit': adminTimeEdit,

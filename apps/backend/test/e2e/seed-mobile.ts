@@ -343,6 +343,17 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
     data: { deletedAt, isActiveSlot: null, status: 'EXPIRED' },
   });
 
+  // A survey left PENDING would put its prompt over the next flow's first
+  // screen, so every flow starts with none; s18 publishes its own.
+  await prisma.surveyRecipient.updateMany({
+    where: { userId: { in: userIds }, deletedAt: null },
+    data: { deletedAt },
+  });
+  await prisma.notification.updateMany({
+    where: { userId: { in: userIds }, type: 'SURVEY', deletedAt: null },
+    data: { deletedAt },
+  });
+
   // eslint-disable-next-line no-console
   console.log(`[seed-mobile] reset     ${bookingIds.length} bookings`);
 }
