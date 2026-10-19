@@ -211,7 +211,9 @@ The survey tables and the `SURVEY` notification enum value come from the `add_su
 run `pnpm db:migrate` against production before merging, or every survey route 500s. Publishing and
 resending send their pushes inside the request (`notifySurveyRecipients`, 25 at a time), because
 Vercel has no background worker: fine for hundreds of mothers, but a send to thousands can hit the
-function timeout and needs the planned queue. Old app builds treat the `survey` notification as an
+function timeout and needs the planned queue. `vercel.json` pins that timeout at `maxDuration: 60`
+for `api/index.js` (allowed on every Vercel plan), and if a publish request still dies the console
+re-reads the survey and reports a partial send instead of a failure. Old app builds treat the `survey` notification as an
 unknown type (listed, tap does nothing) and never prompt. See
 `docs/superpowers/specs/2026-10-19-surveys-design.md`.
 

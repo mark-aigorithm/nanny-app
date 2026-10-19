@@ -2,7 +2,7 @@
  * Choosing who gets a survey: all mothers, any groups and ticked mothers,
  * combined. The summary says what will be sent before anything is.
  */
-import type { MotherPickerRow, UserGroup } from '@nanny-app/shared';
+import type { AdminSurvey, MotherPickerRow, UserGroup } from '@nanny-app/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -91,5 +91,48 @@ describe('RecipientPickerModal', () => {
     await userEvent.click(send);
     await waitFor(() => expect(onDone).toHaveBeenCalledWith(12));
     expect(hit).toBe(true);
+  });
+
+  it('a publish that timed out after it went through closes with a partial-delivery note, not a failure', async () => {
+    const survey = { id: 3, status: 'PUBLISHED' } as AdminSurvey;
+    server.use(
+      http.get('/api/admin/groups', () => ok([GROUP])),
+      // Vercel cut the function off mid-fan-out: the survey is published, some pushes were not sent.
+      http.post('/api/admin/surveys/3/publish', () => new HttpResponse(null, { status: 504 })),
+      http.get('/api/admin/surveys/3', () => ok(survey)),
+    );
+    const onClose = vi.fn();
+    const onDone = vi.fn();
+    renderWithProviders(
+      <ToastProvider>
+        <RecipientPickerModal surveyId={3} mode="publish" onDone={onDone} onClose={onClose} />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole('checkbox', { name: /all mothers/i }));
+    await userEvent.click(screen.getByRole('button', { name: /publish and notify/i }));
+
+    expect(await screen.findByText('Published; some notifications may not have been delivered')).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+    expect(screen.queryByText("Couldn't send the survey")).not.toBeInTheDocument();
+  });
+
+  it('a publish that failed and left the draft a draft still reports the failure', async () => {
+    server.use(
+      http.get('/api/admin/groups', () => ok([GROUP])),
+      http.post('/api/admin/surveys/3/publish', () => new HttpResponse(null, { status: 504 })),
+      http.get('/api/admin/surveys/3', () => ok({ id: 3, status: 'DRAFT' } as AdminSurvey)),
+    );
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ToastProvider>
+        <RecipientPickerModal surveyId={3} mode="publish" onDone={vi.fn()} onClose={onClose} />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole('checkbox', { name: /all mothers/i }));
+    await userEvent.click(screen.getByRole('button', { name: /publish and notify/i }));
+
+    expect(await screen.findByText("Couldn't send the survey")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

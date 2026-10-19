@@ -1,9 +1,9 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Button, Modal, Switch, useToast } from '@admin/components/ui';
 import { MotherPickerTable } from '@admin/features/groups/mother-picker-table';
-import { addSurveyRecipients, fetchUserGroups, publishSurvey } from '@admin/lib/api';
+import { addSurveyRecipients, fetchSurvey, fetchUserGroups, publishSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
 type RecipientPickerModalProps = {
@@ -18,6 +18,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 /** Pick who gets a survey: everyone, groups and ticked mothers (unioned), then publish or add. */
 export function RecipientPickerModal({ surveyId, mode, onDone, onClose }: RecipientPickerModalProps) {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [allMothers, setAllMothers] = useState(false);
   const [groupIds, setGroupIds] = useState<ReadonlySet<number>>(new Set());
   const [userIds, setUserIds] = useState<ReadonlySet<number>>(new Set());
@@ -33,8 +34,32 @@ export function RecipientPickerModal({ surveyId, mode, onDone, onClose }: Recipi
       return mode === 'publish' ? publishSurvey(surveyId, target) : addSurveyRecipients(surveyId, target);
     },
     onSuccess: ({ count }) => onDone(count),
-    onError: (err) => toast.error("Couldn't send the survey", apiErrorMessage(err)),
+    onError: async (err) => {
+      // Publish sends its pushes inside the request, so a function timeout can
+      // cut it off after the survey went out. Ask the server what happened
+      // before telling the admin it failed.
+      if (mode === 'publish' && (await isPublishedNow())) {
+        void queryClient.invalidateQueries({ queryKey: ['surveys'] });
+        toast.toast({ tone: 'info', title: 'Published; some notifications may not have been delivered' });
+        onClose();
+        return;
+      }
+      toast.error("Couldn't send the survey", apiErrorMessage(err));
+    },
   });
+
+  const isPublishedNow = async () => {
+    try {
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ['surveys', surveyId],
+        queryFn: () => fetchSurvey(surveyId),
+        staleTime: 0,
+      });
+      return fresh.status === 'PUBLISHED';
+    } catch {
+      return false;
+    }
+  };
 
   const toggleGroup = (id: number) => {
     const next = new Set(groupIds);
