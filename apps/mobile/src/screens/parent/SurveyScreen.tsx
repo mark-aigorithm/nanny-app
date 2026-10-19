@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { SurveyAnswerInput } from '@nanny-app/shared';
 import { findSurveyAnswerProblem } from '@nanny-app/shared';
@@ -35,7 +34,6 @@ export default function SurveyScreen() {
   const skip = useSkipSurvey();
   const [answers, setAnswers] = useState<Record<number, SurveyAnswerInput | undefined>>({});
   const [done, setDone] = useState(false);
-  const [footerHeight, setFooterHeight] = useState(0);
   const keyboardVisible = useKeyboardVisible();
   const bottomPadding = useBottomBarPadding(spacing.lg);
 
@@ -117,13 +115,18 @@ export default function SurveyScreen() {
   return (
     <ScreenContainer useSafeArea={false}>
       <KeyboardAvoidingView style={styles.flex}>
-        <StackHeader title={survey.data.title} onBack={leave} />
+        {/* The header's title stops at two lines; a survey title can run to 120
+            characters, so it wraps in full at the top of the scroll instead. */}
+        <StackHeader title="Survey" onBack={leave} />
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={[styles.content, { paddingBottom: footerHeight + spacing.lg }]}
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.lg }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <Text accessibilityRole="header" style={styles.title}>
+            {survey.data.title}
+          </Text>
           {survey.data.description ? (
             <Text style={styles.description}>{survey.data.description}</Text>
           ) : null}
@@ -143,7 +146,6 @@ export default function SurveyScreen() {
         </ScrollView>
         <View
           style={[styles.footer, { paddingBottom: keyboardVisible ? spacing.md : bottomPadding }]}
-          onLayout={(e: LayoutChangeEvent) => setFooterHeight(e.nativeEvent.layout.height)}
         >
           <Button
             title="Submit"

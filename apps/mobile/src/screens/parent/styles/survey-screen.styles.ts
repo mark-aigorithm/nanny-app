@@ -8,6 +8,7 @@ export const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.xl,
   },
+  title: { ...typeScale.headingLg, color: colors.textPrimary },
   description: { ...typeScale.bodyLg, color: colors.textSecondary },
   question: { gap: spacing.md },
   prompt: { ...typeScale.headingSm, color: colors.textPrimary },

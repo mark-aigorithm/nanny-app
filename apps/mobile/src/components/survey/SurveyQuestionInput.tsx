@@ -6,7 +6,7 @@ import { SURVEY_TEXT_ANSWER_MAX } from '@nanny-app/shared';
 
 import { PressableScale } from '@mobile/components/ui';
 import { Text, TextInput } from '@mobile/components/ui/text';
-import { borderRadius, colors, spacing, typeScale } from '@mobile/theme';
+import { borderRadius, colors, fontFamily, spacing, typeScale } from '@mobile/theme';
 
 type Props = {
   question: SurveyQuestion;
@@ -137,9 +137,10 @@ const styles = StyleSheet.create({
     borderColor: colors.warmBorder,
     backgroundColor: colors.surface,
   },
-  choiceSelected: { borderColor: colors.primary, backgroundColor: colors.primaryMuted },
+  choiceSelected: { borderColor: colors.primaryDark, backgroundColor: colors.primaryMuted },
   choiceText: { ...typeScale.bodyLg, color: colors.textPrimary, flexShrink: 1 },
-  choiceTextSelected: { color: colors.primaryDark },
+  // Picked reads stronger than unpicked, never paler (the UI sweep caught it looking disabled).
+  choiceTextSelected: { color: colors.textPrimary, fontFamily: fontFamily.semiBold },
   star: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   text: {
     ...typeScale.bodyLg,

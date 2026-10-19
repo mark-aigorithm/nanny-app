@@ -45,7 +45,7 @@ export default function SurveyPromptSheet({ survey, onAnswer, onSkip, onDismiss 
             </Text>
             {survey.description ? <Text style={styles.body}>{survey.description}</Text> : null}
             <Text style={styles.meta}>
-              {`${count} question${count === 1 ? '' : 's'} · about a minute`}
+              {`${count} question${count === 1 ? '' : 's'}`}
             </Text>
             <Button title="Answer" onPress={onAnswer} />
             <Button title="Skip" variant="text" onPress={onSkip} style={styles.skip} />

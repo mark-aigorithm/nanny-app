@@ -61,6 +61,14 @@ describe('SurveyPromptHost', () => {
     expect(screen.queryByText('Survey 7')).toBeNull();
   });
 
+  // A fixed "about a minute" contradicted a survey's own description (and a
+  // 30-question survey); the sheet states only what it knows.
+  it('gives the question count without guessing a duration', () => {
+    mockPending = [s(9, 'PENDING')];
+    renderHost();
+    expect(screen.getByText('3 questions')).toBeTruthy();
+  });
+
   it('opens the survey on Answer', () => {
     mockPending = [s(8, 'PENDING')];
     renderHost();

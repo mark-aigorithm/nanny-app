@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { MotherSurvey } from '@nanny-app/shared';
 
@@ -72,6 +73,31 @@ describe('SurveyScreen', () => {
     render(<SurveyScreen />);
     expect(screen.getByText("We couldn't open this survey.")).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Back' }).length).toBeGreaterThan(1);
+  });
+
+  it('shows a long title in full, as a heading in the scroll, not cut off in the header', () => {
+    const title = 'One quick question about your last booking, from the request to the goodbye';
+    mockSurveyState = { data: { ...SURVEY, title }, isPending: false, error: null };
+    render(<SurveyScreen />);
+    const heading = screen.getByRole('header', { name: title });
+    expect(heading.props.numberOfLines).toBeUndefined();
+    expect(screen.getByText('Survey')).toBeTruthy();
+  });
+
+  // The footer sits below the scroll view, not over it, so padding the content
+  // by its height left a blank band the size of the footer (UI sweep).
+  it("doesn't pad the questions by the footer's height", () => {
+    mockSurveyState = { data: SURVEY, isPending: false, error: null };
+    const { UNSAFE_getAllByType } = render(<SurveyScreen />);
+    const { ScrollView } = jest.requireActual<typeof import('react-native')>('react-native');
+    const scroll = UNSAFE_getAllByType(ScrollView)[0]!;
+    let footer = screen.getByRole('button', { name: 'Submit' }).parent;
+    while (footer && !footer.props.onLayout) footer = footer.parent;
+    const before = StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom;
+    if (footer) fireEvent(footer, 'layout', { persist: () => undefined, nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 200 } } });
+    const after = StyleSheet.flatten(UNSAFE_getAllByType(ScrollView)[0]!.props.contentContainerStyle).paddingBottom;
+    expect(after).toBe(before);
+    expect(after).toBeLessThan(100);
   });
 
   it('skips the survey', () => {
