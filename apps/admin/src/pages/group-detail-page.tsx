@@ -50,8 +50,11 @@ export function GroupDetailPage() {
 
   const add = useMutation({
     mutationFn: () => addUserGroupMembers(groupId, [...addSelection]),
-    onSuccess: () => {
-      toast.success(`Added ${mothers(addSelection.size)}`);
+    // The picker lists current members too and adding is idempotent, so count
+    // what the server actually added.
+    onSuccess: (updated) => {
+      const added = Math.max(0, updated.memberCount - (group.data?.memberCount ?? 0));
+      toast.success(added === 0 ? 'They were already in the group' : `Added ${mothers(added)}`);
       setAddSelection(new Set());
       setAdding(false);
       refresh();
@@ -116,7 +119,12 @@ export function GroupDetailPage() {
           </Button>
         </div>
       )}
-      <MotherPickerTable groupId={groupId} selected={memberSelection} onSelectedChange={setMemberSelection} />
+      <MotherPickerTable
+        groupId={groupId}
+        selected={memberSelection}
+        onSelectedChange={setMemberSelection}
+        selectable={canManage}
+      />
 
       {adding && (
         <Modal

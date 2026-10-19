@@ -26,6 +26,8 @@ type MotherPickerTableProps = {
   onSelectedChange: (next: Set<number>) => void;
   /** List only this group's members. */
   groupId?: number;
+  /** False for a read-only list: no checkboxes, and a row click ticks nothing. */
+  selectable?: boolean;
 };
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
@@ -36,7 +38,12 @@ const money = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits
  * computed before paging). Bookings, hours and spend count completed bookings
  * only. Generic: group membership and survey recipients both use it.
  */
-export function MotherPickerTable({ selected, onSelectedChange, groupId }: MotherPickerTableProps) {
+export function MotherPickerTable({
+  selected,
+  onSelectedChange,
+  groupId,
+  selectable = true,
+}: MotherPickerTableProps) {
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const { sort, onSortChange } = useTableSort<MotherPickerSortKey>(
     { sortBy: 'createdAt', sortDir: 'desc' },
@@ -80,27 +87,28 @@ export function MotherPickerTable({ selected, onSelectedChange, groupId }: Mothe
     onSelectedChange(next);
   };
 
+  const selectColumn: Column<MotherPickerRow, MotherPickerSortKey> = {
+    key: 'select',
+    header: (
+      <input
+        type="checkbox"
+        aria-label="Select all on this page"
+        checked={allOnPage}
+        onChange={togglePage}
+      />
+    ),
+    render: (r) => (
+      <input
+        type="checkbox"
+        aria-label={`Select ${r.name}`}
+        checked={selected.has(r.id)}
+        onChange={() => toggle(r.id)}
+        onClick={(e) => e.stopPropagation()}
+      />
+    ),
+  };
   const columns: Column<MotherPickerRow, MotherPickerSortKey>[] = [
-    {
-      key: 'select',
-      header: (
-        <input
-          type="checkbox"
-          aria-label="Select all on this page"
-          checked={allOnPage}
-          onChange={togglePage}
-        />
-      ),
-      render: (r) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${r.name}`}
-          checked={selected.has(r.id)}
-          onChange={() => toggle(r.id)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      ),
-    },
+    ...(selectable ? [selectColumn] : []),
     { key: 'name', header: 'Name', sortKey: 'name', render: (r) => r.name, width: '22%' },
     { key: 'phone', header: 'Phone', nowrap: true, render: (r) => r.phone ?? '—' },
     {
@@ -166,11 +174,16 @@ export function MotherPickerTable({ selected, onSelectedChange, groupId }: Mothe
         />
       </div>
       <p className="mother-picker-hint">
-        {selected.size} selected. Bookings, hours and spend count completed bookings only.
+        {selectable && `${selected.size} selected. `}Bookings, hours and spend count completed
+        bookings only.
       </p>
       {isLoading && <TableSkeleton columns={columns.length} />}
       {error != null && !data && (
-        <ErrorState message={apiErrorMessage(error)} onRetry={() => void refetch()} retrying={isFetching} />
+        <ErrorState
+          message={apiErrorMessage(error)}
+          onRetry={() => void refetch()}
+          retrying={isFetching}
+        />
       )}
       {data && (
         <>
@@ -185,7 +198,7 @@ export function MotherPickerTable({ selected, onSelectedChange, groupId }: Mothe
             columns={columns}
             rows={pageRows}
             rowKey={(r) => r.id}
-            onRowClick={(r) => toggle(r.id)}
+            onRowClick={selectable ? (r) => toggle(r.id) : undefined}
             sort={sort}
             onSortChange={onSortChange}
             empty={search ? 'No mothers match this search.' : 'No mothers here yet.'}

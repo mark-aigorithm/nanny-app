@@ -7,7 +7,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { MotherPickerTable } from '@admin/features/groups/mother-picker-table';
 import { renderWithProviders } from '@admin/test/render';
@@ -70,5 +70,19 @@ describe('MotherPickerTable', () => {
 
     expect(seen.at(-1)?.get('page')).toBe('2');
     expect(screen.getByRole('checkbox', { name: 'Select Cleo' })).toBeInTheDocument();
+  });
+
+  it('is a plain list with selectable={false}: no checkboxes, and a row click ticks nothing', async () => {
+    server.use(
+      http.get('/api/admin/mother-picker', () =>
+        HttpResponse.json({ data: [row(1, 'Amy')], error: null, meta: { page: 1, limit: 20, total: 1, totalPages: 1 } }),
+      ),
+    );
+    const onSelectedChange = vi.fn();
+    renderWithProviders(<MotherPickerTable selected={new Set()} onSelectedChange={onSelectedChange} selectable={false} />);
+
+    await userEvent.click(await screen.findByText('Amy'));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(onSelectedChange).not.toHaveBeenCalled();
   });
 });
