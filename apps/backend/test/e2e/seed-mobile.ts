@@ -343,6 +343,10 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
     data: { deletedAt, isActiveSlot: null, status: 'EXPIRED' },
   });
 
+  // A release left behind by s19 would put the update sheet or the
+  // update-required blocker over every later flow.
+  await prisma.appRelease.updateMany({ where: { deletedAt: null }, data: { deletedAt } });
+
   // A survey left PENDING would put its prompt over the next flow's first
   // screen, so every flow starts with none; s18 publishes its own.
   await prisma.surveyRecipient.updateMany({

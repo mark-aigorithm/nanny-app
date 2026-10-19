@@ -1,0 +1,98 @@
+# UI sweep 19 — app updates: the optional "A new version is available" sheet
+# (over the signed-out welcome screen), then the full-screen "Time to update"
+# blocker for a mandatory release, opened over a signed-in mother with a
+# survey waiting — the blocker must be the only thing on screen.
+#
+# Releases are recorded over the admin API (`app-release-set`), newer than the
+# installed build. `onFlowComplete` and the seeder clear them, so no other flow
+# opens on an update prompt.
+appId: com.nannyapp.mobile
+onFlowComplete:
+  - runScript:
+      file: ../../scripts/advance.js
+      env:
+        ADVANCE: app-release-clear
+---
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: app-release-set
+      RELEASE_MANDATORY: 'false'
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: survey-seed
+
+# _launch.yaml's own steps, minus its final wait for the welcome screen: the
+# sheet is a Modal, which drops the welcome copy out of the a11y tree.
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- stopApp
+- openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+# The version check answers moments after the bundle loads, so the sheet opens
+# on top of dev-client's developer menu. Back would hit the sheet (Back means
+# "Later"), so the sheet goes first and the menu is closed after it.
+- extendedWaitUntil:
+    visible: 'A new version is available'
+    timeout: 180000
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# ── Optional release: the sheet ────────────────────────────────────────────
+- takeScreenshot: s19-01-update-available
+- tapOn: 'Later'
+- runFlow:
+    when:
+      visible: 'This is the developer menu.*'
+    commands:
+      - tapOn: 'Continue'
+      - back
+- extendedWaitUntil:
+    visible: 'Welcome back'
+    timeout: 30000
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+# Dismissed for this version, so only the survey prompt comes up.
+- extendedWaitUntil:
+    visible: 'Answer'
+    timeout: 60000
+- assertNotVisible: 'A new version is available'
+
+# ── Mandatory release: the blocker, over the survey prompt ─────────────────
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: app-release-set
+      RELEASE_MANDATORY: 'true'
+# Reopened without clearing state: she stays signed in and the survey is
+# still due, so the prompt would show if the blocker let it.
+- stopApp
+- openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+# The blocker opens over dev-client's developer menu and swallows Back; the
+# menu stays underneath, out of sight.
+- extendedWaitUntil:
+    visible: 'Time to update'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible: 'Answer'
+- takeScreenshot: s19-02-update-required
+- scrollUntilVisible:
+    element: 'What is new.*'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- swipe:
+    start: '3%, 60%'
+    end: '3%, 20%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s19-03-update-required-end
+# There is no way past it: Android back is swallowed.
+- back
+- assertVisible: 'Time to update'
+- assertVisible: 'Update now'

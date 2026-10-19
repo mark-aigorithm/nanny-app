@@ -1093,7 +1093,42 @@ function surveySeed() {
   output.surveyClosed = String(closed);
 }
 
+/**
+ * App releases for s19: `app-release-set` records an Android release newer
+ * than the installed build — optional unless RELEASE_MANDATORY is 'true' —
+ * and `app-release-clear` removes every release, so nothing blocks the next
+ * flow. The seeder clears them before every flow as well.
+ */
+var RELEASE_NOTES =
+  'What is new: a faster way to book care, clearer booking times on Home and ' +
+  'Activity, and surveys you can answer from your profile. We also fixed the ' +
+  'map pin jumping on small phones, made care logs load sooner on slow ' +
+  'connections, and tidied up dozens of small things you told us about. ' +
+  'Thank you for helping us look after your family.';
+
+function appReleaseSet() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var mandatory = typeof RELEASE_MANDATORY !== 'undefined' && RELEASE_MANDATORY === 'true';
+  var release = call('POST', adminToken, '/admin/app-releases', {
+    platform: 'android',
+    version: mandatory ? '99.0.0' : '9.9.0',
+    mandatory: mandatory,
+    releaseNotes: RELEASE_NOTES,
+  });
+  output.releaseId = String(release.id);
+}
+
+function appReleaseClear() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var releases = call('GET', adminToken, '/admin/app-releases');
+  for (var i = 0; i < releases.length; i++) {
+    call('DELETE', adminToken, '/admin/app-releases/' + releases[i].id);
+  }
+}
+
 var STEPS = {
+  'app-release-set': appReleaseSet,
+  'app-release-clear': appReleaseClear,
   'survey-seed': surveySeed,
   'service-area-set': serviceAreaSet,
   'service-area-clear': serviceAreaClear,
