@@ -4,11 +4,7 @@ import {
   type NotificationResponse,
   type PaginationMeta,
 } from '@nanny-app/shared';
-import {
-  NotificationReferenceType,
-  NotificationType,
-  type User,
-} from '@prisma/client';
+import type { NotificationReferenceType, NotificationType, User } from '@prisma/client';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
