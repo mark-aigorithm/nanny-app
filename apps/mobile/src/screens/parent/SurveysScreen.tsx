@@ -1,10 +1,10 @@
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { Card, PressableScale, ScreenContainer, StackHeader } from '@mobile/components/ui';
+import { Button, Card, PressableScale, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { usePendingSurveys } from '@mobile/hooks/useSurveys';
 import { navigateToSurvey } from '@mobile/lib/notificationNavigation';
@@ -15,8 +15,7 @@ import { styles } from './styles/surveys-screen.styles';
 export default function SurveysScreen() {
   const router = useRouter();
   const bottomPadding = useBottomBarPadding(spacing['4xl']);
-  const { data } = usePendingSurveys();
-  const surveys = data ?? [];
+  const { data, isLoading, isError, refetch } = usePendingSurveys();
 
   return (
     <ScreenContainer useSafeArea={false}>
@@ -25,10 +24,19 @@ export default function SurveysScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
-        {surveys.length === 0 ? (
+        {isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : isError || !data ? (
+          <View style={styles.center}>
+            <Text style={styles.empty}>Couldn’t load your surveys.</Text>
+            <Button title="Try again" variant="outline" onPress={() => void refetch()} />
+          </View>
+        ) : data.length === 0 ? (
           <Text style={styles.empty}>You're all caught up.</Text>
         ) : (
-          surveys.map((s) => (
+          data.map((s) => (
             <PressableScale
               key={s.id}
               accessibilityRole="button"

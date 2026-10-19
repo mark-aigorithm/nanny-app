@@ -32,7 +32,13 @@ export default function SurveyPromptHost() {
   }, [queryClient]);
 
   useEffect(() => {
-    if (current || ratingShowing || !data) return;
+    if (!data) return;
+    // A refetch can drop the survey under the sheet (closed, or answered elsewhere).
+    if (current && !data.some((x) => x.id === current.id && x.status === 'PENDING')) {
+      setCurrent(null);
+      return;
+    }
+    if (current || ratingShowing) return;
     setCurrent(pickSurveyToPrompt(data, promptedSurveys()));
   }, [data, current, ratingShowing]);
 

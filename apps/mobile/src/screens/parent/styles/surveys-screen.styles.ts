@@ -19,5 +19,6 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   tagText: { ...typeScale.labelMd, color: colors.textSecondary },
+  center: { alignItems: 'stretch', gap: spacing.lg, paddingVertical: spacing.lg },
   empty: { ...typeScale.bodyLg, color: colors.textSecondary },
 });

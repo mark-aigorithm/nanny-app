@@ -77,6 +77,19 @@ describe('SurveyPromptHost', () => {
     expect(wasSurveyPrompted(10)).toBe(true);
   });
 
+  it('closes the sheet when a refetch drops that survey', () => {
+    mockPending = [s(11, 'PENDING')];
+    const view = renderHost();
+    expect(screen.getByText('Survey 11')).toBeTruthy();
+    mockPending = [];
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <SurveyPromptHost />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText('Survey 11')).toBeNull();
+  });
+
   it('waits while the rating prompt is showing', () => {
     mockPending = [s(9, 'PENDING')];
     mockRatingBooking = { id: 1 };
