@@ -23,6 +23,7 @@ import { referralRouter } from './referral.routes';
 import { resetPasswordPageRouter } from './reset-password-page.routes';
 import { rewardRouter } from './reward.routes';
 import { supportRouter } from './support.routes';
+import { surveyRouter } from './survey.routes';
 import { webhookRouter } from './webhook.routes';
 
 export const apiRouter = Router();
@@ -51,6 +52,7 @@ apiRouter.use('/packages', packageRouter);
 apiRouter.use('/referrals', referralRouter);
 apiRouter.use('/rewards', rewardRouter);
 apiRouter.use('/support', supportRouter);
+apiRouter.use('/surveys', surveyRouter);
 
 // Unauthenticated by design — see qa.routes.ts. Mounted only when the flag is
 // on, so an environment that is not running a release test never exposes it.
