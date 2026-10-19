@@ -1,5 +1,7 @@
 import type { Router } from 'expo-router';
 
+import { markSurveyPrompted } from '@mobile/store/surveyPromptStore';
+
 export function navigateToBookingDetail(
   router: Router,
   bookingId: number,
@@ -52,7 +54,13 @@ export function isSurveyPush(data?: Record<string, string>): boolean {
   return Number.isInteger(id) && id > 0;
 }
 
+/**
+ * Every way into a survey (push tap, notifications list, the prompt's Answer)
+ * comes through here, so it is marked prompted first: the pending refetch the
+ * tap triggers must not then offer the same survey in a sheet over its form.
+ */
 export function navigateToSurvey(router: Router, surveyId: number): void {
+  markSurveyPrompted(surveyId);
   router.push({
     pathname: '/(parent)/survey',
     params: { surveyId: String(surveyId) },

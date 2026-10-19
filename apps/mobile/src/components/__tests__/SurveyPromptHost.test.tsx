@@ -8,7 +8,8 @@ const mockPush = jest.fn();
 let mockPending: MotherSurveySummary[] = [];
 let mockRatingBooking: unknown = null;
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+let mockPathname = '/home';
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }), usePathname: () => mockPathname }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -26,7 +27,7 @@ jest.mock('@mobile/store/ratingPromptStore', () => ({
 }));
 
 import SurveyPromptHost from '@mobile/components/SurveyPromptHost';
-import { pickSurveyToPrompt, wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
+import { markSurveyPrompted, pickSurveyToPrompt, wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
 const s = (id: number, status: 'PENDING' | 'SKIPPED'): MotherSurveySummary => ({
   id, title: `Survey ${id}`, description: null, status, questionCount: 3, lastSentAt: '2026-10-19T00:00:00.000Z',
@@ -56,6 +57,7 @@ describe('SurveyPromptHost', () => {
     mockPush.mockReset();
     mockRatingBooking = null;
     mockUpdateRequired = false;
+    mockPathname = '/home';
   });
 
   it('shows nothing while an app update is required, and still prompts after', () => {
@@ -121,5 +123,31 @@ describe('SurveyPromptHost', () => {
     mockRatingBooking = { id: 1 };
     renderHost();
     expect(screen.queryByText('Survey 9')).toBeNull();
+  });
+
+  // A push tap opens the survey route; the pending refetch then finds the same
+  // survey. The sheet must not pop up over the form she is already on.
+  it('shows nothing while the survey route is showing', () => {
+    mockPathname = '/survey';
+    mockPending = [s(21, 'PENDING')];
+    renderHost();
+    expect(screen.queryByText('Survey 21')).toBeNull();
+  });
+
+  it('drops a sheet that was already open once that survey has been opened', () => {
+    mockPending = [s(22, 'PENDING')];
+    const view = renderHost();
+    expect(screen.getByText('Survey 22')).toBeTruthy();
+
+    // She taps the push for it: SurveyScreen marks it prompted and its route shows.
+    markSurveyPrompted(22);
+    mockPathname = '/survey';
+    view.rerender(view.tree());
+    expect(screen.queryByText('Survey 22')).toBeNull();
+
+    // Back on home, the sheet does not come back.
+    mockPathname = '/home';
+    view.rerender(view.tree());
+    expect(screen.queryByText('Survey 22')).toBeNull();
   });
 });

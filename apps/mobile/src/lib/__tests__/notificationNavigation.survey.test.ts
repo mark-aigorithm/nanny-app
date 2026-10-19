@@ -1,4 +1,5 @@
 import { isSurveyPush, navigateToSurvey } from '@mobile/lib/notificationNavigation';
+import { wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
 describe('survey push', () => {
   it('recognises a survey push with an id', () => {
@@ -16,5 +17,14 @@ describe('survey push', () => {
       pathname: '/(parent)/survey',
       params: { surveyId: '4' },
     });
+  });
+
+  // Push tap and the notifications list both open it this way; the prompt
+  // sheet must not then pop up over the survey she just opened.
+  it('marks the survey prompted before opening it', () => {
+    let promptedAtPush = false;
+    const router = { push: jest.fn(() => { promptedAtPush = wasSurveyPrompted(5); }) };
+    navigateToSurvey(router as never, 5);
+    expect(promptedAtPush).toBe(true);
   });
 });

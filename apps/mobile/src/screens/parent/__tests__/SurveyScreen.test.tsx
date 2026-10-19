@@ -26,6 +26,7 @@ jest.mock('@mobile/hooks/useSurveys', () => ({
 }));
 
 import SurveyScreen from '@mobile/screens/parent/SurveyScreen';
+import { wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
 const SURVEY: MotherSurvey = {
   id: 4,
@@ -42,6 +43,15 @@ describe('SurveyScreen', () => {
     mockSubmit.mockReset();
     mockSkip.mockReset();
     mockSurveyIdParam = '4';
+  });
+
+  // However she got here (push, notification, profile list, deep link), the
+  // prompt sheet must not offer this survey on top of it.
+  it('marks the survey prompted on mount', () => {
+    mockSurveyIdParam = '31';
+    mockSurveyState = { isPending: true, error: null };
+    render(<SurveyScreen />);
+    expect(wasSurveyPrompted(31)).toBe(true);
   });
 
   it('enables Submit once required questions are answered and sends the answers', () => {

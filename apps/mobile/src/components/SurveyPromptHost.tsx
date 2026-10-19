@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { MotherSurveySummary } from '@nanny-app/shared';
 
@@ -16,7 +16,8 @@ import { markSurveyPrompted, pickSurveyToPrompt, promptedSurveys } from '@mobile
  * offers her oldest unanswered survey with Answer / Skip. Skip keeps it in her
  * profile list; only an admin's resend brings the prompt back. The rating
  * prompt goes first when both are due, and neither shows over the
- * update-required blocker.
+ * update-required blocker. Nothing shows on the survey screen itself: a push
+ * tap lands there and refetches the list, which still has that survey pending.
  */
 export default function SurveyPromptHost() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function SurveyPromptHost() {
   const skip = useSkipSurvey();
   const ratingShowing = useRatingPromptStore((s) => s.booking) !== null;
   const updateRequired = useIsUpdateRequired();
+  const onSurveyRoute = usePathname() === '/survey';
   const [current, setCurrent] = useState<MotherSurveySummary | null>(null);
 
   useEffect(() => {
@@ -36,16 +38,20 @@ export default function SurveyPromptHost() {
 
   useEffect(() => {
     if (!data) return;
-    // A refetch can drop the survey under the sheet (closed, or answered elsewhere).
-    if (current && !data.some((x) => x.id === current.id && x.status === 'PENDING')) {
+    // A refetch can drop the survey under the sheet (closed, or answered
+    // elsewhere), and opening it any other way (a push tap) marks it prompted.
+    if (
+      current &&
+      (promptedSurveys().has(current.id) || !data.some((x) => x.id === current.id && x.status === 'PENDING'))
+    ) {
       setCurrent(null);
       return;
     }
-    if (current || ratingShowing || updateRequired) return;
+    if (current || ratingShowing || updateRequired || onSurveyRoute) return;
     setCurrent(pickSurveyToPrompt(data, promptedSurveys()));
-  }, [data, current, ratingShowing, updateRequired]);
+  }, [data, current, ratingShowing, updateRequired, onSurveyRoute]);
 
-  if (!current || ratingShowing || updateRequired) return null;
+  if (!current || ratingShowing || updateRequired || onSurveyRoute) return null;
 
   const close = () => {
     markSurveyPrompted(current.id);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { SurveyAnswerInput } from '@nanny-app/shared';
@@ -17,6 +17,7 @@ import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { useSkipSurvey, useSubmitSurvey, useSurvey } from '@mobile/hooks/useSurveys';
 import { apiStatusOf, getApiErrorMessage } from '@mobile/lib/api';
 import { noticeDialog } from '@mobile/store/confirmDialogStore';
+import { markSurveyPrompted } from '@mobile/store/surveyPromptStore';
 import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/survey-screen.styles';
 
@@ -36,6 +37,12 @@ export default function SurveyScreen() {
   const [done, setDone] = useState(false);
   const keyboardVisible = useKeyboardVisible();
   const bottomPadding = useBottomBarPadding(spacing.lg);
+
+  // Opened at all (deep link, profile list, push), she has seen it: the prompt
+  // sheet must not offer it on top of this screen or after she leaves.
+  useEffect(() => {
+    if (Number.isFinite(id) && id > 0) markSurveyPrompted(id);
+  }, [id]);
 
   const leave = () => {
     if (router.canGoBack()) router.back();
