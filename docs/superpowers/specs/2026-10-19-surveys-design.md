@@ -22,6 +22,7 @@ The admin sees who answered, who skipped and who never responded, and can resend
 | Choosing recipients at publish | **All mothers, any groups, and individual mothers — combined**, deduplicated. |
 | Required questions | **Per question** — the admin marks each Required or Optional. |
 | Mother picker | A **table sortable by bookings count, hours booked, sign-up date** and other useful columns, used both for group membership and individual recipients. |
+| Where groups live | **Their own sidebar page, Groups**, not a tab inside Surveys — a future notification center will send to the same groups. |
 
 ### Assumptions (stated, not contested)
 
@@ -135,7 +136,12 @@ model UserGroupMember {
 }
 ```
 
-Table and column names are snake_case via `@@map`/`@map`, as everywhere else. Migration
+Table and column names are snake_case via `@@map`/`@map`, as everywhere else. Per
+`apps/backend/CLAUDE.md`, every model (join tables included) also carries
+`createdAt`/`updatedAt`/`deletedAt` and is soft-deleted, never hard-deleted. As a result
+`SurveyQuestion` has no unique `(surveyId, order)` (replacing a draft soft-deletes the old rows),
+`UserGroup.name` is unique among live groups only (checked in the service), and join tables have their
+own id plus a unique pair. The implementation plan has the exact schema. Migration
 `2026xxxxxxxxxx_add_surveys`.
 
 `NotificationType` gains `SURVEY` and `NotificationReferenceType` gains `SURVEY` — kept in sync
@@ -170,9 +176,14 @@ Shared Zod schemas in `packages/shared/src/survey.ts` (and `user-group.ts`), val
 
 ### Admin (`admin.routes.ts`)
 
-New admin section **`surveys`** (label "Surveys") in `ADMIN_SECTIONS` / labels / paths. Every
-route below gets a rule in `ADMIN_ROUTE_PERMISSIONS` — `GET` → `VIEW`, everything else → `MANAGE`.
-Groups live under the same section.
+Two new admin sections in `ADMIN_SECTIONS` / labels / paths: **`surveys`** ("Surveys") and
+**`groups`** ("Groups"). Every route below gets a rule in `ADMIN_ROUTE_PERMISSIONS` — `GET` →
+`VIEW`, everything else → `MANAGE` — survey routes under `surveys`, group and picker routes under
+`groups`. The two reads the publish dialog needs, `GET /admin/groups` and
+`GET /admin/mother-picker`, also accept `surveys` MANAGE, so a survey operator can pick groups
+without being able to edit them. Group code is feature-neutral (shared `user-group.ts`,
+`admin-group.service.ts`, `mother-picker.service.ts`, admin `features/groups/`) and never imports
+survey code.
 
 | Method & path | Purpose |
 |---|---|
@@ -186,13 +197,13 @@ Groups live under the same section.
 | `POST /admin/surveys/:id/recipients` | Same body; add recipients to a published survey. |
 | `POST /admin/surveys/:id/resend` | Body `{ userIds: number[] }` or `{ status: 'SKIPPED' \| 'PENDING' }`. Returns count resent. |
 | `POST /admin/surveys/:id/close` | Close. |
-| `GET /admin/surveys/:id/results` | Per question: choice/yes-no counts, rating distribution + average, answered count; text answers paged separately via `?questionId&page`. |
+| `GET /admin/surveys/:id/results` | Per question: choice/yes-no counts, rating distribution + average, answered count. |
+| `GET /admin/surveys/:id/text-answers?questionId&page&limit` | One text question's answers, with who wrote them, paged. |
 | `GET /admin/surveys/:id/recipients?status&page&limit&sortBy&sortDir` | Per-mother rows: name, phone, status, sentCount, lastSentAt, skippedAt, answeredAt. |
 | `GET /admin/surveys/:id/recipients/:userId` | That mother's answers. |
 | `GET/POST /admin/groups`, `GET/PATCH/DELETE /admin/groups/:id` | Group CRUD (list includes member count). |
-| `GET /admin/groups/:id/members?page&sortBy…` | Members in picker-table shape. |
 | `POST /admin/groups/:id/members`, `DELETE /admin/groups/:id/members` | Body `{ userIds }`; add is idempotent. |
-| `GET /admin/mothers/picker?search&groupId?&sortBy&sortDir&page&limit` | Mother picker rows (below). |
+| `GET /admin/mother-picker?search&groupId?&sortBy&sortDir&page&limit` | Mother picker rows (below); `groupId` lists one group's members. |
 
 **Mother picker row:** id, name, phone, `completedBookings`, `hoursBooked` (sum of
 `durationHours`), `totalSpent` (sum of `totalAmount`), `lastBookingAt`, `createdAt`,
@@ -211,10 +222,10 @@ done in the database, not after paging.
 
 ## Admin UI (`apps/admin`)
 
-Follows the `nanny-app-admin-design` skill. New sidebar item **Surveys** (lucide `ClipboardList`)
-→ `/surveys` with tabs **Surveys** | **Groups** (`?tab=`, like the Users page).
+Follows the `nanny-app-admin-design` skill. Two new sidebar items: **Surveys** (lucide
+`ClipboardList`) → `/surveys`, and **Groups** (lucide `UsersRound`) → `/groups`.
 
-- **Surveys tab** — table: title, status badge, recipients, answered, skipped, pending, response
+- **Surveys page** — table: title, status badge, recipients, answered, skipped, pending, response
   rate, created. Status filter. "New survey" button.
 - **Survey editor** (`/surveys/:id` while `DRAFT`) — title, description, ordered question cards
   (type select, prompt, Required switch, option list for choice types), add / reorder / delete,
@@ -229,9 +240,10 @@ Follows the `nanny-app-admin-design` skill. New sidebar item **Surveys** (lucide
 - **Recipient picker modal** — "All mothers" switch, group multi-select, the mother picker table
   with checkboxes, live count of selected unique recipients, confirm. Resend actions confirm with
   the count.
-- **Groups tab** — table: name, members, created; create/rename/delete. **Group detail** — member
-  table (picker columns) with remove; **Add mothers** opens the picker table.
-- **Mother picker table** is one reusable component (`features/surveys/mother-picker-table.tsx`):
+- **Groups page** (`/groups`) — table: name, members, created; create. **Group detail**
+  (`/groups/:id`) — rename/delete, member table (picker columns) with remove; **Add mothers** opens
+  the picker table.
+- **Mother picker table** is one reusable component (`features/groups/mother-picker-table.tsx`):
   columns name, phone, bookings, hours booked, total spent, last booking, joined, last active; all
   sortable; search; per-row and page-level checkboxes; selection kept across pages. The shared
   `Table` has no selection support today — selection is added in this component, not by
