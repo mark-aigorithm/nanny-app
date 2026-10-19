@@ -39,7 +39,13 @@ function escapeLike(term: string): string {
 export async function listMotherPicker(
   q: MotherPickerQuery,
 ): Promise<{ rows: MotherPickerRow[]; meta: PaginationMeta }> {
-  const conditions: Prisma.Sql[] = [Prisma.sql`u.role = 'MOTHER'`, Prisma.sql`u.deleted_at IS NULL`];
+  // Only mothers who can receive something: a deactivated mother in a survey's
+  // userIds makes the whole publish fail.
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`u.role = 'MOTHER'`,
+    Prisma.sql`u.deleted_at IS NULL`,
+    Prisma.sql`u.is_active`,
+  ];
   if (q.search) {
     const like = `%${escapeLike(q.search)}%`;
     conditions.push(

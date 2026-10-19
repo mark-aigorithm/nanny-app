@@ -73,3 +73,14 @@ describe('A36 — mother picker', () => {
     expect(inGroup.map((r) => r.id)).toEqual([top.id]);
   });
 });
+
+describe('A36 — mother picker hides deactivated mothers', () => {
+  it('never lists an inactive mother, since a publish that includes one is refused', async () => {
+    const admin = await makeAdmin();
+    const active = await makeMother({ firstName: 'Active' });
+    await makeMother({ firstName: 'Inactive', isActive: false });
+
+    const rows = await pick(admin.token, {});
+    expect(rows.map((r) => r.id)).toEqual([active.id]);
+  });
+});
