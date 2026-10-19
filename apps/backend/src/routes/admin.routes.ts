@@ -61,6 +61,8 @@ import {
   SupportFaqSchema,
   LegalDocumentKeySchema,
   UpdateLegalDocumentSchema,
+  MotherPickerQuerySchema,
+  type MotherPickerQuery,
   UserGroupInputSchema,
   UserGroupMembersSchema,
 } from '@nanny-app/shared';
@@ -182,6 +184,7 @@ import {
   updateServiceArea,
   updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
+import { listMotherPicker } from '@backend/services/mother-picker.service';
 import { lookupServiceArea } from '@backend/services/service-area-lookup.service';
 import {
   createSkill,
@@ -918,6 +921,19 @@ adminRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await removeUserGroupMembers(routeIdParam(req.params.id), req.body.userIds)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get(
+  '/mother-picker',
+  validateQuery(MotherPickerQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { rows, meta } = await listMotherPicker(res.locals['validatedQuery'] as MotherPickerQuery);
+      res.json(okPaged(rows, meta));
     } catch (err) {
       next(err);
     }

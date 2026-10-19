@@ -150,6 +150,8 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'DELETE', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
   { method: 'POST', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
   { method: 'DELETE', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
+  // The publish dialog's individual-mother picker needs it too.
+  { method: 'GET', pattern: '/mother-picker', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
 
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel
