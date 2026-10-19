@@ -73,7 +73,16 @@ export default function SurveyQuestionInput({ question, answer, onChange }: Prop
     case 'RATING': {
       const rating = answer?.rating ?? 0;
       return (
-        <View style={styles.row} accessibilityRole="radiogroup">
+        <View
+          style={styles.row}
+          accessibilityRole="radiogroup"
+          accessibilityLabel={question.prompt}
+          accessibilityValue={
+            rating > 0
+              ? { min: 1, max: 5, now: rating, text: `${rating} of 5 stars` }
+              : { min: 1, max: 5, text: 'Not rated' }
+          }
+        >
           {[1, 2, 3, 4, 5].map((n) => (
             <PressableScale
               key={n}
