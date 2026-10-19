@@ -47,7 +47,9 @@ export function bookingChatRoleFor(
 }
 
 export function isSurveyPush(data?: Record<string, string>): boolean {
-  return data?.['type'] === 'SURVEY' && !!data['surveyId'];
+  if (data?.['type'] !== 'SURVEY') return false;
+  const id = Number(data['surveyId']);
+  return Number.isInteger(id) && id > 0;
 }
 
 export function navigateToSurvey(router: Router, surveyId: number): void {

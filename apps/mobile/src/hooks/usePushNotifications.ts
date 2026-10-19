@@ -148,6 +148,29 @@ export function isAccountStatusPush(data?: Record<string, string>): boolean {
   return type !== undefined && ACCOUNT_STATUS_PUSHES.has(type);
 }
 
+/**
+ * Runs `open` with the role she is in. On a cold start from a tap nothing says
+ * yet whether she is a mother or a nanny (neither route group has mounted and
+ * the profile has not loaded), so it waits for her profile instead of pushing
+ * a route the root gate would drop.
+ */
+function openWhenRoleKnown(
+  segments: readonly string[],
+  open: (role: 'parent' | 'nanny') => void,
+): void {
+  const inRoleGroup = segments[0] === '(nanny)' || segments[0] === '(parent)';
+  const profileRole = useUserProfileStore.getState().profile?.role;
+  if (inRoleGroup || profileRole) {
+    open(bookingChatRoleFor(segments, profileRole));
+    return;
+  }
+  const unsubscribe = useUserProfileStore.subscribe((state) => {
+    if (!state.profile) return;
+    unsubscribe();
+    open(bookingChatRoleFor([], state.profile.role));
+  });
+}
+
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
   segments: readonly string[],
@@ -160,25 +183,15 @@ function navigateFromNotification(
 
   if (isSurveyPush(data)) {
     void queryClient.invalidateQueries({ queryKey: PENDING_SURVEYS_KEY });
-    navigateToSurvey(router, Number(data!['surveyId']));
+    openWhenRoleKnown(segments, (role) => {
+      if (role === 'parent') navigateToSurvey(router, Number(data!['surveyId']));
+    });
     return;
   }
 
   if (isBookingMessagePush(data)) {
     const bookingId = Number(data!['bookingId']);
-    const inRoleGroup = segments[0] === '(nanny)' || segments[0] === '(parent)';
-    const profileRole = useUserProfileStore.getState().profile?.role;
-    if (inRoleGroup || profileRole) {
-      navigateToBookingChat(router, bookingId, bookingChatRoleFor(segments, profileRole));
-      return;
-    }
-    // Cold start from the tap: nothing says yet whether she is a mother or a
-    // nanny. Open the chat once her profile has loaded.
-    const unsubscribe = useUserProfileStore.subscribe((state) => {
-      if (!state.profile) return;
-      unsubscribe();
-      navigateToBookingChat(router, bookingId, bookingChatRoleFor([], state.profile.role));
-    });
+    openWhenRoleKnown(segments, (role) => navigateToBookingChat(router, bookingId, role));
     return;
   }
 

@@ -6,13 +6,14 @@ import { ApiRequestError } from '@mobile/lib/api';
 
 const mockSubmit = jest.fn();
 const mockSkip = jest.fn();
+let mockSurveyIdParam = '4';
 let mockSurveyState: { data?: MotherSurvey; isPending: boolean; error: unknown } = {
   isPending: true,
   error: null,
 };
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ surveyId: '4' }),
+  useLocalSearchParams: () => ({ surveyId: mockSurveyIdParam }),
   useRouter: () => ({ back: jest.fn(), canGoBack: () => true, replace: jest.fn() }),
 }));
 // The icon font loads asynchronously and would set state outside act().
@@ -39,6 +40,7 @@ describe('SurveyScreen', () => {
   beforeEach(() => {
     mockSubmit.mockReset();
     mockSkip.mockReset();
+    mockSurveyIdParam = '4';
   });
 
   it('enables Submit once required questions are answered and sends the answers', () => {
@@ -62,6 +64,14 @@ describe('SurveyScreen', () => {
     expect(screen.getAllByText('Thank you!').length).toBeGreaterThan(0);
     expect(screen.getByText('Your answers help us look after your family better.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
+
+  it.each(['abc', '0', ''])('ends with a message instead of a spinner for surveyId %p', (bad) => {
+    mockSurveyIdParam = bad;
+    mockSurveyState = { data: undefined, isPending: true, error: null };
+    render(<SurveyScreen />);
+    expect(screen.getByText("We couldn't open this survey.")).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Back' }).length).toBeGreaterThan(1);
   });
 
   it('skips the survey', () => {

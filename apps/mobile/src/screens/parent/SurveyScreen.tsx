@@ -50,6 +50,18 @@ export default function SurveyScreen() {
     noticeDialog({ title: 'Could not send your answers', message: getApiErrorMessage(err) });
   };
 
+  if (!Number.isFinite(id) || id <= 0) {
+    return (
+      <ScreenContainer useSafeArea={false}>
+        <StackHeader title="Survey" onBack={leave} />
+        <ScrollView contentContainerStyle={styles.message}>
+          <Text style={styles.messageText}>We couldn't open this survey.</Text>
+          <Button title="Back" variant="outline" onPress={leave} />
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
   const endError = [survey.error, submit.error, skip.error].find((e) => apiStatusOf(e) === 409);
   if (endError instanceof Error) {
     return (
