@@ -14,12 +14,34 @@ import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 import { markSurveyPrompted, pickSurveyToPrompt, promptedSurveys } from '@mobile/store/surveyPromptStore';
 
 /**
+ * Routes where a sheet would interrupt her: the survey itself (a push tap
+ * lands there and refetches the list, which still has it pending), and the
+ * booking and package flows, including the screens a Paymob return lands on.
+ * Viewing a booking (detail, chat, care log) is not a task and still prompts.
+ */
+const QUIET_ROUTES: ReadonlySet<string> = new Set([
+  '/survey',
+  '/book/booking-step-1',
+  '/book/booking-step-2',
+  '/book/booking-step-3',
+  '/book/booking-date-picker',
+  '/book/booking-care-details',
+  '/book/booking-confirmation',
+  '/book/extension-checkout',
+  '/book/adjustment-checkout',
+  '/book/payment-result',
+  '/book/review',
+  '/packages/checkout',
+  '/packages/review',
+  '/packages/payment-result',
+]);
+
+/**
  * Mount once in the parent layout. On open (and on return to the foreground)
  * offers her oldest unanswered survey with Answer / Skip. Skip keeps it in her
  * profile list; only an admin's resend brings the prompt back. The rating
  * prompt goes first when both are due, and neither shows over the
- * update-required blocker. Nothing shows on the survey screen itself: a push
- * tap lands there and refetches the list, which still has that survey pending.
+ * update-required blocker. Nothing shows on QUIET_ROUTES.
  */
 export default function SurveyPromptHost() {
   const router = useRouter();
@@ -36,7 +58,7 @@ export default function SurveyPromptHost() {
   const versionSettled = useIsVersionCheckSettled();
   const ratingSettled = usePendingRatingSettled();
   const othersSettled = versionSettled && ratingSettled;
-  const onSurveyRoute = usePathname() === '/survey';
+  const quietRoute = QUIET_ROUTES.has(usePathname());
   const [current, setCurrent] = useState<MotherSurveySummary | null>(null);
 
   useEffect(() => {
@@ -57,11 +79,11 @@ export default function SurveyPromptHost() {
       setCurrent(null);
       return;
     }
-    if (current || !othersSettled || ratingShowing || updateShowing || onSurveyRoute) return;
+    if (current || !othersSettled || ratingShowing || updateShowing || quietRoute) return;
     setCurrent(pickSurveyToPrompt(data, promptedSurveys()));
-  }, [data, current, othersSettled, ratingShowing, updateShowing, onSurveyRoute]);
+  }, [data, current, othersSettled, ratingShowing, updateShowing, quietRoute]);
 
-  if (!current || ratingShowing || updateShowing || onSurveyRoute) return null;
+  if (!current || ratingShowing || updateShowing || quietRoute) return null;
 
   const close = () => {
     markSurveyPrompted(current.id);

@@ -188,4 +188,28 @@ describe('SurveyPromptHost', () => {
     act(() => useUpdateSheetStore.setState({ visible: false }));
     expect(screen.getByText('Survey 24')).toBeTruthy();
   });
+
+  // A foreground refetch must not drop a sheet over a booking she is part way
+  // through, or over the screen a Paymob 3DS return lands on.
+  it.each([
+    '/book/booking-step-1',
+    '/book/booking-step-3',
+    '/book/booking-confirmation',
+    '/book/extension-checkout',
+    '/book/payment-result',
+    '/packages/checkout',
+    '/packages/payment-result',
+  ])('waits on the booking-flow route %s', (pathname) => {
+    mockPathname = pathname;
+    mockPending = [s(25, 'PENDING')];
+    renderHost();
+    expect(screen.queryByText('Survey 25')).toBeNull();
+  });
+
+  it('still prompts on a booking she is only looking at', () => {
+    mockPathname = '/book/booking-detail';
+    mockPending = [s(26, 'PENDING')];
+    renderHost();
+    expect(screen.getByText('Survey 26')).toBeTruthy();
+  });
 });
