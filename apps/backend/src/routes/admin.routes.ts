@@ -65,6 +65,9 @@ import {
   type MotherPickerQuery,
   UserGroupInputSchema,
   UserGroupMembersSchema,
+  AdminSurveyListQuerySchema,
+  type AdminSurveyListQuery,
+  SurveyDraftSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -184,6 +187,14 @@ import {
   updateServiceArea,
   updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
+import {
+  createSurveyDraft,
+  deleteSurveyDraft,
+  duplicateSurvey,
+  getAdminSurvey,
+  listAdminSurveys,
+  updateSurveyDraft,
+} from '@backend/services/admin-survey.service';
 import { listMotherPicker } from '@backend/services/mother-picker.service';
 import { lookupServiceArea } from '@backend/services/service-area-lookup.service';
 import {
@@ -939,6 +950,72 @@ adminRouter.get(
     }
   },
 );
+
+// ── Surveys ────────────────────────────────────────────────────
+
+adminRouter.get(
+  '/surveys',
+  validateQuery(AdminSurveyListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { surveys, meta } = await listAdminSurveys(res.locals['validatedQuery'] as AdminSurveyListQuery);
+      res.json(okPaged(surveys, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/surveys',
+  validateBody(SurveyDraftSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      res.status(201).json(ok(await createSurveyDraft(req.adminUser.id, req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/surveys/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getAdminSurvey(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch(
+  '/surveys/:id',
+  validateBody(SurveyDraftSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateSurveyDraft(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/surveys/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteSurveyDraft(routeIdParam(req.params.id));
+    res.json(ok(null));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/surveys/:id/duplicate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.adminUser) throw errors.unauthorized();
+    res.status(201).json(ok(await duplicateSurvey(req.adminUser.id, routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Skills (nanny specialty catalog) ───────────────────────────
 

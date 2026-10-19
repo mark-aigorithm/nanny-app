@@ -153,6 +153,14 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   // The publish dialog's individual-mother picker needs it too.
   { method: 'GET', pattern: '/mother-picker', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
 
+  // ── Surveys ─────────────────────────────────────────────────
+  { method: 'GET', pattern: '/surveys', requires: section('surveys', 'VIEW') },
+  { method: 'POST', pattern: '/surveys', requires: section('surveys', 'MANAGE') },
+  { method: 'GET', pattern: '/surveys/:id', requires: section('surveys', 'VIEW') },
+  { method: 'PATCH', pattern: '/surveys/:id', requires: section('surveys', 'MANAGE') },
+  { method: 'DELETE', pattern: '/surveys/:id', requires: section('surveys', 'MANAGE') },
+  { method: 'POST', pattern: '/surveys/:id/duplicate', requires: section('surveys', 'MANAGE') },
+
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel
   // and the nanny profile editor — and it's already public to the mobile app,
