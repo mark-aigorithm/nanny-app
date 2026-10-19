@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.e2e.json",
     "clean": "rm -rf dist",
     "test": "vitest run",
