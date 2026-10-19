@@ -54,7 +54,8 @@ describe('A40 — the public version check', () => {
     const mandatory = await addRelease(admin.token, { platform: 'android', version: '2.0.0', mandatory: true });
     expect((await check('android', '1.0.0')).body.data.status).toBe('update_required');
 
-    await request(app).delete(`/admin/app-releases/${mandatory.id}`).set(...authHeader(admin.token));
+    const del = await request(app).delete(`/admin/app-releases/${mandatory.id}`).set(...authHeader(admin.token));
+    expect(del.status).toBe(200);
 
     expect((await check('android', '1.0.0')).body.data.status).toBe('ok');
   });
@@ -62,10 +63,11 @@ describe('A40 — the public version check', () => {
   it('lifts the block when the release is made optional', async () => {
     const admin = await makeAdmin();
     const release = await addRelease(admin.token, { platform: 'ios', version: '3.0.0', mandatory: true });
-    await request(app)
+    const patched = await request(app)
       .patch(`/admin/app-releases/${release.id}`)
       .set(...authHeader(admin.token))
       .send({ mandatory: false });
+    expect(patched.status).toBe(200);
 
     expect((await check('ios', '2.0.0')).body.data.status).toBe('update_available');
   });
@@ -99,7 +101,8 @@ describe('A40 — managing releases', () => {
   it('allows re-adding a version after deleting it', async () => {
     const admin = await makeAdmin();
     const first = await addRelease(admin.token, { platform: 'ios', version: '1.0.0' });
-    await request(app).delete(`/admin/app-releases/${first.id}`).set(...authHeader(admin.token));
+    const del = await request(app).delete(`/admin/app-releases/${first.id}`).set(...authHeader(admin.token));
+    expect(del.status).toBe(200);
     await addRelease(admin.token, { platform: 'ios', version: '1.0.0' });
   });
 

@@ -28,6 +28,10 @@ describe('isSemver', () => {
     expect(isSemver('0.0.1')).toBe(true);
     expect(isSemver('10.20.30')).toBe(true);
     expect(isSemver('1.4')).toBe(false);
+    expect(isSemver('1.04.0')).toBe(false);
+    expect(isSemver('01.0.0')).toBe(false);
+    expect(isSemver('0.0.0')).toBe(true);
+    expect(isSemver('10.0.1')).toBe(true);
     expect(isSemver('v1.4.0')).toBe(false);
     expect(isSemver('1.4.0 ')).toBe(false);
   });

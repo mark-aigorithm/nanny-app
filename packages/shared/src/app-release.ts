@@ -8,7 +8,7 @@ import { z } from 'zod';
 // x.y.z and always compared numerically (1.10.0 > 1.9.0).
 // ──────────────────────────────────────────────────────────────
 
-const SEMVER = /^\d+\.\d+\.\d+$/;
+const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 export function isSemver(value: string): boolean {
   return SEMVER.test(value);
