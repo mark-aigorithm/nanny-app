@@ -50,4 +50,25 @@ describe('MotherPickerTable', () => {
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Select Cleo' }));
     expect(screen.getByRole('status')).toHaveTextContent('1,3');
   });
+  it('does not jump back to page 1 when the debounce fires after paging', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/admin/mother-picker', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        seen.push(params);
+        const page = Number(params.get('page'));
+        const data = page === 1 ? [row(1, 'Amy'), row(2, 'Bea')] : [row(3, 'Cleo')];
+        return HttpResponse.json({ data, error: null, meta: { page, limit: 2, total: 3, totalPages: 2 } });
+      }),
+    );
+    renderWithProviders(<Harness />);
+
+    await screen.findByRole('checkbox', { name: 'Select Amy' });
+    await userEvent.click(screen.getByRole('button', { name: /next/i }));
+    await screen.findByRole('checkbox', { name: 'Select Cleo' });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(seen.at(-1)?.get('page')).toBe('2');
+    expect(screen.getByRole('checkbox', { name: 'Select Cleo' })).toBeInTheDocument();
+  });
 });

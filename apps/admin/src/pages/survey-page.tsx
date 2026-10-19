@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { ErrorState, LoadingState } from '@admin/components/ui';
+import { ErrorState, LoadingState, useToast } from '@admin/components/ui';
+import { RecipientPickerModal } from '@admin/features/surveys/recipient-picker-modal';
 import { SurveyEditor } from '@admin/features/surveys/survey-editor';
 import { fetchSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
@@ -10,11 +12,30 @@ import { apiErrorMessage } from '@admin/lib/api-error';
 export function SurveyPage() {
   const { id = '' } = useParams();
   const surveyId = Number(id);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [publishing, setPublishing] = useState(false);
   const survey = useQuery({ queryKey: ['surveys', surveyId], queryFn: () => fetchSurvey(surveyId) });
 
   if (survey.isLoading) return <LoadingState label="Loading survey…" />;
   if (survey.error != null || !survey.data) {
     return <ErrorState message={apiErrorMessage(survey.error)} onRetry={() => void survey.refetch()} retrying={survey.isFetching} />;
   }
-  return <SurveyEditor key={survey.data.id} survey={survey.data} />;
+  return (
+    <>
+      <SurveyEditor key={survey.data.id} survey={survey.data} onPublish={() => setPublishing(true)} />
+      {publishing && (
+        <RecipientPickerModal
+          surveyId={surveyId}
+          mode="publish"
+          onClose={() => setPublishing(false)}
+          onDone={(count) => {
+            toast.success(`Sent to ${count} ${count === 1 ? 'mother' : 'mothers'}`);
+            setPublishing(false);
+            void queryClient.invalidateQueries({ queryKey: ['surveys'] });
+          }}
+        />
+      )}
+    </>
+  );
 }

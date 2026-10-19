@@ -46,13 +46,17 @@ export function MotherPickerTable({ selected, onSelectedChange, groupId }: Mothe
   const [search, setSearch] = useState('');
 
   // Debounce typing so each keystroke isn't a request.
+  // Only commits when the text actually changed, so it never fires on mount
+  // and yanks someone who has already paged back to page 1.
   useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
+      setSearch(next);
       reset();
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search, reset]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['mother-picker', { search, groupId, page, limit, ...sort }],
