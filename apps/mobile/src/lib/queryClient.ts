@@ -10,6 +10,20 @@ export const queryClient = new QueryClient({
   },
 });
 
+/** Root key of the app-version check, which must outlive sign-in/out (see clearUserQueries). */
+export const APP_VERSION_CHECK_KEY = 'app-version-check';
+
+/**
+ * Drop every cached server query and mutation on an account change, except the
+ * app-version check. UpdateGate is mounted once at the root and does not
+ * re-render on auth changes, so removing its query would orphan its observer
+ * (it would never refetch on focus). The check is not user data.
+ */
+export function clearUserQueries(): void {
+  queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== APP_VERSION_CHECK_KEY });
+  queryClient.getMutationCache().clear();
+}
+
 /**
  * Point React Query's online/offline awareness at the OS instead of its
  * default (`navigator.onLine`, meaningless on a device). Queries that fail

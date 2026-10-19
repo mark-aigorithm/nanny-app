@@ -5,10 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { AppPlatform, AppVersionCheckResult } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
+import { APP_VERSION_CHECK_KEY } from '@mobile/lib/queryClient';
 
-export const APP_VERSION_CHECK_KEY = 'app-version-check';
+export { APP_VERSION_CHECK_KEY };
 
-/** The version the store installed; the JS config version only as a fallback (e.g. Expo Go). */
+/** The version the store installed; the JS config version only as a fallback when the native version is unavailable. */
 export function installedAppVersion(): string | null {
   return Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? null;
 }
