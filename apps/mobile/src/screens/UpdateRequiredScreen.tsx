@@ -27,7 +27,7 @@ export default function UpdateRequiredScreen({ releaseNotes, onUpdate }: UpdateR
 
   return (
     <ScreenContainer useSafeArea={false}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <IconCircle
           icon="arrow-up-circle-outline"
           size="xl"
