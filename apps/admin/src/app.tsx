@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, RouterProvider, Routes, createBrowserRouter } from 'react-router-dom';
 
 import type { AdminSection } from '@nanny-app/shared';
 
@@ -61,221 +61,232 @@ function LandingRedirect() {
   return landingPath === null ? <NoAccess /> : <Navigate to={landingPath} replace />;
 }
 
+/**
+ * The console's routes, under one splat route of a data router. A data router
+ * is what makes `useBlocker` work (the survey editor's unsaved-changes guard);
+ * the route tree itself is unchanged.
+ */
+function AppRoutes() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="login" element={<LoginPage />} />
+        {/* Public by design: the release-test checklist is walked by the
+          business team, who have no console account. Outside RequireAuth
+          and AdminLayout, so it renders with no sign-in and no sidebar. */}
+        <Route path="qa" element={<QaChecklistPage />} />
+        {/* Public for the same reason: the cancellation policy is decided
+          with the business team. Static content, no API calls. */}
+        <Route path="cancellation-flows" element={<CancellationFlowsPage />} />
+        <Route
+          element={
+            <RequireAuth>
+              <PermissionsProvider>
+                <AdminLayout />
+              </PermissionsProvider>
+            </RequireAuth>
+          }
+        >
+          <Route
+            index
+            element={
+              <Guarded section="dashboard">
+                <DashboardPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="bookings"
+            element={
+              <Guarded section="bookings">
+                <BookingsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="bookings/:id"
+            element={
+              <Guarded section="bookings">
+                <BookingDetailPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <Guarded section="users">
+                <UsersPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="users/mothers/:id"
+            element={
+              <Guarded section="users">
+                <MotherDetailPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="users/nannies/:id"
+            element={
+              <Guarded section="users">
+                <NannyDetailPage />
+              </Guarded>
+            }
+          />
+          {/* Legacy path — the Nannies page is now a tab under Users. */}
+          <Route path="nannies" element={<Navigate to="/users?tab=nannies" replace />} />
+          <Route
+            path="admins"
+            element={
+              <SuperuserOnly>
+                <AdminsPage />
+              </SuperuserOnly>
+            }
+          />
+          <Route
+            path="promo-codes"
+            element={
+              <Guarded section="promoCodes">
+                <PromoCodesPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="campaigns"
+            element={
+              <Guarded section="campaigns">
+                <CampaignsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="surveys"
+            element={
+              <Guarded section="surveys">
+                <SurveysPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="groups"
+            element={
+              <Guarded section="groups">
+                <GroupsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="groups/:id"
+            element={
+              <Guarded section="groups">
+                <GroupDetailPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="surveys/:id"
+            element={
+              <Guarded section="surveys">
+                <SurveyPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="community"
+            element={
+              <Guarded section="marketplace">
+                <CommunityPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="skills"
+            element={
+              <Guarded section="skills">
+                <SkillsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="certifications"
+            element={
+              <Guarded section="certifications">
+                <CertificationsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="packages"
+            element={
+              <Guarded section="packages">
+                <PackagesPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="rewards"
+            element={
+              <Guarded section="rewards">
+                <RewardsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="pricing"
+            element={
+              <Guarded section="pricing">
+                <PricingFeesPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="cameras"
+            element={
+              <Guarded section="cameras">
+                <CamerasPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Guarded section="settings">
+                <SettingsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="app-releases"
+            element={
+              <Guarded section="settings">
+                <AppReleasesPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="service-areas"
+            element={
+              <Guarded section="serviceAreas">
+                <ServiceAreasPage />
+              </Guarded>
+            }
+          />
+          <Route path="*" element={<LandingRedirect />} />
+        </Route>
+      </Routes>
+    </AuthProvider>
+  );
+}
+
+const router = createBrowserRouter([{ path: '*', element: <AppRoutes /> }]);
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="login" element={<LoginPage />} />
-              {/* Public by design: the release-test checklist is walked by the
-                business team, who have no console account. Outside RequireAuth
-                and AdminLayout, so it renders with no sign-in and no sidebar. */}
-              <Route path="qa" element={<QaChecklistPage />} />
-              {/* Public for the same reason: the cancellation policy is decided
-                with the business team. Static content, no API calls. */}
-              <Route path="cancellation-flows" element={<CancellationFlowsPage />} />
-              <Route
-                element={
-                  <RequireAuth>
-                    <PermissionsProvider>
-                      <AdminLayout />
-                    </PermissionsProvider>
-                  </RequireAuth>
-                }
-              >
-                <Route
-                  index
-                  element={
-                    <Guarded section="dashboard">
-                      <DashboardPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="bookings"
-                  element={
-                    <Guarded section="bookings">
-                      <BookingsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="bookings/:id"
-                  element={
-                    <Guarded section="bookings">
-                      <BookingDetailPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="users"
-                  element={
-                    <Guarded section="users">
-                      <UsersPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="users/mothers/:id"
-                  element={
-                    <Guarded section="users">
-                      <MotherDetailPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="users/nannies/:id"
-                  element={
-                    <Guarded section="users">
-                      <NannyDetailPage />
-                    </Guarded>
-                  }
-                />
-                {/* Legacy path — the Nannies page is now a tab under Users. */}
-                <Route path="nannies" element={<Navigate to="/users?tab=nannies" replace />} />
-                <Route
-                  path="admins"
-                  element={
-                    <SuperuserOnly>
-                      <AdminsPage />
-                    </SuperuserOnly>
-                  }
-                />
-                <Route
-                  path="promo-codes"
-                  element={
-                    <Guarded section="promoCodes">
-                      <PromoCodesPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="campaigns"
-                  element={
-                    <Guarded section="campaigns">
-                      <CampaignsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="surveys"
-                  element={
-                    <Guarded section="surveys">
-                      <SurveysPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="groups"
-                  element={
-                    <Guarded section="groups">
-                      <GroupsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="groups/:id"
-                  element={
-                    <Guarded section="groups">
-                      <GroupDetailPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="surveys/:id"
-                  element={
-                    <Guarded section="surveys">
-                      <SurveyPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="community"
-                  element={
-                    <Guarded section="marketplace">
-                      <CommunityPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="skills"
-                  element={
-                    <Guarded section="skills">
-                      <SkillsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="certifications"
-                  element={
-                    <Guarded section="certifications">
-                      <CertificationsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="packages"
-                  element={
-                    <Guarded section="packages">
-                      <PackagesPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="rewards"
-                  element={
-                    <Guarded section="rewards">
-                      <RewardsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="pricing"
-                  element={
-                    <Guarded section="pricing">
-                      <PricingFeesPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="cameras"
-                  element={
-                    <Guarded section="cameras">
-                      <CamerasPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="settings"
-                  element={
-                    <Guarded section="settings">
-                      <SettingsPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="app-releases"
-                  element={
-                    <Guarded section="settings">
-                      <AppReleasesPage />
-                    </Guarded>
-                  }
-                />
-                <Route
-                  path="service-areas"
-                  element={
-                    <Guarded section="serviceAreas">
-                      <ServiceAreasPage />
-                    </Guarded>
-                  }
-                />
-                <Route path="*" element={<LandingRedirect />} />
-              </Route>
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+        <RouterProvider router={router} />
       </ToastProvider>
     </QueryClientProvider>
   );

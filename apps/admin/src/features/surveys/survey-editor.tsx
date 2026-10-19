@@ -1,8 +1,8 @@
 import type { AdminSurvey, SurveyDraftInput } from '@nanny-app/shared';
 import { SURVEY_DESCRIPTION_MAX, SURVEY_MAX_QUESTIONS, SURVEY_TITLE_MAX, SurveyDraftSchema } from '@nanny-app/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useBlocker, useNavigate } from 'react-router-dom';
 
 import {
   Button,
@@ -54,6 +54,26 @@ export function SurveyEditor({ survey, onPublish }: Props) {
   const [questions, setQuestions] = useState<DraftQuestion[]>(() => toDraftQuestions(survey));
   const [dirty, setDirty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Set just before the editor navigates away on purpose (after a delete), so
+  // the unsaved-changes guard lets that one through.
+  const leavingOnPurpose = useRef(false);
+
+  // Unsaved edits: ask before an in-app navigation, and let the browser ask
+  // before the tab closes or reloads.
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty && !leavingOnPurpose.current && currentLocation.pathname !== nextLocation.pathname,
+  );
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Older browsers show the prompt only when returnValue is set.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   const draft = useMemo<SurveyDraftInput>(
     () => ({
@@ -106,6 +126,7 @@ export function SurveyEditor({ survey, onPublish }: Props) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['surveys'] });
       toast.success('Draft deleted');
+      leavingOnPurpose.current = true;
       navigate('/surveys');
     },
     onError: (err) => {
@@ -201,6 +222,17 @@ export function SurveyEditor({ survey, onPublish }: Props) {
           </p>
         )}
       </div>
+      {blocker.state === 'blocked' && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          message="Your changes to this draft will be lost."
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          danger
+          onConfirm={() => blocker.proceed()}
+          onCancel={() => blocker.reset()}
+        />
+      )}
       {confirmDelete && (
         <ConfirmDialog
           title="Delete this draft?"

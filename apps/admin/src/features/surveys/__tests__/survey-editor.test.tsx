@@ -6,7 +6,7 @@ import type { AdminSurvey } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ToastProvider } from '@admin/components/ui';
@@ -28,17 +28,20 @@ const DRAFT: AdminSurvey = {
 
 function renderEditor(survey: AdminSurvey = DRAFT, onPublish = vi.fn(), me: unknown = ADMIN) {
   server.use(http.get('/api/admin/me', () => ok(me)));
+  // A data router, as the app uses: the unsaved-changes guard needs useBlocker.
+  const router = createMemoryRouter(
+    [
+      { path: '/surveys/:id', element: <SurveyEditor survey={survey} onPublish={onPublish} /> },
+      { path: '/surveys', element: <p>Survey list</p> },
+    ],
+    { initialEntries: ['/surveys/3'] },
+  );
   return renderWithProviders(
-    <MemoryRouter initialEntries={['/surveys/3']}>
-      <ToastProvider>
-        <PermissionsProvider>
-          <Routes>
-            <Route path="/surveys/:id" element={<SurveyEditor survey={survey} onPublish={onPublish} />} />
-            <Route path="/surveys" element={<p>Survey list</p>} />
-          </Routes>
-        </PermissionsProvider>
-      </ToastProvider>
-    </MemoryRouter>,
+    <ToastProvider>
+      <PermissionsProvider>
+        <RouterProvider router={router} />
+      </PermissionsProvider>
+    </ToastProvider>,
   );
 }
 
@@ -174,5 +177,45 @@ describe('SurveyEditor', () => {
     expect(await screen.findByRole('button', { name: /duplicate/i })).toBeEnabled();
     await userEvent.type(screen.getByLabelText('Survey description'), 'x');
     expect(screen.getByRole('button', { name: /duplicate/i })).toBeDisabled();
+  });
+
+  describe('unsaved changes', () => {
+    it('asks before leaving with unsaved edits; Stay keeps them, Leave goes', async () => {
+      renderEditor();
+      const title = await screen.findByLabelText(/title/i);
+      await userEvent.clear(title);
+      await userEvent.type(title, 'Half written');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Surveys' }));
+      const dialog = await screen.findByRole('dialog', { name: /leave without saving/i });
+      await userEvent.click(within(dialog).getByRole('button', { name: /stay/i }));
+      expect(screen.queryByText('Survey list')).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/title/i)).toHaveValue('Half written');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Surveys' }));
+      await userEvent.click(
+        within(await screen.findByRole('dialog', { name: /leave without saving/i })).getByRole('button', { name: /leave/i }),
+      );
+      expect(await screen.findByText('Survey list')).toBeInTheDocument();
+    });
+
+    it('leaves without asking when nothing changed', async () => {
+      renderEditor();
+      await userEvent.click(await screen.findByRole('button', { name: 'Surveys' }));
+      expect(await screen.findByText('Survey list')).toBeInTheDocument();
+    });
+
+    it('asks the browser to confirm closing the tab only while there are unsaved edits', async () => {
+      renderEditor();
+      const clean = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(clean);
+      expect(clean.defaultPrevented).toBe(false);
+
+      const title = await screen.findByLabelText(/title/i);
+      await userEvent.type(title, '!');
+      const dirty = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(dirty);
+      expect(dirty.defaultPrevented).toBe(true);
+    });
   });
 });
