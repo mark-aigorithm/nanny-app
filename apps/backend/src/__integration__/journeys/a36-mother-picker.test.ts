@@ -44,13 +44,22 @@ describe('A36 — mother picker', () => {
   it('pages after sorting, searches by name, and filters to a group', async () => {
     const admin = await makeAdmin();
     const nanny = await makeNanny();
-    const top = await makeMother({ firstName: 'Zed' });
-    await makeMother({ firstName: 'Amy' });
+    const amy = await makeMother({ firstName: 'Amy' });
     await makeMother({ firstName: 'Bea' });
+    // Created last, so it has the highest id: only a real sort-before-paging puts it first.
+    const top = await makeMother({ firstName: 'Zed' });
     await makeBooking({ motherId: top.id, nannyProfileId: nanny.nannyProfileId, status: 'COMPLETED' });
 
     const firstPage = await pick(admin.token, { sortBy: 'completedBookings', sortDir: 'desc', limit: 1, page: 1 });
     expect(firstPage.map((r) => r.id)).toEqual([top.id]);
+
+    const secondRes = await request(app)
+      .get('/admin/mother-picker')
+      .query({ sortBy: 'completedBookings', sortDir: 'desc', limit: 1, page: 2 })
+      .set(...authHeader(admin.token));
+    expect(secondRes.status).toBe(200);
+    expect((secondRes.body.data as Row[]).map((r) => r.id)).toEqual([amy.id]);
+    expect(secondRes.body.meta).toMatchObject({ total: 3, totalPages: 3 });
 
     const found = await pick(admin.token, { search: 'ze' });
     expect(found.map((r) => r.id)).toEqual([top.id]);
