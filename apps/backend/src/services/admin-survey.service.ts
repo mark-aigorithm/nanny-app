@@ -1,4 +1,4 @@
-import { SurveyRecipientStatus, SurveyStatus } from '@prisma/client';
+import { type Prisma, SurveyRecipientStatus, SurveyStatus } from '@prisma/client';
 
 import type {
   AdminSurvey,
@@ -33,13 +33,22 @@ type SurveyRow = {
   createdAt: Date;
 };
 
+/**
+ * The recipients the console counts and lists. A mother whose account was
+ * deleted after the send keeps her answers in the results, but she no longer
+ * counts as skipped or no response, and can't be chased.
+ */
+export const countedRecipient: Prisma.SurveyRecipientWhereInput = {
+  OR: [{ status: SurveyRecipientStatus.ANSWERED }, { user: { deletedAt: null } }],
+};
+
 /** Recipient counts per survey, by status, in one grouped query. */
 export async function surveyCounts(surveyIds: number[]): Promise<Map<number, SurveyCounts>> {
   const map = new Map<number, SurveyCounts>();
   if (surveyIds.length === 0) return map;
   const grouped = await prisma.surveyRecipient.groupBy({
     by: ['surveyId', 'status'],
-    where: { surveyId: { in: surveyIds }, deletedAt: null },
+    where: { surveyId: { in: surveyIds }, deletedAt: null, ...countedRecipient },
     _count: { _all: true },
   });
   for (const g of grouped) {
@@ -81,10 +90,27 @@ export async function requireSurvey(id: number): Promise<SurveyWithQuestions> {
   return row;
 }
 
+const NOT_A_DRAFT = "A published survey can't be changed — duplicate it instead.";
+
 function assertDraft(row: { status: SurveyStatus }): void {
-  if (row.status !== SurveyStatus.DRAFT) {
-    throw errors.conflict("A published survey can't be changed — duplicate it instead.");
-  }
+  if (row.status !== SurveyStatus.DRAFT) throw errors.conflict(NOT_A_DRAFT);
+}
+
+/**
+ * Stamps a still-live survey that is still in `status`, inside the caller's
+ * transaction. The status checks before a write read a row another admin may
+ * since have published or closed; this re-check in the write itself is the one
+ * that holds, so a stale read ends in a 409 instead of a changed survey.
+ */
+async function guardStatus(
+  tx: Prisma.TransactionClient,
+  id: number,
+  status: SurveyStatus,
+  data: Prisma.SurveyUpdateManyMutationInput,
+  conflict: string,
+): Promise<void> {
+  const { count } = await tx.survey.updateMany({ where: { id, status, deletedAt: null }, data });
+  if (count === 0) throw errors.conflict(conflict);
 }
 
 export async function listAdminSurveys(
@@ -130,27 +156,22 @@ export async function updateSurveyDraft(id: number, input: SurveyDraft): Promise
   const now = new Date();
   const questionIds = existing.questions.map((q) => q.id);
 
-  await prisma.$transaction([
-    prisma.surveyQuestionOption.updateMany({
+  await prisma.$transaction(async (tx) => {
+    // Guard first: the questions are replaced only while it is still a draft.
+    await guardStatus(tx, id, SurveyStatus.DRAFT, { title: input.title, description: input.description }, NOT_A_DRAFT);
+    await tx.surveyQuestionOption.updateMany({
       where: { questionId: { in: questionIds }, deletedAt: null },
       data: { deletedAt: now },
-    }),
-    prisma.surveyQuestion.updateMany({ where: { id: { in: questionIds } }, data: { deletedAt: now } }),
-    prisma.survey.update({
-      where: { id },
-      data: {
-        title: input.title,
-        description: input.description,
-        questions: { create: questionCreateData(input.questions) },
-      },
-    }),
-  ]);
+    });
+    await tx.surveyQuestion.updateMany({ where: { id: { in: questionIds } }, data: { deletedAt: now } });
+    await tx.survey.update({ where: { id }, data: { questions: { create: questionCreateData(input.questions) } } });
+  });
   return getAdminSurvey(id);
 }
 
 export async function deleteSurveyDraft(id: number): Promise<void> {
   assertDraft(await requireSurvey(id));
-  await prisma.survey.update({ where: { id }, data: { deletedAt: new Date() } });
+  await prisma.$transaction((tx) => guardStatus(tx, id, SurveyStatus.DRAFT, { deletedAt: new Date() }, NOT_A_DRAFT));
 }
 
 export async function duplicateSurvey(adminId: number, id: number): Promise<AdminSurvey> {
@@ -225,27 +246,39 @@ export async function resendSurvey(id: number, body: SurveyResendInput): Promise
   const survey = await requireSurvey(id);
   assertPublished(survey, 'be resent');
 
-  const where =
-    'userIds' in body
-      ? { surveyId: id, deletedAt: null, userId: { in: body.userIds }, status: { not: SurveyRecipientStatus.ANSWERED } }
-      : { surveyId: id, deletedAt: null, status: body.status };
-  const targets = await prisma.surveyRecipient.findMany({ where, select: { id: true, userId: true } });
-  if (targets.length === 0) return { count: 0 };
-
-  await prisma.surveyRecipient.updateMany({
-    where: { id: { in: targets.map((t) => t.id) }, status: { not: SurveyRecipientStatus.ANSWERED } },
-    data: { status: SurveyRecipientStatus.PENDING, sentCount: { increment: 1 }, lastSentAt: new Date() },
+  const chosen: Prisma.SurveyRecipientWhereInput = 'userIds' in body ? { userId: { in: body.userIds } } : {};
+  const status = 'userIds' in body ? { not: SurveyRecipientStatus.ANSWERED } : body.status;
+  // Each send gets its own lastSentAt, so the rows this resend actually reset
+  // can be read back by it: a mother who answered between a read and the write
+  // is neither counted nor notified.
+  const sentAt = new Date();
+  const userIds = await prisma.$transaction(async (tx) => {
+    await tx.surveyRecipient.updateMany({
+      where: { surveyId: id, deletedAt: null, user: { deletedAt: null }, ...chosen, status },
+      data: { status: SurveyRecipientStatus.PENDING, sentCount: { increment: 1 }, lastSentAt: sentAt },
+    });
+    const reset = await tx.surveyRecipient.findMany({
+      where: { surveyId: id, deletedAt: null, ...chosen, status: SurveyRecipientStatus.PENDING, lastSentAt: sentAt },
+      select: { userId: true },
+      orderBy: { userId: 'asc' },
+    });
+    return reset.map((r) => r.userId);
   });
-  await notifySurveyRecipients(
-    survey,
-    targets.map((t) => t.userId),
-  );
-  return { count: targets.length };
+  await notifySurveyRecipients(survey, userIds);
+  return { count: userIds.length };
 }
 
 export async function closeSurvey(id: number): Promise<AdminSurvey> {
   const survey = await requireSurvey(id);
   assertPublished(survey, 'be closed');
-  await prisma.survey.update({ where: { id }, data: { status: SurveyStatus.CLOSED, closedAt: new Date() } });
+  await prisma.$transaction((tx) =>
+    guardStatus(
+      tx,
+      id,
+      SurveyStatus.PUBLISHED,
+      { status: SurveyStatus.CLOSED, closedAt: new Date() },
+      'Only a published survey can be closed.',
+    ),
+  );
   return getAdminSurvey(id);
 }

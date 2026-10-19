@@ -15,7 +15,7 @@ import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
 import { displayName } from '@backend/lib/display-name';
 import { EMPTY_COUNTS } from '@backend/lib/survey-dto';
-import { requireSurvey, surveyCounts } from '@backend/services/admin-survey.service';
+import { countedRecipient, requireSurvey, surveyCounts } from '@backend/services/admin-survey.service';
 
 const meta = (page: number, limit: number, total: number): PaginationMeta => ({
   page,
@@ -160,7 +160,13 @@ export async function listSurveyRecipients(
   q: AdminSurveyRecipientListQuery,
 ): Promise<{ recipients: AdminSurveyRecipient[]; meta: PaginationMeta }> {
   await requireSurvey(id);
-  const where: Prisma.SurveyRecipientWhereInput = { surveyId: id, deletedAt: null, ...(q.status ? { status: q.status } : {}) };
+  // Same rows as the counts on the tabs above the list.
+  const where: Prisma.SurveyRecipientWhereInput = {
+    surveyId: id,
+    deletedAt: null,
+    ...countedRecipient,
+    ...(q.status ? { status: q.status } : {}),
+  };
   const [total, rows] = await prisma.$transaction([
     prisma.surveyRecipient.count({ where }),
     prisma.surveyRecipient.findMany({
