@@ -1,4 +1,4 @@
-import { SurveyStatus } from '@prisma/client';
+import { SurveyRecipientStatus, SurveyStatus } from '@prisma/client';
 
 import type {
   AdminSurvey,
@@ -7,6 +7,7 @@ import type {
   PaginationMeta,
   SurveyCounts,
   SurveyDraft,
+  SurveyResendInput,
   SurveySendResult,
   SurveyTarget,
 } from '@nanny-app/shared';
@@ -218,4 +219,33 @@ export async function addSurveyRecipients(id: number, target: SurveyTarget): Pro
   });
   await notifySurveyRecipients(survey, fresh);
   return { count: fresh.length };
+}
+
+export async function resendSurvey(id: number, body: SurveyResendInput): Promise<SurveySendResult> {
+  const survey = await requireSurvey(id);
+  assertPublished(survey, 'be resent');
+
+  const where =
+    'userIds' in body
+      ? { surveyId: id, deletedAt: null, userId: { in: body.userIds }, status: { not: SurveyRecipientStatus.ANSWERED } }
+      : { surveyId: id, deletedAt: null, status: body.status };
+  const targets = await prisma.surveyRecipient.findMany({ where, select: { id: true, userId: true } });
+  if (targets.length === 0) return { count: 0 };
+
+  await prisma.surveyRecipient.updateMany({
+    where: { id: { in: targets.map((t) => t.id) }, status: { not: SurveyRecipientStatus.ANSWERED } },
+    data: { status: SurveyRecipientStatus.PENDING, sentCount: { increment: 1 }, lastSentAt: new Date() },
+  });
+  await notifySurveyRecipients(
+    survey,
+    targets.map((t) => t.userId),
+  );
+  return { count: targets.length };
+}
+
+export async function closeSurvey(id: number): Promise<AdminSurvey> {
+  const survey = await requireSurvey(id);
+  assertPublished(survey, 'be closed');
+  await prisma.survey.update({ where: { id }, data: { status: SurveyStatus.CLOSED, closedAt: new Date() } });
+  return getAdminSurvey(id);
 }

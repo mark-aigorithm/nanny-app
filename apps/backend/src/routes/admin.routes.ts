@@ -69,6 +69,7 @@ import {
   type AdminSurveyListQuery,
   SurveyDraftSchema,
   SurveyTargetSchema,
+  SurveyResendSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -190,12 +191,14 @@ import {
 } from '@backend/services/service-area.service';
 import {
   addSurveyRecipients,
+  closeSurvey,
   createSurveyDraft,
   deleteSurveyDraft,
   duplicateSurvey,
   getAdminSurvey,
   listAdminSurveys,
   publishSurvey,
+  resendSurvey,
   updateSurveyDraft,
 } from '@backend/services/admin-survey.service';
 import { listMotherPicker } from '@backend/services/mother-picker.service';
@@ -1043,6 +1046,26 @@ adminRouter.post(
     }
   },
 );
+
+adminRouter.post(
+  '/surveys/:id/resend',
+  validateBody(SurveyResendSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await resendSurvey(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post('/surveys/:id/close', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await closeSurvey(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Skills (nanny specialty catalog) ───────────────────────────
 
