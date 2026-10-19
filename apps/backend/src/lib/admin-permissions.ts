@@ -140,6 +140,35 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/campaigns/:id', requires: section('campaigns', 'MANAGE') },
   { method: 'DELETE', pattern: '/campaigns/:id', requires: section('campaigns', 'MANAGE') },
 
+  // ── Groups (audiences reused by Surveys, later the notification center) ──
+  // Reading the list is also open to whoever can send a survey: the publish
+  // dialog lists groups to pick from.
+  { method: 'GET', pattern: '/groups', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
+  { method: 'POST', pattern: '/groups', requires: section('groups', 'MANAGE') },
+  { method: 'GET', pattern: '/groups/:id', requires: section('groups', 'VIEW') },
+  { method: 'PATCH', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
+  { method: 'DELETE', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
+  { method: 'POST', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
+  { method: 'DELETE', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
+  // The publish dialog's individual-mother picker needs it too.
+  { method: 'GET', pattern: '/mother-picker', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
+
+  // ── Surveys ─────────────────────────────────────────────────
+  { method: 'GET', pattern: '/surveys', requires: section('surveys', 'VIEW') },
+  { method: 'POST', pattern: '/surveys', requires: section('surveys', 'MANAGE') },
+  { method: 'GET', pattern: '/surveys/:id', requires: section('surveys', 'VIEW') },
+  { method: 'PATCH', pattern: '/surveys/:id', requires: section('surveys', 'MANAGE') },
+  { method: 'DELETE', pattern: '/surveys/:id', requires: section('surveys', 'MANAGE') },
+  { method: 'POST', pattern: '/surveys/:id/duplicate', requires: section('surveys', 'MANAGE') },
+  { method: 'POST', pattern: '/surveys/:id/publish', requires: section('surveys', 'MANAGE') },
+  { method: 'POST', pattern: '/surveys/:id/recipients', requires: section('surveys', 'MANAGE') },
+  { method: 'POST', pattern: '/surveys/:id/resend', requires: section('surveys', 'MANAGE') },
+  { method: 'POST', pattern: '/surveys/:id/close', requires: section('surveys', 'MANAGE') },
+  { method: 'GET', pattern: '/surveys/:id/results', requires: section('surveys', 'VIEW') },
+  { method: 'GET', pattern: '/surveys/:id/text-answers', requires: section('surveys', 'VIEW') },
+  { method: 'GET', pattern: '/surveys/:id/recipients', requires: section('surveys', 'VIEW') },
+  { method: 'GET', pattern: '/surveys/:id/recipients/:userId', requires: section('surveys', 'VIEW') },
+
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel
   // and the nanny profile editor — and it's already public to the mobile app,
@@ -198,6 +227,10 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PUT', pattern: '/support-faq', requires: section('settings', 'MANAGE') },
   { method: 'GET', pattern: '/legal-documents', requires: section('settings', 'VIEW') },
   { method: 'PUT', pattern: '/legal-documents/:key', requires: section('settings', 'MANAGE') },
+  { method: 'GET', pattern: '/app-releases', requires: section('settings', 'VIEW') },
+  { method: 'POST', pattern: '/app-releases', requires: section('settings', 'MANAGE') },
+  { method: 'PATCH', pattern: '/app-releases/:id', requires: section('settings', 'MANAGE') },
+  { method: 'DELETE', pattern: '/app-releases/:id', requires: section('settings', 'MANAGE') },
 
   // ── Pricing ─────────────────────────────────────────────────
   { method: 'GET', pattern: '/duration-rules', requires: section('pricing', 'VIEW') },

@@ -1,0 +1,197 @@
+# UI sweep 18 — surveys, as the mother sees them: the prompt on app open, the
+# survey screen (every question type, Submit disabled then enabled, the text
+# answer with the keyboard up, the thank-you end state), the profile's Surveys
+# card, the Surveys list (with a Skipped item, then empty), the in-app
+# notification row, and the closed and invalid-id end states.
+#
+# `survey-seed` publishes three surveys to her over the admin API: one pending
+# with every question type (the prompt), one she has skipped, and one that has
+# closed. The seeder soft-deletes her survey rows before every flow, so no
+# other flow opens on a survey prompt.
+appId: com.nannyapp.mobile
+---
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: survey-seed
+- runFlow: ../_launch.yaml
+- runFlow:
+    file: ../_sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+
+# ── The prompt on app open ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Answer'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-01-prompt
+- tapOn: 'Answer'
+
+# ── The survey, nothing answered: Submit disabled ──────────────────────────
+- extendedWaitUntil:
+    visible: 'Submit'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-02-survey-top
+- scrollUntilVisible:
+    element: 'Anything else\?'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+# To the very end, so the shot shows whether the last field clears the
+# footer. In the side margin: a centred swipe would land on the text box.
+- swipe:
+    start: '3%, 60%'
+    end: '3%, 20%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-03-survey-bottom
+# Backing out leaves it pending; the prompt doesn't reopen this session.
+- back
+
+# ── The profile's Surveys card ─────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+- scrollUntilVisible:
+    element: '.*waiting for your answer'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-04-profile-card
+- tapOn: '.*waiting for your answer'
+
+# ── The Surveys list: one pending, one skipped ─────────────────────────────
+- extendedWaitUntil:
+    visible: 'Skipped'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-05-list
+- tapOn: 'How are we doing\?'
+
+# ── Answering every type ───────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Submit'
+    timeout: 30000
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: '4 stars'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'A friend or family member'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Work'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Date night'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Yes'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-06-survey-answered
+# The text answer is multiline, so Enter adds a line rather than closing it.
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Anything else\?'
+- inputText: 'More evening slots, please.'
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-07-survey-text-kbd
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-08-submit-enabled
+- tapOn: 'Submit'
+
+# ── Thank you ──────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: 'Thank you!'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-09-thank-you
+- tapOn: 'Done'
+
+# ── The skipped one, answered from the list; then the list is empty ────────
+- extendedWaitUntil:
+    visible: 'One quick question.*'
+    timeout: 30000
+- tapOn: 'One quick question.*'
+# Its title is long on purpose: the header must not cut it off.
+- extendedWaitUntil:
+    visible: 'Submit'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-10-survey-long-title
+- tapOn: 'Yes'
+- tapOn: 'Submit'
+- extendedWaitUntil:
+    visible: 'Thank you!'
+    timeout: 30000
+- tapOn: 'Done'
+- extendedWaitUntil:
+    visible: "You're all caught up."
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-11-list-empty
+- back
+
+# Nothing left to answer, so the card is gone.
+- extendedWaitUntil:
+    visible: 'Mona Mother'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-12-profile-no-card
+
+# ── The notification row, and the closed survey it opens ───────────────────
+# Back from a tab returns to Home. A tap on 'Home' would hit the 3-button
+# nav bar's Home key, which carries the same label.
+- back
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 30000
+- tapOn: 'Open notifications'
+- extendedWaitUntil:
+    visible: '.*Summer camp ideas.*'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-13-notifications
+- tapOn: '.*Summer camp ideas.*'
+- extendedWaitUntil:
+    visible: 'This survey has closed.'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-14-closed
+- back
+
+# ── A link with an id that isn't one ───────────────────────────────────────
+- openLink: 'nanny-app://survey?surveyId=abc'
+- extendedWaitUntil:
+    visible: "We couldn't open this survey."
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s18-15-invalid-id

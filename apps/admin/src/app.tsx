@@ -21,9 +21,14 @@ import { PricingFeesPage } from './pages/pricing-fees-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { CampaignsPage } from './pages/campaigns-page';
 import { RewardsPage } from './pages/rewards-page';
+import { AppReleasesPage } from './pages/app-releases-page';
 import { SettingsPage } from './pages/settings-page';
 import { ServiceAreasPage } from './pages/service-areas-page';
 import { SkillsPage } from './pages/skills-page';
+import { GroupDetailPage } from './pages/group-detail-page';
+import { GroupsPage } from './pages/groups-page';
+import { SurveyPage } from './pages/survey-page';
+import { SurveysPage } from './pages/surveys-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
 import { QaChecklistPage } from './pages/qa-checklist-page';
@@ -155,6 +160,38 @@ export function App() {
                   }
                 />
                 <Route
+                  path="surveys"
+                  element={
+                    <Guarded section="surveys">
+                      <SurveysPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="groups"
+                  element={
+                    <Guarded section="groups">
+                      <GroupsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="groups/:id"
+                  element={
+                    <Guarded section="groups">
+                      <GroupDetailPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="surveys/:id"
+                  element={
+                    <Guarded section="surveys">
+                      <SurveyPage />
+                    </Guarded>
+                  }
+                />
+                <Route
                   path="community"
                   element={
                     <Guarded section="marketplace">
@@ -215,6 +252,14 @@ export function App() {
                   element={
                     <Guarded section="settings">
                       <SettingsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="app-releases"
+                  element={
+                    <Guarded section="settings">
+                      <AppReleasesPage />
                     </Guarded>
                   }
                 />

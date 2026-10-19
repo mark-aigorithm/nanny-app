@@ -19,6 +19,7 @@ import {
   AdminPackagePurchaseListQuerySchema,
   type AdminPackagePurchaseListQuery,
   CreateAdminSchema,
+  CreateAppReleaseSchema,
   CreateCameraSchema,
   CreateCampaignSchema,
   CreateCertificationSchema,
@@ -51,6 +52,7 @@ import {
   UpdatePlatformConfigSchema,
   UpdatePromoCodeSchema,
   UpdateCampaignSchema,
+  UpdateAppReleaseSchema,
   UpdateCertificationSchema,
   UpdateOfficialPostSchema,
   UpdatePackageSchema,
@@ -61,6 +63,19 @@ import {
   SupportFaqSchema,
   LegalDocumentKeySchema,
   UpdateLegalDocumentSchema,
+  MotherPickerQuerySchema,
+  type MotherPickerQuery,
+  UserGroupInputSchema,
+  UserGroupMembersSchema,
+  AdminSurveyListQuerySchema,
+  type AdminSurveyListQuery,
+  SurveyDraftSchema,
+  SurveyTargetSchema,
+  SurveyResendSchema,
+  AdminSurveyRecipientListQuerySchema,
+  type AdminSurveyRecipientListQuery,
+  SurveyTextAnswerQuerySchema,
+  type SurveyTextAnswerQuery,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -157,6 +172,15 @@ import {
   updatePromoCode,
 } from '@backend/services/promo-code.service';
 import {
+  addUserGroupMembers,
+  createUserGroup,
+  deleteUserGroup,
+  getUserGroup,
+  listUserGroups,
+  removeUserGroupMembers,
+  updateUserGroup,
+} from '@backend/services/admin-group.service';
+import {
   createCampaign,
   deleteCampaign,
   listCampaigns,
@@ -171,6 +195,25 @@ import {
   updateServiceArea,
   updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
+import {
+  addSurveyRecipients,
+  closeSurvey,
+  createSurveyDraft,
+  deleteSurveyDraft,
+  duplicateSurvey,
+  getAdminSurvey,
+  listAdminSurveys,
+  publishSurvey,
+  resendSurvey,
+  updateSurveyDraft,
+} from '@backend/services/admin-survey.service';
+import {
+  getSurveyRecipientAnswers,
+  getSurveyResults,
+  listSurveyRecipients,
+  listSurveyTextAnswers,
+} from '@backend/services/admin-survey-results.service';
+import { listMotherPicker } from '@backend/services/mother-picker.service';
 import { lookupServiceArea } from '@backend/services/service-area-lookup.service';
 import {
   createSkill,
@@ -178,6 +221,12 @@ import {
   listSkills,
   updateSkill,
 } from '@backend/services/skill.service';
+import {
+  createAppRelease,
+  deleteAppRelease,
+  listAppReleases,
+  updateAppRelease,
+} from '@backend/services/app-release.service';
 import {
   createCertification,
   deleteCertification,
@@ -837,6 +886,253 @@ adminRouter.delete('/campaigns/:id', async (req: Request, res: Response, next: N
   }
 });
 
+// ── User groups (survey audiences) ─────────────────────────────
+
+adminRouter.get('/groups', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listUserGroups()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/groups',
+  validateBody(UserGroupInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      res.status(201).json(ok(await createUserGroup(req.adminUser.id, req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getUserGroup(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch(
+  '/groups/:id',
+  validateBody(UserGroupInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateUserGroup(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteUserGroup(routeIdParam(req.params.id));
+    res.json(ok(null));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/groups/:id/members',
+  validateBody(UserGroupMembersSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await addUserGroupMembers(routeIdParam(req.params.id), req.body.userIds)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/groups/:id/members',
+  validateBody(UserGroupMembersSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await removeUserGroupMembers(routeIdParam(req.params.id), req.body.userIds)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get(
+  '/mother-picker',
+  validateQuery(MotherPickerQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { rows, meta } = await listMotherPicker(res.locals['validatedQuery'] as MotherPickerQuery);
+      res.json(okPaged(rows, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Surveys ────────────────────────────────────────────────────
+
+adminRouter.get(
+  '/surveys',
+  validateQuery(AdminSurveyListQuerySchema),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { surveys, meta } = await listAdminSurveys(res.locals['validatedQuery'] as AdminSurveyListQuery);
+      res.json(okPaged(surveys, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/surveys',
+  validateBody(SurveyDraftSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      res.status(201).json(ok(await createSurveyDraft(req.adminUser.id, req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/surveys/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getAdminSurvey(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch(
+  '/surveys/:id',
+  validateBody(SurveyDraftSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateSurveyDraft(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/surveys/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteSurveyDraft(routeIdParam(req.params.id));
+    res.json(ok(null));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/surveys/:id/duplicate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.adminUser) throw errors.unauthorized();
+    res.status(201).json(ok(await duplicateSurvey(req.adminUser.id, routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/surveys/:id/publish',
+  validateBody(SurveyTargetSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await publishSurvey(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/surveys/:id/recipients',
+  validateBody(SurveyTargetSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await addSurveyRecipients(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/surveys/:id/resend',
+  validateBody(SurveyResendSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await resendSurvey(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post('/surveys/:id/close', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await closeSurvey(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/surveys/:id/results', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getSurveyResults(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get(
+  '/surveys/:id/text-answers',
+  validateQuery(SurveyTextAnswerQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { answers, meta } = await listSurveyTextAnswers(
+        routeIdParam(req.params.id),
+        res.locals['validatedQuery'] as SurveyTextAnswerQuery,
+      );
+      res.json(okPaged(answers, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get(
+  '/surveys/:id/recipients',
+  validateQuery(AdminSurveyRecipientListQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { recipients, meta } = await listSurveyRecipients(
+        routeIdParam(req.params.id),
+        res.locals['validatedQuery'] as AdminSurveyRecipientListQuery,
+      );
+      res.json(okPaged(recipients, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/surveys/:id/recipients/:userId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getSurveyRecipientAnswers(routeIdParam(req.params.id), routeIdParam(req.params.userId))));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── Skills (nanny specialty catalog) ───────────────────────────
 
 adminRouter.get('/skills', async (_req: Request, res: Response, next: NextFunction) => {
@@ -1007,6 +1303,48 @@ adminRouter.delete(
     }
   },
 );
+
+// ── App releases (force update) ────────────────────────────────
+
+adminRouter.get('/app-releases', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listAppReleases()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/app-releases',
+  validateBody(CreateAppReleaseSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(ok(await createAppRelease(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.patch(
+  '/app-releases/:id',
+  validateBody(UpdateAppReleaseSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateAppRelease(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/app-releases/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await deleteAppRelease(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Packages (purchasable hour bundles, EGP) ───────────────────
 

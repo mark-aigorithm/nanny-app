@@ -1,0 +1,207 @@
+import {
+  ADMIN_PAGE_SIZES,
+  type MotherPickerRow,
+  type MotherPickerSortKey,
+} from '@nanny-app/shared';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+
+import {
+  type Column,
+  ErrorState,
+  Input,
+  Pagination,
+  StaleRefreshBanner,
+  Table,
+  TableSkeleton,
+} from '@admin/components/ui';
+import { fetchMotherPicker } from '@admin/lib/api';
+import { apiErrorMessage } from '@admin/lib/api-error';
+import { usePagination } from '@admin/lib/use-pagination';
+import { useTableSort } from '@admin/lib/use-table-sort';
+
+type MotherPickerTableProps = {
+  /** User ids ticked so far. The parent owns this so ticks survive paging and searching. */
+  selected: ReadonlySet<number>;
+  onSelectedChange: (next: Set<number>) => void;
+  /** List only this group's members. */
+  groupId?: number;
+};
+
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
+const money = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+/**
+ * Mothers with their booking activity, sorted by the API (aggregates are
+ * computed before paging). Bookings, hours and spend count completed bookings
+ * only. Generic: group membership and survey recipients both use it.
+ */
+export function MotherPickerTable({ selected, onSelectedChange, groupId }: MotherPickerTableProps) {
+  const { page, limit, setPage, setLimit, reset } = usePagination();
+  const { sort, onSortChange } = useTableSort<MotherPickerSortKey>(
+    { sortBy: 'createdAt', sortDir: 'desc' },
+    reset,
+  );
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Debounce typing so each keystroke isn't a request.
+  // Only commits when the text actually changed, so it never fires on mount
+  // and yanks someone who has already paged back to page 1.
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
+    const timer = setTimeout(() => {
+      setSearch(next);
+      reset();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search, reset]);
+
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['mother-picker', { search, groupId, page, limit, ...sort }],
+    queryFn: () => fetchMotherPicker({ search, groupId, page, limit, ...sort }),
+    placeholderData: keepPreviousData,
+  });
+
+  const toggle = (id: number) => {
+    const next = new Set(selected);
+    if (!next.delete(id)) next.add(id);
+    onSelectedChange(next);
+  };
+  const pageRows = data?.data ?? [];
+  const allOnPage = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id));
+  const togglePage = () => {
+    const next = new Set(selected);
+    for (const r of pageRows) {
+      if (allOnPage) next.delete(r.id);
+      else next.add(r.id);
+    }
+    onSelectedChange(next);
+  };
+
+  const columns: Column<MotherPickerRow, MotherPickerSortKey>[] = [
+    {
+      key: 'select',
+      header: (
+        <input
+          type="checkbox"
+          aria-label="Select all on this page"
+          checked={allOnPage}
+          onChange={togglePage}
+        />
+      ),
+      render: (r) => (
+        <input
+          type="checkbox"
+          aria-label={`Select ${r.name}`}
+          checked={selected.has(r.id)}
+          onChange={() => toggle(r.id)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+    { key: 'name', header: 'Name', sortKey: 'name', render: (r) => r.name, width: '22%' },
+    { key: 'phone', header: 'Phone', nowrap: true, render: (r) => r.phone ?? '—' },
+    {
+      key: 'bookings',
+      header: 'Bookings',
+      sortKey: 'completedBookings',
+      sortFirst: 'desc',
+      align: 'right',
+      render: (r) => r.completedBookings,
+    },
+    {
+      key: 'hours',
+      header: 'Hours booked',
+      sortKey: 'hoursBooked',
+      sortFirst: 'desc',
+      align: 'right',
+      render: (r) => r.hoursBooked,
+    },
+    {
+      key: 'spent',
+      header: 'Total spent',
+      sortKey: 'totalSpent',
+      sortFirst: 'desc',
+      align: 'right',
+      render: (r) => money(r.totalSpent),
+    },
+    {
+      key: 'lastBooking',
+      header: 'Last booking',
+      sortKey: 'lastBookingAt',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (r) => day(r.lastBookingAt),
+    },
+    {
+      key: 'joined',
+      header: 'Joined',
+      sortKey: 'createdAt',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (r) => day(r.createdAt),
+    },
+    {
+      key: 'active',
+      header: 'Last active',
+      sortKey: 'lastLoginAt',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (r) => day(r.lastLoginAt),
+    },
+  ];
+
+  return (
+    <div>
+      <div className="filter-bar">
+        <Input
+          type="search"
+          className="mother-picker-search"
+          aria-label="Search mothers"
+          placeholder="Search by name, phone or email"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
+      </div>
+      <p className="mother-picker-hint">
+        {selected.size} selected. Bookings, hours and spend count completed bookings only.
+      </p>
+      {isLoading && <TableSkeleton columns={columns.length} />}
+      {error != null && !data && (
+        <ErrorState message={apiErrorMessage(error)} onRetry={() => void refetch()} retrying={isFetching} />
+      )}
+      {data && (
+        <>
+          {error != null && (
+            <StaleRefreshBanner
+              message={apiErrorMessage(error)}
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          )}
+          <Table
+            columns={columns}
+            rows={pageRows}
+            rowKey={(r) => r.id}
+            onRowClick={(r) => toggle(r.id)}
+            sort={sort}
+            onSortChange={onSortChange}
+            empty={search ? 'No mothers match this search.' : 'No mothers here yet.'}
+          />
+          <Pagination
+            page={page}
+            totalPages={data.meta.totalPages}
+            total={data.meta.total}
+            limit={limit}
+            onPageChange={setPage}
+            limitOptions={ADMIN_PAGE_SIZES}
+            onLimitChange={setLimit}
+            label="mothers"
+          />
+        </>
+      )}
+    </div>
+  );
+}

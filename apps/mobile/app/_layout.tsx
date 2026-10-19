@@ -17,6 +17,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 
 import {
+  clearUserQueries,
   queryClient,
   bindFocusManager,
   bindOnlineManager,
@@ -24,6 +25,7 @@ import {
 } from '@mobile/lib/queryClient';
 import { subscribeIsOffline } from '@mobile/lib/network';
 import OfflineGate from '@mobile/components/OfflineGate';
+import UpdateGate from '@mobile/components/UpdateGate';
 import { auth } from '@mobile/lib/firebase';
 import { isAuthEmulator } from '@mobile/lib/socialAuth';
 import { useAuthStore } from '@mobile/store/authStore';
@@ -70,7 +72,7 @@ export default function RootLayout() {
       // cached server data so a new session can never read the previous
       // user's queries — even if a sign-out path forgot to clear them.
       if (lastUid !== undefined && lastUid !== (user?.uid ?? null)) {
-        queryClient.clear();
+        clearUserQueries();
       }
       lastUid = user?.uid ?? null;
       // Signing in (from the register prompt or anywhere else) always ends
@@ -103,6 +105,8 @@ export default function RootLayout() {
         {/* E2E only: stands in for Google's account sheet against the Auth
             emulator. Never mounted in a real build. */}
         {isAuthEmulator() && <E2eGooglePickerHost />}
+        {/* Force-update blocker / optional update prompt (renders nothing while current). */}
+        <UpdateGate />
         {/* Full-screen "you're offline" overlay — covers every area of the app
             while the device has no connection and lifts by itself. */}
         <OfflineGate />

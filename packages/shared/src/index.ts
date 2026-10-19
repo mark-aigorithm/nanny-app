@@ -27,3 +27,6 @@ export * from './legal';
 export * from './qa-scenarios';
 export * from './cancellation-cell-proposals';
 export * from './booking-chat';
+export * from './survey';
+export * from './user-group';
+export * from './app-release';

@@ -1,0 +1,156 @@
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { SurveyAnswerInput, SurveyQuestion } from '@nanny-app/shared';
+import { SURVEY_TEXT_ANSWER_MAX } from '@nanny-app/shared';
+
+import { PressableScale } from '@mobile/components/ui';
+import { Text, TextInput } from '@mobile/components/ui/text';
+import { borderRadius, colors, fontFamily, spacing, typeScale } from '@mobile/theme';
+
+type Props = {
+  question: SurveyQuestion;
+  answer: SurveyAnswerInput | undefined;
+  onChange: (answer: SurveyAnswerInput | undefined) => void;
+};
+
+function Choice({
+  label,
+  selected,
+  role,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  role: 'radio' | 'checkbox';
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale
+      haptic="select"
+      accessibilityRole={role}
+      accessibilityLabel={label}
+      accessibilityState={{ checked: selected }}
+      onPress={onPress}
+      style={[styles.choice, selected && styles.choiceSelected]}
+    >
+      <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text>
+    </PressableScale>
+  );
+}
+
+/** One control per question type; every control carries a role and a label. */
+export default function SurveyQuestionInput({ question, answer, onChange }: Props) {
+  const id = question.id;
+  switch (question.type) {
+    case 'TEXT':
+      return (
+        <TextInput
+          accessibilityLabel={question.prompt}
+          multiline
+          maxLength={SURVEY_TEXT_ANSWER_MAX}
+          value={answer?.text ?? ''}
+          onChangeText={(text) => onChange(text ? { questionId: id, text } : undefined)}
+          placeholder="Type your answer"
+          placeholderTextColor={colors.textMuted}
+          style={styles.text}
+        />
+      );
+    case 'YES_NO':
+      return (
+        <View style={styles.row} accessibilityRole="radiogroup">
+          {[true, false].map((value) => (
+            <Choice
+              key={String(value)}
+              role="radio"
+              label={value ? 'Yes' : 'No'}
+              selected={answer?.bool === value}
+              onPress={() => onChange({ questionId: id, bool: value })}
+            />
+          ))}
+        </View>
+      );
+    case 'RATING': {
+      const rating = answer?.rating ?? 0;
+      return (
+        <View style={styles.row} accessibilityRole="radiogroup">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <PressableScale
+              key={n}
+              haptic="select"
+              accessibilityRole="radio"
+              accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`}
+              accessibilityState={{ checked: rating === n }}
+              hitSlop={4}
+              onPress={() => onChange({ questionId: id, rating: n })}
+              style={styles.star}
+            >
+              <Ionicons
+                name={n <= rating ? 'star' : 'star-outline'}
+                size={36}
+                color={n <= rating ? colors.gold : colors.taupe}
+              />
+            </PressableScale>
+          ))}
+        </View>
+      );
+    }
+    case 'SINGLE_CHOICE':
+    case 'MULTI_CHOICE': {
+      const multi = question.type === 'MULTI_CHOICE';
+      const picked = answer?.optionIds ?? [];
+      const toggle = (optionId: number) => {
+        const next = multi
+          ? picked.includes(optionId)
+            ? picked.filter((p) => p !== optionId)
+            : [...picked, optionId]
+          : [optionId];
+        onChange(next.length ? { questionId: id, optionIds: next } : undefined);
+      };
+      return (
+        <View style={styles.column} accessibilityRole={multi ? undefined : 'radiogroup'}>
+          {question.options.map((o) => (
+            <Choice
+              key={o.id}
+              role={multi ? 'checkbox' : 'radio'}
+              label={o.label}
+              selected={picked.includes(o.id)}
+              onPress={() => toggle(o.id)}
+            />
+          ))}
+        </View>
+      );
+    }
+  }
+}
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  column: { gap: spacing.sm },
+  choice: {
+    minHeight: 48,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    justifyContent: 'center',
+    borderRadius: borderRadius.xl,
+    borderWidth: 1.5,
+    borderColor: colors.warmBorder,
+    backgroundColor: colors.surface,
+  },
+  choiceSelected: { borderColor: colors.primaryDark, backgroundColor: colors.primaryMuted },
+  choiceText: { ...typeScale.bodyLg, color: colors.textPrimary, flexShrink: 1 },
+  // Picked reads stronger than unpicked, never paler (the UI sweep caught it looking disabled).
+  choiceTextSelected: { color: colors.textPrimary, fontFamily: fontFamily.semiBold },
+  star: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  text: {
+    ...typeScale.bodyLg,
+    minHeight: 96,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1.5,
+    borderColor: colors.warmBorder,
+    backgroundColor: colors.surface,
+    color: colors.textPrimary,
+    padding: spacing.md,
+    textAlignVertical: 'top',
+  },
+});

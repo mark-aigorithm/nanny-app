@@ -5,10 +5,11 @@ description: Use when shipping a new NannyApp build to testers — a TestFlight 
 
 # Releasing a new build
 
-A **build**, not a version. `app.config.ts` pins `version: '1.0.0'` and `eas.json` sets
+A **build**, not a version. `app.config.ts` pins `version` (currently `1.0.0`) and `eas.json` sets
 `appVersionSource: "remote"`, so EAS owns the build number and `autoIncrement` on the production
 profile bumps it server-side. **Never edit `version` to ship to testers** — a new build number is
-what TestFlight and Play need, and the marketing version only changes when the product does.
+what TestFlight and Play need. The marketing `version` changes only for a public store release (see the
+store-release note under Preflight), because the force-update check compares it.
 
 ## Preflight
 
@@ -18,6 +19,11 @@ what TestFlight and Play need, and the marketing version only changes when the p
 | `node -e "console.log(require('typescript/package.json').version)"` | eas-cli dies loading the config on **typescript 7.x** with `Cannot read properties of undefined (reading 'CommonJS')`. Force-install `typescript@5.5.4` if it's 7. |
 | Backend env vars on the deployment the app points at | The app talks to the Vercel backend (`API_BASE_URL` in `app.config.ts`). Server config degrades **silently**: no `GMAIL_*`/`SMTP_*` ⇒ every email OTP 400s, no `PAYMOB_*` ⇒ checkout is dead. Check before handing testers a build that exercises them. |
 | `npx eas-cli whoami` | Non-interactive builds fail late without a session. |
+
+For a **store release** (not a tester build), also:
+
+- **Bump `version` in `apps/mobile/app.config.ts`** (semver x.y.z) for every store release. The
+  force-update check compares this version; two builds with the same version are indistinguishable to it.
 
 ## The two commands
 
@@ -73,6 +79,10 @@ artifact link at the end.
 TestFlight processing takes a few minutes after submit; the build appears under the ascAppId
 `6797044436` app. Verify a real device reaches **SMS entry with no reCAPTCHA** — that is the signal
 the APNs production key is still right. For the APK, hand over the artifact URL from the build page.
+
+- **Record the release** in the admin console → App Releases (platform + version) once the store has
+  published it. Tick *Mandatory* only when every older install must stop working — and only after the
+  build is live on that platform's store.
 
 The device-level detail behind these (emulator, Maestro, the Firebase console state) lives in the
 `mobile-e2e-lab` skill and the `phone-auth-verification` memory.

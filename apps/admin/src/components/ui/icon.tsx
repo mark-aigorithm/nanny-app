@@ -20,6 +20,7 @@ export {
   Video,
   Settings,
   ShieldCheck,
+  Smartphone,
   // Chrome
   Menu as MenuIcon,
   PanelLeftClose,
@@ -64,6 +65,7 @@ export {
   // Reporting
   Wallet,
   Users,
+  UsersRound,
   ClipboardList,
   // Care Points
   Gift,

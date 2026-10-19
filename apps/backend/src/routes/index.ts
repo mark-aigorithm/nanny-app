@@ -4,6 +4,7 @@ import { config } from '@backend/lib/config';
 import { ok } from '@backend/lib/api-response';
 import { addressRouter } from './address.routes';
 import { adminRouter } from './admin.routes';
+import { appVersionRouter } from './app-version.routes';
 import { authRouter } from './auth.routes';
 import { nannyRouter } from './nanny.routes';
 import { bookingRouter } from './booking.routes';
@@ -23,6 +24,7 @@ import { referralRouter } from './referral.routes';
 import { resetPasswordPageRouter } from './reset-password-page.routes';
 import { rewardRouter } from './reward.routes';
 import { supportRouter } from './support.routes';
+import { surveyRouter } from './survey.routes';
 import { webhookRouter } from './webhook.routes';
 
 export const apiRouter = Router();
@@ -38,6 +40,7 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use('/auth/action', resetPasswordPageRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/addresses', addressRouter);
+apiRouter.use('/app-version', appVersionRouter);
 apiRouter.use('/children', childRouter);
 apiRouter.use('/nanny', nannyRouter);
 apiRouter.use('/bookings', bookingRouter);
@@ -51,6 +54,7 @@ apiRouter.use('/packages', packageRouter);
 apiRouter.use('/referrals', referralRouter);
 apiRouter.use('/rewards', rewardRouter);
 apiRouter.use('/support', supportRouter);
+apiRouter.use('/surveys', surveyRouter);
 
 // Unauthenticated by design — see qa.routes.ts. Mounted only when the flag is
 // on, so an environment that is not running a release test never exposes it.

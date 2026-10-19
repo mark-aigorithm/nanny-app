@@ -213,3 +213,7 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
   NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
+
+// 12. The installed version the force-update check sends. Tests that care
+//     override `nativeApplicationVersion` with their own jest.mock(...).
+jest.mock('expo-application', () => ({ nativeApplicationVersion: '1.0.0' }));

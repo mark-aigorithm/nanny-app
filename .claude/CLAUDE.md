@@ -291,3 +291,4 @@ integration suites always use the fake.
 | Single AWS region | If launching internationally, multi-region RDS and CloudFront geo-restriction needed |
 | Per-user push via FCM tokens stored in `device_tokens` | Broadcasts (promos, announcements) would want FCM topics on top |
 | E2E pays on Paymob's real TEST sandbox by default (`PAYMOB_MODE=fake` opt-in) | Depends on the network, the cloudflared tunnel, the test keys and Paymob's firewall; if sandbox flakiness costs more runs than it catches, make the fake the default again |
+| Force update compares the native `version` string only (per platform, admin-recorded) | If releases ship without bumping `version`, switch to comparing build numbers (iOS buildNumber / Android versionCode) |

@@ -62,6 +62,13 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
   iconColor: string;
 } {
   switch (type) {
+    // The same clipboard as the profile's Surveys card.
+    case 'survey':
+      return {
+        name: 'clipboard-outline',
+        backgroundColor: colors.primaryMuted,
+        iconColor: colors.primary,
+      };
     case 'marketplace_message':
       return {
         name: 'chatbubble',

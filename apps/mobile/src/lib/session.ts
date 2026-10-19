@@ -1,6 +1,6 @@
 import { unregisterPushToken } from '@mobile/hooks/usePushNotifications';
 import { auth } from '@mobile/lib/firebase';
-import { queryClient } from '@mobile/lib/queryClient';
+import { clearUserQueries } from '@mobile/lib/queryClient';
 import { signOutOfGoogle } from '@mobile/lib/socialAuth';
 import { usePendingLinkStore } from '@mobile/store/pendingLinkStore';
 import { useRegistrationDraftStore } from '@mobile/store/registrationDraftStore';
@@ -29,6 +29,6 @@ export async function clearLocalSession(): Promise<void> {
     // signOutOfGoogle is best-effort and never throws.
     await signOutOfGoogle();
     useUserProfileStore.getState().clear();
-    queryClient.clear();
+    clearUserQueries();
   }
 }

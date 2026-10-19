@@ -52,6 +52,8 @@ export default function Button({
     <PressableScale
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       haptic={variant === 'primary' || variant === 'destructive' ? 'tap' : undefined}
       style={[
         styles.base,

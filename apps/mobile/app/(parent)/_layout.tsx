@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import RatingPromptHost from '@mobile/components/RatingPromptHost';
+import SurveyPromptHost from '@mobile/components/SurveyPromptHost';
 import RegisterPromptModal from '@mobile/components/RegisterPromptModal';
 import IdUploadModal from '@mobile/components/IdUploadModal';
 import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
@@ -25,6 +26,7 @@ export default function ParentLayout() {
         <Stack.Screen name="(tabs)" />
       </Stack>
       <RatingPromptHost />
+      <SurveyPromptHost />
     </>
   );
 }

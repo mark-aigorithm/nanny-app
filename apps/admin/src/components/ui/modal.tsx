@@ -8,7 +8,7 @@ type ModalProps = {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'md' | 'sm';
+  size?: 'md' | 'sm' | 'lg';
 };
 
 /**
@@ -31,7 +31,7 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
   return createPortal(
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className={`modal${size === 'sm' ? ' modal--sm' : ''}`}
+        className={`modal${size === 'md' ? '' : ` modal--${size}`}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

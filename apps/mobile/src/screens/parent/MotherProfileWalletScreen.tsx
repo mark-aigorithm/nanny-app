@@ -19,6 +19,7 @@ import { useUnreadMessageCount } from '@mobile/hooks/useMessaging';
 import { usePackageHours } from '@mobile/hooks/usePackages';
 import { useRefetchOnFocus } from '@mobile/hooks/useRefetchOnFocus';
 import { useRewardWallet } from '@mobile/hooks/useRewards';
+import { usePendingSurveys } from '@mobile/hooks/useSurveys';
 import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { currentPackageLabel } from '@mobile/lib/currentPackage';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -52,6 +53,7 @@ export default function MotherProfileWalletScreen() {
   // The Account tab stays mounted: re-read both balances whenever she comes
   // back to it, so hours and points spent or earned elsewhere show at once.
   useRefetchOnFocus([refetchPackageHours, refetchRewardWallet], !isGuest);
+  const pendingSurveys = usePendingSurveys().data ?? [];
   const hoursValue = packageHours ? `${packageHours.availableHours}h` : '—';
   // Which package those hours come from — or that there isn't one.
   const hoursCaption = packageHours ? currentPackageLabel(packageHours) : 'available';
@@ -161,6 +163,25 @@ export default function MotherProfileWalletScreen() {
                 <Text style={styles.walletCaption}>points</Text>
               </PressableScale>
             </View>
+          </FadeInView>
+        )}
+
+        {/* Time-bound, so it leads the promo cards; only shown with something to answer. */}
+        {pendingSurveys.length > 0 && (
+          <FadeInView index={2}>
+            <PressableScale
+              style={styles.promoCard}
+              accessibilityRole="button"
+              onPress={() => router.push('/(parent)/surveys' as never)}
+            >
+              <View style={styles.promoTextWrap}>
+                <Text style={styles.promoTitle}>Surveys</Text>
+                <Text style={styles.promoSubtitle}>
+                  {`${pendingSurveys.length} waiting for your answer`}
+                </Text>
+              </View>
+              <IconCircle icon="clipboard-outline" size="lg" />
+            </PressableScale>
           </FadeInView>
         )}
 

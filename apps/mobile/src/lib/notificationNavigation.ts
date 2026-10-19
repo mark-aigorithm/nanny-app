@@ -45,3 +45,16 @@ export function bookingChatRoleFor(
   if (segments[0] === '(parent)') return 'parent';
   return profileRole === 'NANNY' ? 'nanny' : 'parent';
 }
+
+export function isSurveyPush(data?: Record<string, string>): boolean {
+  if (data?.['type'] !== 'SURVEY') return false;
+  const id = Number(data['surveyId']);
+  return Number.isInteger(id) && id > 0;
+}
+
+export function navigateToSurvey(router: Router, surveyId: number): void {
+  router.push({
+    pathname: '/(parent)/survey',
+    params: { surveyId: String(surveyId) },
+  } as never);
+}

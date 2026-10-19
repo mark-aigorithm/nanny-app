@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   CalendarClock,
   ChevronsUpDown,
+  ClipboardList,
   Gift,
   ICON_SIZE,
   LayoutDashboard,
@@ -29,6 +30,8 @@ import {
   Sparkles,
   Ticket,
   Users,
+  UsersRound,
+  Smartphone,
   Video,
   Wallet,
 } from './ui';
@@ -43,6 +46,8 @@ const navItems: NavItem[] = [
   { to: '/users', label: 'Users', icon: Users, section: 'users' },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket, section: 'promoCodes' },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone, section: 'campaigns' },
+  { to: '/surveys', label: 'Surveys', icon: ClipboardList, section: 'surveys' },
+  { to: '/groups', label: 'Groups', icon: UsersRound, section: 'groups' },
   { to: '/community', label: 'Community', icon: MessagesSquare, section: 'marketplace' },
   { to: '/skills', label: 'Nanny Skills', icon: Sparkles, section: 'skills' },
   { to: '/certifications', label: 'Certifications', icon: BadgeCheck, section: 'certifications' },
@@ -51,6 +56,7 @@ const navItems: NavItem[] = [
   { to: '/pricing', label: 'Pricing & Fees', icon: Wallet, section: 'pricing' },
   { to: '/cameras', label: 'Cameras', icon: Video, section: 'cameras' },
   { to: '/settings', label: 'Booking Options', icon: Settings, section: 'settings' },
+  { to: '/app-releases', label: 'App Releases', icon: Smartphone, section: 'settings' },
   { to: '/service-areas', label: 'Service Areas', icon: MapPin, section: 'serviceAreas' },
 ];
 

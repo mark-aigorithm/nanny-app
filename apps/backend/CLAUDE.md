@@ -206,6 +206,15 @@ The console's border lookup calls OpenStreetMap Nominatim from the backend (1 re
 identified `User-Agent`); its results are starting shapes, and informal names can be badly
 off. Apply the `add_service_areas` migration to the production database (`pnpm db:migrate` against its `DATABASE_URL`) before the backend that reads it deploys — Vercel deploys on merge, and without the table every booking, booking-options and address request fails. See `Docs/superpowers/specs/2026-10-15-service-areas-design.md`.
 
+**Surveys: apply `add_surveys` before the backend deploys; pushes are sent in-request**
+The survey tables and the `SURVEY` notification enum value come from the `add_surveys` migration —
+run `pnpm db:migrate` against production before merging, or every survey route 500s. Publishing and
+resending send their pushes inside the request (`notifySurveyRecipients`, 25 at a time), because
+Vercel has no background worker: fine for hundreds of mothers, but a send to thousands can hit the
+function timeout and needs the planned queue. Old app builds treat the `survey` notification as an
+unknown type (listed, tap does nothing) and never prompt. See
+`docs/superpowers/specs/2026-10-19-surveys-design.md`.
+
 **The password-reset email is Firebase's; its link lands on our page**
 The app's "Forgot password" calls Firebase's `sendPasswordResetEmail`, so Firebase's mailer sends
 it — not our SMTP, and nothing lands in `email_logs`. Firebase takes no template per request, and
