@@ -7,6 +7,8 @@ import type {
   PaginationMeta,
   SurveyCounts,
   SurveyDraft,
+  SurveySendResult,
+  SurveyTarget,
 } from '@nanny-app/shared';
 import { SURVEY_TITLE_MAX } from '@nanny-app/shared';
 
@@ -19,6 +21,7 @@ import {
   toQuestionDto,
   type SurveyWithQuestions,
 } from '@backend/lib/survey-dto';
+import { notifySurveyRecipients, resolveSurveyAudience } from '@backend/services/survey-audience.service';
 
 type SurveyRow = {
   id: number;
@@ -162,4 +165,57 @@ export async function duplicateSurvey(adminId: number, id: number): Promise<Admi
       options: q.options.map((o) => o.label),
     })),
   });
+}
+
+export async function publishSurvey(id: number, target: SurveyTarget): Promise<SurveySendResult> {
+  const survey = await requireSurvey(id);
+  assertDraft(survey);
+  if (survey.questions.length === 0) throw errors.badRequest('Add at least one question before publishing.');
+  const userIds = await resolveSurveyAudience(target);
+  if (userIds.length === 0) throw errors.badRequest('No mothers match this selection.');
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    // The status guard makes a second, concurrent publish lose instead of
+    // sending the survey twice.
+    const { count } = await tx.survey.updateMany({
+      where: { id, status: SurveyStatus.DRAFT, deletedAt: null },
+      data: { status: SurveyStatus.PUBLISHED, publishedAt: now },
+    });
+    if (count === 0) throw errors.conflict('This survey has already been published.');
+    await tx.surveyRecipient.createMany({
+      data: userIds.map((userId) => ({ surveyId: id, userId, lastSentAt: now })),
+      skipDuplicates: true,
+    });
+  });
+
+  await notifySurveyRecipients(survey, userIds);
+  return { count: userIds.length };
+}
+
+function assertPublished(row: { status: SurveyStatus }, action: string): void {
+  if (row.status !== SurveyStatus.PUBLISHED) {
+    throw errors.conflict(`Only a published survey can ${action}.`);
+  }
+}
+
+export async function addSurveyRecipients(id: number, target: SurveyTarget): Promise<SurveySendResult> {
+  const survey = await requireSurvey(id);
+  assertPublished(survey, 'take more recipients');
+  const audience = await resolveSurveyAudience(target);
+  const existing = await prisma.surveyRecipient.findMany({
+    where: { surveyId: id, userId: { in: audience } },
+    select: { userId: true },
+  });
+  const already = new Set(existing.map((r) => r.userId));
+  const fresh = audience.filter((userId) => !already.has(userId));
+  if (fresh.length === 0) return { count: 0 };
+
+  const now = new Date();
+  await prisma.surveyRecipient.createMany({
+    data: fresh.map((userId) => ({ surveyId: id, userId, lastSentAt: now })),
+    skipDuplicates: true,
+  });
+  await notifySurveyRecipients(survey, fresh);
+  return { count: fresh.length };
 }

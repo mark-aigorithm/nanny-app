@@ -68,6 +68,7 @@ import {
   AdminSurveyListQuerySchema,
   type AdminSurveyListQuery,
   SurveyDraftSchema,
+  SurveyTargetSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -188,11 +189,13 @@ import {
   updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
 import {
+  addSurveyRecipients,
   createSurveyDraft,
   deleteSurveyDraft,
   duplicateSurvey,
   getAdminSurvey,
   listAdminSurveys,
+  publishSurvey,
   updateSurveyDraft,
 } from '@backend/services/admin-survey.service';
 import { listMotherPicker } from '@backend/services/mother-picker.service';
@@ -1016,6 +1019,30 @@ adminRouter.post('/surveys/:id/duplicate', async (req: Request, res: Response, n
     next(err);
   }
 });
+
+adminRouter.post(
+  '/surveys/:id/publish',
+  validateBody(SurveyTargetSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await publishSurvey(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/surveys/:id/recipients',
+  validateBody(SurveyTargetSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await addSurveyRecipients(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── Skills (nanny specialty catalog) ───────────────────────────
 
