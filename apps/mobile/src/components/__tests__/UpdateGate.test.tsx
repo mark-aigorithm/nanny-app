@@ -16,6 +16,7 @@ jest.mock('@mobile/lib/dismissedUpdate', () => ({
 }));
 
 import UpdateGate from '@mobile/components/UpdateGate';
+import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 
 const STORE = 'https://apps.apple.com/app/id6797044436';
 const REQUIRED_HEADLINE = 'Time to update';
@@ -132,4 +133,18 @@ it('keeps one Modal mounted when the sheet turns into the blocker', async () => 
   expect(await findByText(REQUIRED_HEADLINE)).toBeTruthy();
   expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
   expect(UNSAFE_getAllByType(Modal)).toHaveLength(1);
+});
+
+// The survey and rating hosts read this flag and wait, so two sheets never
+// stack at launch.
+it('flags the optional sheet as visible while it shows, and clears it on Later', async () => {
+  mockCheck = { data: result({ status: 'update_available' }) };
+  const { findByText, getByText } = render(<UpdateGate />);
+  expect(await findByText(AVAILABLE_HEADLINE)).toBeTruthy();
+  expect(useUpdateSheetStore.getState().visible).toBe(true);
+
+  await act(async () => {
+    fireEvent.press(getByText('Later'));
+  });
+  expect(useUpdateSheetStore.getState().visible).toBe(false);
 });

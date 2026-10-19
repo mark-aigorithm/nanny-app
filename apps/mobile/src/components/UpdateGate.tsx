@@ -6,6 +6,7 @@ import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
 import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
 import { colors } from '@mobile/theme';
 import { readDismissedUpdate, writeDismissedUpdate } from '@mobile/lib/dismissedUpdate';
+import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 
 /**
  * Mount once in the root layout, beside OfflineGate. Asks the backend whether
@@ -21,6 +22,19 @@ export default function UpdateGate() {
   useEffect(() => {
     void readDismissedUpdate().then(setDismissed);
   }, []);
+
+  const sheetVisible =
+    !!data?.storeUrl &&
+    data.status === 'update_available' &&
+    dismissed !== undefined &&
+    !!data.latestVersion &&
+    dismissed !== data.latestVersion;
+  // The survey and rating hosts wait on this, so their sheet never stacks on ours.
+  const setSheetVisible = useUpdateSheetStore((s) => s.setVisible);
+  useEffect(() => {
+    setSheetVisible(sheetVisible);
+  }, [sheetVisible, setSheetVisible]);
+  useEffect(() => () => setSheetVisible(false), [setSheetVisible]);
 
   if (!data || data.status === 'ok' || !data.storeUrl) return null;
   const storeUrl = data.storeUrl;
@@ -48,8 +62,7 @@ export default function UpdateGate() {
     );
   }
 
-  if (data.status !== 'update_available') return null;
-  if (dismissed === undefined || !data.latestVersion || dismissed === data.latestVersion) return null;
+  if (!sheetVisible || !data.latestVersion) return null;
   const latestVersion = data.latestVersion;
   const later = () => {
     setDismissed(latestVersion);

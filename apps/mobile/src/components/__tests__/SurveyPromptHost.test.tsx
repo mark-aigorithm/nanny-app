@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { MotherSurveySummary } from '@nanny-app/shared';
 
@@ -33,6 +33,7 @@ jest.mock('@mobile/store/ratingPromptStore', () => ({
 }));
 
 import SurveyPromptHost from '@mobile/components/SurveyPromptHost';
+import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 import { markSurveyPrompted, pickSurveyToPrompt, wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
 const s = (id: number, status: 'PENDING' | 'SKIPPED'): MotherSurveySummary => ({
@@ -66,6 +67,7 @@ describe('SurveyPromptHost', () => {
     mockPathname = '/home';
     mockVersionSettled = true;
     mockRatingSettled = true;
+    useUpdateSheetStore.setState({ visible: false });
   });
 
   it('shows nothing while an app update is required, and still prompts after', () => {
@@ -176,5 +178,14 @@ describe('SurveyPromptHost', () => {
     mockRatingSettled = true;
     view.rerender(view.tree());
     expect(screen.getByText('Survey 23')).toBeTruthy();
+  });
+
+  it('waits while the optional update sheet is showing, then prompts', () => {
+    mockPending = [s(24, 'PENDING')];
+    useUpdateSheetStore.setState({ visible: true });
+    renderHost();
+    expect(screen.queryByText('Survey 24')).toBeNull();
+    act(() => useUpdateSheetStore.setState({ visible: false }));
+    expect(screen.getByText('Survey 24')).toBeTruthy();
   });
 });

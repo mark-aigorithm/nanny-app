@@ -10,6 +10,7 @@ import { usePendingRatingSettled } from '@mobile/hooks/usePendingRating';
 import { PENDING_SURVEYS_KEY, usePendingSurveys, useSkipSurvey } from '@mobile/hooks/useSurveys';
 import { navigateToSurvey } from '@mobile/lib/notificationNavigation';
 import { useRatingPromptStore } from '@mobile/store/ratingPromptStore';
+import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 import { markSurveyPrompted, pickSurveyToPrompt, promptedSurveys } from '@mobile/store/surveyPromptStore';
 
 /**
@@ -26,10 +27,15 @@ export default function SurveyPromptHost() {
   const { data } = usePendingSurveys();
   const skip = useSkipSurvey();
   const ratingShowing = useRatingPromptStore((s) => s.booking) !== null;
+  // The blocker and the optional update sheet both win over the survey sheet.
   const updateRequired = useIsUpdateRequired();
+  const updateSheetVisible = useUpdateSheetStore((s) => s.visible);
+  const updateShowing = updateRequired || updateSheetVisible;
   // Both read as "not showing" while their queries load; wait until each has
   // answered so the survey sheet never has to make way in the same commit.
-  const othersSettled = useIsVersionCheckSettled() && usePendingRatingSettled();
+  const versionSettled = useIsVersionCheckSettled();
+  const ratingSettled = usePendingRatingSettled();
+  const othersSettled = versionSettled && ratingSettled;
   const onSurveyRoute = usePathname() === '/survey';
   const [current, setCurrent] = useState<MotherSurveySummary | null>(null);
 
@@ -51,11 +57,11 @@ export default function SurveyPromptHost() {
       setCurrent(null);
       return;
     }
-    if (current || !othersSettled || ratingShowing || updateRequired || onSurveyRoute) return;
+    if (current || !othersSettled || ratingShowing || updateShowing || onSurveyRoute) return;
     setCurrent(pickSurveyToPrompt(data, promptedSurveys()));
-  }, [data, current, othersSettled, ratingShowing, updateRequired, onSurveyRoute]);
+  }, [data, current, othersSettled, ratingShowing, updateShowing, onSurveyRoute]);
 
-  if (!current || ratingShowing || updateRequired || onSurveyRoute) return null;
+  if (!current || ratingShowing || updateShowing || onSurveyRoute) return null;
 
   const close = () => {
     markSurveyPrompted(current.id);

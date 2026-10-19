@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 
 const mockUsePendingRating = jest.fn();
 jest.mock('@mobile/hooks/usePendingRating', () => ({
@@ -16,9 +16,11 @@ jest.mock('@mobile/components/RatingPromptSheet', () => {
 });
 
 import RatingPromptHost from '@mobile/components/RatingPromptHost';
+import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 
 beforeEach(() => {
   mockUpdateRequired = false;
+  useUpdateSheetStore.setState({ visible: false });
 });
 
 it('runs detection and renders the sheet', () => {
@@ -31,4 +33,12 @@ it('renders nothing while an app update is required', () => {
   mockUpdateRequired = true;
   const { queryByText } = render(<RatingPromptHost />);
   expect(queryByText('sheet')).toBeNull();
+});
+
+it('waits while the optional update sheet is showing, so the two never stack', () => {
+  useUpdateSheetStore.setState({ visible: true });
+  const { queryByText, getByText } = render(<RatingPromptHost />);
+  expect(queryByText('sheet')).toBeNull();
+  act(() => useUpdateSheetStore.setState({ visible: false }));
+  expect(getByText('sheet')).toBeTruthy();
 });
