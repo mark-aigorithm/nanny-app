@@ -53,6 +53,17 @@ describe('SurveyScreen', () => {
     expect(mockSubmit).toHaveBeenCalledWith([{ questionId: 1, bool: true }], expect.anything());
   });
 
+  it('says thank you after a successful submit', () => {
+    mockSurveyState = { data: SURVEY, isPending: false, error: null };
+    mockSubmit.mockImplementation((_answers, options: { onSuccess: () => void }) => options.onSuccess());
+    render(<SurveyScreen />);
+    fireEvent.press(screen.getByRole('radio', { name: 'Yes' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(screen.getAllByText('Thank you!').length).toBeGreaterThan(0);
+    expect(screen.getByText('Your answers help us look after your family better.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
+
   it('skips the survey', () => {
     mockSurveyState = { data: SURVEY, isPending: false, error: null };
     render(<SurveyScreen />);

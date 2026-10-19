@@ -24,7 +24,7 @@ import { styles } from './styles/survey-screen.styles';
 /**
  * One survey, every question on one scroll. Submit stays disabled until the
  * required questions are answered (the same rule the backend enforces). A 409
- * (closed, or already answered) shows the server's message and leaves.
+ * (closed, or already answered) shows the server's message as an end state with Back.
  */
 export default function SurveyScreen() {
   const { surveyId } = useLocalSearchParams<{ surveyId: string }>();
@@ -34,6 +34,7 @@ export default function SurveyScreen() {
   const submit = useSubmitSurvey(id);
   const skip = useSkipSurvey();
   const [answers, setAnswers] = useState<Record<number, SurveyAnswerInput | undefined>>({});
+  const [done, setDone] = useState(false);
   const [footerHeight, setFooterHeight] = useState(0);
   const keyboardVisible = useKeyboardVisible();
   const bottomPadding = useBottomBarPadding(spacing.lg);
@@ -43,10 +44,36 @@ export default function SurveyScreen() {
     else router.replace('/(parent)/(tabs)/home' as never);
   };
 
+  // A non-409 failure keeps the form so she can retry; a 409 is an end state below.
   const onMutationError = (err: Error) => {
+    if (apiStatusOf(err) === 409) return;
     noticeDialog({ title: 'Could not send your answers', message: getApiErrorMessage(err) });
-    if (apiStatusOf(err) === 409) leave();
   };
+
+  const endError = [survey.error, submit.error, skip.error].find((e) => apiStatusOf(e) === 409);
+  if (endError instanceof Error) {
+    return (
+      <ScreenContainer useSafeArea={false}>
+        <StackHeader title="Survey" onBack={leave} />
+        <ScrollView contentContainerStyle={styles.message}>
+          <Text style={styles.messageText}>{endError.message}</Text>
+          <Button title="Back" variant="outline" onPress={leave} />
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
+  if (done) {
+    return (
+      <ScreenContainer useSafeArea={false}>
+        <StackHeader title="Thank you!" showBackButton={false} />
+        <ScrollView contentContainerStyle={styles.message}>
+          <Text style={styles.messageText}>Your answers help us look after your family better.</Text>
+          <Button title="Done" onPress={leave} />
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
 
   if (survey.isPending && !survey.error) {
     return (
@@ -58,15 +85,12 @@ export default function SurveyScreen() {
   }
 
   if (survey.error || !survey.data) {
-    const closed = apiStatusOf(survey.error) === 409;
     return (
       <ScreenContainer useSafeArea={false}>
         <StackHeader title="Survey" onBack={leave} />
         <ScrollView contentContainerStyle={styles.message}>
           <Text style={styles.messageText}>
-            {closed && survey.error instanceof Error
-              ? survey.error.message
-              : "We couldn't open this survey."}
+            We couldn't open this survey.
           </Text>
           <Button title="Back" variant="outline" onPress={leave} />
         </ScrollView>
@@ -113,7 +137,7 @@ export default function SurveyScreen() {
             title="Submit"
             disabled={problem !== null || busy}
             loading={submit.isPending}
-            onPress={() => submit.mutate(given, { onSuccess: leave, onError: onMutationError })}
+            onPress={() => submit.mutate(given, { onSuccess: () => setDone(true), onError: onMutationError })}
           />
           <Button
             title="Skip for now"
