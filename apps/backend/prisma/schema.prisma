@@ -227,6 +227,10 @@ model User {
   bookingMessages          BookingMessage[]  @relation("BookingMessageSender")
   bookingChatReads         BookingChatRead[] @relation("BookingChatReader")
   notifications            Notification[]
+  surveysCreated           Survey[]                  @relation("SurveyCreator")
+  surveyRecipients         SurveyRecipient[]
+  userGroupsCreated        UserGroup[]               @relation("UserGroupCreator")
+  userGroupMemberships     UserGroupMember[]
   deviceTokens             DeviceToken[]
   emailLogs                EmailLog[]
   initiatedConversations   Conversation[]            @relation("ConversationInitiator")
@@ -1494,6 +1498,8 @@ enum NotificationType {
   MARKETPLACE_LISTING_REJECTED
   /// The other side of a running booking sent a chat message.
   BOOKING_MESSAGE
+  /// An admin sent (or re-sent) the mother a survey to answer.
+  SURVEY
 
   @@map("notification_type")
 }
@@ -1502,6 +1508,7 @@ enum NotificationReferenceType {
   CONVERSATION
   BOOKING
   COMMUNITY_POST
+  SURVEY
 
   @@map("notification_reference_type")
 }
@@ -1546,6 +1553,181 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Surveys — see docs/superpowers/specs/2026-10-19-surveys-design.md
+// ──────────────────────────────────────────────────────────────
+
+enum SurveyStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+
+  @@map("survey_status")
+}
+
+enum SurveyQuestionType {
+  TEXT
+  SINGLE_CHOICE
+  MULTI_CHOICE
+  RATING
+  YES_NO
+
+  @@map("survey_question_type")
+}
+
+enum SurveyRecipientStatus {
+  PENDING
+  SKIPPED
+  ANSWERED
+
+  @@map("survey_recipient_status")
+}
+
+model Survey {
+  id          Int               @id @default(autoincrement())
+  title       String
+  description String?           @db.Text
+  status      SurveyStatus      @default(DRAFT)
+  createdById Int               @map("created_by_id")
+  createdBy   User              @relation("SurveyCreator", fields: [createdById], references: [id])
+  publishedAt DateTime?         @map("published_at")
+  closedAt    DateTime?         @map("closed_at")
+  questions   SurveyQuestion[]
+  recipients  SurveyRecipient[]
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  @@index([status, deletedAt])
+  @@map("surveys")
+}
+
+/// Replacing a draft soft-deletes its questions and creates new ones, so
+/// `order` is unique only among live rows — no unique constraint on it.
+model SurveyQuestion {
+  id        Int                    @id @default(autoincrement())
+  surveyId  Int                    @map("survey_id")
+  survey    Survey                 @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  order     Int
+  type      SurveyQuestionType
+  prompt    String
+  required  Boolean                @default(true)
+  options   SurveyQuestionOption[]
+  answers   SurveyAnswer[]
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+  deletedAt DateTime?              @map("deleted_at")
+
+  @@index([surveyId])
+  @@map("survey_questions")
+}
+
+model SurveyQuestionOption {
+  id            Int                  @id @default(autoincrement())
+  questionId    Int                  @map("question_id")
+  question      SurveyQuestion       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  order         Int
+  label         String
+  answerOptions SurveyAnswerOption[]
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  deletedAt     DateTime?            @map("deleted_at")
+
+  @@index([questionId])
+  @@map("survey_question_options")
+}
+
+model SurveyRecipient {
+  id         Int                   @id @default(autoincrement())
+  surveyId   Int                   @map("survey_id")
+  survey     Survey                @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  userId     Int                   @map("user_id")
+  user       User                  @relation(fields: [userId], references: [id])
+  status     SurveyRecipientStatus @default(PENDING)
+  sentCount  Int                   @default(1) @map("sent_count")
+  lastSentAt DateTime              @map("last_sent_at")
+  skippedAt  DateTime?             @map("skipped_at")
+  answeredAt DateTime?             @map("answered_at")
+  answers    SurveyAnswer[]
+  createdAt  DateTime              @default(now()) @map("created_at")
+  updatedAt  DateTime              @updatedAt @map("updated_at")
+  deletedAt  DateTime?             @map("deleted_at")
+
+  @@unique([surveyId, userId])
+  @@index([userId, status])
+  @@index([surveyId, status])
+  @@map("survey_recipients")
+}
+
+/// Exactly one value column is set, matching the question's type; choice
+/// answers keep their picks in survey_answer_options.
+model SurveyAnswer {
+  id          Int                  @id @default(autoincrement())
+  recipientId Int                  @map("recipient_id")
+  recipient   SurveyRecipient      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  questionId  Int                  @map("question_id")
+  question    SurveyQuestion       @relation(fields: [questionId], references: [id])
+  textValue   String?              @map("text_value") @db.Text
+  ratingValue Int?                 @map("rating_value")
+  boolValue   Boolean?             @map("bool_value")
+  options     SurveyAnswerOption[]
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  deletedAt   DateTime?            @map("deleted_at")
+
+  @@unique([recipientId, questionId])
+  @@index([questionId])
+  @@map("survey_answers")
+}
+
+model SurveyAnswerOption {
+  id        Int                  @id @default(autoincrement())
+  answerId  Int                  @map("answer_id")
+  answer    SurveyAnswer         @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  optionId  Int                  @map("option_id")
+  option    SurveyQuestionOption @relation(fields: [optionId], references: [id])
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+  deletedAt DateTime?            @map("deleted_at")
+
+  @@unique([answerId, optionId])
+  @@index([optionId])
+  @@map("survey_answer_options")
+}
+
+/// A hand-picked list of mothers. Names are unique among live groups only
+/// (checked in the service), so a deleted group's name can be reused.
+model UserGroup {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  createdById Int               @map("created_by_id")
+  createdBy   User              @relation("UserGroupCreator", fields: [createdById], references: [id])
+  members     UserGroupMember[]
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  @@index([deletedAt])
+  @@map("user_groups")
+}
+
+/// Removing a member soft-deletes the row; adding her back clears deletedAt.
+model UserGroupMember {
+  id        Int       @id @default(autoincrement())
+  groupId   Int       @map("group_id")
+  group     UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    Int       @map("user_id")
+  user      User      @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@map("user_group_members")
 }
 
 // ──────────────────────────────────────────────────────────────

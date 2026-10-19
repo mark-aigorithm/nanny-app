@@ -21,7 +21,7 @@ async function getUserByUid(uid: string): Promise<User> {
   return user;
 }
 
-function toApiNotificationType(type: NotificationType): NotificationResponse['type'] {
+export function toApiNotificationType(type: NotificationType): NotificationResponse['type'] {
   switch (type as string) {
     case 'MARKETPLACE_MESSAGE':
       return 'marketplace_message';
@@ -71,6 +71,8 @@ function toApiNotificationType(type: NotificationType): NotificationResponse['ty
       return 'marketplace_listing_rejected';
     case 'BOOKING_MESSAGE':
       return 'booking_message';
+    case 'SURVEY':
+      return 'survey';
     default:
       return 'marketplace_message';
   }
@@ -87,6 +89,8 @@ function toApiReferenceType(
       return 'booking';
     case 'COMMUNITY_POST':
       return 'community_post';
+    case 'SURVEY':
+      return 'survey';
     default:
       return null;
   }
@@ -138,6 +142,22 @@ export async function createInAppNotification(
   });
 
   return toNotificationResponse(row);
+}
+
+/** Many in-app rows in one insert — the survey fan-out writes one per mother. */
+export async function createInAppNotifications(inputs: CreateNotificationInput[]): Promise<number> {
+  if (inputs.length === 0) return 0;
+  const { count } = await prisma.notification.createMany({
+    data: inputs.map((input) => ({
+      userId: input.userId,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+      referenceId: input.referenceId ?? null,
+      referenceType: input.referenceType ?? null,
+    })),
+  });
+  return count;
 }
 
 export interface PushPayload {
