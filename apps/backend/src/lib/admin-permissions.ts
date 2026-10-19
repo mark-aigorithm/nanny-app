@@ -164,6 +164,10 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'POST', pattern: '/surveys/:id/recipients', requires: section('surveys', 'MANAGE') },
   { method: 'POST', pattern: '/surveys/:id/resend', requires: section('surveys', 'MANAGE') },
   { method: 'POST', pattern: '/surveys/:id/close', requires: section('surveys', 'MANAGE') },
+  { method: 'GET', pattern: '/surveys/:id/results', requires: section('surveys', 'VIEW') },
+  { method: 'GET', pattern: '/surveys/:id/text-answers', requires: section('surveys', 'VIEW') },
+  { method: 'GET', pattern: '/surveys/:id/recipients', requires: section('surveys', 'VIEW') },
+  { method: 'GET', pattern: '/surveys/:id/recipients/:userId', requires: section('surveys', 'VIEW') },
 
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel

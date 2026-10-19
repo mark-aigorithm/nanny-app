@@ -70,6 +70,10 @@ import {
   SurveyDraftSchema,
   SurveyTargetSchema,
   SurveyResendSchema,
+  AdminSurveyRecipientListQuerySchema,
+  type AdminSurveyRecipientListQuery,
+  SurveyTextAnswerQuerySchema,
+  type SurveyTextAnswerQuery,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -201,6 +205,12 @@ import {
   resendSurvey,
   updateSurveyDraft,
 } from '@backend/services/admin-survey.service';
+import {
+  getSurveyRecipientAnswers,
+  getSurveyResults,
+  listSurveyRecipients,
+  listSurveyTextAnswers,
+} from '@backend/services/admin-survey-results.service';
 import { listMotherPicker } from '@backend/services/mother-picker.service';
 import { lookupServiceArea } from '@backend/services/service-area-lookup.service';
 import {
@@ -1062,6 +1072,54 @@ adminRouter.post(
 adminRouter.post('/surveys/:id/close', async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(ok(await closeSurvey(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/surveys/:id/results', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getSurveyResults(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get(
+  '/surveys/:id/text-answers',
+  validateQuery(SurveyTextAnswerQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { answers, meta } = await listSurveyTextAnswers(
+        routeIdParam(req.params.id),
+        res.locals['validatedQuery'] as SurveyTextAnswerQuery,
+      );
+      res.json(okPaged(answers, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get(
+  '/surveys/:id/recipients',
+  validateQuery(AdminSurveyRecipientListQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { recipients, meta } = await listSurveyRecipients(
+        routeIdParam(req.params.id),
+        res.locals['validatedQuery'] as AdminSurveyRecipientListQuery,
+      );
+      res.json(okPaged(recipients, meta));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/surveys/:id/recipients/:userId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getSurveyRecipientAnswers(routeIdParam(req.params.id), routeIdParam(req.params.userId))));
   } catch (err) {
     next(err);
   }
