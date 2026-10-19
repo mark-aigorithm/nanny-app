@@ -114,6 +114,8 @@ export function SurveyEditor({ survey, onPublish }: Props) {
     },
   });
 
+  // Inputs lock while a save is in flight so an edit can't be marked saved by its response.
+  const locked = !canManage || save.isPending;
   const canPublish = !dirty && questions.length > 0 && validation.success;
 
   return (
@@ -126,7 +128,7 @@ export function SurveyEditor({ survey, onPublish }: Props) {
         actions={
           canManage && (
             <>
-              <Button variant="ghost" onClick={() => duplicate.mutate()} disabled={duplicate.isPending}>
+              <Button variant="ghost" onClick={() => duplicate.mutate()} disabled={duplicate.isPending || dirty} title={dirty ? 'Save first — a copy uses the saved draft' : undefined}>
                 <Copy size={ICON_SIZE.inline} aria-hidden />
                 Duplicate
               </Button>
@@ -153,7 +155,7 @@ export function SurveyEditor({ survey, onPublish }: Props) {
               aria-label="Survey title"
               value={title}
               maxLength={SURVEY_TITLE_MAX}
-              readOnly={!canManage}
+              disabled={locked}
               onChange={(e) => touch(() => setTitle(e.target.value))}
             />
           </Field>
@@ -162,7 +164,7 @@ export function SurveyEditor({ survey, onPublish }: Props) {
               aria-label="Survey description"
               value={description}
               maxLength={SURVEY_DESCRIPTION_MAX}
-              readOnly={!canManage}
+              disabled={locked}
               onChange={(e) => touch(() => setDescription(e.target.value))}
             />
           </Field>
@@ -175,6 +177,7 @@ export function SurveyEditor({ survey, onPublish }: Props) {
             count={questions.length}
             onChange={(next) => updateAt(i, next)}
             onMove={(delta) => move(i, delta)}
+            readOnly={locked}
             onRemove={() => touch(() => setQuestions((qs) => qs.filter((_, j) => j !== i)))}
           />
         ))}
@@ -182,6 +185,7 @@ export function SurveyEditor({ survey, onPublish }: Props) {
           <div>
             <Button
               variant="ghost"
+              disabled={locked}
               onClick={() =>
                 touch(() => setQuestions((qs) => [...qs, { key: newKey(), type: 'TEXT', prompt: '', required: true, options: [] }]))
               }

@@ -26,8 +26,8 @@ const DRAFT: AdminSurvey = {
   publishedAt: null, closedAt: null, createdAt: '2026-10-19T00:00:00.000Z', questions: [],
 };
 
-function renderEditor(survey: AdminSurvey = DRAFT, onPublish = vi.fn()) {
-  server.use(http.get('/api/admin/me', () => ok(ADMIN)));
+function renderEditor(survey: AdminSurvey = DRAFT, onPublish = vi.fn(), me: unknown = ADMIN) {
+  server.use(http.get('/api/admin/me', () => ok(me)));
   return renderWithProviders(
     <MemoryRouter initialEntries={['/surveys/3']}>
       <ToastProvider>
@@ -119,5 +119,60 @@ describe('SurveyEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: /delete draft/i }));
     expect(await screen.findByText('Survey list')).toBeInTheDocument();
     expect(deleted).toBe(true);
+  });
+
+  const WITH_QUESTION: AdminSurvey = {
+    ...DRAFT,
+    questions: [
+      {
+        id: 1, order: 0, type: 'SINGLE_CHOICE', prompt: 'Pick', required: true,
+        options: [{ id: 1, order: 0, label: 'A' }, { id: 2, order: 1, label: 'B' }, { id: 3, order: 2, label: 'C' }],
+      },
+      { id: 2, order: 1, type: 'TEXT', prompt: 'Why', required: true, options: [] },
+    ],
+  };
+
+  it('is read-only for a view-only operator', async () => {
+    const viewer = { ...ADMIN, role: 'OPERATOR', permissions: { surveys: 'VIEW' } };
+    renderEditor(WITH_QUESTION, vi.fn(), viewer);
+    expect(await screen.findByLabelText('Survey title')).toBeDisabled();
+    const first = screen.getAllByRole('group', { name: /question \d/i })[0]!;
+    expect(within(first).getByLabelText('Question')).toBeDisabled();
+    expect(within(first).getByRole('button', { name: 'Answer type' })).toBeDisabled();
+    expect(within(first).getByLabelText('Option 1')).toBeDisabled();
+    expect(within(first).getByRole('button', { name: 'Remove option 1' })).toBeDisabled();
+    expect(within(first).getByRole('button', { name: /add option/i })).toBeDisabled();
+    expect(within(first).getByRole('checkbox', { name: /required/i })).toBeDisabled();
+    expect(within(first).getByRole('button', { name: /move down/i })).toBeDisabled();
+    expect(within(first).getByRole('button', { name: /delete question/i })).toBeDisabled();
+    for (const name of [/^save$/i, /^delete$/i, /duplicate/i, /add question/i]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it('locks the inputs while a save is in flight, so later edits are not lost', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    server.use(
+      http.patch('/api/admin/surveys/3', async () => {
+        await gate;
+        return ok({ ...DRAFT });
+      }),
+    );
+    renderEditor();
+    const description = await screen.findByLabelText('Survey description');
+    await userEvent.type(description, 'Hi');
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(screen.getByLabelText('Survey description')).toBeDisabled());
+    expect(screen.getByRole('button', { name: /add question/i })).toBeDisabled();
+    release();
+    await waitFor(() => expect(screen.getByLabelText('Survey description')).toBeEnabled());
+  });
+
+  it('disables Duplicate while there are unsaved changes', async () => {
+    renderEditor();
+    expect(await screen.findByRole('button', { name: /duplicate/i })).toBeEnabled();
+    await userEvent.type(screen.getByLabelText('Survey description'), 'x');
+    expect(screen.getByRole('button', { name: /duplicate/i })).toBeDisabled();
   });
 });
