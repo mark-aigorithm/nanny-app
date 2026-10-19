@@ -1,4 +1,22 @@
 import type {
+  AdminSurvey,
+  AdminSurveyRecipient,
+  AdminSurveyRecipientAnswers,
+  AdminSurveyRecipientSortKey,
+  AdminSurveySummary,
+  AdminSortDir,
+  MotherPickerRow,
+  MotherPickerSortKey,
+  SurveyDraftInput,
+  SurveyRecipientStatus,
+  SurveyResendInput,
+  SurveyResults,
+  SurveySendResult,
+  SurveyStatus,
+  SurveyTargetInput,
+  SurveyTextAnswer,
+  UserGroup,
+  UserGroupInput,
   Address,
   AdminUpsertNannyAddressInput,
   AdminBooking,
@@ -325,6 +343,156 @@ export async function updateCampaign(id: number, input: UpdateCampaignInput): Pr
 
 export async function deleteCampaign(id: number): Promise<void> {
   await apiClient.delete(`/admin/campaigns/${id}`);
+}
+
+// ── Surveys ────────────────────────────────────────────────────
+
+export async function fetchSurveys(params: {
+  status?: SurveyStatus;
+  page: number;
+  limit: number;
+}): Promise<Paged<AdminSurveySummary[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminSurveySummary[]>>('/admin/surveys', { params });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchSurvey(id: number): Promise<AdminSurvey> {
+  const res = await apiClient.get<ApiEnvelope<AdminSurvey>>(`/admin/surveys/${id}`);
+  return res.data.data;
+}
+
+export async function createSurvey(input: SurveyDraftInput): Promise<AdminSurvey> {
+  const res = await apiClient.post<ApiEnvelope<AdminSurvey>>('/admin/surveys', input);
+  return res.data.data;
+}
+
+export async function updateSurvey(id: number, input: SurveyDraftInput): Promise<AdminSurvey> {
+  const res = await apiClient.patch<ApiEnvelope<AdminSurvey>>(`/admin/surveys/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteSurvey(id: number): Promise<void> {
+  await apiClient.delete(`/admin/surveys/${id}`);
+}
+
+export async function duplicateSurvey(id: number): Promise<AdminSurvey> {
+  const res = await apiClient.post<ApiEnvelope<AdminSurvey>>(`/admin/surveys/${id}/duplicate`);
+  return res.data.data;
+}
+
+export async function publishSurvey(id: number, target: SurveyTargetInput): Promise<SurveySendResult> {
+  const res = await apiClient.post<ApiEnvelope<SurveySendResult>>(`/admin/surveys/${id}/publish`, target);
+  return res.data.data;
+}
+
+export async function addSurveyRecipients(id: number, target: SurveyTargetInput): Promise<SurveySendResult> {
+  const res = await apiClient.post<ApiEnvelope<SurveySendResult>>(`/admin/surveys/${id}/recipients`, target);
+  return res.data.data;
+}
+
+export async function resendSurvey(id: number, body: SurveyResendInput): Promise<SurveySendResult> {
+  const res = await apiClient.post<ApiEnvelope<SurveySendResult>>(`/admin/surveys/${id}/resend`, body);
+  return res.data.data;
+}
+
+export async function closeSurvey(id: number): Promise<AdminSurvey> {
+  const res = await apiClient.post<ApiEnvelope<AdminSurvey>>(`/admin/surveys/${id}/close`);
+  return res.data.data;
+}
+
+export async function fetchSurveyResults(id: number): Promise<SurveyResults> {
+  const res = await apiClient.get<ApiEnvelope<SurveyResults>>(`/admin/surveys/${id}/results`);
+  return res.data.data;
+}
+
+export async function fetchSurveyTextAnswers(
+  id: number,
+  questionId: number,
+  page: number,
+  limit: number,
+): Promise<Paged<SurveyTextAnswer[]>> {
+  const res = await apiClient.get<PagedEnvelope<SurveyTextAnswer[]>>(`/admin/surveys/${id}/text-answers`, {
+    params: { questionId, page, limit },
+  });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchSurveyRecipients(
+  id: number,
+  params: {
+    status?: SurveyRecipientStatus;
+    page: number;
+    limit: number;
+    sortBy: AdminSurveyRecipientSortKey;
+    sortDir: AdminSortDir;
+  },
+): Promise<Paged<AdminSurveyRecipient[]>> {
+  const res = await apiClient.get<PagedEnvelope<AdminSurveyRecipient[]>>(`/admin/surveys/${id}/recipients`, {
+    params,
+  });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function fetchSurveyRecipientAnswers(
+  id: number,
+  userId: number,
+): Promise<AdminSurveyRecipientAnswers> {
+  const res = await apiClient.get<ApiEnvelope<AdminSurveyRecipientAnswers>>(
+    `/admin/surveys/${id}/recipients/${userId}`,
+  );
+  return res.data.data;
+}
+
+// ── User groups & mother picker ────────────────────────────────
+
+export async function fetchUserGroups(): Promise<UserGroup[]> {
+  const res = await apiClient.get<ApiEnvelope<UserGroup[]>>('/admin/groups');
+  return res.data.data;
+}
+
+export async function fetchUserGroup(id: number): Promise<UserGroup> {
+  const res = await apiClient.get<ApiEnvelope<UserGroup>>(`/admin/groups/${id}`);
+  return res.data.data;
+}
+
+export async function createUserGroup(input: UserGroupInput): Promise<UserGroup> {
+  const res = await apiClient.post<ApiEnvelope<UserGroup>>('/admin/groups', input);
+  return res.data.data;
+}
+
+export async function updateUserGroup(id: number, input: UserGroupInput): Promise<UserGroup> {
+  const res = await apiClient.patch<ApiEnvelope<UserGroup>>(`/admin/groups/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteUserGroup(id: number): Promise<void> {
+  await apiClient.delete(`/admin/groups/${id}`);
+}
+
+export async function addUserGroupMembers(id: number, userIds: number[]): Promise<UserGroup> {
+  const res = await apiClient.post<ApiEnvelope<UserGroup>>(`/admin/groups/${id}/members`, { userIds });
+  return res.data.data;
+}
+
+export async function removeUserGroupMembers(id: number, userIds: number[]): Promise<UserGroup> {
+  const res = await apiClient.delete<ApiEnvelope<UserGroup>>(`/admin/groups/${id}/members`, {
+    data: { userIds },
+  });
+  return res.data.data;
+}
+
+export async function fetchMotherPicker(params: {
+  search?: string;
+  groupId?: number;
+  page: number;
+  limit: number;
+  sortBy: MotherPickerSortKey;
+  sortDir: AdminSortDir;
+}): Promise<Paged<MotherPickerRow[]>> {
+  const res = await apiClient.get<PagedEnvelope<MotherPickerRow[]>>('/admin/mother-picker', {
+    params: { ...params, search: params.search || undefined },
+  });
+  return { data: res.data.data, meta: res.data.meta };
 }
 
 export async function fetchCameras(): Promise<Camera[]> {

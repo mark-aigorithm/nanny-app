@@ -24,6 +24,7 @@ import { RewardsPage } from './pages/rewards-page';
 import { SettingsPage } from './pages/settings-page';
 import { ServiceAreasPage } from './pages/service-areas-page';
 import { SkillsPage } from './pages/skills-page';
+import { SurveysPage } from './pages/surveys-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
 import { QaChecklistPage } from './pages/qa-checklist-page';
@@ -151,6 +152,14 @@ export function App() {
                   element={
                     <Guarded section="campaigns">
                       <CampaignsPage />
+                    </Guarded>
+                  }
+                />
+                <Route
+                  path="surveys"
+                  element={
+                    <Guarded section="surveys">
+                      <SurveysPage />
                     </Guarded>
                   }
                 />
