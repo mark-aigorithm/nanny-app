@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { ADMIN_DEFAULT_PAGE_SIZE } from '@nanny-app/shared';
 
@@ -21,15 +21,12 @@ export function usePagination(
 ): UsePaginationResult {
   const [page, setPage] = useState(1);
   const [limit, setLimitState] = useState(initialLimit);
+  // Stable, because callers list these in effect deps.
+  const setLimit = useCallback((next: number) => {
+    setLimitState(next);
+    setPage(1);
+  }, []);
+  const reset = useCallback(() => setPage(1), []);
 
-  return {
-    page,
-    limit,
-    setPage,
-    setLimit: (next: number) => {
-      setLimitState(next);
-      setPage(1);
-    },
-    reset: () => setPage(1),
-  };
+  return { page, limit, setPage, setLimit, reset };
 }
