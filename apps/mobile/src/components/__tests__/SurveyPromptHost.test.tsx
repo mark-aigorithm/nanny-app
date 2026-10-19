@@ -17,6 +17,10 @@ jest.mock('@mobile/hooks/useSurveys', () => ({
   useSkipSurvey: () => ({ mutate: mockSkip, isPending: false }),
   PENDING_SURVEYS_KEY: ['surveys', 'pending'],
 }));
+let mockUpdateRequired = false;
+jest.mock('@mobile/hooks/useAppVersionCheck', () => ({
+  useIsUpdateRequired: () => mockUpdateRequired,
+}));
 jest.mock('@mobile/store/ratingPromptStore', () => ({
   useRatingPromptStore: (sel: (s: { booking: unknown }) => unknown) => sel({ booking: mockRatingBooking }),
 }));
@@ -30,11 +34,13 @@ const s = (id: number, status: 'PENDING' | 'SKIPPED'): MotherSurveySummary => ({
 
 function renderHost() {
   const queryClient = new QueryClient();
-  return render(
+  // A fresh element each time, so a rerender re-runs the host.
+  const tree = () => (
     <QueryClientProvider client={queryClient}>
       <SurveyPromptHost />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  return { ...render(tree()), tree };
 }
 
 describe('pickSurveyToPrompt', () => {
@@ -49,6 +55,18 @@ describe('SurveyPromptHost', () => {
     mockSkip.mockReset();
     mockPush.mockReset();
     mockRatingBooking = null;
+    mockUpdateRequired = false;
+  });
+
+  it('shows nothing while an app update is required, and still prompts after', () => {
+    mockPending = [s(11, 'PENDING')];
+    mockUpdateRequired = true;
+    const view = renderHost();
+    expect(screen.queryByText('Survey 11')).toBeNull();
+    expect(wasSurveyPrompted(11)).toBe(false);
+    mockUpdateRequired = false;
+    view.rerender(view.tree());
+    expect(screen.getByText('Survey 11')).toBeTruthy();
   });
 
   it('offers Answer and Skip for a pending survey', () => {

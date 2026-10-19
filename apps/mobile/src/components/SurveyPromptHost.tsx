@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { MotherSurveySummary } from '@nanny-app/shared';
 
 import SurveyPromptSheet from '@mobile/components/SurveyPromptSheet';
+import { useIsUpdateRequired } from '@mobile/hooks/useAppVersionCheck';
 import { PENDING_SURVEYS_KEY, usePendingSurveys, useSkipSurvey } from '@mobile/hooks/useSurveys';
 import { navigateToSurvey } from '@mobile/lib/notificationNavigation';
 import { useRatingPromptStore } from '@mobile/store/ratingPromptStore';
@@ -14,7 +15,8 @@ import { markSurveyPrompted, pickSurveyToPrompt, promptedSurveys } from '@mobile
  * Mount once in the parent layout. On open (and on return to the foreground)
  * offers her oldest unanswered survey with Answer / Skip. Skip keeps it in her
  * profile list; only an admin's resend brings the prompt back. The rating
- * prompt goes first when both are due.
+ * prompt goes first when both are due, and neither shows over the
+ * update-required blocker.
  */
 export default function SurveyPromptHost() {
   const router = useRouter();
@@ -22,6 +24,7 @@ export default function SurveyPromptHost() {
   const { data } = usePendingSurveys();
   const skip = useSkipSurvey();
   const ratingShowing = useRatingPromptStore((s) => s.booking) !== null;
+  const updateRequired = useIsUpdateRequired();
   const [current, setCurrent] = useState<MotherSurveySummary | null>(null);
 
   useEffect(() => {
@@ -38,11 +41,11 @@ export default function SurveyPromptHost() {
       setCurrent(null);
       return;
     }
-    if (current || ratingShowing) return;
+    if (current || ratingShowing || updateRequired) return;
     setCurrent(pickSurveyToPrompt(data, promptedSurveys()));
-  }, [data, current, ratingShowing]);
+  }, [data, current, ratingShowing, updateRequired]);
 
-  if (!current || ratingShowing) return null;
+  if (!current || ratingShowing || updateRequired) return null;
 
   const close = () => {
     markSurveyPrompted(current.id);
