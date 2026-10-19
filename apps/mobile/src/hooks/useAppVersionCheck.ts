@@ -1,0 +1,39 @@
+import { Platform } from 'react-native';
+import * as Application from 'expo-application';
+import Constants from 'expo-constants';
+import { useQuery } from '@tanstack/react-query';
+import type { AppPlatform, AppVersionCheckResult } from '@nanny-app/shared';
+
+import { api, unwrap } from '@mobile/lib/api';
+
+export const APP_VERSION_CHECK_KEY = 'app-version-check';
+
+/** The version the store installed; the JS config version only as a fallback (e.g. Expo Go). */
+export function installedAppVersion(): string | null {
+  return Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? null;
+}
+
+function apiPlatform(): AppPlatform | null {
+  return Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : null;
+}
+
+/**
+ * Whether this install is current. Runs without sign-in, again whenever the
+ * app returns to the foreground (React Query's focusManager is bound to
+ * AppState in the root layout). Errors are left to the caller, which fails open.
+ */
+export function useAppVersionCheck() {
+  const platform = apiPlatform();
+  const version = installedAppVersion();
+  return useQuery({
+    queryKey: [APP_VERSION_CHECK_KEY, platform, version],
+    queryFn: () =>
+      unwrap<AppVersionCheckResult>(
+        api.get('/app-version/check', { params: { platform, version } }),
+      ),
+    enabled: platform !== null && version !== null,
+    staleTime: 5 * 60_000,
+    retry: 1,
+    refetchOnWindowFocus: true,
+  });
+}

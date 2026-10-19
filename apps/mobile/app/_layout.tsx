@@ -24,6 +24,7 @@ import {
 } from '@mobile/lib/queryClient';
 import { subscribeIsOffline } from '@mobile/lib/network';
 import OfflineGate from '@mobile/components/OfflineGate';
+import UpdateGate from '@mobile/components/UpdateGate';
 import { auth } from '@mobile/lib/firebase';
 import { isAuthEmulator } from '@mobile/lib/socialAuth';
 import { useAuthStore } from '@mobile/store/authStore';
@@ -105,6 +106,7 @@ export default function RootLayout() {
         {isAuthEmulator() && <E2eGooglePickerHost />}
         {/* Full-screen "you're offline" overlay — covers every area of the app
             while the device has no connection and lifts by itself. */}
+        <UpdateGate />
         <OfflineGate />
       </SafeAreaProvider>
     </QueryClientProvider>
