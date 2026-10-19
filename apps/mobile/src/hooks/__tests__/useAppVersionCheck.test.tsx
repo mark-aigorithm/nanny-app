@@ -11,7 +11,7 @@ jest.mock('@mobile/lib/api', () => ({
 }));
 
 import { api } from '@mobile/lib/api';
-import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
+import { useAppVersionCheck, useIsVersionCheckSettled } from '@mobile/hooks/useAppVersionCheck';
 
 const mockGet = api.get as jest.Mock;
 
@@ -45,4 +45,30 @@ it('never calls the backend on a platform the API does not know (web preview)', 
   renderHook(() => useAppVersionCheck(), { wrapper });
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(mockGet).not.toHaveBeenCalled();
+});
+
+describe('useIsVersionCheckSettled', () => {
+  it('is false while the check loads, then true once it answers', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android' });
+    let answer: (v: unknown) => void = () => undefined;
+    mockGet.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const { result } = renderHook(() => useIsVersionCheckSettled(), { wrapper });
+    expect(result.current).toBe(false);
+    answer({ data: { data: { status: 'ok', latestVersion: null, storeUrl: null, releaseNotes: null }, error: null } });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it('is true once the check fails (the gate fails open)', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android' });
+    mockGet.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useIsVersionCheckSettled(), { wrapper });
+    // The check retries once (about a second) before it counts as failed.
+    await waitFor(() => expect(result.current).toBe(true), { timeout: 3000 });
+  });
+
+  it('is true at once where the check never runs', () => {
+    Object.defineProperty(Platform, 'OS', { value: 'web' });
+    const { result } = renderHook(() => useIsVersionCheckSettled(), { wrapper });
+    expect(result.current).toBe(true);
+  });
 });

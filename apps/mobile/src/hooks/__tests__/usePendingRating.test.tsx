@@ -16,7 +16,12 @@ jest.mock('@mobile/lib/api', () => ({
 }));
 
 import { api } from '@mobile/lib/api';
-import { pickPendingRating, usePendingRating, PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
+import {
+  pickPendingRating,
+  usePendingRating,
+  usePendingRatingSettled,
+  PENDING_RATING_KEY,
+} from '@mobile/hooks/usePendingRating';
 import { markRatingResolved, useRatingPromptStore } from '@mobile/store/ratingPromptStore';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
@@ -141,5 +146,47 @@ describe('usePendingRating (hook behavior)', () => {
     });
 
     expect(useRatingPromptStore.getState().booking?.id).toBe(7);
+  });
+});
+
+describe('usePendingRatingSettled', () => {
+  beforeEach(resetStores);
+  afterEach(() => {
+    currentUnmount?.();
+    currentUnmount = null;
+    resetStores();
+  });
+
+  function renderSettled() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const result = renderHook(() => usePendingRatingSettled(), { wrapper: Wrapper });
+    currentUnmount = result.unmount;
+    return result;
+  }
+
+  it('is true at once for someone the detection never runs for', () => {
+    useAuthStore.setState({ user: fakeUser });
+    useUserProfileStore.setState({ profile: fakeProfile('NANNY') });
+    expect(renderSettled().result.current).toBe(true);
+  });
+
+  it('is false while a mother\'s detection loads, then true once it answers', async () => {
+    useAuthStore.setState({ user: fakeUser });
+    useUserProfileStore.setState({ profile: fakeProfile('MOTHER') });
+    mockGet.mockResolvedValueOnce({ data: { data: [], error: null } });
+    const { result } = renderSettled();
+    expect(result.current).toBe(false);
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it('is true once the detection fails', async () => {
+    useAuthStore.setState({ user: fakeUser });
+    useUserProfileStore.setState({ profile: fakeProfile('MOTHER') });
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderSettled();
+    await waitFor(() => expect(result.current).toBe(true));
   });
 });

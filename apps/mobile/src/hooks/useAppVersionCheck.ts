@@ -48,3 +48,14 @@ export function useIsUpdateRequired(): boolean {
   const { data } = useAppVersionCheck();
   return data?.status === 'update_required';
 }
+
+/**
+ * True once the check has answered or failed (or never runs here). Hosts that
+ * yield to the blocker wait for this before opening a Modal, so theirs never
+ * has to unmount in the same commit the blocker mounts.
+ */
+export function useIsVersionCheckSettled(): boolean {
+  const { isFetched, isError } = useAppVersionCheck();
+  const runs = apiPlatform() !== null && installedAppVersion() !== null;
+  return !runs || isFetched || isError;
+}

@@ -19,8 +19,14 @@ jest.mock('@mobile/hooks/useSurveys', () => ({
   PENDING_SURVEYS_KEY: ['surveys', 'pending'],
 }));
 let mockUpdateRequired = false;
+let mockVersionSettled = true;
+let mockRatingSettled = true;
 jest.mock('@mobile/hooks/useAppVersionCheck', () => ({
   useIsUpdateRequired: () => mockUpdateRequired,
+  useIsVersionCheckSettled: () => mockVersionSettled,
+}));
+jest.mock('@mobile/hooks/usePendingRating', () => ({
+  usePendingRatingSettled: () => mockRatingSettled,
 }));
 jest.mock('@mobile/store/ratingPromptStore', () => ({
   useRatingPromptStore: (sel: (s: { booking: unknown }) => unknown) => sel({ booking: mockRatingBooking }),
@@ -58,6 +64,8 @@ describe('SurveyPromptHost', () => {
     mockRatingBooking = null;
     mockUpdateRequired = false;
     mockPathname = '/home';
+    mockVersionSettled = true;
+    mockRatingSettled = true;
   });
 
   it('shows nothing while an app update is required, and still prompts after', () => {
@@ -149,5 +157,24 @@ describe('SurveyPromptHost', () => {
     mockPathname = '/home';
     view.rerender(view.tree());
     expect(screen.queryByText('Survey 22')).toBeNull();
+  });
+
+  // Both other prompts win over the survey, but read as "not showing" while
+  // their queries load. Picking a survey then would mean its Modal unmounting
+  // in the same commit the rating sheet or the update blocker mounts.
+  it('picks nothing until the version check and the rating detection have settled', () => {
+    mockPending = [s(23, 'PENDING')];
+    mockVersionSettled = false;
+    mockRatingSettled = false;
+    const view = renderHost();
+    expect(screen.queryByText('Survey 23')).toBeNull();
+
+    mockVersionSettled = true;
+    view.rerender(view.tree());
+    expect(screen.queryByText('Survey 23')).toBeNull();
+
+    mockRatingSettled = true;
+    view.rerender(view.tree());
+    expect(screen.getByText('Survey 23')).toBeTruthy();
   });
 });

@@ -5,7 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { MotherSurveySummary } from '@nanny-app/shared';
 
 import SurveyPromptSheet from '@mobile/components/SurveyPromptSheet';
-import { useIsUpdateRequired } from '@mobile/hooks/useAppVersionCheck';
+import { useIsUpdateRequired, useIsVersionCheckSettled } from '@mobile/hooks/useAppVersionCheck';
+import { usePendingRatingSettled } from '@mobile/hooks/usePendingRating';
 import { PENDING_SURVEYS_KEY, usePendingSurveys, useSkipSurvey } from '@mobile/hooks/useSurveys';
 import { navigateToSurvey } from '@mobile/lib/notificationNavigation';
 import { useRatingPromptStore } from '@mobile/store/ratingPromptStore';
@@ -26,6 +27,9 @@ export default function SurveyPromptHost() {
   const skip = useSkipSurvey();
   const ratingShowing = useRatingPromptStore((s) => s.booking) !== null;
   const updateRequired = useIsUpdateRequired();
+  // Both read as "not showing" while their queries load; wait until each has
+  // answered so the survey sheet never has to make way in the same commit.
+  const othersSettled = useIsVersionCheckSettled() && usePendingRatingSettled();
   const onSurveyRoute = usePathname() === '/survey';
   const [current, setCurrent] = useState<MotherSurveySummary | null>(null);
 
@@ -47,9 +51,9 @@ export default function SurveyPromptHost() {
       setCurrent(null);
       return;
     }
-    if (current || ratingShowing || updateRequired || onSurveyRoute) return;
+    if (current || !othersSettled || ratingShowing || updateRequired || onSurveyRoute) return;
     setCurrent(pickSurveyToPrompt(data, promptedSurveys()));
-  }, [data, current, ratingShowing, updateRequired, onSurveyRoute]);
+  }, [data, current, othersSettled, ratingShowing, updateRequired, onSurveyRoute]);
 
   if (!current || ratingShowing || updateRequired || onSurveyRoute) return null;
 

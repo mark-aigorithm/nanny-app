@@ -28,21 +28,11 @@ export function pickPendingRating(bookings: BookingResponse[]): BookingResponse 
   return mostRecent;
 }
 
-/**
- * Detects an unrated completed booking and drives the mandatory rating prompt.
- * Runs only for authenticated mothers. Re-checks when the app returns to the
- * foreground so a booking completed while backgrounded surfaces on next open.
- */
-export function usePendingRating(): void {
+function usePendingRatingQuery() {
   const firebaseUser = useAuthStore((s) => s.user);
   const role = useUserProfileStore((s) => s.profile?.role);
-  const showRatingPrompt = useRatingPromptStore((s) => s.showRatingPrompt);
-  const storeBooking = useRatingPromptStore((s) => s.booking);
-  const queryClient = useQueryClient();
-
   const enabled = !!firebaseUser && role === Role.MOTHER;
-
-  const { data } = useQuery<BookingResponse[]>({
+  const query = useQuery<BookingResponse[]>({
     queryKey: PENDING_RATING_KEY,
     enabled,
     queryFn: () =>
@@ -52,6 +42,32 @@ export function usePendingRating(): void {
         }),
       ),
   });
+  return { enabled, query };
+}
+
+/**
+ * True once detection has answered or failed (or never runs for her). The
+ * survey prompt waits for this, so it never opens just before a rating sheet
+ * that takes its place in the same commit. React Query shares the request.
+ */
+export function usePendingRatingSettled(): boolean {
+  const { enabled, query } = usePendingRatingQuery();
+  return !enabled || query.isFetched || query.isError;
+}
+
+/**
+ * Detects an unrated completed booking and drives the mandatory rating prompt.
+ * Runs only for authenticated mothers. Re-checks when the app returns to the
+ * foreground so a booking completed while backgrounded surfaces on next open.
+ */
+export function usePendingRating(): void {
+  const showRatingPrompt = useRatingPromptStore((s) => s.showRatingPrompt);
+  const storeBooking = useRatingPromptStore((s) => s.booking);
+  const queryClient = useQueryClient();
+  const {
+    enabled,
+    query: { data },
+  } = usePendingRatingQuery();
 
   // Refetch on foreground so a completion that happened while backgrounded shows.
   useEffect(() => {
