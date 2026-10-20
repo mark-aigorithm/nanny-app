@@ -17,6 +17,7 @@ import {
   Copy,
   ErrorState,
   Eye,
+  Pencil,
   FilterSelect,
   ICON_SIZE,
   idColumn,
@@ -150,6 +151,11 @@ export function SurveyTable() {
           <MenuItem icon={<Eye size={ICON_SIZE.menu} />} onSelect={() => navigate(`/surveys/${s.id}`)}>
             Open
           </MenuItem>
+          {canManage && s.status === 'DRAFT' && (
+            <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => navigate(`/surveys/${s.id}?edit=1`)}>
+              Edit
+            </MenuItem>
+          )}
           {canManage && (
             <MenuItem icon={<Copy size={ICON_SIZE.menu} />} onSelect={() => duplicate.mutate(s)}>
               Duplicate

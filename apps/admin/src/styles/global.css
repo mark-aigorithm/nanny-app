@@ -5401,18 +5401,6 @@ input[type='number'] {
 /* ── Survey editor ──────────────────────────────────────────────── */
 .survey-editor { display: flex; flex-direction: column; gap: 1rem; }
 .survey-editor .card { display: flex; flex-direction: column; gap: 0.75rem; }
-/* Under the editor header: why Publish is or isn't available yet. */
-.survey-editor-status {
-  margin: -0.5rem 0 1rem;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.survey-editor-status--problem {
-  color: var(--color-error-text);
-}
-
 /* A field's own validation message, linked to it with aria-describedby. */
 .field-error {
   color: var(--color-error-text);
@@ -6401,4 +6389,144 @@ textarea.input {
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+/* ── Survey preview ─────────────────────────────────────── */
+/* The survey as the app shows it: a phone-width screen of questions. */
+.survey-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-warm-subtle);
+}
+
+.survey-preview--wide {
+  padding: 1.5rem;
+}
+
+.survey-preview-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 26rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.survey-preview-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.survey-preview-description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.survey-preview-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.survey-preview-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.survey-preview-question {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.survey-preview-prompt {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.survey-preview-optional {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.survey-preview-textbox {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-placeholder);
+  font-size: 0.85rem;
+}
+
+.survey-preview-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.survey-preview-options li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
+}
+
+.survey-preview-radio,
+.survey-preview-check {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--color-taupe);
+}
+
+.survey-preview-radio {
+  border-radius: var(--radius-full);
+}
+
+.survey-preview-check {
+  border-radius: 4px;
+}
+
+.survey-preview-stars {
+  display: flex;
+  gap: 0.3rem;
+  color: var(--color-gold);
+}
+
+.survey-preview-yesno {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.survey-preview-yesno span {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }

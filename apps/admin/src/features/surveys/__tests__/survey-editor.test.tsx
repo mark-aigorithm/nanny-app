@@ -26,14 +26,25 @@ const DRAFT: AdminSurvey = {
   publishedAt: null, closedAt: null, createdAt: '2026-10-19T00:00:00.000Z', questions: [],
 };
 
-function renderEditor(survey: AdminSurvey = DRAFT, onPublish = vi.fn(), me: unknown = ADMIN, isNew = false) {
+const WITH_QUESTION: AdminSurvey = {
+  ...DRAFT,
+  questions: [
+    {
+      id: 1, order: 0, type: 'SINGLE_CHOICE', prompt: 'Pick', required: true,
+      options: [{ id: 1, order: 0, label: 'A' }, { id: 2, order: 1, label: 'B' }, { id: 3, order: 2, label: 'C' }],
+    },
+    { id: 2, order: 1, type: 'TEXT', prompt: 'Why', required: true, options: [] },
+  ],
+};
+
+function renderEditor(survey: AdminSurvey = DRAFT, onDone = vi.fn(), me: unknown = ADMIN, isNew = false) {
   server.use(http.get('/api/admin/me', () => ok(me)));
   // A data router, as the app uses: the unsaved-changes guard needs useBlocker.
   const router = createMemoryRouter(
     [
-      { path: '/surveys/new', element: <SurveyEditor survey={survey} onPublish={onPublish} isNew /> },
+      { path: '/surveys/new', element: <SurveyEditor survey={survey} onDone={onDone} isNew /> },
       { path: '/surveys/9', element: <p>Saved draft 9</p> },
-      { path: '/surveys/:id', element: <SurveyEditor survey={survey} onPublish={onPublish} /> },
+      { path: '/surveys/:id', element: <SurveyEditor survey={survey} onDone={onDone} /> },
       { path: '/surveys', element: <p>Survey list</p> },
     ],
     { initialEntries: [isNew ? '/surveys/new' : '/surveys/3'] },
@@ -132,9 +143,9 @@ describe('SurveyEditor', () => {
     expect(body).toEqual({ title: 'Feedback', description: '', questions: [] });
   });
 
-  it('disables Publish until the draft has a question and is saved', async () => {
+  it('keeps Save and publish off until the draft has a question', async () => {
     renderEditor();
-    expect(await screen.findByRole('button', { name: /publish/i })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Save and publish' })).toBeDisabled();
   });
 
   it('shows the API message when the save is refused', async () => {
@@ -149,58 +160,14 @@ describe('SurveyEditor', () => {
     expect(await screen.findByText('Only a draft can be edited')).toBeInTheDocument();
   });
 
-  it('deletes the draft after confirmation and returns to the list', async () => {
-    let deleted = false;
-    server.use(
-      http.delete('/api/admin/surveys/3', () => {
-        deleted = true;
-        return ok(null);
-      }),
-    );
-    renderEditor();
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions for this draft' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete draft' }));
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete draft' }));
-    expect(await screen.findByText('Survey list')).toBeInTheDocument();
-    expect(deleted).toBe(true);
-  });
-
-  const WITH_QUESTION: AdminSurvey = {
-    ...DRAFT,
-    questions: [
-      {
-        id: 1, order: 0, type: 'SINGLE_CHOICE', prompt: 'Pick', required: true,
-        options: [{ id: 1, order: 0, label: 'A' }, { id: 2, order: 1, label: 'B' }, { id: 3, order: 2, label: 'C' }],
-      },
-      { id: 2, order: 1, type: 'TEXT', prompt: 'Why', required: true, options: [] },
-    ],
-  };
-
-  it('is read-only for a view-only operator', async () => {
-    const viewer = { ...ADMIN, role: 'OPERATOR', permissions: { surveys: 'VIEW' } };
-    renderEditor(WITH_QUESTION, vi.fn(), viewer);
-    expect(await screen.findByLabelText('Survey title')).toBeDisabled();
-    const first = screen.getAllByRole('group', { name: /question \d/i })[0]!;
-    expect(within(first).getByLabelText('Question')).toBeDisabled();
-    expect(within(first).getByRole('button', { name: 'Answer type' })).toBeDisabled();
-    expect(within(first).getByLabelText('Option 1')).toBeDisabled();
-    expect(within(first).getByRole('button', { name: 'Remove option 1' })).toBeDisabled();
-    expect(within(first).getByRole('button', { name: /add option/i })).toBeDisabled();
-    expect(within(first).getByRole('checkbox', { name: /required/i })).toBeDisabled();
-    expect(within(first).getByRole('button', { name: 'Move question 1 down' })).toBeDisabled();
-    expect(within(first).getByRole('button', { name: /delete question/i })).toBeDisabled();
-    for (const name of [/^save$/i, /more actions/i, /add question/i]) {
-      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
-    }
-  });
-
   it('locks the inputs while a save is in flight, so later edits are not lost', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => { release = resolve; });
     server.use(
       http.patch('/api/admin/surveys/3', async () => {
         await gate;
-        return ok({ ...DRAFT });
+        // A refused save keeps the editor open, so the unlock is visible.
+        return HttpResponse.json({ data: null, error: 'Database unavailable' }, { status: 503 });
       }),
     );
     renderEditor();
@@ -213,30 +180,39 @@ describe('SurveyEditor', () => {
     await waitFor(() => expect(screen.getByLabelText('Survey description')).toBeEnabled());
   });
 
-  it('disables Duplicate while there are unsaved changes', async () => {
+  it('says on screen whether there is anything to save (M11)', async () => {
     renderEditor();
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions for this draft' }));
-    expect(screen.getByRole('menuitem', { name: 'Duplicate' })).toBeEnabled();
-    await userEvent.keyboard('{Escape}');
+    expect(await screen.findByText('No changes yet.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Survey description'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'More actions for this draft' }));
-    expect(screen.getByRole('menuitem', { name: /duplicate/i })).toBeDisabled();
+    expect(screen.getByText('Unsaved changes.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled();
   });
 
-  it('says on screen why Publish is off, and makes Save the primary action while dirty (M11)', async () => {
-    renderEditor();
-    expect(await screen.findByText('Add at least one question to publish.')).toHaveAttribute('role', 'status');
-    expect(screen.getByRole('button', { name: /^save$/i })).toHaveClass('btn--ghost');
-    await userEvent.type(screen.getByLabelText('Survey description'), 'x');
-    expect(screen.getByText('Unsaved changes. Save before publishing.')).toHaveAttribute('role', 'status');
-    expect(screen.getByRole('button', { name: /^save$/i })).toHaveClass('btn--primary');
-    expect(screen.getByRole('button', { name: /publish/i })).not.toHaveAttribute('title');
+  it('Save and publish saves, then hands over to the publish flow', async () => {
+    let body: unknown;
+    server.use(
+      http.patch('/api/admin/surveys/3', async ({ request }) => {
+        body = await request.json();
+        return ok(WITH_QUESTION);
+      }),
+    );
+    const onDone = vi.fn();
+    renderEditor(WITH_QUESTION, onDone);
+    await userEvent.type(await screen.findByLabelText('Survey description'), 'Two minutes');
+    await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith('publish'));
+    expect(body).toMatchObject({ description: 'Two minutes' });
   });
 
-  it('is ready to publish once saved with a question', async () => {
+  it('previews the questions as they are typed', async () => {
     renderEditor(WITH_QUESTION);
-    expect(await screen.findByText('Saved. Ready to publish.')).toHaveAttribute('role', 'status');
-    expect(screen.getByRole('button', { name: /publish/i })).toBeEnabled();
+    const preview = await screen.findByRole('complementary', { name: 'Preview' });
+    expect(within(preview).getByText('Pick')).toBeInTheDocument();
+    expect(within(preview).getByText('B')).toBeInTheDocument();
+    const first = screen.getAllByRole('group', { name: /question \d/i })[0]!;
+    await userEvent.type(within(first).getByLabelText('Question'), ' one');
+    expect(within(preview).getByText('Pick one')).toBeInTheDocument();
   });
 
   it('asks before deleting a question that has text; an empty one goes at once (M11)', async () => {

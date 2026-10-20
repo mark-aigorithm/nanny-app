@@ -76,6 +76,8 @@ export {
   History,
   // Search fields
   Search,
+  // Survey preview (rating questions)
+  Star,
 } from 'lucide-react';
 
 /** Standard icon sizes (px). */
