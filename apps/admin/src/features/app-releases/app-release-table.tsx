@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@admin/components/ui';
 import { AppReleaseFormModal, PLATFORM_LABELS } from '@admin/features/app-releases/app-release-form';
+import { platformReleaseState } from '@admin/features/app-releases/release-status';
 import { deleteAppRelease } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { formatDate } from '@admin/lib/format';
@@ -67,11 +68,34 @@ export function AppReleaseTable({ releases }: AppReleaseTableProps) {
   });
 
   const label = (r: AppRelease) => `${PLATFORM_LABELS[r.platform]} ${r.version}`;
+  // The rows that set each platform's current state, tagged in the history.
+  const current = useMemo(() => {
+    const ids = { latest: new Set<number>(), minimum: new Set<number>() };
+    for (const platform of ['ios', 'android'] as const) {
+      const { latest, minimum } = platformReleaseState(releases, platform);
+      if (latest) ids.latest.add(latest.id);
+      if (minimum) ids.minimum.add(minimum.id);
+    }
+    return ids;
+  }, [releases]);
 
   const columns: Column<AppRelease, ReleaseSortKey>[] = [
     idColumn((r) => r.id, 'id'),
     { key: 'platform', header: 'Platform', sortKey: 'platform', render: (r) => PLATFORM_LABELS[r.platform] },
-    { key: 'version', header: 'Version', sortKey: 'version', sortFirst: 'desc', nowrap: true, render: (r) => r.version },
+    {
+      key: 'version',
+      header: 'Version',
+      sortKey: 'version',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (r) => (
+        <span className="release-version-cell">
+          {r.version}
+          {current.latest.has(r.id) && <Badge tone="success">Latest</Badge>}
+          {current.minimum.has(r.id) && <Badge tone="warning">Minimum</Badge>}
+        </span>
+      ),
+    },
     {
       key: 'mandatory',
       header: 'Enforcement',

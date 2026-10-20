@@ -41,7 +41,35 @@ describe('AppReleasesPage', () => {
   it('explains the empty state', async () => {
     server.use(http.get('/api/admin/me', () => ok(ADMIN)), http.get('/api/admin/app-releases', () => ok([])));
     renderPage();
-    expect(await screen.findByText(/no releases recorded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/never prompts to update until you add one/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/never asks anyone to update/i)).toHaveLength(2);
+  });
+
+  it('shows each platform\'s latest and minimum release, and what users on older versions see', async () => {
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/app-releases', () =>
+        ok([
+          release({ id: 1, version: '1.9.0', mandatory: true }),
+          release({ id: 2, version: '1.10.0' }),
+          release({ id: 3, version: '1.2.0', platform: 'android' }),
+        ]),
+      ),
+    );
+    renderPage();
+    const ios = (await screen.findByRole('heading', { name: 'iOS' })).closest('.card') as HTMLElement;
+    expect(within(ios).getByText('1.10.0')).toBeInTheDocument();
+    expect(within(ios).getByText('1.9.0')).toBeInTheDocument();
+    expect(
+      within(ios).getByText('Below 1.9.0: blocked until they update. Below 1.10.0: a prompt they can dismiss.'),
+    ).toBeInTheDocument();
+    const android = screen.getByRole('heading', { name: 'Android' }).closest('.card') as HTMLElement;
+    expect(within(android).getByText('None')).toBeInTheDocument();
+    expect(within(android).getByText('Below 1.2.0: a prompt they can dismiss. Nobody is blocked.')).toBeInTheDocument();
+
+    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    expect(within(rows[0]!).getByText('Latest')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('Minimum')).toBeInTheDocument();
   });
 
   it('lists newest version first by semver, with a Mandatory badge', async () => {
@@ -55,8 +83,7 @@ describe('AppReleasesPage', () => {
       ),
     );
     renderPage();
-    await screen.findByText('1.10.0');
-    const rows = screen.getAllByRole('row').slice(1);
+    const rows = within(await screen.findByRole('table')).getAllByRole('row').slice(1);
     expect(within(rows[0]!).getByText('1.10.0')).toBeInTheDocument();
     expect(within(rows[0]!).getByText('Mandatory')).toBeInTheDocument();
     expect(within(rows[1]!).getByText('1.9.0')).toBeInTheDocument();
@@ -134,13 +161,13 @@ describe('AppReleasesPage', () => {
       ),
     );
     renderPage();
-    await screen.findByText('1.10.0');
+    const table = await screen.findByRole('table');
     expect(screen.getByRole('columnheader', { name: 'ID' })).toBeInTheDocument();
     // A deliberate setting, not an error: warning tone, not danger.
-    expect(screen.getByText('Mandatory', { selector: '.badge' })).toHaveClass('badge--warning');
+    expect(within(table).getByText('Mandatory', { selector: '.badge' })).toHaveClass('badge--warning');
 
     await userEvent.click(screen.getByRole('button', { name: /^version/i }));
-    const versions = () => screen.getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[2]?.textContent);
+    const versions = () => screen.getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[2]?.textContent?.match(/^[\d.]+/)?.[0]);
     // Newest first on the first click, by semver: 1.10.0 above 1.9.0.
     expect(versions()).toEqual(['1.10.0', '1.9.0', '1.2.0']);
     await userEvent.click(screen.getByRole('button', { name: /^version/i }));

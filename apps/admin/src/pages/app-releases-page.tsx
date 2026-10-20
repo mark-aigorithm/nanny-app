@@ -12,6 +12,7 @@ import {
 } from '@admin/components/ui';
 import { AppReleaseFormModal } from '@admin/features/app-releases/app-release-form';
 import { AppReleaseTable } from '@admin/features/app-releases/app-release-table';
+import { ReleaseStatusCard } from '@admin/features/app-releases/release-status';
 import { fetchAppReleases } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
@@ -47,6 +48,11 @@ export function AppReleasesPage() {
           {error != null && (
             <StaleRefreshBanner message={apiErrorMessage(error)} onRetry={() => void refetch()} retrying={isFetching} />
           )}
+          <div className="release-status-grid">
+            <ReleaseStatusCard platform="ios" releases={releases} />
+            <ReleaseStatusCard platform="android" releases={releases} />
+          </div>
+          <h2 className="release-history-heading">History</h2>
           <AppReleaseTable releases={releases} />
         </>
       )}
