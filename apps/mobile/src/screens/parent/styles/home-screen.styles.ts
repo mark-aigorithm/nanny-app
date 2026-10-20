@@ -59,7 +59,7 @@ export const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
   },

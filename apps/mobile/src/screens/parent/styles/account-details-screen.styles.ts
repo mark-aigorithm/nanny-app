@@ -86,7 +86,7 @@ export const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderWidth: 2,
     borderColor: colors.surface,
     alignItems: 'center',
@@ -153,7 +153,7 @@ export const styles = StyleSheet.create({
   saveButton: {
     height: 56,
     borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,

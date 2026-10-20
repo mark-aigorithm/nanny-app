@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius['2xl'],
     height: 56,
     ...shadows.md,

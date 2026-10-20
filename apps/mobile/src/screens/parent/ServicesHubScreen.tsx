@@ -84,7 +84,7 @@ export default function ServicesHubScreen() {
       >
         <FadeInView index={0}>
           <PressableScale style={styles.heroTile} haptic="tap" onPress={openBooking}>
-            <IconCircle icon="add" size="lg" backgroundColor={colors.primary} iconColor={colors.white} />
+            <IconCircle icon="add" size="lg" backgroundColor={colors.primaryAction} iconColor={colors.onPrimaryAction} />
             <View style={styles.heroTextWrap}>
               <Text style={styles.heroTitle}>Book a Nanny</Text>
               <Text style={styles.heroSubtitle}>One request reaches every available nanny</Text>

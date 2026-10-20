@@ -91,8 +91,8 @@ export const styles = StyleSheet.create({
     ...shadows.sm,
   },
   railCardSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryAction,
+    borderColor: colors.primaryAction,
   },
   railWeekday: {
     ...typeScale.caption,
@@ -172,7 +172,7 @@ export const styles = StyleSheet.create({
     color: colors.white,
   },
   daySelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius.full,
     overflow: 'hidden',
   },

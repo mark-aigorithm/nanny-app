@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   cta: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
   saveButton: {
     height: 56,
     borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,

@@ -189,7 +189,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius.full,
     height: 44,
     marginTop: spacing.md,

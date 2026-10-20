@@ -93,7 +93,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   featuredBadgeText: {
     ...typeScale.caption,

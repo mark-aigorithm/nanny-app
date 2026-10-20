@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   missingParamsBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius.xl,
     paddingHorizontal: spacing['2xl'],
     paddingVertical: spacing.md,
@@ -145,7 +145,7 @@ export const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
   },

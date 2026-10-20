@@ -43,7 +43,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   filterChipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   filterChipText: {
     ...typeScale.labelSm,
@@ -212,7 +212,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,

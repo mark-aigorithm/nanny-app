@@ -63,7 +63,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   chipSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   chipText: {
     ...typeScale.labelSm,
@@ -91,7 +91,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   availabilityChipSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   availabilityChipText: {
     ...typeScale.labelSm,

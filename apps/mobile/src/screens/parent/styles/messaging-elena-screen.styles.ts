@@ -187,7 +187,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.taupe,
   },
   bubbleSent: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   messageText: {
     fontFamily: fontFamily.regular,
@@ -249,7 +249,7 @@ export const styles = StyleSheet.create({
     width: spacing['4xl'],
     height: spacing['4xl'],
     borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,

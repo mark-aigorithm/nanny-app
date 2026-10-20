@@ -34,7 +34,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   retryButtonText: {
     ...typeScale.labelMd,
@@ -79,7 +79,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     ...shadows.sm,
   },
   pillInactive: {

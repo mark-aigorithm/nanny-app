@@ -107,7 +107,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius['2xl'],
     paddingVertical: spacing.md,
     paddingHorizontal: spacing['2xl'],

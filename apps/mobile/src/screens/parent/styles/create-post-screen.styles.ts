@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
     color: colors.textDark,
   },
   postButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,

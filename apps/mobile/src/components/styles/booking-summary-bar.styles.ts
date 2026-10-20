@@ -60,13 +60,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius['2xl'],
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,
   },
   ctaPressed: {
-    backgroundColor: colors.primaryDark,
+    opacity: 0.9,
   },
   ctaDisabled: {
     backgroundColor: colors.taupe,

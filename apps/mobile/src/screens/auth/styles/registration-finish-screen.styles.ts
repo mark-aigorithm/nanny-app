@@ -40,8 +40,8 @@ export const styles = StyleSheet.create({
     flexShrink: 0,
   },
   checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryAction,
+    borderColor: colors.primaryAction,
   },
   termsText: {
     flex: 1,

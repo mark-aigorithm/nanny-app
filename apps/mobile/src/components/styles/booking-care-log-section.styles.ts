@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
   pillActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
   },
   pillInactive: {
     backgroundColor: colors.taupe,

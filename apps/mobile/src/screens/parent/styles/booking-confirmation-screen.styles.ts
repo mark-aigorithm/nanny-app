@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderWidth: 3,
     borderColor: colors.background,
     alignItems: 'center',
@@ -330,7 +330,7 @@ export const styles = StyleSheet.create({
   },
   rewardApplyBtn: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryAction,
     borderRadius: borderRadius.full,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
