@@ -564,7 +564,7 @@ input[type='number'] {
 }
 
 .table-sort:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-primary-dark);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -673,7 +673,7 @@ input[type='number'] {
 }
 
 .table--clickable tbody tr:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-primary-dark);
   outline-offset: -2px;
 }
 
@@ -3148,8 +3148,9 @@ input[type='number'] {
 
 .input:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-muted);
+  /* --color-primary-dark (6.5:1), not the 2.59:1 sage: the ring must be seen. */
+  border-color: var(--color-primary-dark);
+  box-shadow: 0 0 0 1px var(--color-primary-dark), 0 0 0 4px var(--color-primary-muted);
 }
 
 /* ── Modal generalisation ───────────────────────────────── */
@@ -3264,7 +3265,7 @@ input[type='number'] {
 }
 
 .candidate-row:focus-within {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-primary-dark);
   outline-offset: 2px;
 }
 
@@ -3909,7 +3910,8 @@ input[type='number'] {
   transform: translateX(18px);
 }
 .switch input:focus-visible + .switch-track {
-  box-shadow: 0 0 0 3px var(--color-primary-muted);
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
 }
 .switch-label {
   font-size: 0.78rem;
@@ -4674,7 +4676,7 @@ input[type='number'] {
 
 /* Keyboard focus has to stay visible even though the input is off-screen. */
 .perm-choice:focus-within {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-primary-dark);
   outline-offset: 2px;
 }
 
