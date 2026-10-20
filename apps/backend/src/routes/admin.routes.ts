@@ -65,7 +65,9 @@ import {
   UpdateLegalDocumentSchema,
   MotherPickerQuerySchema,
   type MotherPickerQuery,
+  GroupRulesPreviewInputSchema,
   UserGroupInputSchema,
+  UserGroupUpdateSchema,
   UserGroupMembersSchema,
   AdminSurveyListQuerySchema,
   type AdminSurveyListQuery,
@@ -177,6 +179,7 @@ import {
   deleteUserGroup,
   getUserGroup,
   listUserGroups,
+  previewGroupRules,
   removeUserGroupMembers,
   updateUserGroup,
 } from '@backend/services/admin-group.service';
@@ -886,7 +889,7 @@ adminRouter.delete('/campaigns/:id', async (req: Request, res: Response, next: N
   }
 });
 
-// ── User groups (survey audiences) ─────────────────────────────
+// ── User groups (audiences for surveys and notifications) ──────
 
 adminRouter.get('/groups', async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -909,6 +912,18 @@ adminRouter.post(
   },
 );
 
+adminRouter.post(
+  '/groups/rules-preview',
+  validateBody(GroupRulesPreviewInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await previewGroupRules(req.body.rules)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 adminRouter.get('/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(ok(await getUserGroup(routeIdParam(req.params.id))));
@@ -919,7 +934,7 @@ adminRouter.get('/groups/:id', async (req: Request, res: Response, next: NextFun
 
 adminRouter.patch(
   '/groups/:id',
-  validateBody(UserGroupInputSchema),
+  validateBody(UserGroupUpdateSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await updateUserGroup(routeIdParam(req.params.id), req.body)));

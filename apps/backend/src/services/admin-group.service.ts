@@ -1,10 +1,17 @@
-import { Role, type Prisma, type UserGroupKind } from '@prisma/client';
+import { type Prisma, Role, UserGroupKind } from '@prisma/client';
 
-import type { DynamicGroupRules, UserGroup, UserGroupInput } from '@nanny-app/shared';
-import { DynamicGroupRulesSchema, UserGroupInputSchema } from '@nanny-app/shared';
+import type {
+  DynamicGroupRules,
+  GroupRulesPreview,
+  UserGroup,
+  UserGroupInput,
+  UserGroupUpdateInput,
+} from '@nanny-app/shared';
+import { UserGroupInputSchema, UserGroupUpdateSchema } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
+import { countDynamicGroupMembers, parseGroupRules } from '@backend/services/group-audience.service';
 
 const withMemberCount = {
   _count: { select: { members: { where: { deletedAt: null } } } },
@@ -20,27 +27,33 @@ type GroupRow = {
   _count: { members: number };
 };
 
-/** A DYNAMIC group's stored rules, always parsed through the shared schema; null for STATIC. */
-function rulesOf(row: Pick<GroupRow, 'kind' | 'rules'>): DynamicGroupRules | null {
-  return row.kind === 'DYNAMIC' ? DynamicGroupRulesSchema.parse(row.rules ?? []) : null;
-}
-
-function toDto(row: GroupRow): UserGroup {
-  return {
+/**
+ * A static group counts its member rows; a dynamic group has none — its
+ * members are whoever its rules match right now, so the count is live.
+ */
+async function toDto(row: GroupRow): Promise<UserGroup> {
+  const base = {
     id: row.id,
     name: row.name,
     description: row.description,
-    kind: row.kind,
-    rules: rulesOf(row),
-    memberCount: row._count.members,
     createdAt: row.createdAt.toISOString(),
   };
+  if (row.kind === UserGroupKind.DYNAMIC) {
+    const rules = parseGroupRules(row.rules);
+    return { ...base, kind: 'DYNAMIC', rules, memberCount: await countDynamicGroupMembers(rules) };
+  }
+  return { ...base, kind: 'STATIC', rules: null, memberCount: row._count.members };
 }
 
 async function requireGroup(id: number): Promise<GroupRow> {
   const row = await prisma.userGroup.findFirst({ where: { id, deletedAt: null }, include: withMemberCount });
   if (!row) throw errors.notFound('Group not found.');
   return row;
+}
+
+/** Member rows belong to static groups only. */
+function assertStatic(row: GroupRow): void {
+  if (row.kind === UserGroupKind.DYNAMIC) throw errors.conflict('Dynamic groups have no hand-picked members.');
 }
 
 /** Names are unique among live groups, ignoring case. */
@@ -62,7 +75,7 @@ export async function listUserGroups(): Promise<UserGroup[]> {
     include: withMemberCount,
     orderBy: { name: 'asc' },
   });
-  return rows.map(toDto);
+  return Promise.all(rows.map(toDto));
 }
 
 export async function getUserGroup(id: number): Promise<UserGroup> {
@@ -70,22 +83,37 @@ export async function getUserGroup(id: number): Promise<UserGroup> {
 }
 
 export async function createUserGroup(adminId: number, input: UserGroupInput): Promise<UserGroup> {
-  const { name, description } = UserGroupInputSchema.parse(input);
+  const { name, description, kind, rules } = UserGroupInputSchema.parse(input);
   await assertNameFree(name);
   const row = await prisma.userGroup.create({
-    data: { name, description, createdById: adminId },
+    data: {
+      name,
+      description,
+      kind,
+      createdById: adminId,
+      // STATIC leaves the column NULL; DYNAMIC always stores an array ([] = every active mother).
+      ...(kind === UserGroupKind.DYNAMIC ? { rules: (rules ?? []) as Prisma.InputJsonValue } : {}),
+    },
     include: withMemberCount,
   });
   return toDto(row);
 }
 
-export async function updateUserGroup(id: number, input: UserGroupInput): Promise<UserGroup> {
-  const { name, description } = UserGroupInputSchema.parse(input);
-  await requireGroup(id);
+/** Name, description and — for a dynamic group — its rules. `kind` is fixed at creation. */
+export async function updateUserGroup(id: number, input: UserGroupUpdateInput): Promise<UserGroup> {
+  const { name, description, rules } = UserGroupUpdateSchema.parse(input);
+  const existing = await requireGroup(id);
+  if (rules !== undefined && existing.kind !== UserGroupKind.DYNAMIC) {
+    throw errors.badRequest('Only dynamic groups have rules.');
+  }
   await assertNameFree(name, id);
   const row = await prisma.userGroup.update({
     where: { id },
-    data: { name, description },
+    data: {
+      name,
+      description,
+      ...(rules !== undefined ? { rules: rules as Prisma.InputJsonValue } : {}),
+    },
     include: withMemberCount,
   });
   return toDto(row);
@@ -97,7 +125,7 @@ export async function deleteUserGroup(id: number): Promise<void> {
 }
 
 export async function addUserGroupMembers(id: number, userIds: number[]): Promise<UserGroup> {
-  await requireGroup(id);
+  assertStatic(await requireGroup(id));
   const ids = [...new Set(userIds)];
   const mothers = await prisma.user.count({ where: { id: { in: ids }, role: Role.MOTHER, deletedAt: null } });
   if (mothers !== ids.length) throw errors.badRequest('Only mothers can be added to a group.');
@@ -117,10 +145,15 @@ export async function addUserGroupMembers(id: number, userIds: number[]): Promis
 }
 
 export async function removeUserGroupMembers(id: number, userIds: number[]): Promise<UserGroup> {
-  await requireGroup(id);
+  assertStatic(await requireGroup(id));
   await prisma.userGroupMember.updateMany({
     where: { groupId: id, userId: { in: userIds }, deletedAt: null },
     data: { deletedAt: new Date() },
   });
   return getUserGroup(id);
+}
+
+/** The live count for a rule set being edited, before it is saved. */
+export async function previewGroupRules(rules: DynamicGroupRules): Promise<GroupRulesPreview> {
+  return { count: await countDynamicGroupMembers(rules) };
 }

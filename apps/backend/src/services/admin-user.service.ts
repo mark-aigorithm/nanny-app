@@ -5,6 +5,7 @@ import type {
   Address as AddressDto,
   AdminApprovalStatusFilter,
   AdminMother,
+  AdminMotherLastAppOpenFilter,
   AdminMotherDetail,
   AdminMotherListQuery,
   AdminMotherSortKey,
@@ -280,6 +281,27 @@ function motherOrderBy(
   return [...orders[sortBy], { id: sortDir }];
 }
 
+const DAY_MS = 86_400_000;
+
+/** The Mothers tab's "Last app open" filter; "not within N days" includes never. */
+function lastAppOpenWhere(filter: AdminMotherLastAppOpenFilter): Prisma.UserWhereInput {
+  const since = (days: number) => new Date(Date.now() - days * DAY_MS);
+  switch (filter) {
+    case 'WITHIN_7':
+      return { lastAppOpenAt: { gte: since(7) } };
+    case 'WITHIN_30':
+      return { lastAppOpenAt: { gte: since(30) } };
+    case 'NOT_30':
+      return { OR: [{ lastAppOpenAt: null }, { lastAppOpenAt: { lt: since(30) } }] };
+    case 'NOT_90':
+      return { OR: [{ lastAppOpenAt: null }, { lastAppOpenAt: { lt: since(90) } }] };
+    case 'NEVER':
+      return { lastAppOpenAt: null };
+    case 'ANY':
+      return {};
+  }
+}
+
 /**
  * Paginated directory of mother (parent) accounts for the admin Users page,
  * sorted by whichever column header the console last clicked (newest sign-ups
@@ -287,12 +309,19 @@ function motherOrderBy(
  */
 export async function listAdminMothers(
   status: AdminApprovalStatusFilter,
-  { page, limit, sortBy, sortDir }: Pick<AdminMotherListQuery, 'page' | 'limit' | 'sortBy' | 'sortDir'>,
+  {
+    page,
+    limit,
+    sortBy,
+    sortDir,
+    lastAppOpen = 'ANY',
+  }: Pick<AdminMotherListQuery, 'page' | 'limit' | 'sortBy' | 'sortDir'> & { lastAppOpen?: AdminMotherLastAppOpenFilter },
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     role: 'MOTHER',
     deletedAt: null,
     ...(status !== 'ALL' ? { approvalStatus: status as ApprovalStatus } : {}),
+    ...lastAppOpenWhere(lastAppOpen),
   };
 
   const [total, rows] = await prisma.$transaction([

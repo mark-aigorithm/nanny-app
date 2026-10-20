@@ -9,7 +9,7 @@ import type {
 
 import { prisma } from '@backend/db/prisma';
 import { displayName } from '@backend/lib/display-name';
-import { COMPLETED_BOOKING_STATS_JOIN, RECEIVABLE_MOTHER_SQL } from '@backend/lib/group-rules-sql';
+import { COMPLETED_BOOKING_STATS_JOIN, RECEIVABLE_MOTHER_SQL, rulesToSql } from '@backend/lib/group-rules-sql';
 
 // Sorting by an aggregate has to happen in the database, before LIMIT/OFFSET —
 // sorting one fetched page would order only that page. Hence raw SQL: Prisma's
@@ -66,6 +66,11 @@ export async function listMotherPicker(
     conditions.push(Prisma.sql`NOT EXISTS (
       SELECT 1 FROM user_group_members m
       WHERE m.user_id = u.id AND m.group_id = ${q.excludeGroupId} AND m.deleted_at IS NULL)`);
+  }
+  // A dynamic group's members: the same SQL the resolver sends to. The count
+  // query carries the stats join, so booking rules count correctly too.
+  if (q.rules) {
+    conditions.push(Prisma.sql`(${rulesToSql(q.rules)})`);
   }
   const where = Prisma.join(conditions, ' AND ');
   const dir = q.sortDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;

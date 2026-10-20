@@ -142,6 +142,17 @@ describe('privilege evaluation', () => {
     expect(allows('DELETE', '/skills/2', 'OPERATOR', { pricing: 'MANAGE' })).toBe(false);
   });
 
+  it('lets a notifications manager read groups and pick mothers, but not change groups', () => {
+    expect(allows('GET', '/groups', 'OPERATOR', { notifications: 'MANAGE' })).toBe(true);
+    expect(allows('GET', '/groups/3', 'OPERATOR', { notifications: 'MANAGE' })).toBe(true);
+    expect(allows('GET', '/mother-picker', 'OPERATOR', { notifications: 'MANAGE' })).toBe(true);
+    expect(allows('GET', '/groups', 'OPERATOR', { notifications: 'VIEW' })).toBe(false);
+    expect(allows('POST', '/groups', 'OPERATOR', { notifications: 'MANAGE' })).toBe(false);
+    expect(allows('POST', '/groups/rules-preview', 'OPERATOR', { notifications: 'MANAGE' })).toBe(false);
+    expect(allows('POST', '/groups/rules-preview', 'OPERATOR', { groups: 'MANAGE' })).toBe(true);
+    expect(allows('POST', '/groups/rules-preview', 'OPERATOR', { groups: 'VIEW' })).toBe(false);
+  });
+
   it('lets any console account read the shared catalogs and its own profile', () => {
     const none: OperatorPermissions = {};
     expect(allows('GET', '/me', 'OPERATOR', none)).toBe(true);

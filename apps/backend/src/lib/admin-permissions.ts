@@ -140,18 +140,18 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/campaigns/:id', requires: section('campaigns', 'MANAGE') },
   { method: 'DELETE', pattern: '/campaigns/:id', requires: section('campaigns', 'MANAGE') },
 
-  // ── Groups (audiences reused by Surveys, later the notification center) ──
-  // Reading the list is also open to whoever can send a survey: the publish
-  // dialog lists groups to pick from.
-  { method: 'GET', pattern: '/groups', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
+  // ── Groups (audiences reused by Surveys and the notification center) ──
+  // Reading groups and the picker is also open to whoever can send a survey or
+  // a notification: their editors list groups and mothers to pick from.
+  { method: 'GET', pattern: '/groups', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE'], ['notifications', 'MANAGE']) },
   { method: 'POST', pattern: '/groups', requires: section('groups', 'MANAGE') },
-  { method: 'GET', pattern: '/groups/:id', requires: section('groups', 'VIEW') },
+  { method: 'POST', pattern: '/groups/rules-preview', requires: section('groups', 'MANAGE') },
+  { method: 'GET', pattern: '/groups/:id', requires: anyOf(['groups', 'VIEW'], ['notifications', 'MANAGE']) },
   { method: 'PATCH', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
   { method: 'DELETE', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
   { method: 'POST', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
   { method: 'DELETE', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
-  // The publish dialog's individual-mother picker needs it too.
-  { method: 'GET', pattern: '/mother-picker', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE']) },
+  { method: 'GET', pattern: '/mother-picker', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE'], ['notifications', 'MANAGE']) },
 
   // ── Surveys ─────────────────────────────────────────────────
   { method: 'GET', pattern: '/surveys', requires: section('surveys', 'VIEW') },

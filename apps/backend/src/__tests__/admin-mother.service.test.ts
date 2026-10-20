@@ -155,6 +155,36 @@ describe('listAdminMothers', () => {
     );
   });
 
+  it.each([
+    ['WITHIN_7', { lastAppOpenAt: { gte: new Date('2026-10-13T12:00:00.000Z') } }],
+    ['WITHIN_30', { lastAppOpenAt: { gte: new Date('2026-09-20T12:00:00.000Z') } }],
+    [
+      'NOT_30',
+      { OR: [{ lastAppOpenAt: null }, { lastAppOpenAt: { lt: new Date('2026-09-20T12:00:00.000Z') } }] },
+    ],
+    [
+      'NOT_90',
+      { OR: [{ lastAppOpenAt: null }, { lastAppOpenAt: { lt: new Date('2026-07-22T12:00:00.000Z') } }] },
+    ],
+    ['NEVER', { lastAppOpenAt: null }],
+    ['ANY', {}],
+  ] as const)('filters by last app open %s', async (lastAppOpen, extra) => {
+    // The window is measured from Date.now(); pin it so the cut-offs are exact.
+    const now = jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-20T12:00:00.000Z').getTime());
+    try {
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.user.findMany.mockResolvedValue([]);
+
+      await listAdminMothers('ALL', { page: 1, limit: 20, sortBy: 'registered', sortDir: 'desc', lastAppOpen });
+
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { role: 'MOTHER', deletedAt: null, ...extra } }),
+      );
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it('maps rows to the AdminMother DTO', async () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([
