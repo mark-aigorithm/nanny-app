@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Badge, Button, ConfirmDialog, DetailHeader, StatCard, useToast } from '@admin/components/ui';
+import { Badge, Button, ConfirmDialog, DetailHeader, StatCard, Tabs, useToast } from '@admin/components/ui';
 import { closeSurvey, duplicateSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
@@ -82,21 +82,17 @@ export function SurveyDetail({ survey }: { survey: AdminSurvey }) {
         <StatCard label="Skipped" value={survey.counts.skipped} />
         <StatCard label="No response" value={survey.counts.pending} />
       </div>
-      <div className="subtabs" role="tablist" aria-label="Survey sections">
-        {(['results', 'recipients'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            className={`subtab${tab === t ? ' active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t === 'results' ? 'Results' : 'Recipients'}
-          </button>
-        ))}
-      </div>
-      {tab === 'results' ? <SurveyResults survey={survey} /> : <SurveyRecipients survey={survey} />}
+      <Tabs
+        label="Survey sections"
+        tabs={[
+          { value: 'results', label: 'Results' },
+          { value: 'recipients', label: 'Recipients' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      >
+        {tab === 'results' ? <SurveyResults survey={survey} /> : <SurveyRecipients survey={survey} />}
+      </Tabs>
       {adding && (
         <RecipientPickerModal
           surveyId={survey.id}

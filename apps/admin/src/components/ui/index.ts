@@ -20,6 +20,7 @@ export { Select, type SelectOption } from './select';
 export { FilterSelect } from './filter-select';
 export { Input } from './input';
 export { Switch } from './switch';
+export { Tabs } from './tabs';
 
 // Data display
 export { Table, actionsColumn, idColumn, type Column, type TableSort } from './table';
