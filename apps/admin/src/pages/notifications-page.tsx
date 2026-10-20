@@ -27,7 +27,7 @@ export function NotificationsPage() {
   return (
     <section>
       <PageHeader
-        title="Notifications"
+        title="Notification Center"
         subtitle="Write a notification once, then send it to mothers whenever you need to."
         action={
           canManage && (

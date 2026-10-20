@@ -79,7 +79,7 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
         title={template.name}
         subtitle="Publish sends it now, exactly as shown. Publish it again whenever you like."
         backTo="/notifications"
-        backLabel="Notifications"
+        backLabel="Notification Center"
         actions={
           canManage && (
             <>

@@ -56,7 +56,7 @@ const navItems: NavItem[] = [
   { to: '/users', label: 'Users', icon: Users, section: 'users', alsoActiveOn: ['/groups'] },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket, section: 'promoCodes' },
   { to: '/campaigns', label: 'Campaigns', icon: Images, section: 'campaigns' },
-  { to: '/notifications', label: 'Notifications', icon: Megaphone, section: 'notifications' },
+  { to: '/notifications', label: 'Notification Center', icon: Megaphone, section: 'notifications' },
   { to: '/surveys', label: 'Surveys', icon: ClipboardList, section: 'surveys' },
   // Groups opens from the Users page's "Manage groups"; it has its own entry only for an
   // operator who can see Groups but not Users.

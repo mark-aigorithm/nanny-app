@@ -213,7 +213,7 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
             : 'Editing. Save takes you back to the template; Save and publish sends it once you confirm.'
         }
         backTo="/notifications"
-        backLabel="Notifications"
+        backLabel="Notification Center"
       />
       {attempted && summary.length > 0 && (
         <div

@@ -204,12 +204,12 @@ describe('TemplateEditor', () => {
     renderEditor({ template: TEMPLATE });
     await userEvent.type(await screen.findByLabelText('Title'), '!');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Notification Center' }));
     const dialog = screen.getByRole('dialog', { name: 'Leave without saving?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
     expect(screen.getByLabelText('Title')).toHaveValue('We miss you!');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Notification Center' }));
     await userEvent.click(screen.getByRole('button', { name: 'Leave' }));
     expect(await screen.findByText('Notification list')).toBeInTheDocument();
   });
