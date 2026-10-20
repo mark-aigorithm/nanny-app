@@ -2,7 +2,7 @@ import type { NotificationTemplate, NotificationTemplateInput } from '@nanny-app
 import { NotificationTemplateInputSchema } from '@nanny-app/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useBlocker, useNavigate } from 'react-router-dom';
+import { useBlocker, useNavigate, useSearchParams } from 'react-router-dom';
 
 import {
   ActionMenu,
@@ -13,6 +13,7 @@ import {
   ICON_SIZE,
   MenuItem,
   SegmentedControl,
+  Send,
   Trash2,
   useToast,
   type SegmentedOption,
@@ -25,7 +26,9 @@ import {
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
+import { BroadcastHistory } from './broadcast-history';
 import { CHANNEL_HINT, CHANNEL_LABEL } from './notification-labels';
+import { PublishDialog } from './publish-dialog';
 import { TemplateAudienceFields } from './template-audience-fields';
 import { TemplateContentFields } from './template-content-fields';
 import { TEMPLATE_FIELD_ID, issueSummary, templateIssues, type TemplateField } from './template-issues';
@@ -85,6 +88,8 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = useCanManage('notifications');
+  // The list's "Publish…" opens the editor at ?publish=1: the dialog is that parameter.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [values, setValues] = useState<NotificationTemplateInput>(() =>
     template ? toTemplateInput(template) : BLANK,
   );
@@ -177,6 +182,11 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
   const locked = !canManage || save.isPending;
   // A new template has nothing on the server yet, so it always has something to save.
   const unsaved = dirty || isNew;
+  // Publish sends the saved template, so it waits for unsaved edits and an image upload.
+  const canPublish = !isNew && !dirty && !imageBusy && !save.isPending;
+  const publishing = template !== undefined && canManage && canPublish && searchParams.get('publish') === '1';
+  const openPublish = () => setSearchParams({ publish: '1' }, { replace: true });
+  const closePublish = () => setSearchParams({}, { replace: true });
 
   const trySave = () => {
     if (imageBusy || save.isPending) return;
@@ -217,6 +227,12 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
               >
                 Save
               </Button>
+              {!isNew && (
+                <Button variant={unsaved ? 'ghost' : 'primary'} onClick={openPublish} disabled={!canPublish}>
+                  <Send size={ICON_SIZE.inline} aria-hidden />
+                  Publish…
+                </Button>
+              )}
               {!isNew && (
                 <ActionMenu label="More actions for this notification">
                   <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setConfirmDelete(true)}>
@@ -317,6 +333,13 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
           linkLabel={linkLabel}
         />
       </div>
+      {template && (
+        <>
+          <h3 className="form-section-title">Send history</h3>
+          <BroadcastHistory templateId={template.id} />
+        </>
+      )}
+      {publishing && template && <PublishDialog template={template} onClose={closePublish} />}
       {blocker.state === 'blocked' && (
         <ConfirmDialog
           title="Leave without saving?"
