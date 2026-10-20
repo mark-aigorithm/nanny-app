@@ -14,7 +14,9 @@
 
   --color-text-primary: #1b1c1b;
   --color-text-secondary: #444842;
-  --color-text-muted: #7a7a7a;
+  /* #686868, not the mobile theme's #7a7a7a: 4.5:1 on every console surface
+     (white, cream, muted and warm-subtle) for the small meta text it sets. */
+  --color-text-muted: #686868;
   --color-text-placeholder: #b0a89e;
 
   --color-bronze: #b89d78;
@@ -23,8 +25,11 @@
   --color-neutral-light: #e5e2e0;
   --color-error: #c0634a;
   --color-error-light: #fdf0ee;
+  /* Text on the -light fills: the same hues, darkened just enough for 4.5:1. */
+  --color-error-text: #a75640;
   --color-warning: #b8860b;
   --color-warning-light: #f9efd6;
+  --color-warning-text: #8a6408;
   --color-success: #6a9b6a;
   --color-success-light: #d4e8d4;
   --color-success-text: #2e5e2e;
@@ -1333,12 +1338,12 @@ input[type='number'] {
 
 .badge--danger {
   background: var(--color-error-light);
-  color: var(--color-error);
+  color: var(--color-error-text);
 }
 
 .badge--warning {
   background: var(--color-warning-light);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .feedback {
