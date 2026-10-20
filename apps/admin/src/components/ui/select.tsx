@@ -50,13 +50,17 @@ export function Select<V extends string | number = string>({
       setOpen(false);
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key !== 'Escape') return;
+      // Claim the key so a dialog underneath stays open (Modal skips a handled Escape).
+      event.preventDefault();
+      setOpen(false);
     }
     document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
+    // Capture, so this runs before an already-open Modal's own Escape listener.
+    document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [open]);
 
