@@ -124,7 +124,7 @@ export const styles = StyleSheet.create({
   },
   bookingAmount: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Section header
@@ -139,6 +139,6 @@ export const styles = StyleSheet.create({
   },
   seeAll: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

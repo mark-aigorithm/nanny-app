@@ -44,6 +44,6 @@ const styles = StyleSheet.create({
   action: {
     fontFamily: fontFamily.semiBold,
     fontSize: 14,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

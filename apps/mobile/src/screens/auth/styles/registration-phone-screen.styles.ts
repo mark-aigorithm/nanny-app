@@ -88,7 +88,7 @@ export const styles = StyleSheet.create({
   },
   link: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   linkDisabled: {
     color: colors.textPlaceholder,

@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   },
   resendLink: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   resendLinkDisabled: {
     color: colors.textPlaceholder,

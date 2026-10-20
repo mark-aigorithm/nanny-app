@@ -83,7 +83,7 @@ export const styles = StyleSheet.create({
   headerStatus: {
     fontFamily: fontFamily.semiBold,
     fontSize: 11,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   videoBtn: {
     width: 40,

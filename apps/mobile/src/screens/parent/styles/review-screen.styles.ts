@@ -56,6 +56,6 @@ export const styles = StyleSheet.create({
   // Rating label — reused by the "missing booking" fallback state.
   ratingLabel: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

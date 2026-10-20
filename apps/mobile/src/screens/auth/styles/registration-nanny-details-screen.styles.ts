@@ -163,7 +163,7 @@ export const styles = StyleSheet.create({
   copyButtonText: {
     flexShrink: 1,
     ...typeScale.labelSm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Inline form-level error

@@ -62,7 +62,7 @@ export default function ReviewScreen() {
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
         <Text style={styles.ratingLabel}>Missing booking.</Text>
         <Pressable onPress={handleExit}>
-          <Text style={[styles.ratingLabel, { color: colors.primary }]}>Go back</Text>
+          <Text style={[styles.ratingLabel, { color: colors.primaryDark }]}>Go back</Text>
         </Pressable>
       </View>
     );

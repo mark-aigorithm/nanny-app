@@ -189,7 +189,7 @@ export const styles = StyleSheet.create({
   },
   totalValue: {
     ...typeScale.headingLg,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Payment method
@@ -216,7 +216,7 @@ export const styles = StyleSheet.create({
   },
   changeText: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Special instructions
@@ -336,7 +336,7 @@ export const styles = StyleSheet.create({
   },
   freeTotalValue: {
     ...typeScale.headingSm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   errorText: {
     ...typeScale.bodyMd,

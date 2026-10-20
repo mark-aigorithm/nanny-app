@@ -46,13 +46,13 @@ export const styles = StyleSheet.create({
   },
   loadMoreText: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Mark-all-read control (StackHeader rightElement)
   markAllRead: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Scroll

@@ -134,6 +134,6 @@ export const styles = StyleSheet.create({
   },
   loadMoreText: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

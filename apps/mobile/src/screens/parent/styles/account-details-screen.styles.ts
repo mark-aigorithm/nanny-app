@@ -55,7 +55,7 @@ export const styles = StyleSheet.create({
   },
   saveText: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Photo section
@@ -94,7 +94,7 @@ export const styles = StyleSheet.create({
   },
   changePhotoText: {
     ...typeScale.labelSm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Form

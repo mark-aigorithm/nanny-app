@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
   avatarInitial: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   listingSubtitle: {
     ...typeScale.caption,
@@ -111,7 +111,7 @@ export const styles = StyleSheet.create({
   },
   chatTimeUnread: {
     fontFamily: fontFamily.semiBold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   chatPreviewRow: {
     flexDirection: 'row',

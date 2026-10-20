@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   done: {
     ...typeScale.labelMd,
     fontFamily: fontFamily.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   wheelRow: {
     flexDirection: 'row',

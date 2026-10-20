@@ -77,4 +77,20 @@ describe('layout guards', () => {
       ),
     ).toEqual([]);
   });
+
+  // Sage `colors.primary` is 2.49:1 on the cream page, so text in it (links,
+  // "Mark all read", totals) failed 4.5:1. Text takes `colors.primaryDark`.
+  // The "NannyNow" wordmarks keep the brand sage: logotypes are exempt.
+  it('never colours text with the sage primary', () => {
+    const wordmarks = [
+      path.join('components', 'ParentTabHeader.tsx'),
+      path.join('auth', 'styles', 'sign-in-screen.styles.ts'),
+      path.join('auth', 'styles', 'upload-id-screen.styles.ts'),
+      path.join('auth', 'styles', 'verify-email-screen.styles.ts'),
+    ];
+    const sageText = /(^|[^A-Za-z])color: colors\.primary\b(?![A-Za-z])/m;
+    expect(
+      offenders((src, file) => !wordmarks.some((w) => file.endsWith(w)) && sageText.test(src)),
+    ).toEqual([]);
+  });
 });

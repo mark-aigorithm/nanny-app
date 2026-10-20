@@ -103,6 +103,6 @@ export const styles = StyleSheet.create({
   },
   listingPrice: {
     ...typeScale.captionBold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

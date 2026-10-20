@@ -66,7 +66,7 @@ export default function NannyBottomNav({ activeTab }: Props) {
             <Ionicons
               name={isActive ? tab.activeIcon : tab.inactiveIcon}
               size={22}
-              color={isActive ? colors.primary : colors.textMuted}
+              color={isActive ? colors.primaryDark : colors.textMuted}
             />
             <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
           </Pressable>
@@ -97,6 +97,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   labelActive: {
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

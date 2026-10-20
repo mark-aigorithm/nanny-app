@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.extraBold,
     fontSize: 10,
     letterSpacing: 1.2,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   eyebrowUrgent: {
     color: colors.tintAmber,

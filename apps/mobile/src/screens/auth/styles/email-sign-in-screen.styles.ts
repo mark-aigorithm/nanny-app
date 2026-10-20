@@ -66,7 +66,7 @@ export const styles = StyleSheet.create({
   },
   forgotLink: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   socialHint: {
     ...typeScale.bodySm,

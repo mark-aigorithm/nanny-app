@@ -147,7 +147,7 @@ export const styles = StyleSheet.create({
   },
   paymentTotalValue: {
     ...typeScale.headingSm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   paymentSubtext: {
     ...typeScale.caption,

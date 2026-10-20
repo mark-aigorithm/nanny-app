@@ -287,6 +287,9 @@ visible.
   - The same goes for anything filled that carries white text or a white icon: a selected chip or
     pill, a badge, a sent chat bubble, a send button. Fill it with `colors.primaryAction`. Sage
     `colors.primary` is fine as a fill only where nothing sits on it (dots, progress bars, blobs).
+  - Text is never sage either: `colors.primary` is 2.49:1 on the cream page, so links, "Mark all
+    read", totals and active tab labels use `colors.primaryDark` (6.2:1). Only the "NannyNow"
+    wordmarks keep the sage (logotypes are exempt). `layout-guards.test.ts` enforces it.
 - **Tap targets are at least 44dp,** text links included (Edit, Delete, Never mind): use
   `minHeight`/`hitSlop`. Icon-only buttons get an `accessibilityLabel`.
 - **Badges sit on the icon's corner,** outside its shape, at every font scale.

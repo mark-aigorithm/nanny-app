@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontFamily: fontFamily.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Section
@@ -228,7 +228,7 @@ export const styles = StyleSheet.create({
   messageButtonText: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Past Booking Card
@@ -273,7 +273,7 @@ export const styles = StyleSheet.create({
   },
   leaveReviewText: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   yourReviewBlock: {
     marginTop: spacing.sm,
@@ -305,6 +305,6 @@ export const styles = StyleSheet.create({
   bookAgainButtonText: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

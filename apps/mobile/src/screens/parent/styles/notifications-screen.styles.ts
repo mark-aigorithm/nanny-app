@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   },
   loadMoreText: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Header
@@ -79,7 +79,7 @@ export const styles = StyleSheet.create({
   },
   markAllRead: {
     ...typeScale.labelMd,
-    color: colors.primary,
+    color: colors.primaryDark,
     textAlign: 'right',
   },
   headerSpacer: {

@@ -297,7 +297,7 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   // Notes
