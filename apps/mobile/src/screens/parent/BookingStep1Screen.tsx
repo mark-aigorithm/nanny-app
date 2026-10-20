@@ -60,17 +60,6 @@ function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): numbe
   return 0;
 }
 
-/**
- * Chip label: the name, plus what it adds to THIS booking. Free skills
- * carry no suffix — "+EGP 0.00" on half the list was pure noise.
- */
-function addOnChipLabel(skill: PublicSkill, baseRate: number | null, hours: number): string {
-  if (baseRate == null || hours <= 0) return skill.name;
-  const amount = addOnAmount(skill, baseRate, hours);
-  if (amount <= 0.005) return skill.name;
-  return `${skill.name} · +${formatMoney(amount, { fractionDigits: 0 })}`;
-}
-
 /** "Lina (3 yrs), Omar (8 mos)" — falls back to the nameless summary. */
 function formatPickedChildren(children: readonly BookingChild[]): string {
   if (children.some((c) => !c.name?.trim())) return formatChildrenSummary(children);

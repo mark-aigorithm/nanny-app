@@ -10,6 +10,8 @@ import {
   type PaginationMeta,
   type SendMessageRequest,
 } from '@nanny-app/shared';
+import type {
+  Prisma} from '@prisma/client';
 import {
   CommunityPostType,
   ConversationType,
@@ -17,7 +19,6 @@ import {
   NotificationReferenceType,
   NotificationType,
   PostModerationStatus,
-  Prisma,
   type User,
 } from '@prisma/client';
 

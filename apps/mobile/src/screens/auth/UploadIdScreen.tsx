@@ -4,7 +4,7 @@ import { Text } from '@mobile/components/ui/text';
 import { useRouter } from 'expo-router';
 
 import { ApprovalStatus } from '@shared/auth';
-import { IdDocumentType } from '@shared/nanny';
+import type { IdDocumentType } from '@shared/nanny';
 import { APP_NAME } from '@mobile/constants';
 import { Button } from '@mobile/components/ui';
 import IdCaptureFields from '@mobile/components/IdCaptureFields';

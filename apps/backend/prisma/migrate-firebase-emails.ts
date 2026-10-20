@@ -56,7 +56,7 @@ function describeTarget(): { firebaseProject: string; database: string } {
 
 async function main(): Promise<void> {
   const target = describeTarget();
-  // eslint-disable-next-line no-console
+   
   console.log(
     `${apply ? 'APPLY' : 'DRY RUN'} — firebase project: ${target.firebaseProject} — database: ${target.database}`,
   );
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
   for (const user of users) {
     const log = (outcome: Outcome, detail = ''): void => {
       tally[outcome] += 1;
-      // eslint-disable-next-line no-console
+       
       console.log(`user ${user.id}\t${outcome}\t${detail}`);
     };
 
@@ -133,14 +133,14 @@ async function main(): Promise<void> {
     }
   }
 
-  // eslint-disable-next-line no-console
+   
   console.log(`\n${apply ? 'APPLIED' : 'DRY RUN'} — ${JSON.stringify(tally)}`);
   if (tally.failed > 0) process.exitCode = 1;
 }
 
 main()
   .catch((err) => {
-    // eslint-disable-next-line no-console
+     
     console.error(err);
     process.exitCode = 1;
   })

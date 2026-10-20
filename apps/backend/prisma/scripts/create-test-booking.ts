@@ -94,17 +94,17 @@ async function main() {
     },
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log('[create-test-booking] Created CONFIRMED booking:');
-  // eslint-disable-next-line no-console
+   
   console.log(`  id:     ${booking.id}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  mother: ${mother.firstName} ${mother.lastName} (${MOTHER_PHONE})`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  nanny:  ${nannyUser.firstName} ${nannyUser.lastName} (${NANNY_PHONE})`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  window: ${start.toString()} → ${end.toString()}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  total:  EGP ${total.toFixed(2)} (payment CAPTURED)`);
 }
 

@@ -79,7 +79,7 @@ if (problems.length > 0) {
   );
 }
 
-// eslint-disable-next-line no-console
+ 
 console.log(
   `[paymob-sandbox] Paymob TEST mode on :${SANDBOX_PORT}, webhooks via ` +
     `${new URL(process.env['PUBLIC_API_URL'] ?? '').host}, integrations ${process.env['PAYMOB_PAYMENT_METHOD_IDS']}.`,

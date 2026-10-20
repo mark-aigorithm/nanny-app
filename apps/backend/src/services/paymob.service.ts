@@ -1,11 +1,12 @@
+import type {
+  Prisma} from '@prisma/client';
 import {
   BookingExtensionStatus,
   BookingStatus,
   type Payment,
   PaymentMethod,
   PaymentPurpose,
-  PaymentStatus,
-  Prisma,
+  PaymentStatus
 } from '@prisma/client';
 import type { CreatePaymobIntentionRequest } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
@@ -149,7 +150,7 @@ async function captureAndConfirmBooking(
   // payments, once introduced, are settled by a separate handler) — but
   // guard defensively rather than crash, since bookingId is now nullable.
   if (!payment.bookingId) {
-    // eslint-disable-next-line no-console
+     
     console.warn('[paymob] captured payment has no bookingId', { paymentId });
     return null;
   }
@@ -165,7 +166,7 @@ async function captureAndConfirmBooking(
   // cancelled it between payment initiation and capture — record the money
   // but leave the status untouched rather than crashing the webhook.
   if (!canTransitionBookingStatus(booking.status, BookingStatus.CONFIRMED)) {
-    // eslint-disable-next-line no-console
+     
     console.warn('[paymob] captured payment for a non-confirmable booking', {
       paymentId,
       bookingId: booking.id,
@@ -198,7 +199,7 @@ async function captureAndConfirmBooking(
     select: { id: true },
   });
   if (!capturedPayment) {
-    // eslint-disable-next-line no-console
+     
     console.warn('[paymob] refusing to confirm a booking with no captured payment', {
       paymentId,
       bookingId: booking.id,
@@ -353,7 +354,7 @@ export async function confirmBookingIfNothingOwed(bookingId: number): Promise<Co
   try {
     return await settleWithoutCharge({ bookingId }, booking.motherId, PaymentMethod.CARD, booking.payments);
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[payments] could not confirm a fully covered booking', { bookingId, err });
     return null;
   }
@@ -699,7 +700,7 @@ async function finalizeExtensionPaymentCaptured(
     });
 
     if (!payment.bookingExtensionId) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[paymob] captured extension payment has no bookingExtensionId', { paymentId });
       return null;
     }
@@ -806,7 +807,7 @@ async function finalizeAdjustmentPaymentCaptured(
     });
 
     if (!payment.bookingAdjustmentId) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[paymob] captured adjustment payment has no bookingAdjustmentId', { paymentId });
       return;
     }
@@ -875,7 +876,7 @@ export async function bookingPaymentInProgress(bookingId: number): Promise<boole
   try {
     return (await syncBookingAttemptWithPaymob(attempt.id, attempt.paymobClientSecret)) === 'pending';
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[paymob] could not check an open checkout before cancelling', { bookingId, err });
     return false;
   }
@@ -953,7 +954,7 @@ export async function processPaymobWebhook(params: {
   // A payment we have no row for is acknowledged as before — nothing is
   // written for it, and refusing would only make Paymob retry it forever.
   if (named && Math.round(Number(named.amount) * 100) !== Number(txn.amount_cents)) {
-    // eslint-disable-next-line no-console
+     
     console.warn('[paymob] webhook amount does not match the payment it names', {
       paymentId,
       amountCents: txn.amount_cents,

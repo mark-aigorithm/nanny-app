@@ -156,7 +156,7 @@ export default function PackagesScreen() {
       : null;
 
   const availableHours = packageHours.data?.availableHours ?? 0;
-  const list = packages.data ?? [];
+  const list = useMemo(() => packages.data ?? [], [packages.data]);
   const standardRate = pricing.data?.standardHourlyRate ?? null;
 
   /** The cheapest per-hour package, badged so the choice isn't arithmetic. */

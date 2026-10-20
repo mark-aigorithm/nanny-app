@@ -4,19 +4,19 @@
  */
 export function useRouter() {
   return {
-    push: (route: any) => console.log('[preview] router.push', route),
-    replace: (route: any) => console.log('[preview] router.replace', route),
+    push: (route: unknown) => console.log('[preview] router.push', route),
+    replace: (route: unknown) => console.log('[preview] router.replace', route),
     back: () => console.log('[preview] router.back'),
-    navigate: (route: any) => console.log('[preview] router.navigate', route),
-    dismissTo: (route: any) => console.log('[preview] router.dismissTo', route),
+    navigate: (route: unknown) => console.log('[preview] router.navigate', route),
+    dismissTo: (route: unknown) => console.log('[preview] router.dismissTo', route),
     canGoBack: () => false,
   };
 }
 
 // Some screens import the imperative `router` singleton rather than the hook.
 export const router = {
-  push: (route: any) => console.log('[preview] router.push', route),
-  replace: (route: any) => console.log('[preview] router.replace', route),
+  push: (route: unknown) => console.log('[preview] router.push', route),
+  replace: (route: unknown) => console.log('[preview] router.replace', route),
   back: () => console.log('[preview] router.back'),
   canGoBack: () => false,
 };
@@ -41,6 +41,6 @@ export function useSegments(): string[] {
 // Focus never changes in a single-screen preview; nothing to subscribe to.
 export function useFocusEffect(_effect: () => void | (() => void)): void {}
 
-export function Link(props: any) {
+export function Link(_props: unknown) {
   return null;
 }

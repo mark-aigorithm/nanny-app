@@ -2,7 +2,6 @@ import { NotificationType, Prisma, type RewardEntryType } from '@prisma/client';
 
 import type {
   AdminSortDir,
-  GrantPointsInput,
   RewardConfig,
   RewardHistoryQuery,
   RewardHistoryResponse,

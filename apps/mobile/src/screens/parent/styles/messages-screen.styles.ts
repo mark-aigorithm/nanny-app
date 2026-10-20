@@ -5,7 +5,6 @@ import {
   typeScale,
   spacing,
   screenPadding,
-  borderRadius,
   PARENT_TAB_CONTENT_TOP_WITH_SEARCH,
 } from '@mobile/theme';
 

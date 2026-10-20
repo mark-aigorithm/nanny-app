@@ -51,7 +51,7 @@ export function newSessionToken(): string {
 
 function logDev(context: string, error: unknown): void {
   if (__DEV__) {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[googlePlaces] ${context}`, error);
   }
 }

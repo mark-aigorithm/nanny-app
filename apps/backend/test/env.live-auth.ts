@@ -113,5 +113,5 @@ if (!projectId || projectId.startsWith('demo-')) {
 
 const databaseName = new URL(process.env['DATABASE_URL'] ?? '').pathname.replace(/^\//, '');
 
-// eslint-disable-next-line no-console
+ 
 console.log(`[e2e-live-auth] Firebase project "${projectId}", database "${databaseName}".`);

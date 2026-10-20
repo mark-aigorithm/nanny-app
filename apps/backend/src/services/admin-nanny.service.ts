@@ -1,4 +1,5 @@
-import { BookingStatus, ApprovalStatus, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { BookingStatus, ApprovalStatus } from '@prisma/client';
 
 import type {
   Address as AddressDto,

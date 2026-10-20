@@ -1,4 +1,5 @@
-import { ApprovalStatus, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { ApprovalStatus } from '@prisma/client';
 
 import type {
   AdminNannyCamera,

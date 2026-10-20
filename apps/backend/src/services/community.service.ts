@@ -1,5 +1,6 @@
+import type {
+  CommunityPostType} from '@nanny-app/shared';
 import {
-  CommunityPostType,
   Role,
   type CommentListQuery,
   type CommentListResponse,

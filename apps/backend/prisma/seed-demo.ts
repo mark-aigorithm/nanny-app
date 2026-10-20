@@ -16,7 +16,6 @@ import {
   BookingStatus,
   CommunityPostType,
   ConversationType,
-  MessageType,
   NotificationReferenceType,
   NotificationType,
   PaymentMethod,
@@ -284,7 +283,7 @@ async function clearPreviousDemoData(linkedMotherId: number | null) {
   await prisma.nannyProfile.deleteMany({ where: { user: demoUser } });
   await prisma.user.deleteMany({ where: demoUser });
 
-  // eslint-disable-next-line no-console
+   
   console.log('[seed-demo] Cleared previous demo data');
 }
 
@@ -990,34 +989,34 @@ async function main() {
 
   await seedPackages();
 
-  // eslint-disable-next-line no-console
+   
   console.log('[seed-demo] Done — demo data ready for video recording');
-  // eslint-disable-next-line no-console
+   
   console.log(`  Demo mother: ${demoMother.email} (${demoMother.firebaseUid})`);
   if (LINKED_MOTHER_UID) {
-    // eslint-disable-next-line no-console
+     
     console.log('  Linked to your Firebase account via DEMO_MOTHER_FIREBASE_UID');
   } else {
-    // eslint-disable-next-line no-console
+     
     console.log('  Tip: set DEMO_MOTHER_FIREBASE_UID=<your-uid> to attach data to your login');
   }
-  // eslint-disable-next-line no-console
+   
   console.log(`  Nannies: ${SEED_NANNIES.length} profiles with reviews + full weekly availability`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  All seeded accounts exist in Firebase Auth — password: ${SEED_PASSWORD}`);
-  // eslint-disable-next-line no-console
+   
   console.log('  Sign in with phone number + password:');
-  // eslint-disable-next-line no-console
+   
   console.log(`    Mother:  ${FALLBACK_DEMO_MOTHER.phone}`);
   for (const n of SEED_NANNIES) {
-    // eslint-disable-next-line no-console
+     
     console.log(`    Nanny ${n.firstName}: ${n.phone}`);
   }
-  // eslint-disable-next-line no-console
+   
   console.log('  Community: 3 marketplace, 1 Q&A, 1 event');
-  // eslint-disable-next-line no-console
+   
   console.log('  Messaging: 2 conversations, 6 messages, 5 notifications (1 unread)');
-  // eslint-disable-next-line no-console
+   
   console.log('  Bookings: 1 upcoming, 2 completed, 1 cancelled');
 }
 

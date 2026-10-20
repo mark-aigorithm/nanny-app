@@ -21,6 +21,7 @@ export async function e2ePlaceholderImageUri(): Promise<string | null> {
   // the filesystem and fills in `localUri`, which matters: uploadImageToFirebase
   // hands the URI straight to the native putFile, and that reads a local path
   // (file:// / content://) — not the http:// URL Metro serves assets from.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro resolves bundled assets only through require()
   const asset = Asset.fromModule(require('../../assets/icon.png'));
   await asset.downloadAsync();
   return asset.localUri ?? asset.uri;

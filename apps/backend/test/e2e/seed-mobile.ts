@@ -224,7 +224,7 @@ async function seedAccount(spec: AccountSpec): Promise<number> {
     }
   }
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] ${spec.role.padEnd(6)} ${spec.phone}  (${email})`);
   return user.id;
 }
@@ -252,7 +252,7 @@ async function seedAdmin(spec: AdminSpec): Promise<void> {
     update: { firebaseUid, role: Role.SUPERUSER, deletedAt: null },
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] ADMIN  ${spec.email}`);
 }
 
@@ -274,7 +274,7 @@ async function configurePlatform(settings: Record<string, string>): Promise<void
       update: { value, deletedAt: null },
     });
   }
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] platform  ${Object.keys(settings).length} settings`);
 }
 
@@ -292,7 +292,7 @@ async function resetLegalDocuments(): Promise<void> {
     where: { key: 'legal_documents', deletedAt: null },
     data: { deletedAt: new Date() },
   });
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] legal     ${count ? 'reset to placeholders' : 'already placeholders'}`);
 }
 
@@ -374,7 +374,7 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
     data: { deletedAt },
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] reset     ${bookingIds.length} bookings`);
 }
 
@@ -441,7 +441,7 @@ async function wipeAccount(spec: WipeSpec): Promise<void> {
   // anything the flow is testing.
   await prisma.emailVerification.deleteMany({ where: { email: spec.email } });
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] wipe      ${spec.phone ?? '(no phone)'}  (${email})`);
 }
 
@@ -464,7 +464,7 @@ async function seedLeftover(spec: LeftoverSpec): Promise<void> {
     emailVerified: false,
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] leftover  ${spec.phone}  (${spec.email})  uid=${created.uid}`);
 }
 
@@ -487,7 +487,7 @@ async function seedPromoCodes(specs: PromoSpec[]): Promise<void> {
       update: shape,
     });
   }
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] promo     ${specs.map((s) => s.code).join(', ')}`);
 }
 
@@ -506,7 +506,7 @@ async function seedPackage(spec: LabFixtures['package']): Promise<void> {
     create: { name: spec.name, ...shape },
     update: shape,
   });
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] package   ${spec.name}`);
 }
 
@@ -535,7 +535,7 @@ async function seedCarePoints(userId: number, points: number): Promise<void> {
     },
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed-mobile] points    ${points} to user ${userId}`);
 }
 
@@ -596,7 +596,7 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
+     
     console.error('[seed-mobile]', error);
     process.exit(1);
   })

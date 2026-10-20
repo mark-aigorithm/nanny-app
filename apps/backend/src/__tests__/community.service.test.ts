@@ -4,7 +4,7 @@ import {
   PostModerationStatus as PrismaPostModerationStatus,
 } from '@prisma/client';
 
-import { AppError } from '@backend/lib/errors';
+import type { AppError } from '@backend/lib/errors';
 import {
   createPost,
   getPost,

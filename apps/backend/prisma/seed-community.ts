@@ -60,7 +60,7 @@ async function clearPreviousSeedData() {
     where: { authorId: { in: userIds } },
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log('[seed-community] Cleared previous seed posts');
 }
 
@@ -295,15 +295,15 @@ async function main() {
   await clearPreviousSeedData();
   const summary = await seedCommunityData();
 
-  // eslint-disable-next-line no-console
+   
   console.log('[seed-community] Done');
-  // eslint-disable-next-line no-console
+   
   console.log(`  Users:  ${SEED_USERS.length} mothers (${SEED_PREFIX}*)`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  Posts:  ${summary.qa} Q&A, ${summary.marketplace} marketplace, ${summary.events} events`);
-  // eslint-disable-next-line no-console
+   
   console.log(`  Comments: ${summary.comments} total (${summary.replies} reply)`);
-  // eslint-disable-next-line no-console
+   
   console.log('  Likes, comment likes, and event RSVPs included');
 }
 

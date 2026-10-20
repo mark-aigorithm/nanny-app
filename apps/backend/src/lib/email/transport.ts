@@ -83,7 +83,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     return { ok: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
+     
     console.warn('[email] send failed', { from: config.email.from, error });
     return { ok: false, error };
   }

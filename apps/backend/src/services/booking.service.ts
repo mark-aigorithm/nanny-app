@@ -1,4 +1,5 @@
-import { Prisma, type BookingExtension } from '@prisma/client';
+import type { Prisma} from '@prisma/client';
+import { type BookingExtension } from '@prisma/client';
 import {
   type AppliedSkillFee,
   type BookingAddress,
@@ -36,12 +37,13 @@ import {
   type ValidateBookingPromoResponse,
 } from '@nanny-app/shared';
 import { Role } from '@nanny-app/shared';
+import type {
+  NotificationReferenceType} from '@prisma/client';
 import {
   BookingAdjustmentStatus,
   BookingExtensionStatus,
   ApprovalStatus,
   NannyBookingDecision,
-  NotificationReferenceType,
   NotificationType,
 } from '@prisma/client';
 
@@ -63,7 +65,6 @@ import {
   getBroadcastRadiusKm,
   getSkillMatchingEnabled,
   getPlatformConfig,
-  getRevealPhoneMinutes,
 } from './app-settings.service';
 import { listConsoleUserIdsForSection } from './admin-user.service';
 import { getChildrenForBooking, mergeLegacyChildren } from './child.service';
@@ -926,7 +927,7 @@ export async function settleExtensionUnpaid(
     try {
       await notifyPointsRefunded(refunded.motherId, refunded.points);
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[rewards] failed to notify extension points refund', { extensionId, err });
     }
   }
@@ -945,7 +946,7 @@ export async function releaseOpenExtensionsForBooking(
     try {
       await settleExtensionUnpaid(ext.id, 'CANCELLED');
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[booking] failed to release an open extension', {
         bookingId,
         extensionId: ext.id,
@@ -980,7 +981,7 @@ export async function assertNoConflict(
     },
   });
   if (conflict) {
-    // eslint-disable-next-line no-console
+     
     console.warn('[booking] slot conflict', {
       nannyProfileId,
       requestedStart: startTime.toISOString(),
@@ -2181,13 +2182,13 @@ export async function returnUnpaidCredits(booking: CreditedBooking): Promise<voi
   try {
     reversed = (await refundBookingIfApplied(reversed)) ?? reversed;
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[rewards] failed to refund points on cancel', { bookingId: booking.id, err });
   }
   try {
     await refundPackageHoursIfApplied(reversed);
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[packages] failed to refund package hours on cancel', { bookingId: booking.id, err });
   }
 }
@@ -2501,7 +2502,7 @@ async function completeBooking(
       durationHours: Number(updated.durationHours),
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[rewards] failed to award points on booking completion', {
       bookingId: updated.id,
       endedBy,
@@ -2517,7 +2518,7 @@ async function completeBooking(
       bookingId: updated.id,
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[referrals] failed to convert referral on booking completion', {
       bookingId: updated.id,
       endedBy,

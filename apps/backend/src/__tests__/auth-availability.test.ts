@@ -57,8 +57,6 @@ const FREE_PHONE = '+201000000002';
 // emailVerificationToken, which must be for the address the decoded token's
 // account signs in with — so each decoded fixture's email lines up with
 // whatever email that test registers.
-/** A fresh Firebase uid — no existing row for it, so registration proceeds to the collision checks. */
-const DECODED = { uid: 'fb-new', email: FREE_EMAIL, phone_number: FREE_PHONE } as never;
 /** She verified a number that already belongs to an account. */
 const DECODED_TAKEN_PHONE = { uid: 'fb-new', email: FREE_EMAIL, phone_number: TAKEN_PHONE } as never;
 /** She verified an email that already belongs to an account. */

@@ -35,7 +35,7 @@ async function main() {
     });
   }
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[seed] app_settings seeded (${Object.keys(APP_SETTINGS).length} keys)`);
 }
 

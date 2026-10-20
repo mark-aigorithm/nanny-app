@@ -6,7 +6,7 @@ import {
   PostModerationStatus,
 } from '@prisma/client';
 
-import { AppError } from '@backend/lib/errors';
+import type { AppError } from '@backend/lib/errors';
 import {
   contactSeller,
   getUnreadMessageCount,

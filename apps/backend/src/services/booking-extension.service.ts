@@ -1,4 +1,5 @@
-import { BookingExtensionStatus, BookingStatus, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { BookingExtensionStatus, BookingStatus } from '@prisma/client';
 import {
   type AppliedSkillFee,
   type BookingExtensionResponse,
@@ -469,7 +470,7 @@ export async function applyPaidExtension(extensionId: number): Promise<void> {
     if (!ext) return null;
     if (ext.status === BookingExtensionStatus.PAID) return null; // replay
     if (ext.status !== BookingExtensionStatus.ACCEPTED) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[booking-extension] refusing to apply an extension that is not accepted', {
         extensionId,
         status: ext.status,
@@ -483,7 +484,7 @@ export async function applyPaidExtension(extensionId: number): Promise<void> {
     // record it and leave the booking alone rather than crashing the webhook —
     // the row stays visible for support to refund.
     if (booking.status !== BookingStatus.IN_PROGRESS) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[booking-extension] paid extension for a booking that is no longer running', {
         extensionId,
         bookingId: booking.id,
@@ -549,7 +550,7 @@ export async function expireStaleBookingExtensions(): Promise<void> {
     try {
       await settleExtensionUnpaid(ext.id, 'EXPIRED');
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[booking-extension] failed to expire a stale extension', {
         extensionId: ext.id,
         err,

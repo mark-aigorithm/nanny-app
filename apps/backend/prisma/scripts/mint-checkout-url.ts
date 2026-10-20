@@ -64,7 +64,7 @@ async function main() {
   } as never);
 
   const url = `https://accept.paymob.com/unifiedcheckout/?publicKey=${encodeURIComponent(result.publicKey)}&clientSecret=${encodeURIComponent(result.clientSecret)}`;
-  // eslint-disable-next-line no-console
+   
   console.log('CHECKOUT_URL=' + url);
 }
 

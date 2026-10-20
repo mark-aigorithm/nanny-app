@@ -80,7 +80,7 @@ export async function finalizePackagePaymentCaptured(
       // activated. The payment stays CAPTURED — the money was taken and must not
       // be erased by rolling back — and the purchase stays PENDING_PAYMENT for a
       // human to refund or activate once the current package clears.
-      // eslint-disable-next-line no-console
+       
       console.error('[packages] captured payment could not be activated: active slot taken', {
         paymentId,
         purchaseId: payment.packagePurchaseId,

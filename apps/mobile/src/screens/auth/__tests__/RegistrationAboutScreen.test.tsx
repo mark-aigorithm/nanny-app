@@ -287,7 +287,7 @@ describe('Google/Apple sign-up', () => {
 // system screen with its own "CROP" button; until she tapped it the photo
 // never arrived. The picked photo now comes straight back and shows at once.
 it('shows the picked photo straight away, with no crop step', async () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   const ImagePicker = require('expo-image-picker') as {
     requestMediaLibraryPermissionsAsync: jest.Mock;
     launchImageLibraryAsync: jest.Mock;

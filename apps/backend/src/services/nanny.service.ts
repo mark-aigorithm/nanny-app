@@ -379,7 +379,6 @@ export async function listNannies(
     `),
   ]);
 
-  const distanceById = new Map(rows.map((r) => [r.id, r.distance_m]));
   const profiles = await prisma.nannyProfile.findMany({
     where: { id: { in: rows.map((r) => r.id) } },
     include: { user: { include: nannyHomeInclude }, ...nannyTagsInclude },

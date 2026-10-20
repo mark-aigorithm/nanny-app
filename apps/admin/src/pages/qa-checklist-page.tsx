@@ -92,7 +92,7 @@ export function QaChecklistPage() {
    */
   const draftsRef = useRef<Record<string, QaDraft>>({});
 
-  const entries = data?.entries ?? {};
+  const entries = useMemo(() => data?.entries ?? {}, [data]);
 
   function draftFor(scenarioId: string): QaDraft {
     const entry = entries[scenarioId];

@@ -91,7 +91,7 @@ export async function sendReceiptEmail(input: SendReceiptEmailInput): Promise<vo
     });
   } catch (err) {
     // A receipt must never break payment capture — log and move on.
-    // eslint-disable-next-line no-console
+     
     console.warn('[email] failed to send receipt', { bookingId: input.booking.id, err });
   }
 }

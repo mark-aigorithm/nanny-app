@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { SubmitIdRequest } from '@nanny-app/shared';
 
-import { IdDocumentType, idTypeRequiresBack } from '@shared/nanny';
+import type { IdDocumentType} from '@shared/nanny';
+import { idTypeRequiresBack } from '@shared/nanny';
 import { isLocalImageUri, uploadImageToFirebase } from '@mobile/lib/storage';
 import { useSubmitId } from '@mobile/hooks/useMe';
 

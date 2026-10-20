@@ -99,7 +99,7 @@ const ConfigSchema = z.object({
 const parsed = ConfigSchema.safeParse(process.env);
 if (!parsed.success) {
   // Print every missing/invalid key so the dev knows exactly what to set.
-  // eslint-disable-next-line no-console
+   
   console.error('[config] Invalid environment:', parsed.error.flatten().fieldErrors);
   throw new Error('Invalid environment configuration. See errors above.');
 }

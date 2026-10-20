@@ -1,8 +1,9 @@
+import type {
+  Prisma} from '@prisma/client';
 import {
   CommunityPostType,
   NotificationReferenceType,
-  PostModerationStatus,
-  Prisma,
+  PostModerationStatus
 } from '@prisma/client';
 
 import type {

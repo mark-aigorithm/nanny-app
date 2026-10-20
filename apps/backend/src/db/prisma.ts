@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client';
 // Single shared Prisma client. Reused across hot-reloads in dev so we
 // don't exhaust the database connection pool.
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __prisma: PrismaClient | undefined;
 }
 

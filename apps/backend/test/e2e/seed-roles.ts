@@ -72,7 +72,7 @@ async function seed(specs: RoleSpec[]): Promise<void> {
       },
     });
 
-    // eslint-disable-next-line no-console
+     
     console.log(`[seed-roles] ${spec.role.padEnd(9)} ${spec.email}`);
   }
 }
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
+     
     console.error('[seed-roles]', error);
     process.exit(1);
   })

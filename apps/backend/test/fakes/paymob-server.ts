@@ -41,8 +41,7 @@ const CHECKOUT = JSON.parse(
   cards: Record<string, TestCard>;
 };
 
-const CARD_FIELDS = ['cardNumber', 'expiry', 'cvv', 'name'] as const;
-type CardField = (typeof CARD_FIELDS)[number];
+type CardField = 'cardNumber' | 'expiry' | 'cvv' | 'name';
 
 /**
  * What the submitted card settles as. Spaces are ignored in the number and the
@@ -550,11 +549,12 @@ if (require.main === module) {
   // Required here rather than at the top so importing `buildPaymobFake` from a
   // test has no side effects; run as a script it needs .env.test for the HMAC
   // secret and integration ids.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../env');
 
   const port = Number(process.env['PAYMOB_FAKE_PORT'] ?? DEFAULT_PORT);
   buildPaymobFake().listen(port, () => {
-    // eslint-disable-next-line no-console
+     
     console.log(`[paymob-fake] listening on http://127.0.0.1:${port}`);
   });
 }

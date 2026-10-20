@@ -56,7 +56,6 @@ function computePhase(booking: BookingResponse | null, now: number): ShiftPhase 
 
 function formatCountdown(booking: BookingResponse, phase: ShiftPhase, now: number): string {
   const startMs = new Date(booking.startTime).getTime();
-  const endMs = new Date(booking.endTime).getTime();
 
   if (phase === 'in_progress') {
     const checkedInAt = booking.nannyCheckedInAt

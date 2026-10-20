@@ -4,20 +4,21 @@
  */
 import React from 'react';
 import { View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 type LinearGradientProps = {
   colors: string[];
   locations?: number[];
   start?: { x: number; y: number };
   end?: { x: number; y: number };
-  style?: any;
+  style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 };
 
 export function LinearGradient({ colors, style, children }: LinearGradientProps) {
   const gradientCSS = `linear-gradient(to bottom, ${colors.join(', ')})`;
   return (
-    <View style={[style, { backgroundImage: gradientCSS } as any]}>
+    <View style={[style, { backgroundImage: gradientCSS } as unknown as ViewStyle]}>
       {children}
     </View>
   );

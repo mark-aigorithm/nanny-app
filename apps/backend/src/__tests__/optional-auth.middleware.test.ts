@@ -7,7 +7,7 @@ jest.mock('@backend/lib/firebase', () => ({
 }));
 
 import { firebaseAuth } from '@backend/lib/firebase';
-import { AppError } from '@backend/lib/errors';
+import type { AppError } from '@backend/lib/errors';
 import { optionalAuth } from '@backend/middleware/auth.middleware';
 
 const mockVerifyIdToken = firebaseAuth.verifyIdToken as jest.Mock;

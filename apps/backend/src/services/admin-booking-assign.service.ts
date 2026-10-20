@@ -1,4 +1,5 @@
-import { ApprovalStatus, BookingStatus, NannyBookingDecision, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { ApprovalStatus, BookingStatus, NannyBookingDecision } from '@prisma/client';
 
 import { canAssignBookingNanny } from '@nanny-app/shared';
 import type {

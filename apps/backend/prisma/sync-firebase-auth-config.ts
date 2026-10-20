@@ -45,7 +45,7 @@ function summarise(t: FirebaseEmailTemplateConfig | undefined): Record<string, u
 }
 
 function log(...args: unknown[]): void {
-  // eslint-disable-next-line no-console
+   
   console.log(...args);
 }
 
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
+   
   console.error(err);
   process.exitCode = 1;
 });

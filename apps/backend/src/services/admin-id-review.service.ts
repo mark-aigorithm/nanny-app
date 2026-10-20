@@ -1,4 +1,5 @@
-import { ApprovalStatus, type Prisma } from '@prisma/client';
+import type { ApprovalStatus} from '@prisma/client';
+import { type Prisma } from '@prisma/client';
 
 import { sortDirection } from '@nanny-app/shared';
 import type { AdminIdReview, AdminIdReviewListQuery, PaginationMeta } from '@nanny-app/shared';

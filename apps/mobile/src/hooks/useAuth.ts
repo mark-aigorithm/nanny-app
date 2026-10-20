@@ -876,6 +876,6 @@ export function useSetVerifiedEmail() {
   const setProfile = useUserProfileStore((s) => s.setProfile);
   return useMutation<SetVerifiedEmailResponse, Error, SetVerifiedEmailRequest>({
     mutationFn: async (body) => unwrap(api.post('/auth/email', body)),
-    onSuccess: ({ customToken, ...profile }) => setProfile(profile),
+    onSuccess: ({ customToken: _customToken, ...profile }) => setProfile(profile),
   });
 }

@@ -8,7 +8,7 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({}),
   useFocusEffect: (effect: () => void) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
+     
     require('react').useEffect(effect, [effect]);
   },
 }));

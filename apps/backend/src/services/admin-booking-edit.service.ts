@@ -1,4 +1,5 @@
-import { BookingStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { BookingStatus, NotificationType, PaymentStatus } from '@prisma/client';
 
 import { isBookingWithinDailyWindow, pointHoursToCover } from '@nanny-app/shared';
 import type {
@@ -50,7 +51,6 @@ import {
 import {
   getAvailableHours,
   reapplyPackageHoursForBooking,
-  refundPackageHours,
 } from '@backend/services/package-hours.service';
 import { refundBookingPayment } from '@backend/services/payment-refund.service';
 import { toBookingAddressSnapshot } from '@backend/services/address.service';
@@ -311,7 +311,7 @@ async function buildEditPlan(
   const usePackage = input.usePackageHours !== false;
   let simPackageHours = 0;
   let simPackageCredit = 0;
-  let simPackageSkills = 0;
+  const simPackageSkills = 0;
   const availableWithReleased =
     (await getAvailableHours(booking.mother.id, db)) + num(booking.packageHoursApplied);
   if (usePackage && availableWithReleased > 0) {

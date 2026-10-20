@@ -122,9 +122,10 @@ export function useDashboardStats() {
     enabled: sources.promoCodes,
   });
 
-  const bookings: AdminBooking[] = bookingsQuery.data?.data ?? [];
-  const nannies: AdminNanny[] = nanniesQuery.data?.data ?? [];
-  const promoCodes: PromoCode[] = promoQuery.data ?? [];
+  // Memoised so a disabled query's `[]` fallback doesn't re-run the stats below on every render.
+  const bookings = useMemo<AdminBooking[]>(() => bookingsQuery.data?.data ?? [], [bookingsQuery.data]);
+  const nannies = useMemo<AdminNanny[]>(() => nanniesQuery.data?.data ?? [], [nanniesQuery.data]);
+  const promoCodes = useMemo<PromoCode[]>(() => promoQuery.data ?? [], [promoQuery.data]);
 
   const data: DashboardData = useMemo(() => {
     const bookingCounts = countBy(bookings, (b) => b.status);

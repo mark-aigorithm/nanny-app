@@ -4,7 +4,8 @@ import { Text } from '@mobile/components/ui/text';
 import { KeyboardAvoidingView } from '@mobile/components/ui';
 import { useRouter } from 'expo-router';
 
-import { IdDocumentType, idTypeRequiresBack } from '@shared/nanny';
+import type { IdDocumentType} from '@shared/nanny';
+import { idTypeRequiresBack } from '@shared/nanny';
 import Button from '@mobile/components/ui/button';
 import IdCaptureFields from '@mobile/components/IdCaptureFields';
 import RegistrationHeader from '@mobile/components/RegistrationHeader';

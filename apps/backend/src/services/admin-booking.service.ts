@@ -1,4 +1,5 @@
-import { BookingStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
+import type { NotificationType, Prisma } from '@prisma/client';
+import { BookingStatus, PaymentStatus } from '@prisma/client';
 
 import { BookingAddressSchema, BookingChildSchema } from '@nanny-app/shared';
 import type {
@@ -655,7 +656,7 @@ export async function setBookingStatus(
         durationHours: updated.durationHours.toNumber(),
       });
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[rewards] failed to award points on admin completion', {
         bookingId: updated.id,
         err,
@@ -669,7 +670,7 @@ export async function setBookingStatus(
         bookingId: updated.id,
       });
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[referrals] failed to convert referral on admin completion', {
         bookingId: updated.id,
         err,

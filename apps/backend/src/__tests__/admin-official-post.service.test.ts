@@ -1,6 +1,6 @@
 import { CommunityPostType, PostModerationStatus } from '@prisma/client';
 
-import { AppError } from '@backend/lib/errors';
+import type { AppError } from '@backend/lib/errors';
 
 jest.mock('@backend/db/prisma', () => ({
   prisma: {
