@@ -68,6 +68,8 @@ describe('SurveyQuestionInput choices', () => {
     const box = optionBox('Work');
     expect(contrastRatio(box.borderColor as string, colors.background)).toBeGreaterThanOrEqual(3);
     expect(contrastRatio(box.borderColor as string, colors.surface)).toBeGreaterThanOrEqual(3);
+    // The glyph and label sit at the start of the row, not centred (sweep).
+    expect(box.justifyContent).toBeUndefined();
   });
 
   // A screen reader that swipes into the middle of a question hears what it asks.

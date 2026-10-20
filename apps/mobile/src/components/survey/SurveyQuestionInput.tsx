@@ -14,6 +14,7 @@ type Props = {
   onChange: (answer: SurveyAnswerInput | undefined) => void;
   /** A text answer took focus (the screen scrolls its prompt into view). */
   onTextFocus?: () => void;
+  onTextBlur?: () => void;
 };
 
 function Choice({
@@ -55,7 +56,7 @@ function Choice({
 }
 
 /** One control per question type; every control carries a role and a label. */
-export default function SurveyQuestionInput({ question, answer, onChange, onTextFocus }: Props) {
+export default function SurveyQuestionInput({ question, answer, onChange, onTextFocus, onTextBlur }: Props) {
   const id = question.id;
   switch (question.type) {
     case 'TEXT':
@@ -67,6 +68,7 @@ export default function SurveyQuestionInput({ question, answer, onChange, onText
           value={answer?.text ?? ''}
           onChangeText={(text) => onChange(text ? { questionId: id, text } : undefined)}
           onFocus={onTextFocus}
+          onBlur={onTextBlur}
           placeholder="Type your answer"
           placeholderTextColor={colors.textPlaceholder}
           style={styles.text}
@@ -139,7 +141,6 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    justifyContent: 'center',
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
     // 4.1:1 on cream: an unpicked option reads as a control (warmBorder was 1.3:1).

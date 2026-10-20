@@ -69,6 +69,10 @@ export default function SurveyScreen() {
   // prompt into view rather than only the field.
   const questionTops = useRef<Record<number, number>>({});
   const [scrolled, setScrolled] = useState(false);
+  // The text question being typed in. When the keyboard shrinks the scroll,
+  // Android scrolls the field into view and the prompt above it is cut off,
+  // so the scroll re-aims at the question once its new height lands.
+  const focusedQuestion = useRef<number | null>(null);
 
   // Opened at all (deep link, profile list, push), she has seen it: the prompt
   // sheet must not offer it on top of this screen or after she leaves.
@@ -193,7 +197,7 @@ export default function SurveyScreen() {
 
   const showQuestion = (questionId: number) => {
     const top = questionTops.current[questionId];
-    if (top !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, top - spacing.md), animated: true });
+    if (top !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, top - spacing.xs), animated: true });
   };
 
   return (
@@ -205,6 +209,9 @@ export default function SurveyScreen() {
         <ScrollView
           ref={scrollRef}
           onScroll={(e) => setScrolled(e.nativeEvent.contentOffset.y > 0)}
+          onLayout={() => {
+            if (focusedQuestion.current !== null) showQuestion(focusedQuestion.current);
+          }}
           scrollEventThrottle={16}
           style={styles.flex}
           contentContainerStyle={[styles.content, { paddingBottom: spacing.lg }]}
@@ -233,7 +240,13 @@ export default function SurveyScreen() {
                 question={q}
                 answer={answers[q.id]}
                 onChange={(a) => setAnswers((prev) => ({ ...prev, [q.id]: a }))}
-                onTextFocus={() => showQuestion(q.id)}
+                onTextFocus={() => {
+                  focusedQuestion.current = q.id;
+                  showQuestion(q.id);
+                }}
+                onTextBlur={() => {
+                  focusedQuestion.current = null;
+                }}
               />
             </View>
           ))}

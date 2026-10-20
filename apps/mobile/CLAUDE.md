@@ -280,6 +280,10 @@ visible.
 - **An enabled button never looks disabled.** A primary CTA uses the full-strength primary fill with
   text contrast of at least 4.5:1. The pale sage/beige look is reserved for `disabled`, which also
   sets `accessibilityState={{ disabled: true }}`.
+  - The shared `Button` does this through tokens: `colors.primaryAction` (the deep sage
+    `primaryDark`, white 6.5:1) when enabled, `colors.actionDisabled` / `onActionDisabled` when
+    disabled. The sage `colors.primary` stays the brand accent, but white on it is only 2.59:1, so
+    never fill a CTA with it; a hand-rolled CTA should use `<Button>` or these tokens.
 - **Tap targets are at least 44dp,** text links included (Edit, Delete, Never mind): use
   `minHeight`/`hitSlop`. Icon-only buttons get an `accessibilityLabel`.
 - **Badges sit on the icon's corner,** outside its shape, at every font scale.

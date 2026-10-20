@@ -61,14 +61,14 @@ appId: com.nannyapp.mobile
     visible: 'Mona Mother'
     timeout: 30000
 - scrollUntilVisible:
-    element: '.*waiting for your answer'
+    element: '.*to answer'
     direction: DOWN
     centerElement: true
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s18-04-profile-card
-- tapOn: '.*waiting for your answer'
+- tapOn: '.*to answer'
 
 # ── The Surveys list: one pending, one skipped ─────────────────────────────
 - extendedWaitUntil:
@@ -86,7 +86,7 @@ appId: com.nannyapp.mobile
 - runFlow:
     file: _tap.yaml
     env:
-      TARGET: '4 stars'
+      TARGET: 'Rate 4 stars'
 - runFlow:
     file: _tap.yaml
     env:

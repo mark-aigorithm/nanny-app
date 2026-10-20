@@ -227,7 +227,15 @@ describe('SurveyScreen', () => {
     while (question && !question.props.onLayout) question = question.parent;
     fireEvent(question!, 'layout', { nativeEvent: { layout: { x: 0, y: 420, width: 312, height: 160 } } });
     fireEvent(screen.getByLabelText('Anything else?'), 'focus');
-    expect(scrollTo).toHaveBeenCalledWith({ y: 408, animated: true });
+    expect(scrollTo).toHaveBeenCalledWith({ y: 416, animated: true });
+    // The keyboard shrinks the scroll; it re-aims at the question, not the field.
+    scrollTo.mockClear();
+    fireEvent(scroll, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 130 } } });
+    expect(scrollTo).toHaveBeenCalledWith({ y: 416, animated: true });
+    fireEvent(screen.getByLabelText('Anything else?'), 'blur');
+    scrollTo.mockClear();
+    fireEvent(scroll, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 400 } } });
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 
   it('shows the header hairline once the questions scroll under it', () => {
