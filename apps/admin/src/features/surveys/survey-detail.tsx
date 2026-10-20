@@ -76,7 +76,7 @@ export function SurveyDetail({ survey }: { survey: AdminSurvey }) {
           </>
         }
       />
-      <div className="stat-grid">
+      <div className="stat-grid stat-grid--quad">
         <StatCard label="Sent to" value={survey.counts.recipients} />
         <StatCard label="Answered" value={survey.counts.answered} hint={responseRate(survey.counts)} />
         <StatCard label="Skipped" value={survey.counts.skipped} />

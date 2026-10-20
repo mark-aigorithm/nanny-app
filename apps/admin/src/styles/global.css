@@ -941,6 +941,17 @@ input[type='number'] {
   }
 }
 
+/* A fixed four-tile row: one row when wide, 2×2 below 900px — never 3 + an orphan. */
+.stat-grid.stat-grid--quad {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .stat-grid.stat-grid--quad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* A fixed three-tile row stretches to fill instead of orphaning its last tile. */
 .stat-grid.stat-grid--fit {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
