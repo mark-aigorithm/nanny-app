@@ -223,6 +223,8 @@ describe('QaChecklistPage', () => {
     ).toBeInTheDocument();
   });
 
+  // Each sort re-renders every scenario row (111, each with a status select),
+  // which takes over a second apiece in jsdom; three sorts outgrow the default 5 s.
   it('walks the catalogue in order by default, and sorts by a column when asked', async () => {
     server.use(checklist());
     renderPage();
@@ -241,7 +243,7 @@ describe('QaChecklistPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '#' }));
     await userEvent.click(screen.getByRole('button', { name: '#' }));
     expect(within(firstRow()).getByText(QA_SCENARIOS.at(-1)!.title)).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it('explains itself when the checklist cannot be loaded', async () => {
     server.use(
