@@ -2592,10 +2592,13 @@ input[type='number'] {
   background: rgba(27, 28, 27, 0.55);
 }
 
+/* A column: the header and footer stay pinned and only the body scrolls, so a
+   long picker never pushes its summary and send button below the fold. */
 .modal {
+  display: flex;
+  flex-direction: column;
   width: min(880px, 100%);
   max-height: 90vh;
-  overflow-y: auto;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 40px rgba(27, 28, 27, 0.25);
@@ -2606,6 +2609,7 @@ input[type='number'] {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-shrink: 0;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--color-border-subtle);
 }
@@ -2617,6 +2621,8 @@ input[type='number'] {
 
 /* The Modal component wraps its children in this — consumers never add gutters. */
 .modal-body {
+  min-height: 0;
+  overflow-y: auto;
   padding: 1.25rem 1.5rem;
 }
 
@@ -3112,9 +3118,17 @@ input[type='number'] {
 /* Side gutters come from .modal-body above; the footer only owns the bottom edge. */
 .modal-footer {
   display: flex;
+  flex-shrink: 0;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.6rem;
   padding: 0 1.5rem 1.25rem;
+}
+
+/* A large dialog's body scrolls, so its pinned footer gets its own edge. */
+.modal--lg .modal-footer {
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 /* ── Nanny picker (Bookings → Assign / Change nanny) ────── */
@@ -5281,6 +5295,10 @@ input[type='number'] {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
+}
+/* Left of the footer's buttons: what is about to be sent, beside the button that sends it. */
+.recipient-summary {
+  margin-right: auto;
 }
 .recipient-groups {
   display: flex;
