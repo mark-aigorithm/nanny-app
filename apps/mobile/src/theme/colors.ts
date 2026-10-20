@@ -1,4 +1,4 @@
-export const colors = {
+const palette = {
   // Primary palette
   primary: '#97a591',
   primaryDark: '#556251',
@@ -56,6 +56,19 @@ export const colors = {
   overlay: 'rgba(0,0,0,0.4)',
   overlayLight: 'rgba(0,0,0,0.15)',
   borderSubtle: 'rgba(0,0,0,0.06)',
+} as const;
+
+export const colors = {
+  ...palette,
+  // Filled-button roles. Aliases of palette values, not new hues. The sage
+  // `primary` stays the brand accent (active states, icons, tints), but white on
+  // it is 2.59:1, so a filled CTA uses the deep sage (6.5:1, UI-sweep rule
+  // "an enabled button never looks disabled"). Disabled is the neutral fill the
+  // palette keeps for it, with a muted label, so it never reads as enabled.
+  primaryAction: palette.primaryDark,
+  onPrimaryAction: palette.white,
+  actionDisabled: palette.neutralLight,
+  onActionDisabled: palette.textMuted,
 } as const;
 
 export type ColorToken = keyof typeof colors;

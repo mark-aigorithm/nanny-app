@@ -24,9 +24,10 @@ interface ButtonProps {
 }
 
 const VARIANT_STYLES: Record<ButtonVariant, { bg: string; text: string; border?: string }> = {
-  primary: { bg: colors.primary, text: colors.white },
+  primary: { bg: colors.primaryAction, text: colors.onPrimaryAction },
   secondary: { bg: colors.warmBorder, text: colors.textPrimary },
-  outline: { bg: colors.transparent, text: colors.primary, border: colors.primary },
+  // The sage `primary` is 2.49:1 on cream, so an outline label read as disabled.
+  outline: { bg: colors.transparent, text: colors.primaryDark, border: colors.primaryDark },
   text: { bg: colors.transparent, text: colors.primaryDark },
   destructive: { bg: colors.error, text: colors.white },
 };
@@ -43,7 +44,12 @@ export default function Button({
   iconPosition = 'left',
   style,
 }: ButtonProps) {
-  const variantStyle = VARIANT_STYLES[variant];
+  // A disabled primary gets its own neutral fill and label instead of a faded
+  // sage one, which looked almost the same as enabled. Others still fade.
+  const primaryDisabled = variant === 'primary' && disabled;
+  const variantStyle = primaryDisabled
+    ? { bg: colors.actionDisabled, text: colors.onActionDisabled, border: undefined }
+    : VARIANT_STYLES[variant];
   const minHeight = size === 'md' ? 56 : 40;
   const fontSize = size === 'md' ? 16 : 14;
   const iconSize = size === 'md' ? 20 : 16;
@@ -53,6 +59,8 @@ export default function Button({
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityRole="button"
+      // While loading the label is a spinner; the button keeps its name.
+      accessibilityLabel={title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       haptic={variant === 'primary' || variant === 'destructive' ? 'tap' : undefined}
       style={[
@@ -60,10 +68,10 @@ export default function Button({
         {
           minHeight,
           backgroundColor: variantStyle.bg,
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled && !primaryDisabled ? 0.5 : 1,
         },
         variantStyle.border ? { borderWidth: 1.5, borderColor: variantStyle.border } : undefined,
-        variant === 'primary' ? shadows.md : undefined,
+        variant === 'primary' && !primaryDisabled ? shadows.md : undefined,
         fullWidth ? styles.fullWidth : undefined,
         style,
       ]}
