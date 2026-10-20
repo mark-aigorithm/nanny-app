@@ -1,9 +1,15 @@
 import { Prisma } from '@prisma/client';
 
-import type { MotherPickerQuery, MotherPickerRow, MotherPickerSortKey, PaginationMeta } from '@nanny-app/shared';
+import type {
+  MotherPickerQuery,
+  MotherPickerRow,
+  MotherPickerSortKey,
+  PaginationMeta,
+} from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { displayName } from '@backend/lib/display-name';
+import { COMPLETED_BOOKING_STATS_JOIN, RECEIVABLE_MOTHER_SQL } from '@backend/lib/group-rules-sql';
 
 // Sorting by an aggregate has to happen in the database, before LIMIT/OFFSET —
 // sorting one fetched page would order only that page. Hence raw SQL: Prisma's
@@ -43,11 +49,7 @@ export async function listMotherPicker(
 ): Promise<{ rows: MotherPickerRow[]; meta: PaginationMeta }> {
   // Only mothers who can receive something: a deactivated mother in a survey's
   // userIds makes the whole publish fail.
-  const conditions: Prisma.Sql[] = [
-    Prisma.sql`u.role = 'MOTHER'`,
-    Prisma.sql`u.deleted_at IS NULL`,
-    Prisma.sql`u.is_active`,
-  ];
+  const conditions: Prisma.Sql[] = [Prisma.sql`(${RECEIVABLE_MOTHER_SQL})`];
   if (q.search) {
     const like = `%${escapeLike(q.search)}%`;
     conditions.push(
@@ -70,7 +72,8 @@ export async function listMotherPicker(
   const offset = (q.page - 1) * q.limit;
 
   const [countRows, raw] = await Promise.all([
-    prisma.$queryRaw<{ total: bigint }[]>`SELECT count(*) AS total FROM users u WHERE ${where}`,
+    prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT count(*) AS total FROM users u ${COMPLETED_BOOKING_STATS_JOIN} WHERE ${where}`,
     prisma.$queryRaw<RawRow[]>`
       SELECT u.id, u.first_name, u.last_name, u.phone, u.created_at, u.last_login_at, u.last_app_open_at,
              coalesce(b.completed_bookings, 0) AS completed_bookings,
@@ -78,16 +81,7 @@ export async function listMotherPicker(
              coalesce(b.total_spent, 0) AS total_spent,
              b.last_booking_at
       FROM users u
-      LEFT JOIN (
-        SELECT mother_id,
-               count(*) AS completed_bookings,
-               sum(duration_hours) AS hours_booked,
-               sum(total_amount) AS total_spent,
-               max(start_time) AS last_booking_at
-        FROM bookings
-        WHERE status = 'COMPLETED' AND deleted_at IS NULL
-        GROUP BY mother_id
-      ) b ON b.mother_id = u.id
+      ${COMPLETED_BOOKING_STATS_JOIN}
       WHERE ${where}
       ORDER BY ${ORDER_BY[q.sortBy]} ${dir} NULLS LAST, u.id ASC
       LIMIT ${q.limit} OFFSET ${offset}`,
@@ -107,6 +101,11 @@ export async function listMotherPicker(
       lastLoginAt: r.last_login_at ? r.last_login_at.toISOString() : null,
       lastAppOpenAt: r.last_app_open_at ? r.last_app_open_at.toISOString() : null,
     })),
-    meta: { page: q.page, limit: q.limit, total, totalPages: Math.max(1, Math.ceil(total / q.limit)) },
+    meta: {
+      page: q.page,
+      limit: q.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / q.limit)),
+    },
   };
 }
