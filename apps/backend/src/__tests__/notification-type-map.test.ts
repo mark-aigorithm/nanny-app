@@ -11,6 +11,10 @@ describe('toApiNotificationType', () => {
     expect(toApiNotificationType(NotificationType.SURVEY)).toBe('survey');
   });
 
+  it('maps ANNOUNCEMENT to announcement', () => {
+    expect(toApiNotificationType(NotificationType.ANNOUNCEMENT)).toBe('announcement');
+  });
+
   // The switch falls back to marketplace_message, so a new enum value without a
   // case would silently show as a marketplace message. Every value must map to
   // its own lower-cased name.

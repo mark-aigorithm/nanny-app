@@ -86,6 +86,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     idDocumentFrontUrl: null,
     idDocumentBackUrl: null,
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
+    lastAppOpenAt: null,
     _count: { bookingsAsMother: 3 },
     ...overrides,
   };
@@ -125,6 +126,8 @@ describe('listAdminMothers', () => {
     ['registered', 'asc', [{ createdAt: 'asc' }, { id: 'asc' }]],
     // Ascending reads "Active" before "Deactivated", so isActive runs the other way.
     ['status', 'asc', [{ isActive: 'desc' }, { id: 'asc' }]],
+    // Never-opened mothers last, whichever way.
+    ['lastAppOpenAt', 'desc', [{ lastAppOpenAt: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]],
   ] as const)('sorts by %s %s', async (sortBy, sortDir, orderBy) => {
     mockPrisma.user.count.mockResolvedValue(0);
     mockPrisma.user.findMany.mockResolvedValue([]);
@@ -187,6 +190,7 @@ describe('listAdminMothers', () => {
       idDocumentBackUrl: null,
       bookingCount: 3,
       createdAt: '2026-07-01T00:00:00.000Z',
+      lastAppOpenAt: null,
     });
   });
 

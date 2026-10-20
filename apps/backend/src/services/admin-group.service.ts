@@ -1,7 +1,7 @@
-import { Role } from '@prisma/client';
+import { Role, type Prisma, type UserGroupKind } from '@prisma/client';
 
-import type { UserGroup, UserGroupInput } from '@nanny-app/shared';
-import { UserGroupInputSchema } from '@nanny-app/shared';
+import type { DynamicGroupRules, UserGroup, UserGroupInput } from '@nanny-app/shared';
+import { DynamicGroupRulesSchema, UserGroupInputSchema } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -14,15 +14,24 @@ type GroupRow = {
   id: number;
   name: string;
   description: string | null;
+  kind: UserGroupKind;
+  rules: Prisma.JsonValue;
   createdAt: Date;
   _count: { members: number };
 };
+
+/** A DYNAMIC group's stored rules, always parsed through the shared schema; null for STATIC. */
+function rulesOf(row: Pick<GroupRow, 'kind' | 'rules'>): DynamicGroupRules | null {
+  return row.kind === 'DYNAMIC' ? DynamicGroupRulesSchema.parse(row.rules ?? []) : null;
+}
 
 function toDto(row: GroupRow): UserGroup {
   return {
     id: row.id,
     name: row.name,
     description: row.description,
+    kind: row.kind,
+    rules: rulesOf(row),
     memberCount: row._count.members,
     createdAt: row.createdAt.toISOString(),
   };

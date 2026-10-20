@@ -69,6 +69,8 @@ export function toApiNotificationType(type: NotificationType): NotificationRespo
       return 'booking_message';
     case 'SURVEY':
       return 'survey';
+    case 'ANNOUNCEMENT':
+      return 'announcement';
     default:
       return 'marketplace_message';
   }
@@ -111,6 +113,9 @@ function toNotificationResponse(row: {
     referenceId: row.referenceId,
     referenceType: toApiReferenceType(row.referenceType),
     createdAt: row.createdAt.toISOString(),
+    // Announcement image and link come through the broadcast (Task 8).
+    imageUrl: null,
+    link: null,
   };
 }
 

@@ -17,6 +17,7 @@ const ORDER_BY: Record<MotherPickerSortKey, Prisma.Sql> = {
   lastBookingAt: Prisma.sql`last_booking_at`,
   createdAt: Prisma.sql`u.created_at`,
   lastLoginAt: Prisma.sql`u.last_login_at`,
+  lastAppOpenAt: Prisma.sql`u.last_app_open_at`,
 };
 
 type RawRow = {
@@ -26,6 +27,7 @@ type RawRow = {
   phone: string | null;
   created_at: Date;
   last_login_at: Date | null;
+  last_app_open_at: Date | null;
   completed_bookings: bigint;
   hours_booked: Prisma.Decimal;
   total_spent: Prisma.Decimal;
@@ -70,7 +72,7 @@ export async function listMotherPicker(
   const [countRows, raw] = await Promise.all([
     prisma.$queryRaw<{ total: bigint }[]>`SELECT count(*) AS total FROM users u WHERE ${where}`,
     prisma.$queryRaw<RawRow[]>`
-      SELECT u.id, u.first_name, u.last_name, u.phone, u.created_at, u.last_login_at,
+      SELECT u.id, u.first_name, u.last_name, u.phone, u.created_at, u.last_login_at, u.last_app_open_at,
              coalesce(b.completed_bookings, 0) AS completed_bookings,
              coalesce(b.hours_booked, 0) AS hours_booked,
              coalesce(b.total_spent, 0) AS total_spent,
@@ -103,6 +105,7 @@ export async function listMotherPicker(
       lastBookingAt: r.last_booking_at ? r.last_booking_at.toISOString() : null,
       createdAt: r.created_at.toISOString(),
       lastLoginAt: r.last_login_at ? r.last_login_at.toISOString() : null,
+      lastAppOpenAt: r.last_app_open_at ? r.last_app_open_at.toISOString() : null,
     })),
     meta: { page: q.page, limit: q.limit, total, totalPages: Math.max(1, Math.ceil(total / q.limit)) },
   };

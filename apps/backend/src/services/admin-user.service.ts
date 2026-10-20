@@ -6,12 +6,12 @@ import type {
   AdminApprovalStatusFilter,
   AdminMother,
   AdminMotherDetail,
+  AdminMotherListQuery,
+  AdminMotherSortKey,
   AdminRole,
   AdminSection,
   AdminSortDir,
   AdminUser,
-  AdminUserDirectoryQuery,
-  AdminUserSortKey,
   CreateAdminInput,
   PaginationMeta,
   RejectNannyInput,
@@ -48,6 +48,7 @@ const motherSelect = {
   idDocumentFrontUrl: true,
   idDocumentBackUrl: true,
   createdAt: true,
+  lastAppOpenAt: true,
   _count: { select: { bookingsAsMother: true } },
 } satisfies Prisma.UserSelect;
 
@@ -73,6 +74,7 @@ function toMotherDto(row: AdminMotherRow): AdminMother {
     idDocumentBackUrl: row.idDocumentBackUrl,
     bookingCount: row._count.bookingsAsMother,
     createdAt: row.createdAt.toISOString(),
+    lastAppOpenAt: row.lastAppOpenAt?.toISOString() ?? null,
   };
 }
 
@@ -260,10 +262,10 @@ export async function deleteAdminUser(id: number, actingUserId: number): Promise
 
 /** Column sort → Prisma order for the Mommies directory. */
 function motherOrderBy(
-  sortBy: AdminUserSortKey,
+  sortBy: AdminMotherSortKey,
   sortDir: AdminSortDir,
 ): Prisma.UserOrderByWithRelationInput[] {
-  const orders: Record<AdminUserSortKey, Prisma.UserOrderByWithRelationInput[]> = {
+  const orders: Record<AdminMotherSortKey, Prisma.UserOrderByWithRelationInput[]> = {
     // The ID column: the id tiebreak below is the whole order.
     id: [],
     name: [{ firstName: sortDir }, { lastName: sortDir }],
@@ -271,6 +273,8 @@ function motherOrderBy(
     registered: [{ createdAt: sortDir }],
     // Her column reads "Active" / "Deactivated", so ascending puts Active first.
     status: [{ isActive: sortDir === 'asc' ? 'desc' : 'asc' }],
+    // Never-opened mothers sort last either way.
+    lastAppOpenAt: [{ lastAppOpenAt: { sort: sortDir, nulls: 'last' } }],
   };
   // The id tiebreak keeps equal rows in a fixed order, so pages never overlap.
   return [...orders[sortBy], { id: sortDir }];
@@ -283,7 +287,7 @@ function motherOrderBy(
  */
 export async function listAdminMothers(
   status: AdminApprovalStatusFilter,
-  { page, limit, sortBy, sortDir }: AdminUserDirectoryQuery,
+  { page, limit, sortBy, sortDir }: Pick<AdminMotherListQuery, 'page' | 'limit' | 'sortBy' | 'sortDir'>,
 ): Promise<{ mothers: AdminMother[]; meta: PaginationMeta }> {
   const where: Prisma.UserWhereInput = {
     role: 'MOTHER',

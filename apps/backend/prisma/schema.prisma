@@ -183,7 +183,11 @@ model User {
   isEmailVerified      Boolean               @default(false) @map("is_email_verified")
   isPhoneVerified      Boolean               @default(false) @map("is_phone_verified")
   isActive             Boolean               @default(true) @map("is_active")
+  /// Time of her last real sign-in — the Firebase token's `auth_time`, written
+  /// by GET /auth/me only when it moves forward (and at registration).
   lastLoginAt          DateTime?             @map("last_login_at")
+  /// Last time the app was opened (POST /me/app-open, throttled to once a minute).
+  lastAppOpenAt        DateTime?             @map("last_app_open_at")
   emailVerifiedAt      DateTime?             @map("email_verified_at")
   phoneVerifiedAt      DateTime?             @map("phone_verified_at")
   termsAcceptedAt      DateTime?             @map("terms_accepted_at")
@@ -231,6 +235,8 @@ model User {
   surveyRecipients         SurveyRecipient[]
   userGroupsCreated        UserGroup[]               @relation("UserGroupCreator")
   userGroupMemberships     UserGroupMember[]
+  notificationTemplatesCreated    NotificationTemplate[]  @relation("NotificationTemplateCreator")
+  notificationBroadcastsPublished NotificationBroadcast[] @relation("NotificationBroadcastPublisher")
   deviceTokens             DeviceToken[]
   emailLogs                EmailLog[]
   initiatedConversations   Conversation[]            @relation("ConversationInitiator")
@@ -251,6 +257,7 @@ model User {
   @@index([role])
   @@index([deletedAt])
   @@index([approvalStatus])
+  @@index([role, lastAppOpenAt])
   @@map("users")
 }
 
@@ -462,8 +469,9 @@ model Package {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  purchases PackagePurchase[]
-  campaigns Campaign[]
+  purchases             PackagePurchase[]
+  campaigns             Campaign[]
+  notificationTemplates NotificationTemplate[]
 
   @@index([deletedAt])
   @@map("packages")
@@ -678,9 +686,10 @@ model PromoCode {
   updatedAt       DateTime     @updatedAt @map("updated_at")
   deletedAt       DateTime?    @map("deleted_at")
 
-  redemptions PromoCodeRedemption[]
-  bookings    Booking[]
-  campaigns   Campaign[]
+  redemptions           PromoCodeRedemption[]
+  bookings              Booking[]
+  campaigns             Campaign[]
+  notificationTemplates NotificationTemplate[]
 
   @@index([isActive])
   @@index([deletedAt])
@@ -1518,6 +1527,8 @@ enum NotificationType {
   BOOKING_MESSAGE
   /// An admin sent (or re-sent) the mother a survey to answer.
   SURVEY
+  /// An admin published a notification template to the mother (notification center).
+  ANNOUNCEMENT
 
   @@map("notification_type")
 }
@@ -1550,12 +1561,17 @@ model Notification {
   /// referenceType (no FK constraint).
   referenceId   Int?                       @map("reference_id")
   referenceType NotificationReferenceType? @map("reference_type")
+  /// ANNOUNCEMENT rows only: the publish that wrote this row. Its image and
+  /// link are read through it, not copied onto every row.
+  broadcastId   Int?                       @map("broadcast_id")
+  broadcast     NotificationBroadcast?     @relation(fields: [broadcastId], references: [id])
   createdAt     DateTime                   @default(now()) @map("created_at")
   updatedAt     DateTime                   @updatedAt @map("updated_at")
   deletedAt     DateTime?                  @map("deleted_at")
 
   @@index([userId, isRead, createdAt])
   @@index([userId, type])
+  @@index([broadcastId])
   @@map("notifications")
 }
 
@@ -1715,12 +1731,27 @@ model SurveyAnswerOption {
   @@map("survey_answer_options")
 }
 
-/// A hand-picked list of mothers. Names are unique among live groups only
-/// (checked in the service), so a deleted group's name can be reused.
+enum UserGroupKind {
+  /// Hand-picked members (UserGroupMember rows).
+  STATIC
+  /// Rules evaluated when something is sent; never has member rows.
+  DYNAMIC
+
+  @@map("user_group_kind")
+}
+
+/// A list of mothers: hand-picked (STATIC) or rule-based (DYNAMIC). Names are
+/// unique among live groups only (checked in the service), so a deleted
+/// group's name can be reused. `kind` is fixed after creation.
 model UserGroup {
   id          Int               @id @default(autoincrement())
   name        String
   description String?
+  kind        UserGroupKind     @default(STATIC)
+  /// DYNAMIC only — shaped by DynamicGroupRulesSchema in @nanny-app/shared and
+  /// always parsed through it on read. Null for STATIC. An empty array means
+  /// "every active mother".
+  rules       Json?
   createdById Int               @map("created_by_id")
   createdBy   User              @relation("UserGroupCreator", fields: [createdById], references: [id])
   members     UserGroupMember[]
@@ -1746,6 +1777,94 @@ model UserGroupMember {
   @@unique([groupId, userId])
   @@index([userId])
   @@map("user_group_members")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Notification center — see
+// docs/superpowers/specs/2026-10-20-admin-notification-center-design.md
+// ──────────────────────────────────────────────────────────────
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  BOTH
+
+  @@map("notification_channel")
+}
+
+enum NotificationBroadcastStatus {
+  SENDING
+  SENT
+  PARTIAL
+  FAILED
+
+  @@map("notification_broadcast_status")
+}
+
+/// An admin-built notification (content + audience) that can be published any
+/// number of times. The link is none, or exactly one of a package / a promo
+/// code matching `targetType` (enforced in the shared schema and service).
+model NotificationTemplate {
+  id          Int                     @id @default(autoincrement())
+  /// Internal label, never shown to mothers.
+  name        String
+  title       String
+  body        String                  @db.Text
+  imageUrl    String?                 @map("image_url")
+  channel     NotificationChannel
+  targetType  CampaignTargetType?     @map("target_type")
+  packageId   Int?                    @map("package_id")
+  package     Package?                @relation(fields: [packageId], references: [id])
+  promoCodeId Int?                    @map("promo_code_id")
+  promoCode   PromoCode?              @relation(fields: [promoCodeId], references: [id])
+  /// Shaped by NotificationAudienceSchema in @nanny-app/shared; always parsed through it on read.
+  audience    Json
+  createdById Int                     @map("created_by_id")
+  createdBy   User                    @relation("NotificationTemplateCreator", fields: [createdById], references: [id])
+  broadcasts  NotificationBroadcast[]
+  createdAt   DateTime                @default(now()) @map("created_at")
+  updatedAt   DateTime                @updatedAt @map("updated_at")
+  deletedAt   DateTime?               @map("deleted_at")
+
+  @@index([deletedAt])
+  @@map("notification_templates")
+}
+
+/// One publish of a template: a snapshot of its content and audience, plus the
+/// delivery counts. History — never edited after it completes, never deleted.
+model NotificationBroadcast {
+  id            Int                         @id @default(autoincrement())
+  templateId    Int                         @map("template_id")
+  template      NotificationTemplate        @relation(fields: [templateId], references: [id])
+  title         String
+  body          String                      @db.Text
+  imageUrl      String?                     @map("image_url")
+  channel       NotificationChannel
+  targetType    CampaignTargetType?         @map("target_type")
+  packageId     Int?                        @map("package_id")
+  promoCodeId   Int?                        @map("promo_code_id")
+  /// The code string at publish, so a tap needs no lookup.
+  promoCodeText String?                     @map("promo_code_text")
+  audience      Json
+  status        NotificationBroadcastStatus @default(SENDING)
+  targeted      Int                         @default(0)
+  inAppCreated  Int                         @default(0) @map("in_app_created")
+  pushSent      Int                         @default(0) @map("push_sent")
+  pushFailed    Int                         @default(0) @map("push_failed")
+  noDevice      Int                         @default(0) @map("no_device")
+  /// Groups deleted between saving the template and publishing it.
+  skippedGroups Int[]                       @default([]) @map("skipped_groups")
+  error         String?                     @db.Text
+  publishedById Int                         @map("published_by_id")
+  publishedBy   User                        @relation("NotificationBroadcastPublisher", fields: [publishedById], references: [id])
+  notifications Notification[]
+  createdAt     DateTime                    @default(now()) @map("created_at")
+  updatedAt     DateTime                    @updatedAt @map("updated_at")
+  completedAt   DateTime?                   @map("completed_at")
+
+  @@index([templateId, createdAt])
+  @@index([status, createdAt])
+  @@map("notification_broadcasts")
 }
 
 // ──────────────────────────────────────────────────────────────
