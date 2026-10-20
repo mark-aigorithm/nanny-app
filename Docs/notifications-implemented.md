@@ -2,6 +2,13 @@
 
 This document describes the notification types and infrastructure **currently implemented** in NannyApp as of the Marketplace Chat MVP. It reflects the live codebase, not the full Epic 9 spec in `Docs/user-stories/09-notifications.md`.
 
+> **Out of date (2026-10-20).** This page predates surveys and the admin notification center. The
+> full list of notification types is `NotificationTypeSchema` in
+> `packages/shared/src/notifications.ts`. Admin announcements (`announcement`: written as templates
+> in the console's Notifications page, sent in-app and/or as a push, with an optional image and a
+> package or promo-code link) are described in
+> `docs/superpowers/specs/2026-10-20-admin-notification-center-design.md`.
+
 ---
 
 ## Summary

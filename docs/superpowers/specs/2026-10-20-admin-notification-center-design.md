@@ -454,3 +454,21 @@ Built with the `nanny-app-mobile-design` skill, the UI-sweep layout rules, and `
 3. **Mobile** ships in a new EAS build (ping, card, push branch, auto-apply). Until mothers update,
    `lastAppOpenAt` comes only from the backfill and announcements show as plain rows — send the
    first real announcements once the build has spread.
+
+## Implementation notes
+
+Where the build differs from, or adds to, the design above:
+
+- **Publish checks order.** `POST /admin/notification-templates/:id/publish` validates the link
+  (package / promo code still usable) and the audience (at least one mother) first, and answers
+  `400`; only then does it check for a broadcast already in flight (`409`).
+- **"Choose mothers"** is `MotherPickerTable` in a modal. The survey audience picker was not
+  reusable here.
+- **`NotificationBroadcast` has `updatedAt`**, besides the fields listed in the data model.
+- **The "All mothers" seed** is inserted by the migration only when an admin or superuser exists
+  (created by the first superuser, else the first admin). A database with no admin gets no seed.
+- **Broadcast status.** Only an in-app failure or a timeout ends `FAILED`. The inbox rows are
+  already written when the push phase starts, so any push-phase error (failed tokens or a thrown
+  send) ends `PARTIAL` with the counts so far.
+- **`imageUrl` must be https.** The shared schema accepts any URL; the backend refuses a non-https
+  image with a `400`, because a push banner image has to be https.

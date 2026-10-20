@@ -359,6 +359,7 @@ each proves the screen is wired.
 | C15 | Leftover resume: a Firebase account with no row is resumed at role selection instead of dead-ending, with the phone and password it already proves locked in — **covered** by `c15-leftover-resume.yaml` | `UI:mobile` |
 | C17 | Delete account: the Account tab's confirm dialog, the deletion notice on the sign-in screen, then the number signing in as unregistered — **covered** by `c17-delete-account.yaml` | `UI:mobile` |
 | C19 | Service areas: with an active area away from the mother, the booking Where step tags her address, names the area and keeps Continue disabled — **covered** by `c19-service-area.yaml` | `UI:mobile` |
+| C20 | Promo links: an admin announcement in the inbox and a Home campaign banner each open the booking flow and reach the review step with the code already applied; the announcement is marked read — **covered** by `c20-announcement-promo.yaml` | `UI:mobile` |
 
 **The photo picker no longer bounds C2 and C7.** "About you" still refuses `Continue` until
 `draft.photoUri` is set, for a mother as well as a nanny, but under E2E the picker returns a bundled

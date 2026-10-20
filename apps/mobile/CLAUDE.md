@@ -160,6 +160,11 @@ either fails silently:
 - **Tab → tab:** `push`/`navigate`. `dismissTo` between tabs does nothing.
 - Code that can't know which side it's on (notification taps) uses `goToParentTab`
   (`lib/parentNav.ts`).
+- A link to a package or a promo code — a campaign banner, an announcement push, an inbox
+  announcement card — opens through `openPromoLink` (`lib/openPromoLink.ts`). A promo code is
+  handed to the booking flow in `pendingPromoStore` and **applied** on the review step
+  (`BookingStep1Screen`) once the price breakdown exists; a refused code shows the usual inline
+  error and the request goes ahead without it. Home clears a stale pending code on focus.
 - The end of a flow (booking confirmation, payment results) leaves with
   `dismissTo('/(parent)/(tabs)/home')`, and turns off `gestureEnabled` plus takes over Android back
   (`useHardwareBack`), so back never walks into a submitted request or a paid checkout.
@@ -293,6 +298,9 @@ visible.
 - **Tap targets are at least 44dp,** text links included (Edit, Delete, Never mind): use
   `minHeight`/`hitSlop`. Icon-only buttons get an `accessibilityLabel`.
 - **Badges sit on the icon's corner,** outside its shape, at every font scale.
+- **A state change never changes a border width on a clipping view.** On Android a rounded
+  `overflow: 'hidden'` view whose border width changed on a re-render drew blank (the announcement
+  card went empty once read). Keep the width fixed and switch the colour.
 - **Copy matches the screen.**
   - No total before the inputs that make it are chosen.
   - A request has one status name and one colour on Home, Activity and notifications. Success

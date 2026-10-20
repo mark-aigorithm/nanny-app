@@ -292,3 +292,5 @@ integration suites always use the fake.
 | Per-user push via FCM tokens stored in `device_tokens` | Broadcasts (promos, announcements) would want FCM topics on top |
 | E2E pays on Paymob's real TEST sandbox by default (`PAYMOB_MODE=fake` opt-in) | Depends on the network, the cloudflared tunnel, the test keys and Paymob's firewall; if sandbox flakiness costs more runs than it catches, make the fake the default again |
 | Force update compares the native `version` string only (per platform, admin-recorded) | If releases ship without bumping `version`, switch to comparing build numbers (iOS buildNumber / Android versionCode) |
+| Announcements publish in-request (batched FCM, no queue) | Fine for thousands of mothers inside Vercel's 60 s; past the low tens of thousands, or once scheduled sends are wanted, drive `NotificationBroadcast` (it already carries status and counts) from a queue |
+| Announcement images show in the Android push banner only | iOS banners need a Notification Service Extension (a native target, so a new EAS build) |

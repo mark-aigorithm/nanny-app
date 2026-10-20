@@ -464,6 +464,7 @@ than a sequence of them:
 | `_launch.yaml` | Cold start with state cleared — five steps, all of them load-bearing (below) |
 | `_sign-in.yaml` | Signs in `${EMAIL}` / `${PASSWORD}` through the email door, from the sign-in screen |
 | `_book-to-review.yaml` | Home → the review step, with a booking that starts in ten minutes |
+| `_book-from-date-picker.yaml` | The date picker → the review step; `_book-to-review.yaml` enters it through "Book care", C20 through a promo link |
 | `_book-and-pay.yaml` | The above, plus the nanny accepting and a real checkout |
 | `_pay-checkout.yaml` | Types the test card into the open checkout and waits for it to hand back to the app, against the fake or the sandbox |
 | `_relaunch.yaml` | Reopens the app and waits for `${EXPECT}` |
@@ -832,6 +833,24 @@ the device sits on its own home screen and logcat shows nothing at all for two
 minutes. `_relaunch.yaml` retries, which is why it takes the selector to wait
 for as a parameter — without something to check, a retry cannot tell a lost
 intent from a slow launch.
+
+## Announcements and promo links (C20)
+
+**C20** — a promo link arrives on the review step with the code already applied, from an admin
+announcement in the inbox and from a Home campaign banner. `announcement-seed` publishes an IN_APP
+template with a link to the reusable code (`/admin/notification-templates`, then `…/:id/publish`);
+`campaign-seed` adds a banner for the same code. Both taps open the date picker, the flow books
+through `_book-from-date-picker.yaml`, and Step 1 must show `E2ETEN — EGP 48.00 off` and
+`EGP 432.00` without anyone typing the code. The announcement tap also marks it read
+(`unread-count` reads 0).
+
+- **IN_APP only.** The lab registers a real FCM token; a push banner landing mid-flow covers the
+  screen. The push-tap branch is covered by `usePushNotifications.announcement.test.ts`.
+- **The seeder soft-deletes her `ANNOUNCEMENT` rows and every `E2E…` campaign and template before
+  each flow**, so a run that died mid-C20 leaves no banner on a later flow's Home. C20 also clears
+  its banner in `onFlowComplete` (`campaign-clear`).
+- `s20-announcements` is the sweep for the same feature: every card kind, the package link's
+  checkout, and the review step with the code applied (`announcement-sweep-seed`).
 
 ## What the flows deliberately do not cover
 

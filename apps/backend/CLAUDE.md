@@ -217,6 +217,20 @@ re-reads the survey and reports a partial send instead of a failure. Old app bui
 unknown type (listed, tap does nothing) and never prompt. See
 `docs/superpowers/specs/2026-10-19-surveys-design.md`.
 
+**Notification center: apply `add_notification_center` before the backend deploys; publishing sends in-request**
+`20261020120000_add_notification_center` adds the template and broadcast tables,
+`notifications.broadcast_id`, the `ANNOUNCEMENT` enum value, `user_groups.kind/rules`, and
+`users.last_app_open_at` (backfilled from `last_login_at`), and seeds the "All mothers" dynamic group.
+Run `pnpm db:migrate` against production before merging, or the notification-template, group and
+inbox routes 500. Publishing resolves the audience and sends inside the request
+(`publishNotificationTemplate`: inbox rows in `createMany` chunks of 1,000, FCM
+`sendEachForMulticast` 500 tokens × 4 at a time). That is sized for thousands of mothers within
+`maxDuration: 60`. A broadcast still `SENDING` after 5 minutes reads as `FAILED` ("Timed out") and no
+longer blocks a publish. `lastLoginAt` now means a real sign-in (the token's `auth_time`, only moving
+forward). `lastAppOpenAt` moves only through `POST /me/app-open` (60 s server throttle, 5 min in the
+app), so until the new app build spreads it holds the backfill. Old builds list announcements as plain
+rows with no tap action. See `docs/superpowers/specs/2026-10-20-admin-notification-center-design.md`.
+
 **The password-reset email is Firebase's; its link lands on our page**
 The app's "Forgot password" calls Firebase's `sendPasswordResetEmail`, so Firebase's mailer sends
 it — not our SMTP, and nothing lands in `email_logs`. Firebase takes no template per request, and
