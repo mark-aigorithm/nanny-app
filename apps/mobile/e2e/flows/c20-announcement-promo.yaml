@@ -1,0 +1,89 @@
+# C20 — a promo link lands on the review step with the code already applied,
+# from both places a mother finds one: an admin announcement in her inbox, and
+# a campaign banner on Home.
+#
+# The admin's side runs over HTTP: `announcement-seed` writes a template with a
+# promo-code link and publishes it to her (IN_APP — a real push banner on the
+# lab's FCM token would cover the screen), and `campaign-seed` puts a banner
+# for the same code on Home. Four hours at the standard 120/hr is 480; the
+# reusable code takes ten percent, 48, which leaves 432 — the same figures as
+# A4, so an applied-but-wrong discount fails here too.
+#
+# Nothing is paid: what only the device can show is that the code arrives
+# applied (A4 already proves the applied figure is what the checkout charges).
+appId: com.nannyapp.mobile
+onFlowComplete:
+  - runScript:
+      file: ../scripts/advance.js
+      env:
+        ADVANCE: campaign-clear
+---
+- runFlow: _launch.yaml
+
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: announcement-seed
+- assertTrue: ${output.broadcastStatus == 'SENT'}
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: campaign-seed
+
+- runFlow:
+    file: _sign-in.yaml
+    env:
+      EMAIL: ${MOTHER_EMAIL}
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 60000
+
+# ── The announcement, from the inbox ───────────────────────────────────────
+- tapOn: 'Open notifications'
+- extendedWaitUntil:
+    visible: 'Notifications'
+    timeout: 30000
+# The card is one button labelled "<title>. <action>", so this asserts the
+# action copy and the code it carries in one go.
+- extendedWaitUntil:
+    visible: 'Ten percent off your next booking\. Book with code ${PROMO_CODE}'
+    timeout: 30000
+- tapOn: 'Ten percent off your next booking\. Book with code ${PROMO_CODE}'
+
+- runFlow: _book-from-date-picker.yaml
+
+# Applied, not just typed in: the chip with the discount, and the total moved.
+# `.*` stands in for the em dash between the code and the amount.
+- extendedWaitUntil:
+    visible: '${PROMO_CODE}.*EGP 48.00 off'
+    timeout: 20000
+- assertVisible: 'EGP 432.00'
+
+# Tapping it also marked it read — the only unread row there was.
+- runScript:
+    file: ../scripts/advance.js
+    env:
+      ADVANCE: unread-count
+- assertTrue: ${output.unread == '0'}
+
+# ── The campaign banner, from Home ─────────────────────────────────────────
+# A relaunch rather than backing out of three booking screens: it lands on Home
+# with the session intact, and Home's focus clears any stale pending code, so
+# what Step 1 applies next can only have come from the banner.
+- runFlow:
+    file: _relaunch.yaml
+    env:
+      EXPECT: 'Book care'
+- scrollUntilVisible:
+    element: 'E2E ten percent off.*'
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn: 'E2E ten percent off.*'
+
+- runFlow: _book-from-date-picker.yaml
+
+- extendedWaitUntil:
+    visible: '${PROMO_CODE}.*EGP 48.00 off'
+    timeout: 20000
+- assertVisible: 'EGP 432.00'

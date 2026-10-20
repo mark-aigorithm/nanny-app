@@ -1126,7 +1126,147 @@ function appReleaseClear() {
   }
 }
 
+/**
+ * Announcements and campaign banners for C20 and s20.
+ *
+ * Both reach the app the way they do in production: the admin writes a
+ * notification template and publishes it (`/admin/notification-templates`),
+ * or adds a campaign (`/admin/campaigns`), and the mother's app reads them
+ * over its own routes. Announcements go IN_APP only: the lab registers a real
+ * FCM token, and a push banner landing mid-flow would cover the screen.
+ *
+ * Every template and campaign is named `E2E …`, which is what the seeder's
+ * reset soft-deletes before each flow — together with her ANNOUNCEMENT inbox
+ * rows, so a flow sees only what it published.
+ */
+function findPromoCode(adminToken, code) {
+  var codes = call('GET', adminToken, '/admin/promo-codes');
+  for (var i = 0; i < codes.length; i++) {
+    if (codes[i].code === code) return codes[i];
+  }
+  throw new Error('No promo code ' + code + ' — the seeder provisions it from fixtures.mjs.');
+}
+
+function findPackage(adminToken, name) {
+  var packages = call('GET', adminToken, '/admin/packages');
+  for (var i = 0; i < packages.length; i++) {
+    if (packages[i].name === name) return packages[i];
+  }
+  throw new Error('No package ' + name + ' — the seeder provisions it from fixtures.mjs.');
+}
+
+/** Writes one template for her alone and publishes it; returns the broadcast. */
+function publishAnnouncement(adminToken, motherId, content) {
+  var template = call('POST', adminToken, '/admin/notification-templates', {
+    name: 'E2E ' + content.title,
+    title: content.title,
+    body: content.body,
+    imageUrl: content.imageUrl || null,
+    channel: 'IN_APP',
+    targetType: content.targetType || null,
+    packageId: content.packageId || null,
+    promoCodeId: content.promoCodeId || null,
+    audience: { type: 'MOTHERS', motherIds: [motherId] },
+  });
+  return call('POST', adminToken, '/admin/notification-templates/' + template.id + '/publish');
+}
+
+/**
+ * C20: one promo announcement, published after everything already in her
+ * inbox is marked read — so the unread count afterwards is a statement about
+ * this announcement alone.
+ */
+function announcementSeed() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var motherToken = signIn(MOTHER_EMAIL);
+  var motherId = call('GET', motherToken, '/auth/me').id;
+  call('PATCH', motherToken, '/notifications/read-all');
+
+  var promo = findPromoCode(adminToken, PROMO_CODE);
+  var broadcast = publishAnnouncement(adminToken, motherId, {
+    title: 'Ten percent off your next booking',
+    body: 'Book any day this week and we take 10% off. Your code is applied for you on the review step.',
+    targetType: 'PROMO_CODE',
+    promoCodeId: promo.id,
+  });
+  output.broadcastStatus = broadcast.status;
+}
+
+/**
+ * s20: every card state — image and no image, link and no link — plus a long
+ * title and an Arabic body. Published oldest first, so the promo card (the one
+ * the flow taps through to Step 1) is at the top of the inbox.
+ */
+function announcementSweepSeed() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  var motherToken = signIn(MOTHER_EMAIL);
+  var motherId = call('GET', motherToken, '/auth/me').id;
+  call('PATCH', motherToken, '/notifications/read-all');
+
+  var promo = findPromoCode(adminToken, PROMO_CODE);
+  var pack = findPackage(adminToken, PACKAGE_NAME);
+
+  // No image, no link, Arabic: must right-align and wrap.
+  publishAnnouncement(adminToken, motherId, {
+    title: 'تحديث من فريق ناني ناو',
+    body: 'أضفنا مربيات جديدات في منطقتك هذا الأسبوع. احجزي من الصفحة الرئيسية في أي وقت يناسبك.',
+  });
+  // Image, no link, a title long enough to wrap at 1.3 on the small phone.
+  publishAnnouncement(adminToken, motherId, {
+    title: 'Now caring for families in New Cairo and Sheikh Zayed',
+    body: 'Nannies are available from 7am to 11pm every day. There is nothing to do on your side.',
+    imageUrl: 'https://storage.example.test/e2e-announcement-area.jpg',
+  });
+  // No image, package link.
+  publishAnnouncement(adminToken, motherId, {
+    title: 'Ten hours of care, paid once',
+    body: 'Buy the ' + PACKAGE_NAME + ' pack and your next ten hours cost less than the standard rate.',
+    targetType: 'PACKAGE',
+    packageId: pack.id,
+  });
+  // Image, promo link — newest, so first in the list.
+  publishAnnouncement(adminToken, motherId, {
+    title: 'Ten percent off your next booking',
+    body: 'Book any day this week and we take 10% off. Your code is applied for you on the review step.',
+    imageUrl: 'https://storage.example.test/e2e-announcement-offer.jpg',
+    targetType: 'PROMO_CODE',
+    promoCodeId: promo.id,
+  });
+}
+
+function removeLabCampaigns(adminToken) {
+  var campaigns = call('GET', adminToken, '/admin/campaigns');
+  for (var i = 0; i < campaigns.length; i++) {
+    if (campaigns[i].title.indexOf('E2E') === 0) {
+      call('DELETE', adminToken, '/admin/campaigns/' + campaigns[i].id);
+    }
+  }
+}
+
+/** C20: a Home banner for the reusable promo code. */
+function campaignSeed() {
+  var adminToken = signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  removeLabCampaigns(adminToken);
+  var promo = findPromoCode(adminToken, PROMO_CODE);
+  call('POST', adminToken, '/admin/campaigns', {
+    title: 'E2E ten percent off',
+    subtitle: 'Applied for you on the review step',
+    imageUrl: 'https://storage.example.test/e2e-campaign.jpg',
+    targetType: 'PROMO_CODE',
+    promoCodeId: promo.id,
+  });
+}
+
+/** C20's onFlowComplete: no lab banner may sit on a later flow's Home. */
+function campaignClear() {
+  removeLabCampaigns(signIn(ADMIN_EMAIL, ADMIN_PASSWORD));
+}
+
 var STEPS = {
+  'announcement-seed': announcementSeed,
+  'announcement-sweep-seed': announcementSweepSeed,
+  'campaign-seed': campaignSeed,
+  'campaign-clear': campaignClear,
   'app-release-set': appReleaseSet,
   'app-release-clear': appReleaseClear,
   'survey-seed': surveySeed,

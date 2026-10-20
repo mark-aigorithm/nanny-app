@@ -357,6 +357,22 @@ async function resetPreviousRun(userIds: number[]): Promise<void> {
     where: { userId: { in: userIds }, type: 'SURVEY', deletedAt: null },
     data: { deletedAt },
   });
+  // C20 and s20 publish announcements to her and put a banner on Home. Old
+  // inbox rows would make "the announcement" ambiguous, and a leftover banner
+  // would sit on every later flow's Home, so every flow starts with neither.
+  // Lab templates and campaigns are all named `E2E …` (advance.js).
+  await prisma.notification.updateMany({
+    where: { userId: { in: userIds }, type: 'ANNOUNCEMENT', deletedAt: null },
+    data: { deletedAt },
+  });
+  await prisma.campaign.updateMany({
+    where: { title: { startsWith: 'E2E' }, deletedAt: null },
+    data: { deletedAt },
+  });
+  await prisma.notificationTemplate.updateMany({
+    where: { name: { startsWith: 'E2E' }, deletedAt: null },
+    data: { deletedAt },
+  });
 
   // eslint-disable-next-line no-console
   console.log(`[seed-mobile] reset     ${bookingIds.length} bookings`);
