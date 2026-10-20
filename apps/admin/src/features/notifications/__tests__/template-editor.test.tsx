@@ -67,6 +67,18 @@ function renderEditor({ template, me = ADMIN }: { template?: NotificationTemplat
 const saveButton = () => screen.getByRole('button', { name: /^save$/i });
 
 describe('TemplateEditor', () => {
+  it('keeps the page heading on the saved name while the name field is edited', async () => {
+    renderEditor({ template: TEMPLATE });
+    await userEvent.type(await screen.findByLabelText('Name'), ' v2');
+    expect(screen.getByRole('heading', { name: 'Win-back 30d' })).toBeInTheDocument();
+  });
+
+  it('heads a new template "Create new notification"', async () => {
+    renderEditor();
+    await userEvent.type(await screen.findByLabelText('Name'), 'Win-back');
+    expect(screen.getByRole('heading', { name: 'Create new notification' })).toBeInTheDocument();
+  });
+
   it('creates the template on its first Save, says Saved, and opens it at its own URL', async () => {
     let body: unknown;
     server.use(

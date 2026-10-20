@@ -53,6 +53,13 @@ async function pickType(card: HTMLElement, label: string) {
 }
 
 describe('SurveyEditor', () => {
+  it('keeps the page heading on the saved title while the title field is edited', async () => {
+    renderEditor(DRAFT, vi.fn(), ADMIN, true);
+    expect(await screen.findByRole('heading', { name: 'Create new survey' })).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Title'), ' and more');
+    expect(screen.getByRole('heading', { name: 'Create new survey' })).toBeInTheDocument();
+  });
+
   it('saves title, questions, options and order in one PATCH', async () => {
     let body: unknown;
     server.use(

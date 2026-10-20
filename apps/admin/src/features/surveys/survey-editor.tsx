@@ -215,7 +215,8 @@ export function SurveyEditor({ survey, onPublish, isNew = false }: Props) {
   return (
     <section>
       <DetailHeader
-        title={title || 'Untitled survey'}
+        // The saved title, not the field being typed in.
+        title={isNew ? 'Create new survey' : survey.title}
         subtitle="Draft — edit freely, then publish to send it"
         backTo="/surveys"
         backLabel="Surveys"

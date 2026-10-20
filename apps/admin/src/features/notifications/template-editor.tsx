@@ -206,7 +206,8 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
   return (
     <section>
       <DetailHeader
-        title={values.name.trim() || (isNew ? 'New notification' : 'Untitled notification')}
+        // The saved name, not the field being typed in.
+        title={template ? template.name : 'Create new notification'}
         subtitle={
           isNew
             ? 'Write it and choose who gets it. Save it to send later, or save and publish it now.'
