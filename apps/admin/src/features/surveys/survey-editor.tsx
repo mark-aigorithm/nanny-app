@@ -213,6 +213,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
               <Input
                 aria-label="Survey title"
                 aria-invalid={shownIssues.title ? true : undefined}
+                placeholder="e.g. Care feedback"
                 value={title}
                 maxLength={SURVEY_TITLE_MAX}
                 disabled={locked}
