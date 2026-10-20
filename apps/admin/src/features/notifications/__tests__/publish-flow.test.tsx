@@ -201,8 +201,9 @@ describe('Publishing a notification template', () => {
       ),
     );
     renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /^History/ }));
 
-    const history = await screen.findByRole('table');
+    const history = within(screen.getByRole('dialog', { name: 'Send history' })).getByRole('table');
     const sent = within(history).getByText('Sent').closest('tr')!;
     expect(within(sent).getByText('Ops Admin')).toBeInTheDocument();
     expect(within(sent).getByText('1,031')).toBeInTheDocument();
@@ -213,10 +214,13 @@ describe('Publishing a notification template', () => {
 
   it('shows a view-only operator the history but never Publish, even from ?publish=1', async () => {
     renderPage('/notifications/4?publish=1', VIEWER);
-    expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
+    const history = await screen.findByRole('button', { name: /^History/ });
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(history);
+    expect(screen.getByRole('dialog', { name: 'Send history' })).toBeInTheDocument();
   });
 
   it('creates a new template with Save and publish, then asks to confirm the send', async () => {
@@ -256,7 +260,7 @@ describe('Publishing a notification template', () => {
 
   it('shows a view-only operator the preview even at ?edit=1', async () => {
     renderPage('/notifications/4?edit=1', VIEWER);
-    expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^History/ })).toBeInTheDocument();
     expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
     expect(screen.getByText('Lapsed 30d')).toBeInTheDocument();
   });

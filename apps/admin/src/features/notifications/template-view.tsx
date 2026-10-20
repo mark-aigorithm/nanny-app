@@ -10,8 +10,10 @@ import {
   ConfirmDialog,
   DescriptionList,
   DetailHeader,
+  History,
   ICON_SIZE,
   MenuItem,
+  Modal,
   Pencil,
   Send,
   Trash2,
@@ -46,6 +48,7 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
   // The list's "Publish" opens the template at ?publish=1: the dialog is that parameter.
   const [searchParams, setSearchParams] = useSearchParams();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const savedLink = { package: template.package, promoCode: template.promoCode };
   const linkLabel = useLinkActionLabel(template, savedLink, true);
 
@@ -81,27 +84,36 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
         backTo="/notifications"
         backLabel="Notification Center"
         actions={
-          canManage && (
-            <>
-              <Button variant="ghost" onClick={onEdit}>
-                <Pencil size={ICON_SIZE.inline} aria-hidden />
-                Edit
-              </Button>
-              <Button onClick={openPublish}>
-                <Send size={ICON_SIZE.inline} aria-hidden />
-                Publish
-              </Button>
-              <ActionMenu label="More actions for this notification">
-                <MenuItem
-                  danger
-                  icon={<Trash2 size={ICON_SIZE.menu} />}
-                  onSelect={() => setConfirmDelete(true)}
-                >
-                  Delete template
-                </MenuItem>
-              </ActionMenu>
-            </>
-          )
+          <>
+            <Button variant="ghost" onClick={() => setShowHistory(true)}>
+              <History size={ICON_SIZE.inline} aria-hidden />
+              History
+              {template.publishCount > 0 && (
+                <span className="btn-count">{template.publishCount}</span>
+              )}
+            </Button>
+            {canManage && (
+              <>
+                <Button variant="ghost" onClick={onEdit}>
+                  <Pencil size={ICON_SIZE.inline} aria-hidden />
+                  Edit
+                </Button>
+                <Button onClick={openPublish}>
+                  <Send size={ICON_SIZE.inline} aria-hidden />
+                  Publish
+                </Button>
+                <ActionMenu label="More actions for this notification">
+                  <MenuItem
+                    danger
+                    icon={<Trash2 size={ICON_SIZE.menu} />}
+                    onSelect={() => setConfirmDelete(true)}
+                  >
+                    Delete template
+                  </MenuItem>
+                </ActionMenu>
+              </>
+            )}
+          </>
         }
       />
       <div className="template-view">
@@ -156,8 +168,11 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
           />
         </Card>
       </div>
-      <h3 className="form-section-title">Send history</h3>
-      <BroadcastHistory templateId={template.id} />
+      {showHistory && (
+        <Modal title="Send history" size="lg" onClose={() => setShowHistory(false)}>
+          <BroadcastHistory templateId={template.id} />
+        </Modal>
+      )}
       {publishing && <PublishDialog template={template} onClose={closePublish} />}
       {confirmDelete && (
         <ConfirmDialog

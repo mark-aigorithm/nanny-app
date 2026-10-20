@@ -6387,3 +6387,18 @@ textarea.input {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* A small count beside a button's label ("History 3"). */
+.btn-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-full);
+  background: var(--color-warm-subtle);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
