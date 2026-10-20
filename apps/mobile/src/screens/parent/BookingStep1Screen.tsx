@@ -435,7 +435,14 @@ export default function BookingStep1Screen() {
               <Text style={styles.promoChipText}>
                 {appliedPromo.code} — {formatMoney(appliedPromo.discountAmount)} off
               </Text>
-              <TouchableOpacity onPress={handleRemovePromo} activeOpacity={0.7} hitSlop={8}>
+              <TouchableOpacity
+                onPress={handleRemovePromo}
+                activeOpacity={0.7}
+                // 16dp icon + 14dp each side: the 44dp minimum target.
+                hitSlop={14}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove promo code ${appliedPromo.code}`}
+              >
                 <Ionicons name="close" size={16} color={colors.successDark} />
               </TouchableOpacity>
             </View>

@@ -40,6 +40,7 @@ function AnnouncementCard({ notification, onPress }: Props) {
   // Keeps the code (or "package") on the line with the word before it.
   const actionDisplay = action?.replace(/ (?=\S+$)/, ' ') ?? null;
   const isUnread = !notification.isRead;
+  const titleDirection = textDirectionStyle(notification.title);
 
   return (
     <View style={styles.shadow}>
@@ -72,8 +73,8 @@ function AnnouncementCard({ notification, onPress }: Props) {
           </View>
         ) : null}
 
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, textDirectionStyle(notification.title)]}>
+        <View style={[styles.titleRow, titleDirection && styles.titleRowRtl]}>
+          <Text style={[styles.title, titleDirection]}>
             {notification.title}
           </Text>
           <Text style={styles.time}>{formatTimeAgo(notification.createdAt)}</Text>

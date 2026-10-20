@@ -5,6 +5,7 @@ import type { NotificationResponse } from '@nanny-app/shared';
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 import AnnouncementCard from '@mobile/components/AnnouncementCard';
+import { colors } from '@mobile/theme';
 
 function announcement(overrides: Partial<NotificationResponse> = {}): NotificationResponse {
   return {
@@ -20,6 +21,15 @@ function announcement(overrides: Partial<NotificationResponse> = {}): Notificati
     link: { type: 'promo_code', code: 'SAVE20' },
     ...overrides,
   };
+}
+
+/** The nearest host view above `node` — the row a text sits in. */
+type Instance = ReturnType<typeof screen.getByText>;
+
+function hostParent(node: Instance): Instance | null {
+  let parent = node.parent;
+  while (parent && typeof parent.type !== 'string') parent = parent.parent;
+  return parent;
 }
 
 describe('AnnouncementCard', () => {
@@ -68,6 +78,31 @@ describe('AnnouncementCard', () => {
     const arabic = 'أضفنا مربيات جديدات في منطقتك هذا الأسبوع.';
     render(<AnnouncementCard notification={announcement({ body: arabic })} onPress={jest.fn()} />);
     expect(screen.getByText(arabic)).toHaveStyle({ textAlign: 'right', writingDirection: 'rtl' });
+  });
+
+  // On Android a clipping card (overflow hidden, rounded) whose border width
+  // changes on a re-render drew blank once tapped and marked read (UI sweep
+  // s20-04). Read and unread keep one border width; only its colour changes.
+  it('keeps the same border width when it turns read, changing only the colour', () => {
+    const { rerender } = render(<AnnouncementCard notification={announcement()} onPress={jest.fn()} />);
+    expect(screen.getByRole('button')).toHaveStyle({ borderLeftWidth: 3, borderLeftColor: colors.primaryDark });
+    rerender(<AnnouncementCard notification={announcement({ isRead: true })} onPress={jest.fn()} />);
+    expect(screen.getByRole('button')).toHaveStyle({ borderLeftWidth: 3, borderLeftColor: colors.surface });
+  });
+
+  // UI sweep s20-03: the title's box hugs its text, so an Arabic title sat at
+  // the left edge however it was aligned. Its row runs right to left instead.
+  it('starts an Arabic title at the right edge, with the time on the left', () => {
+    const arabic = 'تحديث من فريق ناني ناو';
+    render(<AnnouncementCard notification={announcement({ title: arabic })} onPress={jest.fn()} />);
+    const title = screen.getByText(arabic);
+    expect(title).toHaveStyle({ textAlign: 'right' });
+    expect(hostParent(title)).toHaveStyle({ flexDirection: 'row-reverse' });
+  });
+
+  it('keeps an English title first in a left-to-right row', () => {
+    render(<AnnouncementCard notification={announcement()} onPress={jest.fn()} />);
+    expect(hostParent(screen.getByText('Spring offer'))).toHaveStyle({ flexDirection: 'row' });
   });
 
   it('calls onPress when tapped', () => {

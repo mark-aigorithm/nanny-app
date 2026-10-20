@@ -11,15 +11,21 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadows.sm,
   },
+  //
+  // The left border is always 3 wide and only its colour marks unread. On
+  // Android a clipping, rounded view whose border width changes on a re-render
+  // drew blank, so the card went empty the moment a tap marked it read (UI
+  // sweep s20-04). A fixed width also keeps the text from shifting on read.
   card: {
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
     padding: spacing.lg,
     gap: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.surface,
   },
   // Same unread marker as NotificationRow, so the two kinds read as one list.
   cardUnread: {
-    borderLeftWidth: 3,
     borderLeftColor: colors.primaryDark,
   },
   // iOS has no ripple; a dim is its standard press feedback. Opacity only, so
@@ -49,6 +55,10 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     columnGap: spacing.sm,
     rowGap: spacing.xxs,
+  },
+  // An Arabic title starts at the right edge, with the time on the left.
+  titleRowRtl: {
+    flexDirection: 'row-reverse',
   },
   title: {
     ...typeScale.headingSm,

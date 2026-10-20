@@ -310,6 +310,19 @@ describe('BookingStep1Screen — a code handed over by a campaign or announcemen
     expect(usePendingPromoStore.getState().pendingPromoCode).toBeNull();
   });
 
+  // UI sweep s20: the chip's × was a bare 16dp icon with an 8dp slop (32dp)
+  // and no name for a screen reader.
+  it("labels the applied chip's remove control and gives it a 44dp target", async () => {
+    answerValidate({ data: { discountAmount: 20 }, error: null });
+    const { getByText, getByLabelText } = renderScreen();
+
+    await waitFor(() => getByText(/WELCOME20.*EGP 20\.00 off/));
+    const remove = getByLabelText('Remove promo code WELCOME20');
+    expect(remove.props.accessibilityRole).toBe('button');
+    // 16dp icon + 14dp of slop each side.
+    expect(remove.props.hitSlop).toBe(14);
+  });
+
   it('waits for the price breakdown before applying', async () => {
     answerValidate({ data: { discountAmount: 20 }, error: null });
     const { getByText, queryClient } = renderScreen({ seedPricing: false });
