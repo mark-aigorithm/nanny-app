@@ -36,9 +36,11 @@ function setup(survey: AdminSurvey = SURVEY, me: unknown = ADMIN) {
   const bodies: unknown[] = [];
   server.use(
     http.get('/api/admin/me', () => HttpResponse.json({ data: me, error: null })),
-    http.get('/api/admin/surveys/3/recipients', () =>
-      HttpResponse.json({ data: ROWS, error: null, meta: { page: 1, limit: 20, total: 3, totalPages: 1 } }),
-    ),
+    http.get('/api/admin/surveys/3/recipients', ({ request }) => {
+      const status = new URL(request.url).searchParams.get('status');
+      const data = status ? ROWS.filter((row) => row.status === status) : ROWS;
+      return HttpResponse.json({ data, error: null, meta: { page: 1, limit: 20, total: data.length, totalPages: 1 } });
+    }),
     http.post('/api/admin/surveys/3/resend', async ({ request }) => {
       bodies.push(await request.json());
       return HttpResponse.json({ data: { count: 1 }, error: null });
@@ -64,14 +66,17 @@ describe('SurveyRecipients', () => {
 
   it('resends to all who did not respond', async () => {
     const bodies = setup();
-    await userEvent.click(await screen.findByRole('button', { name: 'Resend to all no-response (1)' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Resend to everyone who hasn’t responded (1)' }));
     await userEvent.click(screen.getByRole('button', { name: /^resend$/i }));
     await waitFor(() => expect(bodies).toEqual([{ status: 'PENDING' }]));
   });
 
   it('resends to ticked rows; an answered mother cannot be ticked', async () => {
     const bodies = setup();
-    expect(await screen.findByRole('checkbox', { name: 'Select Amy' })).toBeDisabled();
+    // An answered mother can't be chased: no box, and the cell says why.
+    expect(await screen.findByRole('checkbox', { name: 'Select Cleo' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Select Amy' })).not.toBeInTheDocument();
+    expect(screen.getByText('Already answered')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select Cleo' }));
     await userEvent.click(screen.getByRole('button', { name: 'Resend to selected (1)' }));
     await userEvent.click(screen.getByRole('button', { name: /^resend$/i }));
@@ -101,6 +106,31 @@ describe('SurveyRecipients', () => {
     expect(screen.queryByRole('button', { name: /Select Bea/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Bea' }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('says when ticked mothers are off this page, and clears them (M8)', async () => {
+    setup();
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select Cleo' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    // The filter's trigger comes before the Status column header.
+    await userEvent.click(screen.getAllByRole('button', { name: 'Status' })[0]!);
+    await userEvent.click(screen.getByRole('option', { name: 'Answered' }));
+    expect(await screen.findByText('1 selected, not on this page')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resend to selected (1)' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
+    expect(screen.getByRole('button', { name: 'Resend to selected (0)' })).toBeDisabled();
+  });
+
+  it('selects every unanswered mother on the page from the header box (L4)', async () => {
+    setup();
+    const all = await screen.findByRole('checkbox', { name: 'Select all unanswered on this page' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Cleo' }));
+    expect(all).toHaveProperty('indeterminate', true);
+    await userEvent.click(all);
+    expect(screen.getByRole('checkbox', { name: 'Select Bea' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Resend to selected (2)' })).toBeEnabled();
+    await userEvent.click(all);
+    expect(screen.getByRole('button', { name: 'Resend to selected (0)' })).toBeDisabled();
   });
 
   it('offers no resend on a closed survey', async () => {

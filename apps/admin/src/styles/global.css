@@ -477,6 +477,17 @@ input[type='number'] {
   white-space: normal;
 }
 
+/* "3 selected · Clear selection" beside a bulk action. */
+.selection-hint {
+  align-self: center;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.selection-hint .table-link {
+  text-decoration: underline;
+}
+
 /* Secondary columns (shown elsewhere too) that make way on narrow screens. */
 @media (max-width: 900px) {
   .col-wide-only {

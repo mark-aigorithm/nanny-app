@@ -24,6 +24,7 @@ import {
 } from '@admin/components/ui';
 import { fetchSurveyRecipients, resendSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { formatDateTime } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 import { useTableSort } from '@admin/lib/use-table-sort';
@@ -40,7 +41,7 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'PENDING', label: 'No response' },
 ];
 
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
+const when = (iso: string | null) => (iso ? formatDateTime(iso) : '—');
 
 type PendingResend = { body: SurveyResendInput; count: number; who: string };
 
@@ -86,23 +87,54 @@ export function SurveyRecipients({ survey }: { survey: AdminSurvey }) {
     else next.add(id);
     setSelected(next);
   };
+  // Only mothers who haven't answered can be chased, so only they can be ticked.
+  const tickable = (data?.data ?? []).filter((r) => r.status !== 'ANSWERED');
+  const allTicked = tickable.length > 0 && tickable.every((r) => selected.has(r.userId));
+  const someTicked = !allTicked && tickable.some((r) => selected.has(r.userId));
+  const togglePage = () => {
+    const next = new Set(selected);
+    for (const r of tickable) {
+      if (allTicked) next.delete(r.userId);
+      else next.add(r.userId);
+    }
+    setSelected(next);
+  };
+  // The selection survives filtering and paging; say so when some of it is out of sight.
+  const offPage = [...selected].filter((id) => !data?.data.some((r) => r.userId === id)).length;
 
   const columns: Column<AdminSurveyRecipient, AdminSurveyRecipientSortKey>[] = [
     ...(canResend
       ? [
           {
             key: 'select',
-            header: '',
-            render: (r: AdminSurveyRecipient) => (
+            header: (
               <input
                 type="checkbox"
-                aria-label={`Select ${r.name}`}
-                disabled={r.status === 'ANSWERED'}
-                checked={selected.has(r.userId)}
-                onChange={() => toggle(r.userId)}
-                onClick={(e) => e.stopPropagation()}
+                aria-label="Select all unanswered on this page"
+                checked={allTicked}
+                disabled={tickable.length === 0}
+                ref={(el) => {
+                  if (el) el.indeterminate = someTicked;
+                }}
+                onChange={togglePage}
               />
             ),
+            render: (r: AdminSurveyRecipient) =>
+              r.status === 'ANSWERED' ? (
+                // Answered mothers are never resent, so there is nothing to tick.
+                <span className="table-empty" title="Already answered">
+                  <span aria-hidden>—</span>
+                  <span className="sr-only">Already answered</span>
+                </span>
+              ) : (
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${r.name}`}
+                  checked={selected.has(r.userId)}
+                  onChange={() => toggle(r.userId)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ),
           },
         ]
       : []),
@@ -165,8 +197,23 @@ export function SurveyRecipients({ survey }: { survey: AdminSurvey }) {
               disabled={survey.counts.pending === 0}
               onClick={() => setConfirm({ body: { status: 'PENDING' }, count: survey.counts.pending, who: 'every mother who hasn’t responded' })}
             >
-              Resend to all no-response ({survey.counts.pending})
+              Resend to everyone who hasn’t responded ({survey.counts.pending})
             </Button>
+            {selected.size > 0 && (
+              <span className="selection-hint" aria-live="polite">
+                <span>
+                  {offPage > 0 && offPage === selected.size
+                    ? `${selected.size} selected, not on this page`
+                    : offPage > 0
+                      ? `${selected.size} selected, ${offPage} not on this page`
+                      : `${selected.size} selected`}
+                </span>
+                {' · '}
+                <button type="button" className="table-link" onClick={() => setSelected(new Set())}>
+                  Clear selection
+                </button>
+              </span>
+            )}
             <Button
               disabled={selected.size === 0}
               onClick={() => setConfirm({ body: { userIds: [...selected] }, count: selected.size, who: 'the selected mothers' })}
