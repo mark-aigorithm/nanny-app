@@ -1,6 +1,7 @@
-import type { ButtonHTMLAttributes } from 'react';
+import type { ComponentPropsWithRef } from 'react';
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+// With ref, so a caller can move focus to a button (React 19 passes ref as a prop).
+type ButtonProps = ComponentPropsWithRef<'button'> & {
   variant?: 'primary' | 'ghost' | 'danger';
   size?: 'md' | 'sm';
 };

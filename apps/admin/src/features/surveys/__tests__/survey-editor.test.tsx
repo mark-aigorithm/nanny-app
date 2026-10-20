@@ -77,7 +77,7 @@ describe('SurveyEditor', () => {
     await userEvent.type(within(second).getByLabelText('Option 1'), 'A');
     await userEvent.type(within(second).getByLabelText('Option 2'), 'B');
     await userEvent.click(within(second).getByRole('checkbox', { name: /required/i }));
-    await userEvent.click(within(second).getByRole('button', { name: /move up/i }));
+    await userEvent.click(within(second).getByRole('button', { name: 'Move question 2 up' }));
 
     await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
     await waitFor(() =>
@@ -90,6 +90,18 @@ describe('SurveyEditor', () => {
         ],
       }),
     );
+  });
+
+  it('names each move button by its question and keeps focus on it after a move (L1)', async () => {
+    renderEditor(WITH_QUESTION);
+    const up = await screen.findByRole('button', { name: 'Move question 2 up' });
+    await userEvent.click(up);
+    // "Why" is now question 1; its Up is disabled, so focus moves to its Down.
+    const moved = screen.getAllByRole('group', { name: /question \d/i })[0]!;
+    expect(within(moved).getByLabelText('Question')).toHaveValue('Why');
+    expect(within(moved).getByRole('button', { name: 'Move question 1 down' })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Move question 1 down' }));
+    expect(screen.getByRole('button', { name: 'Move question 2 up' })).toHaveFocus();
   });
 
   it('disables Publish until the draft has a question and is saved', async () => {
@@ -146,7 +158,7 @@ describe('SurveyEditor', () => {
     expect(within(first).getByRole('button', { name: 'Remove option 1' })).toBeDisabled();
     expect(within(first).getByRole('button', { name: /add option/i })).toBeDisabled();
     expect(within(first).getByRole('checkbox', { name: /required/i })).toBeDisabled();
-    expect(within(first).getByRole('button', { name: /move down/i })).toBeDisabled();
+    expect(within(first).getByRole('button', { name: 'Move question 1 down' })).toBeDisabled();
     expect(within(first).getByRole('button', { name: /delete question/i })).toBeDisabled();
     for (const name of [/^save$/i, /^delete$/i, /duplicate/i, /add question/i]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();

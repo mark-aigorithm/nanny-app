@@ -1,5 +1,6 @@
 import type { SurveyQuestionType } from '@nanny-app/shared';
 import { SURVEY_MAX_OPTIONS, SURVEY_OPTION_MAX, SURVEY_PROMPT_MAX, isChoiceQuestion } from '@nanny-app/shared';
+import { useEffect, useRef } from 'react';
 
 import { ArrowDown, ArrowUp, Button, Field, ICON_SIZE, Input, Plus, Select, Trash2 } from '@admin/components/ui';
 
@@ -39,6 +40,22 @@ export function QuestionCard({ question, index, count, onChange, onMove, onRemov
       // Switching to a choice type starts with two empty options; away from one drops them.
       options: isChoiceQuestion(type) ? (question.options.length >= 2 ? question.options : ['', '']) : [],
     });
+  // After a move the card re-renders at its new index; keep focus on the
+  // button that moved it, or its sibling if that one is now disabled.
+  const upRef = useRef<HTMLButtonElement>(null);
+  const downRef = useRef<HTMLButtonElement>(null);
+  const moved = useRef<'up' | 'down' | null>(null);
+  useEffect(() => {
+    const dir = moved.current;
+    if (!dir) return;
+    moved.current = null;
+    const [same, other] = dir === 'up' ? [upRef.current, downRef.current] : [downRef.current, upRef.current];
+    (same && !same.disabled ? same : other)?.focus();
+  }, [index]);
+  const move = (dir: 'up' | 'down') => {
+    moved.current = dir;
+    onMove(dir === 'up' ? -1 : 1);
+  };
   const setOption = (i: number, label: string) =>
     onChange({ ...question, options: question.options.map((o, j) => (j === i ? label : o)) });
 
@@ -106,10 +123,24 @@ export function QuestionCard({ question, index, count, onChange, onMove, onRemov
           Required
         </label>
         <div className="question-actions">
-          <Button variant="ghost" size="sm" aria-label="Move up" disabled={readOnly || index === 0} onClick={() => onMove(-1)}>
+          <Button
+            ref={upRef}
+            variant="ghost"
+            size="sm"
+            aria-label={`Move question ${index + 1} up`}
+            disabled={readOnly || index === 0}
+            onClick={() => move('up')}
+          >
             <ArrowUp size={ICON_SIZE.inline} aria-hidden />
           </Button>
-          <Button variant="ghost" size="sm" aria-label="Move down" disabled={readOnly || index === count - 1} onClick={() => onMove(1)}>
+          <Button
+            ref={downRef}
+            variant="ghost"
+            size="sm"
+            aria-label={`Move question ${index + 1} down`}
+            disabled={readOnly || index === count - 1}
+            onClick={() => move('down')}
+          >
             <ArrowDown size={ICON_SIZE.inline} aria-hidden />
           </Button>
           <Button variant="danger" size="sm" disabled={readOnly} onClick={onRemove}>
