@@ -4,7 +4,7 @@ import {
   type MotherPickerSortKey,
 } from '@nanny-app/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import {
   type Column,
@@ -17,6 +17,7 @@ import {
 } from '@admin/components/ui';
 import { fetchMotherPicker } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { formatDate, formatEgp } from '@admin/lib/format';
 import { usePagination } from '@admin/lib/use-pagination';
 import { useTableSort } from '@admin/lib/use-table-sort';
 
@@ -32,8 +33,7 @@ type MotherPickerTableProps = {
   selectable?: boolean;
 };
 
-const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
-const money = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+const day = (iso: string | null) => (iso ? formatDate(iso) : '—');
 
 /**
  * Mothers with their booking activity, sorted by the API (aggregates are
@@ -80,7 +80,9 @@ export function MotherPickerTable({
     onSelectedChange(next);
   };
   const pageRows = data?.data ?? [];
+  const searchId = useId();
   const allOnPage = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id));
+  const someOnPage = !allOnPage && pageRows.some((r) => selected.has(r.id));
   const togglePage = () => {
     const next = new Set(selected);
     for (const r of pageRows) {
@@ -97,6 +99,10 @@ export function MotherPickerTable({
         type="checkbox"
         aria-label="Select all on this page"
         checked={allOnPage}
+        // Some but not all of the page ticked: the header box shows a dash.
+        ref={(el) => {
+          if (el) el.indeterminate = someOnPage;
+        }}
         onChange={togglePage}
       />
     ),
@@ -136,7 +142,7 @@ export function MotherPickerTable({
       sortKey: 'totalSpent',
       sortFirst: 'desc',
       align: 'right',
-      render: (r) => money(r.totalSpent),
+      render: (r) => formatEgp(r.totalSpent),
     },
     {
       key: 'lastBooking',
@@ -167,14 +173,19 @@ export function MotherPickerTable({
   return (
     <div>
       <div className="filter-bar">
-        <Input
-          type="search"
-          className="mother-picker-search"
-          aria-label="Search mothers"
-          placeholder="Search by name, phone or email"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
+        <div className="filter-select">
+          <label className="filter-select-label" htmlFor={searchId}>
+            Search mothers
+          </label>
+          <Input
+            id={searchId}
+            type="search"
+            className="mother-picker-search"
+            placeholder="Name, phone or email"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
       </div>
       <p className="mother-picker-hint">
         {selectable && `${selected.size} selected. `}

@@ -85,4 +85,24 @@ describe('MotherPickerTable', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(onSelectedChange).not.toHaveBeenCalled();
   });
+
+  it('labels its search, shows spend in EGP and one date style, and marks a partly ticked page (L2, L4, L6, L7)', async () => {
+    server.use(
+      http.get('/api/admin/mother-picker', () =>
+        HttpResponse.json({
+          data: [row(1, 'Amy'), { ...row(2, 'Bea'), lastBookingAt: '2026-10-15T23:30:00.000Z' }],
+          error: null,
+          meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
+        }),
+      ),
+    );
+    renderWithProviders(<Harness />);
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select Amy' }));
+    // A visible label, not just a placeholder.
+    expect(screen.getByText('Search mothers', { selector: 'label' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search mothers' })).toBeInTheDocument();
+    expect(screen.getByText('EGP 200.00')).toBeInTheDocument();
+    expect(screen.getByText('16 Oct 2026')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Select all on this page' })).toHaveProperty('indeterminate', true);
+  });
 });
