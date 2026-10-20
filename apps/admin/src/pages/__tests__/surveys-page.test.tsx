@@ -2,7 +2,7 @@
  * The Surveys page lists every survey with its response numbers; "New survey"
  * creates an empty draft and opens it.
  */
-import type { AdminSurvey, AdminSurveySummary, AdminUser } from '@nanny-app/shared';
+import type { AdminSurveySummary, AdminUser } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -55,19 +55,21 @@ describe('SurveysPage', () => {
     expect(screen.getByText('40%')).toBeInTheDocument();
   });
 
-  it('creates an empty draft and opens it', async () => {
-    let body: unknown;
+  // Creating on click left an "Untitled survey" behind for every abandoned
+  // click; the draft is created on the editor's first Save instead (L8).
+  it('opens a blank editor without creating anything', async () => {
+    let posted = false;
     server.use(
       http.get('/api/admin/surveys', () => paged([])),
-      http.post('/api/admin/surveys', async ({ request }) => {
-        body = await request.json();
-        return ok({ ...SURVEY, id: 8, status: 'DRAFT', description: null, questions: [] } satisfies AdminSurvey);
+      http.post('/api/admin/surveys', () => {
+        posted = true;
+        return ok(null);
       }),
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: /new survey/i }));
-    await waitFor(() => expect(body).toEqual({ title: 'Untitled survey', questions: [] }));
     expect(await screen.findByText('editor open')).toBeInTheDocument();
+    expect(posted).toBe(false);
   });
 
   it('sorts on the server from any count column header', async () => {

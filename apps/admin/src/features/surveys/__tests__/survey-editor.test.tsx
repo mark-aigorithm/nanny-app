@@ -26,15 +26,17 @@ const DRAFT: AdminSurvey = {
   publishedAt: null, closedAt: null, createdAt: '2026-10-19T00:00:00.000Z', questions: [],
 };
 
-function renderEditor(survey: AdminSurvey = DRAFT, onPublish = vi.fn(), me: unknown = ADMIN) {
+function renderEditor(survey: AdminSurvey = DRAFT, onPublish = vi.fn(), me: unknown = ADMIN, isNew = false) {
   server.use(http.get('/api/admin/me', () => ok(me)));
   // A data router, as the app uses: the unsaved-changes guard needs useBlocker.
   const router = createMemoryRouter(
     [
+      { path: '/surveys/new', element: <SurveyEditor survey={survey} onPublish={onPublish} isNew /> },
+      { path: '/surveys/9', element: <p>Saved draft 9</p> },
       { path: '/surveys/:id', element: <SurveyEditor survey={survey} onPublish={onPublish} /> },
       { path: '/surveys', element: <p>Survey list</p> },
     ],
-    { initialEntries: ['/surveys/3'] },
+    { initialEntries: [isNew ? '/surveys/new' : '/surveys/3'] },
   );
   return renderWithProviders(
     <ToastProvider>
@@ -102,6 +104,25 @@ describe('SurveyEditor', () => {
     expect(within(moved).getByRole('button', { name: 'Move question 1 down' })).toHaveFocus();
     await userEvent.click(screen.getByRole('button', { name: 'Move question 1 down' }));
     expect(screen.getByRole('button', { name: 'Move question 2 up' })).toHaveFocus();
+  });
+
+  it('a new survey is created by its first Save, then opens as that draft (L8)', async () => {
+    let body: unknown;
+    server.use(
+      http.post('/api/admin/surveys', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ data: { ...DRAFT, id: 9, title: 'Feedback' }, error: null }, { status: 201 });
+      }),
+    );
+    renderEditor(DRAFT, vi.fn(), ADMIN, true);
+    expect(await screen.findByRole('button', { name: /publish/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument();
+    const title = screen.getByLabelText('Survey title');
+    await userEvent.clear(title);
+    await userEvent.type(title, 'Feedback');
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(await screen.findByText('Saved draft 9')).toBeInTheDocument();
+    expect(body).toEqual({ title: 'Feedback', description: '', questions: [] });
   });
 
   it('disables Publish until the draft has a question and is saved', async () => {

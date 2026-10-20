@@ -1,3 +1,4 @@
+import type { AdminSurvey } from '@nanny-app/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -9,14 +10,34 @@ import { SurveyEditor } from '@admin/features/surveys/survey-editor';
 import { fetchSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 
+const BLANK_DRAFT: AdminSurvey = {
+  id: 0,
+  title: 'Untitled survey',
+  description: null,
+  status: 'DRAFT',
+  counts: { recipients: 0, answered: 0, skipped: 0, pending: 0 },
+  publishedAt: null,
+  closedAt: null,
+  createdAt: new Date(0).toISOString(),
+  questions: [],
+};
+
 /** /surveys/:id — the editor for a draft, the results and recipients view once published or closed. */
 export function SurveyPage() {
   const { id = '' } = useParams();
+  const isNew = id === 'new';
   const surveyId = Number(id);
   const queryClient = useQueryClient();
   const toast = useToast();
   const [publishing, setPublishing] = useState(false);
-  const survey = useQuery({ queryKey: ['surveys', surveyId], queryFn: () => fetchSurvey(surveyId) });
+  const survey = useQuery({
+    queryKey: ['surveys', surveyId],
+    queryFn: () => fetchSurvey(surveyId),
+    enabled: !isNew,
+  });
+
+  // "New survey": a blank editor; its first Save creates the draft.
+  if (isNew) return <SurveyEditor key="new" survey={BLANK_DRAFT} isNew />;
 
   if (survey.isLoading) return <LoadingState label="Loading survey…" />;
   if (survey.error != null || !survey.data) {

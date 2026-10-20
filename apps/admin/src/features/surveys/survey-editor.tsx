@@ -1,5 +1,10 @@
 import type { AdminSurvey, SurveyDraftInput } from '@nanny-app/shared';
-import { SURVEY_DESCRIPTION_MAX, SURVEY_MAX_QUESTIONS, SURVEY_TITLE_MAX, SurveyDraftSchema } from '@nanny-app/shared';
+import {
+  SURVEY_DESCRIPTION_MAX,
+  SURVEY_MAX_QUESTIONS,
+  SURVEY_TITLE_MAX,
+  SurveyDraftSchema,
+} from '@nanny-app/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate } from 'react-router-dom';
@@ -20,7 +25,7 @@ import {
   Trash2,
   useToast,
 } from '@admin/components/ui';
-import { deleteSurvey, duplicateSurvey, updateSurvey } from '@admin/lib/api';
+import { createSurvey, deleteSurvey, duplicateSurvey, updateSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
@@ -44,10 +49,15 @@ type Props = {
   survey: AdminSurvey;
   /** Opens the publish flow. When omitted the Publish button is not rendered. */
   onPublish?: () => void;
+  /**
+   * A survey not created yet (/surveys/new): the first Save creates it and
+   * opens it at its own URL, so an abandoned "New survey" leaves nothing.
+   */
+  isNew?: boolean;
 };
 
 /** The draft editor: title, description and questions, saved in one PATCH. */
-export function SurveyEditor({ survey, onPublish }: Props) {
+export function SurveyEditor({ survey, onPublish, isNew = false }: Props) {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -88,12 +98,20 @@ export function SurveyEditor({ survey, onPublish }: Props) {
     () => ({
       title,
       description,
-      questions: questions.map(({ type, prompt, required, options }) => ({ type, prompt, required, options })),
+      questions: questions.map(({ type, prompt, required, options }) => ({
+        type,
+        prompt,
+        required,
+        options,
+      })),
     }),
     [title, description, questions],
   );
   const validation = useMemo(() => SurveyDraftSchema.safeParse(draft), [draft]);
-  const issues = useMemo(() => draftIssues(validation.success ? undefined : validation.error), [validation]);
+  const issues = useMemo(
+    () => draftIssues(validation.success ? undefined : validation.error),
+    [validation],
+  );
   const shownIssues = attempted ? issues : draftIssues(undefined);
   useEffect(() => {
     if (!focusFirstProblem.current) return;
@@ -118,12 +136,16 @@ export function SurveyEditor({ survey, onPublish }: Props) {
     );
 
   const save = useMutation({
-    mutationFn: () => updateSurvey(survey.id, draft),
+    mutationFn: () => (isNew ? createSurvey(draft) : updateSurvey(survey.id, draft)),
     onSuccess: (saved) => {
-      queryClient.setQueryData(['surveys', survey.id], saved);
+      queryClient.setQueryData(['surveys', saved.id], saved);
       void queryClient.invalidateQueries({ queryKey: ['surveys'] });
       setDirty(false);
       toast.success('Draft saved');
+      if (isNew) {
+        leavingOnPurpose.current = true;
+        navigate(`/surveys/${saved.id}`, { replace: true });
+      }
     },
     onError: (err) => toast.error('Couldn’t save the draft', apiErrorMessage(err)),
   });
@@ -152,7 +174,9 @@ export function SurveyEditor({ survey, onPublish }: Props) {
 
   // Inputs lock while a save is in flight so an edit can't be marked saved by its response.
   const locked = !canManage || save.isPending;
-  const canPublish = !dirty && questions.length > 0 && validation.success;
+  const canPublish = !isNew && !dirty && questions.length > 0 && validation.success;
+  // A new survey has nothing on the server yet, so it always has something to save.
+  const unsaved = dirty || isNew;
 
   const trySave = () => {
     if (validation.success) {
@@ -169,7 +193,8 @@ export function SurveyEditor({ survey, onPublish }: Props) {
   // A question with words in it is work; an untouched one goes without asking.
   const requestRemove = (i: number) => {
     const q = questions[i];
-    const hasContent = q !== undefined && (q.prompt.trim() !== '' || q.options.some((o) => o.trim() !== ''));
+    const hasContent =
+      q !== undefined && (q.prompt.trim() !== '' || q.options.some((o) => o.trim() !== ''));
     if (hasContent) setRemovingAt(i);
     else removeAt(i);
   };
@@ -179,11 +204,13 @@ export function SurveyEditor({ survey, onPublish }: Props) {
   const status =
     attempted && firstProblem
       ? `${firstProblem}${issues.summary.length > 1 ? ` (${issues.summary.length - 1} more to fix)` : ''}`
-      : dirty
-        ? 'Unsaved changes. Save before publishing.'
+      : unsaved
+        ? isNew && !dirty
+          ? 'Not saved yet. Save to create the draft.'
+          : 'Unsaved changes. Save before publishing.'
         : questions.length === 0
           ? 'Add at least one question to publish.'
-          : firstProblem ?? 'Saved. Ready to publish.';
+          : (firstProblem ?? 'Saved. Ready to publish.');
 
   return (
     <section>
@@ -195,27 +222,41 @@ export function SurveyEditor({ survey, onPublish }: Props) {
         actions={
           canManage && (
             <>
-              <Button variant={dirty ? 'primary' : 'ghost'} onClick={trySave} disabled={!dirty || save.isPending}>
+              <Button
+                variant={unsaved ? 'primary' : 'ghost'}
+                onClick={trySave}
+                disabled={!unsaved || save.isPending}
+              >
                 Save
               </Button>
               {onPublish && (
-                <Button variant={dirty ? 'ghost' : 'primary'} onClick={onPublish} disabled={!canPublish}>
+                <Button
+                  variant={unsaved ? 'ghost' : 'primary'}
+                  onClick={onPublish}
+                  disabled={!canPublish}
+                >
                   Publish…
                 </Button>
               )}
-              <ActionMenu label="More actions for this draft">
-                <MenuItem
-                  icon={<Copy size={ICON_SIZE.menu} />}
-                  disabled={duplicate.isPending || dirty}
-                  onSelect={() => duplicate.mutate()}
-                >
-                  {dirty ? 'Duplicate (save first)' : 'Duplicate'}
-                </MenuItem>
-                <MenuSeparator />
-                <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setConfirmDelete(true)}>
-                  Delete draft
-                </MenuItem>
-              </ActionMenu>
+              {!isNew && (
+                <ActionMenu label="More actions for this draft">
+                  <MenuItem
+                    icon={<Copy size={ICON_SIZE.menu} />}
+                    disabled={duplicate.isPending || dirty}
+                    onSelect={() => duplicate.mutate()}
+                  >
+                    {dirty ? 'Duplicate (save first)' : 'Duplicate'}
+                  </MenuItem>
+                  <MenuSeparator />
+                  <MenuItem
+                    danger
+                    icon={<Trash2 size={ICON_SIZE.menu} />}
+                    onSelect={() => setConfirmDelete(true)}
+                  >
+                    Delete draft
+                  </MenuItem>
+                </ActionMenu>
+              )}
             </>
           )
         }
@@ -269,7 +310,12 @@ export function SurveyEditor({ survey, onPublish }: Props) {
               variant="ghost"
               disabled={locked}
               onClick={() =>
-                touch(() => setQuestions((qs) => [...qs, { key: newKey(), type: 'TEXT', prompt: '', required: true, options: [] }]))
+                touch(() =>
+                  setQuestions((qs) => [
+                    ...qs,
+                    { key: newKey(), type: 'TEXT', prompt: '', required: true, options: [] },
+                  ]),
+                )
               }
             >
               <Plus size={ICON_SIZE.inline} aria-hidden />
