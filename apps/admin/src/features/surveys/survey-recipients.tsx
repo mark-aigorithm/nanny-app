@@ -101,12 +101,33 @@ export function SurveyRecipients({ survey }: { survey: AdminSurvey }) {
                 checked={selected.has(r.userId)}
                 onChange={() => toggle(r.userId)}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               />
             ),
           },
         ]
       : []),
-    { key: 'name', header: 'Mother', sortKey: 'name', sortFirst: 'asc', width: '25%', render: (r) => r.name },
+    {
+      key: 'name',
+      header: 'Mother',
+      sortKey: 'name',
+      sortFirst: 'asc',
+      width: '25%',
+      // The keyboard and screen-reader way to open her answers; the row click is the mouse shortcut.
+      render: (r) => (
+        <button
+          type="button"
+          className="table-link"
+          aria-haspopup="dialog"
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewing(r.userId);
+          }}
+        >
+          {r.name}
+        </button>
+      ),
+    },
     { key: 'phone', header: 'Phone', nowrap: true, render: (r) => r.phone ?? '—' },
     {
       key: 'status',
@@ -170,6 +191,7 @@ export function SurveyRecipients({ survey }: { survey: AdminSurvey }) {
             rows={data.data}
             rowKey={(r) => r.userId}
             onRowClick={(r) => setViewing(r.userId)}
+            rowClickMouseOnly
             sort={sort}
             onSortChange={onSortChange}
             empty="Nobody here. Try a different status."

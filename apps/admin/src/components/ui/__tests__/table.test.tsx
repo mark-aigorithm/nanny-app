@@ -74,3 +74,47 @@ describe('Table sorting', () => {
     expect(screen.getByRole('columnheader', { name: 'ID' })).not.toHaveAttribute('aria-sort');
   });
 });
+
+describe('Table row clicks', () => {
+  const clickable = (onRowClick: (row: Row) => void, rowClickMouseOnly?: boolean) => (
+    <Table
+      columns={[
+        { key: 'pick', header: 'Pick', render: (row: Row) => <input type="checkbox" aria-label={`Select ${row.name}`} /> },
+        { key: 'name', header: 'Name', render: (row: Row) => row.name },
+      ]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      onRowClick={onRowClick}
+      rowClickMouseOnly={rowClickMouseOnly}
+    />
+  );
+
+  it('opens the row on Enter or Space pressed on the row itself', () => {
+    const onRowClick = vi.fn();
+    render(clickable(onRowClick));
+    const row = screen.getByRole('button', { name: /Amira/ });
+    fireEvent.keyDown(row, { key: 'Enter' });
+    fireEvent.keyDown(row, { key: ' ' });
+    expect(onRowClick).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves a key pressed on a control inside the row to that control', () => {
+    const onRowClick = vi.fn();
+    render(clickable(onRowClick));
+    const box = screen.getByRole('checkbox', { name: 'Select Amira' });
+    const notCancelled = fireEvent.keyDown(box, { key: ' ' });
+    expect(onRowClick).not.toHaveBeenCalled();
+    // Not preventDefault-ed, so the browser still toggles the box.
+    expect(notCancelled).toBe(true);
+  });
+
+  it('keeps a mouse-only row click off the keyboard and out of the accessibility tree', () => {
+    const onRowClick = vi.fn();
+    render(clickable(onRowClick, true));
+    expect(screen.queryByRole('button', { name: /Amira/ })).toBeNull();
+    const row = screen.getByRole('row', { name: /Amira/ });
+    expect(row).not.toHaveAttribute('tabindex');
+    fireEvent.click(screen.getByText('Amira'));
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+  });
+});

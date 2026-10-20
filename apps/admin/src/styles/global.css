@@ -631,6 +631,28 @@ input[type='number'] {
   outline-offset: -2px;
 }
 
+/* A cell value that opens the row's detail (a dialog): reads as the value,
+   underlines on hover, and is the row's keyboard target. */
+.table-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.table-link:hover {
+  text-decoration: underline;
+}
+
+.table-link:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
 /* ── Pagination (shared table footer) ───────────────────── */
 
 .pagination {

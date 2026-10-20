@@ -104,6 +104,7 @@ export function MotherPickerTable({
         checked={selected.has(r.id)}
         onChange={() => toggle(r.id)}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       />
     ),
   };
@@ -199,6 +200,7 @@ export function MotherPickerTable({
             rows={pageRows}
             rowKey={(r) => r.id}
             onRowClick={selectable ? (r) => toggle(r.id) : undefined}
+            rowClickMouseOnly
             sort={sort}
             onSortChange={onSortChange}
             empty={search ? 'No mothers match this search.' : 'No mothers here yet.'}

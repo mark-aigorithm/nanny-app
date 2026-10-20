@@ -50,6 +50,13 @@ type TableProps<T, K extends string = string> = {
    */
   onRowClick?: (row: T) => void;
   /**
+   * The row click is only a mouse shortcut for a control already in the row
+   * (its checkbox, or a button on the name). The row is then not made a
+   * focusable `role="button"`, which would wrap those controls in a second,
+   * row-sized button that assistive tech reads as one long name.
+   */
+  rowClickMouseOnly?: boolean;
+  /**
    * Optional per-row class (e.g. SLA highlighting). Return undefined for rows
    * that need no extra styling.
    */
@@ -75,6 +82,7 @@ export function Table<T, K extends string = string>({
   wrap = true,
   renderExpanded,
   onRowClick,
+  rowClickMouseOnly = false,
   rowClassName,
   sort,
   onSortChange,
@@ -88,9 +96,13 @@ export function Table<T, K extends string = string>({
   }
 
   const clickable = onRowClick != null;
+  const rowIsButton = clickable && !rowClickMouseOnly;
 
   function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>, row: T) {
     if (!onRowClick) return;
+    // A key pressed on a control inside the row (a checkbox's Space) is that
+    // control's; only keys on the focused row itself open it.
+    if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onRowClick(row);
@@ -123,9 +135,9 @@ export function Table<T, K extends string = string>({
                   <tr
                     className={rowClassName?.(row)}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    onKeyDown={clickable ? (event) => handleKeyDown(event, row) : undefined}
-                    tabIndex={clickable ? 0 : undefined}
-                    role={clickable ? 'button' : undefined}
+                    onKeyDown={rowIsButton ? (event) => handleKeyDown(event, row) : undefined}
+                    tabIndex={rowIsButton ? 0 : undefined}
+                    role={rowIsButton ? 'button' : undefined}
                   >
                     {columns.map((column) => (
                       <td

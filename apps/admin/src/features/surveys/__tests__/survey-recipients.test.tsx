@@ -78,6 +78,31 @@ describe('SurveyRecipients', () => {
     await waitFor(() => expect(bodies).toEqual([{ userIds: [3] }]));
   });
 
+  it('ticks a box with Space instead of opening the row (keyboard selection)', async () => {
+    const bodies = setup();
+    const cleo = await screen.findByRole('checkbox', { name: 'Select Cleo' });
+    cleo.focus();
+    await userEvent.keyboard(' ');
+    expect(cleo).toBeChecked();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Resend to selected (1)' }));
+    await userEvent.click(screen.getByRole('button', { name: /^resend$/i }));
+    await waitFor(() => expect(bodies).toEqual([{ userIds: [3] }]));
+  });
+
+  it('opens a mother’s answers from the button on her name, not a row-sized button', async () => {
+    setup();
+    server.use(
+      http.get('/api/admin/surveys/3/recipients/2', () =>
+        HttpResponse.json({ data: { recipient: ROWS[1], answers: [] }, error: null }),
+      ),
+    );
+    await screen.findByRole('checkbox', { name: 'Select Bea' });
+    expect(screen.queryByRole('button', { name: /Select Bea/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Bea' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
   it('offers no resend on a closed survey', async () => {
     setup({ ...SURVEY, status: 'CLOSED' });
     expect(await screen.findByText('Amy')).toBeInTheDocument();
