@@ -13,7 +13,6 @@ import {
   History,
   ICON_SIZE,
   MenuItem,
-  Modal,
   Pencil,
   Send,
   Trash2,
@@ -23,7 +22,6 @@ import { deleteNotificationTemplate, previewNotificationAudience } from '@admin/
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
-import { BroadcastHistory } from './broadcast-history';
 import { CHANNEL_HINT, CHANNEL_LABEL, formatCount, mothersLabel } from './notification-labels';
 import { PublishDialog } from './publish-dialog';
 import { SavedAudience } from './template-audience-fields';
@@ -48,7 +46,6 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
   // The list's "Publish" opens the template at ?publish=1: the dialog is that parameter.
   const [searchParams, setSearchParams] = useSearchParams();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const savedLink = { package: template.package, promoCode: template.promoCode };
   const linkLabel = useLinkActionLabel(template, savedLink, true);
 
@@ -85,7 +82,10 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
         backLabel="Notification Center"
         actions={
           <>
-            <Button variant="ghost" onClick={() => setShowHistory(true)}>
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/notifications/${template.id}/history`)}
+            >
               <History size={ICON_SIZE.inline} aria-hidden />
               History
               {template.publishCount > 0 && (
@@ -168,11 +168,6 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
           />
         </Card>
       </div>
-      {showHistory && (
-        <Modal title="Send history" size="lg" onClose={() => setShowHistory(false)}>
-          <BroadcastHistory templateId={template.id} />
-        </Modal>
-      )}
       {publishing && <PublishDialog template={template} onClose={closePublish} />}
       {confirmDelete && (
         <ConfirmDialog

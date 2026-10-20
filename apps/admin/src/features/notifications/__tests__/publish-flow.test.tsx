@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ToastProvider } from '@admin/components/ui';
 import { PermissionsProvider } from '@admin/lib/permissions';
+import { NotificationHistoryPage } from '@admin/pages/notification-history-page';
 import { NotificationTemplatePage } from '@admin/pages/notification-template-page';
 import { renderWithProviders } from '@admin/test/render';
 import { server } from '@admin/test/server';
@@ -35,6 +36,7 @@ function renderPage(url = '/notifications/4', me?: AdminUser) {
   const router = createMemoryRouter(
     [
       { path: '/notifications/:id', element: <NotificationTemplatePage /> },
+      { path: '/notifications/:id/history', element: <NotificationHistoryPage /> },
       { path: '/notifications', element: <p>Notification list</p> },
     ],
     { initialEntries: [url] },
@@ -203,7 +205,8 @@ describe('Publishing a notification template', () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: /^History/ }));
 
-    const history = within(screen.getByRole('dialog', { name: 'Send history' })).getByRole('table');
+    expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
+    const history = await screen.findByRole('table');
     const sent = within(history).getByText('Sent').closest('tr')!;
     expect(within(sent).getByText('Ops Admin')).toBeInTheDocument();
     expect(within(sent).getByText('1,031')).toBeInTheDocument();
@@ -220,7 +223,10 @@ describe('Publishing a notification template', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await userEvent.click(history);
-    expect(screen.getByRole('dialog', { name: 'Send history' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
+    // Its back button returns to the template.
+    await userEvent.click(screen.getByRole('button', { name: 'Win-back 30d' }));
+    expect(await screen.findByRole('button', { name: /^History/ })).toBeInTheDocument();
   });
 
   it('creates a new template with Save and publish, then asks to confirm the send', async () => {
