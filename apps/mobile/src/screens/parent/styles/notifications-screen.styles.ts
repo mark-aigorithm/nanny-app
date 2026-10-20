@@ -5,7 +5,6 @@ import {
   typeScale,
   spacing,
   borderRadius,
-  shadows,
   screenPadding,
   STATUS_BAR_HEIGHT,
   HEADER_HEIGHT,
@@ -146,62 +145,4 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
 
-  // Notification card
-  card: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    ...shadows.sm,
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  cardUnread: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.lg,
-    paddingVertical: spacing.lg,
-  },
-  cardRead: {
-    padding: spacing.lg,
-  },
-
-  // Icon circle
-  iconCircle: {
-    marginTop: spacing.xxs,
-  },
-
-  // Card text
-  cardTextWrap: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  cardTitle: {
-    ...typeScale.headingSm,
-    letterSpacing: 0,
-    color: colors.textDark,
-    flex: 1,
-  },
-  cardTitleUnread: {
-    fontFamily: fontFamily.bold,
-  },
-  cardTime: {
-    fontFamily: fontFamily.regular,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  cardSubtitle: {
-    ...typeScale.bodySm,
-    lineHeight: 18,
-    color: colors.textMuted,
-  },
-  cardSubtitleUnread: {
-    color: colors.textDark,
-  },
 });

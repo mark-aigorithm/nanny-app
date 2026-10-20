@@ -95,3 +95,12 @@ describe('NotificationsScreen tap routing', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 });
+
+describe('NotificationsScreen rows', () => {
+  // UI sweep: "We'd love your f…" truncated on every survey row at 1.3×.
+  it('wraps a long title instead of truncating it', () => {
+    mockNotifications = [makeNotification({ type: 'survey', title: "We'd love your feedback" })];
+    const { getByText } = render(<NotificationsScreen />);
+    expect(getByText("We'd love your feedback").props.numberOfLines).toBeUndefined();
+  });
+});

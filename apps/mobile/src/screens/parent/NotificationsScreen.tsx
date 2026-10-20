@@ -21,7 +21,6 @@ import {
 } from '@mobile/hooks/useNotifications';
 import { useRefreshByUser } from '@mobile/hooks/useRefreshByUser';
 import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
-import { formatTimeAgo } from '@mobile/lib/communityUtils';
 import {
   navigateToBookingChat,
   navigateToBookingDetail,
@@ -29,10 +28,10 @@ import {
 } from '@mobile/lib/notificationNavigation';
 import {
   groupNotificationsByDate,
-  getNotificationIcon,
   type NotificationFilter,
 } from '@mobile/lib/notificationUtils';
 import { colors, screenPadding } from '@mobile/theme';
+import NotificationRow from '@mobile/components/NotificationRow';
 import { styles } from './styles/notifications-screen.styles';
 
 const FILTER_OPTIONS: { key: NotificationFilter; label: string }[] = [
@@ -228,7 +227,7 @@ export default function NotificationsScreen() {
                 <Text style={styles.sectionHeading}>{section.title}</Text>
                 <View style={styles.cardGroup}>
                   {section.items.map((notification) => (
-                    <NotificationCard
+                    <NotificationRow
                       key={notification.id}
                       notification={notification}
                       onPress={() => handleNotificationPress(notification)}
@@ -252,44 +251,5 @@ export default function NotificationsScreen() {
         )}
       </ScrollView>
     </View>
-  );
-}
-
-function NotificationCard({
-  notification,
-  onPress,
-}: {
-  notification: NotificationResponse;
-  onPress: () => void;
-}) {
-  const isUnread = !notification.isRead;
-  const icon = getNotificationIcon(notification.type);
-
-  return (
-    <PressableScale
-      onPress={onPress}
-      scaleTo={0.98}
-      style={[styles.card, isUnread ? styles.cardUnread : styles.cardRead]}
-    >
-      <IconCircle
-        icon={icon.name}
-        size="md"
-        backgroundColor={icon.backgroundColor}
-        iconColor={icon.iconColor}
-        iconSize={18}
-        style={styles.iconCircle}
-      />
-      <View style={styles.cardTextWrap}>
-        <View style={styles.cardTitleRow}>
-          <Text style={[styles.cardTitle, isUnread && styles.cardTitleUnread]} numberOfLines={1}>
-            {notification.title}
-          </Text>
-          <Text style={styles.cardTime}>{formatTimeAgo(notification.createdAt)}</Text>
-        </View>
-        <Text style={[styles.cardSubtitle, isUnread && styles.cardSubtitleUnread]} numberOfLines={2}>
-          {notification.body}
-        </Text>
-      </View>
-    </PressableScale>
   );
 }
