@@ -20,6 +20,7 @@ import { authHeader } from '../../../test/auth';
 import { makeAdmin, makeMother, makeOperator, makePackage, makePromoCode } from '../../../test/factories';
 import {
   createTemplate,
+  deliverAll,
   giveDevice,
   publishTemplate,
   spyOnPush,
@@ -269,18 +270,61 @@ describe('A47 — push-phase and concurrency', () => {
   });
 
   it('two concurrent publishes of one template: one sends, one is refused', async () => {
-    spyOnPush();
+    const send = spyOnPush();
     const admin = await makeAdmin();
     const mothers = [await makeMother(), await makeMother()];
+    await giveDevice(mothers[0]!.id);
     const template = await createTemplate(
       admin.token,
       templateInput({ type: 'MOTHERS', motherIds: mothers.map((m) => m.id) }),
     );
+    // Hold the winner in SENDING (inside the push) until the loser has been answered,
+    // so the second request can only be refused by the lock, never by arriving late.
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    send.mockImplementation(async (message) => {
+      await gate;
+      return deliverAll(message);
+    });
+    // Widen the window between the in-flight check and the insert, so that without the row
+    // lock both requests would pass the check before either inserted.
+    const realTransaction = prisma.$transaction.bind(prisma) as (...args: unknown[]) => Promise<unknown>;
+    jest.spyOn(prisma, '$transaction').mockImplementation(((...args: unknown[]) => {
+      const [fn, ...rest] = args;
+      if (typeof fn !== 'function') return realTransaction(...args);
+      return realTransaction(async (tx: Prisma.TransactionClient) => {
+        const claims = tx.notificationBroadcast;
+        const findFirst = claims.findFirst.bind(claims) as (...a: unknown[]) => Promise<unknown>;
+        const slow = Object.create(tx, {
+          notificationBroadcast: {
+            value: Object.create(claims, {
+              findFirst: {
+                value: async (...a: unknown[]) => {
+                  const found = await findFirst(...a);
+                  await new Promise((resolve) => setTimeout(resolve, 300));
+                  return found;
+                },
+              },
+            }),
+          },
+        }) as Prisma.TransactionClient;
+        return (fn as (t: Prisma.TransactionClient) => Promise<unknown>)(slow);
+      }, ...rest);
+    }) as unknown as typeof prisma.$transaction);
+    const publish = () => request(app).post(`${BASE}/${template.id}/publish`).set(...authHeader(admin.token));
 
-    const responses = await Promise.all(
-      [1, 2].map(() => request(app).post(`${BASE}/${template.id}/publish`).set(...authHeader(admin.token))),
-    );
+    const requests = [publish(), publish()].map((req) => req.then((res) => res));
+    // The first answer can only be the refusal; the fallback keeps a broken lock from hanging the test.
+    const first = await Promise.race([
+      ...requests,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5_000)),
+    ]);
+    release();
+    const responses = await Promise.all(requests);
 
+    expect(first?.status).toBe(409);
     expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
     expect(await prisma.notificationBroadcast.count()).toBe(1);
     expect(await announcements()).toBe(2);
