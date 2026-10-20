@@ -6044,3 +6044,101 @@ textarea.input {
   color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
+
+/* ── Dynamic group rules ────────────────────────────────── */
+.rule-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Field · condition · amount · unit · remove; the error spans the row. */
+.rule-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) minmax(10rem, 13rem) 7rem auto 1fr;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.rule-row-field {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.rule-row-amount {
+  width: 100%;
+}
+
+.rule-row-unit {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.rule-row-remove {
+  justify-self: end;
+}
+
+.rule-row-error {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .rule-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rule-row-field {
+    grid-column: 1 / -1;
+  }
+}
+
+.rule-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-warm-subtle);
+}
+
+.rule-summary-label {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rule-summary p,
+.rule-summary-text {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.rule-count {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
