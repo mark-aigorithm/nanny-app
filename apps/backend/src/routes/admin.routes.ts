@@ -209,6 +209,7 @@ import {
   previewNotificationAudience,
   updateNotificationTemplate,
 } from '@backend/services/admin-notification-template.service';
+import { publishNotificationTemplate } from '@backend/services/notification-broadcast.service';
 import {
   addSurveyRecipients,
   closeSurvey,
@@ -1228,6 +1229,18 @@ adminRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(ok(await listTemplateBroadcasts(routeIdParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/notification-templates/:id/publish',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      res.status(201).json(ok(await publishNotificationTemplate(routeIdParam(req.params.id), req.adminUser.id)));
     } catch (err) {
       next(err);
     }

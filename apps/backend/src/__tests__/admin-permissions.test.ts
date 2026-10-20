@@ -165,6 +165,8 @@ describe('privilege evaluation', () => {
     expect(allows('DELETE', '/notification-templates/4', 'OPERATOR', view)).toBe(false);
     expect(allows('POST', '/notification-templates/audience-preview', 'OPERATOR', view)).toBe(false);
 
+    expect(allows('POST', '/notification-templates/4/publish', 'OPERATOR', view)).toBe(false);
+    expect(allows('POST', '/notification-templates/4/publish', 'OPERATOR', manage)).toBe(true);
     expect(allows('POST', '/notification-templates', 'OPERATOR', manage)).toBe(true);
     expect(allows('POST', '/notification-templates/audience-preview', 'OPERATOR', manage)).toBe(true);
     expect(allows('GET', '/notification-templates', 'OPERATOR', { groups: 'MANAGE' })).toBe(false);

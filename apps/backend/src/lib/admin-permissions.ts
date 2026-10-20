@@ -178,6 +178,7 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'PATCH', pattern: '/notification-templates/:id', requires: section('notifications', 'MANAGE') },
   { method: 'DELETE', pattern: '/notification-templates/:id', requires: section('notifications', 'MANAGE') },
   { method: 'GET', pattern: '/notification-templates/:id/broadcasts', requires: section('notifications', 'VIEW') },
+  { method: 'POST', pattern: '/notification-templates/:id/publish', requires: section('notifications', 'MANAGE') },
 
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel

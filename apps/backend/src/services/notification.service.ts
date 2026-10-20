@@ -5,6 +5,7 @@ import {
   type PaginationMeta,
 } from '@nanny-app/shared';
 import type { NotificationReferenceType, NotificationType, User } from '@prisma/client';
+import type { BatchResponse, MulticastMessage } from 'firebase-admin/messaging';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
@@ -167,6 +168,16 @@ export interface PushPayload {
   data: Record<string, string>;
 }
 
+/** FCM codes meaning a token will never work again: the app was removed or the token rotated. */
+const DEAD_TOKEN_CODES = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+]);
+
+function isDeadToken(code: string | undefined): boolean {
+  return code !== undefined && DEAD_TOKEN_CODES.has(code);
+}
+
 export async function dispatchPush(userId: number, payload: PushPayload): Promise<void> {
   const tokens = await prisma.deviceToken.findMany({
     where: { userId, deletedAt: null },
@@ -189,10 +200,7 @@ export async function dispatchPush(userId: number, payload: PushPayload): Promis
 
     const invalidTokens: string[] = [];
     response.responses.forEach((result, index) => {
-      if (
-        result.error?.code === 'messaging/registration-token-not-registered' ||
-        result.error?.code === 'messaging/invalid-registration-token'
-      ) {
+      if (isDeadToken(result.error?.code)) {
         const token = tokenList[index];
         if (token) invalidTokens.push(token);
       }
@@ -207,6 +215,84 @@ export async function dispatchPush(userId: number, payload: PushPayload): Promis
   } catch {
     // Push failures should not block message delivery.
   }
+}
+
+/** FCM's multicast limit. */
+export const PUSH_MULTICAST_SIZE = 500;
+/** Batches in flight at once: 10k mothers is ~20 calls, well inside the 60 s function limit. */
+export const PUSH_CONCURRENCY = 4;
+
+export interface BroadcastPushMessage {
+  title: string;
+  body: string;
+  imageUrl?: string | null;
+  data: Record<string, string>;
+}
+
+function multicastFor(tokens: string[], message: BroadcastPushMessage): MulticastMessage {
+  const image = message.imageUrl ?? undefined;
+  return {
+    tokens,
+    notification: { title: message.title, body: message.body, ...(image ? { imageUrl: image } : {}) },
+    // Android shows the image in the banner. iOS banners stay text-only until a
+    // Notification Service Extension ships (out of scope).
+    ...(image ? { android: { notification: { imageUrl: image } } } : {}),
+    data: message.data,
+  };
+}
+
+/**
+ * One message to many devices — the announcement fan-out. Tokens go out in
+ * multicasts of 500, four at a time. A dead token is soft-deleted; any other
+ * failure, or a whole call that throws, is only counted. Transactional pushes
+ * keep using the per-user dispatchPush.
+ */
+export async function dispatchPushToTokens(
+  tokens: string[],
+  message: BroadcastPushMessage,
+): Promise<{ sent: number; failed: number }> {
+  const unique = [...new Set(tokens)];
+  const batches: string[][] = [];
+  for (let i = 0; i < unique.length; i += PUSH_MULTICAST_SIZE) {
+    batches.push(unique.slice(i, i + PUSH_MULTICAST_SIZE));
+  }
+
+  let sent = 0;
+  let failed = 0;
+  const dead: string[] = [];
+  let next = 0;
+
+  // Each worker takes the next unsent batch; taking it is synchronous, so no two share one.
+  async function worker(): Promise<void> {
+    while (next < batches.length) {
+      const batch = batches[next];
+      next += 1;
+      if (!batch) return;
+      let response: BatchResponse;
+      try {
+        response = await firebaseMessaging.sendEachForMulticast(multicastFor(batch, message));
+      } catch {
+        failed += batch.length;
+        continue;
+      }
+      sent += response.successCount;
+      failed += response.failureCount;
+      response.responses.forEach((result, index) => {
+        const token = batch[index];
+        if (token && isDeadToken(result.error?.code)) dead.push(token);
+      });
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(PUSH_CONCURRENCY, batches.length) }, () => worker()));
+
+  if (dead.length > 0) {
+    await prisma.deviceToken.updateMany({
+      where: { token: { in: dead }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+  }
+  return { sent, failed };
 }
 
 /** Kept well under Postgres' 32,767 bind parameters per statement. */

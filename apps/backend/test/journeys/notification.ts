@@ -1,8 +1,10 @@
-import type { NotificationTemplate, NotificationTemplateInput } from '@nanny-app/shared';
+import type { NotificationBroadcast, NotificationTemplate, NotificationTemplateInput } from '@nanny-app/shared';
+import type { BatchResponse, MulticastMessage } from 'firebase-admin/messaging';
 import request from 'supertest';
 
 import { app } from '@backend/app';
 import { prisma } from '@backend/db/prisma';
+import { firebaseMessaging } from '@backend/lib/firebase';
 
 import { authHeader } from '../auth';
 
@@ -46,4 +48,33 @@ export async function giveDevice(userId: number): Promise<string> {
   const token = `fcm-${process.pid}-${tokenSeq}`;
   await prisma.deviceToken.create({ data: { userId, token, platform: 'ANDROID' } });
   return token;
+}
+
+export async function publishTemplate(adminToken: string, templateId: number): Promise<NotificationBroadcast> {
+  const res = await request(app)
+    .post(`/admin/notification-templates/${templateId}/publish`)
+    .set(...authHeader(adminToken));
+  expect(res.status).toBe(201);
+  return res.body.data as NotificationBroadcast;
+}
+
+/** FCM's answer when every token in the multicast took the message. */
+export function deliverAll(message: MulticastMessage): BatchResponse {
+  return {
+    successCount: message.tokens.length,
+    failureCount: 0,
+    responses: message.tokens.map(() => ({ success: true, messageId: 'test-message' })),
+  };
+}
+
+/**
+ * Stands in for FCM. Integration runs have no FCM credentials (the Admin SDK
+ * is initialised for the Auth emulator only), so a real send would fail every
+ * batch; the spy also records exactly what was sent. Undo with
+ * `jest.restoreAllMocks()`.
+ */
+export function spyOnPush() {
+  return jest
+    .spyOn(firebaseMessaging, 'sendEachForMulticast')
+    .mockImplementation(async (message) => deliverAll(message));
 }
