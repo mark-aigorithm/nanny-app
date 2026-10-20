@@ -30,6 +30,15 @@ export function broadcastResultToast(b: NotificationBroadcast): ResultToast {
       message: [b.error ?? 'The server stopped before it finished.', ...parts].join(' · '),
     };
   }
+  if (b.status === 'PARTIAL' && b.error) {
+    // The push phase threw, so nothing was counted as failed — say so plainly
+    // instead of reporting "0 pushes failed".
+    return {
+      tone: 'warning',
+      title: `Sent to the inbox; pushes couldn’t be sent: ${b.error}`,
+      message: parts.join(' · '),
+    };
+  }
   if (b.status === 'PARTIAL') {
     return { tone: 'warning', title: `Sent to ${to}, but ${pushes(b.pushFailed)} failed`, message: parts.join(' · ') };
   }

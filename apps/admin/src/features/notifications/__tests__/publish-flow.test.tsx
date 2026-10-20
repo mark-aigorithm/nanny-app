@@ -121,6 +121,23 @@ describe('Publishing a notification template', () => {
     expect(screen.getByText(/1 deleted group was skipped/)).toBeInTheDocument();
   });
 
+  it("says pushes couldn't be sent, with the error, when the push phase threw", async () => {
+    server.use(
+      http.post(PUBLISH, () =>
+        ok({ ...BROADCAST, status: 'PARTIAL', pushSent: 0, pushFailed: 0, error: 'FCM is unreachable' }),
+      ),
+    );
+    renderPage();
+
+    const dialog = await openPublish();
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Send to 1,240 mothers' }));
+    const title = await screen.findByText(
+      'Sent to the inbox; pushes couldn’t be sent: FCM is unreachable',
+    );
+    expect(title.closest('.toast')).toHaveClass('toast--warning');
+    expect(screen.queryByText(/0 pushes failed/)).toBeNull();
+  });
+
   it("reports a refused publish with the server's reason", async () => {
     server.use(
       http.post(PUBLISH, () => HttpResponse.json({ data: null, error: 'That promo code has expired.' }, { status: 400 })),
