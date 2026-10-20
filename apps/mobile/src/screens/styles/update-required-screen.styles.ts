@@ -33,8 +33,11 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.lg,
   },
+  notesLong: { alignSelf: 'stretch', textAlign: 'left' },
   footer: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,
+    gap: spacing.md,
   },
+  storeError: { ...typeScale.bodyMd, color: colors.textSecondary, textAlign: 'center' },
 });

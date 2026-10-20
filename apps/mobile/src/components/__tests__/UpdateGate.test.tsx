@@ -16,6 +16,7 @@ jest.mock('@mobile/lib/dismissedUpdate', () => ({
 }));
 
 import UpdateGate from '@mobile/components/UpdateGate';
+import { UPDATE_IN_STORE_LABEL } from '@mobile/lib/storeLabels';
 import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 
 const STORE = 'https://apps.apple.com/app/id6797044436';
@@ -50,13 +51,13 @@ it('renders nothing while the check is loading, failed, or ok', async () => {
   expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
 });
 
-it('blocks with notes and sends "Update now" to the store', async () => {
+it('blocks with notes and sends its store-named button to the store', async () => {
   mockCheck = { data: result({ status: 'update_required', releaseNotes: 'Chat with your nanny' }) };
   const { findByText, getByText } = render(<UpdateGate />);
 
   expect(await findByText(REQUIRED_HEADLINE)).toBeTruthy();
   expect(getByText('Chat with your nanny')).toBeTruthy();
-  fireEvent.press(getByText('Update now'));
+  fireEvent.press(getByText(UPDATE_IN_STORE_LABEL));
   expect(Linking.openURL).toHaveBeenCalledWith(STORE);
   expect(() => getByText('Later')).toThrow();
 });
@@ -147,4 +148,23 @@ it('flags the optional sheet as visible while it shows, and clears it on Later',
     fireEvent.press(getByText('Later'));
   });
   expect(useUpdateSheetStore.getState().visible).toBe(false);
+});
+
+// The blocker has no other way out, so a store link that won't open must say so.
+it('shows the store link when it cannot be opened', async () => {
+  jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('no handler'));
+  mockCheck = { data: result({ status: 'update_required' }) };
+  const { findByText, getByText } = render(<UpdateGate />);
+  await findByText(REQUIRED_HEADLINE);
+  await act(async () => {
+    fireEvent.press(getByText(UPDATE_IN_STORE_LABEL));
+  });
+  expect(getByText(`We couldn't open the store. Update from this link: ${STORE}`)).toBeTruthy();
+});
+
+it('names the store on the optional sheet too, and marks its headline as a header', async () => {
+  mockCheck = { data: result({ status: 'update_available' }) };
+  const { findByRole, getByText } = render(<UpdateGate />);
+  expect(await findByRole('header', { name: AVAILABLE_HEADLINE })).toBeTruthy();
+  expect(getByText(UPDATE_IN_STORE_LABEL)).toBeTruthy();
 });

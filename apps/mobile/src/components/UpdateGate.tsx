@@ -4,6 +4,7 @@ import { Linking, Modal, StyleSheet, View } from 'react-native';
 import UpdateAvailableSheet from '@mobile/components/UpdateAvailableSheet';
 import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
 import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
+import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 import { colors } from '@mobile/theme';
 import { readDismissedUpdate, writeDismissedUpdate } from '@mobile/lib/dismissedUpdate';
 import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
@@ -18,6 +19,9 @@ export default function UpdateGate() {
   const { data } = useAppVersionCheck();
   // undefined until storage has been read, so the sheet never flashes for a dismissed version.
   const [dismissed, setDismissed] = useState<string | null | undefined>(undefined);
+  // The store link failed to open: both states then show it as text.
+  const [openFailed, setOpenFailed] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     void readDismissedUpdate().then(setDismissed);
@@ -38,7 +42,11 @@ export default function UpdateGate() {
 
   if (!data || data.status === 'ok' || !data.storeUrl) return null;
   const storeUrl = data.storeUrl;
-  const openStore = () => void Linking.openURL(storeUrl);
+  const openStore = () => {
+    setOpenFailed(false);
+    Linking.openURL(storeUrl).catch(() => setOpenFailed(true));
+  };
+  const storeError = openFailed ? storeUrl : null;
 
   // One Modal for both states, so a sheet -> blocker change is a re-render, not
   // a dismiss-then-present (iOS can drop a Modal presented mid-dismissal). A
@@ -56,7 +64,11 @@ export default function UpdateGate() {
         onRequestClose={() => undefined}
       >
         <View style={styles.requiredBackground}>
-          <UpdateRequiredScreen releaseNotes={data.releaseNotes} onUpdate={openStore} />
+          <UpdateRequiredScreen
+            releaseNotes={data.releaseNotes}
+            onUpdate={openStore}
+            storeError={storeError}
+          />
         </View>
       </Modal>
     );
@@ -70,12 +82,18 @@ export default function UpdateGate() {
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={later}>
+    <Modal
+      visible
+      transparent
+      animationType={reducedMotion ? 'fade' : 'slide'}
+      onRequestClose={later}
+    >
       <UpdateAvailableSheet
         latestVersion={latestVersion}
         releaseNotes={data.releaseNotes}
         onUpdate={openStore}
         onLater={later}
+        storeError={storeError}
       />
     </Modal>
   );

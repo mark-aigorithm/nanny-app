@@ -8,6 +8,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
+import { UPDATE_IN_STORE_LABEL } from '@mobile/lib/storeLabels';
 import { STATUS_BAR_HEIGHT, spacing } from '@mobile/theme';
 
 describe('UpdateRequiredScreen', () => {
@@ -19,6 +20,20 @@ describe('UpdateRequiredScreen', () => {
     expect(StyleSheet.flatten(scroll.props.style).marginTop).toBe(STATUS_BAR_HEIGHT);
     const content = StyleSheet.flatten(scroll.props.contentContainerStyle);
     expect(content.paddingVertical).toBeGreaterThanOrEqual(spacing.lg);
-    expect(screen.getByText('Update now')).toBeTruthy();
+    expect(screen.getByRole('button', { name: UPDATE_IN_STORE_LABEL })).toBeTruthy();
+  });
+
+  it('marks its headline as a header', () => {
+    render(<UpdateRequiredScreen releaseNotes={null} onUpdate={jest.fn()} />);
+    expect(screen.getByRole('header', { name: 'Time to update' })).toBeTruthy();
+  });
+
+  // Long centred paragraphs read poorly; short notes stay centred under the headline.
+  it('left-aligns long release notes and centres short ones', () => {
+    const long = 'Chat with your nanny before a booking starts, see her arrival time live, and pay for extensions in one tap.';
+    const { rerender } = render(<UpdateRequiredScreen releaseNotes={long} onUpdate={jest.fn()} />);
+    expect(StyleSheet.flatten(screen.getByText(long).props.style).textAlign).toBe('left');
+    rerender(<UpdateRequiredScreen releaseNotes="Bug fixes." onUpdate={jest.fn()} />);
+    expect(StyleSheet.flatten(screen.getByText('Bug fixes.').props.style).textAlign).toBe('center');
   });
 });

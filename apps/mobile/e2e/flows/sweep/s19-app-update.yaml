@@ -95,4 +95,4 @@ onFlowComplete:
 # There is no way past it: Android back is swallowed.
 - back
 - assertVisible: 'Time to update'
-- assertVisible: 'Update now'
+- assertVisible: 'Update on Google Play'
