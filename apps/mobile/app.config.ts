@@ -46,7 +46,7 @@ const GOOGLE_WEB_CLIENT_ID = readGoogleWebClientId();
 const config: ExpoConfig = {
   name: APP_NAME,  slug: 'nanny-app',
   scheme: 'nanny-app',
-  version: '1.0.0',
+  version: '1.0.1',
   orientation: 'portrait',
   icon: './assets/icon.png',
   splash: {
@@ -131,6 +131,9 @@ const config: ExpoConfig = {
     // drops Android 7.x — required to ship VLC, which has no lower-floor release.
     ['expo-build-properties', { android: { minSdkVersion: 26 }, ios: { useFrameworks: 'static' } }],
     './plugins/withIosFirebasePods',
+    // Shows the image of an announcement push on iPhones (Android does it
+    // natively). Adds a Notification Service Extension target; see the plugin.
+    './plugins/withIosNotificationServiceExtension',
     // RTSP playback for the parent's live camera monitor. libVLC handles RTSP
     // on both platforms; AVPlayer (expo-video/react-native-video) cannot play
     // RTSP on iOS at all, which is why this is a native module rather than a
@@ -188,6 +191,21 @@ const config: ExpoConfig = {
     paymobCheckoutOrigin: process.env['PAYMOB_CHECKOUT_ORIGIN'] ?? '',
     eas: {
       projectId: '3dc2f181-fc47-4895-bdce-78d2eeeb3564',
+      // The notification extension is a second signed bundle; listing it here
+      // is how EAS knows to create and use credentials for it.
+      build: {
+        experimental: {
+          ios: {
+            appExtensions: [
+              {
+                targetName: 'NotificationService',
+                bundleIdentifier: 'com.nannyapp.mobile.NotificationService',
+                entitlements: {},
+              },
+            ],
+          },
+        },
+      },
     },
   },
 };

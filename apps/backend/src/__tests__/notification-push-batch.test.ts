@@ -72,13 +72,14 @@ describe('dispatchPushToTokens', () => {
     expect(result).toEqual({ sent: 5000, failed: 0 });
   });
 
-  it('puts the image on the notification and on the Android notification', async () => {
+  it('puts the image on the notification, the Android notification and the iOS extension\'s payload', async () => {
     await dispatchPushToTokens(['a'], { ...MESSAGE, imageUrl: IMAGE });
 
     expect(send).toHaveBeenCalledWith({
       tokens: ['a'],
       notification: { title: MESSAGE.title, body: MESSAGE.body, imageUrl: IMAGE },
       android: { notification: { imageUrl: IMAGE } },
+      apns: { payload: { aps: { mutableContent: true } }, fcmOptions: { imageUrl: IMAGE } },
       data: MESSAGE.data,
     });
   });

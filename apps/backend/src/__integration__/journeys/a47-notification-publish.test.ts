@@ -164,6 +164,7 @@ describe('A47 — publishing a template', () => {
       expect.objectContaining({
         notification: { title: 'We miss you', body: BODY, imageUrl: IMAGE },
         android: { notification: { imageUrl: IMAGE } },
+        apns: { payload: { aps: { mutableContent: true } }, fcmOptions: { imageUrl: IMAGE } },
         data: { type: 'ANNOUNCEMENT', broadcastId: String(promoSend.id), targetType: 'PROMO_CODE', promoCode: 'SAVE20' },
       }),
     );

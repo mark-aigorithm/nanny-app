@@ -266,9 +266,15 @@ function multicastFor(tokens: string[], message: BroadcastPushMessage): Multicas
   return {
     tokens,
     notification: { title: message.title, body: message.body, ...(image ? { imageUrl: image } : {}) },
-    // Android shows the image in the banner. iOS banners stay text-only until a
-    // Notification Service Extension ships (out of scope).
-    ...(image ? { android: { notification: { imageUrl: image } } } : {}),
+    // Android shows the image in the banner itself. iOS hands a push marked
+    // mutable-content to the app's Notification Service Extension, which
+    // downloads fcmOptions.imageUrl (sent as fcm_options.image) and attaches it.
+    ...(image
+      ? {
+          android: { notification: { imageUrl: image } },
+          apns: { payload: { aps: { mutableContent: true } }, fcmOptions: { imageUrl: image } },
+        }
+      : {}),
     data: message.data,
   };
 }
