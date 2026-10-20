@@ -74,7 +74,16 @@ describe('RegisterRequestSchema — what a nanny must provide', () => {
   });
 
   it('asks none of the nanny profile of a mother', () => {
-    const { idDocumentType, idDocumentFrontUrl, bio, yearsOfExperience, ageRanges, availabilityType, schedule, ...mother } = NANNY;
+    const {
+      idDocumentType: _idDocumentType,
+      idDocumentFrontUrl: _idDocumentFrontUrl,
+      bio: _bio,
+      yearsOfExperience: _yearsOfExperience,
+      ageRanges: _ageRanges,
+      availabilityType: _availabilityType,
+      schedule: _schedule,
+      ...mother
+    } = NANNY;
     expect(firstMessage({ ...mother, role: 'MOTHER' })).toBeNull();
   });
 });
