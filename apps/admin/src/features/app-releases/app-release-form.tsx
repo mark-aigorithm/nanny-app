@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import {
   CreateAppReleaseSchema,
@@ -30,6 +30,7 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
   const [releaseNotes, setReleaseNotes] = useState(release?.releaseNotes ?? '');
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingSave, setPendingSave] = useState<(() => Promise<AppRelease>) | null>(null);
+  const mandatoryHintId = useId();
 
   const saveMutation = useMutation({
     mutationFn: (save: () => Promise<AppRelease>) => save(),
@@ -102,12 +103,15 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
             </Field>
           </>
         )}
-        <Field
-          label="Mandatory"
-          hint="Users on any older version are blocked until they update. Otherwise they get a prompt they can dismiss."
-        >
-          <Switch checked={mandatory} onChange={setMandatory} label={mandatory ? 'Mandatory' : 'Optional'} />
-        </Field>
+        {/* Not a Field: its <label> would wrap the switch's own label and hint into one name. */}
+        <div className="field">
+          <Switch checked={mandatory} onChange={setMandatory} label="Mandatory update" describedBy={mandatoryHintId} />
+          <span id={mandatoryHintId} className="field-hint">
+            {mandatory
+              ? 'On: users on any older version are blocked until they update.'
+              : 'Off: users on an older version get a prompt they can dismiss.'}
+          </span>
+        </div>
         <Field label="Release notes" hint="Optional — shown in the app's update prompt.">
           <textarea
             className="input"

@@ -104,4 +104,20 @@ describe('AppReleasesPage', () => {
     expect(await screen.findByText(/version must look like 1\.4\.0/i)).toBeInTheDocument();
     expect(called).toBe(false);
   });
+
+  it('names the Mandatory switch once, by what it controls, whatever its state', async () => {
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/app-releases', () => ok([])),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /add release/i }));
+    const toggle = screen.getByRole('checkbox', { name: 'Mandatory update' });
+    expect(toggle).toHaveAccessibleDescription(/prompt they can dismiss/i);
+    await userEvent.click(toggle);
+    expect(screen.getByRole('checkbox', { name: 'Mandatory update' })).toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(/blocked until they update/i);
+    // The hint is no longer part of a label, so "Version" finds only the version field.
+    expect(screen.getAllByLabelText(/version/i)).toHaveLength(1);
+  });
 });
