@@ -252,6 +252,41 @@ describe('A47 — publishing a template', () => {
   });
 });
 
+describe('A47 — push-phase and concurrency', () => {
+  it('a push-phase error ends PARTIAL with the inbox rows intact and the error recorded', async () => {
+    spyOnPush();
+    const admin = await makeAdmin();
+    const mother = await makeMother();
+    await giveDevice(mother.id);
+    const template = await createTemplate(admin.token, templateInput({ type: 'MOTHERS', motherIds: [mother.id] }));
+    jest.spyOn(prisma.deviceToken, 'findMany').mockRejectedValueOnce(new Error('token lookup failed'));
+
+    const broadcast = await publishTemplate(admin.token, template.id);
+
+    expect(broadcast).toMatchObject({ status: 'PARTIAL', error: 'token lookup failed', inAppCreated: 1, pushSent: 0 });
+    expect(await announcements({ broadcastId: broadcast.id })).toBe(1);
+  });
+
+  it('two concurrent publishes of one template: one sends, one is refused', async () => {
+    spyOnPush();
+    const admin = await makeAdmin();
+    const mothers = [await makeMother(), await makeMother()];
+    const template = await createTemplate(
+      admin.token,
+      templateInput({ type: 'MOTHERS', motherIds: mothers.map((m) => m.id) }),
+    );
+
+    const responses = await Promise.all(
+      [1, 2].map(() => request(app).post(`${BASE}/${template.id}/publish`).set(...authHeader(admin.token))),
+    );
+
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(await prisma.notificationBroadcast.count()).toBe(1);
+    expect(await announcements()).toBe(2);
+    for (const m of mothers) expect(await announcements({ userId: m.id })).toBe(1);
+  });
+});
+
 const PACKAGE_BREAKERS: [string, Prisma.PackageUpdateInput, string][] = [
   ['inactive', { isActive: false }, 'That package is no longer active.'],
   ['expired', { expiresAt: new Date(Date.now() - MINUTE) }, 'That package has expired.'],

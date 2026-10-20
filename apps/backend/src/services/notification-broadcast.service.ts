@@ -132,8 +132,15 @@ async function deliver(broadcastId: number, template: LinkedTemplate, userIds: n
         counts.inAppCreated += count;
       }
     }
+  } catch (err) {
+    status = NotificationBroadcastStatus.FAILED;
+    error = err instanceof Error ? err.message : String(err);
+  }
 
-    if (template.channel !== NotificationChannel.IN_APP) {
+  // Only an in-app failure (or a timeout) is FAILED. The inbox rows are already
+  // written, so a problem in the push phase ends PARTIAL with the counts so far.
+  if (status !== NotificationBroadcastStatus.FAILED && template.channel !== NotificationChannel.IN_APP) {
+    try {
       const tokens = await listLiveDeviceTokens(userIds);
       counts.noDevice = userIds.length - new Set(tokens.map((t) => t.userId)).size;
       const { sent, failed } = await dispatchPushToTokens(
@@ -143,10 +150,10 @@ async function deliver(broadcastId: number, template: LinkedTemplate, userIds: n
       counts.pushSent = sent;
       counts.pushFailed = failed;
       if (failed > 0) status = NotificationBroadcastStatus.PARTIAL;
+    } catch (err) {
+      status = NotificationBroadcastStatus.PARTIAL;
+      error = err instanceof Error ? err.message : String(err);
     }
-  } catch (err) {
-    status = NotificationBroadcastStatus.FAILED;
-    error = err instanceof Error ? err.message : String(err);
   }
 
   const row = await prisma.notificationBroadcast.update({

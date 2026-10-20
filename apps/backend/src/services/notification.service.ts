@@ -287,10 +287,14 @@ export async function dispatchPushToTokens(
   await Promise.all(Array.from({ length: Math.min(PUSH_CONCURRENCY, batches.length) }, () => worker()));
 
   if (dead.length > 0) {
-    await prisma.deviceToken.updateMany({
-      where: { token: { in: dead }, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
+    try {
+      await prisma.deviceToken.updateMany({
+        where: { token: { in: dead }, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+    } catch {
+      // Cleanup is best-effort: the messages are already out, so the tally must survive.
+    }
   }
   return { sent, failed };
 }

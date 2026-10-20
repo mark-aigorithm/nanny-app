@@ -133,4 +133,21 @@ describe('dispatchPushToTokens', () => {
     expect(await dispatchPushToTokens([], MESSAGE)).toEqual({ sent: 0, failed: 0 });
     expect(send).not.toHaveBeenCalled();
   });
+
+  it('still returns the tally when soft-deleting dead tokens fails', async () => {
+    send.mockImplementationOnce(async () => {
+      const response = {
+        successCount: 1,
+        failureCount: 1,
+        responses: [
+          { success: true, messageId: 'm' },
+          { success: false, error: { code: 'messaging/registration-token-not-registered' } },
+        ],
+      };
+      return response as unknown as BatchResponse;
+    });
+    updateMany.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(dispatchPushToTokens(['ok', 'gone'], MESSAGE)).resolves.toEqual({ sent: 1, failed: 1 });
+  });
 });
