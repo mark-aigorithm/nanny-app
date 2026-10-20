@@ -8,7 +8,6 @@ import { closeSurvey, duplicateSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
-import { RecipientPickerModal } from './recipient-picker-modal';
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, responseRate } from './survey-labels';
 import { SurveyRecipients } from './survey-recipients';
 import { SurveyResults } from './survey-results';
@@ -22,7 +21,6 @@ export function SurveyDetail({ survey }: { survey: AdminSurvey }) {
   const queryClient = useQueryClient();
   const canManage = useCanManage('surveys');
   const [tab, setTab] = useState<Tab>('results');
-  const [adding, setAdding] = useState(false);
   const [closing, setClosing] = useState(false);
   const open = survey.status === 'PUBLISHED';
 
@@ -64,7 +62,7 @@ export function SurveyDetail({ survey }: { survey: AdminSurvey }) {
               </Button>
             )}
             {canManage && open && (
-              <Button variant="ghost" onClick={() => setAdding(true)}>
+              <Button variant="ghost" onClick={() => navigate(`/surveys/${survey.id}/add-recipients`)}>
                 Add recipients
               </Button>
             )}
@@ -93,18 +91,6 @@ export function SurveyDetail({ survey }: { survey: AdminSurvey }) {
       >
         {tab === 'results' ? <SurveyResults survey={survey} /> : <SurveyRecipients survey={survey} />}
       </Tabs>
-      {adding && (
-        <RecipientPickerModal
-          surveyId={survey.id}
-          mode="add"
-          onClose={() => setAdding(false)}
-          onDone={(count) => {
-            setAdding(false);
-            void queryClient.invalidateQueries({ queryKey: ['surveys'] });
-            toast.success(`Added ${count} ${count === 1 ? 'mother' : 'mothers'}`);
-          }}
-        />
-      )}
       {closing && (
         <ConfirmDialog
           title="Close this survey?"

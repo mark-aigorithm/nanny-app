@@ -147,7 +147,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
       setDirty(false);
       toast.success('Draft saved');
       leavingOnPurpose.current = true;
-      if (isNew) navigate(`/surveys/${saved.id}${publish ? '?publish=1' : ''}`, { replace: true });
+      if (isNew) navigate(`/surveys/${saved.id}${publish ? '/publish' : ''}`, { replace: true });
       else done(publish ? 'publish' : undefined);
     },
     onError: (err) => toast.error('Couldn’t save the draft', apiErrorMessage(err)),

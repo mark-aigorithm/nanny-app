@@ -78,6 +78,8 @@ export {
   Search,
   // Survey preview (rating questions)
   Star,
+  // Survey audience choice
+  ListChecks,
 } from 'lucide-react';
 
 /** Standard icon sizes (px). */

@@ -4,7 +4,7 @@
  * Delete sit in its menu. A view-only operator gets the preview only.
  */
 import type { AdminSurvey } from '@nanny-app/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -53,6 +53,7 @@ function renderPage(url = '/surveys/3', me: unknown = ADMIN) {
   const router = createMemoryRouter(
     [
       { path: '/surveys/:id', element: <SurveyPage /> },
+      { path: '/surveys/:id/publish', element: <p>Publish page</p> },
       { path: '/surveys', element: <p>Survey list</p> },
     ],
     { initialEntries: [url] },
@@ -84,10 +85,10 @@ describe('A draft survey', () => {
     expect(screen.queryByLabelText('Survey title')).not.toBeInTheDocument();
   });
 
-  it('asks who gets it when Publish is pressed', async () => {
+  it('opens the publish page when Publish is pressed', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Publish' }));
-    expect(await screen.findByRole('dialog', { name: 'Publish survey' })).toBeInTheDocument();
+    expect(await screen.findByText('Publish page')).toBeInTheDocument();
   });
 
   it('keeps Publish off while the draft has no questions, and says why', async () => {
@@ -113,7 +114,7 @@ describe('A draft survey', () => {
     expect(deleted).toBe(true);
   });
 
-  it('shows a view-only operator the preview only, even at ?edit=1 or ?publish=1', async () => {
+  it('shows a view-only operator the preview only, even at ?edit=1', async () => {
     renderPage('/surveys/3?edit=1', VIEWER);
     expect(await screen.findByRole('complementary', { name: 'Preview' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Survey title')).not.toBeInTheDocument();
@@ -122,9 +123,4 @@ describe('A draft survey', () => {
     }
   });
 
-  it('never opens the publish flow for a view-only operator', async () => {
-    renderPage('/surveys/3?publish=1', VIEWER);
-    await screen.findByRole('complementary', { name: 'Preview' });
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  });
 });

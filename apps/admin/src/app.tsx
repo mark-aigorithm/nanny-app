@@ -31,6 +31,7 @@ import { SkillsPage } from './pages/skills-page';
 import { GroupDetailPage } from './pages/group-detail-page';
 import { GroupsPage } from './pages/groups-page';
 import { SurveyPage } from './pages/survey-page';
+import { SurveyRecipientsPage } from './pages/survey-recipients-page';
 import { SurveysPage } from './pages/surveys-page';
 import { CertificationsPage } from './pages/certifications-page';
 import { PackagesPage } from './pages/packages-page';
@@ -217,6 +218,22 @@ function AppRoutes() {
             element={
               <Guarded section="surveys">
                 <SurveyPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="surveys/:id/publish"
+            element={
+              <Guarded section="surveys">
+                <SurveyRecipientsPage mode="publish" />
+              </Guarded>
+            }
+          />
+          <Route
+            path="surveys/:id/add-recipients"
+            element={
+              <Guarded section="surveys">
+                <SurveyRecipientsPage mode="add" />
               </Guarded>
             }
           />
