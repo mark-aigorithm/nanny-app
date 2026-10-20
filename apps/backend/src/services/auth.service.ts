@@ -497,21 +497,36 @@ async function requireUser(decoded: DecodedIdToken): Promise<User> {
 }
 
 /**
+ * When the token's session began — its `auth_time` (seconds since the epoch),
+ * which Firebase sets at the real sign-in and carries unchanged through every
+ * refreshed ID token. Null when the claim is missing or not a number.
+ */
+function signedInAt(decoded: DecodedIdToken): Date | null {
+  const authTime: unknown = decoded.auth_time;
+  return typeof authTime === 'number' && Number.isFinite(authTime) ? new Date(authTime * 1000) : null;
+}
+
+/**
  * Returns the application User row for the currently-authenticated Firebase
- * user. Touches `lastLoginAt` so we have a recency signal for analytics.
+ * user. Records `lastLoginAt` as the time of her last real sign-in (the
+ * token's `auth_time`), only ever moving it forward — a refetch from an old
+ * session writes nothing. App opens are recorded separately (POST /me/app-open).
  * Throws 404 if the Firebase user has no corresponding application row —
  * the mobile client uses this signal to resume the registration wizard.
  */
 export async function getMe(decoded: DecodedIdToken): Promise<UserResponse> {
-  const user = await requireUser(decoded);
+  let user = await requireUser(decoded);
 
-  // Awaited, so a failure here fails the request like any other DB error.
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  });
+  const signedIn = signedInAt(decoded);
+  if (signedIn && (!user.lastLoginAt || signedIn > user.lastLoginAt)) {
+    // Awaited, so a failure here fails the request like any other DB error.
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: signedIn },
+    });
+  }
 
-  return toUserResponse(updated, await flatLocationOf(updated.id));
+  return toUserResponse(user, await flatLocationOf(user.id));
 }
 
 /**
