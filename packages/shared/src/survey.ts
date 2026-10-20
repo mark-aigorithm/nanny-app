@@ -138,8 +138,25 @@ export const AdminSurveySchema = AdminSurveySummarySchema.extend({
 });
 export type AdminSurvey = z.infer<typeof AdminSurveySchema>;
 
+/** Every column of the console's survey list sorts; the counts are aggregates sorted before paging. */
+export const ADMIN_SURVEY_SORT_KEYS = [
+  'id',
+  'title',
+  'status',
+  'recipients',
+  'answered',
+  'skipped',
+  'pending',
+  'responseRate',
+  'createdAt',
+] as const;
+export const AdminSurveySortKeySchema = z.enum(ADMIN_SURVEY_SORT_KEYS);
+export type AdminSurveySortKey = z.infer<typeof AdminSurveySortKeySchema>;
+
 export const AdminSurveyListQuerySchema = AdminListQuerySchema.extend({
   status: SurveyStatusSchema.optional().catch(undefined),
+  sortBy: AdminSurveySortKeySchema.catch('createdAt').default('createdAt'),
+  sortDir: AdminSortDirSchema.catch('desc').default('desc'),
 });
 export type AdminSurveyListQuery = z.infer<typeof AdminSurveyListQuerySchema>;
 

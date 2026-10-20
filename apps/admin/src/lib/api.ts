@@ -3,6 +3,7 @@ import type {
   AdminSurveyRecipient,
   AdminSurveyRecipientAnswers,
   AdminSurveyRecipientSortKey,
+  AdminSurveySortKey,
   AdminSurveySummary,
   AdminSortDir,
   MotherPickerRow,
@@ -375,6 +376,8 @@ export async function fetchSurveys(params: {
   status?: SurveyStatus;
   page: number;
   limit: number;
+  sortBy: AdminSurveySortKey;
+  sortDir: AdminSortDir;
 }): Promise<Paged<AdminSurveySummary[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminSurveySummary[]>>('/admin/surveys', { params });
   return { data: res.data.data, meta: res.data.meta };

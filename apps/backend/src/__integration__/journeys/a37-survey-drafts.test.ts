@@ -6,10 +6,11 @@
 import request from 'supertest';
 
 import { app } from '@backend/app';
+import { prisma } from '@backend/db/prisma';
 
 import { authHeader } from '../../../test/auth';
-import { makeAdmin } from '../../../test/factories';
-import { SAMPLE_DRAFT, createDraft } from '../../../test/journeys/survey';
+import { makeAdmin, makeMother } from '../../../test/factories';
+import { SAMPLE_DRAFT, createDraft, publish } from '../../../test/journeys/survey';
 
 describe('A37 — survey drafts', () => {
   it('creates a draft with ordered questions and options', async () => {
@@ -56,6 +57,34 @@ describe('A37 — survey drafts', () => {
 
     expect((await request(app).delete(`/admin/surveys/${survey.id}`).set(...authHeader(admin.token))).status).toBe(200);
     expect((await request(app).get(`/admin/surveys/${survey.id}`).set(...authHeader(admin.token))).status).toBe(404);
+  });
+
+  it('sorts the list on the server, including by sent-to and response rate', async () => {
+    const admin = await makeAdmin();
+    const [a, b, c] = [await makeMother(), await makeMother(), await makeMother()];
+    const zebra = await createDraft(admin.token, { ...SAMPLE_DRAFT, title: 'Zebra' });
+    const apple = await createDraft(admin.token, { ...SAMPLE_DRAFT, title: 'apple' });
+    const mango = await createDraft(admin.token, { ...SAMPLE_DRAFT, title: 'Mango' });
+    await publish(admin.token, apple.id, { userIds: [a.id] });
+    await publish(admin.token, mango.id, { userIds: [a.id, b.id, c.id] });
+    // Apple's one mother answered (100%); nobody answered Mango (0%).
+    await prisma.surveyRecipient.updateMany({ where: { surveyId: apple.id }, data: { status: 'ANSWERED', answeredAt: new Date() } });
+
+    const ids = async (query: Record<string, string>) => {
+      const res = await request(app).get('/admin/surveys').query(query).set(...authHeader(admin.token));
+      expect(res.status).toBe(200);
+      return (res.body.data as { id: number }[]).map((s) => s.id);
+    };
+    // Default: newest first.
+    expect(await ids({})).toEqual([mango.id, apple.id, zebra.id]);
+    // Case-blind title order.
+    expect(await ids({ sortBy: 'title', sortDir: 'asc' })).toEqual([apple.id, mango.id, zebra.id]);
+    // An aggregate, ordered before paging: page 1 of 1 holds the biggest send.
+    expect(await ids({ sortBy: 'recipients', sortDir: 'desc', limit: '1' })).toEqual([mango.id]);
+    // A draft has no rate and goes last either way.
+    expect(await ids({ sortBy: 'responseRate', sortDir: 'desc' })).toEqual([apple.id, mango.id, zebra.id]);
+    expect(await ids({ sortBy: 'responseRate', sortDir: 'asc' })).toEqual([mango.id, apple.id, zebra.id]);
+    expect(await ids({ sortBy: 'id', sortDir: 'asc' })).toEqual([zebra.id, apple.id, mango.id]);
   });
 
   it('duplicates into a new draft with the same questions', async () => {

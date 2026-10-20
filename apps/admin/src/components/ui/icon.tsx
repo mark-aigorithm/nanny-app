@@ -44,6 +44,7 @@ export {
   Trash2,
   Power,
   Eye,
+  Lock,
   Tags,
   Plus,
   // Feedback

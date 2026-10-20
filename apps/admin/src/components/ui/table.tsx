@@ -1,4 +1,4 @@
-import { Fragment, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Card } from './card';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from './icon';
@@ -16,6 +16,11 @@ export type Column<T, K extends string = string> = {
   width?: string;
   /** Keep the cell on one line (useful in the wrapping variant). */
   nowrap?: boolean;
+  /**
+   * Extra class on the column's header and cells, e.g. `col-wide-only` to
+   * drop a secondary column on narrow screens or `col-title` for a min width.
+   */
+  className?: string;
   /**
    * Makes the header clickable to sort by this key (needs the table's `sort`
    * and `onSortChange`). The first click sorts `sortFirst` — 'desc' suits
@@ -87,6 +92,8 @@ export function Table<T, K extends string = string>({
   sort,
   onSortChange,
 }: TableProps<T, K>) {
+  const overflow = useOverflowRight();
+
   if (rows.length === 0) {
     return (
       <Card>
@@ -111,7 +118,9 @@ export function Table<T, K extends string = string>({
 
   return (
     <Card flush>
-      <div className="table-wrap">
+      {/* The fade on the right edge says "more columns this way" while it overflows. */}
+      <div className={`table-scroll${overflow.more ? ' table-scroll--more' : ''}`}>
+      <div className="table-wrap" ref={overflow.ref}>
         <table
           className={`table${wrap ? ' table--full' : ''}${clickable ? ' table--clickable' : ''}`}
         >
@@ -142,7 +151,7 @@ export function Table<T, K extends string = string>({
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className={column.nowrap ? 'cell-nowrap' : undefined}
+                        className={[column.nowrap && 'cell-nowrap', column.className].filter(Boolean).join(' ') || undefined}
                         style={column.align ? { textAlign: column.align } : undefined}
                       >
                         {column.render(row)}
@@ -160,8 +169,33 @@ export function Table<T, K extends string = string>({
           </tbody>
         </table>
       </div>
+      </div>
     </Card>
   );
+}
+
+/**
+ * Whether a horizontally scrolling element has more content off its right
+ * edge. Re-checked on scroll and resize; false where ResizeObserver is missing.
+ */
+function useOverflowRight() {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    check();
+    const observer = new ResizeObserver(check);
+    // The wrapper for viewport changes, the table for content changes.
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    el.addEventListener('scroll', check, { passive: true });
+    return () => {
+      observer.disconnect();
+      el.removeEventListener('scroll', check);
+    };
+  }, [el]);
+  return { ref: setEl, more };
 }
 
 /**
@@ -214,7 +248,11 @@ function HeaderCell<T, K extends string>({ column, sort, onSortChange }: HeaderC
       : undefined;
   const { sortKey } = column;
   if (sortKey === undefined || !onSortChange) {
-    return <th style={style}>{column.header}</th>;
+    return (
+      <th style={style} className={column.className}>
+        {column.header}
+      </th>
+    );
   }
 
   const direction = sort?.sortBy === sortKey ? sort.sortDir : undefined;
@@ -225,6 +263,7 @@ function HeaderCell<T, K extends string>({ column, sort, onSortChange }: HeaderC
   return (
     <th
       style={style}
+      className={column.className}
       aria-sort={direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none'}
     >
       <button

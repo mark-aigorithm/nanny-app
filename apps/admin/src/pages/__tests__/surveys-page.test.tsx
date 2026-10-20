@@ -3,7 +3,7 @@
  * creates an empty draft and opens it.
  */
 import type { AdminSurvey, AdminSurveySummary, AdminUser } from '@nanny-app/shared';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -68,5 +68,58 @@ describe('SurveysPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /new survey/i }));
     await waitFor(() => expect(body).toEqual({ title: 'Untitled survey', questions: [] }));
     expect(await screen.findByText('editor open')).toBeInTheDocument();
+  });
+
+  it('sorts on the server from any count column header', async () => {
+    const queries: Record<string, string>[] = [];
+    server.use(
+      http.get('/api/admin/surveys', ({ request }) => {
+        queries.push(Object.fromEntries(new URL(request.url).searchParams));
+        return paged([SURVEY]);
+      }),
+    );
+    renderPage();
+    await screen.findByText('How are we doing?');
+    expect(queries[0]).toMatchObject({ sortBy: 'createdAt', sortDir: 'desc' });
+    for (const header of ['ID', 'Title', 'Status', 'Sent to', 'Answered', 'Skipped', 'No response', 'Response rate', 'Created']) {
+      expect(within(screen.getByRole('columnheader', { name: header })).getByRole('button')).toBeInTheDocument();
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Response rate' }));
+    await waitFor(() => expect(queries.at(-1)).toMatchObject({ sortBy: 'responseRate', sortDir: 'desc' }));
+  });
+
+  it('closes a published survey from its row menu, after confirming', async () => {
+    let closed = false;
+    server.use(
+      http.get('/api/admin/surveys', () => paged([SURVEY])),
+      http.post('/api/admin/surveys/4/close', () => {
+        closed = true;
+        return ok({ ...SURVEY, status: 'CLOSED', description: null, questions: [] });
+      }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for How are we doing?' }));
+    const menu = screen.getByRole('menu');
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Open', 'Duplicate', 'Close survey']);
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Close survey' }));
+    expect(closed).toBe(false);
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close survey' }));
+    await waitFor(() => expect(closed).toBe(true));
+  });
+
+  it('offers Delete draft, not Close, on a draft row', async () => {
+    let deleted = false;
+    server.use(
+      http.get('/api/admin/surveys', () => paged([{ ...SURVEY, id: 5, title: 'Draft one', status: 'DRAFT' as const }])),
+      http.delete('/api/admin/surveys/5', () => {
+        deleted = true;
+        return ok(null);
+      }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Draft one' }));
+    await userEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Delete draft' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete draft' }));
+    await waitFor(() => expect(deleted).toBe(true));
   });
 });

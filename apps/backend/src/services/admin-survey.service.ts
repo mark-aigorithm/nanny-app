@@ -1,8 +1,9 @@
-import { type Prisma, SurveyRecipientStatus, SurveyStatus } from '@prisma/client';
+import { Prisma, SurveyRecipientStatus, SurveyStatus } from '@prisma/client';
 
 import type {
   AdminSurvey,
   AdminSurveyListQuery,
+  AdminSurveySortKey,
   AdminSurveySummary,
   PaginationMeta,
   SurveyCounts,
@@ -113,22 +114,56 @@ async function guardStatus(
   if (count === 0) throw errors.conflict(conflict);
 }
 
+// The counts columns are aggregates, so ordering by them has to happen in the
+// database before LIMIT/OFFSET (sorting one fetched page would order only that
+// page). They mirror `countedRecipient` and `surveyCounts`.
+const SURVEY_ORDER_BY: Record<AdminSurveySortKey, Prisma.Sql> = {
+  id: Prisma.sql`s.id`,
+  title: Prisma.sql`lower(s.title)`,
+  status: Prisma.sql`s.status`,
+  recipients: Prisma.sql`coalesce(c.recipients, 0)`,
+  answered: Prisma.sql`coalesce(c.answered, 0)`,
+  skipped: Prisma.sql`coalesce(c.skipped, 0)`,
+  pending: Prisma.sql`coalesce(c.pending, 0)`,
+  // NULL for a survey sent to nobody, which NULLS LAST keeps at the bottom.
+  responseRate: Prisma.sql`c.answered::float / nullif(c.recipients, 0)`,
+  createdAt: Prisma.sql`s.created_at`,
+};
+
 export async function listAdminSurveys(
   q: AdminSurveyListQuery,
 ): Promise<{ surveys: AdminSurveySummary[]; meta: PaginationMeta }> {
   const where = { deletedAt: null, ...(q.status ? { status: q.status } : {}) };
-  const [total, rows] = await prisma.$transaction([
+  const statusFilter = q.status ? Prisma.sql`AND s.status::text = ${q.status}` : Prisma.empty;
+  const dir = q.sortDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  const [total, ordered] = await Promise.all([
     prisma.survey.count({ where }),
-    prisma.survey.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (q.page - 1) * q.limit,
-      take: q.limit,
-    }),
+    prisma.$queryRaw<{ id: number }[]>`
+      SELECT s.id
+      FROM surveys s
+      LEFT JOIN (
+        SELECT r.survey_id,
+               count(*) AS recipients,
+               count(*) FILTER (WHERE r.status = 'ANSWERED') AS answered,
+               count(*) FILTER (WHERE r.status = 'SKIPPED') AS skipped,
+               count(*) FILTER (WHERE r.status = 'PENDING') AS pending
+        FROM survey_recipients r JOIN users u ON u.id = r.user_id
+        WHERE r.deleted_at IS NULL AND (r.status = 'ANSWERED' OR u.deleted_at IS NULL)
+        GROUP BY r.survey_id
+      ) c ON c.survey_id = s.id
+      WHERE s.deleted_at IS NULL ${statusFilter}
+      ORDER BY ${SURVEY_ORDER_BY[q.sortBy]} ${dir} NULLS LAST, s.id DESC
+      LIMIT ${q.limit} OFFSET ${(q.page - 1) * q.limit}`,
   ]);
-  const counts = await surveyCounts(rows.map((r) => r.id));
+  const ids = ordered.map((r) => r.id);
+  const rows = await prisma.survey.findMany({ where: { id: { in: ids } } });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const counts = await surveyCounts(ids);
   return {
-    surveys: rows.map((r) => toSummary(r, counts.get(r.id))),
+    surveys: ids.flatMap((id) => {
+      const row = byId.get(id);
+      return row ? [toSummary(row, counts.get(id))] : [];
+    }),
     meta: { page: q.page, limit: q.limit, total, totalPages: Math.max(1, Math.ceil(total / q.limit)) },
   };
 }

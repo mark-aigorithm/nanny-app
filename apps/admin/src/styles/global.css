@@ -449,6 +449,41 @@ input[type='number'] {
   overflow-x: auto;
 }
 
+/* Holds the fade below; Table adds --more while columns are hidden off the right edge. */
+.table-scroll {
+  position: relative;
+}
+
+.table-scroll--more::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2.5rem;
+  pointer-events: none;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: linear-gradient(to right, transparent, var(--color-surface));
+}
+
+/* A record's name column: never squeezed into a one-word-per-line ribbon. */
+.col-title {
+  min-width: 14rem;
+}
+
+/* A short number under a two-word header ("No response"): the header may wrap
+   so a row of counts doesn't push the row actions off the right edge. */
+.table th.col-count {
+  white-space: normal;
+}
+
+/* Secondary columns (shown elsewhere too) that make way on narrow screens. */
+@media (max-width: 900px) {
+  .col-wide-only {
+    display: none;
+  }
+}
+
 /* SLA row highlighting — pending bookings past the warning/critical age. */
 .table-row--warning td {
   background: var(--color-warning-light);
