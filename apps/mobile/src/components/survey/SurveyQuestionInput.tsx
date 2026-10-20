@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { SurveyAnswerInput, SurveyQuestion } from '@nanny-app/shared';
 import { SURVEY_TEXT_ANSWER_MAX } from '@nanny-app/shared';
 
-import { PressableScale } from '@mobile/components/ui';
+import { PressableScale, StarRatingInput } from '@mobile/components/ui';
 import { Text, TextInput } from '@mobile/components/ui/text';
 import { borderRadius, colors, fontFamily, spacing, typeScale } from '@mobile/theme';
 
@@ -25,6 +25,16 @@ function Choice({
   role: 'radio' | 'checkbox';
   onPress: () => void;
 }) {
+  // The glyph shows sighted users whether they may pick one or several; the
+  // role already says so to a screen reader, so the glyph is hidden from it.
+  const glyph =
+    role === 'checkbox'
+      ? selected
+        ? 'checkbox'
+        : 'square-outline'
+      : selected
+        ? 'radio-button-on'
+        : 'radio-button-off';
   return (
     <PressableScale
       haptic="select"
@@ -34,6 +44,9 @@ function Choice({
       onPress={onPress}
       style={[styles.choice, selected && styles.choiceSelected]}
     >
+      <View importantForAccessibility="no" accessibilityElementsHidden>
+        <Ionicons name={glyph} size={22} color={selected ? colors.primaryDark : colors.textMuted} />
+      </View>
       <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text>
     </PressableScale>
   );
@@ -52,13 +65,13 @@ export default function SurveyQuestionInput({ question, answer, onChange }: Prop
           value={answer?.text ?? ''}
           onChangeText={(text) => onChange(text ? { questionId: id, text } : undefined)}
           placeholder="Type your answer"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textPlaceholder}
           style={styles.text}
         />
       );
     case 'YES_NO':
       return (
-        <View style={styles.row} accessibilityRole="radiogroup">
+        <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel={question.prompt}>
           {[true, false].map((value) => (
             <Choice
               key={String(value)}
@@ -70,40 +83,15 @@ export default function SurveyQuestionInput({ question, answer, onChange }: Prop
           ))}
         </View>
       );
-    case 'RATING': {
-      const rating = answer?.rating ?? 0;
+    case 'RATING':
       return (
-        <View
-          style={styles.row}
-          accessibilityRole="radiogroup"
+        <StarRatingInput
+          align="start"
           accessibilityLabel={question.prompt}
-          accessibilityValue={
-            rating > 0
-              ? { min: 1, max: 5, now: rating, text: `${rating} of 5 stars` }
-              : { min: 1, max: 5, text: 'Not rated' }
-          }
-        >
-          {[1, 2, 3, 4, 5].map((n) => (
-            <PressableScale
-              key={n}
-              haptic="select"
-              accessibilityRole="radio"
-              accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`}
-              accessibilityState={{ checked: rating === n }}
-              hitSlop={4}
-              onPress={() => onChange({ questionId: id, rating: n })}
-              style={styles.star}
-            >
-              <Ionicons
-                name={n <= rating ? 'star' : 'star-outline'}
-                size={36}
-                color={n <= rating ? colors.gold : colors.taupe}
-              />
-            </PressableScale>
-          ))}
-        </View>
+          rating={answer?.rating ?? 0}
+          onChange={(rating) => onChange({ questionId: id, rating })}
+        />
       );
-    }
     case 'SINGLE_CHOICE':
     case 'MULTI_CHOICE': {
       const multi = question.type === 'MULTI_CHOICE';
@@ -117,7 +105,12 @@ export default function SurveyQuestionInput({ question, answer, onChange }: Prop
         onChange(next.length ? { questionId: id, optionIds: next } : undefined);
       };
       return (
-        <View style={styles.column} accessibilityRole={multi ? undefined : 'radiogroup'}>
+        <View
+          style={styles.column}
+          accessibilityRole={multi ? undefined : 'radiogroup'}
+          accessibilityLabel={question.prompt}
+        >
+          {multi ? <Text style={styles.helper}>Choose all that apply</Text> : null}
           {question.options.map((o) => (
             <Choice
               key={o.id}
@@ -137,26 +130,30 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   column: { gap: spacing.sm },
   choice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     minHeight: 48,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
-    borderColor: colors.warmBorder,
+    // 4.1:1 on cream: an unpicked option reads as a control (warmBorder was 1.3:1).
+    borderColor: colors.textMuted,
     backgroundColor: colors.surface,
   },
   choiceSelected: { borderColor: colors.primaryDark, backgroundColor: colors.primaryMuted },
   choiceText: { ...typeScale.bodyLg, color: colors.textPrimary, flexShrink: 1 },
   // Picked reads stronger than unpicked, never paler (the UI sweep caught it looking disabled).
   choiceTextSelected: { color: colors.textPrimary, fontFamily: fontFamily.semiBold },
-  star: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  helper: { ...typeScale.bodyMd, color: colors.textSecondary },
   text: {
     ...typeScale.bodyLg,
     minHeight: 96,
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
-    borderColor: colors.warmBorder,
+    borderColor: colors.textMuted,
     backgroundColor: colors.surface,
     color: colors.textPrimary,
     padding: spacing.md,

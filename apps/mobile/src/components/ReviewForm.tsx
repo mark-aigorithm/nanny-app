@@ -4,9 +4,9 @@ import { Text, TextInput } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@mobile/theme';
+import { StarRatingInput } from '@mobile/components/ui';
 import { styles } from './styles/review-form.styles';
 
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
 const MAX_CHARS = 500;
 
 type ReviewFormProps = {
@@ -27,7 +27,8 @@ type ReviewFormProps = {
  * consumer owns the booking/rating state, scroll container, and header.
  *
  * The mandatory prompt after a booking completes is a different component
- * (`RatingPromptSheet`) with its own layout; the two share `StarRatingInput`.
+ * (`RatingPromptSheet`) with its own layout; the two share `StarRatingInput`
+ * (and so does the survey's rating question).
  */
 export default function ReviewForm({
   nannyName,
@@ -53,20 +54,7 @@ export default function ReviewForm({
         <Text style={styles.nannyName}>{nannyName}</Text>
       </View>
 
-      <View style={styles.starsSection}>
-        <View style={styles.starsRow}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Pressable key={star} style={styles.starButton} onPress={() => onRate(star)}>
-              <Ionicons
-                name={star <= rating ? 'star' : 'star-outline'}
-                size={36}
-                color={star <= rating ? colors.gold : colors.taupe}
-              />
-            </Pressable>
-          ))}
-        </View>
-        {rating > 0 ? <Text style={styles.ratingLabel}>{RATING_LABELS[rating]}</Text> : null}
-      </View>
+      <StarRatingInput rating={rating} onChange={onRate} />
 
       <View style={styles.reviewSection}>
         <Text style={styles.reviewLabel}>Your review</Text>

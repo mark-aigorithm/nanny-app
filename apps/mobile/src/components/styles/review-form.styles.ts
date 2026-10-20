@@ -34,23 +34,6 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
-  // Star rating
-  starsSection: {
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  starsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  starButton: {
-    padding: spacing.xs,
-  },
-  ratingLabel: {
-    ...typeScale.labelMd,
-    color: colors.primary,
-  },
-
   // Review text
   reviewSection: {
     gap: spacing.sm,
