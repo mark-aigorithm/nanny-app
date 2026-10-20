@@ -21,6 +21,7 @@ import { PricingFeesPage } from './pages/pricing-fees-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { CampaignsPage } from './pages/campaigns-page';
 import { NotificationsPage } from './pages/notifications-page';
+import { NotificationTemplatePage } from './pages/notification-template-page';
 import { RewardsPage } from './pages/rewards-page';
 import { AppReleasesPage } from './pages/app-releases-page';
 import { SettingsPage } from './pages/settings-page';
@@ -167,6 +168,14 @@ function AppRoutes() {
             element={
               <Guarded section="notifications">
                 <NotificationsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="notifications/:id"
+            element={
+              <Guarded section="notifications">
+                <NotificationTemplatePage />
               </Guarded>
             }
           />

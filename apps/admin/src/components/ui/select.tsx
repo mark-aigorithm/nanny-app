@@ -17,6 +17,8 @@ type SelectProps<V extends string | number = string> = {
   title?: string;
   id?: string;
   'aria-label'?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
 };
 
 /**
@@ -35,6 +37,8 @@ export function Select<V extends string | number = string>({
   title,
   id,
   'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
 }: SelectProps<V>) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -74,6 +78,8 @@ export function Select<V extends string | number = string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         title={title}
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}

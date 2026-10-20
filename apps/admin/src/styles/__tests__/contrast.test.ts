@@ -51,4 +51,8 @@ describe('colour contrast (WCAG AA, 4.5:1 for normal-size text)', () => {
       expect(contrast(token('--color-text-muted'), token(surface))).toBeGreaterThanOrEqual(4.5);
     },
   );
+
+  it('the near-limit character counter is readable on a card', () => {
+    expect(contrast(token(ruleVar('.char-counter--warn', 'color')), token('--color-surface'))).toBeGreaterThanOrEqual(4.5);
+  });
 });
