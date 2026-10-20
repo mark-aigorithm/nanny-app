@@ -19,7 +19,7 @@ import {
 
 import { PressableScale } from '@mobile/components/ui';
 import { useActiveCampaigns, useTrackClick, useTrackImpression } from '@mobile/hooks/useCampaigns';
-import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
+import { campaignLink, openPromoLink } from '@mobile/lib/openPromoLink';
 import { screenPadding } from '@mobile/theme';
 import { CARD_GAP, styles } from './styles/campaign-carousel.styles';
 
@@ -37,7 +37,6 @@ export default function CampaignCarousel() {
   const { data: campaigns } = useActiveCampaigns();
   const trackImpression = useTrackImpression();
   const trackClick = useTrackClick();
-  const setPendingPromoCode = usePendingPromoStore((s) => s.setPendingPromoCode);
   const seen = useRef<Set<number>>(new Set());
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -54,19 +53,10 @@ export default function CampaignCarousel() {
   const handlePress = useCallback(
     (campaign: PublicCampaign) => {
       trackClick.mutate(campaign.id);
-      if (campaign.targetType === 'PACKAGE' && campaign.packageId != null) {
-        router.push({
-          pathname: '/(parent)/packages/checkout',
-          params: { packageId: String(campaign.packageId) },
-        } as never);
-        return;
-      }
-      if (campaign.targetType === 'PROMO_CODE' && campaign.promoCode) {
-        setPendingPromoCode(campaign.promoCode);
-        router.push('/(parent)/book/booking-date-picker' as never);
-      }
+      const link = campaignLink(campaign);
+      if (link) openPromoLink(router, link);
     },
-    [router, setPendingPromoCode, trackClick],
+    [router, trackClick],
   );
 
   const count = campaigns?.length ?? 0;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -92,11 +92,15 @@ export default function BookingStep1Screen() {
   const pendingPromoCode = usePendingPromoStore((s) => s.pendingPromoCode);
   const clearPendingPromo = usePendingPromoStore((s) => s.clear);
 
-  // A campaign tap can hand a code to the booking flow. Prefill it once, then
-  // clear it so it never rides along into a future, unrelated booking.
+  // A campaign banner or an announcement can hand a code to the booking flow.
+  // Read it once on mount and clear it so it never rides along into a later,
+  // unrelated booking; it is applied below once the price it discounts exists.
+  const [autoApplyCode, setAutoApplyCode] = useState<string | null>(null);
+  const autoApplied = useRef(false);
   useEffect(() => {
     if (pendingPromoCode) {
       setPromoCode(pendingPromoCode);
+      setAutoApplyCode(pendingPromoCode);
       clearPendingPromo();
     }
     // Run once on mount; the store is a one-shot handoff.
@@ -244,13 +248,17 @@ export default function BookingStep1Screen() {
     });
   };
 
-  const handleApplyPromo = () => {
-    const code = promoCode.trim();
-    if (code.length === 0) return;
+  const applyPromoCode = (code: string) => {
     validatePromo.mutate(
       { code, subtotal: breakdown?.subtotal ?? baseCost },
       { onSuccess: (res) => setAppliedPromo({ code, discountAmount: res.discountAmount }) },
     );
+  };
+
+  const handleApplyPromo = () => {
+    const code = promoCode.trim();
+    if (code.length === 0) return;
+    applyPromoCode(code);
   };
 
   const handleRemovePromo = () => {
@@ -258,6 +266,27 @@ export default function BookingStep1Screen() {
     setPromoCode('');
     validatePromo.reset();
   };
+
+  // Editing a refused code is her answer to the error, so the error goes.
+  const handlePromoCodeChange = (text: string) => {
+    setPromoCode(text);
+    if (validatePromo.isError) validatePromo.reset();
+  };
+
+  // The handed-over code is validated exactly once, as soon as the breakdown
+  // (the subtotal it is checked against) exists. Success shows the usual applied
+  // chip; a refusal shows the usual inline error with the code left in the
+  // field — she can edit or clear it, and the request goes ahead without it.
+  // The ref, not the state, is the once-guard: it also holds under StrictMode's
+  // double-run effects.
+  const breakdownReady = breakdown !== null;
+  useEffect(() => {
+    if (!autoApplyCode || !breakdownReady || autoApplied.current) return;
+    autoApplied.current = true;
+    applyPromoCode(autoApplyCode.trim());
+    // applyPromoCode is recreated every render; the guard makes this run once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoApplyCode, breakdownReady]);
 
   /**
    * Submits the request from here and goes straight to the matching screen.
@@ -418,7 +447,7 @@ export default function BookingStep1Screen() {
                 placeholder="Enter code"
                 placeholderTextColor={colors.textPlaceholder}
                 value={promoCode}
-                onChangeText={setPromoCode}
+                onChangeText={handlePromoCodeChange}
                 autoCapitalize="characters"
               />
               <TouchableOpacity

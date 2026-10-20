@@ -86,4 +86,15 @@ describe('CampaignCarousel', () => {
       params: { packageId: '7' },
     });
   });
+
+  it('only counts the click when a promo banner has lost its code', () => {
+    mockCampaigns = [{ ...WELCOME, promoCode: null }];
+    const { getByLabelText } = render(<CampaignCarousel />);
+
+    fireEvent.press(getByLabelText('Welcome offer. 20% off your first booking'));
+
+    expect(mockClick).toHaveBeenCalledWith(1);
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(usePendingPromoStore.getState().pendingPromoCode).toBeNull();
+  });
 });

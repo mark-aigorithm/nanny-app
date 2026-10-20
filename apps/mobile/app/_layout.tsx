@@ -31,6 +31,7 @@ import { isAuthEmulator } from '@mobile/lib/socialAuth';
 import { useAuthStore } from '@mobile/store/authStore';
 import { useGuestStore } from '@mobile/store/guestStore';
 import { useMe } from '@mobile/hooks/useMe';
+import { useAppOpenPing } from '@mobile/hooks/useAppOpenPing';
 import { usePushNotifications } from '@mobile/hooks/usePushNotifications';
 
 SplashScreen.preventAutoHideAsync();
@@ -44,12 +45,14 @@ bindFocusManager(subscribeAppActive);
 
 /**
  * Side-effect-only component that fetches the application user profile
- * from the backend whenever a Firebase user is signed in. Lives inside
+ * from the backend whenever a Firebase user is signed in, and records app
+ * opens (`useAppOpenPing`). Lives inside
  * QueryClientProvider so it can use React Query.
  */
 function ProfileLoader() {
   useMe();
   usePushNotifications();
+  useAppOpenPing();
   return null;
 }
 

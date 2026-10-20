@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Router is the only per-file mock this screen needs — firebase, the API layer,
@@ -16,6 +16,7 @@ jest.mock('expo-router', () => ({
 
 import { api } from '@mobile/lib/api';
 import BookingStep1Screen from '@mobile/screens/parent/BookingStep1Screen';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 
 // Deliberately plain fixtures — EGP 100/h flat, no duration tiers, no extra-child
 // fee, no add-ons — so every total below can be checked by hand.
@@ -71,14 +72,16 @@ function packageBucket(hoursRemaining: number) {
   };
 }
 
-function renderScreen({ pointsBalance = 200, packageHoursLeft = 0 } = {}) {
+function renderScreen({ pointsBalance = 200, packageHoursLeft = 0, seedPricing = true } = {}) {
   const queryClient = new QueryClient({
     // staleTime Infinity keeps the seeded cache from refetching, so nothing
     // hits the (globally mocked) API — the screen renders straight from these
     // fixtures, exactly like the preview harness.
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
-  queryClient.setQueryData(['pricing-config'], PRICING);
+  // Left out to test what happens before the price is known: the screen's own
+  // fetch then fails against the global API stub, and a test seeds it later.
+  if (seedPricing) queryClient.setQueryData(['pricing-config'], PRICING);
   queryClient.setQueryData(['rewards', 'config'], REWARD_CONFIG);
   queryClient.setQueryData(['rewards', 'wallet'], {
     userId: 1,
@@ -91,11 +94,14 @@ function renderScreen({ pointsBalance = 200, packageHoursLeft = 0 } = {}) {
     buckets: packageHoursLeft > 0 ? [packageBucket(packageHoursLeft)] : [],
   });
   queryClient.setQueryData(['packages', 'list'], []);
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <BookingStep1Screen />
-    </QueryClientProvider>,
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <BookingStep1Screen />
+      </QueryClientProvider>,
+    ),
+    queryClient,
+  };
 }
 
 beforeEach(() => {
@@ -267,5 +273,85 @@ describe('BookingStep1Screen — prepaid package used first', () => {
 
     getByText('You’re saving');
     getByText('2h from your package');
+  });
+});
+
+describe('BookingStep1Screen — a code handed over by a campaign or announcement', () => {
+  const VALIDATE = '/bookings/validate-promo';
+  const validateCalls = () =>
+    (api.post as jest.Mock).mock.calls.filter(([url]) => url === VALIDATE);
+
+  /** The promo check answers with `envelope`; creating the booking succeeds as #9. */
+  function answerValidate(envelope: { data: unknown; error: string | null }) {
+    (api.post as jest.Mock).mockImplementation((url: string) =>
+      Promise.resolve(
+        url === VALIDATE ? { data: envelope } : { data: { data: { id: 9 }, error: null } },
+      ),
+    );
+  }
+
+  beforeEach(() => usePendingPromoStore.getState().setPendingPromoCode('WELCOME20'));
+
+  afterEach(() => {
+    usePendingPromoStore.getState().clear();
+    // Back to the global stub's default, so no implementation leaks into a later file.
+    (api.post as jest.Mock).mockReset().mockResolvedValue({ data: { data: null, error: null } });
+  });
+
+  it('applies the code once the price is ready, exactly once', async () => {
+    answerValidate({ data: { discountAmount: 20 }, error: null });
+    const { getByText } = renderScreen();
+
+    await waitFor(() => getByText(/WELCOME20.*EGP 20\.00 off/));
+    // 2h × EGP 100 before any discount.
+    expect(validateCalls()).toEqual([[VALIDATE, { code: 'WELCOME20', subtotal: 200 }]]);
+    getByText('Request care · EGP 180.00');
+    // A one-shot handoff: it never rides into a later booking.
+    expect(usePendingPromoStore.getState().pendingPromoCode).toBeNull();
+  });
+
+  it('waits for the price breakdown before applying', async () => {
+    answerValidate({ data: { discountAmount: 20 }, error: null });
+    const { getByText, queryClient } = renderScreen({ seedPricing: false });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(validateCalls()).toHaveLength(0);
+
+    act(() => {
+      queryClient.setQueryData(['pricing-config'], PRICING);
+    });
+    await waitFor(() => getByText(/WELCOME20.*EGP 20\.00 off/));
+    expect(validateCalls()).toHaveLength(1);
+  });
+
+  it('an invalid pending code shows the error and booking still proceeds', async () => {
+    answerValidate({ data: null, error: 'This promo code has expired.' });
+    const { getByText, getByTestId } = renderScreen();
+
+    await waitFor(() => getByText('This promo code has expired.'));
+    // The code stays where she can see what was refused.
+    expect(getByTestId('booking.promoInput').props.value).toBe('WELCOME20');
+    // Nothing was taken off, and nothing blocks the request.
+    fireEvent.press(getByText('Request care · EGP 200.00'));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/bookings', expect.any(Object)),
+    );
+    const body = (api.post as jest.Mock).mock.calls.find(([url]) => url === '/bookings')![1];
+    expect(body).not.toHaveProperty('promoCode');
+    expect(validateCalls()).toHaveLength(1);
+  });
+
+  it('lets her remove a refused code, which clears the error', async () => {
+    answerValidate({ data: null, error: 'This promo code has expired.' });
+    const { getByText, getByTestId, queryByText } = renderScreen();
+
+    await waitFor(() => getByText('This promo code has expired.'));
+    fireEvent.changeText(getByTestId('booking.promoInput'), '');
+
+    expect(getByTestId('booking.promoInput').props.value).toBe('');
+    expect(queryByText('This promo code has expired.')).toBeNull();
   });
 });
