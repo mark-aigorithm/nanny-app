@@ -8,7 +8,7 @@ import {
   type AppRelease,
 } from '@nanny-app/shared';
 
-import { ConfirmDialog, Field, FormModal, Input, Select, Switch, useToast } from '@admin/components/ui';
+import { Field, FormModal, ICON_SIZE, Input, Select, Switch, TriangleAlert, useToast } from '@admin/components/ui';
 import { createAppRelease, updateAppRelease } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { firstIssueMessage } from '@admin/lib/form-errors';
@@ -29,8 +29,12 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
   const [mandatory, setMandatory] = useState(release?.mandatory ?? false);
   const [releaseNotes, setReleaseNotes] = useState(release?.releaseNotes ?? '');
   const [formError, setFormError] = useState<string | null>(null);
-  const [pendingSave, setPendingSave] = useState<(() => Promise<AppRelease>) | null>(null);
+  // Turning "mandatory" on blocks every older install, so the admin confirms
+  // in the form that the build is live before the save is allowed.
+  const [confirmedLive, setConfirmedLive] = useState(false);
   const mandatoryHintId = useId();
+  const becomesMandatory = mandatory && !release?.mandatory;
+  const platformLabel = PLATFORM_LABELS[release?.platform ?? platform];
 
   const saveMutation = useMutation({
     mutationFn: (save: () => Promise<AppRelease>) => save(),
@@ -39,10 +43,7 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
       toast.success(release ? 'Release updated' : 'Release added', `${PLATFORM_LABELS[saved.platform]} ${saved.version}`);
       onClose();
     },
-    onError: (err) => {
-      setPendingSave(null);
-      setFormError(apiErrorMessage(err));
-    },
+    onError: (err) => setFormError(apiErrorMessage(err)),
   });
 
   function submit() {
@@ -63,77 +64,86 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
       if (!parsed.success) return setFormError(firstIssueMessage(parsed.error));
       save = () => createAppRelease(parsed.data);
     }
-    // Turning "mandatory" on blocks every older install — make the admin confirm the build is live.
-    const becomesMandatory = mandatory && !release?.mandatory;
-    if (becomesMandatory) setPendingSave(() => save);
-    else saveMutation.mutate(save);
+    saveMutation.mutate(save);
   }
 
   return (
-    <>
-      <FormModal
-        title={release ? `Edit ${PLATFORM_LABELS[release.platform]} ${release.version}` : 'Add release'}
-        submitLabel={release ? 'Save changes' : 'Add release'}
-        size="sm"
-        busy={saveMutation.isPending}
-        submitDisabled={!release && version.trim() === ''}
-        error={formError}
-        onSubmit={submit}
-        onClose={onClose}
-      >
-        {!release && (
-          <>
-            <Field label="Platform">
-              <Select
-                value={platform}
-                options={[
-                  { value: 'ios', label: 'iOS' },
-                  { value: 'android', label: 'Android' },
-                ]}
-                onChange={(value) => setPlatform(value as AppPlatform)}
-              />
-            </Field>
-            <Field label="Version" hint="As shown in the store, e.g. 1.4.0.">
-              <Input
-                value={version}
-                autoFocus
-                onChange={(event) => setVersion(event.target.value)}
-                placeholder="1.4.0"
-              />
-            </Field>
-          </>
-        )}
-        {/* Not a Field: its <label> would wrap the switch's own label and hint into one name. */}
-        <div className="field">
-          <Switch checked={mandatory} onChange={setMandatory} label="Mandatory update" describedBy={mandatoryHintId} />
-          <span id={mandatoryHintId} className="field-hint">
-            {mandatory
-              ? 'On: users on any older version are blocked until they update.'
-              : 'Off: users on an older version get a prompt they can dismiss.'}
-          </span>
-        </div>
-        <Field label="Release notes" hint="Optional — shown in the app's update prompt.">
-          <textarea
-            className="input"
-            rows={3}
-            maxLength={1000}
-            value={releaseNotes}
-            placeholder="Chat with your nanny during a booking."
-            onChange={(event) => setReleaseNotes(event.target.value)}
-          />
-        </Field>
-      </FormModal>
-
-      {pendingSave && (
-        <ConfirmDialog
-          title="Make this release mandatory?"
-          message={`Only make this mandatory once this build is live on the ${PLATFORM_LABELS[release?.platform ?? platform]} store — otherwise users will be blocked with nothing to install.`}
-          confirmLabel="Make mandatory"
-          busy={saveMutation.isPending}
-          onConfirm={() => saveMutation.mutate(pendingSave)}
-          onCancel={() => setPendingSave(null)}
-        />
+    <FormModal
+      title={release ? `Edit ${PLATFORM_LABELS[release.platform]} ${release.version}` : 'Add release'}
+      submitLabel={release ? 'Save changes' : becomesMandatory ? 'Add mandatory release' : 'Add release'}
+      size="sm"
+      busy={saveMutation.isPending}
+      submitDisabled={(!release && version.trim() === '') || (becomesMandatory && !confirmedLive)}
+      error={formError}
+      onSubmit={submit}
+      onClose={onClose}
+    >
+      {!release && (
+        <>
+          <Field label="Platform">
+            <Select
+              value={platform}
+              options={[
+                { value: 'ios', label: 'iOS' },
+                { value: 'android', label: 'Android' },
+              ]}
+              onChange={(value) => setPlatform(value as AppPlatform)}
+            />
+          </Field>
+          <Field label="Version" hint="As shown in the store, e.g. 1.4.0.">
+            <Input
+              value={version}
+              autoFocus
+              onChange={(event) => setVersion(event.target.value)}
+              placeholder="1.4.0"
+            />
+          </Field>
+        </>
       )}
-    </>
+      {/* Not a Field: its <label> would wrap the switch's own label and hint into one name. */}
+      <div className="field">
+        <Switch
+          checked={mandatory}
+          onChange={(on) => {
+            setMandatory(on);
+            setConfirmedLive(false);
+          }}
+          label="Mandatory update"
+          describedBy={mandatoryHintId}
+        />
+        <span id={mandatoryHintId} className="field-hint">
+          {mandatory
+            ? 'On: users on any older version are blocked until they update.'
+            : 'Off: users on an older version get a prompt they can dismiss.'}
+        </span>
+      </div>
+      {becomesMandatory && (
+        <div className="mandatory-confirm" role="group" aria-label="Confirm the build is live">
+          <p className="mandatory-confirm-text">
+            <TriangleAlert size={ICON_SIZE.inline} aria-hidden />
+            Everyone on an older {platformLabel} version will be blocked. If this build isn&apos;t in
+            the store yet, they&apos;ll have nothing to install.
+          </p>
+          <label className="mandatory-confirm-check">
+            <input
+              type="checkbox"
+              checked={confirmedLive}
+              onChange={(event) => setConfirmedLive(event.target.checked)}
+            />
+            This build is live on the {platformLabel} store
+          </label>
+        </div>
+      )}
+      <Field label="Release notes" hint="Optional — shown in the app's update prompt.">
+        <textarea
+          className="input"
+          rows={3}
+          maxLength={1000}
+          value={releaseNotes}
+          placeholder="Chat with your nanny during a booking."
+          onChange={(event) => setReleaseNotes(event.target.value)}
+        />
+      </Field>
+    </FormModal>
   );
 }

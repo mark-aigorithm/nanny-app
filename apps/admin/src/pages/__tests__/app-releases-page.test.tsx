@@ -1,7 +1,7 @@
 /**
  * App Releases is the Certifications-style table over recorded mobile builds.
  * Pinned here: newest version first by semver (1.10.0 above 1.9.0), creating
- * a mandatory release asks for confirmation first, and the payload is right.
+ * a mandatory release asks, inline, that the build is live, and the payload is right.
  */
 import type { AdminUser, AppRelease } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -62,7 +62,7 @@ describe('AppReleasesPage', () => {
     expect(within(rows[1]!).getByText('1.9.0')).toBeInTheDocument();
   });
 
-  it('confirms before creating a mandatory release, then sends it', async () => {
+  it('asks, in the form itself, that the build is live before adding a mandatory release', async () => {
     let body: unknown;
     server.use(
       http.get('/api/admin/me', () => ok(ADMIN)),
@@ -75,12 +75,13 @@ describe('AppReleasesPage', () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: /add release/i }));
     await userEvent.type(screen.getByPlaceholderText('1.4.0'), '2.0.0');
-    await userEvent.click(screen.getByLabelText(/mandatory/i));
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add release$/i }));
+    await userEvent.click(screen.getByLabelText(/mandatory update/i));
 
-    expect(await screen.findByText(/only make this mandatory once/i)).toBeInTheDocument();
-    expect(body).toBeUndefined();
-    await userEvent.click(screen.getByRole('button', { name: /make mandatory/i }));
+    const submit = screen.getByRole('button', { name: 'Add mandatory release' });
+    expect(submit).toBeDisabled();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'This build is live on the iOS store' }));
+    await userEvent.click(submit);
 
     await waitFor(() =>
       expect(body).toEqual({ platform: 'ios', version: '2.0.0', mandatory: true }),
