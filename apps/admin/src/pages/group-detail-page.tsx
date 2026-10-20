@@ -39,6 +39,8 @@ export function GroupDetailPage() {
   const [memberSelection, setMemberSelection] = useState<Set<number>>(new Set());
   const [addSelection, setAddSelection] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -50,8 +52,8 @@ export function GroupDetailPage() {
 
   const add = useMutation({
     mutationFn: () => addUserGroupMembers(groupId, [...addSelection]),
-    // The picker lists current members too and adding is idempotent, so count
-    // what the server actually added.
+    // The picker leaves current members out, but another admin may have added
+    // one meanwhile (adding is idempotent), so count what the server added.
     onSuccess: (updated) => {
       const added = Math.max(0, updated.memberCount - (group.data?.memberCount ?? 0));
       toast.success(added === 0 ? 'They were already in the group' : `Added ${mothers(added)}`);
@@ -66,9 +68,13 @@ export function GroupDetailPage() {
     onSuccess: () => {
       toast.success(`Removed ${mothers(memberSelection.size)}`);
       setMemberSelection(new Set());
+      setRemoving(false);
       refresh();
     },
-    onError: (err) => toast.error('Couldn’t remove them', apiErrorMessage(err)),
+    onError: (err) => {
+      setRemoving(false);
+      toast.error('Couldn’t remove them', apiErrorMessage(err));
+    },
   });
   const del = useMutation({
     mutationFn: () => deleteUserGroup(groupId),
@@ -86,6 +92,14 @@ export function GroupDetailPage() {
   }
 
   const n = addSelection.size;
+  const closeAdd = () => {
+    setAddSelection(new Set());
+    setDiscarding(false);
+    setAdding(false);
+  };
+  // Ticks across pages are real work: ask before Escape or Close drops them.
+  const requestCloseAdd = () => (n === 0 ? closeAdd() : setDiscarding(true));
+  const m = memberSelection.size;
   return (
     <section>
       <DetailHeader
@@ -112,10 +126,11 @@ export function GroupDetailPage() {
           )
         }
       />
-      {canManage && memberSelection.size > 0 && (
+      {canManage && (
+        // Always rendered (disabled at 0) so the first tick doesn't push the table down.
         <div className="filter-bar">
-          <Button variant="danger" onClick={() => remove.mutate()} disabled={remove.isPending}>
-            Remove {memberSelection.size} from group
+          <Button variant="danger" onClick={() => setRemoving(true)} disabled={m === 0 || remove.isPending}>
+            {m === 0 ? 'Remove from group' : `Remove ${m} from group`}
           </Button>
         </div>
       )}
@@ -130,10 +145,11 @@ export function GroupDetailPage() {
         <Modal
           title="Add mothers"
           size="lg"
-          onClose={() => setAdding(false)}
+          onClose={requestCloseAdd}
+          dismissible={n === 0}
           footer={
             <>
-              <Button variant="ghost" onClick={() => setAdding(false)} disabled={add.isPending}>
+              <Button variant="ghost" onClick={requestCloseAdd} disabled={add.isPending}>
                 Cancel
               </Button>
               <Button onClick={() => add.mutate()} disabled={n === 0 || add.isPending}>
@@ -142,8 +158,30 @@ export function GroupDetailPage() {
             </>
           }
         >
-          <MotherPickerTable selected={addSelection} onSelectedChange={setAddSelection} />
+          <MotherPickerTable selected={addSelection} onSelectedChange={setAddSelection} excludeGroupId={groupId} />
+          {discarding && (
+            <ConfirmDialog
+              title="Discard your selection?"
+              message={`The ${mothers(n)} you ticked won’t be added.`}
+              confirmLabel="Discard"
+              cancelLabel="Keep picking"
+              danger
+              onConfirm={closeAdd}
+              onCancel={() => setDiscarding(false)}
+            />
+          )}
         </Modal>
+      )}
+      {removing && (
+        <ConfirmDialog
+          title={`Remove ${mothers(m)} from this group?`}
+          message="They stay in the app, and anything already sent to the group is not affected."
+          confirmLabel="Remove"
+          danger
+          busy={remove.isPending}
+          onConfirm={() => remove.mutate()}
+          onCancel={() => setRemoving(false)}
+        />
       )}
       {editing && <GroupFormModal group={group.data} onClose={() => setEditing(false)} />}
       {deleting && (

@@ -58,6 +58,11 @@ export async function listMotherPicker(
       WHERE m.user_id = u.id AND m.group_id = ${q.groupId}
         AND m.deleted_at IS NULL AND g.deleted_at IS NULL)`);
   }
+  if (q.excludeGroupId) {
+    conditions.push(Prisma.sql`NOT EXISTS (
+      SELECT 1 FROM user_group_members m
+      WHERE m.user_id = u.id AND m.group_id = ${q.excludeGroupId} AND m.deleted_at IS NULL)`);
+  }
   const where = Prisma.join(conditions, ' AND ');
   const dir = q.sortDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
   const offset = (q.page - 1) * q.limit;

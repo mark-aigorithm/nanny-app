@@ -508,6 +508,7 @@ export async function removeUserGroupMembers(id: number, userIds: number[]): Pro
 export async function fetchMotherPicker(params: {
   search?: string;
   groupId?: number;
+  excludeGroupId?: number;
   page: number;
   limit: number;
   sortBy: MotherPickerSortKey;

@@ -23,6 +23,7 @@ describe('MotherPickerQuerySchema', () => {
   it('defaults to newest sign-ups first and falls back on an unknown sort key', () => {
     expect(MotherPickerQuerySchema.parse({})).toMatchObject({ page: 1, sortBy: 'createdAt', sortDir: 'desc' });
     expect(MotherPickerQuerySchema.parse({ sortBy: 'nope', groupId: '4' })).toMatchObject({ sortBy: 'createdAt', groupId: 4 });
+    expect(MotherPickerQuerySchema.parse({ excludeGroupId: '7' })).toMatchObject({ excludeGroupId: 7 });
   });
 });
 

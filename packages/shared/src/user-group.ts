@@ -54,6 +54,8 @@ export const MotherPickerQuerySchema = AdminListQuerySchema.extend({
   search: z.string().trim().max(100).optional(),
   /** Only this group's members — the group detail page's member table. */
   groupId: z.coerce.number().int().positive().optional(),
+  /** Leave out this group's members — the group's own "Add mothers" picker. */
+  excludeGroupId: z.coerce.number().int().positive().optional(),
   sortBy: MotherPickerSortKeySchema.catch('createdAt').default('createdAt'),
   sortDir: AdminSortDirSchema.catch('desc').default('desc'),
 });

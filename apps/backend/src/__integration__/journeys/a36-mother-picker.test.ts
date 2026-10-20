@@ -45,7 +45,7 @@ describe('A36 — mother picker', () => {
     const admin = await makeAdmin();
     const nanny = await makeNanny();
     const amy = await makeMother({ firstName: 'Amy' });
-    await makeMother({ firstName: 'Bea' });
+    const bea = await makeMother({ firstName: 'Bea' });
     // Created last, so it has the highest id: only a real sort-before-paging puts it first.
     const top = await makeMother({ firstName: 'Zed' });
     await makeBooking({ motherId: top.id, nannyProfileId: nanny.nannyProfileId, status: 'COMPLETED' });
@@ -71,6 +71,10 @@ describe('A36 — mother picker', () => {
       .send({ userIds: [top.id] });
     const inGroup = await pick(admin.token, { groupId: group.body.data.id });
     expect(inGroup.map((r) => r.id)).toEqual([top.id]);
+
+    // The group's "Add mothers" picker lists only mothers who aren't members yet.
+    const notInGroup = await pick(admin.token, { excludeGroupId: group.body.data.id, sortBy: 'name', sortDir: 'asc' });
+    expect(notInGroup.map((r) => r.id)).toEqual([amy.id, bea.id]);
   });
 });
 

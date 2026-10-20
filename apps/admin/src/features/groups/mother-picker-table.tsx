@@ -26,6 +26,8 @@ type MotherPickerTableProps = {
   onSelectedChange: (next: Set<number>) => void;
   /** List only this group's members. */
   groupId?: number;
+  /** Leave out this group's members (the group's own "Add mothers" picker). */
+  excludeGroupId?: number;
   /** False for a read-only list: no checkboxes, and a row click ticks nothing. */
   selectable?: boolean;
 };
@@ -42,6 +44,7 @@ export function MotherPickerTable({
   selected,
   onSelectedChange,
   groupId,
+  excludeGroupId,
   selectable = true,
 }: MotherPickerTableProps) {
   const { page, limit, setPage, setLimit, reset } = usePagination();
@@ -66,8 +69,8 @@ export function MotherPickerTable({
   }, [searchInput, search, reset]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['mother-picker', { search, groupId, page, limit, ...sort }],
-    queryFn: () => fetchMotherPicker({ search, groupId, page, limit, ...sort }),
+    queryKey: ['mother-picker', { search, groupId, excludeGroupId, page, limit, ...sort }],
+    queryFn: () => fetchMotherPicker({ search, groupId, excludeGroupId, page, limit, ...sort }),
     placeholderData: keepPreviousData,
   });
 
@@ -104,7 +107,6 @@ export function MotherPickerTable({
         checked={selected.has(r.id)}
         onChange={() => toggle(r.id)}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
       />
     ),
   };
@@ -175,8 +177,9 @@ export function MotherPickerTable({
         />
       </div>
       <p className="mother-picker-hint">
-        {selectable && `${selected.size} selected. `}Bookings, hours and spend count completed
-        bookings only.
+        {selectable && `${selected.size} selected. `}
+        {excludeGroupId !== undefined && 'Mothers already in the group aren’t listed. '}
+        Bookings, hours and spend count completed bookings only.
       </p>
       {isLoading && <TableSkeleton columns={columns.length} />}
       {error != null && !data && (
