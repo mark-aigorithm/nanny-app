@@ -281,7 +281,7 @@ export function SurveyEditor({ survey, onPublish, isNew = false }: Props) {
               onChange={(e) => touch(() => setTitle(e.target.value))}
             />
           </Field>
-          <Field label="Description" hint="Shown to mothers above the questions">
+          <Field label="Description" hint="Optional. Shown to mothers above the questions.">
             <Input
               aria-label="Survey description"
               value={description}
