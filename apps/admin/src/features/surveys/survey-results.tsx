@@ -1,26 +1,41 @@
 import type { AdminSurvey, SurveyQuestionResult } from '@nanny-app/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Card, ErrorState, LoadingState, Pagination } from '@admin/components/ui';
 import { fetchSurveyResults, fetchSurveyTextAnswers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { formatDateTime } from '@admin/lib/format';
 
 import { QUESTION_TYPE_LABEL } from './survey-labels';
 
 const TEXT_PAGE_SIZE = 20;
 
-function Bars({ data }: { data: { label: string; count: number }[] }) {
+/**
+ * One question's spread as text rows: label, a bar, and "count · share". The
+ * numbers are on screen (and read by screen readers), not in a hover tooltip,
+ * and a long option label wraps in its own column instead of colliding.
+ * `total` is the share's base — the mothers who answered the question.
+ */
+function Bars({ label, data, total }: { label: string; data: { label: string; count: number }[]; total: number }) {
   return (
-    <ResponsiveContainer width="100%" height={Math.max(120, data.length * 36)}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }}>
-        <XAxis type="number" allowDecimals={false} />
-        <YAxis type="category" dataKey="label" width={140} />
-        <Tooltip />
-        <Bar dataKey="count" fill="var(--chart-1)" radius={[0, 4, 4, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
+    <ul className="result-bars" aria-label={label}>
+      {data.map((d) => {
+        const share = total > 0 ? Math.round((d.count / total) * 100) : 0;
+        return (
+          <li key={d.label} className="result-bar">
+            <span className="result-bar-label">{d.label}</span>
+            <span className="result-bar-track" aria-hidden>
+              {/* Inline width: the one computed value, per the styling rules. */}
+              <span className="result-bar-fill" style={{ width: `${share}%` }} />
+            </span>
+            <span className="result-bar-value">
+              {d.count} · {share}%
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -41,7 +56,9 @@ function TextAnswers({ surveyId, questionId }: { surveyId: number; questionId: n
         {query.data.data.map((a) => (
           <li key={`${a.userId}-${a.answeredAt}`}>
             <p>{a.text}</p>
-            <span className="survey-result-meta">{a.name}</span>
+            <span className="survey-result-meta">
+              {a.name} · {formatDateTime(a.answeredAt)}
+            </span>
           </li>
         ))}
       </ul>
@@ -68,18 +85,33 @@ function QuestionResult({ surveyId, q }: { surveyId: number; q: SurveyQuestionRe
         {QUESTION_TYPE_LABEL[q.type]} · {q.answeredCount} answered{q.required ? '' : ' · optional'}
       </p>
       {(q.type === 'SINGLE_CHOICE' || q.type === 'MULTI_CHOICE') && (
-        <Bars data={q.options.map((o) => ({ label: o.label, count: o.count }))} />
+        <Bars
+          label={q.prompt}
+          total={q.answeredCount}
+          data={q.options.map((o) => ({ label: o.label, count: o.count }))}
+        />
       )}
       {q.type === 'YES_NO' && (
         <>
           <p>Yes {q.yesCount ?? 0} · No {q.noCount ?? 0}</p>
-          <Bars data={[{ label: 'Yes', count: q.yesCount ?? 0 }, { label: 'No', count: q.noCount ?? 0 }]} />
+          <Bars
+            label={q.prompt}
+            total={q.answeredCount}
+            data={[
+              { label: 'Yes', count: q.yesCount ?? 0 },
+              { label: 'No', count: q.noCount ?? 0 },
+            ]}
+          />
         </>
       )}
       {q.type === 'RATING' && (
         <>
           <p>{q.ratingAverage === null ? 'No ratings yet' : `Average ${q.ratingAverage.toFixed(1)} / 5`}</p>
-          <Bars data={(q.ratingCounts ?? []).map((count, i) => ({ label: `${i + 1} ★`, count }))} />
+          <Bars
+            label={q.prompt}
+            total={q.answeredCount}
+            data={(q.ratingCounts ?? []).map((count, i) => ({ label: `${i + 1} ★`, count }))}
+          />
         </>
       )}
       {q.type === 'TEXT' && <TextAnswers surveyId={surveyId} questionId={q.questionId} />}

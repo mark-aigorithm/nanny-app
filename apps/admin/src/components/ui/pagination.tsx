@@ -40,16 +40,19 @@ export function Pagination({
 
   return (
     <div className="pagination">
-      <div className="pagination-size">
-        <span className="pagination-size-label">Rows per page</span>
-        <Select
-          compact
-          aria-label="Records per page"
-          value={String(limit)}
-          options={limitOptions.map((n) => ({ value: String(n), label: String(n) }))}
-          onChange={(value) => onLimitChange(Number(value))}
-        />
-      </div>
+      {/* A one-choice size picker would be a control that does nothing. */}
+      {limitOptions.length > 1 && (
+        <div className="pagination-size">
+          <span className="pagination-size-label">Rows per page</span>
+          <Select
+            compact
+            aria-label="Records per page"
+            value={String(limit)}
+            options={limitOptions.map((n) => ({ value: String(n), label: String(n) }))}
+            onChange={(value) => onLimitChange(Number(value))}
+          />
+        </div>
+      )}
 
       <div className="pagination-nav">
         <span className="pagination-summary">

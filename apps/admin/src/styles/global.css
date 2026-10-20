@@ -726,6 +726,8 @@ input[type='number'] {
   display: flex;
   align-items: center;
   gap: 1rem;
+  /* Stays on the right even when there is no size picker beside it. */
+  margin-left: auto;
 }
 
 .pagination-buttons {
@@ -5375,6 +5377,53 @@ input[type='number'] {
 }
 
 /* ── Survey results & recipients ────────────────────────── */
+
+/* Result bars: label | bar | "count · share". The label column wraps long options. */
+.result-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result-bar {
+  display: grid;
+  grid-template-columns: minmax(6rem, 16rem) minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.result-bar-label {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.result-bar-track {
+  height: 0.75rem;
+  border-radius: var(--radius-full);
+  background: var(--color-warm-subtle);
+  overflow: hidden;
+}
+
+.result-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  /* --chart-4 is the darkest series colour: 6.5:1 on white, past the 3:1 a graphic needs. */
+  background: var(--chart-4);
+}
+
+.result-bar-value {
+  min-width: 5.5rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
 
 /* One mother's answers: a status line under her badge, then prompt → answer pairs. */
 .answer-status {
