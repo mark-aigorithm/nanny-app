@@ -7,7 +7,7 @@
 import type { AdminUser, NotificationTemplate } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { HttpResponse, http } from 'msw';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -214,7 +214,7 @@ describe('TemplateEditor', () => {
     expect(await screen.findByText('Notification list')).toBeInTheDocument();
   });
 
-  it('locks the link and audience pickers while a save is in flight', async () => {
+  it('locks the link and audience pickers while a save is in flight, and unlocks if it fails', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -222,7 +222,8 @@ describe('TemplateEditor', () => {
     server.use(
       http.patch('/api/admin/notification-templates/4', async () => {
         await gate;
-        return ok(TEMPLATE);
+        // A failed save keeps the editor open, so the unlock is visible.
+        return HttpResponse.json({ data: null, error: 'Database unavailable' }, { status: 503 });
       }),
     );
     renderEditor({ template: TEMPLATE });

@@ -66,6 +66,20 @@ export function useLinkActionLabel(value: LinkValue, saved: SavedLink, readOnly:
   return linkActionLabel('PROMO_CODE', code);
 }
 
+/** The saved link in words: where tapping the notification takes a mother. */
+export function LinkSummary({ value, saved }: { value: LinkValue; saved: SavedLink }) {
+  const kind: LinkKind = value.targetType ?? 'NONE';
+  return (
+    <p className="link-summary">
+      {kind === 'PACKAGE'
+        ? `Opens package: ${saved.package?.name ?? `#${value.packageId ?? ''}`}`
+        : kind === 'PROMO_CODE'
+          ? `Starts a booking with code ${saved.promoCode?.code ?? `#${value.promoCodeId ?? ''}`}`
+          : 'No link. Tapping it opens the app.'}
+    </p>
+  );
+}
+
 type TemplateLinkFieldsProps = {
   value: LinkValue;
   onChange: (next: LinkValue) => void;
@@ -85,17 +99,7 @@ export function TemplateLinkFields({ value, onChange, saved, readOnly, disabled 
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
 
-  if (readOnly) {
-    return (
-      <p className="link-summary">
-        {kind === 'PACKAGE'
-          ? `Opens package: ${saved.package?.name ?? `#${value.packageId ?? ''}`}`
-          : kind === 'PROMO_CODE'
-            ? `Starts a booking with code ${saved.promoCode?.code ?? `#${value.promoCodeId ?? ''}`}`
-            : 'No link. Tapping it opens the app.'}
-      </p>
-    );
-  }
+  if (readOnly) return <LinkSummary value={value} saved={saved} />;
 
   const setKind = (next: LinkKind) =>
     onChange({ targetType: next === 'NONE' ? null : next, packageId: null, promoCodeId: null });

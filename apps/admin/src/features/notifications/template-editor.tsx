@@ -2,44 +2,38 @@ import type { NotificationTemplate, NotificationTemplateInput } from '@nanny-app
 import { NotificationTemplateInputSchema } from '@nanny-app/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useBlocker, useNavigate, useSearchParams } from 'react-router-dom';
+import { useBlocker, useNavigate } from 'react-router-dom';
 
 import {
-  ActionMenu,
   Button,
   Card,
   ConfirmDialog,
   DetailHeader,
-  ICON_SIZE,
-  MenuItem,
   SegmentedControl,
-  Send,
-  Trash2,
   useToast,
   type SegmentedOption,
 } from '@admin/components/ui';
-import {
-  createNotificationTemplate,
-  deleteNotificationTemplate,
-  updateNotificationTemplate,
-} from '@admin/lib/api';
+import { createNotificationTemplate, updateNotificationTemplate } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
-import { BroadcastHistory } from './broadcast-history';
 import { CHANNEL_HINT, CHANNEL_LABEL } from './notification-labels';
-import { PublishDialog } from './publish-dialog';
 import { TemplateAudienceFields } from './template-audience-fields';
 import { TemplateContentFields } from './template-content-fields';
-import { TEMPLATE_FIELD_ID, issueSummary, templateIssues, type TemplateField } from './template-issues';
+import {
+  TEMPLATE_FIELD_ID,
+  issueSummary,
+  templateIssues,
+  type TemplateField,
+} from './template-issues';
 import { TemplateLinkFields, useLinkActionLabel } from './template-link-fields';
 import { TemplatePreview } from './template-preview';
 
 type Channel = NotificationTemplateInput['channel'];
 
-const CHANNEL_OPTIONS: readonly SegmentedOption<Channel>[] = (['IN_APP', 'PUSH', 'BOTH'] as const).map(
-  (value) => ({ value, label: CHANNEL_LABEL[value] }),
-);
+const CHANNEL_OPTIONS: readonly SegmentedOption<Channel>[] = (
+  ['IN_APP', 'PUSH', 'BOTH'] as const
+).map((value) => ({ value, label: CHANNEL_LABEL[value] }));
 
 const BLANK: NotificationTemplateInput = {
   name: '',
@@ -79,17 +73,21 @@ const clean = (v: NotificationTemplateInput): NotificationTemplateInput => ({
 type TemplateEditorProps = {
   /** The saved template. Omit for /notifications/new, whose first Save creates it. */
   template?: NotificationTemplate;
+  /** Back to the saved template's view, after a Save or on Cancel. */
+  onDone?: () => void;
 };
 
-/** One notification template: content, image, channel, link and audience, saved in one request. */
-export function TemplateEditor({ template }: TemplateEditorProps) {
+/**
+ * Writing one notification template: content and image, then channel, link and
+ * audience, saved in one request. Publishing happens from the saved template's
+ * view, never mid-edit.
+ */
+export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
   const isNew = template === undefined;
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = useCanManage('notifications');
-  // The list's "Publish…" opens the editor at ?publish=1: the dialog is that parameter.
-  const [searchParams, setSearchParams] = useSearchParams();
   const [values, setValues] = useState<NotificationTemplateInput>(() =>
     template ? toTemplateInput(template) : BLANK,
   );
@@ -99,20 +97,22 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
   // A Save was tried with problems: every problem shows, plus the summary.
   const [attempted, setAttempted] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   // Bumped on each failed Save so the summary takes focus every time, not only the first.
   const [summaryFocus, setSummaryFocus] = useState(0);
   const summaryRef = useRef<HTMLDivElement>(null);
   const summaryHeadingId = useId();
   const channelHintId = useId();
-  // Set just before navigating away on purpose (create, delete) so the guard lets it through.
+  // Set just before leaving on purpose (a successful Save) so the guard lets it through.
   const leavingOnPurpose = useRef(false);
 
-  // Unsaved edits: ask before an in-app navigation, and let the browser ask
-  // before the tab closes or reloads.
+  // Unsaved edits: ask before an in-app navigation (Cancel back to the view
+  // included), and let the browser ask before the tab closes or reloads.
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty && !leavingOnPurpose.current && currentLocation.pathname !== nextLocation.pathname,
+      dirty &&
+      !leavingOnPurpose.current &&
+      (currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search),
   );
   useEffect(() => {
     if (!dirty) return;
@@ -132,7 +132,8 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
     [validation, payload],
   );
   const summary = issueSummary(issues);
-  const shown = (field: TemplateField) => (attempted || touched.has(field) ? issues[field] : undefined);
+  const shown = (field: TemplateField) =>
+    attempted || touched.has(field) ? issues[field] : undefined;
 
   useEffect(() => {
     if (summaryFocus > 0) summaryRef.current?.focus();
@@ -145,48 +146,36 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
   const markTouched = (field: TemplateField) =>
     setTouched((t) => (t.has(field) ? t : new Set([...t, field])));
 
-  const savedAudience = { groups: template?.audienceGroups ?? [], mothers: template?.audienceMothers ?? [] };
+  const savedAudience = {
+    groups: template?.audienceGroups ?? [],
+    mothers: template?.audienceMothers ?? [],
+  };
   const savedLink = { package: template?.package ?? null, promoCode: template?.promoCode ?? null };
   const linkLabel = useLinkActionLabel(values, savedLink, !canManage);
 
   const save = useMutation({
     mutationFn: () =>
-      template ? updateNotificationTemplate(template.id, payload) : createNotificationTemplate(payload),
+      template
+        ? updateNotificationTemplate(template.id, payload)
+        : createNotificationTemplate(payload),
     onSuccess: (saved) => {
       queryClient.setQueryData(['notification-templates', saved.id], saved);
       void queryClient.invalidateQueries({ queryKey: ['notification-templates'], exact: true });
       setDirty(false);
       toast.success('Saved');
-      if (isNew) {
-        leavingOnPurpose.current = true;
-        navigate(`/notifications/${saved.id}`, { replace: true });
-      }
+      leavingOnPurpose.current = true;
+      if (isNew) navigate(`/notifications/${saved.id}`, { replace: true });
+      else done();
     },
     onError: (err) => toast.error('Couldn’t save the notification', apiErrorMessage(err)),
-  });
-  const remove = useMutation({
-    mutationFn: () => deleteNotificationTemplate(template?.id ?? 0),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
-      toast.success('Template deleted');
-      leavingOnPurpose.current = true;
-      navigate('/notifications');
-    },
-    onError: (err) => {
-      setConfirmDelete(false);
-      toast.error('Couldn’t delete the template', apiErrorMessage(err));
-    },
   });
 
   // Inputs lock while a save is in flight so an edit can't be marked saved by its response.
   const locked = !canManage || save.isPending;
   // A new template has nothing on the server yet, so it always has something to save.
   const unsaved = dirty || isNew;
-  // Publish sends the saved template, so it waits for unsaved edits and an image upload.
-  const canPublish = !isNew && !dirty && !imageBusy && !save.isPending;
-  const publishing = template !== undefined && canManage && canPublish && searchParams.get('publish') === '1';
-  const openPublish = () => setSearchParams({ publish: '1' }, { replace: true });
-  const closePublish = () => setSearchParams({}, { replace: true });
+  // Cancel and a successful Save both lead back; the guard asks first if edits would be lost.
+  const done = () => (onDone && !isNew ? onDone() : navigate('/notifications'));
 
   const trySave = () => {
     if (imageBusy || save.isPending) return;
@@ -204,51 +193,24 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
       ? `${problems} ${problems === 1 ? 'problem' : 'problems'} to fix before saving.`
       : imageBusy
         ? 'Finish the image before saving.'
-        : !unsaved
-          ? 'Saved. Ready to publish.'
-          : isNew && !dirty
-            ? 'Not saved yet. Save to create the template.'
-            : 'Unsaved changes. Save before publishing.';
+        : isNew && !dirty
+          ? 'Not saved yet. Save to create the template.'
+          : !dirty
+            ? 'No changes yet.'
+            : 'Unsaved changes.';
 
   return (
     <section>
       <DetailHeader
         title={values.name.trim() || (isNew ? 'New notification' : 'Untitled notification')}
-        subtitle="A template: save it, then publish to send it now. Publish it again whenever you like."
+        subtitle={
+          isNew
+            ? 'Write it, choose who gets it, and save. You publish it from the saved template.'
+            : 'Editing. Saving takes you back to the template, where you publish it.'
+        }
         backTo="/notifications"
         backLabel="Notifications"
-        actions={
-          canManage && (
-            <>
-              <Button
-                variant={unsaved ? 'primary' : 'ghost'}
-                onClick={trySave}
-                disabled={!unsaved || save.isPending || imageBusy}
-              >
-                Save
-              </Button>
-              {!isNew && (
-                <Button variant={unsaved ? 'ghost' : 'primary'} onClick={openPublish} disabled={!canPublish}>
-                  <Send size={ICON_SIZE.inline} aria-hidden />
-                  Publish…
-                </Button>
-              )}
-              {!isNew && (
-                <ActionMenu label="More actions for this notification">
-                  <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setConfirmDelete(true)}>
-                    Delete template
-                  </MenuItem>
-                </ActionMenu>
-              )}
-            </>
-          )
-        }
       />
-      {canManage && (
-        <p role="status" className={`template-editor-status${problems > 0 ? ' template-editor-status--problem' : ''}`}>
-          {status}
-        </p>
-      )}
       {attempted && summary.length > 0 && (
         <div
           className="error-summary"
@@ -284,46 +246,76 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
               values={values}
               onChange={update}
               onBlurField={markTouched}
-              errors={{ name: shown('name'), title: shown('title'), body: shown('body'), imageUrl: shown('imageUrl') }}
+              errors={{
+                name: shown('name'),
+                title: shown('title'),
+                body: shown('body'),
+                imageUrl: shown('imageUrl'),
+              }}
               readOnly={locked}
               onImageBusyChange={setImageBusy}
             />
           </Card>
-          <Card title="Channel">
-            <SegmentedControl
-              legend="Channel"
-              hideLegend
-              value={values.channel}
-              options={CHANNEL_OPTIONS}
-              onChange={(channel) => update({ channel })}
-              disabled={locked}
-              describedBy={channelHintId}
-            />
-            <p className="field-hint" id={channelHintId}>
-              {CHANNEL_HINT[values.channel]}
-            </p>
+          <Card title="Delivery">
+            <div className="delivery-row">
+              <div className="delivery-part">
+                <h4 className="delivery-part-title">Channel</h4>
+                <SegmentedControl
+                  legend="Channel"
+                  hideLegend
+                  value={values.channel}
+                  options={CHANNEL_OPTIONS}
+                  onChange={(channel) => update({ channel })}
+                  disabled={locked}
+                  describedBy={channelHintId}
+                />
+                <p className="field-hint" id={channelHintId}>
+                  {CHANNEL_HINT[values.channel]}
+                </p>
+              </div>
+              <div className="delivery-part">
+                <h4 className="delivery-part-title">Link</h4>
+                <TemplateLinkFields
+                  value={values}
+                  onChange={(link) => update(link)}
+                  saved={savedLink}
+                  readOnly={!canManage}
+                  disabled={save.isPending}
+                  error={shown('link')}
+                />
+              </div>
+            </div>
+            <div className="delivery-part delivery-part--audience">
+              <h4 className="delivery-part-title">Audience</h4>
+              <TemplateAudienceFields
+                value={values.audience}
+                onChange={(audience) => update({ audience })}
+                saved={savedAudience}
+                readOnly={!canManage}
+                disabled={save.isPending}
+                error={shown('audience')}
+                errorId={`${TEMPLATE_FIELD_ID.audience}-error`}
+              />
+            </div>
           </Card>
-          <Card title="Link">
-            <TemplateLinkFields
-              value={values}
-              onChange={(link) => update(link)}
-              saved={savedLink}
-              readOnly={!canManage}
-              disabled={save.isPending}
-              error={shown('link')}
-            />
-          </Card>
-          <Card title="Audience">
-            <TemplateAudienceFields
-              value={values.audience}
-              onChange={(audience) => update({ audience })}
-              saved={savedAudience}
-              readOnly={!canManage}
-              disabled={save.isPending}
-              error={shown('audience')}
-              errorId={`${TEMPLATE_FIELD_ID.audience}-error`}
-            />
-          </Card>
+          {canManage && (
+            <div className="editor-save-bar">
+              <p
+                role="status"
+                className={`editor-save-status${problems > 0 ? ' editor-save-status--problem' : ''}`}
+              >
+                {status}
+              </p>
+              <div className="editor-save-actions">
+                <Button variant="ghost" onClick={done} disabled={save.isPending}>
+                  Cancel
+                </Button>
+                <Button onClick={trySave} disabled={!unsaved || save.isPending || imageBusy}>
+                  {save.isPending ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
         <TemplatePreview
           title={values.title}
@@ -333,13 +325,6 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
           linkLabel={linkLabel}
         />
       </div>
-      {template && (
-        <>
-          <h3 className="form-section-title">Send history</h3>
-          <BroadcastHistory templateId={template.id} />
-        </>
-      )}
-      {publishing && template && <PublishDialog template={template} onClose={closePublish} />}
       {blocker.state === 'blocked' && (
         <ConfirmDialog
           title="Leave without saving?"
@@ -349,17 +334,6 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
           danger
           onConfirm={() => blocker.proceed()}
           onCancel={() => blocker.reset()}
-        />
-      )}
-      {confirmDelete && (
-        <ConfirmDialog
-          title="Delete this template?"
-          message="Its send history is kept, and mothers keep what they already received."
-          confirmLabel="Delete template"
-          danger
-          busy={remove.isPending}
-          onConfirm={() => remove.mutate()}
-          onCancel={() => setConfirmDelete(false)}
         />
       )}
     </section>

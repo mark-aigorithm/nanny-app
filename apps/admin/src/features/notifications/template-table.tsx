@@ -120,7 +120,7 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
     actionsColumn((t) => (
       <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <ActionMenu label={`Actions for ${t.name}`} disabled={!canManage}>
-          <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => navigate(`/notifications/${t.id}`)}>
+          <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => navigate(`/notifications/${t.id}?edit=1`)}>
             Edit
           </MenuItem>
           <MenuItem

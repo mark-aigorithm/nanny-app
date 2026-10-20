@@ -2488,9 +2488,11 @@ input[type='number'] {
     margin-bottom: 0;
     z-index: 5;
   }
-  /* Reserve room so long subtitle copy never runs under the pinned bell. */
-  .page-header {
-    padding-right: 3.5rem;
+  /* Reserve room so long subtitle copy and header actions never run under
+     the pinned bell. */
+  .page-header,
+  .detail-header-row {
+    padding-right: 4.5rem;
   }
 }
 
@@ -5643,16 +5645,119 @@ input[type='number'] {
   }
 }
 
-/* Under the editor header: why Save or Publish is or isn't available yet. */
-.template-editor-status {
-  margin: -0.5rem 0 1rem;
+/* Delivery: channel and link side by side, the audience beneath a rule. */
+.delivery-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 1.5rem 2rem;
+}
+
+.delivery-part {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.delivery-part--audience {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-warm-border);
+}
+
+.delivery-part-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.delivery-part .field-hint {
+  margin: 0;
+}
+
+/* Save bar: pinned to the bottom of the screen while the form scrolls, with
+   why Save is or isn't available beside it. */
+.editor-save-bar {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding: 0.85rem 1rem 0.85rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+
+.editor-save-status {
+  margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-weight: 600;
 }
 
-.template-editor-status--problem {
+.editor-save-status--problem {
   color: var(--color-error-text);
+}
+
+.editor-save-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* A saved template: its preview, with who gets it alongside. */
+.template-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 0.5rem;
+}
+
+.template-view > .card {
+  margin-bottom: 0;
+}
+
+.desc-note {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 1024px) {
+  .template-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The file picker's button as a pill that matches the console's buttons. */
+.input[type='file'] {
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+}
+
+.input[type='file']::file-selector-button {
+  margin-right: 0.85rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  background: var(--color-warm-subtle);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.input[type='file']:hover::file-selector-button {
+  background: var(--color-surface-muted);
 }
 
 /* Hint on the left, character count on the right. */
@@ -5812,6 +5917,30 @@ textarea.input {
   border: 1px solid var(--color-warm-border);
   border-radius: var(--radius-lg);
   background: var(--color-warm-subtle);
+}
+
+.notif-preview-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* On the saved template's own screen the preview is the page: push and inbox
+   side by side, each at a phone's width. */
+.notif-preview--wide {
+  position: static;
+  padding: 1.5rem;
+}
+
+.notif-preview--wide .notif-preview-blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.notif-preview--wide .notif-preview-block {
+  max-width: 24rem;
 }
 
 .notif-preview-heading {

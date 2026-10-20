@@ -73,7 +73,7 @@ describe('Publishing a notification template', () => {
     expect(await screen.findByText('1,200 mothers · 1,000 with push enabled')).toBeInTheDocument();
     const dialog = await openPublish();
     expect(await within(dialog).findByText(CONFIRM_COPY)).toBeInTheDocument();
-    // At least the editor's count plus the dialog's own re-count; never timing-exact.
+    // At least the preview's count plus the dialog's own re-count; never timing-exact.
     await waitFor(() => expect(previews).toBeGreaterThanOrEqual(2));
     expect(published).toBe(0);
 
@@ -150,13 +150,35 @@ describe('Publishing a notification template', () => {
     expect(screen.getByText('That promo code has expired.')).toBeInTheDocument();
   });
 
-  it('keeps Publish off while there are unsaved changes', async () => {
+  it('opens as a preview; Edit opens the editor without Publish, and Cancel asks before dropping edits', async () => {
     renderPage();
-    const publish = await screen.findByRole('button', { name: 'Publish…' });
-    expect(publish).toBeEnabled();
-    await userEvent.type(screen.getByLabelText('Title'), '!');
-    expect(publish).toBeDisabled();
-    expect(screen.getByText('Unsaved changes. Save before publishing.')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+
+    const title = await screen.findByLabelText('Title');
+    expect(screen.queryByRole('button', { name: 'Publish…' })).not.toBeInTheDocument();
+    await userEvent.type(title, '!');
+    expect(screen.getByText('Unsaved changes.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    const dialog = screen.getByRole('dialog', { name: 'Leave without saving?' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Leave' }));
+    expect(await screen.findByRole('button', { name: 'Publish…' })).toBeEnabled();
+    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
+  });
+
+  it('goes back to the preview after a Save, showing what was saved', async () => {
+    server.use(
+      http.patch('/api/admin/notification-templates/4', () =>
+        ok({ ...TEMPLATE, title: 'We miss you!' }),
+      ),
+    );
+    renderPage('/notifications/4?edit=1');
+    await userEvent.type(await screen.findByLabelText('Title'), '!');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('button', { name: 'Publish…' })).toBeEnabled();
+    expect(screen.getAllByText('We miss you!').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it("opens the confirmation from the list's Publish (?publish=1), and Cancel closes it", async () => {
@@ -193,6 +215,14 @@ describe('Publishing a notification template', () => {
     renderPage('/notifications/4?publish=1', VIEWER);
     expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Publish…' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows a view-only operator the preview even at ?edit=1', async () => {
+    renderPage('/notifications/4?edit=1', VIEWER);
+    expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
+    expect(screen.getByText('Lapsed 30d')).toBeInTheDocument();
   });
 });
