@@ -1,14 +1,12 @@
 import type { NotificationTemplate } from '@nanny-app/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import {
   ActionMenu,
   Button,
-  Card,
   ConfirmDialog,
-  DescriptionList,
   DetailHeader,
   History,
   ICON_SIZE,
@@ -18,14 +16,13 @@ import {
   Trash2,
   useToast,
 } from '@admin/components/ui';
-import { deleteNotificationTemplate, previewNotificationAudience } from '@admin/lib/api';
+import { deleteNotificationTemplate } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
-import { CHANNEL_HINT, CHANNEL_LABEL, formatCount, mothersLabel } from './notification-labels';
+import { DeliverySummary } from './delivery-summary';
 import { PublishDialog } from './publish-dialog';
-import { SavedAudience } from './template-audience-fields';
-import { LinkSummary, useLinkActionLabel } from './template-link-fields';
+import { useLinkActionLabel } from './template-link-fields';
 import { TemplatePreview } from './template-preview';
 
 type TemplateViewProps = {
@@ -48,13 +45,6 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const savedLink = { package: template.package, promoCode: template.promoCode };
   const linkLabel = useLinkActionLabel(template, savedLink, true);
-
-  // Counting the audience needs manage access, so a view-only operator sees the names only.
-  const reach = useQuery({
-    queryKey: ['notification-audience-preview', template.audience],
-    queryFn: () => previewNotificationAudience(template.audience),
-    enabled: canManage,
-  });
 
   const remove = useMutation({
     mutationFn: () => deleteNotificationTemplate(template.id),
@@ -125,48 +115,7 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
           linkLabel={linkLabel}
           wide
         />
-        <Card title="Delivery">
-          <DescriptionList
-            items={[
-              {
-                label: 'Channel',
-                value: (
-                  <>
-                    {CHANNEL_LABEL[template.channel]}
-                    <span className="desc-note">{CHANNEL_HINT[template.channel]}</span>
-                  </>
-                ),
-                wide: true,
-              },
-              {
-                label: 'Link',
-                value: <LinkSummary value={template} saved={savedLink} />,
-                wide: true,
-              },
-              {
-                label: 'Audience',
-                value: (
-                  <>
-                    <SavedAudience
-                      value={template.audience}
-                      saved={{ groups: template.audienceGroups, mothers: template.audienceMothers }}
-                    />
-                    {canManage && (
-                      <span className="desc-note">
-                        {reach.data
-                          ? `${mothersLabel(reach.data.mothers)} · ${formatCount(reach.data.withPushDevice)} with push enabled`
-                          : reach.isError
-                            ? 'We couldn’t count this audience.'
-                            : 'Counting mothers…'}
-                      </span>
-                    )}
-                  </>
-                ),
-                wide: true,
-              },
-            ]}
-          />
-        </Card>
+        <DeliverySummary template={template} />
       </div>
       {publishing && <PublishDialog template={template} onClose={closePublish} />}
       {confirmDelete && (

@@ -72,7 +72,8 @@ describe('Publishing a notification template', () => {
     );
     renderPage();
 
-    expect(await screen.findByText('1,200 mothers · 1,000 with push enabled')).toBeInTheDocument();
+    expect(await screen.findByText('1,200 mothers')).toBeInTheDocument();
+    expect(screen.getByText('1,000 with push enabled')).toBeInTheDocument();
     const dialog = await openPublish();
     expect(await within(dialog).findByText(CONFIRM_COPY)).toBeInTheDocument();
     // At least the preview's count plus the dialog's own re-count; never timing-exact.

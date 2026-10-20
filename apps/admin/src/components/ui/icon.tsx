@@ -64,6 +64,7 @@ export {
   Mail,
   Briefcase,
   BellRing,
+  Link2,
   Phone,
   // Reporting
   Wallet,

@@ -6220,6 +6220,105 @@ input[type='number'] {
   margin-bottom: 0;
 }
 
+/* The template view's Delivery card: who, how, and where a tap goes, one row each. */
+.delivery-summary-row {
+  display: flex;
+  gap: 0.85rem;
+  padding: 1rem 0;
+}
+
+.delivery-summary-row + .delivery-summary-row {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.delivery-summary-row:first-child {
+  padding-top: 0.25rem;
+}
+
+.delivery-summary-row:last-child {
+  padding-bottom: 0;
+}
+
+.delivery-summary-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-muted);
+  color: var(--color-primary-dark);
+}
+
+.delivery-summary-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.delivery-summary-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.delivery-summary-value,
+.delivery-summary-value .audience-saved-mothers,
+.delivery-summary-value .audience-saved li {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.delivery-summary-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.delivery-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.delivery-summary-chip {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.delivery-summary-warning {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin: 0.2rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  color: var(--color-warning-text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.delivery-summary-warning svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
 .desc-note {
   display: block;
   margin-top: 0.2rem;
