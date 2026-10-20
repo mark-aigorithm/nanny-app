@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { Button, ConfirmDialog, ErrorState, Modal, Skeleton, Switch, useToast } from '@admin/components/ui';
 import { MotherPickerTable } from '@admin/features/groups/mother-picker-table';
@@ -26,6 +26,7 @@ export function RecipientPickerModal({ surveyId, mode, onDone, onClose }: Recipi
   const toast = useToast();
   const queryClient = useQueryClient();
   const [allMothers, setAllMothers] = useState(false);
+  const everyoneHintId = useId();
   const [groupIds, setGroupIds] = useState<ReadonlySet<number>>(new Set());
   const [userIds, setUserIds] = useState<ReadonlySet<number>>(new Set());
   const [confirming, setConfirming] = useState(false);
@@ -145,7 +146,19 @@ export function RecipientPickerModal({ surveyId, mode, onDone, onClose }: Recipi
           ? 'Publishing locks the questions. Each mother gets a push notification.'
           : 'Mothers who already have this survey are skipped.'}
       </p>
-      <Switch checked={allMothers} onChange={setAllMothers} label="All mothers" />
+      <div className="recipient-everyone">
+        <Switch
+          checked={allMothers}
+          onChange={setAllMothers}
+          label="Send to every mother"
+          describedBy={everyoneHintId}
+        />
+        <p className="recipient-everyone-hint" id={everyoneHintId}>
+          {allMothers
+            ? 'Every active mother, right now. Turn off to choose groups or mothers instead.'
+            : 'Off: choose groups or mothers below.'}
+        </p>
+      </div>
       {!allMothers && (
         <>
           <fieldset className="recipient-groups">

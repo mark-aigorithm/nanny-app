@@ -5449,6 +5449,32 @@ input[type='number'] {
 }
 
 /* Survey recipient picker */
+/* "Send to every mother": its own row, read as the first of two ways to choose. */
+.recipient-everyone {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 1rem 0 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.recipient-everyone .switch-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-primary);
+}
+
+.recipient-everyone-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
 .recipient-hint,
 .recipient-summary {
   margin: 0;

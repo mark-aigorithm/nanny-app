@@ -62,7 +62,7 @@ describe('RecipientPickerModal', () => {
     expect(onDone).toHaveBeenCalledWith(13);
   });
 
-  it('hides the picker when All mothers is on and sends allMothers', async () => {
+  it('hides the picker when "Send to every mother" is on and sends allMothers', async () => {
     let body: unknown;
     server.use(
       http.get('/api/admin/groups', () => ok([GROUP])),
@@ -77,7 +77,7 @@ describe('RecipientPickerModal', () => {
         <RecipientPickerModal surveyId={3} mode="publish" onDone={vi.fn()} onClose={vi.fn()} />
       </ToastProvider>,
     );
-    await userEvent.click(screen.getByRole('checkbox', { name: /all mothers/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Send to every mother' }));
     expect(screen.queryByLabelText('Search mothers')).not.toBeInTheDocument();
     expect(await screen.findByText(/all 214 active mothers/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /publish and notify/i }));
@@ -124,7 +124,7 @@ describe('RecipientPickerModal', () => {
         <RecipientPickerModal surveyId={3} mode="publish" onDone={onDone} onClose={onClose} />
       </ToastProvider>,
     );
-    await userEvent.click(screen.getByRole('checkbox', { name: /all mothers/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Send to every mother' }));
     await confirmPublish();
 
     expect(await screen.findByText('Published; some notifications may not have been delivered')).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('RecipientPickerModal', () => {
         <RecipientPickerModal surveyId={3} mode="publish" onDone={vi.fn()} onClose={onClose} />
       </ToastProvider>,
     );
-    await userEvent.click(screen.getByRole('checkbox', { name: /all mothers/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Send to every mother' }));
     await confirmPublish();
 
     expect(await screen.findByText("Couldn't send the survey")).toBeInTheDocument();
