@@ -49,7 +49,7 @@ function renderPage(url = '/notifications/4', me?: AdminUser) {
 }
 
 const openPublish = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: 'Publish…' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Publish' }));
   return screen.findByRole('dialog', { name: 'Send this notification?' });
 };
 
@@ -155,14 +155,14 @@ describe('Publishing a notification template', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
 
     const title = await screen.findByLabelText('Title');
-    expect(screen.queryByRole('button', { name: 'Publish…' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     await userEvent.type(title, '!');
     expect(screen.getByText('Unsaved changes.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     const dialog = screen.getByRole('dialog', { name: 'Leave without saving?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Leave' }));
-    expect(await screen.findByRole('button', { name: 'Publish…' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Publish' })).toBeEnabled();
     expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
   });
 
@@ -176,7 +176,7 @@ describe('Publishing a notification template', () => {
     await userEvent.type(await screen.findByLabelText('Title'), '!');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByRole('button', { name: 'Publish…' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Publish' })).toBeEnabled();
     expect(screen.getAllByText('We miss you!').length).toBeGreaterThan(0);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
@@ -214,9 +214,44 @@ describe('Publishing a notification template', () => {
   it('shows a view-only operator the history but never Publish, even from ?publish=1', async () => {
     renderPage('/notifications/4?publish=1', VIEWER);
     expect(await screen.findByRole('heading', { name: 'Send history' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Publish…' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('creates a new template with Save and publish, then asks to confirm the send', async () => {
+    let created = 0;
+    server.use(
+      http.post('/api/admin/notification-templates', () => {
+        created += 1;
+        return ok(TEMPLATE);
+      }),
+    );
+    renderPage('/notifications/new');
+    await userEvent.type(await screen.findByLabelText('Name'), 'Win-back 30d');
+    await userEvent.type(screen.getByLabelText('Title'), 'We miss you');
+    await userEvent.type(screen.getByLabelText('Message'), 'Book this week and save 20%.');
+    await userEvent.click(await screen.findByRole('checkbox', { name: /lapsed 30d/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Send this notification?' })).toBeInTheDocument();
+    expect(created).toBe(1);
+  });
+
+  it('saves edits with Save and publish, then asks to confirm the send', async () => {
+    let body: unknown;
+    server.use(
+      http.patch('/api/admin/notification-templates/4', async ({ request }) => {
+        body = await request.json();
+        return ok({ ...TEMPLATE, title: 'We miss you!' });
+      }),
+    );
+    renderPage('/notifications/4?edit=1');
+    await userEvent.type(await screen.findByLabelText('Title'), '!');
+    await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Send this notification?' })).toBeInTheDocument();
+    expect(body).toMatchObject({ title: 'We miss you!' });
   });
 
   it('shows a view-only operator the preview even at ?edit=1', async () => {

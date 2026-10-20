@@ -127,7 +127,7 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
             icon={<Send size={ICON_SIZE.menu} />}
             onSelect={() => navigate(`/notifications/${t.id}?publish=1`)}
           >
-            Publish…
+            Publish
           </MenuItem>
           <MenuSeparator />
           <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(t)}>

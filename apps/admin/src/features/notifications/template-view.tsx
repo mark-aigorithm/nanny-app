@@ -43,7 +43,7 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = useCanManage('notifications');
-  // The list's "Publish…" opens the template at ?publish=1: the dialog is that parameter.
+  // The list's "Publish" opens the template at ?publish=1: the dialog is that parameter.
   const [searchParams, setSearchParams] = useSearchParams();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const savedLink = { package: template.package, promoCode: template.promoCode };
@@ -89,7 +89,7 @@ export function TemplateView({ template, onEdit }: TemplateViewProps) {
               </Button>
               <Button onClick={openPublish}>
                 <Send size={ICON_SIZE.inline} aria-hidden />
-                Publish…
+                Publish
               </Button>
               <ActionMenu label="More actions for this notification">
                 <MenuItem

@@ -41,7 +41,9 @@ export function NotificationTemplatePage() {
       <TemplateEditor
         key={template.data.id}
         template={template.data}
-        onDone={() => setSearchParams({}, { replace: true })}
+        onDone={(then) =>
+          setSearchParams(then === 'publish' ? { publish: '1' } : {}, { replace: true })
+        }
       />
     );
   }

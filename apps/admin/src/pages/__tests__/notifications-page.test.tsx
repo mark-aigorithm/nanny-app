@@ -138,7 +138,7 @@ describe('NotificationsPage', () => {
     server.use(http.get('/api/admin/notification-templates', () => ok([WINBACK])));
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Actions for Win-back 30d' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Publish…' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Publish' }));
     expect(await screen.findByRole('status', { name: 'location' })).toHaveTextContent(
       '/notifications/4?publish=1',
     );

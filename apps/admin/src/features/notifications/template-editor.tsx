@@ -9,7 +9,9 @@ import {
   Card,
   ConfirmDialog,
   DetailHeader,
+  ICON_SIZE,
   SegmentedControl,
+  Send,
   useToast,
   type SegmentedOption,
 } from '@admin/components/ui';
@@ -73,8 +75,8 @@ const clean = (v: NotificationTemplateInput): NotificationTemplateInput => ({
 type TemplateEditorProps = {
   /** The saved template. Omit for /notifications/new, whose first Save creates it. */
   template?: NotificationTemplate;
-  /** Back to the saved template's view, after a Save or on Cancel. */
-  onDone?: () => void;
+  /** Back to the saved template's view, after a Save or on Cancel; `publish` opens its Publish dialog. */
+  onDone?: (then?: 'publish') => void;
 };
 
 /**
@@ -153,19 +155,21 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
   const savedLink = { package: template?.package ?? null, promoCode: template?.promoCode ?? null };
   const linkLabel = useLinkActionLabel(values, savedLink, !canManage);
 
+  // `publish`: Save and publish — once saved, the template opens on its Publish confirmation.
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (_then: { publish: boolean }) =>
       template
         ? updateNotificationTemplate(template.id, payload)
         : createNotificationTemplate(payload),
-    onSuccess: (saved) => {
+    onSuccess: (saved, { publish }) => {
       queryClient.setQueryData(['notification-templates', saved.id], saved);
       void queryClient.invalidateQueries({ queryKey: ['notification-templates'], exact: true });
       setDirty(false);
       toast.success('Saved');
       leavingOnPurpose.current = true;
-      if (isNew) navigate(`/notifications/${saved.id}`, { replace: true });
-      else done();
+      if (isNew)
+        navigate(`/notifications/${saved.id}${publish ? '?publish=1' : ''}`, { replace: true });
+      else done(publish ? 'publish' : undefined);
     },
     onError: (err) => toast.error('Couldn’t save the notification', apiErrorMessage(err)),
   });
@@ -175,12 +179,12 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
   // A new template has nothing on the server yet, so it always has something to save.
   const unsaved = dirty || isNew;
   // Cancel and a successful Save both lead back; the guard asks first if edits would be lost.
-  const done = () => (onDone && !isNew ? onDone() : navigate('/notifications'));
+  const done = (then?: 'publish') => (onDone && !isNew ? onDone(then) : navigate('/notifications'));
 
-  const trySave = () => {
+  const trySave = (publish: boolean) => {
     if (imageBusy || save.isPending) return;
     if (validation.success) {
-      save.mutate();
+      save.mutate({ publish });
       return;
     }
     setAttempted(true);
@@ -205,8 +209,8 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
         title={values.name.trim() || (isNew ? 'New notification' : 'Untitled notification')}
         subtitle={
           isNew
-            ? 'Write it, choose who gets it, and save. You publish it from the saved template.'
-            : 'Editing. Saving takes you back to the template, where you publish it.'
+            ? 'Write it and choose who gets it. Save it to send later, or save and publish it now.'
+            : 'Editing. Save takes you back to the template; Save and publish sends it once you confirm.'
         }
         backTo="/notifications"
         backLabel="Notifications"
@@ -298,32 +302,46 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
               />
             </div>
           </Card>
+        </div>
+        <div className="template-editor-aside">
+          <TemplatePreview
+            title={values.title}
+            body={values.body}
+            imageUrl={values.imageUrl ?? null}
+            channel={values.channel}
+            linkLabel={linkLabel}
+          />
           {canManage && (
-            <div className="editor-save-bar">
+            <div className="editor-save-panel">
               <p
                 role="status"
                 className={`editor-save-status${problems > 0 ? ' editor-save-status--problem' : ''}`}
               >
                 {status}
               </p>
-              <div className="editor-save-actions">
-                <Button variant="ghost" onClick={done} disabled={save.isPending}>
-                  Cancel
+              <Button
+                className="editor-save-primary"
+                onClick={() => trySave(true)}
+                disabled={!unsaved || save.isPending || imageBusy}
+              >
+                <Send size={ICON_SIZE.inline} aria-hidden />
+                {save.isPending && save.variables?.publish ? 'Saving…' : 'Save and publish'}
+              </Button>
+              <div className="editor-save-secondary">
+                <Button
+                  variant="ghost"
+                  onClick={() => trySave(false)}
+                  disabled={!unsaved || save.isPending || imageBusy}
+                >
+                  {save.isPending && !save.variables?.publish ? 'Saving…' : 'Save'}
                 </Button>
-                <Button onClick={trySave} disabled={!unsaved || save.isPending || imageBusy}>
-                  {save.isPending ? 'Saving…' : 'Save'}
+                <Button variant="ghost" onClick={() => done()} disabled={save.isPending}>
+                  Cancel
                 </Button>
               </div>
             </div>
           )}
         </div>
-        <TemplatePreview
-          title={values.title}
-          body={values.body}
-          imageUrl={values.imageUrl ?? null}
-          channel={values.channel}
-          linkLabel={linkLabel}
-        />
       </div>
       {blocker.state === 'blocked' && (
         <ConfirmDialog
