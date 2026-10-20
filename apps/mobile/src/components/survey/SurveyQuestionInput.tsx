@@ -12,6 +12,8 @@ type Props = {
   question: SurveyQuestion;
   answer: SurveyAnswerInput | undefined;
   onChange: (answer: SurveyAnswerInput | undefined) => void;
+  /** A text answer took focus (the screen scrolls its prompt into view). */
+  onTextFocus?: () => void;
 };
 
 function Choice({
@@ -53,7 +55,7 @@ function Choice({
 }
 
 /** One control per question type; every control carries a role and a label. */
-export default function SurveyQuestionInput({ question, answer, onChange }: Props) {
+export default function SurveyQuestionInput({ question, answer, onChange, onTextFocus }: Props) {
   const id = question.id;
   switch (question.type) {
     case 'TEXT':
@@ -64,6 +66,7 @@ export default function SurveyQuestionInput({ question, answer, onChange }: Prop
           maxLength={SURVEY_TEXT_ANSWER_MAX}
           value={answer?.text ?? ''}
           onChangeText={(text) => onChange(text ? { questionId: id, text } : undefined)}
+          onFocus={onTextFocus}
           placeholder="Type your answer"
           placeholderTextColor={colors.textPlaceholder}
           style={styles.text}

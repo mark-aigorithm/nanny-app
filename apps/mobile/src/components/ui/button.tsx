@@ -21,6 +21,8 @@ interface ButtonProps {
   icon?: keyof typeof Ionicons.glyphMap;
   iconPosition?: 'left' | 'right';
   style?: StyleProp<ViewStyle>;
+  /** Read after the label, e.g. why a disabled button is disabled. */
+  accessibilityHint?: string;
 }
 
 const VARIANT_STYLES: Record<ButtonVariant, { bg: string; text: string; border?: string }> = {
@@ -43,6 +45,7 @@ export default function Button({
   icon,
   iconPosition = 'left',
   style,
+  accessibilityHint,
 }: ButtonProps) {
   // A disabled primary gets its own neutral fill and label instead of a faded
   // sage one, which looked almost the same as enabled. Others still fade.
@@ -61,6 +64,7 @@ export default function Button({
       accessibilityRole="button"
       // While loading the label is a spinner; the button keeps its name.
       accessibilityLabel={title}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       haptic={variant === 'primary' || variant === 'destructive' ? 'tap' : undefined}
       style={[

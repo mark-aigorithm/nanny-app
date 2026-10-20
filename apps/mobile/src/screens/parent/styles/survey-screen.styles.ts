@@ -12,7 +12,8 @@ export const styles = StyleSheet.create({
   description: { ...typeScale.bodyLg, color: colors.textSecondary },
   question: { gap: spacing.md },
   prompt: { ...typeScale.headingSm, color: colors.textPrimary },
-  optional: { ...typeScale.bodyMd, color: colors.textMuted },
+  // textMuted was 4.13:1 on cream; meta text needs 4.5.
+  optional: { ...typeScale.bodyMd, color: colors.textSecondary },
   footer: {
     backgroundColor: colors.background,
     paddingHorizontal: screenPadding,
@@ -20,6 +21,8 @@ export const styles = StyleSheet.create({
     gap: spacing.xs,
     ...shadows.sm,
   },
+  footerKeyboard: { shadowOpacity: 0, elevation: 0 },
+  hint: { ...typeScale.bodyMd, color: colors.textSecondary, textAlign: 'center' },
   skipButton: { minHeight: 44 },
   message: {
     flexGrow: 1,
