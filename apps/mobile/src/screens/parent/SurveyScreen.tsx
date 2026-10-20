@@ -68,6 +68,7 @@ export default function SurveyScreen() {
   // Each question's top in the scroll, so a focused text answer brings its
   // prompt into view rather than only the field.
   const questionTops = useRef<Record<number, number>>({});
+  const [scrolled, setScrolled] = useState(false);
 
   // Opened at all (deep link, profile list, push), she has seen it: the prompt
   // sheet must not offer it on top of this screen or after she leaves.
@@ -200,9 +201,11 @@ export default function SurveyScreen() {
       <KeyboardAvoidingView style={styles.flex}>
         {/* The header's title stops at two lines; a survey title can run to 120
             characters, so it wraps in full at the top of the scroll instead. */}
-        <StackHeader title="Survey" onBack={leave} />
+        <StackHeader title="Survey" onBack={leave} scrolled={scrolled} />
         <ScrollView
           ref={scrollRef}
+          onScroll={(e) => setScrolled(e.nativeEvent.contentOffset.y > 0)}
+          scrollEventThrottle={16}
           style={styles.flex}
           contentContainerStyle={[styles.content, { paddingBottom: spacing.lg }]}
           keyboardShouldPersistTaps="handled"

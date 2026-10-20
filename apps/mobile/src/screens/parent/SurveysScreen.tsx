@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,11 +19,14 @@ export default function SurveysScreen() {
   const router = useRouter();
   const bottomPadding = useBottomBarPadding(spacing['4xl']);
   const { data, isLoading, isError, refetch } = usePendingSurveys();
+  const [scrolled, setScrolled] = useState(false);
 
   return (
     <ScreenContainer useSafeArea={false}>
-      <StackHeader title="Surveys" />
+      <StackHeader title="Surveys" scrolled={scrolled} />
       <ScrollView
+        onScroll={(e) => setScrolled(e.nativeEvent.contentOffset.y > 0)}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >

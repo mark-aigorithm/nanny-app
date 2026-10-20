@@ -76,4 +76,14 @@ describe('SurveysScreen', () => {
     expect(screen.getByRole('button', { name: 'Feedback, 1 question, skipped' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'How are we doing?, 5 questions, new' })).toBeTruthy();
   });
+
+  it('shows the header hairline once the list scrolls under it', async () => {
+    mockState = { data: [{ id: 4, title: 'Feedback', status: 'SKIPPED', questionCount: 1 }], isLoading: false, isError: false };
+    const { UNSAFE_getAllByType } = render(<SurveysScreen />);
+    await settle();
+    const { ScrollView } = jest.requireActual<typeof import('react-native')>('react-native');
+    const StackHeader = jest.requireActual<typeof import('@mobile/components/ui')>('@mobile/components/ui').StackHeader;
+    fireEvent.scroll(UNSAFE_getAllByType(ScrollView)[0]!, { nativeEvent: { contentOffset: { y: 24 } } });
+    expect(UNSAFE_getAllByType(StackHeader)[0]!.props.scrolled).toBe(true);
+  });
 });

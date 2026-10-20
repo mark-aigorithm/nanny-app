@@ -23,6 +23,8 @@ interface StackHeaderProps {
   onBack?: () => void;
   /** Optional control aligned to the title's baseline on the right. */
   rightElement?: ReactNode;
+  /** Content has scrolled under the header: show the hairline divider. */
+  scrolled?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -37,6 +39,7 @@ export default function StackHeader({
   showBackButton = true,
   onBack,
   rightElement,
+  scrolled = false,
   style,
 }: StackHeaderProps) {
   const router = useRouter();
@@ -50,7 +53,7 @@ export default function StackHeader({
   };
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, scrolled && styles.containerScrolled, style]}>
       {showBackButton && (
         <Pressable
           onPress={handleBack}
@@ -86,7 +89,11 @@ const styles = StyleSheet.create({
     paddingTop: STATUS_BAR_HEIGHT + spacing.sm,
     paddingHorizontal: screenPadding,
     paddingBottom: spacing.md,
+    // Always there, so the hairline appearing never shifts the content.
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.transparent,
   },
+  containerScrolled: { borderBottomColor: colors.borderSubtle },
   backButton: {
     width: 40,
     height: 40,

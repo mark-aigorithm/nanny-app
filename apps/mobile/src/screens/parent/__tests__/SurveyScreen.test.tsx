@@ -229,4 +229,14 @@ describe('SurveyScreen', () => {
     fireEvent(screen.getByLabelText('Anything else?'), 'focus');
     expect(scrollTo).toHaveBeenCalledWith({ y: 408, animated: true });
   });
+
+  it('shows the header hairline once the questions scroll under it', () => {
+    mockSurveyState = { data: SURVEY, isPending: false, error: null };
+    const { UNSAFE_getAllByType } = render(<SurveyScreen />);
+    const { ScrollView } = jest.requireActual<typeof import('react-native')>('react-native');
+    const StackHeader = jest.requireActual<typeof import('@mobile/components/ui')>('@mobile/components/ui').StackHeader;
+    expect(UNSAFE_getAllByType(StackHeader)[0]!.props.scrolled).toBe(false);
+    fireEvent.scroll(UNSAFE_getAllByType(ScrollView)[0]!, { nativeEvent: { contentOffset: { y: 24 } } });
+    expect(UNSAFE_getAllByType(StackHeader)[0]!.props.scrolled).toBe(true);
+  });
 });
