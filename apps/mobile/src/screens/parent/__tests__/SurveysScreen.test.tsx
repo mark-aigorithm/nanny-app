@@ -59,4 +59,21 @@ describe('SurveysScreen', () => {
     fireEvent.press(screen.getByText('Feedback'));
     expect(mockNavigate).toHaveBeenCalledWith(expect.anything(), 4);
   });
+
+  // One name per state: a pending survey is "New", a skipped one "Skipped".
+  it('tags each survey with its status and names the row for screen readers', async () => {
+    mockState = {
+      data: [
+        { id: 4, title: 'Feedback', status: 'SKIPPED', questionCount: 1 },
+        { id: 5, title: 'How are we doing?', status: 'PENDING', questionCount: 5 },
+      ],
+      isLoading: false,
+      isError: false,
+    };
+    render(<SurveysScreen />);
+    await settle();
+    expect(screen.getByText('New')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Feedback, 1 question, skipped' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'How are we doing?, 5 questions, new' })).toBeTruthy();
+  });
 });

@@ -115,6 +115,23 @@ describe('SurveyPromptHost', () => {
     expect(wasSurveyPrompted(10)).toBe(true);
   });
 
+  // iOS has no back button: tapping the scrim is the non-committal close.
+  it('hides for this session without skipping when the scrim is tapped', () => {
+    mockPending = [s(12, 'PENDING')];
+    renderHost();
+    fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+    expect(mockSkip).not.toHaveBeenCalled();
+    expect(screen.queryByText('Survey 12')).toBeNull();
+    expect(wasSurveyPrompted(12)).toBe(true);
+  });
+
+  // Skip is sticky; the sheet says where the survey goes.
+  it('says where a skipped survey can still be answered', () => {
+    mockPending = [s(13, 'PENDING')];
+    renderHost();
+    expect(screen.getByText('You can answer it later from Account → Surveys.')).toBeTruthy();
+  });
+
   it('closes the sheet when a refetch drops that survey', () => {
     mockPending = [s(11, 'PENDING')];
     const view = renderHost();

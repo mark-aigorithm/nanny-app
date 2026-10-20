@@ -18,6 +18,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
+  tagNew: { backgroundColor: colors.primaryMuted },
   tagText: { ...typeScale.labelMd, color: colors.textSecondary },
   center: { alignItems: 'stretch', gap: spacing.lg, paddingVertical: spacing.lg },
   empty: { ...typeScale.bodyLg, color: colors.textSecondary },

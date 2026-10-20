@@ -169,24 +169,26 @@ export default function MotherProfileWalletScreen() {
         {/* Time-bound, so it leads the promo cards; only shown with something to answer. */}
         {pendingSurveys.length > 0 && (
           <FadeInView index={2}>
+            {/* "to answer" holds for a pending and a skipped survey alike. */}
             <PressableScale
               style={styles.promoCard}
               accessibilityRole="button"
+              accessibilityLabel={`Surveys, ${pendingSurveys.length} to answer`}
               onPress={() => router.push('/(parent)/surveys' as never)}
             >
               <View style={styles.promoTextWrap}>
                 <Text style={styles.promoTitle}>Surveys</Text>
-                <Text style={styles.promoSubtitle}>
-                  {`${pendingSurveys.length} waiting for your answer`}
-                </Text>
+                <Text style={styles.promoSubtitle}>{`${pendingSurveys.length} to answer`}</Text>
               </View>
-              <IconCircle icon="clipboard-outline" size="lg" />
+              <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                <IconCircle icon="clipboard-outline" size="lg" />
+              </View>
             </PressableScale>
           </FadeInView>
         )}
 
         {/* Promo cards. Children first: it's what every booking picks from. */}
-        <FadeInView index={2}>
+        <FadeInView index={3}>
           <PressableScale
             style={styles.promoCard}
             onPress={() => router.push('/(parent)/children' as never)}
@@ -199,7 +201,7 @@ export default function MotherProfileWalletScreen() {
           </PressableScale>
         </FadeInView>
 
-        <FadeInView index={2}>
+        <FadeInView index={4}>
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
@@ -214,7 +216,7 @@ export default function MotherProfileWalletScreen() {
           </PressableScale>
         </FadeInView>
 
-        <FadeInView index={3}>
+        <FadeInView index={5}>
           <PressableScale
             style={styles.promoCard}
             onPress={() =>
@@ -230,7 +232,7 @@ export default function MotherProfileWalletScreen() {
         </FadeInView>
 
         {/* List section */}
-        <FadeInView index={4} style={styles.listSection}>
+        <FadeInView index={6} style={styles.listSection}>
           <PressableScale
             style={styles.listItem}
             disabled={signOut.isPending || isDeleting}

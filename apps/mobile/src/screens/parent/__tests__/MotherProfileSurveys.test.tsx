@@ -69,7 +69,9 @@ it('shows the Surveys card only when there is something to answer', async () => 
   rerender(tree());
   await settle();
   expect(screen.getByText('Surveys')).toBeTruthy();
-  expect(screen.getByText('2 waiting for your answer')).toBeTruthy();
+  // A skipped survey isn't "waiting for your answer"; "to answer" is true of both.
+  expect(screen.getByText('2 to answer')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Surveys, 2 to answer' })).toBeTruthy();
   fireEvent.press(screen.getByText('Surveys'));
   expect(mockPush).toHaveBeenCalledWith('/(parent)/surveys');
 });

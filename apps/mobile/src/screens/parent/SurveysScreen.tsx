@@ -11,6 +11,9 @@ import { navigateToSurvey } from '@mobile/lib/notificationNavigation';
 import { colors, spacing } from '@mobile/theme';
 import { styles } from './styles/surveys-screen.styles';
 
+/** The one name per status, here and wherever a survey's state is shown. */
+const STATUS_LABEL = { PENDING: 'New', SKIPPED: 'Skipped' } as const;
+
 /** Her PENDING and SKIPPED surveys; a skipped one can still be answered. */
 export default function SurveysScreen() {
   const router = useRouter();
@@ -26,40 +29,43 @@ export default function SurveysScreen() {
       >
         {isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} accessibilityLabel="Loading surveys" />
           </View>
         ) : isError || !data ? (
           <View style={styles.center}>
             <Text style={styles.empty}>Couldn’t load your surveys.</Text>
-            <Button title="Try again" variant="outline" onPress={() => void refetch()} />
+            <Button title="Try again" variant="secondary" onPress={() => void refetch()} />
           </View>
         ) : data.length === 0 ? (
           <Text style={styles.empty}>You're all caught up.</Text>
         ) : (
-          data.map((s) => (
-            <PressableScale
-              key={s.id}
-              accessibilityRole="button"
-              onPress={() => navigateToSurvey(router, s.id)}
-            >
-              <Card>
-                <View style={styles.row}>
-                  <View style={styles.rowText}>
-                    <Text style={styles.title}>{s.title}</Text>
-                    <Text style={styles.meta}>
-                      {`${s.questionCount} question${s.questionCount === 1 ? '' : 's'}`}
-                    </Text>
-                    {s.status === 'SKIPPED' ? (
-                      <View style={styles.tag}>
-                        <Text style={styles.tagText}>Skipped</Text>
+          data.map((s) => {
+            const questions = `${s.questionCount} question${s.questionCount === 1 ? '' : 's'}`;
+            const status = STATUS_LABEL[s.status];
+            return (
+              <PressableScale
+                key={s.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${s.title}, ${questions}, ${status.toLowerCase()}`}
+                onPress={() => navigateToSurvey(router, s.id)}
+              >
+                <Card>
+                  <View style={styles.row}>
+                    <View style={styles.rowText}>
+                      <Text style={styles.title}>{s.title}</Text>
+                      <Text style={styles.meta}>{questions}</Text>
+                      <View style={[styles.tag, s.status === 'PENDING' && styles.tagNew]}>
+                        <Text style={styles.tagText}>{status}</Text>
                       </View>
-                    ) : null}
+                    </View>
+                    <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                    </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                </View>
-              </Card>
-            </PressableScale>
-          ))
+                </Card>
+              </PressableScale>
+            );
+          })
         )}
       </ScrollView>
     </ScreenContainer>

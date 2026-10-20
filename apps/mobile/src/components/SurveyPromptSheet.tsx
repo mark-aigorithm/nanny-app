@@ -1,11 +1,13 @@
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import type { MotherSurveySummary } from '@nanny-app/shared';
 
 import { Button } from '@mobile/components/ui';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 import {
+  STATUS_BAR_HEIGHT,
   borderRadius,
   colors,
   fontFamily,
@@ -19,27 +21,39 @@ type Props = {
   survey: MotherSurveySummary;
   onAnswer: () => void;
   onSkip: () => void;
-  /** Android back: hide for this session without skipping. */
+  /** Android back or a tap on the scrim: hide for this session without skipping. */
   onDismiss: () => void;
 };
 
 export default function SurveyPromptSheet({ survey, onAnswer, onSkip, onDismiss }: Props) {
   const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const { height } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
   const count = survey.questionCount;
 
+  // No grab handle: the sheet has no swipe to dismiss, so it would promise one.
   return (
     <Modal
       visible
       transparent
-      animationType="slide"
+      animationType={reducedMotion ? 'fade' : 'slide'}
       onRequestClose={onDismiss}
       testID="survey-prompt-modal"
     >
       <View style={styles.overlay}>
-        <View style={[styles.sheet, { maxHeight: height * 0.9, paddingBottom: bottomPadding }]}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onDismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Not now"
+        />
+        <View
+          style={[
+            styles.sheet,
+            { maxHeight: height - STATUS_BAR_HEIGHT, paddingBottom: bottomPadding },
+          ]}
+        >
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.handle} />
             <Text accessibilityRole="header" style={styles.title}>
               {survey.title}
             </Text>
@@ -48,7 +62,10 @@ export default function SurveyPromptSheet({ survey, onAnswer, onSkip, onDismiss 
               {`${count} question${count === 1 ? '' : 's'}`}
             </Text>
             <Button title="Answer" onPress={onAnswer} />
-            <Button title="Skip" variant="text" onPress={onSkip} style={styles.skip} />
+            <View style={styles.skipGroup}>
+              <Button title="Skip" variant="text" onPress={onSkip} style={styles.skip} />
+              <Text style={styles.note}>You can answer it later from Account → Surveys.</Text>
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -67,15 +84,8 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'stretch',
     paddingHorizontal: screenPadding,
-    paddingTop: spacing.md,
+    paddingTop: spacing['2xl'],
     gap: spacing.lg,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.warmBorder,
   },
   title: {
     ...typeScale.headingSm,
@@ -84,6 +94,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   body: { ...typeScale.bodyMd, color: colors.textSecondary, textAlign: 'center' },
-  meta: { ...typeScale.bodyMd, color: colors.textMuted, textAlign: 'center' },
+  // textMuted was 4.29:1 on white; meta text needs 4.5.
+  meta: { ...typeScale.bodyMd, color: colors.textSecondary, textAlign: 'center' },
+  skipGroup: { gap: spacing.xxs },
   skip: { minHeight: 44 },
+  note: { ...typeScale.bodySm, color: colors.textSecondary, textAlign: 'center' },
 });
