@@ -8,6 +8,8 @@ import { api, unwrap } from '@mobile/lib/api';
 import {
   bookingChatRoleFor,
   isBookingMessagePush,
+  announcementLinkFromPush,
+  isAnnouncementPush,
   isSurveyPush,
   navigateToBookingChat,
   navigateToBookingDetail,
@@ -15,6 +17,7 @@ import {
   shouldFocusCareLogFromPushData,
 } from '@mobile/lib/notificationNavigation';
 import { BOOKING_CHAT_KEY } from '@mobile/hooks/useBookingChat';
+import { openPromoLink } from '@mobile/lib/openPromoLink';
 import { goToParentTab } from '@mobile/lib/parentNav';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
 import { PENDING_SURVEYS_KEY } from '@mobile/hooks/useSurveys';
@@ -171,7 +174,8 @@ function openWhenRoleKnown(
   });
 }
 
-function navigateFromNotification(
+/** Where a tapped push opens. Exported for its tests. */
+export function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
   segments: readonly string[],
   queryClient: ReturnType<typeof useQueryClient>,
@@ -185,6 +189,20 @@ function navigateFromNotification(
     void queryClient.invalidateQueries({ queryKey: PENDING_SURVEYS_KEY });
     openWhenRoleKnown(segments, (role) => {
       if (role === 'parent') navigateToSurvey(router, Number(data!['surveyId']));
+    });
+    return;
+  }
+
+  // An admin announcement: its package or promo-code link opens exactly as the
+  // inbox card and the Home banners do; without a link the inbox is where she
+  // reads it. Mothers only — the backend never sends one to a nanny, and a
+  // stale token on a shared device must not open the parent flow there.
+  if (isAnnouncementPush(data)) {
+    const link = announcementLinkFromPush(data);
+    openWhenRoleKnown(segments, (role) => {
+      if (role !== 'parent') return;
+      if (link) openPromoLink(router, link);
+      else goToParentTab(router, segments, '/(parent)/(tabs)/notifications');
     });
     return;
   }

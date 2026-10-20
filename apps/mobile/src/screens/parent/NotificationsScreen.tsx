@@ -31,6 +31,8 @@ import {
   type NotificationFilter,
 } from '@mobile/lib/notificationUtils';
 import { colors, screenPadding } from '@mobile/theme';
+import AnnouncementCard from '@mobile/components/AnnouncementCard';
+import { openPromoLink } from '@mobile/lib/openPromoLink';
 import NotificationRow from '@mobile/components/NotificationRow';
 import { styles } from './styles/notifications-screen.styles';
 
@@ -124,6 +126,14 @@ export default function NotificationsScreen() {
     ) {
       router.push('/(parent)/(tabs)/bookings' as never);
     }
+  };
+
+  // An announcement: mark it read, then open its package or promo link. The
+  // read is fired, not awaited — her tap should open the offer at once, and a
+  // failed read only leaves the dot on. No link: marking it read is all a tap does.
+  const handleAnnouncementPress = (notification: NotificationResponse) => {
+    if (!notification.isRead) markRead.mutate(notification.id);
+    if (notification.link) openPromoLink(router, notification.link);
   };
 
   const emptyMessage =
@@ -226,13 +236,21 @@ export default function NotificationsScreen() {
               <FadeInView key={section.title} index={index} style={styles.section}>
                 <Text style={styles.sectionHeading}>{section.title}</Text>
                 <View style={styles.cardGroup}>
-                  {section.items.map((notification) => (
-                    <NotificationRow
-                      key={notification.id}
-                      notification={notification}
-                      onPress={() => handleNotificationPress(notification)}
-                    />
-                  ))}
+                  {section.items.map((notification) =>
+                    notification.type === 'announcement' ? (
+                      <AnnouncementCard
+                        key={notification.id}
+                        notification={notification}
+                        onPress={() => handleAnnouncementPress(notification)}
+                      />
+                    ) : (
+                      <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        onPress={() => handleNotificationPress(notification)}
+                      />
+                    ),
+                  )}
                 </View>
               </FadeInView>
             ))}

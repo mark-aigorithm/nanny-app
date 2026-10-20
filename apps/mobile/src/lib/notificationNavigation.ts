@@ -1,4 +1,5 @@
 import type { Router } from 'expo-router';
+import type { NotificationLink } from '@nanny-app/shared';
 
 import { markSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
@@ -65,4 +66,26 @@ export function navigateToSurvey(router: Router, surveyId: number): void {
     pathname: '/(parent)/survey',
     params: { surveyId: String(surveyId) },
   } as never);
+}
+
+/** A push from an admin announcement (`data.type` is the backend enum name). */
+export function isAnnouncementPush(data?: Record<string, string>): boolean {
+  return data?.['type'] === 'ANNOUNCEMENT';
+}
+
+/**
+ * The package or promo-code link an announcement push carries, or null when it
+ * has none. FCM data values are strings, so a package id that is not a positive
+ * integer, or a blank code, counts as no link rather than as a broken route.
+ */
+export function announcementLinkFromPush(data?: Record<string, string>): NotificationLink | null {
+  if (data?.['targetType'] === 'PACKAGE') {
+    const packageId = Number(data['packageId']);
+    return Number.isInteger(packageId) && packageId > 0 ? { type: 'package', packageId } : null;
+  }
+  if (data?.['targetType'] === 'PROMO_CODE') {
+    const code = data['promoCode']?.trim();
+    return code ? { type: 'promo_code', code } : null;
+  }
+  return null;
 }

@@ -21,6 +21,13 @@ jest.mock('@mobile/lib/notificationNavigation', () => ({
   navigateToBookingDetail: (...args: unknown[]) => mockNavigateToBookingDetail(...args),
 }));
 
+const mockOpenPromoLink = jest.fn();
+jest.mock('@mobile/lib/openPromoLink', () => ({
+  openPromoLink: (...args: unknown[]) => mockOpenPromoLink(...args),
+}));
+
+const mockMarkRead = jest.fn();
+
 // The screen is a thin view over these hooks; stubbing them keeps the test on
 // the tap routing rather than on React Query plumbing.
 let mockNotifications: NotificationResponse[] = [];
@@ -36,7 +43,10 @@ jest.mock('@mobile/hooks/useNotifications', () => ({
   }),
   useUnreadNotificationCount: () => ({ data: { unreadCount: 0 } }),
   useMarkAllNotificationsRead: () => ({ mutate: jest.fn(), isPending: false }),
-  useMarkNotificationRead: () => ({ mutateAsync: jest.fn().mockResolvedValue(undefined) }),
+  useMarkNotificationRead: () => ({
+    mutateAsync: jest.fn().mockResolvedValue(undefined),
+    mutate: mockMarkRead,
+  }),
 }));
 
 import NotificationsScreen from '@mobile/screens/parent/NotificationsScreen';
@@ -104,5 +114,66 @@ describe('NotificationsScreen rows', () => {
     mockNotifications = [makeNotification({ type: 'survey', title: "We'd love your feedback" })];
     const { getByText } = render(<NotificationsScreen />);
     expect(getByText("We'd love your feedback").props.numberOfLines).toBeUndefined();
+  });
+});
+
+describe('NotificationsScreen announcements', () => {
+  function announcement(overrides: Partial<NotificationResponse> = {}) {
+    return makeNotification({
+      id: 7,
+      type: 'announcement',
+      title: 'Spring offer',
+      body: '20% off this week',
+      isRead: false,
+      referenceId: null,
+      referenceType: null,
+      link: { type: 'promo_code', code: 'SAVE20' },
+      ...overrides,
+    });
+  }
+
+  it('marks it read, then opens its link', () => {
+    mockNotifications = [announcement()];
+    const { getByRole } = render(<NotificationsScreen />);
+
+    fireEvent.press(getByRole('button', { name: 'Spring offer. Book with code SAVE20' }));
+
+    expect(mockMarkRead).toHaveBeenCalledWith(7);
+    expect(mockOpenPromoLink).toHaveBeenCalledWith(expect.anything(), {
+      type: 'promo_code',
+      code: 'SAVE20',
+    });
+    expect(mockMarkRead.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOpenPromoLink.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('only marks a link-less announcement read', () => {
+    mockNotifications = [announcement({ link: null })];
+    const { getByRole } = render(<NotificationsScreen />);
+
+    fireEvent.press(getByRole('button', { name: 'Spring offer' }));
+
+    expect(mockMarkRead).toHaveBeenCalledWith(7);
+    expect(mockOpenPromoLink).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('does not mark an already-read announcement again', () => {
+    mockNotifications = [announcement({ isRead: true })];
+    const { getByRole } = render(<NotificationsScreen />);
+
+    fireEvent.press(getByRole('button', { name: 'Spring offer. Book with code SAVE20' }));
+
+    expect(mockMarkRead).not.toHaveBeenCalled();
+    expect(mockOpenPromoLink).toHaveBeenCalled();
+  });
+
+  it('keeps ordinary notifications as rows', () => {
+    mockNotifications = [announcement(), makeNotification({ id: 2 })];
+    const { getByText, getByTestId } = render(<NotificationsScreen />);
+
+    expect(getByTestId('announcement.7')).toBeTruthy();
+    expect(getByText('Booking confirmed')).toBeTruthy();
   });
 });

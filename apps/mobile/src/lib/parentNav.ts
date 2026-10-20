@@ -4,7 +4,8 @@ export type ParentTabHref =
   | '/(parent)/(tabs)/home'
   | '/(parent)/(tabs)/services'
   | '/(parent)/(tabs)/bookings'
-  | '/(parent)/(tabs)/mother-profile';
+  | '/(parent)/(tabs)/mother-profile'
+  | '/(parent)/(tabs)/notifications';
 
 /**
  * Opens a parent tab from wherever she is. The parent area is a Stack over the
