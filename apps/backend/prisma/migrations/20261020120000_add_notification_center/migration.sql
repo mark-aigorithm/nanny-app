@@ -109,10 +109,14 @@ ALTER TABLE "notification_broadcasts" ADD CONSTRAINT "notification_broadcasts_pu
 UPDATE users SET last_app_open_at = last_login_at;
 
 -- Seed: "All mothers" is a dynamic group with no rules, created by the first
--- superuser (else the first admin). Inserts nothing on a database with no admin.
+-- superuser (else the first admin). Inserts nothing on a database with no admin,
+-- or where a live group already carries the name (admins may have made one).
 INSERT INTO user_groups (name, description, kind, rules, created_by_id, created_at, updated_at)
 SELECT 'All mothers', 'Every active mother', 'DYNAMIC', '[]'::jsonb, id, now(), now()
 FROM users
 WHERE role IN ('SUPERUSER','ADMIN') AND deleted_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM user_groups g WHERE lower(g.name) = 'all mothers' AND g.deleted_at IS NULL
+  )
 ORDER BY (role = 'SUPERUSER') DESC, id
 LIMIT 1;
