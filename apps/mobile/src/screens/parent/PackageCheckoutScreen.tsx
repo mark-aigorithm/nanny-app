@@ -283,7 +283,7 @@ export default function PackageCheckoutScreen() {
           >
             {isStarting && (
               <View style={styles.webviewLoading}>
-                <ActivityIndicator color={colors.primary} size="large" />
+                <ActivityIndicator color={colors.primaryDark} size="large" />
                 <Text style={styles.webviewLoadingText}>Preparing checkout…</Text>
               </View>
             )}
@@ -339,7 +339,7 @@ export default function PackageCheckoutScreen() {
                 startInLoadingState
                 renderLoading={() => (
                   <View style={styles.webviewLoading}>
-                    <ActivityIndicator color={colors.primary} />
+                    <ActivityIndicator color={colors.primaryDark} />
                   </View>
                 )}
                 style={styles.webview}

@@ -298,7 +298,7 @@ export default function BookingCareDetailsScreen() {
 
         {childrenLoading ? (
           <View style={styles.childrenState}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         ) : childrenError ? (
           <View style={styles.childrenState}>
@@ -344,7 +344,7 @@ export default function BookingCareDetailsScreen() {
                   <Ionicons
                     name={selected ? 'checkbox' : 'square-outline'}
                     size={24}
-                    color={selected ? colors.primary : colors.textMuted}
+                    color={selected ? colors.primaryDark : colors.textMuted}
                   />
                   <View style={styles.childBody}>
                     <Text style={styles.childName}>{child.name ?? 'Add a name'}</Text>

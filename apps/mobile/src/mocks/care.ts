@@ -91,9 +91,9 @@ export const MOCK_ACTIVITIES_LIVE: LiveActivityItem[] = [
     title: 'Motion detected',
     subtitle: '10:45 AM \u2022 Nursery Cam',
     icon: 'notifications-outline',
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     iconBg: colors.primaryMuted,
-    iconColor: colors.primary,
+    iconColor: colors.primaryDark,
   },
   {
     id: '2',

@@ -517,7 +517,7 @@ export default function BookingStep1Screen() {
 
         {/* ── Price ── */}
         {isPricingLoading ? (
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryDark} />
         ) : (
           <CollapsibleCard
             title="Price details"

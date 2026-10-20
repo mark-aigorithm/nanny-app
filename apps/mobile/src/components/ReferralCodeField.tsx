@@ -48,7 +48,7 @@ export default function ReferralCodeField({ value, onChange }: Props) {
           autoCorrect={false}
           maxLength={32}
         />
-        {trimmed.length > 0 && check.isFetching && <ActivityIndicator color={colors.primary} />}
+        {trimmed.length > 0 && check.isFetching && <ActivityIndicator color={colors.primaryDark} />}
         {trimmed.length > 0 && !check.isFetching && result?.valid && (
           <Ionicons name="checkmark-circle" size={20} color={colors.successDark} />
         )}

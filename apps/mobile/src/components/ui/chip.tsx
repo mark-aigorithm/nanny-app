@@ -26,7 +26,7 @@ export default function Chip({
   dismissible = false,
   onDismiss,
   size = 'md',
-  activeColor = colors.primary,
+  activeColor = colors.primaryAction,
   inactiveColor = colors.taupe,
   style,
 }: ChipProps) {
@@ -51,7 +51,7 @@ export default function Chip({
           styles.label,
           {
             fontSize,
-            color: active ? colors.white : colors.textPrimary,
+            color: active ? colors.onPrimaryAction : colors.textPrimary,
           },
         ]}
       >

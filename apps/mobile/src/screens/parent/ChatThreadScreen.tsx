@@ -84,7 +84,7 @@ export default function ChatThreadScreen() {
   if (conversationLoading || messagesLoading || !conversation) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryDark} />
       </View>
     );
   }

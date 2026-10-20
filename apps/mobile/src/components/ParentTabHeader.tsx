@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 32,
     letterSpacing: -1.2,
-    color: colors.primary,
+    color: colors.primaryDark,
     flexShrink: 1,
   },
   headerRight: {

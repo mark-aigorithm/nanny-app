@@ -195,7 +195,7 @@ export default function ParentActiveBookingCard() {
           <Animated.View
             style={[
               styles.halo,
-              { backgroundColor: look.dark ? colors.liveGreen : colors.primary },
+              { backgroundColor: look.dark ? colors.liveGreen : colors.primaryDark },
               { transform: [{ scale: haloScale }], opacity: haloOpacity },
             ]}
           />
@@ -203,7 +203,7 @@ export default function ParentActiveBookingCard() {
         <Ionicons
           name={look.icon}
           size={look.icon === 'ellipse' ? 12 : 20}
-          color={look.dark ? colors.white : colors.primary}
+          color={look.dark ? colors.white : colors.primaryDark}
         />
       </View>
 
@@ -218,7 +218,7 @@ export default function ParentActiveBookingCard() {
       </View>
 
       <View style={[styles.chevron, look.dark ? styles.chevronDark : styles.chevronLight]}>
-        <Ionicons name="chevron-forward" size={18} color={look.dark ? colors.white : colors.primary} />
+        <Ionicons name="chevron-forward" size={18} color={look.dark ? colors.white : colors.primaryDark} />
       </View>
     </PressableScale>
 

@@ -90,7 +90,7 @@ export default function AddressesScreen() {
       >
         {isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         ) : isError ? (
           <View>

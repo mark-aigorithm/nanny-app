@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fillPackage: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   fillPoints: {
     backgroundColor: colors.goldWarm,

@@ -97,7 +97,7 @@ export default function NannyProfileEditScreen() {
   if (isLoading) {
     return (
       <ScreenContainer useSafeArea={false} style={styles.loadingCenter}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primaryDark} />
       </ScreenContainer>
     );
   }

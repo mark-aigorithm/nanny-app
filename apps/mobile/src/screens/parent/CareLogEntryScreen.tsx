@@ -41,7 +41,7 @@ export default function CareLogEntryScreen() {
       <ScreenContainer useSafeArea={false}>
         <StackHeader title="Care update" />
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryDark} />
         </View>
       </ScreenContainer>
     );

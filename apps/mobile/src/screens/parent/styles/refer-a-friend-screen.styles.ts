@@ -83,7 +83,7 @@ export const styles = StyleSheet.create({
     borderRadius: br.lg,
     backgroundColor: colors.primaryMuted,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     borderStyle: 'dashed',
   },
   codeText: {

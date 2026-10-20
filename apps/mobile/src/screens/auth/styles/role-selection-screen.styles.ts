@@ -88,7 +88,7 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   cardSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     backgroundColor: colors.primaryMuted,
   },
   cardUnselected: {
@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   radioUnselected: {
     borderColor: colors.warmBorder,
@@ -137,7 +137,7 @@ export const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
 
   // Footer

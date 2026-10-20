@@ -220,7 +220,7 @@ export const styles = StyleSheet.create({
   },
   messageButton: {
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
@@ -297,7 +297,7 @@ export const styles = StyleSheet.create({
   },
   bookAgainButton: {
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

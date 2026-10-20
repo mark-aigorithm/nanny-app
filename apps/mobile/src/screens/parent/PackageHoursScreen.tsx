@@ -98,7 +98,7 @@ export default function PackageHoursScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primaryDark} />
         }
       >
         {/* Balance hero */}
@@ -116,7 +116,7 @@ export default function PackageHoursScreen() {
 
         {hours.isLoading && (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         )}
 

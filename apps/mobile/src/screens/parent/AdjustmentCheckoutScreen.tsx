@@ -146,7 +146,7 @@ export default function AdjustmentCheckoutScreen() {
       >
         {isStarting && (
           <View style={styles.webviewLoading}>
-            <ActivityIndicator color={colors.primary} size="large" />
+            <ActivityIndicator color={colors.primaryDark} size="large" />
             <Text style={styles.webviewLoadingText}>Preparing checkout…</Text>
           </View>
         )}

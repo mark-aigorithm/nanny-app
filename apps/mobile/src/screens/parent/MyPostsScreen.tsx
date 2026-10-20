@@ -194,13 +194,13 @@ export default function MyPostsScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
+            tintColor={colors.primaryDark}
           />
         }
       >
         {isLoading && (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         )}
 

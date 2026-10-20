@@ -183,7 +183,7 @@ export default function PackagesScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primaryDark} />
         }
       >
         <Pressable onPress={() => router.push('/(parent)/package-hours' as never)}>
@@ -221,7 +221,7 @@ export default function PackagesScreen() {
 
         {packages.isLoading && (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         )}
 

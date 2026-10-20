@@ -99,7 +99,7 @@ export default function BookingChatScreen() {
       <KeyboardAvoidingView style={styles.body} keyboardVerticalOffset={0}>
         {isLoading ? (
           <View style={styles.loading}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         ) : (
           <ScrollView

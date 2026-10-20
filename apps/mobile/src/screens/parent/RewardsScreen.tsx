@@ -25,7 +25,7 @@ function entryVisual(type: RewardLedgerEntry['type']): EntryVisual {
     case 'REFERRAL':
       return { icon: 'people', bg: colors.primaryMuted, fg: colors.primaryDark, label: 'Referral bonus' };
     case 'ADMIN_GRANT':
-      return { icon: 'gift', bg: colors.primaryMuted, fg: colors.primary, label: 'Gift from NannyNow' };
+      return { icon: 'gift', bg: colors.primaryMuted, fg: colors.primaryDark, label: 'Gift from NannyNow' };
     case 'ADMIN_REVOKE':
       return { icon: 'remove-circle', bg: colors.errorLight, fg: colors.error, label: 'Adjustment' };
     default:
@@ -68,7 +68,7 @@ export default function RewardsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefreshingByUser} onRefresh={refreshByUser} tintColor={colors.primaryDark} />
         }
       >
         {/* Balance hero */}
@@ -106,7 +106,7 @@ export default function RewardsScreen() {
 
         {history.isLoading && (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         )}
         {history.isError && (

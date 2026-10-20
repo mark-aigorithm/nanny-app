@@ -74,7 +74,7 @@ export function CareNotesCard({ bookingChildren, specialInstructions, emphasis }
       {notes ? (
         <View style={[styles.card, styles.cardSummary]}>
           <View style={styles.head}>
-            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+            <Ionicons name="document-text-outline" size={18} color={colors.primaryDark} />
             <Text style={styles.title}>{isWarning ? 'Notes from the parent' : 'Your notes'}</Text>
           </View>
           <Text style={styles.notesBody}>{notes}</Text>

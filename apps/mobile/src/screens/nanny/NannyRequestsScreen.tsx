@@ -120,7 +120,7 @@ export default function NannyRequestsScreen() {
         {/* Parent info */}
         <View style={styles.parentRow}>
           <View style={[styles.parentAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-            <Ionicons name="person" size={18} color={colors.primary} />
+            <Ionicons name="person" size={18} color={colors.primaryDark} />
           </View>
           <View style={styles.parentInfo}>
             <Text style={styles.parentName}>{motherName}</Text>
@@ -289,8 +289,8 @@ export default function NannyRequestsScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
       >
@@ -319,7 +319,7 @@ export default function NannyRequestsScreen() {
         {/* Request cards */}
         {isLoading ? (
           <View style={styles.emptyState}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         ) : requests.length === 0 ? (
           <View style={styles.emptyState}>

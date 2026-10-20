@@ -25,7 +25,7 @@ import { styles } from './styles/nanny-dashboard-screen.styles';
 type StatKey = 'totalBookings' | 'repeatClients' | 'averageRating' | 'responseRate';
 
 const STAT_CONFIG: { key: StatKey; label: string; icon: string; bg: string; iconColor: string }[] = [
-  { key: 'totalBookings', label: 'Total bookings', icon: 'calendar', bg: colors.primaryMuted, iconColor: colors.primary },
+  { key: 'totalBookings', label: 'Total bookings', icon: 'calendar', bg: colors.primaryMuted, iconColor: colors.primaryDark },
   { key: 'repeatClients', label: 'Repeat clients', icon: 'people', bg: colors.taupeLight, iconColor: colors.textTertiary },
   { key: 'averageRating', label: 'Avg. rating', icon: 'star', bg: colors.warmLight, iconColor: colors.goldWarm },
   { key: 'responseRate', label: 'Response rate', icon: 'flash', bg: colors.successLight, iconColor: colors.success },
@@ -65,8 +65,8 @@ export default function NannyDashboardScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
       >
@@ -78,7 +78,7 @@ export default function NannyDashboardScreen() {
         <View style={styles.earningsCard}>
           <Text style={styles.earningsTitle}>Your earnings</Text>
           {loadingDashboard ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
+            <ActivityIndicator color={colors.primaryDark} style={{ marginVertical: 8 }} />
           ) : (
             <View style={styles.earningsRow}>
               <View style={styles.earningsItem}>
@@ -128,14 +128,14 @@ export default function NannyDashboardScreen() {
           </View>
           <View style={[styles.bookingsList, { marginTop: 14 }]}>
             {loadingBookings ? (
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.primaryDark} />
             ) : upcomingBookings.length === 0 ? (
               <Text style={styles.statLabel}>No upcoming bookings</Text>
             ) : (
               upcomingBookings.map((booking) => (
                 <View key={booking.id} style={styles.bookingCard}>
                   <View style={[styles.bookingAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-                    <Ionicons name="person" size={16} color={colors.primary} />
+                    <Ionicons name="person" size={16} color={colors.primaryDark} />
                   </View>
                   <View style={styles.bookingInfo}>
                     <Text style={styles.bookingName}>

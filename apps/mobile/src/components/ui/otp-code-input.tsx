@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     borderColor: colors.transparent,
   },
   boxActive: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   digit: {
     fontFamily: fontFamily.bold,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   cursor: {
     width: 2,
     height: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     borderRadius: 1,
   },
 });

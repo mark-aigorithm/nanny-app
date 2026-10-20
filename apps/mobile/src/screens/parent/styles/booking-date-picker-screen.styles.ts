@@ -178,7 +178,7 @@ export const styles = StyleSheet.create({
   },
   dayToday: {
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     borderRadius: borderRadius.full,
   },
 

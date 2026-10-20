@@ -284,12 +284,12 @@ visible.
     `primaryDark`, white 6.5:1) when enabled, `colors.actionDisabled` / `onActionDisabled` when
     disabled. The sage `colors.primary` stays the brand accent, but white on it is only 2.59:1, so
     never fill a CTA with it; a hand-rolled CTA should use `<Button>` or these tokens.
-  - The same goes for anything filled that carries white text or a white icon: a selected chip or
-    pill, a badge, a sent chat bubble, a send button. Fill it with `colors.primaryAction`. Sage
-    `colors.primary` is fine as a fill only where nothing sits on it (dots, progress bars, blobs).
-  - Text is never sage either: `colors.primary` is 2.49:1 on the cream page, so links, "Mark all
-    read", totals and active tab labels use `colors.primaryDark` (6.2:1). Only the "NannyNow"
-    wordmarks keep the sage (logotypes are exempt). `layout-guards.test.ts` enforces it.
+  - One accent, the deep sage. Text, icons, spinners, selected borders, radio dots, progress
+    bars, switch tracks and the wordmark all use `colors.primaryDark`; a fill with content on it
+    (selected chip, badge, sent bubble) uses `colors.primaryAction`. Sage `colors.primary` is
+    2.49:1 on cream and read as disabled next to the deep sage, so it is kept only for pure
+    decoration: the blurred background blobs and the sage→deep gradients. `colors.primaryMuted`
+    stays the soft tint. `layout-guards.test.ts` enforces it.
 - **Tap targets are at least 44dp,** text links included (Edit, Delete, Never mind): use
   `minHeight`/`hitSlop`. Icon-only buttons get an `accessibilityLabel`.
 - **Badges sit on the icon's corner,** outside its shape, at every font scale.

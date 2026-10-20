@@ -338,7 +338,7 @@ export default function RegistrationAboutScreen() {
                 <Text style={[styles.dateFieldText, !draft.dob && styles.dateFieldPlaceholder]}>
                   {draft.dob || 'Select your date of birth'}
                 </Text>
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                <Ionicons name="calendar-outline" size={20} color={colors.primaryDark} />
               </Pressable>
               {errors.dob && <Text style={styles.fieldErrorText}>{errors.dob}</Text>}
             </View>

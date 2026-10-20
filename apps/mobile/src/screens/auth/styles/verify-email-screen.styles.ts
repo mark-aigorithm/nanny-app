@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   },
   brandText: {
     ...typeScale.headingMd,
-    color: colors.primary,
+    color: colors.primaryDark,
     letterSpacing: -0.5,
   },
   scroll: {

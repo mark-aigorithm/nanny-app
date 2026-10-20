@@ -71,7 +71,7 @@ export default function ReviewScreen() {
   if (isLoading || !booking) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryDark} />
       </View>
     );
   }

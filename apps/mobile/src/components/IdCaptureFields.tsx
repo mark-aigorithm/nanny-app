@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   },
   uploadCardFilled: {
     borderStyle: 'solid',
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     padding: 0,
     overflow: 'hidden',
   },

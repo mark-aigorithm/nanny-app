@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
   },
   cardUnread: {
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: colors.primaryDark,
     paddingLeft: spacing.lg,
     paddingRight: spacing.lg,
     paddingVertical: spacing.lg,

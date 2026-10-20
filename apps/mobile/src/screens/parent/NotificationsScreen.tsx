@@ -164,8 +164,8 @@ export default function NotificationsScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
       >
@@ -201,7 +201,7 @@ export default function NotificationsScreen() {
         </ScrollView>
 
         {isLoading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          <ActivityIndicator color={colors.primaryDark} style={styles.loader} />
         ) : isError ? (
           <View style={styles.emptyState}>
             <Ionicons name="cloud-offline-outline" size={40} color={colors.textMuted} />

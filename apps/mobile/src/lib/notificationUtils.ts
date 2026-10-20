@@ -67,7 +67,7 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
       return {
         name: 'clipboard-outline',
         backgroundColor: colors.primaryMuted,
-        iconColor: colors.primary,
+        iconColor: colors.primaryDark,
       };
     case 'marketplace_message':
       return {
@@ -85,7 +85,7 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
       return {
         name: 'shield-checkmark',
         backgroundColor: colors.primaryMuted,
-        iconColor: colors.primary,
+        iconColor: colors.primaryDark,
       };
     case 'booking_confirmed':
       return {
@@ -115,7 +115,7 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
       return {
         name: 'journal',
         backgroundColor: colors.primaryMuted,
-        iconColor: colors.primary,
+        iconColor: colors.primaryDark,
       };
     case 'points_earned':
       return {
@@ -133,7 +133,7 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
       return {
         name: 'ticket',
         backgroundColor: colors.primaryMuted,
-        iconColor: colors.primary,
+        iconColor: colors.primaryDark,
       };
     case 'referral_converted':
       return {
@@ -157,7 +157,7 @@ export function getNotificationIcon(type: NotificationResponse['type']): {
       return {
         name: 'hourglass',
         backgroundColor: colors.primaryMuted,
-        iconColor: colors.primary,
+        iconColor: colors.primaryDark,
       };
     // The one the parent must act on — she still owes money for the hours.
     case 'booking_extension_accepted':

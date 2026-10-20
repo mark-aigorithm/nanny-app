@@ -61,7 +61,7 @@ export default function UpcomingShiftBanner({ bookings }: Props) {
         <Ionicons
           name={isUrgent ? 'alarm' : 'time-outline'}
           size={22}
-          color={isUrgent ? colors.tintAmber : colors.primary}
+          color={isUrgent ? colors.tintAmber : colors.primaryDark}
         />
       </View>
 
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     // the flat equivalent of primaryMuted composited over colors.background.
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   iconWrap: {
     width: 40,

@@ -69,7 +69,7 @@ export default function IdUploadModal() {
 
         <View style={styles.card}>
           <View style={styles.iconCircle}>
-            <Ionicons name="shield-checkmark-outline" size={28} color={colors.primary} />
+            <Ionicons name="shield-checkmark-outline" size={28} color={colors.primaryDark} />
           </View>
 
           <Text style={styles.title}>Verify your identity</Text>

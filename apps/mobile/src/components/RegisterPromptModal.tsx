@@ -41,7 +41,7 @@ export default function RegisterPromptModal() {
 
         <View style={styles.card}>
           <View style={styles.iconCircle}>
-            <Ionicons name="person-add-outline" size={28} color={colors.primary} />
+            <Ionicons name="person-add-outline" size={28} color={colors.primaryDark} />
           </View>
 
           <Text style={styles.title}>Join {APP_NAME}</Text>

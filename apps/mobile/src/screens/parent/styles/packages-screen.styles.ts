@@ -81,7 +81,7 @@ export const styles = StyleSheet.create({
   },
   packageCardFeatured: {
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   featuredBadge: {
     position: 'absolute',

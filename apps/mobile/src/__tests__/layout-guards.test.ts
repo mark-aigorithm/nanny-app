@@ -78,19 +78,34 @@ describe('layout guards', () => {
     ).toEqual([]);
   });
 
-  // Sage `colors.primary` is 2.49:1 on the cream page, so text in it (links,
-  // "Mark all read", totals) failed 4.5:1. Text takes `colors.primaryDark`.
-  // The "NannyNow" wordmarks keep the brand sage: logotypes are exempt.
-  it('never colours text with the sage primary', () => {
-    const wordmarks = [
-      path.join('components', 'ParentTabHeader.tsx'),
-      path.join('auth', 'styles', 'sign-in-screen.styles.ts'),
-      path.join('auth', 'styles', 'upload-id-screen.styles.ts'),
-      path.join('auth', 'styles', 'verify-email-screen.styles.ts'),
-    ];
-    const sageText = /(^|[^A-Za-z])color: colors\.primary\b(?![A-Za-z])/m;
+  // Sage `colors.primary` is 2.49:1 on the cream page, so text, icons and
+  // indicators in it read as disabled, and mixing it with the deep sage made
+  // one accent look like two. Everything takes `colors.primaryDark` (or
+  // `primaryAction` for a fill with content on it). Sage is left only where it
+  // is pure decoration: the blurred background blobs and the sage→deep
+  // gradients.
+  it('uses the sage primary only for decoration', () => {
+    const sage = /colors\.primary\b(?![A-Za-z])/g;
+    const decorative = /^\s*backgroundColor: colors\.primary,$|colors=\{\[colors\.primary, colors\.primaryDark\]\}/;
     expect(
-      offenders((src, file) => !wordmarks.some((w) => file.endsWith(w)) && sageText.test(src)),
+      offenders(
+        (src, file) =>
+          !file.includes(`${path.sep}theme${path.sep}`) &&
+          src
+            .split('\n')
+            .some((line, i, lines) => {
+              if (!sage.test(line)) return false;
+              sage.lastIndex = 0;
+              if (!decorative.test(line)) return true;
+              // A bare sage fill is allowed only inside a `blob…` style.
+              if (line.includes('colors={')) return false;
+              const block = lines
+                .slice(0, i)
+                .reverse()
+                .find((l) => /^ {2}[A-Za-z0-9_]+: \{/.test(l));
+              return !block?.trim().startsWith('blob');
+            }),
+      ),
     ).toEqual([]);
   });
 });

@@ -320,7 +320,7 @@ export default function ForgotPasswordScreen() {
 
           {channel === 'email' && emailSent && (
             <View style={styles.sentCard}>
-              <Ionicons name="mail-outline" size={28} color={colors.primary} />
+              <Ionicons name="mail-outline" size={28} color={colors.primaryDark} />
               <Text style={styles.sentText}>
                 <Text>If an account exists for that address, the link is on its way.</Text>
                 {' Open it to choose a new password, then sign in with your email.'}

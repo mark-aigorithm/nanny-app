@@ -103,7 +103,7 @@ export const styles = StyleSheet.create({
     height: STEP_NUMBER_SIZE,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',

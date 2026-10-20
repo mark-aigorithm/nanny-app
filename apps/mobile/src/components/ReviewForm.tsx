@@ -48,7 +48,7 @@ export default function ReviewForm({
           <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
         ) : (
           <View style={[styles.nannyPhoto, styles.nannyPhotoFallback]}>
-            <Ionicons name="person" size={40} color={colors.primary} />
+            <Ionicons name="person" size={40} color={colors.primaryDark} />
           </View>
         )}
         <Text style={styles.nannyName}>{nannyName}</Text>

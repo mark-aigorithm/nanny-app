@@ -123,7 +123,7 @@ export default function MessagesScreen() {
       >
         <View style={styles.conversationList}>
           {isLoading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <ActivityIndicator color={colors.primaryDark} style={styles.loader} />
           ) : conversations.length === 0 ? (
             <Text style={styles.emptyText}>
               No conversations yet. Message a seller from a marketplace post to start chatting.

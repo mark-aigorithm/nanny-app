@@ -56,7 +56,7 @@ export const styles = StyleSheet.create({
   brandName: {
     ...typeScale.headingMd,
     letterSpacing: -0.5,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   // Guest browsing — deliberately quieter than every sign-in route.
   skipLink: {
@@ -135,7 +135,7 @@ export const styles = StyleSheet.create({
     ...shadows.sm,
   },
   phoneRowFocused: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   phoneRowError: {
     borderColor: colors.error,

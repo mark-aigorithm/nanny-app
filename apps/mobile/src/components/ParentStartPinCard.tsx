@@ -87,7 +87,7 @@ export default function ParentStartPinCard({ booking }: Props) {
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.iconWrap}>
-          <Ionicons name="keypad" size={18} color={colors.primary} />
+          <Ionicons name="keypad" size={18} color={colors.primaryDark} />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.eyebrow}>START BOOKING</Text>
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     ...shadows.sm,
   },
   header: {
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     backgroundColor: colors.primaryMuted,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },

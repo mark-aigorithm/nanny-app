@@ -65,7 +65,7 @@ export default function BookingCareLogSection({ bookingId }: BookingCareLogSecti
       </ScrollView>
 
       {isLoading ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryDark} />
       ) : sections.length === 0 ? (
         <Text style={styles.emptyText}>
           {activeFilter === 'All'

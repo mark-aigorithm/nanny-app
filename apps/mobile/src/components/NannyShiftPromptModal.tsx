@@ -47,7 +47,7 @@ function PromptIcon({ prompt }: { prompt: ShiftPromptState }) {
   if (prompt.kind === 'enter_pin') {
     return (
       <View style={[styles.iconCircle, { backgroundColor: colors.primaryMuted }]}>
-        <Ionicons name="keypad-outline" size={28} color={colors.primary} />
+        <Ionicons name="keypad-outline" size={28} color={colors.primaryDark} />
       </View>
     );
   }
@@ -63,7 +63,7 @@ function PromptIcon({ prompt }: { prompt: ShiftPromptState }) {
       <Ionicons
         name={isOverdue ? 'alarm' : 'time-outline'}
         size={28}
-        color={isOverdue ? colors.tintAmber : colors.primary}
+        color={isOverdue ? colors.tintAmber : colors.primaryDark}
       />
     </View>
   );
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   badgeReady: {
     backgroundColor: colors.primaryMuted,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   badgeText: {
     fontFamily: fontFamily.extraBold,

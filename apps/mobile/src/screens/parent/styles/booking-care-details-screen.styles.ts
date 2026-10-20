@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
     ...shadows.sm,
   },
   childCardSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   childCardDisabled: {
     opacity: 0.5,

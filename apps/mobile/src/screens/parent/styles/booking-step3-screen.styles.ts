@@ -64,13 +64,13 @@ export const styles = StyleSheet.create({
   dotCompleted: {
     width: 10,
     height: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     opacity: 0.5,
   },
   dotActive: {
     width: 10,
     height: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   stepLabel: {
     ...typeScale.bodySm,

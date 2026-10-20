@@ -51,7 +51,7 @@ export default function NannyBookingDetailScreen() {
   if (isLoading || !booking) {
     return (
       <ScreenContainer useSafeArea={false} style={styles.loadingCenter}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryDark} />
       </ScreenContainer>
     );
   }
@@ -94,7 +94,7 @@ export default function NannyBookingDetailScreen() {
             <Image source={{ uri: motherPhoto }} style={styles.motherPhoto} resizeMode="cover" />
           ) : (
             <View style={[styles.motherPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-              <Ionicons name="person" size={24} color={colors.primary} />
+              <Ionicons name="person" size={24} color={colors.primaryDark} />
             </View>
           )}
           <View style={styles.motherInfo}>

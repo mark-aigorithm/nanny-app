@@ -154,7 +154,7 @@ export default function BookingPaymentResultScreen() {
   if (bookingId && (outcome === 'loading' || outcome === 'pending')) {
     return (
       <View style={styles.loaderWrap}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.primaryDark} size="large" />
         <Text style={styles.loaderText}>
           {outcome === 'pending' ? 'Still processing your payment…' : 'Confirming your payment…'}
         </Text>
@@ -183,7 +183,7 @@ export default function BookingPaymentResultScreen() {
       <View style={styles.container}>
         <View style={[styles.content, { paddingBottom: bottomPadding }]}>
           <View style={[styles.iconCircle, styles.iconCirclePending]}>
-            <Ionicons name="time-outline" size={28} color={colors.primary} />
+            <Ionicons name="time-outline" size={28} color={colors.primaryDark} />
           </View>
           <Text style={styles.heading}>Still processing</Text>
           <Text style={styles.subtitle}>

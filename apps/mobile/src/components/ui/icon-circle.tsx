@@ -27,7 +27,7 @@ export default function IconCircle({
   icon,
   size = 'md',
   backgroundColor = colors.primaryMuted,
-  iconColor = colors.primary,
+  iconColor = colors.primaryDark,
   iconSize,
   style,
 }: IconCircleProps) {

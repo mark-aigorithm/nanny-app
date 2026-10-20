@@ -392,7 +392,7 @@ export default function RegistrationNannyDetailsScreen() {
                       <Switch
                         value={slot.available}
                         onValueChange={() => toggleDay(day)}
-                        trackColor={{ false: colors.neutralLight, true: colors.primary }}
+                        trackColor={{ false: colors.neutralLight, true: colors.primaryDark }}
                         thumbColor={colors.white}
                       />
                     </View>
@@ -407,7 +407,7 @@ export default function RegistrationNannyDetailsScreen() {
               })}
             </View>
             <Pressable style={styles.copyButton} onPress={copyToAllActiveDays}>
-              <Ionicons name="copy-outline" size={14} color={colors.primary} />
+              <Ionicons name="copy-outline" size={14} color={colors.primaryDark} />
               <Text style={styles.copyButtonText}>Copy first day&apos;s hours to all active days</Text>
             </Pressable>
           </View>

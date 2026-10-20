@@ -103,13 +103,13 @@ export default function ReferAFriendScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
+            tintColor={colors.primaryDark}
           />
         }
       >
         {summary.isLoading && (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         )}
         {summary.isError && (

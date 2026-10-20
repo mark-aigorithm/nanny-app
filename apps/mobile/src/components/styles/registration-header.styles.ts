@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
   },
   progressFill: {
     height: REGISTRATION_PROGRESS_HEIGHT,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     borderRadius: REGISTRATION_PROGRESS_HEIGHT / 2,
   },
 });

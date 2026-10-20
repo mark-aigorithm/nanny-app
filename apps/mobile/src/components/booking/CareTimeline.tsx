@@ -89,7 +89,7 @@ export function CareTimeline({ bookingId, title, nannyFirstName }: Props) {
       ) : null}
 
       {isLoading ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryDark} />
       ) : entries.length === 0 ? (
         <Text style={styles.empty}>
           {careLogs.length === 0

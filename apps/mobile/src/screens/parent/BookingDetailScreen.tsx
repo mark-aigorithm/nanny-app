@@ -104,7 +104,7 @@ export default function BookingDetailScreen() {
       <ScreenContainer useSafeArea={false}>
         <StackHeader title="Booking details" onBack={handleBack} />
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryDark} />
         </View>
       </ScreenContainer>
     );

@@ -66,7 +66,7 @@ export default function LocationSearchInput({
   return (
     <View style={styles.container}>
       <View style={styles.inputWrapper}>
-        <Ionicons name="location-outline" size={20} color={colors.primary} />
+        <Ionicons name="location-outline" size={20} color={colors.primaryDark} />
         <TextInput
           ref={inputRef}
           style={styles.inputInner}

@@ -28,7 +28,7 @@ The feeling is a boutique childcare brand, not a tech dashboard. Aim for **warm,
 
 ## Palette at a glance (see `theme/colors.ts` for all tokens)
 
-- **Primary accent:** `colors.primary` `#97a591` (sage) — decorative icons, spinners, tints, and fills with nothing on them. Never text: sage text is 2.49:1, so links and accent text use `colors.primaryDark` (the "NannyNow" wordmark is the one exception). Darker `colors.primaryDark`, tint `colors.primaryMuted`.
+- **Primary accent:** the deep sage `colors.primaryDark` `#556251` — text, links, icons, spinners, selected borders, indicators, progress, and the NannyNow wordmark. Tint `colors.primaryMuted`. The light sage `colors.primary` `#97a591` is decoration only (background blobs, gradients); a layout guard fails on any other use.
 - **Filled actions:** white on sage is 2.59:1, so anything filled that carries white text or a white icon (CTA, selected chip or pill, badge, sent bubble) uses `colors.primaryAction` (deep sage, 6.5:1) with `colors.onPrimaryAction`; disabled uses `colors.actionDisabled` / `onActionDisabled`.
 - **Surfaces:** `colors.background` `#fdfaf8` (canonical cream — never `#fcf9f7`), `colors.surface` white cards, `colors.surfaceMuted` image placeholders.
 - **Warm neutrals:** `colors.taupe`, `colors.taupeLight`, `colors.warmBorder`, `colors.surfaceMuted` — chips, dividers, fills.

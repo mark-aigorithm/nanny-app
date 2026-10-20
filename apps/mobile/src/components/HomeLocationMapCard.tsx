@@ -110,7 +110,7 @@ export default function HomeLocationMapCard({
             accessibilityRole="button"
             accessibilityLabel="Use my current location"
           >
-            <Ionicons name="locate" size={20} color={colors.primary} />
+            <Ionicons name="locate" size={20} color={colors.primaryDark} />
           </Pressable>
         </View>
         <Text style={styles.mapHint}>
@@ -152,7 +152,7 @@ export default function HomeLocationMapCard({
           accessibilityRole="button"
           accessibilityLabel="Use my current location"
         >
-          <Ionicons name="locate" size={20} color={colors.primary} />
+          <Ionicons name="locate" size={20} color={colors.primaryDark} />
         </Pressable>
       </View>
       <Text style={styles.mapHint}>

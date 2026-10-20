@@ -85,7 +85,7 @@ export default function LiveVideoMonitorScreen() {
         <View style={styles.videoContainer}>
           {isLoading ? (
             <View style={styles.videoPlaceholder}>
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.primaryDark} />
             </View>
           ) : error ? (
             <View style={styles.videoPlaceholder}>

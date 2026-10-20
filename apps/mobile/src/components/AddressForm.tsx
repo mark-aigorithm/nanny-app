@@ -278,7 +278,7 @@ export default function AddressForm({
           <Switch
             value={isDefault}
             onValueChange={setIsDefault}
-            trackColor={{ false: colors.taupe, true: colors.primary }}
+            trackColor={{ false: colors.taupe, true: colors.primaryDark }}
             thumbColor={colors.white}
             ios_backgroundColor={colors.taupe}
           />

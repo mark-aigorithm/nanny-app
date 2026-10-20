@@ -86,8 +86,8 @@ export default function BookingHistoryScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
       >
@@ -122,7 +122,7 @@ export default function BookingHistoryScreen() {
 
         {isLoading ? (
           <View style={styles.emptyState}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           </View>
         ) : bookings.length === 0 ? (
           <View style={styles.emptyState}>
@@ -216,7 +216,7 @@ function BookingCard({
               <Image source={{ uri: nannyPhoto }} style={styles.nannyPhoto} resizeMode="cover" />
             ) : (
               <View style={[styles.nannyPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="person" size={20} color={colors.primary} />
+                <Ionicons name="person" size={20} color={colors.primaryDark} />
               </View>
             )}
           </View>
@@ -239,7 +239,7 @@ function BookingCard({
 
         {/* The card itself is the tap target now, so it needs to look like one. */}
         <View style={styles.cardChevron}>
-          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+          <Ionicons name="chevron-forward" size={16} color={colors.primaryDark} />
         </View>
       </View>
 

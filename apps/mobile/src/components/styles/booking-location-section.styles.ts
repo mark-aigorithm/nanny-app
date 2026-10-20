@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
     ...shadows.sm,
   },
   cardSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   radio: {
     width: 20,
@@ -39,13 +39,13 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   cardBody: {
     flex: 1,

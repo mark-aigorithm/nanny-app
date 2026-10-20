@@ -37,7 +37,7 @@ export function ChildProfilesCard({ bookingChildren }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Ionicons name="happy-outline" size={18} color={colors.primary} />
+        <Ionicons name="happy-outline" size={18} color={colors.primaryDark} />
         <Text style={styles.title}>About the children</Text>
       </View>
       {rows.map(({ child, lines }, i) => {

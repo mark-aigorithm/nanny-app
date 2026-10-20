@@ -86,7 +86,7 @@ export function LiveShiftCard({ booking, onRefresh }: Props) {
           {nanny ? (
             <BookingNannyAvatar
               nanny={nanny}
-              fallbackColor={colors.primary}
+              fallbackColor={colors.primaryAction}
               initialsColor={colors.white}
             />
           ) : (

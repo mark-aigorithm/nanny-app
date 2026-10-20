@@ -32,7 +32,7 @@ export default function LegalDocumentScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
         {isLoading && (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} accessibilityLabel="Loading" />
+            <ActivityIndicator color={colors.primaryDark} accessibilityLabel="Loading" />
           </View>
         )}
         {isError && (

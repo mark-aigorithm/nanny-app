@@ -60,11 +60,12 @@ const palette = {
 
 export const colors = {
   ...palette,
-  // Filled-button roles. Aliases of palette values, not new hues. The sage
-  // `primary` stays the brand accent (active states, icons, tints), but white on
-  // it is 2.59:1, so a filled CTA uses the deep sage (6.5:1, UI-sweep rule
-  // "an enabled button never looks disabled"). Disabled is the neutral fill the
-  // palette keeps for it, with a muted label, so it never reads as enabled.
+  // Filled-button roles. Aliases of palette values, not new hues. The app's one
+  // accent is the deep sage `primaryDark`: white on it is 6.5:1 and it is 6.2:1
+  // on cream, where the light sage `primary` is 2.49:1 and read as disabled.
+  // `primary` is kept for decoration only (background blobs, gradients); a
+  // layout guard enforces it. Disabled is the neutral fill the palette keeps
+  // for it, with a muted label, so it never reads as enabled.
   primaryAction: palette.primaryDark,
   onPrimaryAction: palette.white,
   actionDisabled: palette.neutralLight,

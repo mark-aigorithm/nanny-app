@@ -282,7 +282,7 @@ export default function CareLogScreen() {
         {activeBooking ? (
           <View style={styles.childCard}>
             <View style={[styles.childAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryMuted }]}>
-              <Ionicons name="person" size={22} color={colors.primary} />
+              <Ionicons name="person" size={22} color={colors.primaryDark} />
             </View>
             <View style={styles.childInfo}>
               <Text style={styles.childName}>
@@ -335,7 +335,7 @@ export default function CareLogScreen() {
           </View>
 
           {loadingEntries ? (
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           ) : sortedEntries.length === 0 ? (
             <Text style={styles.logEntrySubtitle}>
               No entries yet. Tap a category above to start logging.

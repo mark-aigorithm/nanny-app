@@ -69,7 +69,7 @@ export default function PackageReviewScreen() {
       <ScreenContainer useSafeArea={false}>
         <StackHeader title="Review package" />
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryDark} />
         </View>
       </ScreenContainer>
     );

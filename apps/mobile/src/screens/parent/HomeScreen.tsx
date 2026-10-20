@@ -66,7 +66,7 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
+            tintColor={colors.primaryDark}
           />
         }
       >
@@ -111,7 +111,7 @@ export default function HomeScreen() {
               <Text style={styles.bookCareTitle}>Book care</Text>
               <Text style={styles.bookCareSubtitle}>One request reaches every available nanny</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+            <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
           </PressableScale>
         </FadeInView>
 

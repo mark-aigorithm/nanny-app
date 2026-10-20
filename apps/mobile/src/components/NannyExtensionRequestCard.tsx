@@ -90,7 +90,7 @@ export default function NannyExtensionRequestCard() {
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.iconWrap}>
-          <Ionicons name="time-outline" size={18} color={colors.primary} />
+          <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.eyebrow}>EXTRA HOURS REQUESTED</Text>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     ...shadows.sm,
   },
   header: {

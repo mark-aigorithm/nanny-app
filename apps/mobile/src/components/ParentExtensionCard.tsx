@@ -61,7 +61,7 @@ export default function ParentExtensionCard({ booking }: Props) {
       <View style={[styles.card, styles.cardAccent]}>
         <View style={styles.header}>
           <View style={styles.iconWrap}>
-            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            <Ionicons name="checkmark-circle" size={18} color={colors.primaryDark} />
           </View>
           <View style={styles.headerText}>
             <Text style={styles.eyebrow}>EXTRA HOURS CONFIRMED</Text>
@@ -109,7 +109,7 @@ export default function ParentExtensionCard({ booking }: Props) {
       <View style={styles.card}>
         <View style={styles.header}>
           <View style={styles.iconWrap}>
-            <Ionicons name="hourglass-outline" size={18} color={colors.primary} />
+            <Ionicons name="hourglass-outline" size={18} color={colors.primaryDark} />
           </View>
           <View style={styles.headerText}>
             <Text style={styles.eyebrow}>EXTENSION REQUESTED</Text>
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   // The one state that needs the parent to act gets the sage edge.
   cardAccent: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   header: {
     flexDirection: 'row',

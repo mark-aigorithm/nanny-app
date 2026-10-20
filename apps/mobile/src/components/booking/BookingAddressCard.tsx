@@ -39,7 +39,7 @@ export function BookingAddressCard({ address }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Ionicons name="location-outline" size={18} color={colors.primary} />
+        <Ionicons name="location-outline" size={18} color={colors.primaryDark} />
         <Text style={styles.title}>{details ? details.label : 'Where'}</Text>
       </View>
 

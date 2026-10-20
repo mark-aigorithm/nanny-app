@@ -121,7 +121,7 @@ export const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   elapsedText: {
     ...typeScale.caption,
@@ -233,7 +233,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timelineDotReached: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   timelineLine: {
     flex: 1,

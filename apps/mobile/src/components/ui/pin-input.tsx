@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellFocused: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
     backgroundColor: colors.primaryMuted,
   },
   cellError: {

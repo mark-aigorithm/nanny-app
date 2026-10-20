@@ -237,8 +237,8 @@ export default function CommunityScreen() {
           <RefreshControl
             refreshing={isRefreshingByUser}
             onRefresh={refreshByUser}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
         onEndReached={() => {
@@ -265,7 +265,7 @@ export default function CommunityScreen() {
         }
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loadingIndicator} />
+            <ActivityIndicator color={colors.primaryDark} style={styles.loadingIndicator} />
           ) : isError ? (
             <View style={styles.emptyState}>
               <Ionicons name="cloud-offline-outline" size={40} color={colors.textPlaceholder} />
@@ -292,7 +292,7 @@ export default function CommunityScreen() {
         }
         ListFooterComponent={
           isFetchingNextPage ? (
-            <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+            <ActivityIndicator color={colors.primaryDark} style={styles.footerLoader} />
           ) : null
         }
         renderItem={({ item, index }) => (

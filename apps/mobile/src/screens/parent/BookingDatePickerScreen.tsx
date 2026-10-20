@@ -623,7 +623,7 @@ export default function BookingDatePickerScreen() {
       >
         <BookingStepProgress step={1} title="Where and when do you need care?" />
 
-        {isLoading && <ActivityIndicator color={colors.primary} />}
+        {isLoading && <ActivityIndicator color={colors.primaryDark} />}
         {error != null && (
           <Text style={styles.availabilityError}>
             Couldn’t load available times. Pull back and try again.

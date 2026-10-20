@@ -119,7 +119,7 @@ export default function PostDetailScreen() {
         <Header title="" style={styles.header} />
         <View style={styles.centered}>
           {postLoading ? (
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryDark} />
           ) : (
             <>
               <Ionicons name="document-text-outline" size={40} color={colors.textPlaceholder} />
@@ -192,7 +192,7 @@ export default function PostDetailScreen() {
           <View style={styles.commentsSection}>
             <Text style={styles.commentsTitle}>Comments ({post.commentCount})</Text>
             {commentsLoading ? (
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.primaryDark} />
             ) : comments.length === 0 ? (
               <View style={styles.noComments}>
                 <Ionicons name="chatbubbles-outline" size={28} color={colors.textPlaceholder} />

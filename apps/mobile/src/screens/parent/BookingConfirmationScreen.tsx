@@ -179,7 +179,7 @@ export default function BookingConfirmationScreen() {
   if (isLoading || !booking) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryDark} />
       </View>
     );
   }
@@ -270,7 +270,7 @@ export default function BookingConfirmationScreen() {
                 <Image source={{ uri: nannyPhoto }} style={styles.heroAvatar} resizeMode="cover" />
               ) : (
                 <View style={[styles.heroAvatar, styles.heroAvatarPlaceholder]}>
-                  <Ionicons name="person" size={40} color={colors.primary} />
+                  <Ionicons name="person" size={40} color={colors.primaryDark} />
                 </View>
               )}
               <View style={styles.heroBadge}>
@@ -307,7 +307,7 @@ export default function BookingConfirmationScreen() {
                   <Ionicons
                     name={isPending ? 'search' : 'person'}
                     size={24}
-                    color={colors.primary}
+                    color={colors.primaryDark}
                   />
                 </View>
               )}
