@@ -80,7 +80,8 @@ describe('Publishing a notification template', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send to 1,240 mothers' }));
     expect(await screen.findByText('Sent to 1,240 mothers')).toBeInTheDocument();
     expect(screen.getByText('1,240 in the inbox · 1,031 pushes sent · 209 with no device')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // The toast fires first; the dialog closes when the ?publish=1 navigation lands.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(published).toBe(1);
   });
 
@@ -145,7 +146,7 @@ describe('Publishing a notification template', () => {
     renderPage('/notifications/4?publish=1');
     const dialog = await screen.findByRole('dialog', { name: 'Send this notification?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('lists every send with its status and counts', async () => {
