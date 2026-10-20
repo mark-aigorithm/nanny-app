@@ -36,7 +36,15 @@ type MotherPickerTableProps = {
   selectable?: boolean;
   /** Each page of rows as it loads — lets a caller name the mothers it has ticked. */
   onRowsLoaded?: (rows: MotherPickerRow[]) => void;
+  /**
+   * Just enough to recognise a mother (name, phone, bookings, last app open),
+   * so a picker beside other content fits without scrolling sideways.
+   */
+  compact?: boolean;
 };
+
+/** The columns a compact table keeps, besides the checkbox. */
+const COMPACT_COLUMNS = new Set(['name', 'phone', 'bookings', 'lastAppOpen']);
 
 const day = (iso: string | null) => (iso ? formatDate(iso) : '—');
 
@@ -53,6 +61,7 @@ export function MotherPickerTable({
   rules,
   selectable = true,
   onRowsLoaded,
+  compact = false,
 }: MotherPickerTableProps) {
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const { sort, onSortChange } = useTableSort<MotherPickerSortKey>(
@@ -127,8 +136,7 @@ export function MotherPickerTable({
       />
     ),
   };
-  const columns: Column<MotherPickerRow, MotherPickerSortKey>[] = [
-    ...(selectable ? [selectColumn] : []),
+  const allColumns: Column<MotherPickerRow, MotherPickerSortKey>[] = [
     { key: 'name', header: 'Name', sortKey: 'name', render: (r) => r.name, width: '22%' },
     { key: 'phone', header: 'Phone', nowrap: true, render: (r) => r.phone ?? '—' },
     {
@@ -188,6 +196,10 @@ export function MotherPickerTable({
       render: (r) => day(r.lastAppOpenAt),
     },
   ];
+  const columns: Column<MotherPickerRow, MotherPickerSortKey>[] = [
+    ...(selectable ? [selectColumn] : []),
+    ...(compact ? allColumns.filter((c) => COMPACT_COLUMNS.has(c.key)) : allColumns),
+  ];
 
   return (
     <div>
@@ -206,7 +218,9 @@ export function MotherPickerTable({
         {selectable && `${selected.size} selected. `}
         {excludeGroupId !== undefined && 'Mothers already in the group aren’t listed. '}
         {rules !== undefined && 'Everyone matching the saved rules, worked out now. '}
-        Bookings, hours and spend count completed bookings only.
+        {compact
+          ? 'Bookings count completed ones only.'
+          : 'Bookings, hours and spend count completed bookings only.'}
       </p>
       {isLoading && <TableSkeleton columns={columns.length} />}
       {error != null && !data && (

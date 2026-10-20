@@ -1,7 +1,8 @@
 /**
  * Choosing who gets a survey, on its own page: first "Every mother" or "Choose
- * mothers" (nothing preselected), then for a chosen few any groups and ticked
- * mothers, combined. The summary says what will be sent before anything is,
+ * mothers" (nothing preselected), then for a chosen few any groups (toggle
+ * chips) and ticked mothers, combined. "Your audience" lists each pick, removable;
+ * the summary says what will be sent before anything is,
  * and publishing confirms with the reach.
  */
 import type { AdminSurvey, MotherPickerRow, UserGroup } from '@nanny-app/shared';
@@ -100,11 +101,14 @@ describe('Choosing who gets a survey', () => {
     renderPage();
     await chooseMothers();
     expect(screen.getByRole('button', { name: /publish and notify/i })).toBeDisabled();
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'Beta (12)' }));
+    const beta = await screen.findByRole('button', { name: /^Beta/ });
+    await userEvent.click(beta);
+    expect(beta).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Select Amy' }));
     expect(screen.getByText(/1 group and 1 mother/i)).toBeInTheDocument();
     // The reach before sending: 12 in the group plus Amy, at most (overlaps are sent once).
-    expect(screen.getByText(/up to 13 mothers/i)).toBeInTheDocument();
+    const panel = screen.getByRole('complementary', { name: 'Your audience' });
+    expect(within(panel).getByText('Up to 13 mothers')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /publish and notify/i }));
     expect(body).toBeUndefined();
     expect(screen.getByRole('dialog', { name: 'Publish to up to 13 mothers?' })).toBeInTheDocument();
@@ -146,7 +150,7 @@ describe('Choosing who gets a survey', () => {
     expect(await screen.findByRole('heading', { name: 'Add recipients' })).toBeInTheDocument();
     await chooseMothers();
     expect(screen.getByRole('button', { name: 'Add recipients' })).toBeDisabled();
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'Beta (12)' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Beta/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Add recipients' }));
     expect(await screen.findByText('Survey 3 open')).toBeInTheDocument();
     expect(hit).toBe(true);
@@ -195,7 +199,24 @@ describe('Choosing who gets a survey', () => {
     expect(screen.queryByText('No groups yet.')).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('checkbox', { name: 'Beta (12)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Beta/ })).toBeInTheDocument();
+  });
+
+  it('lists the picks in "Your audience", each removable', async () => {
+    renderPage();
+    await chooseMothers();
+    const panel = screen.getByRole('complementary', { name: 'Your audience' });
+    expect(within(panel).getByText(/nothing picked yet/i)).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^Beta/ }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select Amy' }));
+    expect(within(panel).getByText('Amy')).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Remove Amy' }));
+    expect(screen.getByRole('checkbox', { name: 'Select Amy' })).not.toBeChecked();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Remove Beta' }));
+    expect(screen.getByRole('button', { name: /^Beta/ })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(panel).getByText(/nothing picked yet/i)).toBeInTheDocument();
   });
 
   it('asks before leaving a picked selection behind (M12)', async () => {
