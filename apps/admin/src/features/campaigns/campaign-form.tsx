@@ -11,7 +11,7 @@ import {
 } from '@nanny-app/shared';
 
 import { Field, FormModal, Input, Select, useToast } from '@admin/components/ui';
-import { CampaignImageCropper } from '@admin/features/campaigns/campaign-image-cropper';
+import { ImageCropper } from '@admin/components/image-cropper';
 import { createCampaign, fetchPackages, fetchPromoCodes, updateCampaign } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { cropImageToFile, type PixelArea } from '@admin/lib/crop-image';
@@ -204,8 +204,10 @@ export function CampaignFormModal({ campaign, onClose }: CampaignFormModalProps)
             <span className="field-label" id={imageLabelId}>
               Image
             </span>
-            <CampaignImageCropper
+            <ImageCropper
               src={pending.src}
+              width={CAMPAIGN_IMAGE_WIDTH}
+              height={CAMPAIGN_IMAGE_HEIGHT}
               busy={uploading}
               onCancel={discardPending}
               onConfirm={(area) => void handleCropConfirm(area)}

@@ -28,8 +28,8 @@ vi.mock('@admin/lib/crop-image', () => ({
   cropImageToFile: vi.fn(),
 }));
 
-vi.mock('@admin/features/campaigns/campaign-image-cropper', () => ({
-  CampaignImageCropper: ({
+vi.mock('@admin/components/image-cropper', () => ({
+  ImageCropper: ({
     onCancel,
     onConfirm,
     onError,
