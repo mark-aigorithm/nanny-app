@@ -101,7 +101,6 @@ export function SurveyRecipients({ survey }: { survey: AdminSurvey }) {
                 checked={selected.has(r.userId)}
                 onChange={() => toggle(r.userId)}
                 onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
               />
             ),
           },
