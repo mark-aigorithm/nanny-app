@@ -51,6 +51,8 @@ function makeNotification(overrides: Partial<NotificationResponse> = {}): Notifi
     referenceId: 42,
     referenceType: 'booking',
     createdAt: new Date().toISOString(),
+    imageUrl: null,
+    link: null,
     ...overrides,
   };
 }

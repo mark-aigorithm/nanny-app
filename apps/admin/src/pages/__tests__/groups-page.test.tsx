@@ -17,7 +17,7 @@ const ADMIN: AdminUser = {
   id: 1, name: 'Ops Admin', email: 'ops@example.com', role: 'ADMIN',
   permissions: {}, isActive: true, createdAt: '2026-01-01T00:00:00.000Z',
 };
-const BETA: UserGroup = { id: 9, name: 'Beta', description: null, memberCount: 12, createdAt: '2026-10-19T10:00:00.000Z' };
+const BETA: UserGroup = { id: 9, name: 'Beta', description: null, kind: 'STATIC', rules: null, memberCount: 12, createdAt: '2026-10-19T10:00:00.000Z' };
 
 function renderPage() {
   server.use(http.get('/api/admin/me', () => ok(ADMIN)));

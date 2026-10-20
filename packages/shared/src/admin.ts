@@ -865,12 +865,34 @@ export const AdminMotherSchema = z.object({
   /** Number of bookings this mother has placed. */
   bookingCount: z.number().int(),
   createdAt: z.string(),
+  /** Last time she opened the app (POST /me/app-open); null if never recorded. */
+  lastAppOpenAt: z.string().nullable(),
 });
 export type AdminMother = z.infer<typeof AdminMotherSchema>;
 
+/** The Mommies directory sorts by the user columns plus her last app open. */
+export const AdminMotherSortKeySchema = z.enum([...AdminUserSortKeySchema.options, 'lastAppOpenAt']);
+export type AdminMotherSortKey = z.infer<typeof AdminMotherSortKeySchema>;
+
+/**
+ * The Mommies tab's "Last app open" filter: opened within 7 / 30 days, not
+ * opened in 30 / 90 days (never counts as not opened), or never opened.
+ */
+export const AdminMotherLastAppOpenFilterSchema = z.enum([
+  'ANY',
+  'WITHIN_7',
+  'WITHIN_30',
+  'NOT_30',
+  'NOT_90',
+  'NEVER',
+]);
+export type AdminMotherLastAppOpenFilter = z.infer<typeof AdminMotherLastAppOpenFilterSchema>;
+
 /** Paginated mother list query (GET /admin/mothers). A directory, so newest first. */
 export const AdminMotherListQuerySchema = AdminUserDirectoryQuerySchema.extend({
+  sortBy: AdminMotherSortKeySchema.catch('registered').default('registered'),
   status: AdminApprovalStatusFilterSchema.catch('ALL').default('ALL'),
+  lastAppOpen: AdminMotherLastAppOpenFilterSchema.catch('ANY').default('ANY'),
 });
 export type AdminMotherListQuery = z.infer<typeof AdminMotherListQuerySchema>;
 

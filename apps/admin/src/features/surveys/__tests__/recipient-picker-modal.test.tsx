@@ -14,10 +14,10 @@ import { renderWithProviders } from '@admin/test/render';
 import { server } from '@admin/test/server';
 
 const ok = <T,>(data: T) => HttpResponse.json({ data, error: null });
-const GROUP: UserGroup = { id: 2, name: 'Beta', description: null, memberCount: 12, createdAt: '2026-10-01T00:00:00.000Z' };
+const GROUP: UserGroup = { id: 2, name: 'Beta', description: null, kind: 'STATIC', rules: null, memberCount: 12, createdAt: '2026-10-01T00:00:00.000Z' };
 const AMY: MotherPickerRow = {
   id: 11, name: 'Amy', phone: null, completedBookings: 0, hoursBooked: 0, totalSpent: 0,
-  lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null,
+  lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null, lastAppOpenAt: null,
 };
 
 const paged = <T,>(data: T[], total = data.length) =>

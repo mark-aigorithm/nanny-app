@@ -15,7 +15,7 @@ import { server } from '@admin/test/server';
 
 const row = (id: number, name: string): MotherPickerRow => ({
   id, name, phone: null, completedBookings: id, hoursBooked: id * 4, totalSpent: id * 100,
-  lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null,
+  lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null, lastAppOpenAt: null,
 });
 
 function Harness() {

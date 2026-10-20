@@ -17,10 +17,10 @@ const ADMIN: AdminUser = {
   id: 1, name: 'Ops Admin', email: 'ops@example.com', role: 'ADMIN',
   permissions: {}, isActive: true, createdAt: '2026-01-01T00:00:00.000Z',
 };
-const GROUP: UserGroup = { id: 5, name: 'Beta', description: null, memberCount: 0, createdAt: '2026-10-19T00:00:00.000Z' };
+const GROUP: UserGroup = { id: 5, name: 'Beta', description: null, kind: 'STATIC', rules: null, memberCount: 0, createdAt: '2026-10-19T00:00:00.000Z' };
 const AMY: MotherPickerRow = {
   id: 11, name: 'Amy', phone: null, completedBookings: 2, hoursBooked: 8, totalSpent: 400,
-  lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null,
+  lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null, lastAppOpenAt: null,
 };
 
 function renderPage() {

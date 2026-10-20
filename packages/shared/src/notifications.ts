@@ -28,6 +28,7 @@ export const NotificationTypeSchema = z.enum([
   'marketplace_listing_rejected',
   'booking_message',
   'survey',
+  'announcement',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
@@ -39,6 +40,16 @@ export const NotificationReferenceTypeSchema = z.enum([
 ]);
 export type NotificationReferenceType = z.infer<typeof NotificationReferenceTypeSchema>;
 
+/**
+ * Where tapping an announcement takes the mother: buy a package, or book with
+ * a promo code applied. Read through the announcement's broadcast.
+ */
+export const NotificationLinkSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('package'), packageId: z.number().int() }),
+  z.object({ type: z.literal('promo_code'), code: z.string().min(1) }),
+]);
+export type NotificationLink = z.infer<typeof NotificationLinkSchema>;
+
 export const NotificationResponseSchema = z.object({
   id: z.number().int(),
   type: NotificationTypeSchema,
@@ -48,6 +59,10 @@ export const NotificationResponseSchema = z.object({
   referenceId: z.number().int().nullable(),
   referenceType: NotificationReferenceTypeSchema.nullable(),
   createdAt: z.string(),
+  /** Announcements only: the broadcast's image. Defaulted so older payloads still parse. */
+  imageUrl: z.string().nullable().default(null),
+  /** Announcements only: where a tap goes. */
+  link: NotificationLinkSchema.nullable().default(null),
 });
 
 export type NotificationResponse = z.infer<typeof NotificationResponseSchema>;

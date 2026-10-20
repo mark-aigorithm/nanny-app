@@ -30,3 +30,4 @@ export * from './booking-chat';
 export * from './survey';
 export * from './user-group';
 export * from './app-release';
+export * from './notification-template';
