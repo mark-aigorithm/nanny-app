@@ -5376,6 +5376,29 @@ input[type='number'] {
 
 /* ── Survey results & recipients ────────────────────────── */
 
+/* One mother's answers: a status line under her badge, then prompt → answer pairs. */
+.answer-status {
+  margin-top: 0.75rem;
+}
+
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1rem 0 0;
+}
+
+.answer-prompt {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.answer-value {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
 .survey-results {
   display: flex;
   flex-direction: column;

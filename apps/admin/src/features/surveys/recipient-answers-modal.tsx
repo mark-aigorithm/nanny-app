@@ -1,9 +1,10 @@
-import type { AdminSurvey, SurveyAnswer, SurveyQuestion } from '@nanny-app/shared';
+import type { AdminSurvey, AdminSurveyRecipient, SurveyAnswer, SurveyQuestion } from '@nanny-app/shared';
 import { useQuery } from '@tanstack/react-query';
 
-import { Badge, DescriptionList, ErrorState, LoadingState, Modal } from '@admin/components/ui';
+import { Badge, ErrorState, LoadingState, Modal } from '@admin/components/ui';
 import { fetchSurveyRecipientAnswers } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
+import { formatDateTime } from '@admin/lib/format';
 
 import { RECIPIENT_STATUS_LABEL, RECIPIENT_STATUS_TONE } from './survey-labels';
 
@@ -14,6 +15,15 @@ function formatAnswer(q: SurveyQuestion, a: SurveyAnswer | undefined): string {
   if (a.bool !== null) return a.bool ? 'Yes' : 'No';
   const labels = q.options.filter((o) => a.optionIds.includes(o.id)).map((o) => o.label);
   return labels.length ? labels.join(', ') : '—';
+}
+
+/** Matches the badge above it: skipped is not "not yet". */
+function statusLine(r: AdminSurveyRecipient): string {
+  if (r.status === 'ANSWERED') return r.answeredAt ? `Answered on ${formatDateTime(r.answeredAt)}.` : 'Answered.';
+  if (r.status === 'SKIPPED') {
+    return r.skippedAt ? `She skipped this survey on ${formatDateTime(r.skippedAt)}.` : 'She skipped this survey.';
+  }
+  return `No response yet. Last sent ${formatDateTime(r.lastSentAt)}.`;
 }
 
 type Props = { survey: AdminSurvey; userId: number; onClose: () => void };
@@ -35,16 +45,19 @@ export function RecipientAnswersModal({ survey, userId, onClose }: Props) {
           <Badge tone={RECIPIENT_STATUS_TONE[query.data.recipient.status]}>
             {RECIPIENT_STATUS_LABEL[query.data.recipient.status]}
           </Badge>
-          {query.data.recipient.status !== 'ANSWERED' ? (
-            <p className="modal-text">She hasn’t answered yet.</p>
-          ) : (
-            <DescriptionList
-              items={survey.questions.map((q) => ({
-                label: q.prompt,
-                value: formatAnswer(q, query.data.answers.find((a) => a.questionId === q.id)),
-                wide: true,
-              }))}
-            />
+          <p className="modal-text answer-status">{statusLine(query.data.recipient)}</p>
+          {query.data.recipient.status === 'ANSWERED' && (
+            <dl className="answer-list">
+              {survey.questions.map((q) => (
+                <div key={q.id} className="answer-item">
+                  {/* A prompt is a sentence: regular case and weight, not a field label. */}
+                  <dt className="answer-prompt">{q.prompt}</dt>
+                  <dd className="answer-value">
+                    {formatAnswer(q, query.data.answers.find((a) => a.questionId === q.id))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           )}
         </>
       )}
