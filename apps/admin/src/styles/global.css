@@ -2557,13 +2557,43 @@ input[type='number'] {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 264px;
+  width: 300px;
   padding: 0.5rem;
   background: var(--color-surface);
   border: 1px solid var(--color-warm-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   z-index: 20;
+}
+
+/* The title, with "Mark all as read" on the right while anything is new. */
+.notif-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.notif-mark-read {
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-primary-dark);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notif-mark-read:hover {
+  background: var(--color-warm-subtle);
+}
+
+.notif-mark-read:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 1px;
 }
 
 .notif-menu-title {
@@ -2624,6 +2654,31 @@ input[type='number'] {
 .notif-arrow {
   margin-left: auto;
   color: var(--color-text-muted);
+}
+
+/* A queue with requests since it was last read: bolder, with a "N new" tag. */
+.notif-item {
+  font-weight: 500;
+}
+
+.notif-item--unread {
+  font-weight: 700;
+}
+
+.notif-item-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.4rem;
+}
+
+.notif-new {
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-dark);
+  color: var(--color-surface);
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 /* ── Bookings ───────────────────────────────────────────── */
