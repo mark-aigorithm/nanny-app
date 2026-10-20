@@ -49,7 +49,9 @@ export default function Button({
 }: ButtonProps) {
   // A disabled primary gets its own neutral fill and label instead of a faded
   // sage one, which looked almost the same as enabled. Others still fade.
-  const primaryDisabled = variant === 'primary' && disabled;
+  // A form that is submitting passes `disabled` and `loading` together; that is
+  // busy, not unavailable, so it keeps the enabled fill behind the spinner.
+  const primaryDisabled = variant === 'primary' && disabled && !loading;
   const variantStyle = primaryDisabled
     ? { bg: colors.actionDisabled, text: colors.onActionDisabled, border: undefined }
     : VARIANT_STYLES[variant];
@@ -72,7 +74,7 @@ export default function Button({
         {
           minHeight,
           backgroundColor: variantStyle.bg,
-          opacity: disabled && !primaryDisabled ? 0.5 : 1,
+          opacity: disabled && variant !== 'primary' ? 0.5 : 1,
         },
         variantStyle.border ? { borderWidth: 1.5, borderColor: variantStyle.border } : undefined,
         variant === 'primary' && !primaryDisabled ? shadows.md : undefined,

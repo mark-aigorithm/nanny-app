@@ -25,6 +25,15 @@ describe('Button', () => {
     expect(contrast(label.color as string, style.backgroundColor as string)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // Forms pass `disabled` and `loading` together while submitting; that is
+  // "busy", not "unavailable", so it keeps the enabled fill.
+  it('keeps the enabled primary fill while loading, even when also disabled', () => {
+    render(<Button title="Save" disabled loading onPress={() => undefined} />);
+    const style = StyleSheet.flatten(screen.getByRole('button', { name: 'Save' }).props.style);
+    expect(style.backgroundColor).toBe(colors.primaryAction);
+    expect(style.opacity ?? 1).toBe(1);
+  });
+
   it('draws a disabled primary with its own fill and label, not a faded enabled one', () => {
     render(<Button title="Submit" disabled onPress={() => undefined} />);
     const { style, label } = rendered('Submit');
