@@ -7,8 +7,8 @@ import { GroupTable } from '@admin/features/groups/group-table';
 import { useCanManage } from '@admin/lib/permissions';
 
 /**
- * Hand-picked groups of mothers. Its own console section so other features
- * (Surveys today, the notification center later) can send to a group.
+ * Groups of mothers — hand-picked (static) or matched by rules (dynamic). Its
+ * own section so Surveys and Notifications can both send to a group.
  */
 export function GroupsPage() {
   const canManage = useCanManage('groups');
@@ -19,7 +19,7 @@ export function GroupsPage() {
     <section>
       <PageHeader
         title="Groups"
-        subtitle="Hand-picked lists of mothers to send surveys and messages to."
+        subtitle="Lists of mothers to send surveys and notifications to: hand-picked, or matched by rules."
         action={
           canManage && (
             <Button onClick={() => setCreating(true)}>

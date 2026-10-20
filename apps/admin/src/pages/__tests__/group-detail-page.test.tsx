@@ -1,4 +1,5 @@
 /** A group's page: its members, and adding mothers from the picker. */
+import { describeDynamicRules } from '@nanny-app/shared';
 import type { AdminUser, MotherPickerRow, UserGroup } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -23,9 +24,9 @@ const AMY: MotherPickerRow = {
   lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null, lastAppOpenAt: null,
 };
 
-function renderPage() {
+function renderPage(url = '/groups/5') {
   renderWithProviders(
-    <MemoryRouter initialEntries={['/groups/5']}>
+    <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
         <PermissionsProvider>
           <Routes>
@@ -156,5 +157,85 @@ describe('GroupDetailPage', () => {
     expect(await screen.findByText('Amy')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByText(/selected\./)).not.toBeInTheDocument();
+  });
+
+  const DYNAMIC: UserGroup = {
+    id: 6, name: 'Lapsed 30d', description: null, kind: 'DYNAMIC',
+    rules: [{ field: 'lastAppOpenAt', op: 'notWithinDays', days: 30 }],
+    memberCount: 1, createdAt: '2026-10-20T00:00:00.000Z',
+  };
+
+  it("shows a dynamic group's rules and who matches them, with no member add or remove", async () => {
+    let pickerRules: string | null = null;
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/groups/6', () => ok(DYNAMIC)),
+      http.get('/api/admin/mother-picker', ({ request }) => {
+        pickerRules = new URL(request.url).searchParams.get('rules');
+        return picker([AMY]);
+      }),
+      http.post('/api/admin/groups/rules-preview', () => ok({ count: 1 })),
+    );
+    renderPage('/groups/6');
+
+    expect(await screen.findByText('Amy')).toBeInTheDocument();
+    expect(pickerRules).toBe(JSON.stringify(DYNAMIC.rules));
+    expect(screen.getByText(describeDynamicRules(DYNAMIC.rules ?? []))).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Last app open: days' })).toHaveValue(30);
+    expect(screen.queryByRole('button', { name: /add mothers/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /from group/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it("saves a dynamic group's edited rules", async () => {
+    let patched: unknown;
+    const sixty = [{ field: 'lastAppOpenAt', op: 'notWithinDays', days: 60 }] as const;
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/groups/6', () => ok(DYNAMIC)),
+      http.get('/api/admin/mother-picker', () => picker([AMY])),
+      http.post('/api/admin/groups/rules-preview', () => ok({ count: 1 })),
+      http.patch('/api/admin/groups/6', async ({ request }) => {
+        patched = await request.json();
+        return ok({ ...DYNAMIC, rules: [...sixty] });
+      }),
+    );
+    renderPage('/groups/6');
+
+    const saveRules = await screen.findByRole('button', { name: 'Save rules' });
+    expect(saveRules).toBeDisabled();
+    const days = screen.getByRole('spinbutton', { name: 'Last app open: days' });
+    await userEvent.clear(days);
+    await userEvent.type(days, '60');
+    await userEvent.click(saveRules);
+    await waitFor(() =>
+      expect(patched).toEqual({ name: 'Lapsed 30d', description: null, rules: [...sixty] }),
+    );
+    expect(await screen.findByText('Rules saved')).toBeInTheDocument();
+    expect(saveRules).toBeDisabled();
+  });
+
+  it('shows a view-only operator the rules in words, without the editor', async () => {
+    const viewer: AdminUser = { ...ADMIN, role: 'OPERATOR', permissions: { groups: 'VIEW' } };
+    server.use(
+      http.get('/api/admin/me', () => ok(viewer)),
+      http.get('/api/admin/groups/6', () => ok(DYNAMIC)),
+      http.get('/api/admin/mother-picker', () => picker([AMY])),
+    );
+    renderPage('/groups/6');
+
+    expect(await screen.findByText(describeDynamicRules(DYNAMIC.rules ?? []))).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save rules' })).not.toBeInTheDocument();
+  });
+
+  it('subtitles a static group with its size and kind', async () => {
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/groups/5', () => ok({ ...GROUP, memberCount: 3 })),
+      http.get('/api/admin/mother-picker', () => picker([AMY])),
+    );
+    renderPage();
+    expect(await screen.findByText('3 mothers · Static')).toBeInTheDocument();
   });
 });

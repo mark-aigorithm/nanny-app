@@ -1,5 +1,6 @@
 import {
   ADMIN_PAGE_SIZES,
+  type DynamicGroupRules,
   type MotherPickerRow,
   type MotherPickerSortKey,
 } from '@nanny-app/shared';
@@ -29,6 +30,8 @@ type MotherPickerTableProps = {
   groupId?: number;
   /** Leave out this group's members (the group's own "Add mothers" picker). */
   excludeGroupId?: number;
+  /** A dynamic group's rules: list only the mothers they match now. */
+  rules?: DynamicGroupRules;
   /** False for a read-only list: no checkboxes, and a row click ticks nothing. */
   selectable?: boolean;
   /** Each page of rows as it loads — lets a caller name the mothers it has ticked. */
@@ -47,6 +50,7 @@ export function MotherPickerTable({
   onSelectedChange,
   groupId,
   excludeGroupId,
+  rules,
   selectable = true,
   onRowsLoaded,
 }: MotherPickerTableProps) {
@@ -72,8 +76,8 @@ export function MotherPickerTable({
   }, [searchInput, search, reset]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['mother-picker', { search, groupId, excludeGroupId, page, limit, ...sort }],
-    queryFn: () => fetchMotherPicker({ search, groupId, excludeGroupId, page, limit, ...sort }),
+    queryKey: ['mother-picker', { search, groupId, excludeGroupId, rules, page, limit, ...sort }],
+    queryFn: () => fetchMotherPicker({ search, groupId, excludeGroupId, rules, page, limit, ...sort }),
     placeholderData: keepPreviousData,
   });
 
@@ -197,6 +201,7 @@ export function MotherPickerTable({
       <p className="mother-picker-hint">
         {selectable && `${selected.size} selected. `}
         {excludeGroupId !== undefined && 'Mothers already in the group aren’t listed. '}
+        {rules !== undefined && 'Everyone matching the saved rules, worked out now. '}
         Bookings, hours and spend count completed bookings only.
       </p>
       {isLoading && <TableSkeleton columns={columns.length} />}

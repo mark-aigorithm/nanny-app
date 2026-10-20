@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ActionMenu,
   actionsColumn,
+  Badge,
   type Column,
   ConfirmDialog,
   ErrorState,
@@ -26,8 +27,9 @@ import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
 import { GroupFormModal } from './group-form';
+import { GROUP_KIND_LABEL, GROUP_KIND_TONE } from './group-labels';
 
-type GroupSortKey = 'id' | 'name' | 'memberCount' | 'createdAt';
+type GroupSortKey = 'id' | 'name' | 'kind' | 'memberCount' | 'createdAt';
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
 
@@ -49,6 +51,7 @@ export function GroupTable() {
     {
       id: (g) => g.id,
       name: (g) => g.name,
+      kind: (g) => GROUP_KIND_LABEL[g.kind],
       memberCount: (g) => g.memberCount,
       createdAt: (g) => g.createdAt,
     },
@@ -68,10 +71,16 @@ export function GroupTable() {
   const columns: Column<UserGroup, GroupSortKey>[] = [
     idColumn((g) => g.id, 'id'),
     { key: 'name', header: 'Name', sortKey: 'name', width: '30%', render: (g) => g.name },
+    {
+      key: 'kind',
+      header: 'Type',
+      sortKey: 'kind',
+      render: (g) => <Badge tone={GROUP_KIND_TONE[g.kind]}>{GROUP_KIND_LABEL[g.kind]}</Badge>,
+    },
     { key: 'description', header: 'Description', render: (g) => g.description ?? '—' },
     {
       key: 'members',
-      header: 'Members',
+      header: 'Members (now)',
       sortKey: 'memberCount',
       sortFirst: 'desc',
       align: 'right',
@@ -122,7 +131,7 @@ export function GroupTable() {
             onRowClick={(g) => navigate(`/groups/${g.id}`)}
             sort={sort}
             onSortChange={onSortChange}
-            empty="No groups yet. A group is a hand-picked list of mothers; add the first one with “New group”."
+            empty="No groups yet. Add one with “New group”: hand-pick mothers, or set rules that pick them for you."
           />
         </>
       )}

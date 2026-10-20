@@ -1,9 +1,12 @@
+import type { DynamicGroupRules, UserGroup } from '@nanny-app/shared';
+import { DynamicGroupRulesSchema, describeDynamicRules } from '@nanny-app/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
   Button,
+  Card,
   ConfirmDialog,
   DetailHeader,
   ErrorState,
@@ -16,19 +19,29 @@ import {
   useToast,
 } from '@admin/components/ui';
 import { GroupFormModal } from '@admin/features/groups/group-form';
+import { GROUP_KIND_LABEL } from '@admin/features/groups/group-labels';
 import { MotherPickerTable } from '@admin/features/groups/mother-picker-table';
+import { RuleEditor } from '@admin/features/groups/rule-editor';
 import {
   addUserGroupMembers,
   deleteUserGroup,
   fetchUserGroup,
   removeUserGroupMembers,
+  updateUserGroup,
 } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
 
-const mothers = (n: number) => `${n} mother${n === 1 ? '' : 's'}`;
+const mothers = (n: number) => `${n.toLocaleString('en-US')} mother${n === 1 ? '' : 's'}`;
 
-/** One group: its members (the picker filtered to the group) and a picker to add more. */
+/** A dynamic group's member table selects nothing. */
+const NO_SELECTION: ReadonlySet<number> = new Set();
+
+/**
+ * One group. Static: its members (the picker filtered to the group) and a
+ * picker to add more. Dynamic: its rules and the mothers they match now —
+ * members can't be added or removed by hand.
+ */
 export function GroupDetailPage() {
   const { id = '' } = useParams();
   const groupId = Number(id);
@@ -88,9 +101,17 @@ export function GroupDetailPage() {
 
   if (group.isLoading) return <LoadingState label="Loading group…" />;
   if (group.error != null || !group.data) {
-    return <ErrorState message={apiErrorMessage(group.error)} onRetry={() => void group.refetch()} retrying={group.isFetching} />;
+    return (
+      <ErrorState
+        message={apiErrorMessage(group.error)}
+        onRetry={() => void group.refetch()}
+        retrying={group.isFetching}
+      />
+    );
   }
 
+  const g = group.data;
+  const dynamic = g.kind === 'DYNAMIC';
   const n = addSelection.size;
   const closeAdd = () => {
     setAddSelection(new Set());
@@ -100,11 +121,13 @@ export function GroupDetailPage() {
   // Ticks across pages are real work: ask before Escape or Close drops them.
   const requestCloseAdd = () => (n === 0 ? closeAdd() : setDiscarding(true));
   const m = memberSelection.size;
+  const size = dynamic ? `${mothers(g.memberCount)} right now` : mothers(g.memberCount);
+
   return (
     <section>
       <DetailHeader
-        title={group.data.name}
-        subtitle={[mothers(group.data.memberCount), group.data.description].filter(Boolean).join(' · ')}
+        title={g.name}
+        subtitle={[size, GROUP_KIND_LABEL[g.kind], g.description].filter(Boolean).join(' · ')}
         backTo="/groups"
         backLabel="Groups"
         actions={
@@ -118,30 +141,48 @@ export function GroupDetailPage() {
                 <Trash2 size={ICON_SIZE.inline} aria-hidden />
                 Delete
               </Button>
-              <Button onClick={() => setAdding(true)}>
-                <Plus size={ICON_SIZE.inline} aria-hidden />
-                Add mothers
-              </Button>
+              {!dynamic && (
+                <Button onClick={() => setAdding(true)}>
+                  <Plus size={ICON_SIZE.inline} aria-hidden />
+                  Add mothers
+                </Button>
+              )}
             </>
           )
         }
       />
-      {canManage && (
-        // Always rendered (disabled at 0) so the first tick doesn't push the table down.
-        <div className="filter-bar">
-          <Button variant="danger" onClick={() => setRemoving(true)} disabled={m === 0 || remove.isPending}>
-            {m === 0 ? 'Remove from group' : `Remove ${m} from group`}
-          </Button>
-        </div>
-      )}
-      <MotherPickerTable
-        groupId={groupId}
-        selected={memberSelection}
-        onSelectedChange={setMemberSelection}
-        selectable={canManage}
-      />
 
-      {adding && (
+      {dynamic ? (
+        <>
+          <RulesCard key={g.id} group={g} canManage={canManage} />
+          <h3 className="form-section-title">Who matches now</h3>
+          <MotherPickerTable
+            rules={g.rules ?? []}
+            selected={NO_SELECTION}
+            onSelectedChange={() => undefined}
+            selectable={false}
+          />
+        </>
+      ) : (
+        <>
+          {canManage && (
+            // Always rendered (disabled at 0) so the first tick doesn't push the table down.
+            <div className="filter-bar">
+              <Button variant="danger" onClick={() => setRemoving(true)} disabled={m === 0 || remove.isPending}>
+                {m === 0 ? 'Remove from group' : `Remove ${m} from group`}
+              </Button>
+            </div>
+          )}
+          <MotherPickerTable
+            groupId={groupId}
+            selected={memberSelection}
+            onSelectedChange={setMemberSelection}
+            selectable={canManage}
+          />
+        </>
+      )}
+
+      {adding && !dynamic && (
         <Modal
           title="Add mothers"
           size="lg"
@@ -183,7 +224,7 @@ export function GroupDetailPage() {
           onCancel={() => setRemoving(false)}
         />
       )}
-      {editing && <GroupFormModal group={group.data} onClose={() => setEditing(false)} />}
+      {editing && <GroupFormModal group={g} onClose={() => setEditing(false)} />}
       {deleting && (
         <ConfirmDialog
           title="Delete this group?"
@@ -196,5 +237,51 @@ export function GroupDetailPage() {
         />
       )}
     </section>
+  );
+}
+
+/** A dynamic group's rules: the editor and Save for managers, the rules in words for viewers. */
+function RulesCard({ group, canManage }: { group: UserGroup; canManage: boolean }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const savedRules = group.rules ?? [];
+  const [rules, setRules] = useState<DynamicGroupRules>(savedRules);
+  const dirty = JSON.stringify(rules) !== JSON.stringify(savedRules);
+  const valid = DynamicGroupRulesSchema.safeParse(rules).success;
+
+  const save = useMutation({
+    mutationFn: () => updateUserGroup(group.id, { name: group.name, description: group.description, rules }),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(['groups', group.id], saved);
+      void queryClient.invalidateQueries({ queryKey: ['groups'], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ['mother-picker'] });
+      setRules(saved.rules ?? []);
+      toast.success('Rules saved');
+    },
+    onError: (err) => toast.error('Couldn’t save the rules', apiErrorMessage(err)),
+  });
+
+  return (
+    <Card
+      title="Rules"
+      action={
+        canManage && (
+          <div className="row-actions">
+            <Button variant="ghost" size="sm" onClick={() => setRules(savedRules)} disabled={!dirty || save.isPending}>
+              Discard changes
+            </Button>
+            <Button size="sm" onClick={() => save.mutate()} disabled={!dirty || !valid || save.isPending}>
+              Save rules
+            </Button>
+          </div>
+        )
+      }
+    >
+      {canManage ? (
+        <RuleEditor value={rules} onChange={setRules} disabled={save.isPending} />
+      ) : (
+        <p className="rule-summary-text">{describeDynamicRules(savedRules)}</p>
+      )}
+    </Card>
   );
 }
