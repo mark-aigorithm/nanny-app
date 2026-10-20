@@ -1,9 +1,10 @@
 import type { SurveyQuestionType } from '@nanny-app/shared';
 import { SURVEY_MAX_OPTIONS, SURVEY_OPTION_MAX, SURVEY_PROMPT_MAX, isChoiceQuestion } from '@nanny-app/shared';
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 import { ArrowDown, ArrowUp, Button, Field, ICON_SIZE, Input, Plus, Select, Trash2 } from '@admin/components/ui';
 
+import type { QuestionIssues } from './draft-issues';
 import { QUESTION_TYPE_LABEL } from './survey-labels';
 
 export type DraftQuestion = {
@@ -24,6 +25,8 @@ type Props = {
   onRemove: () => void;
   /** Disables every control (view-only operator, or a save in flight). */
   readOnly?: boolean;
+  /** Problems to mark on the fields — passed only once a save has been tried. */
+  issues?: QuestionIssues;
 };
 
 const TYPE_OPTIONS = (Object.keys(QUESTION_TYPE_LABEL) as SurveyQuestionType[]).map((value) => ({
@@ -32,7 +35,9 @@ const TYPE_OPTIONS = (Object.keys(QUESTION_TYPE_LABEL) as SurveyQuestionType[]).
 }));
 
 /** One question of a draft: prompt, answer type, options (choice types) and Required. */
-export function QuestionCard({ question, index, count, onChange, onMove, onRemove, readOnly = false }: Props) {
+export function QuestionCard({ question, index, count, onChange, onMove, onRemove, readOnly = false, issues }: Props) {
+  const promptErrorId = useId();
+  const optionsErrorId = useId();
   const setType = (type: SurveyQuestionType) =>
     onChange({
       ...question,
@@ -66,11 +71,18 @@ export function QuestionCard({ question, index, count, onChange, onMove, onRemov
         <Field label="Question">
           <Input
             aria-label="Question"
+            aria-invalid={issues?.prompt ? true : undefined}
+            aria-describedby={issues?.prompt ? promptErrorId : undefined}
             value={question.prompt}
             maxLength={SURVEY_PROMPT_MAX}
             disabled={readOnly}
             onChange={(e) => onChange({ ...question, prompt: e.target.value })}
           />
+          {issues?.prompt && (
+            <span id={promptErrorId} className="field-error">
+              {issues.prompt}
+            </span>
+          )}
         </Field>
         <div className="field">
           <span className="field-label">Answer type</span>
@@ -83,6 +95,8 @@ export function QuestionCard({ question, index, count, onChange, onMove, onRemov
             <div key={i} className="question-option">
               <Input
                 aria-label={`Option ${i + 1}`}
+                aria-invalid={issues?.badOptions.includes(i) ? true : undefined}
+                aria-describedby={issues?.options ? optionsErrorId : undefined}
                 placeholder={`Option ${i + 1}`}
                 value={label}
                 maxLength={SURVEY_OPTION_MAX}
@@ -102,6 +116,11 @@ export function QuestionCard({ question, index, count, onChange, onMove, onRemov
               )}
             </div>
           ))}
+          {issues?.options && (
+            <span id={optionsErrorId} className="field-error">
+              {issues.options}
+            </span>
+          )}
           {question.options.length < SURVEY_MAX_OPTIONS && (
             <div>
               <Button variant="ghost" size="sm" disabled={readOnly} onClick={() => onChange({ ...question, options: [...question.options, ''] })}>

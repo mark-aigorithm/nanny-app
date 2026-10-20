@@ -130,8 +130,9 @@ describe('SurveyEditor', () => {
       }),
     );
     renderEditor();
-    await userEvent.click(await screen.findByRole('button', { name: /^delete$/i }));
-    await userEvent.click(screen.getByRole('button', { name: /delete draft/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions for this draft' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete draft' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete draft' }));
     expect(await screen.findByText('Survey list')).toBeInTheDocument();
     expect(deleted).toBe(true);
   });
@@ -160,7 +161,7 @@ describe('SurveyEditor', () => {
     expect(within(first).getByRole('checkbox', { name: /required/i })).toBeDisabled();
     expect(within(first).getByRole('button', { name: 'Move question 1 down' })).toBeDisabled();
     expect(within(first).getByRole('button', { name: /delete question/i })).toBeDisabled();
-    for (const name of [/^save$/i, /^delete$/i, /duplicate/i, /add question/i]) {
+    for (const name of [/^save$/i, /more actions/i, /add question/i]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });
@@ -186,9 +187,66 @@ describe('SurveyEditor', () => {
 
   it('disables Duplicate while there are unsaved changes', async () => {
     renderEditor();
-    expect(await screen.findByRole('button', { name: /duplicate/i })).toBeEnabled();
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions for this draft' }));
+    expect(screen.getByRole('menuitem', { name: 'Duplicate' })).toBeEnabled();
+    await userEvent.keyboard('{Escape}');
     await userEvent.type(screen.getByLabelText('Survey description'), 'x');
-    expect(screen.getByRole('button', { name: /duplicate/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions for this draft' }));
+    expect(screen.getByRole('menuitem', { name: /duplicate/i })).toBeDisabled();
+  });
+
+  it('says on screen why Publish is off, and makes Save the primary action while dirty (M11)', async () => {
+    renderEditor();
+    expect(await screen.findByText('Add at least one question to publish.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /^save$/i })).toHaveClass('btn--ghost');
+    await userEvent.type(screen.getByLabelText('Survey description'), 'x');
+    expect(screen.getByText('Unsaved changes. Save before publishing.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /^save$/i })).toHaveClass('btn--primary');
+    expect(screen.getByRole('button', { name: /publish/i })).not.toHaveAttribute('title');
+  });
+
+  it('is ready to publish once saved with a question', async () => {
+    renderEditor(WITH_QUESTION);
+    expect(await screen.findByText('Saved. Ready to publish.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /publish/i })).toBeEnabled();
+  });
+
+  it('asks before deleting a question that has text; an empty one goes at once (M11)', async () => {
+    renderEditor(WITH_QUESTION);
+    const first = (await screen.findAllByRole('group', { name: /question \d/i }))[0]!;
+    await userEvent.click(within(first).getByRole('button', { name: /delete question/i }));
+    const confirm = screen.getByRole('dialog', { name: 'Delete question 1?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getAllByRole('group', { name: /question \d/i })).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole('button', { name: /add question/i }));
+    const blank = screen.getAllByRole('group', { name: /question \d/i })[2]!;
+    await userEvent.click(within(blank).getByRole('button', { name: /delete question/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('group', { name: /question \d/i })).toHaveLength(2);
+  });
+
+  it('on Save with problems, marks the field, says what is wrong and sends nothing (L17)', async () => {
+    let patched = false;
+    server.use(
+      http.patch('/api/admin/surveys/3', () => {
+        patched = true;
+        return ok({ ...DRAFT });
+      }),
+    );
+    renderEditor();
+    await userEvent.click(await screen.findByRole('button', { name: /add question/i }));
+    const card = screen.getAllByRole('group', { name: /question \d/i })[0]!;
+    // Not flagged while still being written.
+    expect(within(card).getByLabelText('Question')).not.toHaveAttribute('aria-invalid');
+
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(patched).toBe(false);
+    const prompt = within(card).getByLabelText('Question');
+    expect(prompt).toHaveAttribute('aria-invalid', 'true');
+    expect(prompt).toHaveAccessibleDescription('Write the question.');
+    expect(prompt).toHaveFocus();
+    expect(screen.getByText('Question 1: write the question.')).toHaveAttribute('role', 'status');
   });
 
   describe('unsaved changes', () => {
