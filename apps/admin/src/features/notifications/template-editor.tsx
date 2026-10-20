@@ -18,6 +18,7 @@ import {
 import { createNotificationTemplate, updateNotificationTemplate } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
+import { useFitToViewport } from '@admin/lib/use-fit-to-viewport';
 
 import { CHANNEL_HINT, CHANNEL_LABEL } from './notification-labels';
 import { TemplateAudienceFields } from './template-audience-fields';
@@ -90,6 +91,7 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = useCanManage('notifications');
+  const asideRef = useFitToViewport<HTMLDivElement>();
   const [values, setValues] = useState<NotificationTemplateInput>(() =>
     template ? toTemplateInput(template) : BLANK,
   );
@@ -304,7 +306,7 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
             </div>
           </Card>
         </div>
-        <div className="template-editor-aside">
+        <div className="template-editor-aside" ref={asideRef}>
           <TemplatePreview
             title={values.title}
             body={values.body}

@@ -24,6 +24,7 @@ import {
 import { createSurvey, updateSurvey } from '@admin/lib/api';
 import { apiErrorMessage } from '@admin/lib/api-error';
 import { useCanManage } from '@admin/lib/permissions';
+import { useFitToViewport } from '@admin/lib/use-fit-to-viewport';
 
 import { draftIssues } from './draft-issues';
 import { QuestionCard, type DraftQuestion } from './question-card';
@@ -62,6 +63,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = useCanManage('surveys');
+  const asideRef = useFitToViewport<HTMLDivElement>();
   const [title, setTitle] = useState(survey.title);
   const [description, setDescription] = useState(survey.description ?? '');
   const [questions, setQuestions] = useState<DraftQuestion[]>(() => toDraftQuestions(survey));
@@ -263,7 +265,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
             </div>
           )}
         </div>
-        <div className="template-editor-aside">
+        <div className="template-editor-aside" ref={asideRef}>
           <SurveyPreview title={title} description={description} questions={questions} />
           {canManage && (
             <div className="editor-save-panel">
