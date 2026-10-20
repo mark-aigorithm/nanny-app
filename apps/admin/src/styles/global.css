@@ -5317,6 +5317,9 @@ input[type='number'] {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.recipient-groups-error {
+  flex-basis: 100%;
+}
 .recipient-group {
   display: inline-flex;
   align-items: center;
