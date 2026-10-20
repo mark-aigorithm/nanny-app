@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import {
   bookingWindowLengthHours,
   calculatePriceBreakdown,
@@ -79,7 +78,6 @@ function formatMinutes(minutes: number): string {
 }
 
 export default function BookingDatePickerScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
   const { data: options, isLoading, error } = useBookingOptions();
@@ -628,10 +626,9 @@ export default function BookingDatePickerScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          // Clears the summary bar, which is taller than a plain button, grows
-          // again when the longer-booking nudge appears, and sits above the
-          // system's bottom bar.
-          { paddingBottom: 220 + insets.bottom },
+          // The summary bar sits under the scroll, not over it, so the end
+          // only needs room to breathe.
+          { paddingBottom: spacing.lg },
         ]}
         showsVerticalScrollIndicator={false}
       >

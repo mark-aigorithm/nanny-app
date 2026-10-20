@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -19,7 +18,7 @@ import {
   type PublicSkill,
 } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { Button, Chip } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { usePricingConfig } from '@mobile/hooks/useBookings';
@@ -73,7 +72,6 @@ function addOnChipLabel(skill: PublicSkill, baseRate: number | null): string {
  * already be settled, not still being assembled.
  */
 export default function BookingCareDetailsScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<BookingFlowParams>();
 
@@ -275,7 +273,7 @@ export default function BookingCareDetailsScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.lg }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

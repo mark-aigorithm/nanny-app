@@ -11,10 +11,6 @@ import {
 
 export const styles = StyleSheet.create({
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: colors.background,
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,

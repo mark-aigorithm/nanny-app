@@ -24,6 +24,12 @@ describe('NotificationRow', () => {
     expect(screen.getByText("We'd love your feedback").props.numberOfLines).toBeUndefined();
   });
 
+  // Older rows read as "…" after two lines, with no detail screen to read the rest on.
+  it('lets the body wrap in full', () => {
+    render(<NotificationRow notification={{ ...NOTIFICATION, isRead: true }} onPress={jest.fn()} />);
+    expect(screen.getByText('How are we doing?').props.numberOfLines).toBeUndefined();
+  });
+
   it('opens on a tap', () => {
     const onPress = jest.fn();
     render(<NotificationRow notification={NOTIFICATION} onPress={onPress} />);

@@ -49,7 +49,6 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: spacing.lg,
     paddingHorizontal: screenPadding,
-    // Clears the sticky summary bar.
     gap: screenPadding,
   },
 

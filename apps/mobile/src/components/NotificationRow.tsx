@@ -11,7 +11,8 @@ import { styles } from './styles/notification-row.styles';
 /**
  * One row of the notifications list, shared by the parent and nanny screens.
  * The title carries the meaning, so it wraps in full (UI-sweep rule: titles get
- * 2+ lines at 1.3×); the timestamp beside it is the side that gives way.
+ * 2+ lines at 1.3×); the timestamp beside it is the side that gives way. The
+ * body wraps in full too: a row has no detail screen to read the rest on.
  */
 export default function NotificationRow({
   notification,
@@ -43,7 +44,7 @@ export default function NotificationRow({
           <Text style={[styles.cardTitle, isUnread && styles.cardTitleUnread]}>{notification.title}</Text>
           <Text style={styles.cardTime}>{formatTimeAgo(notification.createdAt)}</Text>
         </View>
-        <Text style={[styles.cardSubtitle, isUnread && styles.cardSubtitleUnread]} numberOfLines={2}>
+        <Text style={[styles.cardSubtitle, isUnread && styles.cardSubtitleUnread]}>
           {notification.body}
         </Text>
       </View>

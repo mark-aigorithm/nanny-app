@@ -10,10 +10,12 @@ import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 /**
  * Which parent routes show the floating bar, and which tab each one lights up.
  * Every other parent route (detail screens, the booking flow, chat) hides it.
+ * `'previous'` keeps the tab it was opened from lit: Notifications opens from
+ * the bell on every tab and from Account, so it belongs to none of them.
  */
-export const ROUTE_TO_TAB: Readonly<Record<string, BottomNavTab>> = {
+export const ROUTE_TO_TAB: Readonly<Record<string, BottomNavTab | 'previous'>> = {
   home: 'home',
-  notifications: 'home',
+  notifications: 'previous',
   services: 'services',
   community: 'services',
   bookings: 'activity',
@@ -29,8 +31,9 @@ export const ROUTE_TO_TAB: Readonly<Record<string, BottomNavTab>> = {
 export default function ParentTabBar({ state }: BottomTabBarProps) {
   const reducedMotion = useReducedMotion();
   const focusedRoute = state.routes[state.index]?.name;
-  const tab = focusedRoute ? ROUTE_TO_TAB[focusedRoute] : undefined;
-  const visible = tab !== undefined;
+  const mapped = focusedRoute ? ROUTE_TO_TAB[focusedRoute] : undefined;
+  const visible = mapped !== undefined;
+  const tab = mapped === 'previous' ? undefined : mapped;
 
   // Keep the last tab lit while the bar fades out, rather than blanking it.
   const lastTab = useRef<BottomNavTab>(tab ?? 'home');

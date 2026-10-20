@@ -7,7 +7,6 @@ import {
   Pressable,
 } from 'react-native';
 import { Text, TextInput } from '@mobile/components/ui/text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -20,8 +19,8 @@ import {
   type PublicSkill,
 } from '@nanny-app/shared';
 
-import { colors } from '@mobile/theme';
-import { Chip, CollapsibleCard } from '@mobile/components/ui';
+import { colors, spacing } from '@mobile/theme';
+import { Chip, CollapsibleCard, KeyboardAvoidingView } from '@mobile/components/ui';
 import { APP_NAME } from '@mobile/constants';
 import { useCreateBooking, usePricingConfig, useValidatePromo } from '@mobile/hooks/useBookings';
 import { usePackageHours, usePackages } from '@mobile/hooks/usePackages';
@@ -79,7 +78,24 @@ function formatPickedChildren(children: readonly BookingChild[]): string {
 }
 
 export default function BookingStep1Screen() {
-  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  // Where the two typed-in sections start in the scroll. When the keyboard
+  // opens the scroll shrinks above the footer, and Android only brings the
+  // field itself into view, so the section's title stays cut off; the scroll
+  // re-aims at the whole section once its new height lands.
+  const sectionTops = useRef<Record<'promo' | 'instructions', number>>({ promo: 0, instructions: 0 });
+  const focusedSection = useRef<'promo' | 'instructions' | null>(null);
+  const showSection = (key: 'promo' | 'instructions') =>
+    scrollRef.current?.scrollTo({ y: Math.max(0, sectionTops.current[key] - spacing.xs), animated: true });
+  const typingProps = (key: 'promo' | 'instructions') => ({
+    onFocus: () => {
+      focusedSection.current = key;
+      showSection(key);
+    },
+    onBlur: () => {
+      focusedSection.current = null;
+    },
+  });
   const router = useRouter();
   const params = useLocalSearchParams<BookingFlowParams & {
     startTime: string;
@@ -365,7 +381,7 @@ export default function BookingStep1Screen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -381,8 +397,13 @@ export default function BookingStep1Screen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.lg }]}
+        onLayout={() => {
+          if (focusedSection.current) showSection(focusedSection.current);
+        }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <BookingStepProgress step={3} title="Review your request" />
@@ -427,7 +448,12 @@ export default function BookingStep1Screen() {
         </View>
 
         {/* ── Promo code ── */}
-        <View style={styles.section}>
+        <View
+          style={styles.section}
+          onLayout={(e) => {
+            sectionTops.current.promo = e.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionTitle}>Promo code</Text>
           {appliedPromo ? (
             <View style={styles.promoChip}>
@@ -456,6 +482,7 @@ export default function BookingStep1Screen() {
                 value={promoCode}
                 onChangeText={handlePromoCodeChange}
                 autoCapitalize="characters"
+                {...typingProps('promo')}
               />
               <TouchableOpacity
                 testID="booking.promoApply"
@@ -658,7 +685,12 @@ export default function BookingStep1Screen() {
         )}
 
         {/* ── Instructions ── */}
-        <View style={styles.section}>
+        <View
+          style={styles.section}
+          onLayout={(e) => {
+            sectionTops.current.instructions = e.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionTitle}>Anything we should know?</Text>
           <View style={styles.tagRow}>
             {INSTRUCTION_TAGS.map((tag) => (
@@ -679,6 +711,7 @@ export default function BookingStep1Screen() {
             placeholderTextColor={colors.textPlaceholder}
             multiline
             textAlignVertical="top"
+            {...typingProps('instructions')}
           />
         </View>
 
@@ -718,6 +751,6 @@ export default function BookingStep1Screen() {
           </View>
         )}
       </BookingSummaryBar>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

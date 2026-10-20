@@ -38,8 +38,21 @@ describe('ParentTabBar', () => {
   });
 
   it('maps secondary tab screens onto their section tab', () => {
-    expect(ROUTE_TO_TAB.notifications).toBe('home');
     expect(ROUTE_TO_TAB.messages).toBe('account');
+    expect(ROUTE_TO_TAB.community).toBe('services');
+  });
+
+  it('keeps the tab Notifications was opened from lit, with the bar showing', () => {
+    const { rerender, UNSAFE_root } = render(
+      <ParentTabBar {...propsFor(ROUTES, ROUTES.indexOf('mother-profile'))} />,
+    );
+    rerender(<ParentTabBar {...propsFor(ROUTES, ROUTES.indexOf('notifications'))} />);
+
+    expect(mockBottomNav).toHaveBeenLastCalledWith({ activeTab: 'account' });
+    const passThrough = UNSAFE_root.findAll(
+      (node: RenderedNode) => node.props.pointerEvents === 'box-none',
+    );
+    expect(passThrough.length).toBeGreaterThan(0);
   });
 
   it('keeps the last tab lit and stops taking touches on a screen without the bar', () => {

@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import { View, Pressable, Animated, Easing, ActivityIndicator } from 'react-native';
 import { Text, AnimatedText } from '@mobile/components/ui/text';
 
-import { colors } from '@mobile/theme';
+import { colors, spacing } from '@mobile/theme';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { styles } from './styles/booking-summary-bar.styles';
 
 interface BookingSummaryBarProps {
@@ -32,6 +33,11 @@ interface BookingSummaryBarProps {
  *
  * The total flashes on change — a mother tapping an add-on gets a visible
  * acknowledgement that the number she cares about moved.
+ *
+ * It sits in the layout under the screen's ScrollView, not over it, so the
+ * scroll ends where the footer starts at any font size. While the keyboard is
+ * up it shrinks to the CTA alone, without system-bar padding, and gives its
+ * room to the field being typed in.
  */
 export default function BookingSummaryBar({
   summary,
@@ -47,6 +53,7 @@ export default function BookingSummaryBar({
 }: BookingSummaryBarProps) {
   const flash = useRef(new Animated.Value(0)).current;
   const bottomPadding = useBottomBarPadding();
+  const keyboardVisible = useKeyboardVisible();
 
   useEffect(() => {
     if (total == null) return;
@@ -60,52 +67,52 @@ export default function BookingSummaryBar({
   }, [total, flash]);
 
   return (
-    <View style={[styles.footer, { paddingBottom: bottomPadding }]}>
-      {children}
+    <View style={[styles.footer, { paddingBottom: keyboardVisible ? spacing.md : bottomPadding }]}>
+      {keyboardVisible ? null : children}
 
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryLeft}>
-          <Text style={styles.summaryLabel}>{totalLabel}</Text>
-          <Text
-            style={[styles.summaryValue, !summary && styles.summaryValueMuted]}
-            numberOfLines={1}
-          >
-            {summary || placeholder}
-          </Text>
-        </View>
-
-        {total != null && (
-          <View style={styles.totalWrap}>
-            {originalTotal != null && (
-              <Text style={styles.totalStrike} numberOfLines={1}>
-                {originalTotal}
-              </Text>
-            )}
-            <AnimatedText
-              style={[
-                styles.total,
-                {
-                  opacity: flash.interpolate({
-                    inputRange: [0, 0.4, 1],
-                    outputRange: [0.35, 1, 1],
-                  }),
-                  transform: [
-                    {
-                      translateY: flash.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [6, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {total}
-            </AnimatedText>
+      {keyboardVisible ? null : (
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryLeft}>
+            <Text style={styles.summaryLabel}>{totalLabel}</Text>
+            {/* A date, a time range and a duration: it wraps rather than cut the time off. */}
+            <Text style={[styles.summaryValue, !summary && styles.summaryValueMuted]}>
+              {summary || placeholder}
+            </Text>
           </View>
-        )}
-      </View>
+
+          {total != null && (
+            <View style={styles.totalWrap}>
+              {originalTotal != null && (
+                <Text style={styles.totalStrike} numberOfLines={1}>
+                  {originalTotal}
+                </Text>
+              )}
+              <AnimatedText
+                style={[
+                  styles.total,
+                  {
+                    opacity: flash.interpolate({
+                      inputRange: [0, 0.4, 1],
+                      outputRange: [0.35, 1, 1],
+                    }),
+                    transform: [
+                      {
+                        translateY: flash.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [6, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {total}
+              </AnimatedText>
+            </View>
+          )}
+        </View>
+      )}
 
       <Pressable
         // Named for tests: this one control advances the date picker, the care
