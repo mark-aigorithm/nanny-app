@@ -31,6 +31,8 @@ type MotherPickerTableProps = {
   excludeGroupId?: number;
   /** False for a read-only list: no checkboxes, and a row click ticks nothing. */
   selectable?: boolean;
+  /** Each page of rows as it loads — lets a caller name the mothers it has ticked. */
+  onRowsLoaded?: (rows: MotherPickerRow[]) => void;
 };
 
 const day = (iso: string | null) => (iso ? formatDate(iso) : '—');
@@ -46,6 +48,7 @@ export function MotherPickerTable({
   groupId,
   excludeGroupId,
   selectable = true,
+  onRowsLoaded,
 }: MotherPickerTableProps) {
   const { page, limit, setPage, setLimit, reset } = usePagination();
   const { sort, onSortChange } = useTableSort<MotherPickerSortKey>(
@@ -73,6 +76,10 @@ export function MotherPickerTable({
     queryFn: () => fetchMotherPicker({ search, groupId, excludeGroupId, page, limit, ...sort }),
     placeholderData: keepPreviousData,
   });
+
+  useEffect(() => {
+    if (data) onRowsLoaded?.(data.data);
+  }, [data, onRowsLoaded]);
 
   const toggle = (id: number) => {
     const next = new Set(selected);

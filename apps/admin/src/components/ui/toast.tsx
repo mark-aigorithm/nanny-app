@@ -8,29 +8,40 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { CircleAlert, CircleCheck, ICON_SIZE, Info, X } from './icon';
+import { CircleAlert, CircleCheck, ICON_SIZE, Info, TriangleAlert, X } from './icon';
 
-type ToastTone = 'success' | 'error' | 'info';
+type ToastTone = 'success' | 'error' | 'info' | 'warning';
+
+/** One follow-up the toast offers, e.g. "Use this group instead". */
+type ToastAction = { label: string; onClick: () => void };
 
 type ToastData = {
   id: number;
   tone: ToastTone;
   title: string;
   message?: string;
+  action?: ToastAction;
 };
 
 type ToastInput = {
   tone?: ToastTone;
   title: string;
   message?: string;
-  /** Auto-dismiss delay in ms (0 to disable). Default 4500. */
+  /**
+   * Auto-dismiss delay in ms (0 to disable). Default 4500 — or 0 when the toast
+   * has an action, so the action never times out from under a keyboard or
+   * screen-reader user.
+   */
   duration?: number;
+  action?: ToastAction;
 };
 
 type ToastApi = {
   toast: (input: ToastInput) => void;
   success: (title: string, message?: string) => void;
   error: (title: string, message?: string) => void;
+  /** It happened, but not completely — stays a little longer than a success. */
+  warning: (title: string, message?: string) => void;
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -39,7 +50,10 @@ const TONE_ICON = {
   success: CircleCheck,
   error: CircleAlert,
   info: Info,
+  warning: TriangleAlert,
 } as const;
+
+const WARNING_DURATION = 8000;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
@@ -50,11 +64,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    ({ tone = 'info', title, message, duration = 4500 }: ToastInput) => {
+    ({ tone = 'info', title, message, duration, action }: ToastInput) => {
       const id = (idRef.current += 1);
-      setToasts((prev) => [...prev, { id, tone, title, message }]);
-      if (duration > 0) {
-        window.setTimeout(() => remove(id), duration);
+      setToasts((prev) => [...prev, { id, tone, title, message, action }]);
+      const ms = duration ?? (action ? 0 : 4500);
+      if (ms > 0) {
+        window.setTimeout(() => remove(id), ms);
       }
     },
     [remove],
@@ -64,11 +79,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     toast,
     success: (title, message) => toast({ tone: 'success', title, message }),
     error: (title, message) => toast({ tone: 'error', title, message }),
+    warning: (title, message) => toast({ tone: 'warning', title, message, duration: WARNING_DURATION }),
   });
   // Keep the stable api object pointing at the latest toast closure.
   api.current.toast = toast;
   api.current.success = (title, message) => toast({ tone: 'success', title, message });
   api.current.error = (title, message) => toast({ tone: 'error', title, message });
+  api.current.warning = (title, message) =>
+    toast({ tone: 'warning', title, message, duration: WARNING_DURATION });
 
   return (
     <ToastContext.Provider value={api.current}>
@@ -85,6 +103,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <div className="toast-body">
                   <p className="toast-title">{item.title}</p>
                   {item.message && <p className="toast-message">{item.message}</p>}
+                  {item.action && (
+                    <button
+                      type="button"
+                      className="toast-action"
+                      onClick={() => {
+                        item.action?.onClick();
+                        remove(item.id);
+                      }}
+                    >
+                      {item.action.label}
+                    </button>
+                  )}
                 </div>
                 <button
                   type="button"

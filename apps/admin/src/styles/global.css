@@ -5947,3 +5947,100 @@ textarea.input {
     position: static;
   }
 }
+
+/* Toast: warning tone and an optional follow-up action. */
+.toast--warning {
+  border-left-color: var(--color-warning);
+}
+
+.toast--warning .toast-icon {
+  color: var(--color-warning-text);
+}
+
+.toast-action {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: var(--color-warm-subtle);
+}
+
+.toast-action:focus-visible,
+.toast-close:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
+/* Notification audience: mode, the choice, then the live count. */
+.audience-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.audience-group-count {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.audience-group--missing .audience-group-count {
+  color: var(--color-error-text);
+  font-weight: 600;
+}
+
+.audience-mothers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.audience-mothers-list {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.audience-mothers-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.audience-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-muted);
+}
+
+.audience-count p {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Publish confirmation: what is happening while the request runs. */
+.publish-sending {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
