@@ -23,7 +23,7 @@ const ADMIN = {
 };
 const VIEWER = { ...ADMIN, id: 2, role: 'OPERATOR', permissions: { surveys: 'VIEW' } };
 const DRAFT: AdminSurvey = {
-  id: 3, title: 'Care feedback', description: 'Two minutes, promise.', status: 'DRAFT',
+  id: 3, title: 'Care feedback', status: 'DRAFT',
   counts: { recipients: 0, answered: 0, skipped: 0, pending: 0 },
   publishedAt: null, closedAt: null, createdAt: '2026-10-19T00:00:00.000Z',
   questions: [
@@ -73,7 +73,8 @@ describe('A draft survey', () => {
     const preview = await screen.findByRole('complementary', { name: 'Preview' });
     expect(within(preview).getByText('How was your nanny?')).toBeInTheDocument();
     expect(within(preview).getByText('Great')).toBeInTheDocument();
-    expect(within(preview).getByText('(optional)', { exact: false })).toBeInTheDocument();
+    expect(within(preview).getByText('Optional')).toBeInTheDocument();
+    expect(within(preview).getByText('Question 2 of 2')).toBeInTheDocument();
     expect(screen.queryByLabelText('Survey title')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }));

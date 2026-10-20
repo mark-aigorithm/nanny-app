@@ -21,7 +21,7 @@ const ADMIN = {
   permissions: {}, isActive: true, createdAt: '2026-01-01T00:00:00.000Z',
 };
 const DRAFT: AdminSurvey = {
-  id: 3, title: 'Untitled survey', description: null, status: 'DRAFT',
+  id: 3, title: 'Untitled survey', status: 'DRAFT',
   counts: { recipients: 0, answered: 0, skipped: 0, pending: 0 },
   publishedAt: null, closedAt: null, createdAt: '2026-10-19T00:00:00.000Z', questions: [],
 };
@@ -67,7 +67,7 @@ describe('SurveyEditor', () => {
   it('keeps the page heading on the saved title while the title field is edited', async () => {
     renderEditor(DRAFT, vi.fn(), ADMIN, true);
     expect(await screen.findByRole('heading', { name: 'Create new survey' })).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('Title'), ' and more');
+    await userEvent.type(screen.getByLabelText('Survey title'), ' and more');
     expect(screen.getByRole('heading', { name: 'Create new survey' })).toBeInTheDocument();
   });
 
@@ -103,7 +103,6 @@ describe('SurveyEditor', () => {
     await waitFor(() =>
       expect(body).toEqual({
         title: 'Feedback',
-        description: '',
         questions: [
           { type: 'SINGLE_CHOICE', prompt: 'Pick one', required: false, options: ['A', 'B'] },
           { type: 'RATING', prompt: 'Rate us', required: true, options: [] },
@@ -124,7 +123,7 @@ describe('SurveyEditor', () => {
     expect(screen.getByRole('button', { name: 'Move question 2 up' })).toHaveFocus();
   });
 
-  it('a new survey is created by its first Save, then opens as that draft (L8)', async () => {
+  it('a new survey starts with one blank question, and its first Save creates it (L8)', async () => {
     let body: unknown;
     server.use(
       http.post('/api/admin/surveys', async ({ request }) => {
@@ -133,14 +132,20 @@ describe('SurveyEditor', () => {
       }),
     );
     renderEditor(DRAFT, vi.fn(), ADMIN, true);
-    expect(await screen.findByRole('button', { name: /publish/i })).toBeDisabled();
+    const [first, ...rest] = await screen.findAllByRole('group', { name: /question \d/i });
+    expect(rest).toHaveLength(0);
+    expect(screen.queryByLabelText('Survey description')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument();
     const title = screen.getByLabelText('Survey title');
     await userEvent.clear(title);
     await userEvent.type(title, 'Feedback');
+    await userEvent.type(within(first!).getByLabelText('Question'), 'Why');
     await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
     expect(await screen.findByText('Saved draft 9')).toBeInTheDocument();
-    expect(body).toEqual({ title: 'Feedback', description: '', questions: [] });
+    expect(body).toEqual({
+      title: 'Feedback',
+      questions: [{ type: 'TEXT', prompt: 'Why', required: true, options: [] }],
+    });
   });
 
   it('keeps Save and publish off until the draft has a question', async () => {
@@ -155,7 +160,7 @@ describe('SurveyEditor', () => {
       ),
     );
     renderEditor();
-    await userEvent.type(await screen.findByLabelText('Survey description'), 'Hello');
+    await userEvent.type(await screen.findByLabelText('Survey title'), ' 2');
     await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
     expect(await screen.findByText('Only a draft can be edited')).toBeInTheDocument();
   });
@@ -171,20 +176,19 @@ describe('SurveyEditor', () => {
       }),
     );
     renderEditor();
-    const description = await screen.findByLabelText('Survey description');
-    await userEvent.type(description, 'Hi');
+    await userEvent.type(await screen.findByLabelText('Survey title'), ' 2');
     await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
-    await waitFor(() => expect(screen.getByLabelText('Survey description')).toBeDisabled());
+    await waitFor(() => expect(screen.getByLabelText('Survey title')).toBeDisabled());
     expect(screen.getByRole('button', { name: /add question/i })).toBeDisabled();
     release();
-    await waitFor(() => expect(screen.getByLabelText('Survey description')).toBeEnabled());
+    await waitFor(() => expect(screen.getByLabelText('Survey title')).toBeEnabled());
   });
 
   it('says on screen whether there is anything to save (M11)', async () => {
     renderEditor();
     expect(await screen.findByText('No changes yet.')).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled();
-    await userEvent.type(screen.getByLabelText('Survey description'), 'x');
+    await userEvent.type(screen.getByLabelText('Survey title'), 'x');
     expect(screen.getByText('Unsaved changes.')).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled();
   });
@@ -199,10 +203,10 @@ describe('SurveyEditor', () => {
     );
     const onDone = vi.fn();
     renderEditor(WITH_QUESTION, onDone);
-    await userEvent.type(await screen.findByLabelText('Survey description'), 'Two minutes');
+    await userEvent.type(await screen.findByLabelText('Survey title'), ' 2');
     await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
     await waitFor(() => expect(onDone).toHaveBeenCalledWith('publish'));
-    expect(body).toMatchObject({ description: 'Two minutes' });
+    expect(body).toMatchObject({ title: `${WITH_QUESTION.title} 2` });
   });
 
   it('previews the questions as they are typed', async () => {

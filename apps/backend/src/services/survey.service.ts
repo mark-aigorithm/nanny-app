@@ -51,7 +51,6 @@ export async function listMyPendingSurveys(decoded: DecodedIdToken): Promise<Mot
   return rows.map((r) => ({
     id: r.survey.id,
     title: r.survey.title,
-    description: r.survey.description,
     status: r.status === SurveyRecipientStatus.SKIPPED ? 'SKIPPED' : 'PENDING',
     questionCount: r.survey._count.questions,
     lastSentAt: r.lastSentAt.toISOString(),
@@ -64,7 +63,6 @@ export async function getMySurvey(decoded: DecodedIdToken, surveyId: number): Pr
   return {
     id: survey.id,
     title: survey.title,
-    description: survey.description,
     questions: survey.questions.map(toQuestionDto),
   };
 }

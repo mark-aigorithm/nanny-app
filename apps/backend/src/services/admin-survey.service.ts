@@ -80,7 +80,6 @@ async function toDetail(row: SurveyWithQuestions): Promise<AdminSurvey> {
   const counts = await surveyCounts([row.id]);
   return {
     ...toSummary(row, counts.get(row.id)),
-    description: row.description,
     questions: row.questions.map(toQuestionDto),
   };
 }
@@ -176,7 +175,6 @@ export async function createSurveyDraft(adminId: number, input: SurveyDraft): Pr
   const row = await prisma.survey.create({
     data: {
       title: input.title,
-      description: input.description,
       createdById: adminId,
       questions: { create: questionCreateData(input.questions) },
     },
@@ -193,7 +191,7 @@ export async function updateSurveyDraft(id: number, input: SurveyDraft): Promise
 
   await prisma.$transaction(async (tx) => {
     // Guard first: the questions are replaced only while it is still a draft.
-    await guardStatus(tx, id, SurveyStatus.DRAFT, { title: input.title, description: input.description }, NOT_A_DRAFT);
+    await guardStatus(tx, id, SurveyStatus.DRAFT, { title: input.title }, NOT_A_DRAFT);
     await tx.surveyQuestionOption.updateMany({
       where: { questionId: { in: questionIds }, deletedAt: null },
       data: { deletedAt: now },
@@ -214,7 +212,6 @@ export async function duplicateSurvey(adminId: number, id: number): Promise<Admi
   const title = `${source.title} (copy)`.slice(0, SURVEY_TITLE_MAX);
   return createSurveyDraft(adminId, {
     title,
-    description: source.description,
     questions: source.questions.map((q) => ({
       type: q.type,
       prompt: q.prompt,

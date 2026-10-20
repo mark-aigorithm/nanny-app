@@ -8,7 +8,6 @@ import { authHeader } from '../auth';
 /** One question of every type: the shape most survey tests want. */
 export const SAMPLE_DRAFT: SurveyDraftInput = {
   title: 'How are we doing?',
-  description: 'Two minutes, promise.',
   questions: [
     { type: 'RATING', prompt: 'Rate your last nanny' },
     { type: 'SINGLE_CHOICE', prompt: 'How did you find us?', options: ['Friend', 'Instagram', 'Search'] },

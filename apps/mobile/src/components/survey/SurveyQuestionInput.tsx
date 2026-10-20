@@ -22,11 +22,14 @@ function Choice({
   selected,
   role,
   onPress,
+  fill = false,
 }: {
   label: string;
   selected: boolean;
   role: 'radio' | 'checkbox';
   onPress: () => void;
+  /** Share a row equally with its siblings (Yes / No). */
+  fill?: boolean;
 }) {
   // The glyph shows sighted users whether they may pick one or several; the
   // role already says so to a screen reader, so the glyph is hidden from it.
@@ -45,7 +48,7 @@ function Choice({
       accessibilityLabel={label}
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      style={[styles.choice, selected && styles.choiceSelected]}
+      style={[styles.choice, fill && styles.choiceFill, selected && styles.choiceSelected]}
     >
       <View importantForAccessibility="no" accessibilityElementsHidden>
         <Ionicons name={glyph} size={22} color={selected ? colors.primaryDark : colors.textMuted} />
@@ -83,6 +86,7 @@ export default function SurveyQuestionInput({ question, answer, onChange, onText
               role="radio"
               label={value ? 'Yes' : 'No'}
               selected={answer?.bool === value}
+              fill
               onPress={() => onChange({ questionId: id, bool: value })}
             />
           ))}
@@ -132,7 +136,7 @@ export default function SurveyQuestionInput({ question, answer, onChange, onText
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  row: { flexDirection: 'row', gap: spacing.sm },
   column: { gap: spacing.sm },
   choice: {
     flexDirection: 'row',
@@ -145,8 +149,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     // 4.1:1 on cream: an unpicked option reads as a control (warmBorder was 1.3:1).
     borderColor: colors.textMuted,
-    backgroundColor: colors.surface,
+    // Cream on the white question card, so an option reads as its own control.
+    backgroundColor: colors.background,
   },
+  choiceFill: { flex: 1, justifyContent: 'center' },
   choiceSelected: { borderColor: colors.primaryDark, backgroundColor: colors.primaryMuted },
   choiceText: { ...typeScale.bodyLg, color: colors.textPrimary, flexShrink: 1 },
   // Picked reads stronger than unpicked, never paler (the UI sweep caught it looking disabled).
@@ -158,7 +164,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
     borderColor: colors.textMuted,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     color: colors.textPrimary,
     padding: spacing.md,
     textAlignVertical: 'top',

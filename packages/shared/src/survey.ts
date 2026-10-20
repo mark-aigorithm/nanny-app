@@ -10,7 +10,6 @@ import { AdminListQuerySchema, AdminSortDirSchema } from './admin';
 // ──────────────────────────────────────────────────────────────
 
 export const SURVEY_TITLE_MAX = 120;
-export const SURVEY_DESCRIPTION_MAX = 500;
 export const SURVEY_PROMPT_MAX = 300;
 export const SURVEY_OPTION_MAX = 120;
 export const SURVEY_TEXT_ANSWER_MAX = 2000;
@@ -31,10 +30,6 @@ export type SurveyRecipientStatus = z.infer<typeof SurveyRecipientStatusSchema>;
 export function isChoiceQuestion(type: SurveyQuestionType): boolean {
   return type === 'SINGLE_CHOICE' || type === 'MULTI_CHOICE';
 }
-
-/** Blank strings are stored as null rather than as ''. */
-const optionalText = (max: number) =>
-  z.string().trim().max(max).nullish().transform((v) => (v ? v : null));
 
 // ── Draft editing (admin) ──────────────────────────────────────
 
@@ -61,7 +56,6 @@ export const SurveyQuestionDraftSchema = z
 /** Create and PATCH both send the whole draft; PATCH replaces every question. */
 export const SurveyDraftSchema = z.object({
   title: z.string().trim().min(1).max(SURVEY_TITLE_MAX),
-  description: optionalText(SURVEY_DESCRIPTION_MAX),
   questions: z.array(SurveyQuestionDraftSchema).max(SURVEY_MAX_QUESTIONS).default([]),
 });
 export type SurveyDraftInput = z.input<typeof SurveyDraftSchema>;
@@ -133,7 +127,6 @@ export const AdminSurveySummarySchema = z.object({
 export type AdminSurveySummary = z.infer<typeof AdminSurveySummarySchema>;
 
 export const AdminSurveySchema = AdminSurveySummarySchema.extend({
-  description: z.string().nullable(),
   questions: z.array(SurveyQuestionSchema),
 });
 export type AdminSurvey = z.infer<typeof AdminSurveySchema>;
@@ -252,7 +245,6 @@ export type SurveyTextAnswer = z.infer<typeof SurveyTextAnswerSchema>;
 export const MotherSurveySummarySchema = z.object({
   id: z.number().int(),
   title: z.string(),
-  description: z.string().nullable(),
   status: z.enum(['PENDING', 'SKIPPED']),
   questionCount: z.number().int(),
   lastSentAt: z.string(),
@@ -262,7 +254,6 @@ export type MotherSurveySummary = z.infer<typeof MotherSurveySummarySchema>;
 export const MotherSurveySchema = z.object({
   id: z.number().int(),
   title: z.string(),
-  description: z.string().nullable(),
   questions: z.array(SurveyQuestionSchema),
 });
 export type MotherSurvey = z.infer<typeof MotherSurveySchema>;

@@ -1622,7 +1622,6 @@ enum SurveyRecipientStatus {
 model Survey {
   id          Int               @id @default(autoincrement())
   title       String
-  description String?           @db.Text
   status      SurveyStatus      @default(DRAFT)
   createdById Int               @map("created_by_id")
   createdBy   User              @relation("SurveyCreator", fields: [createdById], references: [id])

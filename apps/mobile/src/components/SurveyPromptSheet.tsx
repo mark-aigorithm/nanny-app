@@ -57,7 +57,6 @@ export default function SurveyPromptSheet({ survey, onAnswer, onSkip, onDismiss 
             <Text accessibilityRole="header" style={styles.title}>
               {survey.title}
             </Text>
-            {survey.description ? <Text style={styles.body}>{survey.description}</Text> : null}
             <Text style={styles.meta}>
               {`${count} question${count === 1 ? '' : 's'}`}
             </Text>
@@ -93,7 +92,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
-  body: { ...typeScale.bodyMd, color: colors.textSecondary, textAlign: 'center' },
   // textMuted was 4.29:1 on white; meta text needs 4.5.
   meta: { ...typeScale.bodyMd, color: colors.textSecondary, textAlign: 'center' },
   skipGroup: { gap: spacing.xxs },

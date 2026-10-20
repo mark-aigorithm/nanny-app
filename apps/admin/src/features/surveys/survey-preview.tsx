@@ -11,18 +11,17 @@ export type PreviewQuestion = {
 
 type SurveyPreviewProps = {
   title: string;
-  description: string | null;
   questions: PreviewQuestion[];
   /** The draft's own screen, where the preview is the page; otherwise the editor's side column. */
   wide?: boolean;
 };
 
 /**
- * The survey as a mother sees it in the app: title, description, then each
- * question with its answer control (a text box, choices, stars or Yes/No).
+ * The survey as a mother sees it in the app: its title, then each question
+ * on its own card ("Question 2 of 5", Optional where it is) with its answer control (a text box, choices, stars or Yes/No).
  * A decorative copy, so nothing in it can be answered.
  */
-export function SurveyPreview({ title, description, questions, wide = false }: SurveyPreviewProps) {
+export function SurveyPreview({ title, questions, wide = false }: SurveyPreviewProps) {
   const shownTitle = title.trim() || 'Your survey title';
   return (
     <aside className={`survey-preview${wide ? ' survey-preview--wide' : ''}`} aria-label="Preview">
@@ -31,22 +30,22 @@ export function SurveyPreview({ title, description, questions, wide = false }: S
         <p className={`survey-preview-title${title.trim() ? '' : ' notif-placeholder'}`} dir="auto">
           {shownTitle}
         </p>
-        {description?.trim() && (
-          <p className="survey-preview-description" dir="auto">
-            {description.trim()}
-          </p>
-        )}
         {questions.length === 0 ? (
           <p className="survey-preview-empty">No questions yet.</p>
         ) : (
           <ol className="survey-preview-questions">
             {questions.map((q, i) => (
               <li key={i} className="survey-preview-question">
+                <div className="survey-preview-meta">
+                  <span>
+                    Question {i + 1} of {questions.length}
+                  </span>
+                  {!q.required && <span className="survey-preview-optional">Optional</span>}
+                </div>
                 <p className="survey-preview-prompt" dir="auto">
                   <span className={q.prompt.trim() ? undefined : 'notif-placeholder'}>
-                    {q.prompt.trim() || `Question ${i + 1}`}
+                    {q.prompt.trim() || 'Your question'}
                   </span>
-                  {!q.required && <span className="survey-preview-optional"> (optional)</span>}
                 </p>
                 <AnswerControl question={q} />
               </li>

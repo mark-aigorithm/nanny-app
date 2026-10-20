@@ -6749,23 +6749,19 @@ textarea.input {
   gap: 0.75rem;
   width: 100%;
   max-width: 26rem;
-  padding: 1.25rem;
+  padding: 1.25rem 1rem;
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  background: var(--color-background);
   box-shadow: var(--shadow-card);
 }
 
+/* The survey's name is the app screen's title. */
 .survey-preview-title {
-  margin: 0;
-  font-size: 1.1rem;
+  margin: 0.25rem 0.25rem 0;
+  font-size: 1.35rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
-}
-
-.survey-preview-description {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
 }
 
 .survey-preview-empty {
@@ -6777,7 +6773,7 @@ textarea.input {
 .survey-preview-questions {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 0.75rem;
   margin: 0.25rem 0 0;
   padding: 0;
   list-style: none;
@@ -6786,22 +6782,41 @@ textarea.input {
 .survey-preview-question {
   display: flex;
   flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* "Question 2 of 5", with Optional on the right where it applies. */
+.survey-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .survey-preview-prompt {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text-primary);
 }
 
 .survey-preview-optional {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  font-size: 0.72rem;
   font-weight: 500;
-  color: var(--color-text-muted);
 }
 
 .survey-preview-textbox {
+  background: var(--color-background);
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--color-warm-border);
   border-radius: var(--radius-sm);
@@ -6819,6 +6834,7 @@ textarea.input {
 }
 
 .survey-preview-options li {
+  background: var(--color-background);
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -6857,6 +6873,7 @@ textarea.input {
 }
 
 .survey-preview-yesno span {
+  background: var(--color-background);
   flex: 1;
   padding: 0.5rem;
   border: 1px solid var(--color-warm-border);

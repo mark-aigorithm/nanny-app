@@ -14,7 +14,6 @@ const BLANK_DRAFT: AdminSurvey = {
   id: 0,
   // Empty, not "Untitled survey": a placeholder title would be saved as the real one.
   title: '',
-  description: null,
   status: 'DRAFT',
   counts: { recipients: 0, answered: 0, skipped: 0, pending: 0 },
   publishedAt: null,

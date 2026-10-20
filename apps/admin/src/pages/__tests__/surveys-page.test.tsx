@@ -96,7 +96,7 @@ describe('SurveysPage', () => {
       http.get('/api/admin/surveys', () => paged([SURVEY])),
       http.post('/api/admin/surveys/4/close', () => {
         closed = true;
-        return ok({ ...SURVEY, status: 'CLOSED', description: null, questions: [] });
+        return ok({ ...SURVEY, status: 'CLOSED', questions: [] });
       }),
     );
     renderPage();

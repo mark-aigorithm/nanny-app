@@ -22,7 +22,7 @@ const ADMIN = {
 };
 const VIEWER = { ...ADMIN, role: 'OPERATOR', permissions: { surveys: 'VIEW' } };
 const SURVEY: AdminSurvey = {
-  id: 3, title: 'Feedback', description: null, status: 'PUBLISHED',
+  id: 3, title: 'Feedback', status: 'PUBLISHED',
   counts: { recipients: 3, answered: 1, skipped: 1, pending: 1 },
   publishedAt: '2026-10-19T00:00:00.000Z', closedAt: null, createdAt: '2026-10-18T00:00:00.000Z', questions: [],
 };

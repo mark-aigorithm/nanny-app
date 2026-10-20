@@ -116,7 +116,6 @@ export function SurveyView({ survey, onEdit, onPublish }: SurveyViewProps) {
       <div className="template-view">
         <SurveyPreview
           title={survey.title}
-          description={survey.description}
           questions={questions}
           wide
         />

@@ -15,7 +15,8 @@ import {
 } from '@mobile/theme';
 
 interface StackHeaderProps {
-  title: string;
+  /** Omit for chrome only (the chevron), when the screen titles itself in its content. */
+  title?: string;
   subtitle?: string;
   /** Show the back chevron above the title. Defaults to true. */
   showBackButton?: boolean;
@@ -66,19 +67,21 @@ export default function StackHeader({
         </Pressable>
       )}
 
-      <View style={styles.titleRow}>
-        <View style={styles.titleWrap}>
-          <Text style={styles.title} numberOfLines={2}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={2}>
-              {subtitle}
+      {title ? (
+        <View style={styles.titleRow}>
+          <View style={styles.titleWrap}>
+            <Text style={styles.title} numberOfLines={2}>
+              {title}
             </Text>
-          ) : null}
+            {subtitle ? (
+              <Text style={styles.subtitle} numberOfLines={2}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
         </View>
-        {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
-      </View>
+      ) : null}
     </View>
   );
 }

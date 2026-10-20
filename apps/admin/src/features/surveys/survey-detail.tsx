@@ -50,7 +50,6 @@ export function SurveyDetail({ survey }: { survey: AdminSurvey }) {
     <>
       <DetailHeader
         title={survey.title}
-        subtitle={survey.description ?? undefined}
         backTo="/surveys"
         backLabel="Surveys"
         actions={

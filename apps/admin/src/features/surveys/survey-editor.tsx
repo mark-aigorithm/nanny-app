@@ -1,6 +1,5 @@
 import type { AdminSurvey, SurveyDraftInput } from '@nanny-app/shared';
 import {
-  SURVEY_DESCRIPTION_MAX,
   SURVEY_MAX_QUESTIONS,
   SURVEY_TITLE_MAX,
   SurveyDraftSchema,
@@ -33,6 +32,14 @@ import { SurveyPreview } from './survey-preview';
 let nextKey = 0;
 const newKey = () => `q${nextKey++}`;
 
+const blankQuestion = (): DraftQuestion => ({
+  key: newKey(),
+  type: 'TEXT',
+  prompt: '',
+  required: true,
+  options: [],
+});
+
 export function toDraftQuestions(survey: AdminSurvey): DraftQuestion[] {
   return survey.questions.map((q) => ({
     key: newKey(),
@@ -55,7 +62,7 @@ type Props = {
 };
 
 /**
- * The draft editor: title, description and questions, saved in one PATCH, with
+ * The draft editor: title and questions, saved in one PATCH, with
  * a live preview beside it. Publishing happens from the draft's view.
  */
 export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
@@ -65,8 +72,10 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
   const canManage = useCanManage('surveys');
   const asideRef = useFitToViewport<HTMLDivElement>();
   const [title, setTitle] = useState(survey.title);
-  const [description, setDescription] = useState(survey.description ?? '');
-  const [questions, setQuestions] = useState<DraftQuestion[]>(() => toDraftQuestions(survey));
+  // A new survey starts with one blank question, ready to write.
+  const [questions, setQuestions] = useState<DraftQuestion[]>(() =>
+    isNew && survey.questions.length === 0 ? [blankQuestion()] : toDraftQuestions(survey),
+  );
   const [dirty, setDirty] = useState(false);
   // Index of a question with content awaiting "Delete question N?".
   const [removingAt, setRemovingAt] = useState<number | null>(null);
@@ -101,7 +110,6 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
   const draft = useMemo<SurveyDraftInput>(
     () => ({
       title,
-      description,
       questions: questions.map(({ type, prompt, required, options }) => ({
         type,
         prompt,
@@ -109,7 +117,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
         options,
       })),
     }),
-    [title, description, questions],
+    [title, questions],
   );
   const validation = useMemo(() => SurveyDraftSchema.safeParse(draft), [draft]);
   const issues = useMemo(
@@ -211,7 +219,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
       <div className="template-editor">
         <div className="survey-editor" ref={editorRef}>
           <Card>
-            <Field label="Title">
+            <Field label="Title" hint="Shown to mothers as the survey's heading.">
               <Input
                 aria-label="Survey title"
                 aria-invalid={shownIssues.title ? true : undefined}
@@ -220,15 +228,6 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
                 maxLength={SURVEY_TITLE_MAX}
                 disabled={locked}
                 onChange={(e) => touch(() => setTitle(e.target.value))}
-              />
-            </Field>
-            <Field label="Description" hint="Optional. Shown to mothers above the questions.">
-              <Input
-                aria-label="Survey description"
-                value={description}
-                maxLength={SURVEY_DESCRIPTION_MAX}
-                disabled={locked}
-                onChange={(e) => touch(() => setDescription(e.target.value))}
               />
             </Field>
           </Card>
@@ -254,7 +253,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
                   touch(() =>
                     setQuestions((qs) => [
                       ...qs,
-                      { key: newKey(), type: 'TEXT', prompt: '', required: true, options: [] },
+                      blankQuestion(),
                     ]),
                   )
                 }
@@ -266,7 +265,7 @@ export function SurveyEditor({ survey, onDone, isNew = false }: Props) {
           )}
         </div>
         <div className="template-editor-aside" ref={asideRef}>
-          <SurveyPreview title={title} description={description} questions={questions} />
+          <SurveyPreview title={title} questions={questions} />
           {canManage && (
             <div className="editor-save-panel">
               <p

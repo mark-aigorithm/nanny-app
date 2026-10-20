@@ -47,6 +47,21 @@ function submitHint(
 }
 
 /**
+ * The icon above an end state's message, in the thank-you screen's place:
+ * muted, since nothing here is a success or an error she can fix.
+ */
+function EndIcon({ icon }: { icon: 'lock-closed-outline' | 'alert-circle-outline' }) {
+  return (
+    <IconCircle
+      icon={icon}
+      size="xl"
+      backgroundColor={colors.surfaceMuted}
+      iconColor={colors.textSecondary}
+    />
+  );
+}
+
+/**
  * One survey, every question on one scroll. Submit stays disabled until the
  * required questions are answered (the same rule the backend enforces), and a
  * line above it says which are left. A 409 (closed, or already answered) shows
@@ -115,10 +130,11 @@ export default function SurveyScreen() {
   if (!Number.isFinite(id) || id <= 0) {
     return (
       <ScreenContainer useSafeArea={false}>
-        <StackHeader title="Survey" onBack={leave} />
+        <StackHeader onBack={leave} />
         <ScrollView contentContainerStyle={styles.message}>
+          <EndIcon icon="alert-circle-outline" />
           <Text style={styles.messageText}>We couldn't open this survey.</Text>
-          <Button title="Back to home" onPress={goHome} />
+          <Button title="Back to home" onPress={goHome} style={styles.messageAction} />
         </ScrollView>
       </ScreenContainer>
     );
@@ -126,16 +142,18 @@ export default function SurveyScreen() {
 
   // The header chevron is the plain back; the button says where it goes.
   const endAction = othersWaiting ? (
-    <Button title="See your surveys" onPress={goToSurveys} />
+    <Button title="See your surveys" onPress={goToSurveys} style={styles.messageAction} />
   ) : (
-    <Button title="Back to home" onPress={goHome} />
+    <Button title="Back to home" onPress={goHome} style={styles.messageAction} />
   );
 
   if (endMessage) {
     return (
       <ScreenContainer useSafeArea={false}>
-        <StackHeader title="Survey" onBack={leave} />
+        <StackHeader onBack={leave} />
         <ScrollView contentContainerStyle={styles.message}>
+          {/* Closed, or already answered: either way it's no longer open to her. */}
+          <EndIcon icon="lock-closed-outline" />
           <Text style={styles.messageText} accessibilityLiveRegion="polite">
             {endMessage}
           </Text>
@@ -146,20 +164,26 @@ export default function SurveyScreen() {
   }
 
   if (done) {
+    // Centred on its own: no title in the header, nothing to go back to.
     return (
       <ScreenContainer useSafeArea={false}>
-        <StackHeader title="Thank you!" showBackButton={false} />
-        <ScrollView contentContainerStyle={styles.message}>
+        <StackHeader showBackButton={false} />
+        <ScrollView contentContainerStyle={[styles.message, { paddingBottom: bottomPadding }]}>
           <IconCircle
             icon="checkmark"
             size="xl"
             backgroundColor={colors.successLight}
             iconColor={colors.successText}
           />
-          <Text style={styles.messageText} accessibilityLiveRegion="polite">
-            Your answers help us look after your family better.
-          </Text>
-          <Button title="Done" onPress={leave} />
+          <View style={styles.thanksText}>
+            <Text accessibilityRole="header" style={styles.thanksTitle}>
+              Thank you!
+            </Text>
+            <Text style={styles.messageText} accessibilityLiveRegion="polite">
+              Your answers help us look after your family better.
+            </Text>
+          </View>
+          <Button title="Done" onPress={leave} style={styles.messageAction} />
         </ScrollView>
       </ScreenContainer>
     );
@@ -168,7 +192,7 @@ export default function SurveyScreen() {
   if (survey.isPending && !survey.error) {
     return (
       <ScreenContainer useSafeArea={false}>
-        <StackHeader title="Survey" onBack={leave} />
+        <StackHeader onBack={leave} />
         <View style={styles.message}>
           <ActivityIndicator color={colors.primaryDark} accessibilityLabel="Loading survey" />
         </View>
@@ -179,8 +203,9 @@ export default function SurveyScreen() {
   if (survey.error || !survey.data) {
     return (
       <ScreenContainer useSafeArea={false}>
-        <StackHeader title="Survey" onBack={leave} />
+        <StackHeader onBack={leave} />
         <ScrollView contentContainerStyle={styles.message}>
+          <EndIcon icon="alert-circle-outline" />
           <Text style={styles.messageText}>
             We couldn't open this survey.
           </Text>
@@ -203,9 +228,10 @@ export default function SurveyScreen() {
   return (
     <ScreenContainer useSafeArea={false}>
       <KeyboardAvoidingView style={styles.flex}>
-        {/* The header's title stops at two lines; a survey title can run to 120
-            characters, so it wraps in full at the top of the scroll instead. */}
-        <StackHeader title="Survey" onBack={leave} scrolled={scrolled} />
+        {/* The survey's own title is the screen's title. The header's title stops
+            at two lines and a survey title can run to 120 characters, so the
+            header carries only the chevron and the title wraps in full below. */}
+        <StackHeader onBack={leave} scrolled={scrolled} />
         <ScrollView
           ref={scrollRef}
           onScroll={(e) => setScrolled(e.nativeEvent.contentOffset.y > 0)}
@@ -221,9 +247,6 @@ export default function SurveyScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             {survey.data.title}
           </Text>
-          {survey.data.description ? (
-            <Text style={styles.description}>{survey.data.description}</Text>
-          ) : null}
           {survey.data.questions.map((q, i) => (
             <View
               key={q.id}
@@ -232,10 +255,13 @@ export default function SurveyScreen() {
                 questionTops.current[q.id] = e.nativeEvent.layout.y;
               }}
             >
-              <Text style={styles.prompt}>
-                {i + 1}. {q.prompt}
-                {q.required ? '' : <Text style={styles.optional}> (optional)</Text>}
-              </Text>
+              <View style={styles.questionMeta}>
+                <Text style={styles.step}>
+                  Question {i + 1} of {survey.data.questions.length}
+                </Text>
+                {q.required ? null : <Text style={styles.optional}>Optional</Text>}
+              </View>
+              <Text style={styles.prompt}>{q.prompt}</Text>
               <SurveyQuestionInput
                 question={q}
                 answer={answers[q.id]}

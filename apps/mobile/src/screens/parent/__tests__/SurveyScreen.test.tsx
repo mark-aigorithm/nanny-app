@@ -37,7 +37,6 @@ import { wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 const SURVEY: MotherSurvey = {
   id: 4,
   title: 'How are we doing?',
-  description: null,
   questions: [
     { id: 1, order: 0, type: 'YES_NO', prompt: 'Would you recommend us?', required: true, options: [] },
     { id: 2, order: 1, type: 'TEXT', prompt: 'Anything else?', required: false, options: [] },
@@ -98,13 +97,13 @@ describe('SurveyScreen', () => {
     expect(mockDismissTo).toHaveBeenCalledWith('/(parent)/(tabs)/home');
   });
 
-  it('shows a long title in full, as a heading in the scroll, not cut off in the header', () => {
+  it('titles the screen with the survey, in full, never with the word "Survey"', () => {
     const title = 'One quick question about your last booking, from the request to the goodbye';
     mockSurveyState = { data: { ...SURVEY, title }, isPending: false, error: null };
     render(<SurveyScreen />);
     const heading = screen.getByRole('header', { name: title });
     expect(heading.props.numberOfLines).toBeUndefined();
-    expect(screen.getByText('Survey')).toBeTruthy();
+    expect(screen.queryByText('Survey')).toBeNull();
   });
 
   // The footer sits below the scroll view, not over it, so padding the content

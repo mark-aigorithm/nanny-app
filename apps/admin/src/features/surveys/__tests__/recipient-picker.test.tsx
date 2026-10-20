@@ -29,7 +29,7 @@ const AMY: MotherPickerRow = {
   lastBookingAt: null, createdAt: '2026-10-01T00:00:00.000Z', lastLoginAt: null, lastAppOpenAt: null,
 };
 const DRAFT: AdminSurvey = {
-  id: 3, title: 'Care feedback', description: null, status: 'DRAFT',
+  id: 3, title: 'Care feedback', status: 'DRAFT',
   counts: { recipients: 0, answered: 0, skipped: 0, pending: 0 },
   publishedAt: null, closedAt: null, createdAt: '2026-10-19T00:00:00.000Z',
   questions: [{ id: 1, order: 0, type: 'TEXT', prompt: 'Why', required: true, options: [] }],

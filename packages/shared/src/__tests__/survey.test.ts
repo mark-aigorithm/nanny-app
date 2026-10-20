@@ -32,9 +32,9 @@ const VALID = [
 ];
 
 describe('SurveyDraftSchema', () => {
-  it('accepts a draft with no questions and turns an empty description into null', () => {
-    const parsed = SurveyDraftSchema.parse({ title: ' Feedback ', description: '' });
-    expect(parsed).toEqual({ title: 'Feedback', description: null, questions: [] });
+  it('accepts a draft with no questions, and drops a description an old client still sends', () => {
+    const parsed = SurveyDraftSchema.parse({ title: ' Feedback ', description: 'Old field' });
+    expect(parsed).toEqual({ title: 'Feedback', questions: [] });
   });
 
   it('defaults required to true and options to []', () => {

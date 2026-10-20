@@ -37,7 +37,7 @@ import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 import { markSurveyPrompted, pickSurveyToPrompt, wasSurveyPrompted } from '@mobile/store/surveyPromptStore';
 
 const s = (id: number, status: 'PENDING' | 'SKIPPED'): MotherSurveySummary => ({
-  id, title: `Survey ${id}`, description: null, status, questionCount: 3, lastSentAt: '2026-10-19T00:00:00.000Z',
+  id, title: `Survey ${id}`, status, questionCount: 3, lastSentAt: '2026-10-19T00:00:00.000Z',
 });
 
 function renderHost() {
