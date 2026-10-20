@@ -30,6 +30,19 @@ appId: com.nannyapp.mobile
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s20-01-inbox-top
+# Opened from Account (its Notifications row), the inbox keeps Account lit in
+# the bar rather than Home.
+- tapOn: 'Account'
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Notifications'
+- extendedWaitUntil:
+    visible: 'Ten percent off your next booking.*'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s20-01b-inbox-from-account
 - scrollUntilVisible:
     element: 'Now caring for families.*'
     direction: DOWN
@@ -58,6 +71,18 @@ appId: com.nannyapp.mobile
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s20-04-inbox-read-no-link
+# The end of the inbox: notification rows (not announcements) below the cards,
+# their bodies in full, the last one clear of the tab bar.
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          start: '3%, 60%'
+          end: '3%, 20%'
+          duration: 600
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s20-04b-inbox-end
 
 # ── The package card opens checkout ────────────────────────────────────────
 # It sits above the Arabic card (newer), so scroll back up to it — _tap.yaml
@@ -88,7 +113,10 @@ appId: com.nannyapp.mobile
     timeout: 15000
 - tapOn: 'Ten percent off your next booking\. Book with code ${PROMO_CODE}'
 - extendedWaitUntil:
-    visible: 'Pick a day'
+    # The step's title, not "Pick a day": with the footer in the layout, the
+    # scroll ends above it and "Pick a day" starts below the fold on a small
+    # phone at 1.3.
+    visible: 'Where and when do you need care\?'
     timeout: 30000
 # On a small phone the day rail starts below the fold.
 - scrollUntilVisible:
@@ -119,8 +147,10 @@ appId: com.nannyapp.mobile
     timeout: 30000
 - tapOn:
     id: 'booking.cta'
+# The title, not the applied code: with the footer in the layout the code's
+# chip starts below the fold on a small phone; the scroll below waits for it.
 - extendedWaitUntil:
-    visible: '${PROMO_CODE}.*off'
+    visible: 'Review your request'
     timeout: 30000
 - waitForAnimationToEnd:
     timeout: 3000

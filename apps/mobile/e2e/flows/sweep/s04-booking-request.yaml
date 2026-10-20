@@ -18,7 +18,10 @@ appId: com.nannyapp.mobile
 
 - tapOn: 'Book care'
 - extendedWaitUntil:
-    visible: 'Pick a day'
+    # The step's title, not "Pick a day": with the footer in the layout, the
+    # scroll ends above it and "Pick a day" starts below the fold on a small
+    # phone at 1.3.
+    visible: 'Where and when do you need care\?'
     timeout: 30000
 - waitForAnimationToEnd:
     timeout: 3000
@@ -55,6 +58,19 @@ appId: com.nannyapp.mobile
     timeout: 10000
     optional: true
 - takeScreenshot: s04-04-pick-a-time-bottom
+# The end of the scroll: its last content clears the in-flow footer.
+- scrollUntilVisible:
+    element:
+      id: 'booking.duration.value'
+    direction: DOWN
+    timeout: 15000
+- swipe:
+    start: '3%, 60%'
+    end: '3%, 20%'
+    duration: 800
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-04b-pick-a-time-end
 - tapOn:
     id: 'booking.cta'
 
@@ -100,6 +116,19 @@ appId: com.nannyapp.mobile
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s04-06b-who-needs-care-two
+# The end of the scroll: its last content clears the in-flow footer.
+- scrollUntilVisible:
+    element:
+      text: 'Your hourly rate'
+    direction: DOWN
+    timeout: 15000
+- swipe:
+    start: '3%, 60%'
+    end: '3%, 20%'
+    duration: 800
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-06c-who-needs-care-end
 - tapOn:
     id: 'booking.cta'
 
@@ -123,6 +152,33 @@ appId: com.nannyapp.mobile
     timeout: 2000
 - takeScreenshot: s04-09-review-request-promo-kbd
 - hideKeyboard
+# The footer gets its summary and system-bar padding back: no band left over.
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-09b-review-request-after-promo-kbd
+# The instructions box (multiline, so Enter would add a line: hideKeyboard).
+- runFlow:
+    file: _tap.yaml
+    env:
+      TARGET: 'Allergies, routines, house rules.*'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-09c-review-request-instructions-kbd
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 2000
+# The end of the scroll: the last card clears the in-flow footer.
+- scrollUntilVisible:
+    element: 'We send your request to every available nanny.*'
+    direction: DOWN
+    timeout: 15000
+- swipe:
+    start: '3%, 60%'
+    end: '3%, 20%'
+    duration: 800
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: s04-09d-review-request-end
 - tapOn:
     id: 'booking.cta'
 
