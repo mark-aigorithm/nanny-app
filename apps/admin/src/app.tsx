@@ -20,6 +20,7 @@ import { BookingDetailPage } from './pages/booking-detail-page';
 import { PricingFeesPage } from './pages/pricing-fees-page';
 import { PromoCodesPage } from './pages/promo-codes-page';
 import { CampaignsPage } from './pages/campaigns-page';
+import { NotificationsPage } from './pages/notifications-page';
 import { RewardsPage } from './pages/rewards-page';
 import { AppReleasesPage } from './pages/app-releases-page';
 import { SettingsPage } from './pages/settings-page';
@@ -158,6 +159,14 @@ function AppRoutes() {
             element={
               <Guarded section="campaigns">
                 <CampaignsPage />
+              </Guarded>
+            }
+          />
+          <Route
+            path="notifications"
+            element={
+              <Guarded section="notifications">
+                <NotificationsPage />
               </Guarded>
             }
           />

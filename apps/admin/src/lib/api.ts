@@ -1,4 +1,12 @@
 import type {
+  DynamicGroupRules,
+  GroupRulesPreview,
+  NotificationAudience,
+  NotificationAudiencePreview,
+  NotificationBroadcast,
+  NotificationTemplate,
+  NotificationTemplateInput,
+  NotificationTemplateListItem,
   AdminSurvey,
   AdminSurveyRecipient,
   AdminSurveyRecipientAnswers,
@@ -18,6 +26,7 @@ import type {
   SurveyTextAnswer,
   UserGroup,
   UserGroupInput,
+  UserGroupUpdateInput,
   Address,
   AdminUpsertNannyAddressInput,
   AdminBooking,
@@ -487,7 +496,7 @@ export async function createUserGroup(input: UserGroupInput): Promise<UserGroup>
   return res.data.data;
 }
 
-export async function updateUserGroup(id: number, input: UserGroupInput): Promise<UserGroup> {
+export async function updateUserGroup(id: number, input: UserGroupUpdateInput): Promise<UserGroup> {
   const res = await apiClient.patch<ApiEnvelope<UserGroup>>(`/admin/groups/${id}`, input);
   return res.data.data;
 }
@@ -512,15 +521,82 @@ export async function fetchMotherPicker(params: {
   search?: string;
   groupId?: number;
   excludeGroupId?: number;
+  /** A dynamic group's rules: list only the mothers matching them now. */
+  rules?: DynamicGroupRules;
   page: number;
   limit: number;
   sortBy: MotherPickerSortKey;
   sortDir: AdminSortDir;
 }): Promise<Paged<MotherPickerRow[]>> {
+  const { rules, ...rest } = params;
   const res = await apiClient.get<PagedEnvelope<MotherPickerRow[]>>('/admin/mother-picker', {
-    params: { ...params, search: params.search || undefined },
+    params: {
+      ...rest,
+      search: rest.search || undefined,
+      // A query param carries one string; the API parses it through DynamicGroupRulesSchema.
+      rules: rules === undefined ? undefined : JSON.stringify(rules),
+    },
   });
   return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function previewGroupRules(rules: DynamicGroupRules): Promise<GroupRulesPreview> {
+  const res = await apiClient.post<ApiEnvelope<GroupRulesPreview>>('/admin/groups/rules-preview', { rules });
+  return res.data.data;
+}
+
+// ── Notification templates (admin notification center) ─────────
+
+export async function listNotificationTemplates(): Promise<NotificationTemplateListItem[]> {
+  const res = await apiClient.get<ApiEnvelope<NotificationTemplateListItem[]>>('/admin/notification-templates');
+  return res.data.data;
+}
+
+export async function getNotificationTemplate(id: number): Promise<NotificationTemplate> {
+  const res = await apiClient.get<ApiEnvelope<NotificationTemplate>>(`/admin/notification-templates/${id}`);
+  return res.data.data;
+}
+
+export async function createNotificationTemplate(input: NotificationTemplateInput): Promise<NotificationTemplate> {
+  const res = await apiClient.post<ApiEnvelope<NotificationTemplate>>('/admin/notification-templates', input);
+  return res.data.data;
+}
+
+/** A full replace: every field is sent, as the editor holds the whole template. */
+export async function updateNotificationTemplate(
+  id: number,
+  input: NotificationTemplateInput,
+): Promise<NotificationTemplate> {
+  const res = await apiClient.patch<ApiEnvelope<NotificationTemplate>>(`/admin/notification-templates/${id}`, input);
+  return res.data.data;
+}
+
+export async function deleteNotificationTemplate(id: number): Promise<void> {
+  await apiClient.delete(`/admin/notification-templates/${id}`);
+}
+
+/** How many mothers an audience reaches now, and how many of them have a push device. */
+export async function previewNotificationAudience(
+  audience: NotificationAudience,
+): Promise<NotificationAudiencePreview> {
+  const res = await apiClient.post<ApiEnvelope<NotificationAudiencePreview>>(
+    '/admin/notification-templates/audience-preview',
+    { audience },
+  );
+  return res.data.data;
+}
+
+/** Sends the template now. Resolves with the broadcast and its counts. */
+export async function publishNotificationTemplate(id: number): Promise<NotificationBroadcast> {
+  const res = await apiClient.post<ApiEnvelope<NotificationBroadcast>>(`/admin/notification-templates/${id}/publish`);
+  return res.data.data;
+}
+
+export async function listTemplateBroadcasts(id: number): Promise<NotificationBroadcast[]> {
+  const res = await apiClient.get<ApiEnvelope<NotificationBroadcast[]>>(
+    `/admin/notification-templates/${id}/broadcasts`,
+  );
+  return res.data.data;
 }
 
 export async function fetchCameras(): Promise<Camera[]> {

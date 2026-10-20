@@ -5519,3 +5519,93 @@ input[type='number'] {
   gap: 0.5rem;
   margin-left: auto;
 }
+
+/* ── Segmented control (channel, link, audience, group kind) ─────────
+   Native radios in a pill track. The radio is visually hidden; its label is
+   the target, and keyboard focus is drawn on the label. */
+.segmented {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.segmented-legend {
+  margin-bottom: 0.35rem;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.segmented-track {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+}
+
+.segmented-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.segmented-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented-option:hover {
+  color: var(--color-text-primary);
+}
+
+.segmented-option--on {
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  box-shadow: var(--shadow-card);
+}
+
+/* Keyboard focus stays visible although the radio is off-screen. */
+.segmented-option:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
+.segmented:disabled .segmented-option {
+  cursor: default;
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented-option {
+    transition: none;
+  }
+}
+
+/* A table cell holding a type badge and the linked thing's name. */
+.link-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}

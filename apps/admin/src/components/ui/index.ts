@@ -19,6 +19,7 @@ export { ActionMenu } from './action-menu';
 export { Select, type SelectOption } from './select';
 export { FilterSelect } from './filter-select';
 export { Input } from './input';
+export { SegmentedControl, type SegmentedOption } from './segmented-control';
 export { Switch } from './switch';
 export { Tabs } from './tabs';
 
