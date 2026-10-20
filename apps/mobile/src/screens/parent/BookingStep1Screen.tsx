@@ -29,7 +29,9 @@ import { getApiErrorMessage } from '@mobile/lib/api';
 import { planBookingCredits } from '@mobile/lib/bookingCredits';
 import { formatHourlyRate, formatMoney } from '@mobile/lib/formatMoney';
 import { formatDurationHours } from '@mobile/lib/formatTime';
+import { sectionScrollTarget, type SectionRect } from '@mobile/lib/sectionScroll';
 import {
+  formatBookingRecap,
   getBookingDateDisplay,
   getBookingDurationHours,
   getBookingTimeDisplay,
@@ -83,10 +85,19 @@ export default function BookingStep1Screen() {
   // opens the scroll shrinks above the footer, and Android only brings the
   // field itself into view, so the section's title stays cut off; the scroll
   // re-aims at the whole section once its new height lands.
-  const sectionTops = useRef<Record<'promo' | 'instructions', number>>({ promo: 0, instructions: 0 });
+  // A section taller than what is left of the scroll lines up its bottom
+  // instead, so the box being typed in stays above the footer.
+  const sections = useRef<Record<'promo' | 'instructions', SectionRect>>({
+    promo: { y: 0, height: 0 },
+    instructions: { y: 0, height: 0 },
+  });
+  const scrollHeight = useRef(0);
   const focusedSection = useRef<'promo' | 'instructions' | null>(null);
   const showSection = (key: 'promo' | 'instructions') =>
-    scrollRef.current?.scrollTo({ y: Math.max(0, sectionTops.current[key] - spacing.xs), animated: true });
+    scrollRef.current?.scrollTo({
+      y: sectionScrollTarget(sections.current[key], scrollHeight.current, spacing.xs),
+      animated: true,
+    });
   const typingProps = (key: 'promo' | 'instructions') => ({
     onFocus: () => {
       focusedSection.current = key;
@@ -356,9 +367,7 @@ export default function BookingStep1Screen() {
 
   const summaryLine = useMemo(
     () =>
-      [dateDisplay, timeDisplay, hours > 0 ? formatDurationHours(hours) : null]
-        .filter(Boolean)
-        .join(' · '),
+      formatBookingRecap([dateDisplay, timeDisplay, hours > 0 ? formatDurationHours(hours) : null]),
     [dateDisplay, timeDisplay, hours],
   );
 
@@ -400,7 +409,8 @@ export default function BookingStep1Screen() {
         ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.lg }]}
-        onLayout={() => {
+        onLayout={(e) => {
+          scrollHeight.current = e.nativeEvent.layout.height;
           if (focusedSection.current) showSection(focusedSection.current);
         }}
         keyboardShouldPersistTaps="handled"
@@ -451,7 +461,7 @@ export default function BookingStep1Screen() {
         <View
           style={styles.section}
           onLayout={(e) => {
-            sectionTops.current.promo = e.nativeEvent.layout.y;
+            sections.current.promo = e.nativeEvent.layout;
           }}
         >
           <Text style={styles.sectionTitle}>Promo code</Text>
@@ -688,7 +698,7 @@ export default function BookingStep1Screen() {
         <View
           style={styles.section}
           onLayout={(e) => {
-            sectionTops.current.instructions = e.nativeEvent.layout.y;
+            sections.current.instructions = e.nativeEvent.layout;
           }}
         >
           <Text style={styles.sectionTitle}>Anything we should know?</Text>

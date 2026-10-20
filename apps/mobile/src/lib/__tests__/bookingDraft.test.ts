@@ -2,6 +2,7 @@ import type { BookingResponse } from '@nanny-app/shared';
 
 import {
   bookingFlowRetryParams,
+  formatBookingRecap,
   getBookingDurationHours,
   hasRequiredBookingDraft,
   parseChildrenParam,
@@ -162,5 +163,26 @@ describe('parseChildIdsParam — the saved children she picked', () => {
   it('reads an absent or empty param as nothing picked', () => {
     expect(parseChildIdsParam(undefined)).toEqual([]);
     expect(parseChildIdsParam('')).toEqual([]);
+  });
+});
+
+describe('formatBookingRecap', () => {
+  const recap = formatBookingRecap(['Tue, Oct 20', '6:35 PM - 8:35 PM', null, '2h']);
+
+  it('joins the parts it has with a middle dot', () => {
+    expect(recap.split(' · ')).toHaveLength(3);
+  });
+
+  it('leaves a line break possible only between parts', () => {
+    // Plain spaces only around the dots; none inside the date or the range.
+    expect(recap.replace(/ · /g, '')).not.toMatch(/ /);
+    // A word joiner holds the range together after its hyphen.
+    expect(recap).toContain('PM\u00A0-\u2060\u00A08:35');
+  });
+
+  it('reads the same once the invisible characters are dropped', () => {
+    expect(recap.replace(/\u2060/g, '').replace(/\u00A0/g, ' ')).toBe(
+      'Tue, Oct 20 · 6:35 PM - 8:35 PM · 2h',
+    );
   });
 });

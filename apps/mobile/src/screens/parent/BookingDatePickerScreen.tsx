@@ -27,6 +27,7 @@ import { ADDRESSES_KEY } from '@mobile/hooks/useAddresses';
 import { fmtBookingDate, useBookingOptions, usePricingConfig } from '@mobile/hooks/useBookings';
 import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { formatMoney } from '@mobile/lib/formatMoney';
+import { formatBookingRecap } from '@mobile/lib/bookingDraft';
 import { formatBookingTime, formatDurationHours, formatHour24 } from '@mobile/lib/formatTime';
 import { styles } from './styles/booking-date-picker-screen.styles';
 
@@ -597,13 +598,11 @@ export default function BookingDatePickerScreen() {
 
   const summaryLine =
     startWall && endWall
-      ? [
+      ? formatBookingRecap([
           fmtBookingDate(startWall.slice(0, 10)),
           `${formatBookingTime(startWall)} - ${formatBookingTime(endWall)}`,
           durationMinutes !== null ? formatMinutes(durationMinutes) : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')
+        ])
       : undefined;
 
   const ctaLabel = !selectedDateIso

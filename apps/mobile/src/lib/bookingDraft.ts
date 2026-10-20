@@ -58,6 +58,21 @@ export function getBookingTimeDisplay(params: BookingFlowParams): string {
 }
 
 /**
+ * The booking footer's recap, "Tue, Oct 20 · 6:30 PM - 8:30 PM · 2h". It wraps
+ * on a narrow phone at large text, but only between its parts: a date or a time
+ * range split across lines ("6:35 PM" / "- 8:35 PM") reads as two values. Each
+ * part's spaces become non-breaking, and a word joiner after a hyphen stops the
+ * line breaking there too (Unicode allows a break after a hyphen even before a
+ * non-breaking space).
+ */
+export function formatBookingRecap(parts: readonly (string | null | undefined)[]): string {
+  return parts
+    .filter((part): part is string => !!part)
+    .map((part) => part.replace(/ /g, '\u00A0').replace(/-/g, '-\u2060'))
+    .join(' · ');
+}
+
+/**
  * The skill ids carried through the flow. Tolerant of junk: a malformed param
  * should cost the mother her add-on selection, not the whole booking.
  */

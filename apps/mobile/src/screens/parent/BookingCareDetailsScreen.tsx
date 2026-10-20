@@ -27,6 +27,7 @@ import { getApiErrorMessage } from '@mobile/lib/api';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatDurationHours } from '@mobile/lib/formatTime';
 import {
+  formatBookingRecap,
   getBookingDateDisplay,
   getBookingDurationHours,
   getBookingTimeDisplay,
@@ -234,13 +235,11 @@ export default function BookingCareDetailsScreen() {
 
   const summaryLine = useMemo(
     () =>
-      [
+      formatBookingRecap([
         getBookingDateDisplay(params),
         getBookingTimeDisplay(params),
         hours > 0 ? formatDurationHours(hours) : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
+      ]),
     [params, hours],
   );
 
