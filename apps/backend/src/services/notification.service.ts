@@ -1,10 +1,11 @@
 import {
   type NotificationListQuery,
+  type NotificationLink,
   type NotificationListResponse,
   type NotificationResponse,
   type PaginationMeta,
 } from '@nanny-app/shared';
-import type { NotificationReferenceType, NotificationType, User } from '@prisma/client';
+import type { CampaignTargetType, NotificationReferenceType, NotificationType, User } from '@prisma/client';
 import type { BatchResponse, MulticastMessage } from 'firebase-admin/messaging';
 
 import { prisma } from '@backend/db/prisma';
@@ -95,6 +96,37 @@ function toApiReferenceType(
   }
 }
 
+/**
+ * What an inbox row reads through its broadcast — the image and where a tap
+ * goes. Read through the relation, not copied onto every row; the broadcast is
+ * a snapshot, so editing the template later never changes a sent message.
+ */
+const BROADCAST_LINK_SELECT = {
+  imageUrl: true,
+  targetType: true,
+  packageId: true,
+  promoCodeText: true,
+} as const;
+
+type BroadcastLink = {
+  imageUrl: string | null;
+  targetType: CampaignTargetType | null;
+  packageId: number | null;
+  promoCodeText: string | null;
+};
+
+/** The tap target of an announcement; null for a plain one and for every other notification. */
+export function toNotificationLink(broadcast: BroadcastLink | null | undefined): NotificationLink | null {
+  if (!broadcast) return null;
+  if (broadcast.targetType === 'PACKAGE' && broadcast.packageId != null) {
+    return { type: 'package', packageId: broadcast.packageId };
+  }
+  if (broadcast.targetType === 'PROMO_CODE' && broadcast.promoCodeText) {
+    return { type: 'promo_code', code: broadcast.promoCodeText };
+  }
+  return null;
+}
+
 function toNotificationResponse(row: {
   id: number;
   type: NotificationType;
@@ -104,6 +136,7 @@ function toNotificationResponse(row: {
   referenceId: number | null;
   referenceType: NotificationReferenceType | null;
   createdAt: Date;
+  broadcast?: BroadcastLink | null;
 }): NotificationResponse {
   return {
     id: row.id,
@@ -114,9 +147,8 @@ function toNotificationResponse(row: {
     referenceId: row.referenceId,
     referenceType: toApiReferenceType(row.referenceType),
     createdAt: row.createdAt.toISOString(),
-    // Announcement image and link come through the broadcast (Task 8).
-    imageUrl: null,
-    link: null,
+    imageUrl: row.broadcast?.imageUrl ?? null,
+    link: toNotificationLink(row.broadcast),
   };
 }
 
@@ -335,6 +367,7 @@ export async function listNotifications(
       orderBy: { createdAt: 'desc' },
       skip,
       take: query.limit,
+      include: { broadcast: { select: BROADCAST_LINK_SELECT } },
     }),
   ]);
 
@@ -377,6 +410,7 @@ export async function markNotificationRead(
   const updated = await prisma.notification.update({
     where: { id: notificationId },
     data: { isRead: true },
+    include: { broadcast: { select: BROADCAST_LINK_SELECT } },
   });
 
   return toNotificationResponse(updated);

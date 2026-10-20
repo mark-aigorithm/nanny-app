@@ -8,6 +8,7 @@
  * while another publish of the template is still sending — unless that one has
  * been stuck for over five minutes, when it reads as timed out instead.
  */
+import type { NotificationResponse } from '@nanny-app/shared';
 import type { Prisma } from '@prisma/client';
 import type { BatchResponse } from 'firebase-admin/messaging';
 import request from 'supertest';
@@ -421,5 +422,83 @@ describe('A47 — publish guards', () => {
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('Notification template not found.');
     expect(await prisma.notificationBroadcast.count()).toBe(0);
+  });
+});
+
+describe('A47 — the inbox shows image and link', () => {
+  const inbox = async (token: string): Promise<NotificationResponse[]> => {
+    const res = await request(app).get('/notifications').set(...authHeader(token));
+    expect(res.status).toBe(200);
+    return res.body.data as NotificationResponse[];
+  };
+
+  it('returns the image and the promo-code link on an announcement, and nulls on other rows', async () => {
+    spyOnPush();
+    const admin = await makeAdmin();
+    const mother = await makeMother();
+    const promo = await makePromoCode({ code: 'SAVE20' });
+    await prisma.notification.create({
+      data: { userId: mother.id, type: 'SURVEY', title: 'Tell us how we did', body: 'Two minutes.' },
+    });
+    const template = await createTemplate(
+      admin.token,
+      templateInput(
+        { type: 'MOTHERS', motherIds: [mother.id] },
+        { channel: 'IN_APP', imageUrl: IMAGE, targetType: 'PROMO_CODE', promoCodeId: promo.id },
+      ),
+    );
+    await publishTemplate(admin.token, template.id);
+
+    const rows = await inbox(mother.token);
+    expect(rows.find((n) => n.type === 'announcement')).toMatchObject({
+      title: 'We miss you',
+      body: BODY,
+      isRead: false,
+      imageUrl: IMAGE,
+      link: { type: 'promo_code', code: 'SAVE20' },
+    });
+    expect(rows.find((n) => n.type === 'survey')).toMatchObject({ imageUrl: null, link: null });
+  });
+
+  it('keeps the published link and image when the template changes later, including after marking read', async () => {
+    spyOnPush();
+    const admin = await makeAdmin();
+    const mother = await makeMother();
+    const pkg = await makePackage();
+    const audience = { type: 'MOTHERS' as const, motherIds: [mother.id] };
+    const template = await createTemplate(
+      admin.token,
+      templateInput(audience, { channel: 'IN_APP', imageUrl: IMAGE, targetType: 'PACKAGE', packageId: pkg.id }),
+    );
+    await publishTemplate(admin.token, template.id);
+    await request(app)
+      .patch(`${BASE}/${template.id}`)
+      .set(...authHeader(admin.token))
+      .send(templateInput(audience, { channel: 'IN_APP' }))
+      .expect(200);
+
+    const [announcement] = await inbox(mother.token);
+    expect(announcement).toMatchObject({ imageUrl: IMAGE, link: { type: 'package', packageId: pkg.id } });
+
+    const read = await request(app)
+      .patch(`/notifications/${announcement!.id}/read`)
+      .set(...authHeader(mother.token));
+    expect(read.status).toBe(200);
+    expect(read.body.data).toMatchObject({ isRead: true, imageUrl: IMAGE, link: { type: 'package', packageId: pkg.id } });
+  });
+
+  it('returns no link for an announcement published without one', async () => {
+    spyOnPush();
+    const admin = await makeAdmin();
+    const mother = await makeMother();
+    const template = await createTemplate(
+      admin.token,
+      templateInput({ type: 'MOTHERS', motherIds: [mother.id] }, { channel: 'IN_APP' }),
+    );
+    await publishTemplate(admin.token, template.id);
+
+    expect(await inbox(mother.token)).toEqual([
+      expect.objectContaining({ type: 'announcement', imageUrl: null, link: null }),
+    ]);
   });
 });
