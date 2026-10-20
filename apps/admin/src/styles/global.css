@@ -6401,7 +6401,7 @@ textarea.input {
   font-weight: 600;
 }
 
-/* Preview: a push banner and the inbox card as a mother sees them. */
+/* Preview: the push banner or the inbox card, once, as a mother sees it. */
 .notif-preview {
   position: sticky;
   top: 1rem;
@@ -6414,24 +6414,29 @@ textarea.input {
   background: var(--color-warm-subtle);
 }
 
-.notif-preview-blocks {
+/* "Preview" with where it's delivered on the right. */
+.notif-preview-head {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
-/* On the saved template's own screen the preview is the page: push and inbox
-   side by side, each at a phone's width. */
+.notif-preview-channel {
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* On the saved template's own screen the preview is the page: the card keeps
+   a phone's width. */
 .notif-preview--wide {
   position: static;
   padding: 1.5rem;
-}
-
-.notif-preview--wide .notif-preview-blocks {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: 1.5rem;
-  align-items: start;
 }
 
 .notif-preview--wide .notif-preview-block {
@@ -6451,13 +6456,6 @@ textarea.input {
   margin: 0;
 }
 
-.notif-preview-block figcaption {
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 
 .notif-push,
 .notif-card {
