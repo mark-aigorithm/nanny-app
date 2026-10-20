@@ -236,7 +236,7 @@ export function SurveyEditor({ survey, onPublish, isNew = false }: Props) {
                   onClick={onPublish}
                   disabled={!canPublish}
                 >
-                  Publish…
+                  Publish
                 </Button>
               )}
               {!isNew && (
