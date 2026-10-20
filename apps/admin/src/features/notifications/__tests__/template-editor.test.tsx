@@ -214,6 +214,31 @@ describe('TemplateEditor', () => {
     expect(await screen.findByText('Notification list')).toBeInTheDocument();
   });
 
+  it('locks the link and audience pickers while a save is in flight', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.patch('/api/admin/notification-templates/4', async () => {
+        await gate;
+        return ok(TEMPLATE);
+      }),
+    );
+    renderEditor({ template: TEMPLATE });
+    await userEvent.type(await screen.findByLabelText('Title'), '!');
+    const checkbox = await screen.findByRole('checkbox', { name: /lapsed 30d/i });
+    await userEvent.click(saveButton());
+
+    await waitFor(() => expect(checkbox).toBeDisabled());
+    expect(screen.getByRole('radio', { name: 'Package' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Linked promo code' })).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(checkbox).toBeEnabled());
+    expect(screen.getByRole('radio', { name: 'Package' })).toBeEnabled();
+  });
+
   it('is read-only for a view-only operator', async () => {
     renderEditor({ template: TEMPLATE, me: VIEWER });
     expect(await screen.findByLabelText('Title')).toBeDisabled();

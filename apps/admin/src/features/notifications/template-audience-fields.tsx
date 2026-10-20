@@ -21,12 +21,14 @@ export type TemplateAudienceFieldsProps = {
   /** Names the saved template resolved — for read-only display and the chosen-mothers list. */
   saved: SavedAudienceNames;
   readOnly: boolean;
+  /** Locked while a save is in flight (unlike readOnly, still the editable rendering). */
+  disabled?: boolean;
   error?: string;
   errorId: string;
 };
 
 /** Groups to send to. (Task 11 adds "Specific mothers", the live count and Save-as-group.) */
-export function TemplateAudienceFields({ value, onChange, saved, readOnly, error, errorId }: TemplateAudienceFieldsProps) {
+export function TemplateAudienceFields({ value, onChange, saved, readOnly, disabled = false, error, errorId }: TemplateAudienceFieldsProps) {
   const groups = useQuery({ queryKey: ['groups'], queryFn: fetchUserGroups, enabled: !readOnly });
   if (readOnly) return <SavedAudience value={value} saved={saved} />;
 
@@ -62,7 +64,7 @@ export function TemplateAudienceFields({ value, onChange, saved, readOnly, error
       )}
       {(groups.data ?? []).map((g) => (
         <label key={g.id} className="audience-group">
-          <input type="checkbox" checked={groupIds.includes(g.id)} onChange={() => toggle(g.id)} />
+          <input type="checkbox" disabled={disabled} checked={groupIds.includes(g.id)} onChange={() => toggle(g.id)} />
           <span className="audience-group-name">{g.name}</span>
         </label>
       ))}

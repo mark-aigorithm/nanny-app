@@ -72,11 +72,13 @@ type TemplateLinkFieldsProps = {
   /** The names the saved template resolved, shown when the lists can't be loaded. */
   saved: SavedLink;
   readOnly: boolean;
+  /** Locked while a save is in flight (unlike readOnly, still the editable rendering). */
+  disabled?: boolean;
   error?: string;
 };
 
 /** None / Package / Promo code, then which one. Exactly one id is ever set. */
-export function TemplateLinkFields({ value, onChange, saved, readOnly, error }: TemplateLinkFieldsProps) {
+export function TemplateLinkFields({ value, onChange, saved, readOnly, disabled = false, error }: TemplateLinkFieldsProps) {
   const { packages, promoCodes, packagesAllowed, promosAllowed } = useLinkCatalog(value.targetType ?? null, readOnly);
   const kind: LinkKind = value.targetType ?? 'NONE';
   const id = TEMPLATE_FIELD_ID.link;
@@ -129,7 +131,7 @@ export function TemplateLinkFields({ value, onChange, saved, readOnly, error }: 
 
   return (
     <div className="link-fields">
-      <SegmentedControl legend="Link" hideLegend value={kind} options={KIND_OPTIONS} onChange={setKind} />
+      <SegmentedControl legend="Link" hideLegend value={kind} options={KIND_OPTIONS} onChange={setKind} disabled={disabled} />
       {kind === 'NONE' ? (
         <p className="field-hint">No link. Tapping the notification opens the app.</p>
       ) : (
@@ -137,6 +139,7 @@ export function TemplateLinkFields({ value, onChange, saved, readOnly, error }: 
           <span className="field-label">{isPackage ? 'Package' : 'Promo code'}</span>
           <Select<number>
             id={id}
+            disabled={disabled}
             aria-label={isPackage ? 'Linked package' : 'Linked promo code'}
             value={(isPackage ? value.packageId : value.promoCodeId) ?? 0}
             options={[{ value: 0, label: isPackage ? 'Choose a package…' : 'Choose a promo code…' }, ...options]}

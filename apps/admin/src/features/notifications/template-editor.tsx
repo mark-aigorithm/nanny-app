@@ -293,6 +293,7 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
               onChange={(link) => update(link)}
               saved={savedLink}
               readOnly={!canManage}
+              disabled={save.isPending}
               error={shown('link')}
             />
           </Card>
@@ -302,6 +303,7 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
               onChange={(audience) => update({ audience })}
               saved={savedAudience}
               readOnly={!canManage}
+              disabled={save.isPending}
               error={shown('audience')}
               errorId={`${TEMPLATE_FIELD_ID.audience}-error`}
             />
