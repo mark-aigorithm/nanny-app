@@ -46,9 +46,9 @@ export default function HomeScreen() {
   const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
 
   // A promo code from an abandoned campaign tap must never leak into a later,
-  // unrelated booking. Home is where every new booking starts, so clear any
-  // stale pending code whenever Home regains focus (a return from an
-  // abandoned flow). The happy path (campaign → Step 1) never re-focuses
+  // unrelated booking. The date picker clears it when it is backed out of, and
+  // the Services hub clears it before a plain booking; this is the backstop for
+  // any other way back to Home. The happy path (campaign → Step 1) never re-focuses
   // Home in between, so Step 1 still reads the code before this can run.
   useFocusEffect(
     useCallback(() => {

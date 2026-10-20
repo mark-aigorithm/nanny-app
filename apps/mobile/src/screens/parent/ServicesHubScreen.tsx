@@ -15,6 +15,7 @@ import { useGuestGate } from '@mobile/hooks/useGuestGate';
 import { useIdGate } from '@mobile/hooks/useIdGate';
 import { useFloatingNavClearance } from '@mobile/hooks/useBottomInset';
 import { colors, spacing } from '@mobile/theme';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { styles } from './styles/services-hub-screen.styles';
 
 // Uber-style services hub: one hero action plus a grid of everything else
@@ -39,7 +40,11 @@ export default function ServicesHubScreen() {
   // Guest → ID, outermost first: register before anything, then the government
   // ID. A verified email needs no gate — registration proves one.
   const openBooking = gate(
-    idGate(() => router.push('/(parent)/book/booking-date-picker')),
+    idGate(() => {
+      // A plain booking carries no code, whatever an abandoned promo tap left.
+      usePendingPromoStore.getState().clear();
+      router.push('/(parent)/book/booking-date-picker');
+    }),
     'Create your free account to book trusted, vetted nannies.',
   );
 

@@ -25,6 +25,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import ServicesHubScreen from '@mobile/screens/parent/ServicesHubScreen';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { useGuestStore } from '@mobile/store/guestStore';
 import { useRegisterPromptStore } from '@mobile/store/registerPromptStore';
 
@@ -46,6 +47,16 @@ beforeEach(() => {
 });
 
 describe('ServicesHubScreen', () => {
+  it('never carries a stale promo code into a booking it starts', () => {
+    usePendingPromoStore.setState({ pendingPromoCode: 'STALE' });
+    const { getByText } = renderScreen();
+
+    fireEvent.press(getByText('Book a Nanny'));
+
+    expect(mockPush).toHaveBeenCalledWith('/(parent)/book/booking-date-picker');
+    expect(usePendingPromoStore.getState().pendingPromoCode).toBeNull();
+  });
+
   it('shows the hero and the four service tiles', () => {
     const { getByText, queryByText } = renderScreen();
     getByText('Book a Nanny');

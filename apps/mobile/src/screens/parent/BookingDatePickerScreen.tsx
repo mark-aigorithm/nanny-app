@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, ScrollView, Pressable, StatusBar, ActivityIndicator } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '@mobile/theme';
 import {
@@ -26,6 +26,7 @@ import BookingLocationSection from '@mobile/components/BookingLocationSection';
 import { Stepper } from '@mobile/components/ui';
 import { ADDRESSES_KEY } from '@mobile/hooks/useAddresses';
 import { fmtBookingDate, useBookingOptions, usePricingConfig } from '@mobile/hooks/useBookings';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import { formatMoney } from '@mobile/lib/formatMoney';
 import { formatBookingTime, formatDurationHours, formatHour24 } from '@mobile/lib/formatTime';
 import { styles } from './styles/booking-date-picker-screen.styles';
@@ -80,7 +81,20 @@ function formatMinutes(minutes: number): string {
 export default function BookingDatePickerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const { data: options, isLoading, error } = useBookingOptions();
+
+  // This screen starts every booking, so it is where an abandoned promo hand-off
+  // ends: going back out of it means the code was never used, and it must not
+  // ride into a later, unrelated booking. Going forward only pushes (Step 1
+  // reads the code on mount), so this never fires on the happy path.
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', () => {
+        usePendingPromoStore.getState().clear();
+      }),
+    [navigation],
+  );
   // Loaded a screen early so the mother sees the price while she chooses, not
   // after. Step 2 runs the identical calculation, so the two can't disagree.
   const { data: pricing } = usePricingConfig();

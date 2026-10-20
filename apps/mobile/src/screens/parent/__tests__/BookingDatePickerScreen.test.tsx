@@ -6,16 +6,29 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // maps and safe-area insets are all handled by the global jest.setup.js.
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+// Every `beforeRemove` listener the screen registers, so a test can fire the
+// event the navigator emits when the screen is popped.
+const mockBeforeRemoveListeners: Array<() => void> = [];
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
     useRouter: () => ({ push: mockPush, back: mockBack, replace: jest.fn() }),
+    useNavigation: () => ({
+      addListener: (event: string, cb: () => void) => {
+        if (event === 'beforeRemove') mockBeforeRemoveListeners.push(cb);
+        return () => {
+          const i = mockBeforeRemoveListeners.indexOf(cb);
+          if (i >= 0) mockBeforeRemoveListeners.splice(i, 1);
+        };
+      },
+    }),
     // Runs like a screen gaining focus once, on mount.
     useFocusEffect: (effect: () => void) => useEffect(effect, [effect]),
   };
 });
 
 import { api } from '@mobile/lib/api';
+import { usePendingPromoStore } from '@mobile/store/pendingPromoStore';
 import BookingDatePickerScreen from '@mobile/screens/parent/BookingDatePickerScreen';
 
 /** 22:45 on the device, the same wall-clock the platform is reporting. */
@@ -69,6 +82,8 @@ function renderScreen() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBeforeRemoveListeners.length = 0;
+  usePendingPromoStore.setState({ pendingPromoCode: null });
   // BookingSummaryBar animates its total on every change, and that frame loop
   // keeps the jest process alive after the tests finish. Nothing asserted here
   // depends on the animation. The fixed clock is the point of the file: the
@@ -123,5 +138,21 @@ describe('BookingDatePickerScreen — service areas', () => {
     const urls = (api.get as jest.Mock).mock.calls.map(([url]) => url);
     expect(urls).toContain('/bookings/options');
     expect(urls).toContain('/addresses');
+  });
+});
+
+describe('BookingDatePickerScreen — abandoned promo flow', () => {
+  it('clears a handed-over promo code when the screen is removed by going back', () => {
+    usePendingPromoStore.setState({ pendingPromoCode: 'WELCOME10' });
+    renderScreen();
+
+    // Still there while she is in the flow (Step 1 reads it two screens later).
+    expect(usePendingPromoStore.getState().pendingPromoCode).toBe('WELCOME10');
+
+    act(() => {
+      mockBeforeRemoveListeners.forEach((cb) => cb());
+    });
+
+    expect(usePendingPromoStore.getState().pendingPromoCode).toBeNull();
   });
 });
