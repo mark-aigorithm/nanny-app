@@ -172,12 +172,20 @@ export function MotherPickerTable({
       render: (r) => day(r.createdAt),
     },
     {
-      key: 'active',
-      header: 'Last active',
+      key: 'lastLogin',
+      header: 'Last login',
       sortKey: 'lastLoginAt',
       sortFirst: 'desc',
       nowrap: true,
       render: (r) => day(r.lastLoginAt),
+    },
+    {
+      key: 'lastAppOpen',
+      header: 'Last app open',
+      sortKey: 'lastAppOpenAt',
+      sortFirst: 'desc',
+      nowrap: true,
+      render: (r) => day(r.lastAppOpenAt),
     },
   ];
 

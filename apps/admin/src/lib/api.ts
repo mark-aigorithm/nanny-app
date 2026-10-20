@@ -60,7 +60,8 @@ import type {
   AdminPackagePurchaseListQuery,
   AdminSortOrder,
   AdminUser,
-  AdminUserSortKey,
+  AdminMotherLastAppOpenFilter,
+  AdminMotherSortKey,
   BookingMessageListResponse,
   Camera,
   Campaign,
@@ -897,11 +898,15 @@ export async function fetchMotherAddresses(motherId: number): Promise<Address[]>
 }
 
 export async function fetchMothers(
-  status: AdminApprovalStatusFilter,
-  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminUserSortKey>,
+  filters: {
+    status: AdminApprovalStatusFilter;
+    /** When she last opened the app: within / not within N days, or never. */
+    lastAppOpen: AdminMotherLastAppOpenFilter;
+  },
+  { page, limit, sortBy, sortDir }: ColumnSortedListQuery<AdminMotherSortKey>,
 ): Promise<Paged<AdminMother[]>> {
   const res = await apiClient.get<PagedEnvelope<AdminMother[]>>('/admin/mothers', {
-    params: { status, page, limit, sortBy, sortDir },
+    params: { ...filters, page, limit, sortBy, sortDir },
   });
   return { data: res.data.data, meta: res.data.meta };
 }

@@ -105,4 +105,41 @@ describe('MotherPickerTable', () => {
     expect(screen.getByText('16 Oct 2026')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Select all on this page' })).toHaveProperty('indeterminate', true);
   });
+  it('shows last login and last app open as separate sortable columns', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/admin/mother-picker', ({ request }) => {
+        seen.push(new URL(request.url).searchParams);
+        return HttpResponse.json({
+          data: [{ ...row(1, 'Amy'), lastAppOpenAt: '2026-10-18T09:00:00.000Z' }],
+          error: null,
+          meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        });
+      }),
+    );
+    renderWithProviders(<Harness />);
+
+    expect(await screen.findByRole('button', { name: /last login/i })).toBeInTheDocument();
+    expect(screen.queryByText('Last active')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /last app open/i }));
+    await waitFor(() => expect(seen.at(-1)?.get('sortBy')).toBe('lastAppOpenAt'));
+    expect(seen.at(-1)?.get('sortDir')).toBe('desc');
+  });
+
+  it("lists a dynamic group's matches by sending its rules", async () => {
+    const rules = [{ field: 'completedBookings', op: 'gte', value: 3 }] as const;
+    let sent: string | null = null;
+    server.use(
+      http.get('/api/admin/mother-picker', ({ request }) => {
+        sent = new URL(request.url).searchParams.get('rules');
+        return HttpResponse.json({ data: [row(1, 'Amy')], error: null, meta: { page: 1, limit: 20, total: 1, totalPages: 1 } });
+      }),
+    );
+    renderWithProviders(
+      <MotherPickerTable rules={[...rules]} selected={new Set()} onSelectedChange={vi.fn()} selectable={false} />,
+    );
+    expect(await screen.findByText('Amy')).toBeInTheDocument();
+    expect(sent).toBe(JSON.stringify(rules));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
 });
