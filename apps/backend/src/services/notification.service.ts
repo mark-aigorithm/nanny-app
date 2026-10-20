@@ -209,6 +209,22 @@ export async function dispatchPush(userId: number, payload: PushPayload): Promis
   }
 }
 
+/** Kept well under Postgres' 32,767 bind parameters per statement. */
+const TOKEN_LOOKUP_CHUNK = 10_000;
+
+/** Every live push token of these users, chunked so a large audience stays one bind list per query. */
+export async function listLiveDeviceTokens(userIds: number[]): Promise<{ userId: number; token: string }[]> {
+  const tokens: { userId: number; token: string }[] = [];
+  for (let i = 0; i < userIds.length; i += TOKEN_LOOKUP_CHUNK) {
+    const rows = await prisma.deviceToken.findMany({
+      where: { userId: { in: userIds.slice(i, i + TOKEN_LOOKUP_CHUNK) }, deletedAt: null },
+      select: { userId: true, token: true },
+    });
+    tokens.push(...rows);
+  }
+  return tokens;
+}
+
 export async function listNotifications(
   decoded: DecodedIdToken,
   query: NotificationListQuery,

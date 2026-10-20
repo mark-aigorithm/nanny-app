@@ -153,6 +153,23 @@ describe('privilege evaluation', () => {
     expect(allows('POST', '/groups/rules-preview', 'OPERATOR', { groups: 'VIEW' })).toBe(false);
   });
 
+  it('gates notification templates: VIEW reads, MANAGE writes', () => {
+    const view = { notifications: 'VIEW' } satisfies OperatorPermissions;
+    const manage = { notifications: 'MANAGE' } satisfies OperatorPermissions;
+
+    expect(allows('GET', '/notification-templates', 'OPERATOR', view)).toBe(true);
+    expect(allows('GET', '/notification-templates/4', 'OPERATOR', view)).toBe(true);
+    expect(allows('GET', '/notification-templates/4/broadcasts', 'OPERATOR', view)).toBe(true);
+    expect(allows('POST', '/notification-templates', 'OPERATOR', view)).toBe(false);
+    expect(allows('PATCH', '/notification-templates/4', 'OPERATOR', view)).toBe(false);
+    expect(allows('DELETE', '/notification-templates/4', 'OPERATOR', view)).toBe(false);
+    expect(allows('POST', '/notification-templates/audience-preview', 'OPERATOR', view)).toBe(false);
+
+    expect(allows('POST', '/notification-templates', 'OPERATOR', manage)).toBe(true);
+    expect(allows('POST', '/notification-templates/audience-preview', 'OPERATOR', manage)).toBe(true);
+    expect(allows('GET', '/notification-templates', 'OPERATOR', { groups: 'MANAGE' })).toBe(false);
+  });
+
   it('lets any console account read the shared catalogs and its own profile', () => {
     const none: OperatorPermissions = {};
     expect(allows('GET', '/me', 'OPERATOR', none)).toBe(true);

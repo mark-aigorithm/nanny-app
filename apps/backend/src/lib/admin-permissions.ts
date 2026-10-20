@@ -169,6 +169,16 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'GET', pattern: '/surveys/:id/recipients', requires: section('surveys', 'VIEW') },
   { method: 'GET', pattern: '/surveys/:id/recipients/:userId', requires: section('surveys', 'VIEW') },
 
+  // ── Notifications (admin-composed announcements to mothers) ──
+  { method: 'GET', pattern: '/notification-templates', requires: section('notifications', 'VIEW') },
+  { method: 'POST', pattern: '/notification-templates', requires: section('notifications', 'MANAGE') },
+  // Resolves an audience being edited — part of writing a template, not a read of one.
+  { method: 'POST', pattern: '/notification-templates/audience-preview', requires: section('notifications', 'MANAGE') },
+  { method: 'GET', pattern: '/notification-templates/:id', requires: section('notifications', 'VIEW') },
+  { method: 'PATCH', pattern: '/notification-templates/:id', requires: section('notifications', 'MANAGE') },
+  { method: 'DELETE', pattern: '/notification-templates/:id', requires: section('notifications', 'MANAGE') },
+  { method: 'GET', pattern: '/notification-templates/:id/broadcasts', requires: section('notifications', 'VIEW') },
+
   // ── Skills ──────────────────────────────────────────────────
   // The catalog itself is read by the Skills page, the Pricing skill-fee panel
   // and the nanny profile editor — and it's already public to the mobile app,

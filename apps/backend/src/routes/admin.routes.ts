@@ -78,6 +78,8 @@ import {
   type AdminSurveyRecipientListQuery,
   SurveyTextAnswerQuerySchema,
   type SurveyTextAnswerQuery,
+  NotificationAudiencePreviewInputSchema,
+  NotificationTemplateInputSchema,
 } from '@nanny-app/shared';
 
 import { ok, okPaged } from '@backend/lib/api-response';
@@ -198,6 +200,15 @@ import {
   updateServiceArea,
   updateServiceAreaSettings,
 } from '@backend/services/service-area.service';
+import {
+  createNotificationTemplate,
+  deleteNotificationTemplate,
+  getNotificationTemplate,
+  listNotificationTemplates,
+  listTemplateBroadcasts,
+  previewNotificationAudience,
+  updateNotificationTemplate,
+} from '@backend/services/admin-notification-template.service';
 import {
   addSurveyRecipients,
   closeSurvey,
@@ -1147,6 +1158,81 @@ adminRouter.get('/surveys/:id/recipients/:userId', async (req: Request, res: Res
     next(err);
   }
 });
+
+// ── Notification center (admin announcements to mothers) ───────
+
+adminRouter.get('/notification-templates', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await listNotificationTemplates()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post(
+  '/notification-templates',
+  validateBody(NotificationTemplateInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.adminUser) throw errors.unauthorized();
+      res.status(201).json(ok(await createNotificationTemplate(req.adminUser.id, req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/notification-templates/audience-preview',
+  validateBody(NotificationAudiencePreviewInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await previewNotificationAudience(req.body.audience)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.get('/notification-templates/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(ok(await getNotificationTemplate(routeIdParam(req.params.id))));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch(
+  '/notification-templates/:id',
+  validateBody(NotificationTemplateInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await updateNotificationTemplate(routeIdParam(req.params.id), req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete('/notification-templates/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteNotificationTemplate(routeIdParam(req.params.id));
+    res.json(ok(null));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get(
+  '/notification-templates/:id/broadcasts',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await listTemplateBroadcasts(routeIdParam(req.params.id))));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── Skills (nanny specialty catalog) ───────────────────────────
 
