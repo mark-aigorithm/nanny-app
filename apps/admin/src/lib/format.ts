@@ -16,6 +16,14 @@ export function formatDateTime(iso: string): string {
 }
 
 /**
+ * A calendar date in the platform's timezone, e.g. "16 Oct 2026". The one date
+ * style for table cells, so lists don't mix "10/20/2026" and "Oct 16, 2026".
+ */
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { dateStyle: 'medium', timeZone: PLATFORM_TIMEZONE });
+}
+
+/**
  * A booking's time window on one line, in the platform's timezone:
  * "Sat, 26 Sept 2026 · 14:00 – 17:00". An overnight booking spells out the end
  * day too, so it never reads as ending before it starts.

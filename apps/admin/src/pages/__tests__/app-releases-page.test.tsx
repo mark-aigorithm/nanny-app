@@ -120,4 +120,29 @@ describe('AppReleasesPage', () => {
     // The hint is no longer part of a label, so "Version" finds only the version field.
     expect(screen.getAllByLabelText(/version/i)).toHaveLength(1);
   });
+
+  it('follows the table contract: an ID column and sortable headers, version by semver', async () => {
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/app-releases', () =>
+        ok([
+          release({ id: 7, version: '1.9.0' }),
+          release({ id: 8, version: '1.10.0', mandatory: true }),
+          release({ id: 9, version: '1.2.0', platform: 'android' }),
+        ]),
+      ),
+    );
+    renderPage();
+    await screen.findByText('1.10.0');
+    expect(screen.getByRole('columnheader', { name: 'ID' })).toBeInTheDocument();
+    // A deliberate setting, not an error: warning tone, not danger.
+    expect(screen.getByText('Mandatory', { selector: '.badge' })).toHaveClass('badge--warning');
+
+    await userEvent.click(screen.getByRole('button', { name: /^version/i }));
+    const versions = () => screen.getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[2]?.textContent);
+    // Newest first on the first click, by semver: 1.10.0 above 1.9.0.
+    expect(versions()).toEqual(['1.10.0', '1.9.0', '1.2.0']);
+    await userEvent.click(screen.getByRole('button', { name: /^version/i }));
+    expect(versions()).toEqual(['1.2.0', '1.9.0', '1.10.0']);
+  });
 });
