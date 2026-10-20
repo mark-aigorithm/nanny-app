@@ -10,7 +10,7 @@ import {
 import {
   ErrorState,
   FilterSelect,
-  Input,
+  SearchInput,
   Pagination,
   StaleRefreshBanner,
   TableSkeleton,
@@ -83,12 +83,11 @@ export function PurchasesTab() {
           options={STATUS_FILTERS}
           onChange={(value) => changeStatus(value as StatusFilter)}
         />
-        <Input
-          type="search"
-          placeholder="Search by buyer name or email…"
+        <SearchInput
+          label="Search package purchases"
+          placeholder="Search by buyer name or email"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search package purchases"
+          onChange={setSearch}
         />
       </div>
 

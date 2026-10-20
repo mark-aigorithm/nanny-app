@@ -2492,7 +2492,7 @@ input[type='number'] {
      the pinned bell. */
   .page-header,
   .detail-header-row {
-    padding-right: 4.5rem;
+    padding-right: 5.5rem;
   }
 }
 
@@ -3155,6 +3155,93 @@ input[type='number'] {
   box-shadow: 0 0 0 1px var(--color-primary-dark), 0 0 0 4px var(--color-primary-muted);
 }
 
+/* ── Search field ───────────────────────────────────────── */
+/* A rounded box with a leading search icon and its own clear button. */
+.search-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: min(22rem, 100%);
+}
+
+.search-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-icon {
+  position: absolute;
+  left: 0.9rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  transition: color 120ms ease;
+}
+
+.search-input-field {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.55rem 2.6rem 0.55rem 2.5rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.search-input-field::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+/* The browser's own clear (×) is replaced by .search-input-clear. */
+.search-input-field::-webkit-search-cancel-button,
+.search-input-field::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-input-field:hover {
+  border-color: var(--color-taupe);
+}
+
+.search-input-field:focus {
+  outline: none;
+  border-color: var(--color-primary-dark);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.search-input-box:focus-within .search-input-icon {
+  color: var(--color-primary-dark);
+}
+
+.search-input-clear {
+  position: absolute;
+  right: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-warm-subtle);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.search-input-clear:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.search-input-clear:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 1px;
+}
+
 /* ── Modal generalisation ───────────────────────────────── */
 
 .modal--sm {
@@ -3174,7 +3261,7 @@ input[type='number'] {
 }
 
 .mother-picker-search {
-  width: min(24rem, 100%);
+  width: min(26rem, 100%);
 }
 
 /* Side gutters come from .modal-body above; the footer only owns the bottom edge. */
@@ -3221,7 +3308,7 @@ input[type='number'] {
 }
 
 .candidate-search {
-  display: block;
+  width: 100%;
 }
 
 .candidate-list {
@@ -4778,7 +4865,7 @@ input[type='number'] {
   align-self: flex-end;
 }
 
-.qa-search .input {
+.qa-search .search-input {
   width: 100%;
 }
 

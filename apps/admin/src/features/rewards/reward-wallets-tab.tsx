@@ -16,7 +16,7 @@ import {
   Gift,
   History,
   ICON_SIZE,
-  Input,
+  SearchInput,
   MenuItem,
   Pagination,
   StaleRefreshBanner,
@@ -127,12 +127,11 @@ export function RewardWalletsTab() {
       </p>
 
       <div className="filter-bar">
-        <Input
-          type="search"
-          placeholder="Search by name or email…"
+        <SearchInput
+          label="Search wallets"
+          placeholder="Search by name or email"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search wallets"
+          onChange={setSearch}
         />
       </div>
 

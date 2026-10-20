@@ -37,19 +37,30 @@ import {
   Wallet,
 } from './ui';
 
-type NavItem = { to: string; label: string; icon: LucideIcon; section?: AdminSection };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  section?: AdminSection;
+  /** Other pages that light this entry (Groups is reached from Users). */
+  alsoActiveOn?: string[];
+  /** Shown only to a viewer without this section — the way in when its usual parent is hidden. */
+  onlyWithout?: AdminSection;
+};
 
 // `section` is what the sidebar filters on — an operator only sees the entries
 // they can open. The Admins link has no section: it's superuser-only.
 const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
   { to: '/bookings', label: 'Bookings', icon: CalendarClock, section: 'bookings' },
-  { to: '/users', label: 'Users', icon: Users, section: 'users' },
+  { to: '/users', label: 'Users', icon: Users, section: 'users', alsoActiveOn: ['/groups'] },
   { to: '/promo-codes', label: 'Promo Codes', icon: Ticket, section: 'promoCodes' },
   { to: '/campaigns', label: 'Campaigns', icon: Images, section: 'campaigns' },
   { to: '/notifications', label: 'Notifications', icon: Megaphone, section: 'notifications' },
   { to: '/surveys', label: 'Surveys', icon: ClipboardList, section: 'surveys' },
-  { to: '/groups', label: 'Groups', icon: UsersRound, section: 'groups' },
+  // Groups opens from the Users page's "Manage groups"; it has its own entry only for an
+  // operator who can see Groups but not Users.
+  { to: '/groups', label: 'Groups', icon: UsersRound, section: 'groups', onlyWithout: 'users' },
   { to: '/community', label: 'Community', icon: MessagesSquare, section: 'marketplace' },
   { to: '/skills', label: 'Nanny Skills', icon: Sparkles, section: 'skills' },
   { to: '/certifications', label: 'Certifications', icon: BadgeCheck, section: 'certifications' },
@@ -61,6 +72,11 @@ const navItems: NavItem[] = [
   { to: '/app-releases', label: 'App Releases', icon: Smartphone, section: 'settings' },
   { to: '/service-areas', label: 'Service Areas', icon: MapPin, section: 'serviceAreas' },
 ];
+
+/** True when `pathname` is one of `prefixes` or a page under one. */
+function onPage(pathname: string, prefixes: string[] | undefined): boolean {
+  return (prefixes ?? []).some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 const COLLAPSE_KEY = 'admin-sidebar-collapsed';
 
@@ -84,7 +100,11 @@ export function AdminLayout() {
   const location = useLocation();
 
   const links: NavItem[] = [
-    ...navItems.filter((item) => item.section === undefined || can(item.section, 'VIEW')),
+    ...navItems.filter(
+      (item) =>
+        (item.section === undefined || can(item.section, 'VIEW')) &&
+        (item.onlyWithout === undefined || !can(item.onlyWithout, 'VIEW')),
+    ),
     ...(role === 'SUPERUSER'
       ? [{ to: '/admins', label: 'Team', icon: ShieldCheck } as NavItem]
       : []),
@@ -161,7 +181,9 @@ export function AdminLayout() {
                 key={item.to}
                 to={item.to}
                 end={item.to === '/'}
-                className={({ isActive }) => `admin-nav-link${isActive ? ' active' : ''}`}
+                className={({ isActive }) =>
+                  `admin-nav-link${isActive || onPage(location.pathname, item.alsoActiveOn) ? ' active' : ''}`
+                }
                 title={collapsed ? item.label : undefined}
                 onClick={() => setMobileOpen(false)}
               >

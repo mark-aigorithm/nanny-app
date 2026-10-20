@@ -313,7 +313,7 @@ function GroupChoices({ groups, groupIds, saved, onChange, hintId, errorId, disa
           <span className="audience-group-count">Deleted. Untick it before saving.</span>
         </label>
       ))}
-      {groups.data?.length === 0 && <p className="field-hint">No groups yet. Create one on the Groups page.</p>}
+      {groups.data?.length === 0 && <p className="field-hint">No groups yet. Create one from Users → Manage groups.</p>}
       <p className="field-hint" id={hintId}>
         A mother in several chosen groups gets it once. Dynamic groups are worked out when you publish. Up to{' '}
         {NOTIFICATION_AUDIENCE_MAX_GROUPS} groups.

@@ -23,7 +23,7 @@ import {
   ErrorState,
   FilterSelect,
   ICON_SIZE,
-  Input,
+  SearchInput,
   Select,
   Table,
   TableSkeleton,
@@ -324,12 +324,11 @@ export function QaChecklistPage() {
             ]}
           />
           <div className="qa-search">
-            <Input
-              type="search"
+            <SearchInput
+              label="Search scenarios"
               value={search}
-              placeholder="Search scenarios…"
-              aria-label="Search scenarios"
-              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search scenarios"
+              onChange={setSearch}
             />
           </div>
         </div>

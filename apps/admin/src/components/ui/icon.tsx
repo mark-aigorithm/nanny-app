@@ -74,6 +74,8 @@ export {
   Gift,
   Coins,
   History,
+  // Search fields
+  Search,
 } from 'lucide-react';
 
 /** Standard icon sizes (px). */

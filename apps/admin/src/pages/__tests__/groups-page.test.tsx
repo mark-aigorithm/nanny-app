@@ -36,6 +36,13 @@ function renderPage() {
 }
 
 describe('GroupsPage', () => {
+  it('leads back to Users, where "Manage groups" opens it', async () => {
+    server.use(http.get('/api/admin/groups', () => ok([BETA])));
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Users' })).toBeInTheDocument();
+  });
+
   it('lists groups with their member counts', async () => {
     server.use(http.get('/api/admin/groups', () => ok([BETA])));
     renderPage();

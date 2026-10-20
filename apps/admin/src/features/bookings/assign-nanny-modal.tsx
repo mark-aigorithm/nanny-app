@@ -7,7 +7,7 @@ import {
   Badge,
   Button,
   ErrorState,
-  Input,
+  SearchInput,
   LoadingState,
   Modal,
   useToast,
@@ -120,16 +120,14 @@ export function AssignNannyModal({ booking, onClose }: AssignNannyModalProps) {
             The parent will be asked to pay once the nanny is assigned.
           </p>
         )}
-        <label className="candidate-search">
-          <span className="sr-only">Search nannies</span>
-          <Input
-            type="search"
-            placeholder="Search by name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoFocus
-          />
-        </label>
+        <SearchInput
+          className="candidate-search"
+          label="Search nannies"
+          placeholder="Search by name"
+          value={search}
+          onChange={setSearch}
+          autoFocus
+        />
 
         {isLoading && <LoadingState label="Loading nannies…" />}
         {error != null && !candidates && (

@@ -10,7 +10,7 @@ import { useEffect, useId, useState } from 'react';
 import {
   type Column,
   ErrorState,
-  Input,
+  SearchInput,
   Pagination,
   StaleRefreshBanner,
   Table,
@@ -192,19 +192,15 @@ export function MotherPickerTable({
   return (
     <div>
       <div className="filter-bar">
-        <div className="filter-select">
-          <label className="filter-select-label" htmlFor={searchId}>
-            Search mothers
-          </label>
-          <Input
-            id={searchId}
-            type="search"
-            className="mother-picker-search"
-            placeholder="Name, phone or email"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          id={searchId}
+          label="Search mothers"
+          showLabel
+          className="mother-picker-search"
+          placeholder="Name, phone or email"
+          value={searchInput}
+          onChange={setSearchInput}
+        />
       </div>
       <p className="mother-picker-hint">
         {selectable && `${selected.size} selected. `}
