@@ -137,9 +137,16 @@ describe('BookingStep1Screen — price', () => {
 });
 
 describe('BookingStep1Screen — children', () => {
+  // Joined with non-breaking spaces, so a wrap never splits "(3" from "yrs)".
   it('reads back the children she picked by name', () => {
     const { getByText } = renderScreen();
-    getByText('Lina\u00A0(3 yrs)');
+    getByText('Lina\u00A0(3\u00A0yrs)');
+  });
+
+  // One title on every step of the flow, matching the date picker.
+  it('keeps the booking flow title', () => {
+    const { getByText } = renderScreen();
+    getByText('Book care');
   });
 
   it('submits the saved children she picked, by id', async () => {

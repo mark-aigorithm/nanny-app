@@ -20,7 +20,6 @@ import {
 
 import { colors, spacing } from '@mobile/theme';
 import { Button, Chip } from '@mobile/components/ui';
-import { APP_NAME } from '@mobile/constants';
 import { usePricingConfig } from '@mobile/hooks/useBookings';
 import { useChildren, useCreateChild, useUpdateChild } from '@mobile/hooks/useChildren';
 import { getApiErrorMessage } from '@mobile/lib/api';
@@ -265,7 +264,7 @@ export default function BookingCareDetailsScreen() {
           >
             <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{APP_NAME}</Text>
+          <Text style={styles.headerTitle}>Book care</Text>
           <View style={styles.headerIconBtn} />
         </View>
       </View>

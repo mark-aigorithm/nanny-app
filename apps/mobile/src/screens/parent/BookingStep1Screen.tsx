@@ -21,7 +21,6 @@ import {
 
 import { colors, spacing } from '@mobile/theme';
 import { Chip, CollapsibleCard, KeyboardAvoidingView } from '@mobile/components/ui';
-import { APP_NAME } from '@mobile/constants';
 import { useCreateBooking, usePricingConfig, useValidatePromo } from '@mobile/hooks/useBookings';
 import { usePackageHours, usePackages } from '@mobile/hooks/usePackages';
 import { useRewardConfig, useRewardWallet } from '@mobile/hooks/useRewards';
@@ -64,7 +63,8 @@ function addOnAmount(skill: PublicSkill, baseRate: number, hours: number): numbe
 function formatPickedChildren(children: readonly BookingChild[]): string {
   if (children.some((c) => !c.name?.trim())) return formatChildrenSummary(children);
   return children
-    .map((c) => `${c.name!.trim()}\u00A0(${formatChildAge(c.ageYears, c.ageMonths)})`)
+    // Non-breaking throughout, so "Omar (3 yrs)" never splits as "(3" / "yrs)".
+    .map((c) => `${c.name!.trim()}\u00A0(${formatChildAge(c.ageYears, c.ageMonths).replace(/ /g, '\u00A0')})`)
     .join(', ');
 }
 
@@ -389,7 +389,7 @@ export default function BookingStep1Screen() {
           >
             <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{APP_NAME}</Text>
+          <Text style={styles.headerTitle}>Book care</Text>
           <View style={styles.headerIconBtn} />
         </View>
       </View>
