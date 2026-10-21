@@ -89,7 +89,7 @@ describe('AppReleasesPage', () => {
     expect(within(rows[1]!).getByText('1.9.0')).toBeInTheDocument();
   });
 
-  it('asks, in the form itself, that the build is live before adding a mandatory release', async () => {
+  it('warns, in the form itself, that a mandatory release needs the build live in the store', async () => {
     let body: unknown;
     server.use(
       http.get('/api/admin/me', () => ok(ADMIN)),
@@ -104,11 +104,9 @@ describe('AppReleasesPage', () => {
     await userEvent.type(screen.getByPlaceholderText('1.4.0'), '2.0.0');
     await userEvent.click(screen.getByLabelText(/mandatory update/i));
 
-    const submit = screen.getByRole('button', { name: 'Add mandatory release' });
-    expect(submit).toBeDisabled();
+    expect(screen.getByText(/only once this build is live on the iOS store/)).toBeInTheDocument();
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    await userEvent.click(screen.getByRole('checkbox', { name: 'This build is live on the iOS store' }));
-    await userEvent.click(submit);
+    await userEvent.click(screen.getByRole('button', { name: 'Add mandatory release' }));
 
     await waitFor(() =>
       expect(body).toEqual({ platform: 'ios', version: '2.0.0', mandatory: true }),

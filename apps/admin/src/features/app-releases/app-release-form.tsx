@@ -29,10 +29,9 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
   const [mandatory, setMandatory] = useState(release?.mandatory ?? false);
   const [releaseNotes, setReleaseNotes] = useState(release?.releaseNotes ?? '');
   const [formError, setFormError] = useState<string | null>(null);
-  // Turning "mandatory" on blocks every older install, so the admin confirms
-  // in the form that the build is live before the save is allowed.
-  const [confirmedLive, setConfirmedLive] = useState(false);
   const mandatoryHintId = useId();
+  // Turning "mandatory" on blocks every older install, so the form warns that
+  // the build has to be live in the store first.
   const becomesMandatory = mandatory && !release?.mandatory;
   const platformLabel = PLATFORM_LABELS[release?.platform ?? platform];
 
@@ -73,7 +72,7 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
       submitLabel={release ? 'Save changes' : becomesMandatory ? 'Add mandatory release' : 'Add release'}
       size="sm"
       busy={saveMutation.isPending}
-      submitDisabled={(!release && version.trim() === '') || (becomesMandatory && !confirmedLive)}
+      submitDisabled={!release && version.trim() === ''}
       error={formError}
       onSubmit={submit}
       onClose={onClose}
@@ -104,10 +103,7 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
       <div className="field">
         <Switch
           checked={mandatory}
-          onChange={(on) => {
-            setMandatory(on);
-            setConfirmedLive(false);
-          }}
+          onChange={setMandatory}
           label="Mandatory update"
           describedBy={mandatoryHintId}
         />
@@ -118,21 +114,11 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
         </span>
       </div>
       {becomesMandatory && (
-        <div className="mandatory-confirm" role="group" aria-label="Confirm the build is live">
-          <p className="mandatory-confirm-text">
-            <TriangleAlert size={ICON_SIZE.inline} aria-hidden />
-            Everyone on an older {platformLabel} version will be blocked. If this build isn&apos;t in
-            the store yet, they&apos;ll have nothing to install.
-          </p>
-          <label className="mandatory-confirm-check">
-            <input
-              type="checkbox"
-              checked={confirmedLive}
-              onChange={(event) => setConfirmedLive(event.target.checked)}
-            />
-            This build is live on the {platformLabel} store
-          </label>
-        </div>
+        <p className="mandatory-confirm">
+          <TriangleAlert size={ICON_SIZE.inline} aria-hidden />
+          Everyone on an older {platformLabel} version will be blocked. Add it only once this build
+          is live on the {platformLabel} store, or they&apos;ll have nothing to install.
+        </p>
       )}
       <Field label="Release notes" hint="Optional — shown in the app's update prompt.">
         <textarea
