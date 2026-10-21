@@ -81,8 +81,9 @@ onFlowComplete:
     timeout: 3000
 - assertNotVisible: 'Answer'
 - takeScreenshot: s19-02-update-required
+# Release notes are never shown in the app; scroll to the store button instead.
 - scrollUntilVisible:
-    element: 'What is new.*'
+    element: 'Update on Google Play'
     direction: DOWN
     centerElement: true
     timeout: 15000

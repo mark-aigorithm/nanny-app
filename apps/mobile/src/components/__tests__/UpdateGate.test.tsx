@@ -24,6 +24,7 @@ function result(overrides: Partial<AppVersionCheckResult>): AppVersionCheckResul
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useUpdateSheetStore.setState({ visible: false, dismissed: false });
   mockCheck = {};
   jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   appStateListeners = [];
@@ -121,6 +122,22 @@ it('asks the backend again every time the app is opened from the background', as
   expect(mockRefetch).toHaveBeenCalledTimes(1);
   moveApp('background', 'active');
   expect(mockRefetch).toHaveBeenCalledTimes(2);
+});
+
+it('keeps "Later" across a remount until the app is next opened', async () => {
+  mockCheck = { data: result({ status: 'update_available' }) };
+  const first = render(<UpdateGate />);
+  await first.findByText(AVAILABLE_HEADLINE);
+  andLetTheSheetClose(() => fireEvent.press(first.getByText('Later')));
+  first.unmount();
+
+  const second = render(<UpdateGate />);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+  expect(second.queryByText(AVAILABLE_HEADLINE)).toBeNull();
+  moveApp('background', 'active');
+  expect(await second.findByText(AVAILABLE_HEADLINE)).toBeTruthy();
 });
 
 it('blocks when an optional version the user put off is made mandatory', async () => {

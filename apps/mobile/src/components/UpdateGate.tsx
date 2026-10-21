@@ -24,7 +24,8 @@ export const PRESENT_DELAY_MS = 350;
 export default function UpdateGate() {
   const { data, refetch } = useAppVersionCheck();
   // "Later" hides the optional prompt until she next opens the app.
-  const [dismissed, setDismissed] = useState(false);
+  const dismissed = useUpdateSheetStore((s) => s.dismissed);
+  const setDismissed = useUpdateSheetStore((s) => s.setDismissed);
   // Later was pressed: the sheet is sliding away, and is dismissed once it's gone.
   const [closing, setClosing] = useState(false);
   // The store link failed to open: both states then show it as text.
@@ -44,7 +45,7 @@ export default function UpdateGate() {
       void refetch();
     });
     return () => sub.remove();
-  }, [refetch]);
+  }, [refetch, setDismissed]);
 
   const sheetVisible =
     !!data?.storeUrl && data.status === 'update_available' && !!data.latestVersion && !dismissed;

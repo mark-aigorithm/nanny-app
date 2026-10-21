@@ -8,9 +8,18 @@ import { create } from 'zustand';
 interface UpdateSheetStore {
   visible: boolean;
   setVisible: (visible: boolean) => void;
+  /**
+   * "Later" was pressed since the app was last opened. Kept here, not in
+   * UpdateGate's state, so a remount (the root layout re-renders on sign-in)
+   * doesn't bring the prompt straight back; UpdateGate clears it on reopen.
+   */
+  dismissed: boolean;
+  setDismissed: (dismissed: boolean) => void;
 }
 
 export const useUpdateSheetStore = create<UpdateSheetStore>((set) => ({
   visible: false,
   setVisible: (visible) => set({ visible }),
+  dismissed: false,
+  setDismissed: (dismissed) => set({ dismissed }),
 }));
