@@ -180,8 +180,6 @@ describe('TemplateEditor', () => {
     await userEvent.click(await screen.findByRole('radio', { name: 'Package' }));
     await userEvent.click(screen.getByRole('button', { name: 'Linked package' }));
     await userEvent.click(await screen.findByRole('option', { name: '10 hours' }));
-    // The preview says where tapping it goes.
-    expect(screen.getByText('Tapping it opens: View package.')).toBeInTheDocument();
     await userEvent.click(saveButton());
 
     await waitFor(() =>

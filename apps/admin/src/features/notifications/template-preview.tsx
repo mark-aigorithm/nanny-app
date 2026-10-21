@@ -1,11 +1,13 @@
 import type { NotificationChannel } from '@nanny-app/shared';
 
+import { ICON_SIZE, Info } from '@admin/components/ui';
+
 type TemplatePreviewProps = {
   title: string;
   body: string;
   imageUrl: string | null;
   channel: NotificationChannel;
-  /** "View package" / "Book with code SAVE20"; null without a link. */
+  /** "View package" / "Book with code SAVE20"; null without a link. Shown on the inbox card. */
   linkLabel: string | null;
   /** The saved template's own screen, where the preview is the page. */
   wide?: boolean;
@@ -17,6 +19,9 @@ const DELIVERED_AS: Record<NotificationChannel, string> = {
   IN_APP: 'Inbox',
   BOTH: 'Push notification + inbox',
 };
+
+/** iPhones attach the image through the extension that shipped in app 1.0.1. */
+const IMAGE_NOTE = 'The image shows on Android, and on iPhones from app version 1.0.1.';
 
 /**
  * What a mother sees, once: the push banner when the channel pushes, else the
@@ -36,11 +41,9 @@ export function TemplatePreview({
   const shownBody = body.trim() || 'Your message';
   const sample = (filled: string) => (filled.trim() ? '' : ' notif-placeholder');
   const pushes = channel !== 'IN_APP';
-  const notes = [
-    channel === 'BOTH' && 'Also kept in the app’s Notifications inbox.',
-    pushes && imageUrl && 'Android shows the image; iPhones show the text only.',
-    pushes && linkLabel && `Tapping it opens: ${linkLabel}.`,
-  ].filter((note): note is string => Boolean(note));
+  // Where it lands and what a tap opens are in the Delivery card beside the
+  // preview; the one thing the preview itself can't show is who sees the image.
+  const imageNote = pushes && imageUrl ? IMAGE_NOTE : null;
   return (
     <aside className={`notif-preview${wide ? ' notif-preview--wide' : ''}`} aria-label="Preview">
       <div className="notif-preview-head">
@@ -48,48 +51,51 @@ export function TemplatePreview({
         <span className="notif-preview-channel">{DELIVERED_AS[channel]}</span>
       </div>
       <figure className="notif-preview-block">
-        {pushes ? (
-          <div className="notif-push">
-            <div className="notif-push-head">
-              <span className="notif-push-app" aria-hidden>
-                N
-              </span>
-              <span>NannyNow</span>
-              <span className="notif-push-time">now</span>
+        <div className="notif-preview-stage">
+          {pushes ? (
+            <div className="notif-push">
+              <div className="notif-push-head">
+                <span className="notif-push-app" aria-hidden>
+                  N
+                </span>
+                <span>NannyNow</span>
+                <span className="notif-push-time">now</span>
+              </div>
+              <p className={`notif-push-title${sample(title)}`} dir="auto">
+                {shownTitle}
+              </p>
+              <p className={`notif-push-body${sample(body)}`} dir="auto">
+                {shownBody}
+              </p>
+              {imageUrl && (
+                <div className="notif-image-box">
+                  <img src={imageUrl} alt="" />
+                </div>
+              )}
             </div>
-            <p className={`notif-push-title${sample(title)}`} dir="auto">
-              {shownTitle}
-            </p>
-            <p className={`notif-push-body${sample(body)}`} dir="auto">
-              {shownBody}
-            </p>
-            {imageUrl && (
-              <div className="notif-image-box">
-                <img src={imageUrl} alt="" />
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="notif-card">
-            {imageUrl && (
-              <div className="notif-image-box">
-                <img src={imageUrl} alt="" />
-              </div>
-            )}
-            <p className={`notif-card-title${sample(title)}`} dir="auto">
-              {shownTitle}
-            </p>
-            <p className={`notif-card-body${sample(body)}`} dir="auto">
-              {shownBody}
-            </p>
-            {linkLabel && <span className="notif-card-action">{linkLabel}</span>}
-          </div>
+          ) : (
+            <div className="notif-card">
+              {imageUrl && (
+                <div className="notif-image-box">
+                  <img src={imageUrl} alt="" />
+                </div>
+              )}
+              <p className={`notif-card-title${sample(title)}`} dir="auto">
+                {shownTitle}
+              </p>
+              <p className={`notif-card-body${sample(body)}`} dir="auto">
+                {shownBody}
+              </p>
+              {linkLabel && <span className="notif-card-action">{linkLabel}</span>}
+            </div>
+          )}
+        </div>
+        {imageNote && (
+          <figcaption className="notif-preview-note">
+            <Info size={ICON_SIZE.inline} aria-hidden />
+            {imageNote}
+          </figcaption>
         )}
-        {notes.map((note) => (
-          <p key={note} className="notif-preview-note">
-            {note}
-          </p>
-        ))}
       </figure>
     </aside>
   );

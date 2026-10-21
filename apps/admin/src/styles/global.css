@@ -6531,15 +6531,33 @@ textarea.input {
   font-weight: 600;
 }
 
-/* On the saved template's own screen the preview is the page: the card keeps
-   a phone's width. */
+/* On the saved template's own screen the preview is the page: the card sits
+   centred, at a phone's width, on a soft stage like a lock screen. */
 .notif-preview--wide {
   position: static;
   padding: 1.5rem;
 }
 
-.notif-preview--wide .notif-preview-block {
-  max-width: 24rem;
+.notif-preview--wide .notif-preview-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-taupe) 80%, var(--color-surface)),
+    color-mix(in srgb, var(--color-primary) 45%, var(--color-surface))
+  );
+}
+
+.notif-preview--wide .notif-preview-stage > * {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.notif-preview--wide .notif-preview-note {
+  justify-content: center;
 }
 
 .notif-preview-heading {
@@ -6658,9 +6676,19 @@ textarea.input {
 }
 
 .notif-preview-note {
-  margin: 0;
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.notif-preview-note svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
   color: var(--color-text-muted);
-  font-size: 0.75rem;
 }
 
 @media (max-width: 1024px) {

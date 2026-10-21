@@ -54,7 +54,10 @@ function AudienceReach({ template }: { template: NotificationTemplate }) {
   return (
     <>
       <div className="delivery-summary-chips">
-        <span className="delivery-summary-chip">{mothersLabel(mothers)}</span>
+        {/* Picked mothers are already counted in the line above; a group's size is news. */}
+        {template.audience.type === 'GROUPS' && (
+          <span className="delivery-summary-chip">{mothersLabel(mothers)}</span>
+        )}
         {sendsPush && (
           <span className="delivery-summary-chip">
             {formatCount(withPushDevice)} with push enabled
