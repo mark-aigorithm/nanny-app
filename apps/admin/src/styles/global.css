@@ -6059,13 +6059,6 @@ input[type='number'] {
   }
 }
 
-/* A table cell holding a type badge and the linked thing's name. */
-.link-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
 /* ── Notification template editor ───────────────────────── */
 /* Form on the left, a sticky preview on the right; one column below 1024px. */
 .template-editor {

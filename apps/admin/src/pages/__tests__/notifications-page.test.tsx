@@ -84,8 +84,8 @@ describe('NotificationsPage', () => {
 
     const winback = await rowOf('Win-back 30d');
     expect(within(winback).getByText('In-app + push')).toBeInTheDocument();
-    expect(within(winback).getByText('Promo code')).toBeInTheDocument();
-    expect(within(winback).getByText('SAVE20')).toBeInTheDocument();
+    // No Title or Link columns: those are on the template's own page.
+    expect(within(winback).queryByText('SAVE20')).not.toBeInTheDocument();
     expect(within(winback).getByText('2 groups')).toBeInTheDocument();
     // The count's own cell: the row's "Times sent" column, not any cell that happens to say "3".
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent ?? '');
@@ -95,7 +95,8 @@ describe('NotificationsPage', () => {
 
     const welcome = await rowOf('Welcome');
     expect(within(welcome).getByText('In-app')).toBeInTheDocument();
-    expect(within(welcome).getByText('37 mothers')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /audience count/i })).toBeInTheDocument();
+    expect(within(welcome).getByText(/^37$/)).toBeInTheDocument();
     expect(within(welcome).getByText('Never')).toBeInTheDocument();
   });
 

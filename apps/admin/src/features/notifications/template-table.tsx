@@ -25,21 +25,20 @@ import { formatDate } from '@admin/lib/format';
 import { useCanManage } from '@admin/lib/permissions';
 import { useClientSort } from '@admin/lib/use-table-sort';
 
-import { CHANNEL_LABEL, LINK_TYPE_LABEL, formatCount } from './notification-labels';
+import { CHANNEL_LABEL, formatCount } from './notification-labels';
 
 // `updatedAt` has no column: it is only the opening order, matching the API's.
 type TemplateSortKey =
   | 'id'
   | 'name'
-  | 'title'
   | 'channel'
-  | 'link'
   | 'audience'
   | 'publishCount'
   | 'lastPublishedAt'
   | 'updatedAt';
 
-const EMPTY = <span className="table-empty">—</span>;
+/** "37 mothers" → "37"; a group audience keeps its unit ("2 groups"), since that counts groups. */
+const audienceCount = (summary: string) => summary.replace(/ mothers?$/, '');
 
 /** Every notification template (loaded in full, sorted in the browser). A row opens its editor. */
 export function TemplateTable({ templates }: { templates: NotificationTemplateListItem[] }) {
@@ -54,9 +53,7 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
     {
       id: (t) => t.id,
       name: (t) => t.name,
-      title: (t) => t.title,
       channel: (t) => CHANNEL_LABEL[t.channel],
-      link: (t) => t.linkLabel,
       audience: (t) => t.audienceSummary,
       publishCount: (t) => t.publishCount,
       lastPublishedAt: (t) => t.lastPublishedAt,
@@ -77,8 +74,7 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
 
   const columns: Column<NotificationTemplateListItem, TemplateSortKey>[] = [
     idColumn((t) => t.id, 'id'),
-    { key: 'name', header: 'Name', sortKey: 'name', width: '20%', render: (t) => t.name },
-    { key: 'title', header: 'Title', sortKey: 'title', width: '24%', render: (t) => t.title },
+    { key: 'name', header: 'Name', sortKey: 'name', width: '30%', render: (t) => t.name },
     {
       key: 'channel',
       header: 'Channel',
@@ -87,20 +83,12 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
       render: (t) => <Badge>{CHANNEL_LABEL[t.channel]}</Badge>,
     },
     {
-      key: 'link',
-      header: 'Link',
-      sortKey: 'link',
-      render: (t) =>
-        t.targetType && t.linkLabel ? (
-          <span className="link-cell">
-            <Badge>{LINK_TYPE_LABEL[t.targetType]}</Badge>
-            <span>{t.linkLabel}</span>
-          </span>
-        ) : (
-          EMPTY
-        ),
+      key: 'audience',
+      header: 'Audience count',
+      sortKey: 'audience',
+      nowrap: true,
+      render: (t) => audienceCount(t.audienceSummary),
     },
-    { key: 'audience', header: 'Audience', sortKey: 'audience', nowrap: true, render: (t) => t.audienceSummary },
     {
       key: 'publishCount',
       header: 'Times sent',
