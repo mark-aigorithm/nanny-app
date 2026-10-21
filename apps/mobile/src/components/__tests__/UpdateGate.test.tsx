@@ -42,6 +42,16 @@ function moveApp(...states: AppStateStatus[]) {
 
 afterEach(() => jest.restoreAllMocks());
 
+/** Runs `action`, then plays the sheet's slide-down exit to the end on fake timers. */
+function andLetTheSheetClose(action: () => void) {
+  jest.useFakeTimers();
+  action();
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+  jest.useRealTimers();
+}
+
 it('renders nothing while the check is loading, failed, or ok', async () => {
   const { queryByText, rerender } = render(<UpdateGate />);
   await act(async () => {});
@@ -84,8 +94,10 @@ it('offers an optional update; "Later" hides it until the app is next opened', a
   const { findByText, getByText, queryByText } = render(<UpdateGate />);
 
   expect(await findByText(AVAILABLE_HEADLINE)).toBeTruthy();
-  await act(async () => {
+  andLetTheSheetClose(() => {
     fireEvent.press(getByText('Later'));
+    // It slides away first.
+    expect(getByText(AVAILABLE_HEADLINE)).toBeTruthy();
   });
   expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
 
@@ -164,9 +176,7 @@ it('flags the optional sheet as visible while it shows, and clears it on Later',
   expect(await findByText(AVAILABLE_HEADLINE)).toBeTruthy();
   expect(useUpdateSheetStore.getState().visible).toBe(true);
 
-  await act(async () => {
-    fireEvent.press(getByText('Later'));
-  });
+  andLetTheSheetClose(() => fireEvent.press(getByText('Later')));
   expect(useUpdateSheetStore.getState().visible).toBe(false);
 });
 
@@ -180,6 +190,16 @@ it('shows the store link when it cannot be opened', async () => {
     fireEvent.press(getByText(UPDATE_IN_STORE_LABEL));
   });
   expect(getByText(`We couldn't open the store. Update from this link: ${STORE}`)).toBeTruthy();
+});
+
+it('treats a tap on the dark backdrop as Later', async () => {
+  mockCheck = { data: result({ status: 'update_available' }) };
+  const { findByText, getAllByRole, queryByText } = render(<UpdateGate />);
+  await findByText(AVAILABLE_HEADLINE);
+  // The backdrop is the first "Later" in the tree, the text button the second.
+  const [backdrop] = getAllByRole('button', { name: 'Later' });
+  andLetTheSheetClose(() => fireEvent.press(backdrop!));
+  expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
 });
 
 it('names the store on the optional sheet too, and marks its headline as a header', async () => {

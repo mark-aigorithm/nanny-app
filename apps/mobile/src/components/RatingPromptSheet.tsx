@@ -8,7 +8,7 @@ import {
 import { Text, TextInput } from '@mobile/components/ui/text';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { Avatar, Button, StarRatingInput } from '@mobile/components/ui';
+import { Avatar, Button, SlideUpSheet, StarRatingInput } from '@mobile/components/ui';
 import { useCreateReview } from '@mobile/hooks/useNannies';
 import { PENDING_RATING_KEY } from '@mobile/hooks/usePendingRating';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
@@ -22,7 +22,6 @@ import {
   fontFamily,
   spacing,
   borderRadius,
-  shadows,
   screenPadding,
   typeScale,
 } from '@mobile/theme';
@@ -43,12 +42,15 @@ export default function RatingPromptSheet() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Rated: the sheet slides away, then the prompt clears.
+  const [closing, setClosing] = useState(false);
 
   // Reset local state each time a new booking opens the sheet.
   useEffect(() => {
     setRating(0);
     setComment('');
     setError(null);
+    setClosing(false);
   }, [booking?.id]);
 
   if (!booking) return null;
@@ -69,11 +71,11 @@ export default function RatingPromptSheet() {
     createReview.mutate(
       { rating, ...(comment.trim() ? { comment: comment.trim() } : {}) },
       {
-        onSuccess: () => resolveAndClose(),
+        onSuccess: () => setClosing(true),
         onError: (err) => {
           const message = getApiErrorMessage(err);
           if (isAlreadyReviewed(message)) {
-            resolveAndClose();
+            setClosing(true);
             return;
           }
           setError(message);
@@ -83,60 +85,59 @@ export default function RatingPromptSheet() {
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={() => undefined}>
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
-          <ScrollView
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.handle} />
+    // No Modal animation: the backdrop fades and the sheet slides itself.
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={() => undefined}
+    >
+      <SlideUpSheet
+        closing={closing}
+        onClosed={resolveAndClose}
+        style={[styles.sheet, { paddingBottom: bottomPadding }]}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.handle} />
 
-            <Avatar uri={nanny?.avatarUrl ?? undefined} size="xl" fallbackInitial={nanny?.firstName?.[0]} />
-            <Text style={styles.title}>How was your booking with {nannyName}?</Text>
-            <Text style={styles.subtitle}>Rate your experience to continue.</Text>
+          <Avatar uri={nanny?.avatarUrl ?? undefined} size="xl" fallbackInitial={nanny?.firstName?.[0]} />
+          <Text style={styles.title}>How was your booking with {nannyName}?</Text>
+          <Text style={styles.subtitle}>Rate your experience to continue.</Text>
 
-            <StarRatingInput rating={rating} onChange={setRating} />
+          <StarRatingInput rating={rating} onChange={setRating} />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Add a comment (optional)…"
-              placeholderTextColor={colors.textPlaceholder}
-              value={comment}
-              onChangeText={(t) => setComment(t.slice(0, MAX_CHARS))}
-              multiline
-              textAlignVertical="top"
-            />
+          <TextInput
+            style={styles.input}
+            placeholder="Add a comment (optional)…"
+            placeholderTextColor={colors.textPlaceholder}
+            value={comment}
+            onChangeText={(t) => setComment(t.slice(0, MAX_CHARS))}
+            multiline
+            textAlignVertical="top"
+          />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <Button
-              title="Submit rating"
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-              loading={createReview.isPending}
-            />
-          </ScrollView>
-        </View>
-      </View>
+          <Button
+            title="Submit rating"
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+            loading={createReview.isPending}
+          />
+        </ScrollView>
+      </SlideUpSheet>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.overlay,
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    maxHeight: '90%',
-    ...shadows.lg,
-  },
+  sheet: { maxHeight: '90%' },
   content: {
     alignItems: 'center',
     paddingHorizontal: screenPadding,

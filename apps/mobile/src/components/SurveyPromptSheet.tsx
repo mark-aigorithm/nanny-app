@@ -1,18 +1,15 @@
-import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import type { MotherSurveySummary } from '@nanny-app/shared';
 
-import { Button } from '@mobile/components/ui';
+import { Button, SlideUpSheet } from '@mobile/components/ui';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
-import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 import {
   STATUS_BAR_HEIGHT,
-  borderRadius,
   colors,
   fontFamily,
   screenPadding,
-  shadows,
   spacing,
   typeScale,
 } from '@mobile/theme';
@@ -28,58 +25,48 @@ type Props = {
 export default function SurveyPromptSheet({ survey, onAnswer, onSkip, onDismiss }: Props) {
   const bottomPadding = useBottomBarPadding(spacing['3xl']);
   const { height } = useWindowDimensions();
-  const reducedMotion = useReducedMotion();
   const count = survey.questionCount;
+  // The choice made: the sheet slides away first, then it runs.
+  const [pending, setPending] = useState<(() => void) | null>(null);
+  const choose = (action: () => void) => () => setPending(() => action);
 
   // No grab handle: the sheet has no swipe to dismiss, so it would promise one.
   return (
     <Modal
       visible
       transparent
-      animationType={reducedMotion ? 'fade' : 'slide'}
-      onRequestClose={onDismiss}
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={choose(onDismiss)}
       testID="survey-prompt-modal"
     >
-      <View style={styles.overlay}>
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={onDismiss}
-          accessibilityRole="button"
-          accessibilityLabel="Not now"
-        />
-        <View
-          style={[
-            styles.sheet,
-            { maxHeight: height - STATUS_BAR_HEIGHT, paddingBottom: bottomPadding },
-          ]}
-        >
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <Text accessibilityRole="header" style={styles.title}>
-              {survey.title}
-            </Text>
-            <Text style={styles.meta}>
-              {`${count} question${count === 1 ? '' : 's'}`}
-            </Text>
-            <Button title="Answer" onPress={onAnswer} />
-            <View style={styles.skipGroup}>
-              <Button title="Skip" variant="text" onPress={onSkip} style={styles.skip} />
-              <Text style={styles.note}>You can answer it later from Account → Surveys.</Text>
-            </View>
-          </ScrollView>
-        </View>
-      </View>
+      <SlideUpSheet
+        closing={pending !== null}
+        onClosed={() => pending?.()}
+        onBackdropPress={choose(onDismiss)}
+        backdropLabel="Not now"
+        style={{ maxHeight: height - STATUS_BAR_HEIGHT, paddingBottom: bottomPadding }}
+      >
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Text accessibilityRole="header" style={styles.title}>
+            {survey.title}
+          </Text>
+          <Text style={styles.meta}>
+            {`${count} question${count === 1 ? '' : 's'}`}
+          </Text>
+          <Button title="Answer" onPress={choose(onAnswer)} />
+          <View style={styles.skipGroup}>
+            <Button title="Skip" variant="text" onPress={choose(onSkip)} style={styles.skip} />
+            <Text style={styles.note}>You can answer it later from Account → Surveys.</Text>
+          </View>
+        </ScrollView>
+      </SlideUpSheet>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    ...shadows.lg,
-  },
   content: {
     alignItems: 'stretch',
     paddingHorizontal: screenPadding,

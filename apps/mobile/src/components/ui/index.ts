@@ -20,4 +20,5 @@ export { default as PulseRings } from './pulse-rings';
 export { default as PressableScale } from './pressable-scale';
 export type { PressableScaleProps } from './pressable-scale';
 export { default as FadeInView } from './fade-in-view';
+export { default as SlideUpSheet } from './slide-up-sheet';
 export { default as KeyboardAvoidingView } from './keyboard-avoiding-view';

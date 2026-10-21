@@ -126,6 +126,7 @@ Before creating any new visual pattern, check if an existing component covers it
 | `PulseRings` | Expanding sonar rings for "searching" states |
 | `PressableScale` | Drop-in `Pressable` with the standard press feedback (soft scale + optional `haptic`) — use for every tappable card/tile/button |
 | `FadeInView` | One-time fade-and-rise entrance for list items and sections (`index` staggers) |
+| `SlideUpSheet` | A bottom sheet's scrim + panel inside a Modal with `animationType="none"`: the scrim fades, the panel slides, in and out (`closing` → `onClosed`). Never use a Modal's own `slide` for a sheet — it drags the dark backdrop down with it |
 | `KeyboardAvoidingView` | The only keyboard avoider — `behavior="padding"` on both platforms (see Screen Layout) |
 
 - Only create new UI components if no existing one covers the use case

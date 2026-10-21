@@ -4,7 +4,6 @@ import { AppState, Linking, Modal, StyleSheet, View } from 'react-native';
 import UpdateAvailableSheet from '@mobile/components/UpdateAvailableSheet';
 import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
 import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
-import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 import { colors } from '@mobile/theme';
 import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 
@@ -26,9 +25,10 @@ export default function UpdateGate() {
   const { data, refetch } = useAppVersionCheck();
   // "Later" hides the optional prompt until she next opens the app.
   const [dismissed, setDismissed] = useState(false);
+  // Later was pressed: the sheet is sliding away, and is dismissed once it's gone.
+  const [closing, setClosing] = useState(false);
   // The store link failed to open: both states then show it as text.
   const [openFailed, setOpenFailed] = useState(false);
-  const reducedMotion = useReducedMotion();
 
   // Opening the app from the background re-asks the backend, however recently
   // it answered, and brings a dismissed optional prompt back.
@@ -40,6 +40,7 @@ export default function UpdateGate() {
       if (next !== 'active' || !wentBackground.current) return;
       wentBackground.current = false;
       setDismissed(false);
+      setClosing(false);
       void refetch();
     });
     return () => sub.remove();
@@ -97,13 +98,20 @@ export default function UpdateGate() {
 
   if (!sheetVisible || !data.latestVersion) return null;
   const latestVersion = data.latestVersion;
-  const later = () => setDismissed(true);
+  const later = () => setClosing(true);
+  const closed = () => {
+    setDismissed(true);
+    setClosing(false);
+  };
 
   return (
+    // No Modal animation: the sheet fades its backdrop and slides itself.
     <Modal
       visible
       transparent
-      animationType={reducedMotion ? 'fade' : 'slide'}
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={later}
     >
       <UpdateAvailableSheet
@@ -111,6 +119,8 @@ export default function UpdateGate() {
         onUpdate={openStore}
         onLater={later}
         storeError={storeError}
+        closing={closing}
+        onClosed={closed}
       />
     </Modal>
   );

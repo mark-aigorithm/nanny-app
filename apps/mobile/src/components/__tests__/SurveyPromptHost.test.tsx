@@ -51,6 +51,16 @@ function renderHost() {
   return { ...render(tree()), tree };
 }
 
+/** Runs `action`, then plays the sheet's slide-down exit to the end on fake timers. */
+function andLetTheSheetClose(action: () => void) {
+  jest.useFakeTimers();
+  action();
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+  jest.useRealTimers();
+}
+
 describe('pickSurveyToPrompt', () => {
   it('prompts the oldest pending survey, never a skipped or dismissed one', () => {
     expect(pickSurveyToPrompt([s(1, 'SKIPPED'), s(2, 'PENDING'), s(3, 'PENDING')], new Set())?.id).toBe(2);
@@ -81,11 +91,12 @@ describe('SurveyPromptHost', () => {
     expect(screen.getByText('Survey 11')).toBeTruthy();
   });
 
+  // Each choice runs once the sheet has slid away.
   it('offers Answer and Skip for a pending survey', () => {
     mockPending = [s(7, 'PENDING')];
     renderHost();
     expect(screen.getByText('Survey 7')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Skip' }));
+    andLetTheSheetClose(() => fireEvent.press(screen.getByRole('button', { name: 'Skip' })));
     expect(mockSkip).toHaveBeenCalledWith(7);
     expect(wasSurveyPrompted(7)).toBe(true);
     expect(screen.queryByText('Survey 7')).toBeNull();
@@ -102,16 +113,16 @@ describe('SurveyPromptHost', () => {
   it('opens the survey on Answer', () => {
     mockPending = [s(8, 'PENDING')];
     renderHost();
-    fireEvent.press(screen.getByRole('button', { name: 'Answer' }));
+    andLetTheSheetClose(() => fireEvent.press(screen.getByRole('button', { name: 'Answer' })));
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/(parent)/survey', params: { surveyId: '8' } });
   });
 
   it('hides for this session without skipping when dismissed', () => {
     mockPending = [s(10, 'PENDING')];
     renderHost();
-    fireEvent(screen.getByTestId('survey-prompt-modal'), 'requestClose');
-    expect(mockSkip).not.toHaveBeenCalled();
+    andLetTheSheetClose(() => fireEvent(screen.getByTestId('survey-prompt-modal'), 'requestClose'));
     expect(screen.queryByText('Survey 10')).toBeNull();
+    expect(mockSkip).not.toHaveBeenCalled();
     expect(wasSurveyPrompted(10)).toBe(true);
   });
 
@@ -119,9 +130,9 @@ describe('SurveyPromptHost', () => {
   it('hides for this session without skipping when the scrim is tapped', () => {
     mockPending = [s(12, 'PENDING')];
     renderHost();
-    fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
-    expect(mockSkip).not.toHaveBeenCalled();
+    andLetTheSheetClose(() => fireEvent.press(screen.getByRole('button', { name: 'Not now' })));
     expect(screen.queryByText('Survey 12')).toBeNull();
+    expect(mockSkip).not.toHaveBeenCalled();
     expect(wasSurveyPrompted(12)).toBe(true);
   });
 
