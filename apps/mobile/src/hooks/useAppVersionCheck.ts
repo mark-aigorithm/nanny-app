@@ -19,9 +19,10 @@ function apiPlatform(): AppPlatform | null {
 }
 
 /**
- * Whether this install is current. Runs without sign-in, again whenever the
- * app returns to the foreground (React Query's focusManager is bound to
- * AppState in the root layout). Errors are left to the caller, which fails open.
+ * Whether this install is current. Runs without sign-in. UpdateGate refetches
+ * it every time the app comes back to the foreground, whatever its age, so a
+ * release marked mandatory reaches an app left open in the background. Errors
+ * are left to the caller, which fails open.
  */
 export function useAppVersionCheck() {
   const platform = apiPlatform();
@@ -35,7 +36,9 @@ export function useAppVersionCheck() {
     enabled: platform !== null && version !== null,
     staleTime: 5 * 60_000,
     retry: 1,
-    refetchOnWindowFocus: true,
+    // UpdateGate refetches on every return to the foreground; a focus refetch
+    // here would only skip it while the result is under staleTime.
+    refetchOnWindowFocus: false,
   });
 }
 

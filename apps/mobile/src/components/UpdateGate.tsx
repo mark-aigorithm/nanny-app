@@ -1,38 +1,63 @@
-import React, { useEffect, useState } from 'react';
-import { Linking, Modal, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState, Linking, Modal, StyleSheet, View } from 'react-native';
 
 import UpdateAvailableSheet from '@mobile/components/UpdateAvailableSheet';
 import UpdateRequiredScreen from '@mobile/screens/UpdateRequiredScreen';
 import { useAppVersionCheck } from '@mobile/hooks/useAppVersionCheck';
 import { useReducedMotion } from '@mobile/hooks/useReducedMotion';
 import { colors } from '@mobile/theme';
-import { readDismissedUpdate, writeDismissedUpdate } from '@mobile/lib/dismissedUpdate';
 import { useUpdateSheetStore } from '@mobile/store/updateSheetStore';
 
 /**
+ * How long the gate waits before presenting its Modal: other hosts close their
+ * sheets in the same commit the update shows, and iOS drops a Modal presented
+ * while another is still animating away.
+ */
+export const PRESENT_DELAY_MS = 350;
+
+/**
  * Mount once in the root layout, beside OfflineGate. Asks the backend whether
- * this install is current and either covers the app (update required), offers
- * a dismissible prompt (update available) or stays out of the way. Fails open:
+ * this install is current, at launch and again every time the app is opened
+ * from the background, and either covers the app (update required), offers a
+ * dismissible prompt (update available) or stays out of the way. Fails open:
  * while loading, on any error, or without a store link it renders nothing.
  */
 export default function UpdateGate() {
-  const { data } = useAppVersionCheck();
-  // undefined until storage has been read, so the sheet never flashes for a dismissed version.
-  const [dismissed, setDismissed] = useState<string | null | undefined>(undefined);
+  const { data, refetch } = useAppVersionCheck();
+  // "Later" hides the optional prompt until she next opens the app.
+  const [dismissed, setDismissed] = useState(false);
   // The store link failed to open: both states then show it as text.
   const [openFailed, setOpenFailed] = useState(false);
   const reducedMotion = useReducedMotion();
 
+  // Opening the app from the background re-asks the backend, however recently
+  // it answered, and brings a dismissed optional prompt back.
+  // iOS can pass through 'inactive' on the way back, so remember the background.
+  const wentBackground = useRef(false);
   useEffect(() => {
-    void readDismissedUpdate().then(setDismissed);
-  }, []);
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background') wentBackground.current = true;
+      if (next !== 'active' || !wentBackground.current) return;
+      wentBackground.current = false;
+      setDismissed(false);
+      void refetch();
+    });
+    return () => sub.remove();
+  }, [refetch]);
 
   const sheetVisible =
-    !!data?.storeUrl &&
-    data.status === 'update_available' &&
-    dismissed !== undefined &&
-    !!data.latestVersion &&
-    dismissed !== data.latestVersion;
+    !!data?.storeUrl && data.status === 'update_available' && !!data.latestVersion && !dismissed;
+  const wantsModal = sheetVisible || (data?.status === 'update_required' && !!data.storeUrl);
+  // Once presented it stays mounted, so a sheet -> blocker change is a re-render.
+  const [presentable, setPresentable] = useState(false);
+  useEffect(() => {
+    if (!wantsModal) {
+      setPresentable(false);
+      return;
+    }
+    const timer = setTimeout(() => setPresentable(true), PRESENT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [wantsModal]);
   // The survey and rating hosts wait on this, so their sheet never stacks on ours.
   const setSheetVisible = useUpdateSheetStore((s) => s.setVisible);
   useEffect(() => {
@@ -40,7 +65,7 @@ export default function UpdateGate() {
   }, [sheetVisible, setSheetVisible]);
   useEffect(() => () => setSheetVisible(false), [setSheetVisible]);
 
-  if (!data || data.status === 'ok' || !data.storeUrl) return null;
+  if (!data || data.status === 'ok' || !data.storeUrl || !presentable) return null;
   const storeUrl = data.storeUrl;
   const openStore = () => {
     setOpenFailed(false);
@@ -72,10 +97,7 @@ export default function UpdateGate() {
 
   if (!sheetVisible || !data.latestVersion) return null;
   const latestVersion = data.latestVersion;
-  const later = () => {
-    setDismissed(latestVersion);
-    void writeDismissedUpdate(latestVersion);
-  };
+  const later = () => setDismissed(true);
 
   return (
     <Modal

@@ -1,18 +1,13 @@
 import React from 'react';
-import { BackHandler, Linking, Modal } from 'react-native';
+import { AppState, BackHandler, Linking, Modal } from 'react-native';
+import type { AppStateStatus } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { AppVersionCheckResult } from '@nanny-app/shared';
 
 let mockCheck: { data?: AppVersionCheckResult; isError?: boolean } = {};
+const mockRefetch = jest.fn(async () => undefined);
 jest.mock('@mobile/hooks/useAppVersionCheck', () => ({
-  useAppVersionCheck: () => mockCheck,
-}));
-
-const mockReadDismissed = jest.fn(async (): Promise<string | null> => null);
-const mockWriteDismissed = jest.fn(async (_version: string) => undefined);
-jest.mock('@mobile/lib/dismissedUpdate', () => ({
-  readDismissedUpdate: () => mockReadDismissed(),
-  writeDismissedUpdate: (version: string) => mockWriteDismissed(version),
+  useAppVersionCheck: () => ({ ...mockCheck, refetch: mockRefetch }),
 }));
 
 import UpdateGate from '@mobile/components/UpdateGate';
@@ -30,9 +25,20 @@ function result(overrides: Partial<AppVersionCheckResult>): AppVersionCheckResul
 beforeEach(() => {
   jest.clearAllMocks();
   mockCheck = {};
-  mockReadDismissed.mockResolvedValue(null);
   jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  appStateListeners = [];
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+    appStateListeners.push(listener as (s: AppStateStatus) => void);
+    return { remove: () => undefined } as ReturnType<typeof AppState.addEventListener>;
+  });
 });
+
+let appStateListeners: ((s: AppStateStatus) => void)[] = [];
+function moveApp(...states: AppStateStatus[]) {
+  act(() => {
+    for (const state of states) appStateListeners.forEach((l) => l(state));
+  });
+}
 
 afterEach(() => jest.restoreAllMocks());
 
@@ -73,7 +79,7 @@ it('swallows the Android back button while blocking', async () => {
   expect(handler?.()).toBe(true);
 });
 
-it('offers an optional update; "Later" remembers the version and hides it', async () => {
+it('offers an optional update; "Later" hides it until the app is next opened', async () => {
   mockCheck = { data: result({ status: 'update_available', latestVersion: '1.2.0' }) };
   const { findByText, getByText, queryByText } = render(<UpdateGate />);
 
@@ -81,27 +87,40 @@ it('offers an optional update; "Later" remembers the version and hides it', asyn
   await act(async () => {
     fireEvent.press(getByText('Later'));
   });
-
-  expect(mockWriteDismissed).toHaveBeenCalledWith('1.2.0');
-  expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
-});
-
-it('stays quiet for a version already dismissed, but prompts for a newer one', async () => {
-  mockReadDismissed.mockResolvedValue('1.2.0');
-  mockCheck = { data: result({ status: 'update_available', latestVersion: '1.2.0' }) };
-  const { queryByText, rerender, findByText } = render(<UpdateGate />);
-  await act(async () => {});
   expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
 
-  mockCheck = { data: result({ status: 'update_available', latestVersion: '1.3.0' }) };
-  rerender(<UpdateGate />);
+  // Pulling down the notification shade is not opening the app.
+  moveApp('inactive', 'active');
+  expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
+
+  // iOS can pass through inactive on its way back from the background.
+  moveApp('background', 'inactive', 'active');
   expect(await findByText(AVAILABLE_HEADLINE)).toBeTruthy();
 });
 
-it('still blocks when the same version was dismissed as optional before being made mandatory', async () => {
-  mockReadDismissed.mockResolvedValue('1.2.0');
+// A release made mandatory while the app sat in the background must block it
+// on return, even if the last answer is only seconds old.
+it('asks the backend again every time the app is opened from the background', async () => {
+  render(<UpdateGate />);
+  expect(mockRefetch).not.toHaveBeenCalled();
+  moveApp('inactive', 'active');
+  expect(mockRefetch).not.toHaveBeenCalled();
+  moveApp('background', 'active');
+  expect(mockRefetch).toHaveBeenCalledTimes(1);
+  moveApp('background', 'active');
+  expect(mockRefetch).toHaveBeenCalledTimes(2);
+});
+
+it('blocks when an optional version the user put off is made mandatory', async () => {
+  mockCheck = { data: result({ status: 'update_available', latestVersion: '1.2.0' }) };
+  const { findByText, getByText, rerender } = render(<UpdateGate />);
+  await findByText(AVAILABLE_HEADLINE);
+  await act(async () => {
+    fireEvent.press(getByText('Later'));
+  });
+
   mockCheck = { data: result({ status: 'update_required', latestVersion: '1.2.0' }) };
-  const { findByText } = render(<UpdateGate />);
+  rerender(<UpdateGate />);
   expect(await findByText(REQUIRED_HEADLINE)).toBeTruthy();
 });
 
