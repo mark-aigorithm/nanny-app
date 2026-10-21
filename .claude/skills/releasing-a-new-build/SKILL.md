@@ -5,9 +5,10 @@ description: Use when shipping a new NannyApp build to testers — a TestFlight 
 
 # Releasing a new build
 
-A **build**, not a version. `app.config.ts` pins `version` (currently `1.0.0`) and `eas.json` sets
+A **build**, not a version. `app.config.ts` pins `version` (currently `1.0.1`) and `eas.json` sets
 `appVersionSource: "remote"`, so EAS owns the build number and `autoIncrement` on the production
-profile bumps it server-side. **Never edit `version` to ship to testers** — a new build number is
+and preview profiles bumps it server-side (one counter per platform, shared by both profiles; a
+build attempt that fails after the bump still uses its number up). **Never edit `version` to ship to testers** — a new build number is
 what TestFlight and Play need. The marketing `version` changes only for a public store release (see the
 store-release note under Preflight), because the force-update check compares it.
 
@@ -18,7 +19,7 @@ store-release note under Preflight), because the force-update check compares it.
 | `git push` first | EAS archives the **committed** git state, not your working tree. Uncommitted work is silently absent from the build. Pushes need `gh auth switch -u mark-aigorithm`. |
 | `node -e "console.log(require('typescript/package.json').version)"` | eas-cli dies loading the config on **typescript 7.x** with `Cannot read properties of undefined (reading 'CommonJS')`. Force-install `typescript@5.5.4` if it's 7. |
 | Backend env vars on the deployment the app points at | The app talks to the Vercel backend (`API_BASE_URL` in `app.config.ts`). Server config degrades **silently**: no `GMAIL_*`/`SMTP_*` ⇒ every email OTP 400s, no `PAYMOB_*` ⇒ checkout is dead. Check before handing testers a build that exercises them. |
-| `npx eas-cli whoami` | Non-interactive builds fail late without a session. |
+| `EXPO_TOKEN=$(cat ~/.secrets/expo-token-nanny-app) npx eas-cli whoami` | Non-interactive builds fail late without auth. Every eas-cli command authenticates with this token file (never print it), not the `~/.expo` login session. `~/.secrets` also holds other projects' tokens; use only this one. |
 
 For a **store release** (not a tester build), also:
 
@@ -27,13 +28,16 @@ For a **store release** (not a tester build), also:
 
 ## The two commands
 
+Each runs in its own detached tmux session with a log, per the workspace rule for long commands.
+Tell the user the session name and log path.
+
 ```bash
 # iOS → TestFlight. ascAppId is already in eas.json, so this needs no prompts.
-npx eas-cli build --platform ios --profile production --auto-submit --non-interactive
+tmux new -d -s nanny-app-ios-build "cd /home/mark/projects/nanny-app/apps/mobile && EXPO_TOKEN=\$(cat ~/.secrets/expo-token-nanny-app) npx eas-cli build --platform ios --profile production --auto-submit --non-interactive 2>&1 | tee ~/logs/nanny-app-ios-build.log"
 ```
 ```bash
 # Android → an installable APK with a shareable expo.dev link.
-npx eas-cli build --platform android --profile preview --non-interactive
+tmux new -d -s nanny-app-android-build "cd /home/mark/projects/nanny-app/apps/mobile && EXPO_TOKEN=\$(cat ~/.secrets/expo-token-nanny-app) npx eas-cli build --platform android --profile preview --non-interactive 2>&1 | tee ~/logs/nanny-app-android-build.log"
 ```
 
 **Use `preview` for the APK, not `production`.** The production profile has no
@@ -41,9 +45,17 @@ npx eas-cli build --platform android --profile preview --non-interactive
 install from a link. `preview` and `development` both set `buildType: "apk"`; `development` also
 bundles the dev-client (needs Metro), so `preview` is the one to hand out.
 
-Each build takes ~15–30 min. Run them with `run_in_background: true` and poll the log — the URL is
-printed early (`https://expo.dev/accounts/markbotros0/projects/nanny-app/builds/<id>`) and the
-artifact link at the end.
+Each build takes ~15–30 min. The URL is printed early in the log
+(`https://expo.dev/accounts/markbotros.aigorithm/projects/nanny-app/builds/<id>`); wait for the end
+with a background loop on `EXPO_TOKEN=… npx eas-cli build:view <id> --json` until `status` is
+`FINISHED`/`ERRORED`, which also carries the artifact link.
+
+**A new signed target needs one interactive run.** The token covers Expo, not Apple: when a build
+adds a bundle id (the `NotificationService` extension did), `--non-interactive` stops at "Failed to
+set up credentials". Have the user run the iOS command without `--non-interactive` and without tmux
+(`! cd apps/mobile && npx eas-cli build --platform ios --profile production --auto-submit`), log in
+to Apple, reuse the existing distribution certificate and let EAS generate the new profile. Later
+builds are non-interactive again.
 
 ## Traps that have actually broken a build
 
