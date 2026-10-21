@@ -46,7 +46,7 @@ const GOOGLE_WEB_CLIENT_ID = readGoogleWebClientId();
 const config: ExpoConfig = {
   name: APP_NAME,  slug: 'nanny-app',
   scheme: 'nanny-app',
-  version: '1.0.1',
+  version: '1.0.2',
   orientation: 'portrait',
   icon: './assets/icon.png',
   splash: {
