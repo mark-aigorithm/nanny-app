@@ -144,7 +144,6 @@ export function MotherPickerTable({
       header: 'Bookings',
       sortKey: 'completedBookings',
       sortFirst: 'desc',
-      align: 'right',
       render: (r) => r.completedBookings,
     },
     {
@@ -152,7 +151,6 @@ export function MotherPickerTable({
       header: 'Hours booked',
       sortKey: 'hoursBooked',
       sortFirst: 'desc',
-      align: 'right',
       render: (r) => r.hoursBooked,
     },
     {
@@ -160,7 +158,6 @@ export function MotherPickerTable({
       header: 'Total spent',
       sortKey: 'totalSpent',
       sortFirst: 'desc',
-      align: 'right',
       render: (r) => formatEgp(r.totalSpent),
     },
     {

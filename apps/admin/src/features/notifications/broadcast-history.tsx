@@ -72,11 +72,11 @@ export function BroadcastHistory({ templateId }: { templateId: number }) {
       sortKey: 'status',
       render: (b) => <Badge tone={BROADCAST_STATUS_TONE[b.status]}>{BROADCAST_STATUS_LABEL[b.status]}</Badge>,
     },
-    { key: 'targeted', header: 'Targeted', sortKey: 'targeted', sortFirst: 'desc', align: 'right', render: (b) => formatCount(b.targeted) },
-    { key: 'inApp', header: 'In-app', sortKey: 'inAppCreated', sortFirst: 'desc', align: 'right', render: (b) => inbox(b, b.inAppCreated) },
-    { key: 'pushSent', header: 'Push sent', sortKey: 'pushSent', sortFirst: 'desc', align: 'right', render: (b) => push(b, b.pushSent) },
-    { key: 'pushFailed', header: 'Push failed', sortKey: 'pushFailed', sortFirst: 'desc', align: 'right', render: (b) => push(b, b.pushFailed) },
-    { key: 'noDevice', header: 'No device', sortKey: 'noDevice', sortFirst: 'desc', align: 'right', render: (b) => push(b, b.noDevice) },
+    { key: 'targeted', header: 'Targeted', sortKey: 'targeted', sortFirst: 'desc', render: (b) => formatCount(b.targeted) },
+    { key: 'inApp', header: 'In-app', sortKey: 'inAppCreated', sortFirst: 'desc', render: (b) => inbox(b, b.inAppCreated) },
+    { key: 'pushSent', header: 'Push sent', sortKey: 'pushSent', sortFirst: 'desc', render: (b) => push(b, b.pushSent) },
+    { key: 'pushFailed', header: 'Push failed', sortKey: 'pushFailed', sortFirst: 'desc', render: (b) => push(b, b.pushFailed) },
+    { key: 'noDevice', header: 'No device', sortKey: 'noDevice', sortFirst: 'desc', render: (b) => push(b, b.noDevice) },
     { key: 'note', header: 'Note', render: (b) => note(b) ?? EMPTY },
   ];
 

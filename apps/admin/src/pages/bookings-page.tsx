@@ -318,7 +318,6 @@ export function BookingsPage() {
       header: 'Total (EGP)',
       sortKey: 'total',
       sortFirst: 'desc',
-      align: 'right',
       render: (b) => b.totalAmount.toFixed(2),
     },
     {

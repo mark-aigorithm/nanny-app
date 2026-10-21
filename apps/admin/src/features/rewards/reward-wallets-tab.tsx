@@ -78,7 +78,6 @@ export function RewardWalletsTab() {
       header: 'Balance',
       sortKey: 'balance',
       sortFirst: 'desc',
-      align: 'right',
       nowrap: true,
       render: (w) =>
         w.pointsBalance > 0 ? (
@@ -92,7 +91,6 @@ export function RewardWalletsTab() {
       header: 'Lifetime earned',
       sortKey: 'earned',
       sortFirst: 'desc',
-      align: 'right',
       nowrap: true,
       render: (w) => w.lifetimeEarned,
     },
@@ -101,7 +99,6 @@ export function RewardWalletsTab() {
       header: 'Lifetime redeemed',
       sortKey: 'redeemed',
       sortFirst: 'desc',
-      align: 'right',
       nowrap: true,
       render: (w) => w.lifetimeRedeemed,
     },

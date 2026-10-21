@@ -166,7 +166,7 @@ export function SurveyRecipients({ survey }: { survey: AdminSurvey }) {
       sortKey: 'status',
       render: (r) => <Badge tone={RECIPIENT_STATUS_TONE[r.status]}>{RECIPIENT_STATUS_LABEL[r.status]}</Badge>,
     },
-    { key: 'sent', header: 'Times sent', sortKey: 'sentCount', sortFirst: 'desc', align: 'right', render: (r) => r.sentCount },
+    { key: 'sent', header: 'Times sent', sortKey: 'sentCount', sortFirst: 'desc', render: (r) => r.sentCount },
     { key: 'lastSent', header: 'Last sent', sortKey: 'lastSentAt', sortFirst: 'desc', nowrap: true, render: (r) => when(r.lastSentAt) },
     { key: 'answered', header: 'Answered', sortKey: 'answeredAt', sortFirst: 'desc', nowrap: true, render: (r) => when(r.answeredAt) },
   ];

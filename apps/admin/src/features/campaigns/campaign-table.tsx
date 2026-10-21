@@ -110,7 +110,7 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
         />
       ),
     },
-    { key: 'order', header: 'Order', align: 'right', sortKey: 'order', render: (c) => c.sortOrder },
+    { key: 'order', header: 'Order', sortKey: 'order', render: (c) => c.sortOrder },
     { key: 'title', header: 'Title', sortKey: 'title', render: (c) => c.title },
     {
       key: 'target',
@@ -135,7 +135,6 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
     {
       key: 'impressions',
       header: 'Impressions',
-      align: 'right',
       sortKey: 'impressions',
       sortFirst: 'desc',
       render: (c) => c.impressionCount,
@@ -143,7 +142,6 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
     {
       key: 'taps',
       header: 'Taps',
-      align: 'right',
       sortKey: 'taps',
       sortFirst: 'desc',
       render: (c) => c.clickCount,
@@ -151,7 +149,6 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
     {
       key: 'usage',
       header: 'Total usage',
-      align: 'right',
       sortKey: 'usage',
       sortFirst: 'desc',
       render: (c) => c.targetUsageCount,

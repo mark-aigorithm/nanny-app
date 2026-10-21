@@ -83,7 +83,6 @@ export function GroupTable() {
       header: 'Members (now)',
       sortKey: 'memberCount',
       sortFirst: 'desc',
-      align: 'right',
       render: (g) => g.memberCount,
     },
     {

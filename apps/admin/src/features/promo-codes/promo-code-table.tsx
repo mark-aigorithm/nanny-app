@@ -108,7 +108,6 @@ export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
     {
       key: 'used',
       header: 'Used',
-      align: 'right',
       sortKey: 'used',
       sortFirst: 'desc',
       render: (promo) => promo.usageCount,
@@ -116,7 +115,6 @@ export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
     {
       key: 'max',
       header: 'Max total',
-      align: 'right',
       sortKey: 'max',
       sortFirst: 'desc',
       render: (promo) => promo.maxUsage ?? '∞',
@@ -124,7 +122,6 @@ export function PromoCodeTable({ promoCodes }: PromoCodeTableProps) {
     {
       key: 'maxUser',
       header: 'Max / user',
-      align: 'right',
       sortKey: 'maxUser',
       sortFirst: 'desc',
       render: (promo) => promo.maxUsagePerUser ?? '∞',

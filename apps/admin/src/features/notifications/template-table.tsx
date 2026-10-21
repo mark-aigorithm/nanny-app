@@ -72,25 +72,13 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
     onError: (err) => toast.error('Couldn’t delete the template', apiErrorMessage(err)),
   });
 
-  // Every column centred, header and cell alike; the row menu stays at the right edge.
   const columns: Column<NotificationTemplateListItem, TemplateSortKey>[] = [
-    {
-      ...idColumn<NotificationTemplateListItem, TemplateSortKey>((t) => t.id, 'id'),
-      align: 'center',
-    },
-    {
-      key: 'name',
-      header: 'Name',
-      sortKey: 'name',
-      width: '30%',
-      align: 'center',
-      render: (t) => t.name,
-    },
+    idColumn((t) => t.id, 'id'),
+    { key: 'name', header: 'Name', sortKey: 'name', width: '30%', render: (t) => t.name },
     {
       key: 'channel',
       header: 'Channel',
       sortKey: 'channel',
-      align: 'center',
       nowrap: true,
       render: (t) => <Badge>{CHANNEL_LABEL[t.channel]}</Badge>,
     },
@@ -98,7 +86,6 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
       key: 'audience',
       header: 'Audience count',
       sortKey: 'audience',
-      align: 'center',
       nowrap: true,
       render: (t) => audienceCount(t.audienceSummary),
     },
@@ -107,7 +94,6 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
       header: 'Times sent',
       sortKey: 'publishCount',
       sortFirst: 'desc',
-      align: 'center',
       render: (t) => formatCount(t.publishCount),
     },
     {
@@ -115,7 +101,6 @@ export function TemplateTable({ templates }: { templates: NotificationTemplateLi
       header: 'Last sent',
       sortKey: 'lastPublishedAt',
       sortFirst: 'desc',
-      align: 'center',
       nowrap: true,
       render: (t) => (t.lastPublishedAt ? formatDate(t.lastPublishedAt) : <span className="table-empty">Never</span>),
     },
