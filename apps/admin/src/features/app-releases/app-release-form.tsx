@@ -120,7 +120,7 @@ export function AppReleaseFormModal({ release, onClose }: AppReleaseFormModalPro
           is live on the {platformLabel} store, or they&apos;ll have nothing to install.
         </p>
       )}
-      <Field label="Release notes" hint="Optional — shown in the app's update prompt.">
+      <Field label="Release notes" hint="Optional — for the team only, never shown in the app.">
         <textarea
           className="input"
           rows={3}

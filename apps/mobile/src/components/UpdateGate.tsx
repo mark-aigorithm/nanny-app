@@ -64,11 +64,7 @@ export default function UpdateGate() {
         onRequestClose={() => undefined}
       >
         <View style={styles.requiredBackground}>
-          <UpdateRequiredScreen
-            releaseNotes={data.releaseNotes}
-            onUpdate={openStore}
-            storeError={storeError}
-          />
+          <UpdateRequiredScreen onUpdate={openStore} storeError={storeError} />
         </View>
       </Modal>
     );
@@ -90,7 +86,6 @@ export default function UpdateGate() {
     >
       <UpdateAvailableSheet
         latestVersion={latestVersion}
-        releaseNotes={data.releaseNotes}
         onUpdate={openStore}
         onLater={later}
         storeError={storeError}

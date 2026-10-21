@@ -3,13 +3,12 @@ import { BackHandler, ScrollView, View } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
-import { UPDATE_IN_STORE_LABEL, isLongReleaseNote, storeLinkFallback } from '@mobile/lib/storeLabels';
+import { UPDATE_IN_STORE_LABEL, storeLinkFallback } from '@mobile/lib/storeLabels';
 import { colors, spacing } from '@mobile/theme';
 import { Button, IconCircle, ScreenContainer } from '@mobile/components/ui';
 import { styles } from './styles/update-required-screen.styles';
 
 interface UpdateRequiredScreenProps {
-  releaseNotes: string | null;
   onUpdate: () => void;
   /** The store URL, when opening it failed; shown as text so she can still update. */
   storeError?: string | null;
@@ -21,7 +20,6 @@ interface UpdateRequiredScreenProps {
  * way past it but the store: the Android back button is swallowed.
  */
 export default function UpdateRequiredScreen({
-  releaseNotes,
   onUpdate,
   storeError = null,
 }: UpdateRequiredScreenProps) {
@@ -48,11 +46,6 @@ export default function UpdateRequiredScreen({
         <Text style={styles.body}>
           This version of the app is no longer supported. Update to keep booking and managing care.
         </Text>
-        {releaseNotes ? (
-          <Text style={[styles.notes, isLongReleaseNote(releaseNotes) && styles.notesLong]}>
-            {releaseNotes}
-          </Text>
-        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: bottomPadding }]}>

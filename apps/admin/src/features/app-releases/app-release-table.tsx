@@ -121,10 +121,15 @@ export function AppReleaseTable({ releases }: AppReleaseTableProps) {
     },
     actionsColumn((r) => (
       <ActionMenu label={`Actions for ${label(r)}`} disabled={!canManage}>
-        <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(r)}>
-          Edit
-        </MenuItem>
-        <MenuSeparator />
+        {/* Only each platform's latest release is live; older rows are history. */}
+        {current.latest.has(r.id) && (
+          <>
+            <MenuItem icon={<Pencil size={ICON_SIZE.menu} />} onSelect={() => setEditing(r)}>
+              Edit
+            </MenuItem>
+            <MenuSeparator />
+          </>
+        )}
         <MenuItem danger icon={<Trash2 size={ICON_SIZE.menu} />} onSelect={() => setDeleting(r)}>
           Delete
         </MenuItem>

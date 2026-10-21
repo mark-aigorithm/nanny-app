@@ -27,13 +27,6 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  notes: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-  notesLong: { alignSelf: 'stretch', textAlign: 'left' },
   footer: {
     paddingHorizontal: screenPadding,
     paddingTop: spacing.md,

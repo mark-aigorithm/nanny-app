@@ -51,12 +51,13 @@ it('renders nothing while the check is loading, failed, or ok', async () => {
   expect(queryByText(AVAILABLE_HEADLINE)).toBeNull();
 });
 
-it('blocks with notes and sends its store-named button to the store', async () => {
+// Release notes are for the team only: even one an older backend sends is not shown.
+it('blocks without release notes and sends its store-named button to the store', async () => {
   mockCheck = { data: result({ status: 'update_required', releaseNotes: 'Chat with your nanny' }) };
   const { findByText, getByText } = render(<UpdateGate />);
 
   expect(await findByText(REQUIRED_HEADLINE)).toBeTruthy();
-  expect(getByText('Chat with your nanny')).toBeTruthy();
+  expect(() => getByText('Chat with your nanny')).toThrow();
   fireEvent.press(getByText(UPDATE_IN_STORE_LABEL));
   expect(Linking.openURL).toHaveBeenCalledWith(STORE);
   expect(() => getByText('Later')).toThrow();

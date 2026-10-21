@@ -70,6 +70,14 @@ export async function updateAppRelease(
 ): Promise<AppRelease> {
   const existing = await prisma.appRelease.findFirst({ where: { id, deletedAt: null } });
   if (!existing) throw errors.notFound('Release not found');
+  // Only the newest release of a platform is the live one; older rows are history.
+  const siblings = await prisma.appRelease.findMany({
+    where: { platform: existing.platform, deletedAt: null },
+  });
+  const newest = [...siblings].sort((a, b) => compareVersions(b.version, a.version) ?? 0)[0];
+  if (newest && newest.id !== existing.id) {
+    throw errors.conflict(`Only the latest release can be edited (${newest.version}).`);
+  }
   const row = await prisma.appRelease.update({
     where: { id },
     data: {
@@ -114,6 +122,8 @@ export async function checkAppVersion(query: AppVersionCheckQuery): Promise<AppV
     status,
     latestVersion: latest.version,
     storeUrl: status === 'ok' ? null : config.storeUrls[query.platform],
-    releaseNotes: status === 'ok' ? null : latest.releaseNotes,
+    // Release notes are for the console team only. Still sent, as null, because
+    // installed apps (1.0.0, 1.0.1) expect the field.
+    releaseNotes: null,
   };
 }

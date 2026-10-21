@@ -7,6 +7,3 @@ export const UPDATE_IN_STORE_LABEL =
 /** Shown when the store link won't open, so the blocker is never a dead end. */
 export const storeLinkFallback = (storeUrl: string) =>
   `We couldn't open the store. Update from this link: ${storeUrl}`;
-
-/** Notes longer than a line or two read better left-aligned than centred. */
-export const isLongReleaseNote = (notes: string) => notes.length > 80 || notes.includes('\n');

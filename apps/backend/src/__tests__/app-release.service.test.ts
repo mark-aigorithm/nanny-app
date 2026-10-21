@@ -83,7 +83,7 @@ describe('checkAppVersion', () => {
     expect((await check('1.3.0')).status).toBe('ok');
   });
 
-  it('offers an optional update with the latest notes and store link', async () => {
+  it('offers an optional update with the store link, never the team-only notes', async () => {
     mockPrisma.appRelease.findMany.mockResolvedValue([
       makeRelease({ id: 1, version: '1.0.0', mandatory: true }),
       makeRelease({ id: 2, version: '1.1.0', releaseNotes: 'Faster booking' }),
@@ -92,7 +92,7 @@ describe('checkAppVersion', () => {
       status: 'update_available',
       latestVersion: '1.1.0',
       storeUrl: IOS_STORE,
-      releaseNotes: 'Faster booking',
+      releaseNotes: null,
     });
   });
 
@@ -186,12 +186,23 @@ describe('createAppRelease', () => {
 describe('updateAppRelease', () => {
   it('changes mandatory and notes only', async () => {
     mockPrisma.appRelease.findFirst.mockResolvedValue(makeRelease());
+    mockPrisma.appRelease.findMany.mockResolvedValue([makeRelease()]);
     mockPrisma.appRelease.update.mockResolvedValue(makeRelease({ mandatory: true, releaseNotes: null }));
     await updateAppRelease(1, { mandatory: true, releaseNotes: null });
     expect(mockPrisma.appRelease.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: { mandatory: true, releaseNotes: null },
     });
+  });
+
+  it('refuses to edit a release older than the platform\'s latest', async () => {
+    mockPrisma.appRelease.findFirst.mockResolvedValue(makeRelease({ id: 1, version: '1.0.0' }));
+    mockPrisma.appRelease.findMany.mockResolvedValue([
+      makeRelease({ id: 1, version: '1.0.0' }),
+      makeRelease({ id: 2, version: '1.1.0' }),
+    ]);
+    await expect(updateAppRelease(1, { mandatory: true })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.appRelease.update).not.toHaveBeenCalled();
   });
 
   it('404s on a missing release', async () => {

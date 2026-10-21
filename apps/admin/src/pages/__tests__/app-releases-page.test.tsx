@@ -1,7 +1,8 @@
 /**
  * App Releases is the Certifications-style table over recorded mobile builds.
  * Pinned here: newest version first by semver (1.10.0 above 1.9.0), creating
- * a mandatory release asks, inline, that the build is live, and the payload is right.
+ * a mandatory release warns, inline, that the build must be live, only the
+ * latest release of a platform can be edited, and the payload is right.
  */
 import type { AdminUser, AppRelease } from '@nanny-app/shared';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -87,6 +88,22 @@ describe('AppReleasesPage', () => {
     expect(within(rows[0]!).getByText('1.10.0')).toBeInTheDocument();
     expect(within(rows[0]!).getByText('Mandatory')).toBeInTheDocument();
     expect(within(rows[1]!).getByText('1.9.0')).toBeInTheDocument();
+  });
+
+  it('offers Edit on each platform\'s latest release only', async () => {
+    server.use(
+      http.get('/api/admin/me', () => ok(ADMIN)),
+      http.get('/api/admin/app-releases', () =>
+        ok([release({ id: 1, version: '1.0.0' }), release({ id: 2, version: '1.0.1' })]),
+      ),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for iOS 1.0.1' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for iOS 1.0.0' }));
+    expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
   });
 
   it('warns, in the form itself, that a mandatory release needs the build live in the store', async () => {

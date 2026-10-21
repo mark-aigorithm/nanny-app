@@ -42,7 +42,7 @@ describe('A42 — the public version check', () => {
       status: 'update_available',
       latestVersion: '1.2.0',
       storeUrl: 'https://apps.apple.com/app/id6797044436',
-      releaseNotes: 'Chat with your nanny',
+      releaseNotes: null,
     });
     expect((await check('ios', '1.2.0')).body.data.status).toBe('ok');
     // Android has nothing recorded, so iOS releases don't touch it.
@@ -70,6 +70,17 @@ describe('A42 — the public version check', () => {
     expect(patched.status).toBe(200);
 
     expect((await check('ios', '2.0.0')).body.data.status).toBe('update_available');
+  });
+
+  it('edits only the latest release of a platform', async () => {
+    const admin = await makeAdmin();
+    const older = await addRelease(admin.token, { platform: 'android', version: '4.0.0' });
+    const latest = await addRelease(admin.token, { platform: 'android', version: '4.1.0' });
+    const patch = (id: number) =>
+      request(app).patch(`/admin/app-releases/${id}`).set(...authHeader(admin.token)).send({ mandatory: true });
+
+    expect((await patch(older.id)).status).toBe(409);
+    expect((await patch(latest.id)).status).toBe(200);
   });
 
   it('fails open on a version that is not x.y.z', async () => {

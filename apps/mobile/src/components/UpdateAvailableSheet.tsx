@@ -17,7 +17,6 @@ import {
 
 interface UpdateAvailableSheetProps {
   latestVersion: string;
-  releaseNotes: string | null;
   onUpdate: () => void;
   onLater: () => void;
   /** The store URL, when opening it failed; shown as text so she can still update. */
@@ -31,7 +30,6 @@ interface UpdateAvailableSheetProps {
  */
 export default function UpdateAvailableSheet({
   latestVersion,
-  releaseNotes,
   onUpdate,
   onLater,
   storeError = null,
@@ -49,9 +47,6 @@ export default function UpdateAvailableSheet({
             A new version is available
           </Text>
           <Text style={styles.body}>Version {latestVersion} is ready in the store.</Text>
-          {releaseNotes ? (
-            <Text style={styles.notes}>{releaseNotes}</Text>
-          ) : null}
           {storeError ? (
             <Text selectable accessibilityLiveRegion="polite" style={styles.storeError}>
               {storeLinkFallback(storeError)}
@@ -90,11 +85,6 @@ const styles = StyleSheet.create({
   body: {
     ...typeScale.bodyMd,
     color: colors.textSecondary,
-  },
-  notes: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
   },
   storeError: {
     ...typeScale.bodyMd,
