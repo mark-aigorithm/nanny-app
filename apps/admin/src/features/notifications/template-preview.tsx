@@ -1,7 +1,5 @@
 import type { NotificationChannel } from '@nanny-app/shared';
 
-import { ICON_SIZE, Info } from '@admin/components/ui';
-
 type TemplatePreviewProps = {
   title: string;
   body: string;
@@ -20,12 +18,10 @@ const DELIVERED_AS: Record<NotificationChannel, string> = {
   BOTH: 'Push notification + inbox',
 };
 
-/** iPhones attach the image through the extension that shipped in app 1.0.1. */
-const IMAGE_NOTE = 'The image shows on Android, and on iPhones from app version 1.0.1.';
-
 /**
  * What a mother sees, once: the push banner when the channel pushes, else the
- * inbox card, under a line saying where it's delivered. The image sits in the
+ * inbox card, under a line saying where it's delivered. No notes under it:
+ * where it lands and what a tap opens are in the Delivery details. The image sits in the
  * same fixed 2:1 box the app uses. A decorative copy of the form, so its image
  * has empty alt text.
  */
@@ -41,9 +37,6 @@ export function TemplatePreview({
   const shownBody = body.trim() || 'Your message';
   const sample = (filled: string) => (filled.trim() ? '' : ' notif-placeholder');
   const pushes = channel !== 'IN_APP';
-  // Where it lands and what a tap opens are in the Delivery card beside the
-  // preview; the one thing the preview itself can't show is who sees the image.
-  const imageNote = pushes && imageUrl ? IMAGE_NOTE : null;
   return (
     <aside className={`notif-preview${wide ? ' notif-preview--wide' : ''}`} aria-label="Preview">
       <div className="notif-preview-head">
@@ -90,12 +83,6 @@ export function TemplatePreview({
             </div>
           )}
         </div>
-        {imageNote && (
-          <figcaption className="notif-preview-note">
-            <Info size={ICON_SIZE.inline} aria-hidden />
-            {imageNote}
-          </figcaption>
-        )}
       </figure>
     </aside>
   );

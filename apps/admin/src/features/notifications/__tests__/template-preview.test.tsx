@@ -16,7 +16,7 @@ const show = (channel: 'PUSH' | 'IN_APP' | 'BOTH') =>
   );
 
 describe('TemplatePreview', () => {
-  it('shows the push banner once for push + inbox, with no notes the Delivery card already gives', () => {
+  it('shows the push banner once for push + inbox, with no notes under it', () => {
     show('BOTH');
     const preview = screen.getByRole('complementary', { name: 'Preview' });
     expect(within(preview).getByText('Push notification + inbox')).toBeInTheDocument();
@@ -24,7 +24,7 @@ describe('TemplatePreview', () => {
     expect(within(preview).queryByText(/inbox\.$|Tapping it opens/)).not.toBeInTheDocument();
   });
 
-  it('says which phones show the image of a push', () => {
+  it('adds no note under a push with an image', () => {
     render(
       <TemplatePreview
         title="Gift"
@@ -34,9 +34,7 @@ describe('TemplatePreview', () => {
         linkLabel={null}
       />,
     );
-    expect(
-      screen.getByText('The image shows on Android, and on iPhones from app version 1.0.1.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('figure').querySelector('figcaption')).toBeNull();
   });
 
   it('shows the inbox card, with its link button, for in-app only', () => {

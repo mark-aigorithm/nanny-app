@@ -6556,10 +6556,6 @@ textarea.input {
   max-width: 22rem;
 }
 
-.notif-preview--wide .notif-preview-note {
-  justify-content: center;
-}
-
 .notif-preview-heading {
   margin: 0;
   font-size: 1.05rem;
@@ -6673,22 +6669,6 @@ textarea.input {
 .notif-placeholder {
   color: var(--color-text-muted);
   font-style: italic;
-}
-
-.notif-preview-note {
-  display: flex;
-  gap: 0.4rem;
-  align-items: flex-start;
-  margin: 0.25rem 0 0;
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.45;
-}
-
-.notif-preview-note svg {
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-  color: var(--color-text-muted);
 }
 
 @media (max-width: 1024px) {
