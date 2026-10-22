@@ -1,5 +1,6 @@
 import type {
   MotherPickerRow,
+  NotificationAudiencePreview,
   NotificationTemplate,
   NotificationTemplateInput,
   UserGroup,
@@ -46,6 +47,19 @@ export type TemplateAudienceFieldsProps = {
   disabled?: boolean;
   error?: string;
   errorId: string;
+  /**
+   * Counts the audience. Defaults to the notification center's endpoint; a
+   * caller in another section passes its own, counted under that section's access.
+   */
+  previewAudience?: (audience: AudienceValue) => Promise<NotificationAudiencePreview>;
+  /** The count's query key, one per endpoint. */
+  previewKey?: string;
+  /** The id the audience control takes, so a form's error summary can focus it. */
+  fieldId?: string;
+  /** What the audience is for, in "Choose who gets this … to see how many mothers it reaches". */
+  noun?: string;
+  /** When dynamic groups are worked out: "when you publish", "when you grant". */
+  verb?: string;
 };
 
 type Mode = AudienceValue['type'];
@@ -71,6 +85,11 @@ export function TemplateAudienceFields({
   disabled = false,
   error,
   errorId,
+  previewAudience = previewNotificationAudience,
+  previewKey = 'notification-audience-preview',
+  fieldId = TEMPLATE_FIELD_ID.audience,
+  noun = 'notification',
+  verb = 'publish',
 }: TemplateAudienceFieldsProps) {
   const toast = useToast();
   const canManageGroups = useCanManage('groups');
@@ -91,8 +110,8 @@ export function TemplateAudienceFields({
   const debounced = useDebouncedValue(value, 400);
   const debouncedIds = debounced.type === 'GROUPS' ? debounced.groupIds : debounced.motherIds;
   const preview = useQuery({
-    queryKey: ['notification-audience-preview', debounced],
-    queryFn: () => previewNotificationAudience(debounced),
+    queryKey: [previewKey, debounced],
+    queryFn: () => previewAudience(debounced),
     enabled: !readOnly && debouncedIds.length > 0,
     placeholderData: keepPreviousData,
   });
@@ -142,7 +161,7 @@ export function TemplateAudienceFields({
   const settled = debounced === value && !preview.isPlaceholderData;
   const countText =
     ids.length === 0
-      ? 'Choose who gets this notification to see how many mothers it reaches.'
+      ? `Choose who gets this ${noun} to see how many mothers it reaches.`
       : preview.isError
         ? 'We couldn’t count this audience.'
         : !preview.data || !settled
@@ -166,13 +185,15 @@ export function TemplateAudienceFields({
           saved={saved}
           onChange={(groupIds) => onChange({ type: 'GROUPS', groupIds })}
           hintId={groupsHintId}
+          fieldId={fieldId}
+          verb={verb}
           errorId={error ? errorId : undefined}
           disabled={disabled}
         />
       ) : (
         <div
           className="audience-mothers"
-          id={TEMPLATE_FIELD_ID.audience}
+          id={fieldId}
           tabIndex={-1}
           role="group"
           aria-label="Chosen mothers"
@@ -249,12 +270,14 @@ type GroupChoicesProps = {
   saved: SavedAudienceNames;
   onChange: (groupIds: number[]) => void;
   hintId: string;
+  fieldId: string;
+  verb: string;
   errorId: string | undefined;
   disabled: boolean;
 };
 
 /** Every group as a checkbox: name, Static/Dynamic, and how many mothers it holds now. */
-function GroupChoices({ groups, groupIds, saved, onChange, hintId, errorId, disabled }: GroupChoicesProps) {
+function GroupChoices({ groups, groupIds, saved, onChange, hintId, fieldId, verb, errorId, disabled }: GroupChoicesProps) {
   const atMax = groupIds.length >= NOTIFICATION_AUDIENCE_MAX_GROUPS;
   const toggle = (id: number) =>
     onChange(groupIds.includes(id) ? groupIds.filter((g) => g !== id) : [...groupIds, id]);
@@ -266,7 +289,7 @@ function GroupChoices({ groups, groupIds, saved, onChange, hintId, errorId, disa
   return (
     <fieldset
       className="audience-groups"
-      id={TEMPLATE_FIELD_ID.audience}
+      id={fieldId}
       tabIndex={-1}
       aria-invalid={errorId ? true : undefined}
       aria-describedby={[hintId, errorId].filter(Boolean).join(' ')}
@@ -315,7 +338,7 @@ function GroupChoices({ groups, groupIds, saved, onChange, hintId, errorId, disa
       ))}
       {groups.data?.length === 0 && <p className="field-hint">No groups yet. Create one from Users → Manage groups.</p>}
       <p className="field-hint" id={hintId}>
-        A mother in several chosen groups gets it once. Dynamic groups are worked out when you publish. Up to{' '}
+        A mother in several chosen groups gets it once. Dynamic groups are worked out when you {verb}. Up to{' '}
         {NOTIFICATION_AUDIENCE_MAX_GROUPS} groups.
       </p>
     </fieldset>

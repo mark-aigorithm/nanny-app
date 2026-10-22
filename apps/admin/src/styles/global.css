@@ -4196,6 +4196,33 @@ input[type='number'] {
 .reward-modal-form .reward-modal-lead {
   margin-bottom: 0;
 }
+/* Bulk grant: the notification each mother will get, as she'll read it. */
+.bulk-grant-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-warm-border);
+  border-radius: var(--radius-md);
+  background: var(--color-warm-subtle);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.bulk-grant-preview strong {
+  color: var(--color-text-primary);
+}
+.bulk-grant-preview-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+/* An action at the end of a filter bar, pushed to the right edge. */
+.filter-bar-action {
+  margin-left: auto;
+}
 .reward-pill {
   display: inline-block;
   padding: 0.15rem 0.6rem;

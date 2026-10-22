@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { AdminSortDirSchema } from './admin';
 import { PaginationMetaSchema } from './booking';
+import { NotificationAudienceSchema } from './notification-template';
 
 // ──────────────────────────────────────────────────────────────
 // Care Points (rewards) — parents earn points per completed booked
@@ -9,7 +10,9 @@ import { PaginationMetaSchema } from './booking';
 // credit). Admins configure the rates, grant/revoke points manually,
 // and browse any user's wallet + full ledger history. This module
 // imports only PaginationMetaSchema and AdminSortDirSchema, neither of
-// which imports it back, so it stays free of cycles.
+// which imports it back, and NotificationAudienceSchema for the bulk
+// grant (notification-template doesn't import it back), so it stays free
+// of cycles.
 // ──────────────────────────────────────────────────────────────
 
 /** A single movement of points. Mirrors the DB `reward_entry_type` enum. */
@@ -110,6 +113,33 @@ export const GrantPointsSchema = z.object({
   reason: z.string().trim().min(1).max(200),
 });
 export type GrantPointsInput = z.infer<typeof GrantPointsSchema>;
+
+/**
+ * The same grant to many mothers at once: a group (or several) or hand-picked
+ * mothers, chosen as an announcement's audience is. Grant only; taking points
+ * away stays a one-mother action, where her balance is in view.
+ */
+export const BulkGrantPointsSchema = z.object({
+  audience: NotificationAudienceSchema,
+  points: z
+    .number()
+    .int()
+    .positive({ message: 'Points must be more than zero' })
+    .max(1_000_000, { message: 'Points amount is too large' }),
+  reason: z.string().trim().min(1, { message: 'Write a reason for the mothers' }).max(200),
+});
+export type BulkGrantPointsInput = z.infer<typeof BulkGrantPointsSchema>;
+
+/** What a bulk grant did: who got the points, and how many pushes went out. */
+export const BulkGrantPointsResultSchema = z.object({
+  granted: z.number().int().nonnegative(),
+  points: z.number().int().positive(),
+  /** Chosen groups deleted before the grant ran; their mothers weren't reached through them. */
+  skippedGroupIds: z.array(z.number().int()),
+  pushSent: z.number().int().nonnegative(),
+  pushFailed: z.number().int().nonnegative(),
+});
+export type BulkGrantPointsResult = z.infer<typeof BulkGrantPointsResultSchema>;
 
 /** Pagination query for a wallet's ledger history. */
 export const RewardHistoryQuerySchema = z.object({

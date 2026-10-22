@@ -30,6 +30,7 @@ import {
   CreateServiceAreaSchema,
   ServiceAreaSettingsSchema,
   CreateSkillSchema,
+  BulkGrantPointsSchema,
   GrantPointsSchema,
   PricePreviewSchema,
   RewardHistoryQuerySchema,
@@ -258,6 +259,7 @@ import {
   getRewardConfig,
   getWalletHistory,
   getWalletSummary,
+  bulkGrantPoints,
   grantPoints,
   listWallets,
   updateRewardConfig,
@@ -1785,6 +1787,33 @@ adminRouter.post(
           }),
         ),
       );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Registered before '/rewards/bulk-grant' for clarity, as with the history route.
+adminRouter.post(
+  '/rewards/bulk-grant/audience-preview',
+  validateBody(NotificationAudiencePreviewInputSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(ok(await previewNotificationAudience(req.body.audience)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.post(
+  '/rewards/bulk-grant',
+  validateBody(BulkGrantPointsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.firebaseUser) throw errors.unauthorized();
+      const admin = await getAdminProfile(req.firebaseUser.uid);
+      res.json(ok(await bulkGrantPoints({ ...req.body, adminId: admin.id })));
     } catch (err) {
       next(err);
     }

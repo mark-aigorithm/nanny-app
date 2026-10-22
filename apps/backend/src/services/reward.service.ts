@@ -2,6 +2,8 @@ import { NotificationType, Prisma, type RewardEntryType } from '@prisma/client';
 
 import type {
   AdminSortDir,
+  BulkGrantPointsInput,
+  BulkGrantPointsResult,
   RewardConfig,
   RewardHistoryQuery,
   RewardHistoryResponse,
@@ -17,7 +19,14 @@ import { pointHoursToCover } from '@nanny-app/shared';
 
 import { prisma } from '@backend/db/prisma';
 import { errors } from '@backend/lib/errors';
-import { createInAppNotification, dispatchPush } from '@backend/services/notification.service';
+import { resolveNotificationAudience } from '@backend/services/admin-notification-template.service';
+import {
+  createInAppNotification,
+  createInAppNotifications,
+  dispatchPush,
+  dispatchPushToTokens,
+  listLiveDeviceTokens,
+} from '@backend/services/notification.service';
 
 // Care Points program defaults, used when no config row exists yet.
 const DEFAULT_CONFIG: RewardConfig = {
@@ -402,6 +411,10 @@ export async function getMyHistory(
 
 // ── Admin: manual grant / revoke ───────────────────────────────
 
+/** One wording for a grant, whether it went to one mother or to a group. */
+const GRANTED_TITLE = 'You received Care Points';
+const grantedBody = (points: number, reason: string) => `You've been given ${points} Care Points: ${reason}`;
+
 /** Admin credits (positive) or debits (negative) a user's points balance. */
 export async function grantPoints(input: {
   userId: number;
@@ -448,10 +461,8 @@ export async function grantPoints(input: {
   await notifyPoints(
     input.userId,
     NotificationType.POINTS_GRANTED,
-    isGrant ? 'You received Care Points' : 'Care Points adjusted',
-    isGrant
-      ? `You've been given ${input.points} Care Points: ${input.reason}`
-      : `Your Care Points balance was adjusted: ${input.reason}`,
+    isGrant ? GRANTED_TITLE : 'Care Points adjusted',
+    isGrant ? grantedBody(input.points, input.reason) : `Your Care Points balance was adjusted: ${input.reason}`,
   );
 
   return {
@@ -459,6 +470,86 @@ export async function grantPoints(input: {
     name: displayName(user.firstName, user.lastName),
     email: user.email,
     avatarUrl: user.avatarUrl,
+  };
+}
+
+/** Wallets credited per statement, well under Postgres' bind-parameter limit. */
+export const BULK_GRANT_CHUNK = 1_000;
+
+/**
+ * The same grant to every mother in an audience (groups or hand-picked, as an
+ * announcement's). All the credits land in one transaction, so a failure
+ * leaves nobody half-granted; each mother gets the ADMIN_GRANT ledger row and
+ * the notification a single grant gives her. The notifications go out after
+ * the commit and are best-effort, sent the way announcements are (inbox rows
+ * in bulk, FCM multicasts) so thousands fit inside the request.
+ */
+export async function bulkGrantPoints(
+  input: BulkGrantPointsInput & { adminId: number },
+): Promise<BulkGrantPointsResult> {
+  const { userIds, skippedGroupIds } = await resolveNotificationAudience(input.audience);
+  if (userIds.length === 0) {
+    throw errors.badRequest('Nobody in this audience can receive Care Points.');
+  }
+
+  await prisma.$transaction(
+    async (tx) => {
+      for (let i = 0; i < userIds.length; i += BULK_GRANT_CHUNK) {
+        const chunk = userIds.slice(i, i + BULK_GRANT_CHUNK);
+        await tx.rewardWallet.createMany({ data: chunk.map((userId) => ({ userId })), skipDuplicates: true });
+        const wallets = await tx.$queryRaw<{ id: number; userId: number; balanceAfter: number }[]>`
+          UPDATE reward_wallets
+          SET points_balance = points_balance + ${input.points},
+              lifetime_earned = lifetime_earned + ${input.points},
+              updated_at = NOW()
+          WHERE user_id = ANY(${chunk}::int[])
+          RETURNING id, user_id AS "userId", points_balance AS "balanceAfter"`;
+        await tx.rewardLedgerEntry.createMany({
+          data: wallets.map((w) => ({
+            walletId: w.id,
+            userId: w.userId,
+            type: 'ADMIN_GRANT' as const,
+            points: input.points,
+            balanceAfter: w.balanceAfter,
+            reason: input.reason,
+            adminId: input.adminId,
+          })),
+        });
+      }
+    },
+    // Thousands of wallets is several statements; the default 5 s is too tight.
+    { timeout: 30_000 },
+  );
+
+  const title = GRANTED_TITLE;
+  const body = grantedBody(input.points, input.reason);
+  let push = { sent: 0, failed: 0 };
+  try {
+    for (let i = 0; i < userIds.length; i += BULK_GRANT_CHUNK) {
+      await createInAppNotifications(
+        userIds.slice(i, i + BULK_GRANT_CHUNK).map((userId) => ({
+          userId,
+          type: NotificationType.POINTS_GRANTED,
+          title,
+          body,
+        })),
+      );
+    }
+    const tokens = await listLiveDeviceTokens(userIds);
+    push = await dispatchPushToTokens(
+      tokens.map((t) => t.token),
+      { title, body, data: { type: PUSH_TYPE.POINTS_GRANTED ?? 'points_granted', title } },
+    );
+  } catch {
+    // The points are already granted; a notification failure must not undo or hide that.
+  }
+
+  return {
+    granted: userIds.length,
+    points: input.points,
+    skippedGroupIds,
+    pushSent: push.sent,
+    pushFailed: push.failed,
   };
 }
 

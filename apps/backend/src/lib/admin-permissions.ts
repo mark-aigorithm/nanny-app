@@ -143,7 +143,12 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   // ── Groups (audiences reused by Surveys and the notification center) ──
   // Reading groups and the picker is also open to whoever can send a survey or
   // a notification: their editors list groups and mothers to pick from.
-  { method: 'GET', pattern: '/groups', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE'], ['notifications', 'MANAGE']) },
+  // Groups and the mother picker also choose who gets an announcement, a survey or a bulk points grant.
+  {
+    method: 'GET',
+    pattern: '/groups',
+    requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE'], ['notifications', 'MANAGE'], ['rewards', 'MANAGE']),
+  },
   { method: 'POST', pattern: '/groups', requires: section('groups', 'MANAGE') },
   { method: 'POST', pattern: '/groups/rules-preview', requires: section('groups', 'MANAGE') },
   { method: 'GET', pattern: '/groups/:id', requires: anyOf(['groups', 'VIEW'], ['notifications', 'MANAGE']) },
@@ -151,7 +156,11 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'DELETE', pattern: '/groups/:id', requires: section('groups', 'MANAGE') },
   { method: 'POST', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
   { method: 'DELETE', pattern: '/groups/:id/members', requires: section('groups', 'MANAGE') },
-  { method: 'GET', pattern: '/mother-picker', requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE'], ['notifications', 'MANAGE']) },
+  {
+    method: 'GET',
+    pattern: '/mother-picker',
+    requires: anyOf(['groups', 'VIEW'], ['surveys', 'MANAGE'], ['notifications', 'MANAGE'], ['rewards', 'MANAGE']),
+  },
 
   // ── Surveys ─────────────────────────────────────────────────
   { method: 'GET', pattern: '/surveys', requires: section('surveys', 'VIEW') },
@@ -263,6 +272,9 @@ export const ADMIN_ROUTE_PERMISSIONS: readonly RouteRule[] = [
   { method: 'GET', pattern: '/rewards/wallets/:userId', requires: section('rewards', 'VIEW') },
   { method: 'GET', pattern: '/rewards/wallets/:userId/history', requires: section('rewards', 'VIEW') },
   { method: 'POST', pattern: '/rewards/wallets/:userId/grant', requires: section('rewards', 'MANAGE') },
+  // Counts the audience being chosen — part of granting, not a read of wallets.
+  { method: 'POST', pattern: '/rewards/bulk-grant/audience-preview', requires: section('rewards', 'MANAGE') },
+  { method: 'POST', pattern: '/rewards/bulk-grant', requires: section('rewards', 'MANAGE') },
 ] as const;
 
 // ──────────────────────────────────────────────────────────────

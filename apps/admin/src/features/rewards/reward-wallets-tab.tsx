@@ -10,6 +10,7 @@ import {
 import {
   ActionMenu,
   actionsColumn,
+  Button,
   type Column,
   idColumn,
   ErrorState,
@@ -19,6 +20,7 @@ import {
   SearchInput,
   MenuItem,
   Pagination,
+  Plus,
   StaleRefreshBanner,
   Table,
   TableSkeleton,
@@ -29,6 +31,7 @@ import { useCanManage } from '@admin/lib/permissions';
 import { usePagination } from '@admin/lib/use-pagination';
 import { useTableSort } from '@admin/lib/use-table-sort';
 
+import { BulkGrantPointsModal } from './bulk-grant-points-modal';
 import { GrantPointsModal } from './grant-points-modal';
 import { WalletHistoryModal } from './wallet-history-modal';
 
@@ -48,6 +51,7 @@ export function RewardWalletsTab() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [historyFor, setHistoryFor] = useState<RewardWalletSummary | null>(null);
   const [grantFor, setGrantFor] = useState<RewardWalletSummary | null>(null);
+  const [bulkGranting, setBulkGranting] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,7 +124,7 @@ export function RewardWalletsTab() {
     <>
       <p className="panel-lead">
         Every parent’s Care Points wallet. Open a row’s menu to view its full grant/redemption
-        history or manually adjust the balance.
+        history or manually adjust the balance, or grant the same points to a group of mothers at once.
       </p>
 
       <div className="filter-bar">
@@ -130,6 +134,12 @@ export function RewardWalletsTab() {
           value={search}
           onChange={setSearch}
         />
+        {canManage && (
+          <Button className="filter-bar-action" onClick={() => setBulkGranting(true)}>
+            <Plus size={ICON_SIZE.inline} aria-hidden />
+            Grant to a group
+          </Button>
+        )}
       </div>
 
       {isLoading && <TableSkeleton columns={7} />}
@@ -174,6 +184,7 @@ export function RewardWalletsTab() {
 
       {historyFor && <WalletHistoryModal wallet={historyFor} onClose={() => setHistoryFor(null)} />}
       {grantFor && <GrantPointsModal wallet={grantFor} onClose={() => setGrantFor(null)} />}
+      {bulkGranting && <BulkGrantPointsModal onClose={() => setBulkGranting(false)} />}
     </>
   );
 }

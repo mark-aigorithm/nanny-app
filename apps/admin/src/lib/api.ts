@@ -78,6 +78,8 @@ import type {
   CreateServiceAreaInput,
   CreateSkillInput,
   DurationRule,
+  BulkGrantPointsInput,
+  BulkGrantPointsResult,
   GrantPointsInput,
   MotherPin,
   NannyOption,
@@ -183,6 +185,23 @@ export async function fetchWalletHistory(userId: number): Promise<RewardLedgerEn
   const res = await apiClient.get<ApiEnvelope<RewardLedgerEntry[]>>(
     `/admin/rewards/wallets/${userId}/history`,
     { params: { page: 1, limit: 50 } },
+  );
+  return res.data.data;
+}
+
+/** The same grant to every mother in an audience. Resolves with who got it. */
+export async function bulkGrantPoints(input: BulkGrantPointsInput): Promise<BulkGrantPointsResult> {
+  const res = await apiClient.post<ApiEnvelope<BulkGrantPointsResult>>('/admin/rewards/bulk-grant', input);
+  return res.data.data;
+}
+
+/** How many mothers a bulk grant's audience reaches now; counted under Care Points access. */
+export async function previewBulkGrantAudience(
+  audience: NotificationAudience,
+): Promise<NotificationAudiencePreview> {
+  const res = await apiClient.post<ApiEnvelope<NotificationAudiencePreview>>(
+    '/admin/rewards/bulk-grant/audience-preview',
+    { audience },
   );
   return res.data.data;
 }
