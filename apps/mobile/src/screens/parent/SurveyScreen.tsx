@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, ScrollView, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { SurveyAnswerInput, SurveyQuestion } from '@nanny-app/shared';
 import { findSurveyAnswerProblem, hasAnswerValue } from '@nanny-app/shared';
 
@@ -14,6 +14,7 @@ import {
 } from '@mobile/components/ui';
 import { Text } from '@mobile/components/ui/text';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
+import { useHardwareBack } from '@mobile/hooks/useHardwareBack';
 import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import {
   usePendingSurveys,
@@ -103,6 +104,9 @@ export default function SurveyScreen() {
   const goHome = () => router.dismissTo(HOME as never);
   const goToSurveys = () => router.dismissTo(SURVEYS as never);
   const othersWaiting = (pending.data ?? []).some((s) => s.id !== id);
+  // Once sent, back would land on the survey list she opened it from, now
+  // emptied of it: Done and Android's back both go home, and the iOS swipe is off.
+  useHardwareBack(goHome, done);
 
   const endError = [survey.error, submit.error, skip.error].find((e) => apiStatusOf(e) === 409);
   const endMessage =
@@ -167,6 +171,7 @@ export default function SurveyScreen() {
     // Centred on its own: no title in the header, nothing to go back to.
     return (
       <ScreenContainer useSafeArea={false}>
+        <Stack.Screen options={{ gestureEnabled: false }} />
         <StackHeader showBackButton={false} />
         <ScrollView contentContainerStyle={[styles.message, { paddingBottom: bottomPadding }]}>
           <IconCircle
@@ -183,7 +188,7 @@ export default function SurveyScreen() {
               Your answers help us look after your family better.
             </Text>
           </View>
-          <Button title="Done" onPress={leave} style={styles.messageAction} />
+          <Button title="Done" onPress={goHome} style={styles.messageAction} />
         </ScrollView>
       </ScreenContainer>
     );

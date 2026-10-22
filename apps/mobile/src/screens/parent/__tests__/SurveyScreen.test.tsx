@@ -17,9 +17,24 @@ let mockSurveyState: { data?: MotherSurvey; isPending: boolean; error: unknown }
   error: null,
 };
 
+// The options the screen set on its route, as of the last render.
+let mockScreenOptions: { gestureEnabled?: boolean } | null = null;
 jest.mock('expo-router', () => ({
+  Stack: {
+    Screen: ({ options }: { options: { gestureEnabled?: boolean } }) => {
+      mockScreenOptions = options;
+      return null;
+    },
+  },
   useLocalSearchParams: () => ({ surveyId: mockSurveyIdParam }),
   useRouter: () => ({ back: jest.fn(), canGoBack: () => true, replace: jest.fn(), dismissTo: mockDismissTo }),
+}));
+// The Android back handler and whether it's taken over, as of the last render.
+let mockHardwareBack: { onBack: () => void; enabled: boolean } | null = null;
+jest.mock('@mobile/hooks/useHardwareBack', () => ({
+  useHardwareBack: (onBack: () => void, enabled = true) => {
+    mockHardwareBack = { onBack, enabled };
+  },
 }));
 jest.mock('@mobile/hooks/useKeyboardVisible', () => ({ useKeyboardVisible: () => mockKeyboardVisible }));
 // The icon font loads asynchronously and would set state outside act().
@@ -49,6 +64,7 @@ describe('SurveyScreen', () => {
     mockSkip.mockReset();
     mockSurveyIdParam = '4';
     mockDismissTo.mockReset();
+    mockScreenOptions = null;
     mockKeyboardVisible = false;
     mockPending = [];
     mockSubmitError = null;
@@ -84,6 +100,31 @@ describe('SurveyScreen', () => {
     expect(screen.getAllByText('Thank you!').length).toBeGreaterThan(0);
     expect(screen.getByText('Your answers help us look after your family better.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
+
+  it('takes her home on Done, not back to the survey list she came from', () => {
+    mockSurveyState = { data: SURVEY, isPending: false, error: null };
+    mockSubmit.mockImplementation((_answers, options: { onSuccess: () => void }) => options.onSuccess());
+    render(<SurveyScreen />);
+    fireEvent.press(screen.getByRole('radio', { name: 'Yes' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    expect(mockDismissTo).toHaveBeenCalledWith('/(parent)/(tabs)/home');
+  });
+
+  it('sends Android back home and turns off the iOS swipe once the answers are sent, not before', () => {
+    mockSurveyState = { data: SURVEY, isPending: false, error: null };
+    mockSubmit.mockImplementation((_answers, options: { onSuccess: () => void }) => options.onSuccess());
+    render(<SurveyScreen />);
+    expect(mockHardwareBack?.enabled).toBe(false);
+    expect(mockScreenOptions).toBeNull();
+    fireEvent.press(screen.getByRole('radio', { name: 'Yes' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(mockHardwareBack?.enabled).toBe(true);
+    // The iOS back swipe would walk into the same emptied list.
+    expect(mockScreenOptions).toEqual({ gestureEnabled: false });
+    mockHardwareBack?.onBack();
+    expect(mockDismissTo).toHaveBeenCalledWith('/(parent)/(tabs)/home');
   });
 
   it.each(['abc', '0', ''])('ends with a message instead of a spinner for surveyId %p', (bad) => {
