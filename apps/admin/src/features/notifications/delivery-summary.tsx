@@ -14,7 +14,7 @@ import {
 import { previewNotificationAudience } from '@admin/lib/api';
 import { useCanManage } from '@admin/lib/permissions';
 
-import { CHANNEL_HINT, CHANNEL_LABEL, formatCount, mothersLabel } from './notification-labels';
+import { CHANNEL_HINT, CHANNEL_LABEL, formatCount, linkDestination, mothersLabel } from './notification-labels';
 import { SavedAudience } from './template-audience-fields';
 
 function DeliveryRow({
@@ -77,14 +77,14 @@ function AudienceReach({ template }: { template: NotificationTemplate }) {
 }
 
 /** Where a tap leads, worded to follow "Tapping it opens". */
-function linkDestination(template: NotificationTemplate): string {
+function templateDestination(template: NotificationTemplate): string {
   if (template.targetType === 'PACKAGE') {
-    return `The ${template.package?.name ?? `#${template.packageId ?? ''}`} package`;
+    return linkDestination('PACKAGE', template.package?.name ?? `#${template.packageId ?? ''}`);
   }
   if (template.targetType === 'PROMO_CODE') {
-    return `A booking with code ${template.promoCode?.code ?? `#${template.promoCodeId ?? ''}`}`;
+    return linkDestination('PROMO_CODE', template.promoCode?.code ?? `#${template.promoCodeId ?? ''}`);
   }
-  return 'The app (no link set)';
+  return linkDestination(null, null);
 }
 
 /** Who a saved template goes to, how it arrives, and what a tap opens. */
@@ -107,7 +107,7 @@ export function DeliverySummary({ template }: { template: NotificationTemplate }
         <p className="delivery-summary-note">{CHANNEL_HINT[template.channel]}</p>
       </DeliveryRow>
       <DeliveryRow icon={Link2} title="Tapping it opens">
-        <p className="delivery-summary-value">{linkDestination(template)}</p>
+        <p className="delivery-summary-value">{templateDestination(template)}</p>
       </DeliveryRow>
     </Card>
   );

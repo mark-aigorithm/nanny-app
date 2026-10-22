@@ -44,6 +44,17 @@ export const formatCount = (n: number) => n.toLocaleString('en-US');
 /** 1 → "1 mother", 1240 → "1,240 mothers". */
 export const mothersLabel = (n: number) => `${formatCount(n)} ${n === 1 ? 'mother' : 'mothers'}`;
 
+/**
+ * Where tapping a notification takes a mother, worded to follow "Tapping it
+ * opens". Without a link the app opens on Home. `name` is the package's name or
+ * the promo code, null while it isn't known.
+ */
+export function linkDestination(targetType: CampaignTargetType | null, name: string | null): string {
+  if (targetType === 'PACKAGE') return name ? `The ${name} package` : 'A package';
+  if (targetType === 'PROMO_CODE') return name ? `A booking with code ${name} applied` : 'A booking with a promo code applied';
+  return 'Home';
+}
+
 /** The action line a mother sees on the inbox card. */
 export function linkActionLabel(targetType: CampaignTargetType | null, code: string | null): string | null {
   if (targetType === 'PACKAGE') return 'View package';

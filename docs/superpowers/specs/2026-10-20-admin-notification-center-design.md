@@ -346,7 +346,7 @@ Publish, Delete (confirm).
   image picker reusing `CampaignImageCropper` + `cropImageToFile` at **1024×512 (2:1)**, uploaded
   with `uploadImageToFirebase(file, 'notifications')`; remove image.
 - **Channel:** segmented control In-app / Push / Both.
-- **Link:** None / Package / Promo code, then a select of active packages or promo codes.
+- **Tapping it opens:** Home / A package / Booking with promo, then a select of active packages or promo codes, and a line saying where a mother who taps it lands. No link (`targetType` null) opens Home.
 - **Audience:** segmented **Groups** / **Specific mothers**.
   - Groups: multi-select of groups, each labelled Static or Dynamic with its member count.
   - Specific mothers: the existing mother picker (`recipient-picker-modal`); shows the chosen list.
@@ -400,12 +400,12 @@ Built with the `nanny-app-mobile-design` skill, the UI-sweep layout rules, and `
    guard is unchanged.
 4. **Push tap** (`usePushNotifications.navigateFromNotification`): new `ANNOUNCEMENT` branch builds
    the link from `data` and calls `openPromoLink` (via `openWhenRoleKnown` on cold start); no link →
-   the Notifications tab.
+   Home.
 5. **Inbox** (`NotificationsScreen`): announcement rows render as a card — title, full body, image
    in a fixed 2:1 rounded box with a neutral placeholder while loading, and an action label ("View
    package" / "Book with code SAVE20"). The **whole card is one `Pressable`** (`accessibilityRole=
    "button"`, label = title + action; the image is decorative). Press feedback: Android ripple /
-   iOS opacity. Memoized list item. Tap → mark read → `openPromoLink`; no link → mark read only.
+   iOS opacity. Memoized list item. Tap → mark read → `openPromoLink`; no link → mark read, then Home.
    Body text uses `textDirectionStyle` for Arabic.
 6. **Older builds:** the inbox isn't Zod-parsed at runtime, so announcements show as plain rows
    with no tap action, and pushes still open the app. Nothing breaks.

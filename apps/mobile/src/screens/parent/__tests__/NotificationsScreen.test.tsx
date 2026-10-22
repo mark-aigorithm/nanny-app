@@ -11,8 +11,9 @@ jest.mock('@mobile/lib/api', () => ({
 }));
 
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, navigate: mockNavigate, replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({}),
 }));
 
@@ -148,7 +149,7 @@ describe('NotificationsScreen announcements', () => {
     );
   });
 
-  it('only marks a link-less announcement read', () => {
+  it('marks a link-less announcement read and opens Home', () => {
     mockNotifications = [announcement({ link: null })];
     const { getByRole } = render(<NotificationsScreen />);
 
@@ -156,7 +157,7 @@ describe('NotificationsScreen announcements', () => {
 
     expect(mockMarkRead).toHaveBeenCalledWith(7);
     expect(mockOpenPromoLink).not.toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/(parent)/(tabs)/home');
   });
 
   it('does not mark an already-read announcement again', () => {

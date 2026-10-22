@@ -130,10 +130,11 @@ export default function NotificationsScreen() {
 
   // An announcement: mark it read, then open its package or promo link. The
   // read is fired, not awaited — her tap should open the offer at once, and a
-  // failed read only leaves the dot on. No link: marking it read is all a tap does.
+  // failed read only leaves the dot on. No link opens Home, as the push does.
   const handleAnnouncementPress = (notification: NotificationResponse) => {
     if (!notification.isRead) markRead.mutate(notification.id);
     if (notification.link) openPromoLink(router, notification.link);
+    else router.navigate('/(parent)/(tabs)/home' as never);
   };
 
   const emptyMessage =

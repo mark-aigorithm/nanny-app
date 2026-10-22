@@ -281,7 +281,7 @@ export function TemplateEditor({ template, onDone }: TemplateEditorProps) {
                 </p>
               </div>
               <div className="delivery-part">
-                <h4 className="delivery-part-title">Link</h4>
+                <h4 className="delivery-part-title">Tapping it opens</h4>
                 <TemplateLinkFields
                   value={values}
                   onChange={(link) => update(link)}

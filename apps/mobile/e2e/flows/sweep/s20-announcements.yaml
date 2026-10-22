@@ -66,8 +66,15 @@ appId: com.nannyapp.mobile
     timeout: 3000
 - takeScreenshot: s20-03-inbox-arabic
 
-# ── A card with no link: a tap only marks it read ──────────────────────────
+# ── A card with no link: a tap marks it read and opens Home ────────────────
 - tapOn: 'تحديث من فريق ناني ناو'
+- extendedWaitUntil:
+    visible: 'Book care'
+    timeout: 15000
+- tapOn: 'Open notifications'
+- scrollUntilVisible:
+    element: 'تحديث من فريق ناني ناو'
+    timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s20-04-inbox-read-no-link

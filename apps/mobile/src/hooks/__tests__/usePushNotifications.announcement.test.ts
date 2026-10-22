@@ -56,14 +56,14 @@ describe('announcement push tap', () => {
     expect(mockOpenPromoLink).toHaveBeenCalledWith(router, { type: 'package', packageId: 7 });
   });
 
-  it('opens the notifications tab when the announcement has no link', () => {
+  it('opens Home when the announcement has no link', () => {
     const router = makeRouter();
     navigateFromNotification(router as never, ON_HOME, queryClient as never, {
       type: 'ANNOUNCEMENT',
       broadcastId: '3',
     });
     expect(mockOpenPromoLink).not.toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith('/(parent)/(tabs)/notifications');
+    expect(router.navigate).toHaveBeenCalledWith('/(parent)/(tabs)/home');
   });
 
   it('waits for her profile on a cold start, then opens the link', () => {

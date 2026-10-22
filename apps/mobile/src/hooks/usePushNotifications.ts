@@ -194,15 +194,15 @@ export function navigateFromNotification(
   }
 
   // An admin announcement: its package or promo-code link opens exactly as the
-  // inbox card and the Home banners do; without a link the inbox is where she
-  // reads it. Mothers only — the backend never sends one to a nanny, and a
+  // inbox card and the Home banners do; without a link it opens Home, which is
+  // what the admin console tells the sender it will do. Mothers only — the backend never sends one to a nanny, and a
   // stale token on a shared device must not open the parent flow there.
   if (isAnnouncementPush(data)) {
     const link = announcementLinkFromPush(data);
     openWhenRoleKnown(segments, (role) => {
       if (role !== 'parent') return;
       if (link) openPromoLink(router, link);
-      else goToParentTab(router, segments, '/(parent)/(tabs)/notifications');
+      else goToParentTab(router, segments, '/(parent)/(tabs)/home');
     });
     return;
   }

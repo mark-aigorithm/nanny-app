@@ -11,18 +11,20 @@ import { SegmentedControl, Select, type SegmentedOption, type SelectOption } fro
 import { fetchPackages, fetchPromoCodes } from '@admin/lib/api';
 import { usePermissions } from '@admin/lib/permissions';
 
-import { linkActionLabel } from './notification-labels';
+import { linkActionLabel, linkDestination } from './notification-labels';
 import { TEMPLATE_FIELD_ID } from './template-issues';
 
 export type LinkValue = Pick<NotificationTemplateInput, 'targetType' | 'packageId' | 'promoCodeId'>;
 // The input schema defaults these, so they may be absent; the editor always sets them.
 type SavedLink = Pick<NotificationTemplate, 'package' | 'promoCode'>;
-type LinkKind = 'NONE' | CampaignTargetType;
+// No link is stored as a null targetType; the app then opens on Home.
+type LinkKind = 'HOME' | CampaignTargetType;
 
+/** Where a tap takes her, named as the place rather than as a link type. */
 const KIND_OPTIONS: readonly SegmentedOption<LinkKind>[] = [
-  { value: 'NONE', label: 'None' },
-  { value: 'PACKAGE', label: 'Package' },
-  { value: 'PROMO_CODE', label: 'Promo code' },
+  { value: 'HOME', label: 'Home' },
+  { value: 'PACKAGE', label: 'A package' },
+  { value: 'PROMO_CODE', label: 'Booking with promo' },
 ];
 
 /** Can a mother still use it? Publish refuses anything else, so only these are offered. */
@@ -66,18 +68,16 @@ export function useLinkActionLabel(value: LinkValue, saved: SavedLink, readOnly:
   return linkActionLabel('PROMO_CODE', code);
 }
 
-/** The saved link in words: where tapping the notification takes a mother. */
+/** The saved destination in words: where tapping the notification takes a mother. */
 export function LinkSummary({ value, saved }: { value: LinkValue; saved: SavedLink }) {
-  const kind: LinkKind = value.targetType ?? 'NONE';
-  return (
-    <p className="link-summary">
-      {kind === 'PACKAGE'
-        ? `Opens package: ${saved.package?.name ?? `#${value.packageId ?? ''}`}`
-        : kind === 'PROMO_CODE'
-          ? `Starts a booking with code ${saved.promoCode?.code ?? `#${value.promoCodeId ?? ''}`}`
-          : 'No link. Tapping it opens the app.'}
-    </p>
-  );
+  const targetType = value.targetType ?? null;
+  const name =
+    targetType === 'PACKAGE'
+      ? (saved.package?.name ?? `#${value.packageId ?? ''}`)
+      : targetType === 'PROMO_CODE'
+        ? (saved.promoCode?.code ?? `#${value.promoCodeId ?? ''}`)
+        : null;
+  return <p className="link-summary">{linkDestination(targetType, name)}</p>;
 }
 
 type TemplateLinkFieldsProps = {
@@ -91,10 +91,13 @@ type TemplateLinkFieldsProps = {
   error?: string;
 };
 
-/** None / Package / Promo code, then which one. Exactly one id is ever set. */
+/**
+ * Home / A package / Booking with promo, then which one, and a line saying
+ * where a mother who taps it lands. Exactly one id is ever set.
+ */
 export function TemplateLinkFields({ value, onChange, saved, readOnly, disabled = false, error }: TemplateLinkFieldsProps) {
   const { packages, promoCodes, packagesAllowed, promosAllowed } = useLinkCatalog(value.targetType ?? null, readOnly);
-  const kind: LinkKind = value.targetType ?? 'NONE';
+  const kind: LinkKind = value.targetType ?? 'HOME';
   const id = TEMPLATE_FIELD_ID.link;
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -102,7 +105,7 @@ export function TemplateLinkFields({ value, onChange, saved, readOnly, disabled 
   if (readOnly) return <LinkSummary value={value} saved={saved} />;
 
   const setKind = (next: LinkKind) =>
-    onChange({ targetType: next === 'NONE' ? null : next, packageId: null, promoCodeId: null });
+    onChange({ targetType: next === 'HOME' ? null : next, packageId: null, promoCodeId: null });
 
   const isPackage = kind === 'PACKAGE';
   let options: SelectOption<number>[] = [];
@@ -127,17 +130,37 @@ export function TemplateLinkFields({ value, onChange, saved, readOnly, disabled 
         : [];
   }
 
+  // The chosen one's name, so the line below can say exactly where she lands.
+  const pickedName = isPackage
+    ? (packages.data?.find((p) => p.id === value.packageId)?.name ??
+      (saved.package && saved.package.id === value.packageId ? saved.package.name : null))
+    : (promoCodes.data?.find((c) => c.id === value.promoCodeId)?.code ??
+      (saved.promoCode && saved.promoCode.id === value.promoCodeId ? saved.promoCode.code : null));
+  const destination = isPackage
+    ? pickedName
+      ? `Mothers who tap it land on the ${pickedName} package, ready to buy.`
+      : 'Mothers who tap it land on the package you choose, ready to buy.'
+    : pickedName
+      ? `Mothers who tap it start a booking with code ${pickedName} already applied.`
+      : 'Mothers who tap it start a booking with the code you choose already applied.';
   const hint = !allowed
     ? `You need access to ${isPackage ? 'Packages' : 'Promo Codes'} to choose a different one.`
     : isPackage
-      ? 'Tapping it opens this package, ready to buy. Only packages on sale are listed.'
-      : 'Tapping it starts a booking with this code already applied. Only codes that can still be used are listed.';
+      ? 'Only packages on sale are listed.'
+      : 'Only codes that can still be used are listed.';
 
   return (
     <div className="link-fields">
-      <SegmentedControl legend="Link" hideLegend value={kind} options={KIND_OPTIONS} onChange={setKind} disabled={disabled} />
-      {kind === 'NONE' ? (
-        <p className="field-hint">No link. Tapping the notification opens the app.</p>
+      <SegmentedControl
+        legend="Tapping it opens"
+        hideLegend
+        value={kind}
+        options={KIND_OPTIONS}
+        onChange={setKind}
+        disabled={disabled}
+      />
+      {kind === 'HOME' ? (
+        <p className="field-hint">Mothers who tap it land on the Home screen.</p>
       ) : (
         <div className="field">
           <span className="field-label">{isPackage ? 'Package' : 'Promo code'}</span>
@@ -158,7 +181,7 @@ export function TemplateLinkFields({ value, onChange, saved, readOnly, disabled 
             aria-describedby={[hintId, error ? errorId : null].filter(Boolean).join(' ')}
           />
           <span className="field-hint" id={hintId}>
-            {hint}
+            {destination} {hint}
           </span>
           {error && (
             <span className="field-error" id={errorId}>

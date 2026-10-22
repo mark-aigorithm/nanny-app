@@ -177,13 +177,34 @@ describe('TemplateEditor', () => {
     );
     renderEditor({ template: TEMPLATE });
 
-    await userEvent.click(await screen.findByRole('radio', { name: 'Package' }));
+    await userEvent.click(await screen.findByRole('radio', { name: 'A package' }));
     await userEvent.click(screen.getByRole('button', { name: 'Linked package' }));
     await userEvent.click(await screen.findByRole('option', { name: '10 hours' }));
+    expect(screen.getByText(/Mothers who tap it land on the 10 hours package, ready to buy/)).toBeInTheDocument();
     await userEvent.click(saveButton());
 
     await waitFor(() =>
       expect(body).toMatchObject({ targetType: 'PACKAGE', packageId: 3, promoCodeId: null }),
+    );
+  });
+
+  it('sends a mother to Home when nothing else is chosen', async () => {
+    let body: unknown;
+    server.use(
+      http.patch('/api/admin/notification-templates/4', async ({ request }) => {
+        body = await request.json();
+        return ok(TEMPLATE);
+      }),
+    );
+    renderEditor({ template: TEMPLATE });
+
+    expect(await screen.findByRole('heading', { name: 'Tapping it opens' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Home' }));
+    expect(screen.getByText('Mothers who tap it land on the Home screen.')).toBeInTheDocument();
+    await userEvent.click(saveButton());
+
+    await waitFor(() =>
+      expect(body).toMatchObject({ targetType: null, packageId: null, promoCodeId: null }),
     );
   });
 
@@ -242,12 +263,12 @@ describe('TemplateEditor', () => {
     await userEvent.click(saveButton());
 
     await waitFor(() => expect(checkbox).toBeDisabled());
-    expect(screen.getByRole('radio', { name: 'Package' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'A package' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Linked promo code' })).toBeDisabled();
 
     release();
     await waitFor(() => expect(checkbox).toBeEnabled());
-    expect(screen.getByRole('radio', { name: 'Package' })).toBeEnabled();
+    expect(screen.getByRole('radio', { name: 'A package' })).toBeEnabled();
   });
 
   it('is read-only for a view-only operator', async () => {
@@ -258,6 +279,6 @@ describe('TemplateEditor', () => {
     // The audience and link by name, without the controls that change them.
     expect(screen.getByText('Lapsed 30d')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    expect(screen.getByText('Starts a booking with code SAVE20')).toBeInTheDocument();
+    expect(screen.getByText('A booking with code SAVE20 applied')).toBeInTheDocument();
   });
 });
