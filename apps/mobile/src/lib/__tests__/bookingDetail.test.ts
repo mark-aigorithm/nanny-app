@@ -8,6 +8,7 @@ import {
   formatSpan,
   nannyInitials,
   shiftProgress,
+  startLabel,
   timeLeftLabel,
 } from '@mobile/lib/bookingDetail';
 
@@ -31,6 +32,7 @@ describe('shiftProgress', () => {
     // Elapsed runs from her check-in, which can be a little before the booked start.
     expect(p.msElapsed).toBe(65 * MIN);
     expect(p.ticks).toEqual([0.0625, 0.5]);
+    expect(p.msUntilStart).toBe(0);
   });
 
   it('clamps to the ends of the strip before the start and after the end', () => {
@@ -69,6 +71,19 @@ describe('time labels', () => {
     expect(elapsedLabel(20_000)).toBe('Just started');
     expect(elapsedLabel(65 * MIN)).toBe('Started 1h 5m ago');
     expect(formatSpan(120 * MIN)).toBe('2h');
+  });
+
+  it('says when the booked time begins after an early check-in', () => {
+    const early = shiftProgress({
+      startTime: START,
+      endTime: END,
+      checkedInAt: new Date(at(START, -8)).toISOString(),
+      moments: [],
+      now: at(START, -7),
+    });
+    expect(early.msUntilStart).toBe(7 * MIN);
+    expect(startLabel(early)).toBe('Booked time starts in 7m');
+    expect(startLabel({ msElapsed: 65 * MIN, msUntilStart: 30_000 })).toBe('Started 1h 5m ago');
   });
 
   it('keeps "4 hours" for whole-hour bookings and never shows "4.5 hours"', () => {

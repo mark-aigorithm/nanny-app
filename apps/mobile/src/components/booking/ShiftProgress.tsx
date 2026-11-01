@@ -4,7 +4,7 @@ import type { BookingResponse } from '@nanny-app/shared';
 
 import { Text } from '@mobile/components/ui/text';
 import { useCareLogs } from '@mobile/hooks/useCareLogs';
-import { elapsedLabel, shiftProgress, timeLeftLabel } from '@mobile/lib/bookingDetail';
+import { shiftProgress, startLabel, timeLeftLabel } from '@mobile/lib/bookingDetail';
 import { formatBookingTime } from '@mobile/lib/formatTime';
 import { borderRadius, colors, spacing, typeScale } from '@mobile/theme';
 
@@ -37,7 +37,7 @@ export function ShiftProgress({ booking }: { booking: BookingResponse }) {
     <View style={styles.progress}>
       <View style={styles.progressHead}>
         <Text style={styles.left}>{timeLeftLabel(progress.msLeft)}</Text>
-        <Text style={styles.sub}>{elapsedLabel(progress.msElapsed)}</Text>
+        <Text style={[styles.sub, styles.headSub]}>{startLabel(progress)}</Text>
       </View>
       <View
         style={styles.track}
@@ -65,20 +65,25 @@ const styles = StyleSheet.create({
   progress: {
     gap: spacing.sm,
   },
+  // Wraps as whole pieces: when both don't fit, the start line drops under the
+  // time left instead of breaking "2h 7m left" in two.
   progressHead: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    columnGap: spacing.sm,
   },
   left: {
     ...typeScale.headingLg,
     color: colors.white,
-    flexShrink: 1,
   },
   sub: {
     ...typeScale.bodySm,
     color: colors.successLight,
+  },
+  headSub: {
+    flexShrink: 1,
   },
   track: {
     height: 8,

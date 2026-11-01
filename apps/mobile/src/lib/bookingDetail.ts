@@ -15,6 +15,8 @@ export interface ShiftProgress {
   msLeft: number;
   /** Since the nanny checked in (or the booked start, if that is unknown). */
   msElapsed: number;
+  /** Until the booked start; 0 once it has passed. Above 0 after an early check-in. */
+  msUntilStart: number;
   /** Care-log moments as fractions along the same strip, oldest first. */
   ticks: number[];
 }
@@ -36,6 +38,7 @@ export function shiftProgress(input: {
     fraction: at(input.now),
     msLeft: end - input.now,
     msElapsed: Math.max(input.now - began, 0),
+    msUntilStart: Math.max(start - input.now, 0),
     ticks: input.moments.map((iso) => at(new Date(iso).getTime())).sort((a, b) => a - b),
   };
 }
@@ -54,6 +57,18 @@ export function timeLeftLabel(msLeft: number): string {
 
 export function elapsedLabel(msElapsed: number): string {
   return msElapsed < 60_000 ? 'Just started' : `Started ${formatSpan(msElapsed)} ago`;
+}
+
+/**
+ * The small line beside the time left. After an early check-in the time left
+ * runs to the booked end, so "Started 1m ago" beside "2h 7m left" on a 2-hour
+ * booking reads as a longer shift; say when the booked time begins instead.
+ */
+export function startLabel(progress: Pick<ShiftProgress, 'msElapsed' | 'msUntilStart'>): string {
+  if (progress.msUntilStart >= 60_000) {
+    return `Booked time starts in ${formatSpan(progress.msUntilStart)}`;
+  }
+  return elapsedLabel(progress.msElapsed);
 }
 
 /**
