@@ -93,7 +93,9 @@ export default function NannyBookingDetailScreen() {
         {/* Earnings — the nanny only sees what she takes home. */}
         <View style={styles.paymentCard}>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentTotalLabel}>You earn</Text>
+            <Text style={styles.paymentTotalLabel}>
+              {booking.status === 'COMPLETED' ? 'You earned' : 'You earn'}
+            </Text>
             <Text style={styles.paymentTotalValue}>{formatMoney(booking.nannyAmount)}</Text>
           </View>
           <Text style={styles.paymentSubtext}>
