@@ -37,7 +37,13 @@ export default function Badge({
       ]}
     >
       {!isDot && count != null && count > 0 && (
-        <Text style={[styles.text, size === 'sm' ? styles.textSm : undefined]}>
+        // The pill has a fixed height and sits on an icon's corner; text that
+        // grew with the font scale would spill over the icon it labels. The
+        // count is in the parent's accessibilityLabel for screen readers.
+        <Text
+          style={[styles.text, size === 'sm' ? styles.textSm : undefined]}
+          maxFontSizeMultiplier={1}
+        >
           {count > 99 ? '99+' : count}
         </Text>
       )}
