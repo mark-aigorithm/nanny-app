@@ -14,6 +14,10 @@ jest.mock('@mobile/hooks/useBookings', () => ({
   useCheckOut: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
+jest.mock('@mobile/hooks/useBookingChat', () => ({
+  useBookingChatSummary: () => ({ data: { canSend: true, messageCount: 1, unreadCount: 1 } }),
+}));
+
 const mockCreate = jest.fn();
 jest.mock('@mobile/hooks/useCareLogs', () => ({
   useCareLogs: () => ({ data: [], isLoading: false }),
@@ -89,5 +93,13 @@ describe('CareLogScreen — which child', () => {
     expect(screen.queryByText('WHICH CHILD?')).toBeNull();
     await act(async () => fireEvent.press(screen.getByText('Save entry')));
     expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ childNames: [] }));
+  });
+});
+
+describe('CareLogScreen — chat', () => {
+  it('offers the chat with the mother, with her unread count', () => {
+    mockBooking = bookingWith([child('Lina', 3)]);
+    const screen = render(<CareLogScreen />);
+    expect(screen.getByLabelText('Message Sara, 1 unread')).toBeTruthy();
   });
 });

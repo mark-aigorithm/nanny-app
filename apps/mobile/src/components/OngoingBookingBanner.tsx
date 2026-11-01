@@ -5,15 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { BookingResponse } from '@nanny-app/shared';
 
-import {
-  colors,
-  fontFamily,
-  spacing,
-  borderRadius,
-  shadows,
-} from '@mobile/theme';
+import { colors, fontFamily, spacing, borderRadius, shadows } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
+import { BookingChatButton } from '@mobile/components/booking/BookingChatButton';
+import { navigateToBookingChat } from '@mobile/lib/notificationNavigation';
 
 function getElapsed(startIso: string | null): string {
   if (!startIso) return 'Just started';
@@ -73,11 +69,11 @@ export default function OngoingBookingBanner({
 
   const isParentView = !!onPressBooking;
   const subjectName = isParentView
-    ? (active.nanny ? `${active.nanny.firstName} ${active.nanny.lastName}` : 'Your nanny')
+    ? active.nanny
+      ? `${active.nanny.firstName} ${active.nanny.lastName}`
+      : 'Your nanny'
     : `${active.motherFirstName} ${active.motherLastName}`;
-  const title = isParentView
-    ? `${subjectName} is on shift`
-    : `Caring for ${subjectName}'s family`;
+  const title = isParentView ? `${subjectName} is on shift` : `Caring for ${subjectName}'s family`;
   const cta = isParentView ? 'Tap to view details' : 'Tap to open care log';
   const elapsedLabel = getElapsed(active.nannyCheckedInAt);
   const dotScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] });
@@ -85,44 +81,56 @@ export default function OngoingBookingBanner({
 
   return (
     <View style={styles.wrapper}>
-      <Pressable
-        style={({ pressed }) => [styles.container, pressed && styles.pressed]}
-        onPress={() => {
-          if (onPressBooking) {
-            onPressBooking(active);
-            return;
+      {/* The care-log link and the chat button are siblings, not nested, so a
+          screen reader reaches each as its own button. */}
+      <View style={styles.container}>
+        <Pressable
+          style={({ pressed }) => [styles.main, pressed && styles.pressed]}
+          onPress={() => {
+            if (onPressBooking) {
+              onPressBooking(active);
+              return;
+            }
+            router.push(href as never);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isParentView
+              ? `View booking details for ${subjectName}`
+              : `Open care log for ongoing booking with ${subjectName}`
           }
-          router.push(href as never);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={isParentView ? `View booking details for ${subjectName}` : `Open care log for ongoing booking with ${subjectName}`}
-      >
-        <View style={styles.liveWrap}>
-          <Animated.View
-            style={[
-              styles.liveHalo,
-              { transform: [{ scale: dotScale }], opacity: dotOpacity },
-            ]}
-          />
-          <View style={styles.liveDot} />
-        </View>
-
-        <View style={styles.content}>
-          <View style={styles.titleRow}>
-            <Text style={styles.eyebrow}>ON SHIFT</Text>
-            <View style={styles.eyebrowDivider} />
-            <Text style={styles.elapsed}>{elapsedLabel}</Text>
+        >
+          <View style={styles.liveWrap}>
+            <Animated.View
+              style={[styles.liveHalo, { transform: [{ scale: dotScale }], opacity: dotOpacity }]}
+            />
+            <View style={styles.liveDot} />
           </View>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.cta}>{cta}</Text>
-        </View>
 
-        <View style={styles.chevron}>
-          <Ionicons name="chevron-forward" size={18} color={colors.white} />
-        </View>
-      </Pressable>
+          <View style={styles.content}>
+            <View style={styles.titleRow}>
+              <Text style={styles.eyebrow}>ON SHIFT</Text>
+              <View style={styles.eyebrowDivider} />
+              <Text style={styles.elapsed}>{elapsedLabel}</Text>
+            </View>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.cta}>{cta}</Text>
+          </View>
+
+          <View style={styles.chevron}>
+            <Ionicons name="chevron-forward" size={18} color={colors.white} />
+          </View>
+        </Pressable>
+
+        {!isParentView && (
+          <BookingChatButton
+            bookingId={active.id}
+            otherFirstName={active.motherFirstName}
+            tone="onDark"
+            onOpen={() => navigateToBookingChat(router, active.id, 'nanny')}
+          />
+        )}
+      </View>
 
       {!isParentView && (
         <Pressable
@@ -157,6 +165,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
     ...shadows.lg,
+  },
+  main: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   pressed: {
     opacity: 0.9,

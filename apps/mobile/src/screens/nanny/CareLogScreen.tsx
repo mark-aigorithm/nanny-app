@@ -25,6 +25,7 @@ import {
 
 import { Chip, KeyboardAvoidingView, ScreenContainer, StackHeader } from '@mobile/components/ui';
 import ConfirmDialogHost from '@mobile/components/ConfirmDialogHost';
+import { BookingChatButton } from '@mobile/components/booking/BookingChatButton';
 import { colors, spacing } from '@mobile/theme';
 import { useBookingList, useCheckOut } from '@mobile/hooks/useBookings';
 import { confirmEndShift } from '@mobile/components/UpcomingShiftBanner';
@@ -32,6 +33,7 @@ import { useCareLogs, useCreateCareLog } from '@mobile/hooks/useCareLogs';
 import { useBottomBarPadding } from '@mobile/hooks/useBottomInset';
 import { useKeyboardVisible } from '@mobile/hooks/useKeyboardVisible';
 import { uploadImageToFirebase } from '@mobile/lib/storage';
+import { navigateToBookingChat } from '@mobile/lib/notificationNavigation';
 import { styles } from './styles/care-log-screen.styles';
 import { chooseDialog, noticeDialog } from '@mobile/store/confirmDialogStore';
 
@@ -292,6 +294,12 @@ export default function CareLogScreen() {
                 <Text style={styles.lastActivityText}>On shift</Text>
               </View>
             </View>
+            <BookingChatButton
+              bookingId={activeBooking.id}
+              otherFirstName={activeBooking.motherFirstName}
+              tone="onLight"
+              onOpen={() => navigateToBookingChat(router, activeBooking.id, 'nanny')}
+            />
           </View>
         ) : (
           <View style={[styles.childCard, { justifyContent: 'center' }]}>
