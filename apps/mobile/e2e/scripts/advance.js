@@ -191,6 +191,14 @@ function nannyChatMessage() {
   record(booking);
 }
 
+/** The mother writes to the nanny in the booking's chat (CHAT_MESSAGE). */
+function motherChatMessage() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+  call('POST', motherToken, '/bookings/' + booking.id + '/messages', { content: CHAT_MESSAGE });
+  record(booking);
+}
+
 /**
  * Reads the current booking's chat from both sides, for C18's assertions:
  * each participant's unread count and the newest message the nanny can see.
@@ -1301,6 +1309,7 @@ var STEPS = {
   'nanny-check-in': nannyCheckIn,
   'nanny-care-log': nannyCareLog,
   'nanny-chat-message': nannyChatMessage,
+  'mother-chat-message': motherChatMessage,
   'booking-chat-state': bookingChatState,
   'nanny-accept-extension': nannyAcceptExtension,
   'nanny-check-out': nannyCheckOut,
