@@ -299,6 +299,9 @@ visible.
 - **Tap targets are at least 44dp,** text links included (Edit, Delete, Never mind): use
   `minHeight`/`hitSlop`. Icon-only buttons get an `accessibilityLabel`.
 - **Badges sit on the icon's corner,** outside its shape, at every font scale.
+- **A scroll view whose content can shrink while she is scrolled down uses `useClampedScroll`.**
+  Android keeps the stale offset, so a list that empties (a booking leaving a filter, a banner
+  going away) shows blank space with its header and chips out of reach.
 - **A state change never changes a border width on a clipping view.** On Android a rounded
   `overflow: 'hidden'` view whose border width changed on a re-render drew blank (the announcement
   card went empty once read). Keep the width fixed and switch the colour.
