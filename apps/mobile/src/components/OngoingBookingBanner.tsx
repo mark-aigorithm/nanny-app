@@ -117,9 +117,13 @@ export default function OngoingBookingBanner({
             <Text style={styles.cta}>{cta}</Text>
           </View>
 
-          <View style={styles.chevron}>
-            <Ionicons name="chevron-forward" size={18} color={colors.white} />
-          </View>
+          {/* The nanny's banner gives this room to the chat button; "Tap to
+              open care log" already says the card is a link. */}
+          {isParentView && (
+            <View style={styles.chevron}>
+              <Ionicons name="chevron-forward" size={18} color={colors.white} />
+            </View>
+          )}
         </Pressable>
 
         {!isParentView && (
@@ -198,10 +202,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  // Wraps as whole pieces: on a narrow phone at large text the elapsed time
+  // drops below ON SHIFT instead of breaking "Just started" in two.
   titleRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.sm,
+    columnGap: spacing.sm,
   },
   eyebrow: {
     fontFamily: fontFamily.extraBold,
@@ -216,7 +223,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   elapsed: {
-    flexShrink: 1,
     fontFamily: fontFamily.semiBold,
     fontSize: 11,
     color: 'rgba(255,255,255,0.75)',

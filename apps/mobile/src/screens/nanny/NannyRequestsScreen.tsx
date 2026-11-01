@@ -328,7 +328,7 @@ export default function NannyRequestsScreen() {
           </View>
         ) : requests.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color={colors.taupe} />
+            <Ionicons name="document-text-outline" size={36} color={colors.taupe} />
             <Text style={styles.emptyStateText}>{EMPTY_LABEL[activeFilter]}</Text>
           </View>
         ) : (

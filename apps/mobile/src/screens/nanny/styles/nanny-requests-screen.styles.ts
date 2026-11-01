@@ -289,11 +289,13 @@ export const styles = StyleSheet.create({
   },
 
   // Empty state
+  // Starts right under the chips: on a small phone the on-shift banner leaves
+  // little room above the tab bar, and a padded empty state sat behind it.
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing['4xl'],
-    gap: spacing.md,
+    paddingBottom: spacing['4xl'],
+    gap: spacing.sm,
   },
   emptyStateText: {
     ...typeScale.bodyLg,
