@@ -27,6 +27,7 @@ import {
   fmtBookingDate,
   fmtBookingTime,
 } from '@mobile/hooks/useBookings';
+import { useClampedScroll } from '@mobile/hooks/useClampedScroll';
 import { useRefreshScreenByUser } from '@mobile/hooks/useRefreshByUser';
 import { useBookingShiftTimer } from '@mobile/hooks/useBookingShiftTimer';
 import OngoingBookingBanner from '@mobile/components/OngoingBookingBanner';
@@ -85,6 +86,9 @@ export default function NannyRequestsScreen() {
   // A pull refreshes the banners above the chips (ongoing visit, extension
   // request) as well as the list under them.
   const { isRefreshingByUser, refreshByUser } = useRefreshScreenByUser();
+  // Ending a shift empties Upcoming and drops the banner while she is
+  // scrolled down to the booking she opened; keep the chips in reach.
+  const clampedScroll = useClampedScroll();
   const checkOut = useCheckOut();
   const acceptBooking = useAcceptBooking();
   const { nearestBooking, canCheckIn, canCheckOut, blockedByBalanceDue } = useBookingShiftTimer(
@@ -282,6 +286,7 @@ export default function NannyRequestsScreen() {
   return (
     <ScreenContainer useSafeArea={false}>
       <ScrollView
+        {...clampedScroll}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
