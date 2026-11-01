@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Pressable, Linking, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,16 +8,10 @@ import { Role } from '@nanny-app/shared';
 
 import { PressableScale } from '@mobile/components/ui';
 import { BookingNannyAvatar } from '@mobile/components/booking/BookingNannyAvatar';
-import { useCareLogs } from '@mobile/hooks/useCareLogs';
+import { ShiftProgress } from '@mobile/components/booking/ShiftProgress';
 import { useNannyPhone } from '@mobile/hooks/useNannyPhone';
 import { hourLabel, useShiftActions } from '@mobile/hooks/useShiftActions';
-import {
-  childrenPhrase,
-  elapsedLabel,
-  shiftProgress,
-  timeLeftLabel,
-} from '@mobile/lib/bookingDetail';
-import { formatBookingTime } from '@mobile/lib/formatTime';
+import { childrenPhrase } from '@mobile/lib/bookingDetail';
 import { useUserProfileStore } from '@mobile/store/userProfileStore';
 import { colors, borderRadius, shadows, spacing, typeScale } from '@mobile/theme';
 
@@ -26,9 +20,6 @@ interface Props {
   /** Pulls a fresh booking so the nanny's number appears once it is released. */
   onRefresh?: () => void;
 }
-
-/** Wide enough to redraw the strip each minute, cheap enough to not matter. */
-const TICK_MS = 30_000;
 
 /**
  * The top of Booking details while a shift is running — the green "on shift"
@@ -42,24 +33,10 @@ const TICK_MS = 30_000;
 export function LiveShiftCard({ booking, onRefresh }: Props) {
   const router = useRouter();
   const role = useUserProfileStore((s) => s.profile?.role);
-  const { data: careLogs = [] } = useCareLogs(booking.id);
   const { phone, active: phoneWindow } = useNannyPhone(booking, onRefresh);
   const [picking, setPicking] = useState(false);
   const shift = useShiftActions(booking, () => setPicking(false));
 
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  const progress = shiftProgress({
-    startTime: booking.startTime,
-    endTime: booking.endTime,
-    checkedInAt: booking.nannyCheckedInAt,
-    moments: careLogs.map((entry) => entry.occurredAt),
-    now,
-  });
 
   const nanny = booking.nanny;
   const name = nanny ? `${nanny.firstName} ${nanny.lastName}` : 'Your nanny';
@@ -107,28 +84,7 @@ export function LiveShiftCard({ booking, onRefresh }: Props) {
         </View>
       </View>
 
-      <View style={styles.progress}>
-        <View style={styles.progressHead}>
-          <Text style={styles.left}>{timeLeftLabel(progress.msLeft)}</Text>
-          <Text style={styles.sub}>{elapsedLabel(progress.msElapsed)}</Text>
-        </View>
-        <View
-          style={styles.track}
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 0, max: 100, now: Math.round(progress.fraction * 100) }}
-        >
-          <View style={[styles.fill, { width: `${progress.fraction * 100}%` }]} />
-          {/* A dot for each care-log entry, so the day's updates show on the shift itself. */}
-          {progress.ticks.map((at, i) => (
-            <View key={i} style={[styles.tick, { left: `${at * 100}%` }]} />
-          ))}
-          <View style={[styles.now, { left: `${progress.fraction * 100}%` }]} />
-        </View>
-        <View style={styles.progressFoot}>
-          <Text style={styles.sub}>{formatBookingTime(booking.startTime)}</Text>
-          <Text style={styles.sub}>{formatBookingTime(booking.endTime)}</Text>
-        </View>
-      </View>
+      <ShiftProgress booking={booking} />
 
       <View style={styles.actions}>
         {booking.hasCamera ? (
@@ -249,7 +205,6 @@ export function LiveShiftCard({ booking, onRefresh }: Props) {
 }
 
 const AVATAR = 52;
-const NOW_DOT = 16;
 
 const styles = StyleSheet.create({
   card: {
@@ -298,56 +253,6 @@ const styles = StyleSheet.create({
   sub: {
     ...typeScale.bodySm,
     color: colors.successLight,
-  },
-  progress: {
-    gap: spacing.sm,
-  },
-  progressHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  left: {
-    ...typeScale.headingLg,
-    color: colors.white,
-    flexShrink: 1,
-  },
-  track: {
-    height: 8,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.overlayLight,
-    justifyContent: 'center',
-  },
-  fill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.successLight,
-  },
-  tick: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    marginLeft: -3,
-    borderRadius: 3,
-    backgroundColor: colors.successDark,
-  },
-  now: {
-    position: 'absolute',
-    width: NOW_DOT,
-    height: NOW_DOT,
-    marginLeft: -NOW_DOT / 2,
-    borderRadius: NOW_DOT / 2,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.liveGreen,
-  },
-  progressFoot: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   actions: {
     flexDirection: 'row',

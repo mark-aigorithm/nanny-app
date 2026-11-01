@@ -22,97 +22,9 @@ export const styles = StyleSheet.create({
     gap: spacing['2xl'],
   },
 
-  // Status badge
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  statusConfirmed: {
-    backgroundColor: colors.successLight,
-  },
-  statusCompleted: {
-    backgroundColor: colors.taupe,
-  },
-  statusCancelled: {
-    backgroundColor: colors.errorLight,
-  },
-  statusPending: {
-    backgroundColor: colors.taupeLight,
-  },
-  statusText: {
-    ...typeScale.captionBold,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  statusTextConfirmed: {
-    color: colors.successDark,
-  },
-  statusTextCompleted: {
-    color: colors.textMuted,
-  },
-  statusTextCancelled: {
-    color: colors.error,
-  },
-  statusTextPending: {
-    color: colors.textTertiary,
-  },
-
-  // Mother card
-  motherCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
+  // The hero card and the chat sit together, closer than the sections below.
+  top: {
     gap: spacing.md,
-    ...shadows.sm,
-  },
-  motherPhoto: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.surfaceMuted,
-  },
-  motherInfo: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  motherName: {
-    ...typeScale.headingSm,
-    color: colors.textPrimary,
-  },
-
-  // Details section
-  detailsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    gap: spacing.lg,
-    ...shadows.sm,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  detailLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  detailLabel: {
-    ...typeScale.bodySm,
-    color: colors.textMuted,
-  },
-  // Shrinks so a long time range or children list wraps instead of leaving the card.
-  detailValue: {
-    flexShrink: 1,
-    marginLeft: spacing.md,
-    textAlign: 'right',
-    ...typeScale.labelMd,
-    color: colors.textPrimary,
   },
 
   // Payment summary
@@ -128,18 +40,6 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  paymentLabel: {
-    ...typeScale.bodyMd,
-    color: colors.textSecondary,
-  },
-  paymentValue: {
-    ...typeScale.labelMd,
-    color: colors.textPrimary,
-  },
-  paymentDivider: {
-    borderTopWidth: 1,
-    borderTopColor: colors.taupeLight,
   },
   paymentTotalLabel: {
     ...typeScale.headingSm,

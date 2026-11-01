@@ -8,7 +8,8 @@ import { nannyInitials } from '@mobile/lib/bookingDetail';
 import { colors, borderRadius, typeScale } from '@mobile/theme';
 
 interface Props {
-  nanny: NonNullable<BookingResponse['nanny']>;
+  /** The nanny — or, on her side of a booking, the mother; only name and photo are read. */
+  nanny: Pick<NonNullable<BookingResponse['nanny']>, 'firstName' | 'lastName' | 'avatarUrl'>;
   size?: number;
   /** Fill behind the initials when she has no photo. */
   fallbackColor?: string;

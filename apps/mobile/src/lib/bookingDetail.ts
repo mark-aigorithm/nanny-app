@@ -60,14 +60,19 @@ export function elapsedLabel(msElapsed: number): string {
  * "Laila and Omar", "Laila, Omar and Sara" — or a count when any child on the
  * booking has no name, so a half-named list never reads as the whole family.
  */
-export function childrenPhrase(children: readonly BookingChild[], childrenCount: number): string {
+export function childrenPhrase(
+  children: readonly BookingChild[],
+  childrenCount: number,
+  /** One unnamed child: "your child" to the mother, "the child" to the nanny. */
+  oneChild = 'your child',
+): string {
   const names = children.map((c) => c.name?.trim()).filter((n): n is string => !!n);
   if (names.length > 0 && names.length === children.length) {
     if (names.length === 1) return names[0]!;
     return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   }
   const count = children.length || childrenCount;
-  return count === 1 ? 'your child' : `${count} children`;
+  return count === 1 ? oneChild : `${count} children`;
 }
 
 /**

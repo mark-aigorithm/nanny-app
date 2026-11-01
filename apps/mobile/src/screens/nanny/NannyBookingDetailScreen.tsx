@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  View,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
+import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { Text } from '@mobile/components/ui/text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -16,20 +11,13 @@ import { BookingAddressCard } from '@mobile/components/booking/BookingAddressCar
 import { BookingChatCard } from '@mobile/components/booking/BookingChatCard';
 import { CareNotesCard } from '@mobile/components/booking/CareNotesCard';
 import { ChildProfilesCard } from '@mobile/components/booking/ChildProfilesCard';
-import { useBooking, fmtBookingDate, fmtBookingTime } from '@mobile/hooks/useBookings';
+import { NannyBookingStatusCard } from '@mobile/components/booking/NannyBookingStatusCard';
+import { NannyShiftCard } from '@mobile/components/booking/NannyShiftCard';
+import { useBooking } from '@mobile/hooks/useBookings';
+import { bookingDayLabel, durationLabel } from '@mobile/lib/bookingDetail';
 import { formatMoney } from '@mobile/lib/formatMoney';
-import { formatBookingStatus } from '@mobile/lib/formatBookingStatus';
-import { formatChildAge, type BookingStatus } from '@nanny-app/shared';
+import { navigateToBookingChat } from '@mobile/lib/notificationNavigation';
 import { styles } from './styles/nanny-booking-detail-screen.styles';
-
-function getStatusStyle(status: BookingStatus) {
-  switch (status) {
-    case 'CONFIRMED': return { badge: styles.statusConfirmed, text: styles.statusTextConfirmed };
-    case 'COMPLETED': return { badge: styles.statusCompleted, text: styles.statusTextCompleted };
-    case 'CANCELLED': return { badge: styles.statusCancelled, text: styles.statusTextCancelled };
-    default:          return { badge: styles.statusPending,   text: styles.statusTextPending };
-  }
-}
 
 export default function NannyBookingDetailScreen() {
   const bottomPadding = useBottomBarPadding(spacing['4xl']);
@@ -56,94 +44,35 @@ export default function NannyBookingDetailScreen() {
     );
   }
 
-  const statusStyle = getStatusStyle(booking.status);
-  const motherName = `${booking.motherFirstName} ${booking.motherLastName}`;
-  const motherPhoto = booking.motherAvatarUrl ?? '';
-  const dateDisplay = fmtBookingDate(booking.date);
-  const timeDisplay = fmtBookingTime(booking.startTime, booking.endTime);
+  const isLive = booking.status === 'IN_PROGRESS';
 
   return (
     <ScreenContainer useSafeArea={false}>
-      <StackHeader title="Booking details" onBack={handleBack} />
+      <StackHeader
+        title="Booking details"
+        subtitle={bookingDayLabel(booking.date)}
+        onBack={handleBack}
+      />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Status Badge */}
-        <View style={[styles.statusBadge, statusStyle.badge]}>
-          <Text style={[styles.statusText, statusStyle.text]}>{formatBookingStatus(booking.status)}</Text>
+        <View style={styles.top}>
+          {isLive ? <NannyShiftCard booking={booking} /> : <NannyBookingStatusCard booking={booking} />}
+
+          {/* Talk to the mother during the shift; the history stays after. */}
+          <BookingChatCard
+            bookingId={booking.id}
+            otherFirstName={booking.motherFirstName}
+            onOpen={() => navigateToBookingChat(router, booking.id, 'nanny')}
+          />
         </View>
 
-        {/* Talk to the mother during the shift; the history stays after. */}
-        <BookingChatCard
-          bookingId={booking.id}
-          otherFirstName={booking.motherFirstName}
-          onOpen={() =>
-            router.push({
-              pathname: '/(nanny)/booking-chat',
-              params: { bookingId: String(booking.id) },
-            } as never)
-          }
-        />
-
-        {/* Mother Card */}
-        <View style={styles.motherCard}>
-          {motherPhoto ? (
-            <Image source={{ uri: motherPhoto }} style={styles.motherPhoto} resizeMode="cover" />
-          ) : (
-            <View style={[styles.motherPhoto, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
-              <Ionicons name="person" size={24} color={colors.primaryDark} />
-            </View>
-          )}
-          <View style={styles.motherInfo}>
-            <Text style={styles.motherName}>{motherName}</Text>
-          </View>
-        </View>
-
-        {/* Booking Details */}
-        <View style={styles.detailsCard}>
-          <View style={styles.detailRow}>
-            <View style={styles.detailLeft}>
-              <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-              <Text style={styles.detailLabel}>Date</Text>
-            </View>
-            <Text style={styles.detailValue}>{dateDisplay}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <View style={styles.detailLeft}>
-              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
-              <Text style={styles.detailLabel}>Time</Text>
-            </View>
-            <Text style={styles.detailValue}>{timeDisplay}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <View style={styles.detailLeft}>
-              <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
-              <Text style={styles.detailLabel}>Duration</Text>
-            </View>
-            <Text style={styles.detailValue}>{booking.durationHours} hours</Text>
-          </View>
-          {/* She holds this booking, so she gets the names too — the open
-              requests pool only ever shows the count and ages. */}
-          {booking.children.length > 0 && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailLeft}>
-                <Ionicons name="people-outline" size={16} color={colors.textMuted} />
-                <Text style={styles.detailLabel}>Children</Text>
-              </View>
-              <Text style={styles.detailValue}>
-                {booking.children
-                  .map((c) => {
-                    const age = formatChildAge(c.ageYears, c.ageMonths);
-                    return c.name ? `${c.name} (${age})` : age;
-                  })
-                  .join(', ')}
-              </Text>
-            </View>
-          )}
-        </View>
+        {/* She writes the log, so she gets her own section, not the mother's
+            read-only timeline. */}
+        {canViewCareLog ? <BookingCareLogSection bookingId={booking.id} /> : null}
 
         {/* Where she is going. The area only until the booking is confirmed —
             the server withholds the rest — then the whole address and a way
@@ -168,12 +97,9 @@ export default function NannyBookingDetailScreen() {
             <Text style={styles.paymentTotalValue}>{formatMoney(booking.nannyAmount)}</Text>
           </View>
           <Text style={styles.paymentSubtext}>
-            For {booking.durationHours} hours of care
+            For {durationLabel(booking.durationHours)} of care
           </Text>
         </View>
-
-        {/* Care Log */}
-        {canViewCareLog && bookingId ? <BookingCareLogSection bookingId={Number(bookingId)} /> : null}
 
         {/* Rating & Review */}
         {booking.status === 'COMPLETED' ? (

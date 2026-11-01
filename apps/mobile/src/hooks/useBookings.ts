@@ -16,6 +16,7 @@ import { PaymentMethod } from '@nanny-app/shared';
 
 import { api, unwrap } from '@mobile/lib/api';
 import { formatBookingTimeRange } from '@mobile/lib/formatTime';
+import { BOOKING_CHAT_KEY } from '@mobile/hooks/useBookingChat';
 import { NANNIES_KEY } from '@mobile/hooks/useNannies';
 import { PACKAGE_HOURS_KEY } from '@mobile/hooks/usePackages';
 
@@ -285,6 +286,8 @@ export function useCheckOut() {
       // Ending a shift completes the booking — refresh the nanny dashboard
       // so the new earnings show up immediately.
       void qc.invalidateQueries({ queryKey: [NANNIES_KEY, 'dashboard'] });
+      // The chat closes with the shift; don't wait for the next poll to say so.
+      void qc.invalidateQueries({ queryKey: [BOOKING_CHAT_KEY] });
     },
   });
 }
@@ -302,6 +305,8 @@ export function useEndBooking() {
     onSuccess: (booking) => {
       qc.setQueryData([BOOKINGS_KEY, booking.id], booking);
       void qc.invalidateQueries({ queryKey: [BOOKINGS_KEY] });
+      // The chat closes with the shift; don't wait for the next poll to say so.
+      void qc.invalidateQueries({ queryKey: [BOOKING_CHAT_KEY] });
       // Completing a booking earns Care Points.
       refreshWallet(qc);
     },
