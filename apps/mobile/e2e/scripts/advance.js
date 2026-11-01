@@ -199,6 +199,17 @@ function motherChatMessage() {
   record(booking);
 }
 
+/** The mother rates the finished booking (REVIEW_COMMENT, five stars). */
+function motherReview() {
+  var motherToken = signIn(MOTHER_EMAIL);
+  var booking = currentBooking(motherToken);
+  call('POST', motherToken, '/nanny/bookings/' + booking.id + '/review', {
+    rating: 5,
+    comment: REVIEW_COMMENT,
+  });
+  record(booking);
+}
+
 /**
  * Reads the current booking's chat from both sides, for C18's assertions:
  * each participant's unread count and the newest message the nanny can see.
@@ -1310,6 +1321,7 @@ var STEPS = {
   'nanny-care-log': nannyCareLog,
   'nanny-chat-message': nannyChatMessage,
   'mother-chat-message': motherChatMessage,
+  'mother-review': motherReview,
   'booking-chat-state': bookingChatState,
   'nanny-accept-extension': nannyAcceptExtension,
   'nanny-check-out': nannyCheckOut,

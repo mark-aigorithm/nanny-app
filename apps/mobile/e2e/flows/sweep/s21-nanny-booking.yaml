@@ -1,7 +1,7 @@
 # UI sweep 21 — the nanny's side of one booking: Booking details before the
 # shift, then during it (the on-shift banner's chat button on Dashboard and
 # Requests, the care log's, the green live card, the chat and back from it),
-# then after ending it. The mother's side (book, pay, chat) is seeded over HTTP.
+# then after ending it, and once the mother has reviewed it. The mother's side (book, pay, chat) is seeded over HTTP.
 appId: com.nannyapp.mobile
 ---
 - runFlow: ../_launch.yaml
@@ -44,6 +44,9 @@ appId: com.nannyapp.mobile
     element: 'You earn'
     direction: DOWN
     timeout: 30000
+# scrollUntilVisible stops once the target shows; go to the real end.
+- scroll
+- scroll
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s21-02-details-upcoming-bottom
@@ -156,6 +159,9 @@ appId: com.nannyapp.mobile
     element: 'You earn'
     direction: DOWN
     timeout: 30000
+# scrollUntilVisible stops once the target shows; go to the real end.
+- scroll
+- scroll
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s21-11-details-live-bottom
@@ -185,6 +191,37 @@ appId: com.nannyapp.mobile
     element: 'Rating & review'
     direction: DOWN
     timeout: 30000
+# scrollUntilVisible stops once the target shows; go to the real end.
+- scroll
+- scroll
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: s21-14-details-completed-bottom
+
+# The mother reviews it. The app is reopened, because the booking it fetched a
+# moment ago is still fresh in its cache, and the booking is opened by its id:
+# every lab booking is dated today, so Past's order among them is arbitrary.
+- runScript:
+    file: ../../scripts/advance.js
+    env:
+      ADVANCE: mother-review
+      REVIEW_COMMENT: 'Lina loved her. Thank you for the care log updates!'
+- stopApp
+- openLink: 'nanny-app://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 120000
+- openLink: 'nanny-app://booking-detail?bookingId=${output.bookingId}'
+- extendedWaitUntil:
+    visible: 'Booking details'
+    timeout: 30000
+- scrollUntilVisible:
+    element: '.*care log updates.*'
+    direction: DOWN
+    timeout: 30000
+# scrollUntilVisible stops once the target shows; go to the real end.
+- scroll
+- scroll
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: s21-15-details-reviewed-bottom
